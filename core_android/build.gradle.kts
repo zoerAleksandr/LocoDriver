@@ -1,16 +1,16 @@
 plugins {
-    id("com.android.library")
-    id("org.jetbrains.kotlin.android")
+    id(Plugins.android_lib)
+    id(Plugins.kotlin_android)
 }
 
 android {
     namespace = "com.example.core"
-    compileSdk = 34
+    compileSdk = Apps.compile_sdk_version
 
     defaultConfig {
-        minSdk = 24
+        minSdk = Apps.min_sdk_version
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = Apps.test_instrumentation_runner
         consumerProguardFiles("consumer-rules.pro")
     }
 
@@ -24,20 +24,26 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = Apps.java_compatibility_version
+        targetCompatibility = Apps.java_compatibility_version
     }
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget = Apps.jvm_target_version
+    }
+    buildFeatures {
+        compose = true
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion = Versions.kotlin_compiler_ext_version
     }
 }
 
 dependencies {
+    api(project(Libs.project_core))
 
-    implementation("androidx.core:core-ktx:1.9.0")
-    implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation("com.google.android.material:material:1.10.0")
-    testImplementation("junit:junit:4.13.2")
-    androidTestImplementation("androidx.test.ext:junit:1.1.5")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+    implementation(Libs.accompanist_navigation_animation)
+    implementation(Libs.ui_tooling_preview)
+    implementation(Libs.core_ktx)
+    implementation(Libs.app_compat)
+    implementation(Libs.compose_material)
 }

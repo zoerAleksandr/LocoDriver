@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Content Descriptions -->
+    <string name="cd_back">Назад</string>
+    <string name="cd_close">Закрыть</string>
+
+    <!-- Generic messages -->
+    <string name="msg_generic_error">Что-то пошло не так…</string>
+    <string name="msg_loading">Пожалуйста подождите…</string>
+
+    <!-- Button Texts -->
+    <string name="button_save">Сохранить</string>
+    <string name="button_ok">OK</string>
+</resources>
