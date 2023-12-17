@@ -5,6 +5,7 @@ import Versions.compose_ui_version
 import Versions.core_ktx_version
 import Versions.coroutines_version
 import Versions.material_compose
+import Versions.room_version
 import org.gradle.api.JavaVersion
 
 object Plugins {
@@ -55,7 +56,7 @@ object Versions {
 //    const val mockk_version = "1.13.2"
 //    const val playservices_version = "20.5.0"
 //    const val reveal_swipe_version = "1.1.0"
-//    const val room_version = "2.6.0-alpha01"
+    const val room_version = "2.6.0"
 //    const val test_ext_version = "1.1.5"
 //    const val test_runner_version = "1.6.0-alpha01"
 //    const val tracing_version = "1.1.0"
@@ -104,12 +105,12 @@ object Libs {
 //        "com.google.android.gms:play-services-auth:$playservices_version"
 //    const val reveal_swipe =
 //        "de.charlex.compose:revealswipe:$reveal_swipe_version"
-//    const val room_compiler =
-//        "androidx.room:room-compiler:$room_version"
-//    const val room_ktx =
-//        "androidx.room:room-ktx:$room_version"
-//    const val room_runtime =
-//        "androidx.room:room-runtime:$room_version"
+    const val room_compiler =
+        "androidx.room:room-compiler:$room_version"
+    const val room_ktx =
+        "androidx.room:room-ktx:$room_version"
+    const val room_runtime =
+        "androidx.room:room-runtime:$room_version"
 //    const val tracing =
 //        "androidx.tracing:tracing:$tracing_version"
     const val ui_tooling_preview =
