@@ -36,6 +36,10 @@ android {
 dependencies {
     implementation(project(Libs.project_domain))
 
+    implementation(Libs.koin_core)
+    implementation(Libs.koin_android)
+    implementation(Libs.koin_androidx_compose)
+
     implementation(Libs.room_runtime)
     implementation(Libs.room_ktx)
     kapt(Libs.room_compiler)

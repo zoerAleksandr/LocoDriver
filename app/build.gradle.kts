@@ -1,21 +1,21 @@
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
-    id("kotlin-kapt")
+    id(Plugins.android_app)
+    id(Plugins.kotlin_android)
+    kotlin(Plugins.kotlin_kapt)
 }
 
 android {
     namespace = "com.example.locodriver"
-    compileSdk = 34
+    compileSdk = Apps.compile_sdk_version
 
     defaultConfig {
-        applicationId = "com.example.locodriver"
-        minSdk = 24
-        targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        applicationId = Apps.application_id
+        minSdk = Apps.min_sdk_version
+        targetSdk = Apps.target_sdk_version
+        versionCode = Apps.version_code
+        versionName = Apps.version_name
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = Apps.test_instrumentation_runner
         vectorDrawables {
             useSupportLibrary = true
         }
@@ -31,17 +31,17 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = Apps.java_compatibility_version
+        targetCompatibility = Apps.java_compatibility_version
     }
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget = Apps.jvm_target_version
     }
     buildFeatures {
         compose = true
     }
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.4.3"
+        kotlinCompilerExtensionVersion = Versions.kotlin_compiler_ext_version
     }
     packaging {
         resources {
@@ -51,61 +51,26 @@ android {
 }
 
 dependencies {
-    implementation ("de.charlex.compose:revealswipe:1.2.0")
+    implementation(project(Libs.project_core_android))
+    implementation(project(Libs.project_domain))
+    implementation(project(Libs.project_data_local))
+    implementation(project(Libs.project_feature_login))
+    implementation(project(Libs.project_feature_route))
+    implementation(project(Libs.project_feature_settings))
 
-    // Room
-    implementation("androidx.room:room-runtime:2.6.0")
-    implementation("androidx.room:room-ktx:2.6.0")
-    implementation ("com.google.code.gson:gson:2.9.0")
+    implementation(Libs.core_ktx)
+    implementation(Libs.lifecycle_runtime_ktx)
+    implementation(Libs.activity_compose)
+    implementation(Libs.compose_ui)
+    implementation(Libs.ui_tooling_preview)
+    implementation(Libs.material)
 
-    // Pager Compose
-    implementation("com.google.accompanist:accompanist-pager:0.13.0")
-    implementation("com.google.accompanist:accompanist-pager-indicators:0.13.0")
+    implementation(Libs.accompanist_navigation_animation)
 
-    kapt("androidx.room:room-compiler:2.6.0")
-    // Constraint
-    implementation("androidx.constraintlayout:constraintlayout-compose:1.0.1")
+    implementation(Libs.koin_core)
+    implementation(Libs.koin_android)
+    implementation(Libs.koin_androidx_compose)
 
-    // Navigation
-    implementation("androidx.navigation:navigation-compose:2.7.3")
-    implementation("com.google.accompanist:accompanist-navigation-animation:0.31.3-beta")
-
-    // Koin
-    implementation("io.insert-koin:koin-core:3.1.2")
-    implementation("io.insert-koin:koin-android:3.1.2")
-    implementation("io.insert-koin:koin-androidx-compose:3.1.2")
-
-    // DataStore Preferences
-    implementation("androidx.datastore:datastore-preferences:1.0.0")
-
-    // CameraX
-    implementation("androidx.camera:camera-camera2:1.2.2")
-    implementation("androidx.camera:camera-lifecycle:1.2.2")
-    implementation("androidx.camera:camera-view:1.2.2")
-
-    // Coil
-    implementation("io.coil-kt:coil-compose:2.2.2")
-
-    // Permissions
-    implementation("com.google.accompanist:accompanist-permissions:0.18.0")
-
-    // For Grid()
-    implementation("com.maxkeppeler.sheets-compose-dialogs:core:1.1.1")
-
-
-    implementation("androidx.core:core-ktx:1.9.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
-    implementation("androidx.activity:activity-compose:1.8.1")
-    implementation(platform("androidx.compose:compose-bom:2023.03.00"))
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-graphics")
-    implementation("androidx.compose.ui:ui-tooling-preview")
-    implementation("androidx.compose.material3:material3")
-    testImplementation("junit:junit:4.13.2")
-    androidTestImplementation("androidx.test.ext:junit:1.1.5")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
-    androidTestImplementation(platform("androidx.compose:compose-bom:2023.03.00"))
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
-    debugImplementation("androidx.compose.ui:ui-tooling")
-    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    debugImplementation(Libs.ui_tooling)
+    debugImplementation(Libs.ui_test_manifest)
 }
