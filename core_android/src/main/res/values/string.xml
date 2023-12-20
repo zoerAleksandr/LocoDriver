@@ -4,6 +4,9 @@
     <string name="cd_back">Назад</string>
     <string name="cd_close">Закрыть</string>
 
+    <!-- Title Screens -->
+    <string name="settings">Настройки</string>
+
     <!-- Generic messages -->
     <string name="msg_generic_error">Что-то пошло не так…</string>
     <string name="msg_loading">Пожалуйста подождите…</string>

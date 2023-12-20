@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="work_time">Время</string>
+    <string name="locomotive">Локомотив</string>
+    <string name="train">Поезд</string>
+    <string name="passenger">Пассажиром</string>
+    <string name="notes">Примечания</string>
+</resources>

@@ -1,4 +1,6 @@
 import Versions.accompanist_navigation_animation_version
+import Versions.accompanist_pager_version
+import Versions.accompanist_swiperefresh_version
 import Versions.activity_compose_version
 import Versions.app_compat_version
 import Versions.coil_version
@@ -7,7 +9,9 @@ import Versions.core_ktx_version
 import Versions.coroutines_version
 import Versions.koin_version
 import Versions.lifecycle_runtime_version
+import Versions.lifecycle_viewmodel_version
 import Versions.material_compose
+import Versions.reveal_swipe_version
 import Versions.room_version
 import org.gradle.api.JavaVersion
 
@@ -38,7 +42,7 @@ object Apps {
 object Versions {
     const val android_plugin_id = "8.1.1"
     const val accompanist_navigation_animation_version = "0.31.3-beta"
-//    const val accompanist_swiperefresh_version = "0.31.3-beta"
+    const val accompanist_swiperefresh_version = "0.31.3-beta"
     const val activity_compose_version = "1.7.2"
 //    const val androidx_exif_version = "1.3.6"
 //    const val androidx_test_core_version = "1.6.0-alpha01"
@@ -55,16 +59,17 @@ object Versions {
     const val kotlin_version = "1.8.10"
     const val kotlin_compiler_ext_version = "1.4.7"
     const val lifecycle_runtime_version = "2.6.1"
-//    const val lifecycle_viewmodel_version = "2.6.1"
+    const val lifecycle_viewmodel_version = "2.6.1"
     const val material_compose = "1.1.2"
 //    const val mockk_version = "1.13.2"
 //    const val playservices_version = "20.5.0"
-//    const val reveal_swipe_version = "1.1.0"
+    const val reveal_swipe_version = "1.1.0"
     const val room_version = "2.6.0"
 //    const val test_ext_version = "1.1.5"
 //    const val test_runner_version = "1.6.0-alpha01"
 //    const val tracing_version = "1.1.0"
     const val koin_version = "3.1.2"
+    const val accompanist_pager_version = "0.13.0"
 }
 
 object Libs {
@@ -80,8 +85,8 @@ object Libs {
     // Libs
     const val accompanist_navigation_animation =
         "com.google.accompanist:accompanist-navigation-animation:$accompanist_navigation_animation_version"
-//    const val accompanist_swipe_refresh =
-//        "com.google.accompanist:accompanist-swiperefresh:$accompanist_swiperefresh_version"
+    const val accompanist_swipe_refresh =
+        "com.google.accompanist:accompanist-swiperefresh:$accompanist_swiperefresh_version"
     const val activity_compose =
         "androidx.activity:activity-compose:$activity_compose_version"
     const val app_compat =
@@ -101,14 +106,12 @@ object Libs {
         "org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutines_version"
     const val lifecycle_runtime_ktx =
         "androidx.lifecycle:lifecycle-runtime-ktx:$lifecycle_runtime_version"
-//    const val lifecycle_viewmodel_ktx =
-//        "androidx.lifecycle:lifecycle-viewmodel-ktx:$lifecycle_viewmodel_version"
+    const val lifecycle_viewmodel_ktx =
+        "androidx.lifecycle:lifecycle-viewmodel-ktx:$lifecycle_viewmodel_version"
     const val material =
         "androidx.compose.material3:material3:$material_compose"
-//    const val play_services_auth =
-//        "com.google.android.gms:play-services-auth:$playservices_version"
-//    const val reveal_swipe =
-//        "de.charlex.compose:revealswipe:$reveal_swipe_version"
+    const val reveal_swipe =
+        "de.charlex.compose:revealswipe:$reveal_swipe_version"
     const val room_compiler =
         "androidx.room:room-compiler:$room_version"
     const val room_ktx =
@@ -125,6 +128,10 @@ object Libs {
         "io.insert-koin:koin-android:$koin_version"
     const val koin_androidx_compose =
         "io.insert-koin:koin-androidx-compose:$koin_version"
+    const val accompanist_pager =
+        "com.google.accompanist:accompanist-pager:$accompanist_pager_version"
+    const val accompanist_pager_indicator =
+        "com.google.accompanist:accompanist-pager-indicators:$accompanist_pager_version"
 
 //     Debug
     const val ui_tooling =
