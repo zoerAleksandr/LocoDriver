@@ -7,9 +7,20 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 
-class AuthUseCase(
-    private val auth: Auth<*, *>
-) {
+class AuthUseCase {
+    private val auth = object : Auth<Unit, Unit>() {
+        override fun isLoggedIn(): Boolean {
+            return true
+        }
+
+        override fun signOut() {
+            TODO("Not yet implemented")
+        }
+
+        override fun signIn(onSuccess: () -> Unit, onError: (t: Throwable?) -> Unit, input: Unit?) {
+            TODO("Not yet implemented")
+        }
+    }
     fun login(): Flow<ResultState<Unit>> {
         return callbackFlow {
             trySend(ResultState.Loading)

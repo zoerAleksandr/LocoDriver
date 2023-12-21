@@ -3,15 +3,17 @@ package com.example.locodriver
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import com.example.locodriver.ui.theme.LocoDriverTheme
+import androidx.compose.animation.ExperimentalAnimationApi
+import com.example.locodriver.ui.LocoDriverApp
+import com.example.locodriver.ui.rememberLocoDriverAppState
 
 class MainActivity : ComponentActivity() {
+    @OptIn(ExperimentalAnimationApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            LocoDriverTheme {
-
-            }
+            val appState = rememberLocoDriverAppState()
+            LocoDriverApp(appState = appState, isLoggedIn = true)
         }
     }
 }

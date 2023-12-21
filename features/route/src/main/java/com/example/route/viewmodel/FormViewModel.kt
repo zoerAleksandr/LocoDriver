@@ -3,7 +3,7 @@ package com.example.route.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.core.ResultState
-import com.example.domain.entities.Route
+import com.example.domain.entities.route.Route
 import com.example.domain.use_cases.RouteUseCase
 import com.example.route.Const.NULLABLE_ID
 import kotlinx.coroutines.Job

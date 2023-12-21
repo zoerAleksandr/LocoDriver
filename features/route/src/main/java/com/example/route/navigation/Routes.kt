@@ -20,7 +20,7 @@ object DetailsRoute : AppRoutes("RouteDetailsRoute") {
     fun getRouteId(backStackEntry: NavBackStackEntry): String? =
         backStackEntry.arguments?.getString(paramRouteId)
 
-    fun buildRouteDetailsRoute(id: String) = "$baseRoute/$id"
+    fun buildDetailsRoute(id: String) = "$baseRoute/$id"
 }
 
 object FormRoute : AppRoutes("AddingRoute") {

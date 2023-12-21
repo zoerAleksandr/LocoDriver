@@ -1,11 +1,11 @@
-package com.example.data_local.dao
+package com.example.data_local.route.dao
 
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import com.example.data_local.entity.Route
+import com.example.data_local.route.entity.Route
 import kotlinx.coroutines.flow.Flow
 
 @Dao

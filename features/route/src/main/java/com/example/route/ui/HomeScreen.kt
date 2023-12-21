@@ -8,7 +8,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.example.domain.entities.Route
+import com.example.domain.entities.route.Route
 
 @Composable
 fun HomeScreen(

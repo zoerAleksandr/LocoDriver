@@ -1,12 +1,12 @@
-package com.example.data_local.entity
+package com.example.data_local.route.entity
 
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import com.example.domain.entities.Locomotive
-import com.example.domain.entities.Notes
-import com.example.domain.entities.Passenger
-import com.example.domain.entities.Train
+import com.example.domain.entities.route.Locomotive
+import com.example.domain.entities.route.Notes
+import com.example.domain.entities.route.Passenger
+import com.example.domain.entities.route.Train
 
 @Entity
 internal data class Route(

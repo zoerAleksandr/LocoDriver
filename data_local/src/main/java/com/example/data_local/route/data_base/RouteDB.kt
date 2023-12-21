@@ -1,9 +1,9 @@
-package com.example.data_local.data_base
+package com.example.data_local.route.data_base
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
-import com.example.data_local.dao.RouteDao
-import com.example.data_local.entity.Route
+import com.example.data_local.route.dao.RouteDao
+import com.example.data_local.route.entity.Route
 
 @Database(
     entities = [

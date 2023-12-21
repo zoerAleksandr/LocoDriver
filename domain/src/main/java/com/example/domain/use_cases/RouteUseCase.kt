@@ -2,7 +2,7 @@ package com.example.domain.use_cases
 
 import com.example.core.ErrorEntity
 import com.example.core.ResultState
-import com.example.domain.entities.Route
+import com.example.domain.entities.route.Route
 import com.example.domain.repositories.RouteRepositories
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf

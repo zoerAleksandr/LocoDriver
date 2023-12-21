@@ -1,8 +1,9 @@
 package com.example.locodriver
 
 import android.app.Application
-import com.example.data_local.di.roomModule
+import com.example.data_local.route.di.roomModule
 import com.example.locodriver.di.repositoryModule
+import com.example.locodriver.di.useCaseModule
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
 
@@ -13,7 +14,8 @@ class StartApp: Application()  {
             androidContext(this@StartApp)
             modules(
                 roomModule,
-                repositoryModule
+                repositoryModule,
+                useCaseModule
             )
         }
     }

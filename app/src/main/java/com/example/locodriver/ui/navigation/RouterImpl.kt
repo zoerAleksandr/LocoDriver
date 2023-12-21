@@ -1,37 +1,54 @@
 package com.example.locodriver.ui.navigation
 
 import androidx.navigation.NavHostController
-import com.example.domain.entities.Route
+import com.example.domain.entities.route.Route
 import com.example.domain.navigation.Router
+import com.example.login.navigation.LoginFeature
+import com.example.login.navigation.LoginScreenRoute
+import com.example.route.navigation.DetailsRoute
+import com.example.route.navigation.FormRoute
+import com.example.route.navigation.HomeRoute
+import com.example.settings.navigation.SettingsFeature
 
 class RouterImpl(
-    private val navigationController: NavHostController
+    private val navController: NavHostController
 ) : Router {
     override fun showLogin() {
-        TODO("Not yet implemented")
+        navController.navigate(LoginScreenRoute.route) {
+            popUpTo(0)
+        }
     }
 
     override fun showHome() {
-        TODO("Not yet implemented")
+        navController.navigate(HomeRoute.route) {
+            popUpTo(LoginFeature.route) {
+                inclusive = true
+                saveState = false
+            }
+        }
     }
 
     override fun showRouteForm(route: Route?) {
-        TODO("Not yet implemented")
+        navController.navigate(
+            FormRoute.buildDetailsRoute(route?.id)
+        )
     }
 
     override fun showRouteDetails(route: Route) {
-        TODO("Not yet implemented")
+        navController.navigate(
+            DetailsRoute.buildDetailsRoute(route.id)
+        )
     }
 
     override fun showSettings() {
-        TODO("Not yet implemented")
+        navController.navigate(SettingsFeature.route)
     }
 
     override fun back() {
-        TODO("Not yet implemented")
+        navController.popBackStack()
     }
 
     override fun navigationUp(): Boolean {
-        TODO("Not yet implemented")
+        return navController.navigateUp()
     }
 }

@@ -36,7 +36,7 @@ import androidx.compose.ui.unit.dp
 import com.example.core.ResultState
 import com.example.core.ui.component.AsyncData
 import com.example.core.ui.component.GenericError
-import com.example.domain.entities.Route
+import com.example.domain.entities.route.Route
 import com.example.route.viewmodel.RouteFormUiState
 
 

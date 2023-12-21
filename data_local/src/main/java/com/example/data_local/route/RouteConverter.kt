@@ -1,8 +1,8 @@
-package com.example.data_local
+package com.example.data_local.route
 
-import com.example.domain.entities.Route
 import java.util.UUID
-import com.example.data_local.entity.Route as RouteEntity
+import com.example.domain.entities.route.Route
+import com.example.data_local.route.entity.Route as RouteEntity
 
 internal object RouteConverter {
     fun fromData(route: Route) = RouteEntity(

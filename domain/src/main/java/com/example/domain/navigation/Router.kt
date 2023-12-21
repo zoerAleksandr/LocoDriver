@@ -1,6 +1,6 @@
 package com.example.domain.navigation
 
-import com.example.domain.entities.Route
+import com.example.domain.entities.route.Route
 
 interface Router {
     fun showLogin()

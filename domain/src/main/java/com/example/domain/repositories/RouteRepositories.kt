@@ -1,7 +1,7 @@
 package com.example.domain.repositories
 
 import com.example.core.ResultState
-import com.example.domain.entities.Route
+import com.example.domain.entities.route.Route
 import kotlinx.coroutines.flow.Flow
 
 interface RouteRepositories {

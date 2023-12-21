@@ -9,12 +9,12 @@ import kotlinx.coroutines.flow.flowOf
 
 class SettingsUseCase(private val repositories: SettingsRepositories) {
     fun loadSettings(): Flow<ResultState<UserSettings>> {
-        return repositories.loadSettings()
+        return repositories.getSettings()
     }
 
     fun saveSettings(settings: UserSettings): Flow<ResultState<Unit>> {
         return if (isSettingsValid(settings)) {
-            repositories.saveSettings()
+            repositories.saveSettings(settings)
         } else {
             flowOf(
                 ResultState.Error(

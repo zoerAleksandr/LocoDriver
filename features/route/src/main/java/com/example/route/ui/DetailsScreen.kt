@@ -23,7 +23,7 @@ import androidx.compose.ui.res.stringResource
 import com.example.core.ResultState
 import com.example.core.ui.component.AsyncData
 import com.example.core.ui.component.GenericError
-import com.example.domain.entities.Route
+import com.example.domain.entities.route.Route
 import com.example.route.R
 import com.google.accompanist.pager.ExperimentalPagerApi
 import com.google.accompanist.pager.HorizontalPager

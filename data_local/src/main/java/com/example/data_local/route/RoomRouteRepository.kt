@@ -1,10 +1,10 @@
-package com.example.data_local
+package com.example.data_local.route
 
 import com.example.core.ResultState
 import com.example.core.ResultState.Companion.flowMap
 import com.example.core.ResultState.Companion.flowRequest
-import com.example.data_local.dao.RouteDao
-import com.example.domain.entities.Route
+import com.example.data_local.route.dao.RouteDao
+import com.example.domain.entities.route.Route
 import com.example.domain.repositories.RouteRepositories
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -12,7 +12,7 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.util.UUID
 
-class RoomRepository : RouteRepositories, KoinComponent {
+class RoomRouteRepository : RouteRepositories, KoinComponent {
     private val dao: RouteDao by inject()
     override fun loadRoutes(): Flow<ResultState<List<Route>>> {
         return flowMap {
