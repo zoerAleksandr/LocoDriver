@@ -7,6 +7,7 @@ import Versions.coil_version
 import Versions.compose_ui_version
 import Versions.core_ktx_version
 import Versions.coroutines_version
+import Versions.gson_version
 import Versions.koin_version
 import Versions.lifecycle_runtime_version
 import Versions.lifecycle_viewmodel_version
@@ -56,7 +57,7 @@ object Versions {
 //    const val dependencies_check_version = "0.46.0"
 //    const val espresso_core_version = "3.6.0-alpha01"
 //    const val junit_version = "4.13.2"
-    const val kotlin_version = "1.8.10"
+    const val kotlin_version = "1.8.21"
     const val kotlin_compiler_ext_version = "1.4.7"
     const val lifecycle_runtime_version = "2.6.1"
     const val lifecycle_viewmodel_version = "2.6.1"
@@ -70,6 +71,7 @@ object Versions {
 //    const val tracing_version = "1.1.0"
     const val koin_version = "3.1.2"
     const val accompanist_pager_version = "0.13.0"
+    const val gson_version = "2.9.0"
 }
 
 object Libs {
@@ -132,6 +134,8 @@ object Libs {
         "com.google.accompanist:accompanist-pager:$accompanist_pager_version"
     const val accompanist_pager_indicator =
         "com.google.accompanist:accompanist-pager-indicators:$accompanist_pager_version"
+    const val gson =
+        "com.google.code.gson:gson:$gson_version"
 
 //     Debug
     const val ui_tooling =

@@ -42,5 +42,6 @@ dependencies {
 
     implementation(Libs.room_runtime)
     implementation(Libs.room_ktx)
+    implementation(Libs.gson)
     kapt(Libs.room_compiler)
 }

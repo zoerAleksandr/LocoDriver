@@ -10,10 +10,6 @@ internal object RouteConverter {
         route.number,
         route.timeStartWork,
         route.timeEndWork,
-        route.locoList,
-        route.trainList,
-        route.passengerList,
-        route.notes
     )
 
     fun toData(entity: RouteEntity) = Route().apply {
@@ -21,9 +17,5 @@ internal object RouteConverter {
         number = entity.number
         timeStartWork = entity.timeStartWork
         timeEndWork = entity.timeEndWork
-        locoList = entity.locoList
-        trainList = entity.trainList
-        passengerList = entity.passengerList
-        notes = entity.notes
     }
 }

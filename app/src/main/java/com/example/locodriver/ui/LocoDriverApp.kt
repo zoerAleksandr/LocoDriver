@@ -20,7 +20,7 @@ fun LocoDriverApp(
     appState: LocoDriverAppState,
     isLoggedIn: Boolean,
 ) {
-    LocoDriverTheme() {
+    LocoDriverTheme {
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background
