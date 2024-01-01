@@ -4,6 +4,7 @@ import com.example.core.ResultState
 import com.example.core.ResultState.Companion.flowMap
 import com.example.core.ResultState.Companion.flowRequest
 import com.example.data_local.route.dao.RouteDao
+import com.example.data_local.route.entity_converters.RouteConverter
 import com.example.domain.entities.route.Route
 import com.example.domain.repositories.RouteRepositories
 import kotlinx.coroutines.flow.Flow
@@ -36,8 +37,28 @@ class RoomRouteRepository : RouteRepositories, KoinComponent {
 
     override fun saveRoute(route: Route): Flow<ResultState<Unit>> {
         return flowRequest{
-            if (route.id.isBlank()){
-                route.id = UUID.randomUUID().toString()
+            if (route.basicData.id.isBlank()){
+                route.basicData.id = UUID.randomUUID().toString()
+            }
+            route.locomotives.forEach {
+                if (it.basicId.isBlank()){
+                    it.basicId = route.basicData.id
+                }
+            }
+            route.trains.forEach {
+                if (it.baseId.isBlank()){
+                    it.baseId = route.basicData.id
+                }
+            }
+            route.passengers.forEach {
+                if (it.baseId.isBlank()){
+                    it.baseId = route.basicData.id
+                }
+            }
+            route.notes?.let { notes ->
+                if (notes.baseId.isBlank()){
+                    notes.baseId = route.basicData.id
+                }
             }
             dao.save(RouteConverter.fromData(route))
         }

@@ -30,13 +30,13 @@ class RouterImpl(
 
     override fun showRouteForm(route: Route?) {
         navController.navigate(
-            FormRoute.buildDetailsRoute(route?.id)
+            FormRoute.buildDetailsRoute(route?.basicData?.id)
         )
     }
 
     override fun showRouteDetails(route: Route) {
         navController.navigate(
-            DetailsRoute.buildDetailsRoute(route.id)
+            DetailsRoute.buildDetailsRoute(route.basicData.id)
         )
     }
 

@@ -49,7 +49,7 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
         }
     }
     private fun loadRoute(id: String) {
-        if (routeId == currentRoute?.id) return
+        if (routeId == currentRoute?.basicData?.id) return
         loadRouteJob?.cancel()
         loadRouteJob = routeUseCase.routeDetails(id).onEach { routeState ->
             _uiState.update {
@@ -76,6 +76,6 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
     }
 
     fun setNumber(value: String){
-        currentRoute = currentRoute?.copy(number = value)
+//        currentRoute = currentRoute?.copy(number = value)
     }
 }

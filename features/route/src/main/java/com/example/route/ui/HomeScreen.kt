@@ -18,9 +18,9 @@ fun HomeScreen(
     Scaffold { paddingValues ->
         Box(Modifier.padding(paddingValues)) {
             Column {
-                Button(onClick = { onRouteClick(Route(id = "da3647eb-ef19-4f44-9539-ba3a28327bb6")) }) {
-                    Text(text = "Click Me")
-                }
+//                Button(onClick = { onRouteClick(Route(id = "da3647eb-ef19-4f44-9539-ba3a28327bb6")) }) {
+//                    Text(text = "Click Me")
+//                }
                 Button(onClick =  addingRoute ) {
                     Text(text = "New Route")
                 }

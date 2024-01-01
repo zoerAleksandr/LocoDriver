@@ -27,7 +27,7 @@ class DetailsViewModel constructor(
 
     private fun getRouteById(id: String) {
         val currentState = _routeDetailsState.value
-        if (currentState is ResultState.Success && routeId == currentState.data?.id) return
+        if (currentState is ResultState.Success && routeId == currentState.data?.basicData?.id) return
 
         getRouteJob?.cancel()
         getRouteJob = routeUseCase.routeDetails(id).onEach { response ->
