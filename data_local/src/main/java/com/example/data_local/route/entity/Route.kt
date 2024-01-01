@@ -1,13 +1,11 @@
 package com.example.data_local.route.entity
 
-import androidx.room.Entity
-import androidx.room.PrimaryKey
+import androidx.room.Embedded
+import androidx.room.Relation
 
-@Entity
 internal data class Route(
-    @PrimaryKey
-    val id: String,
-    var number: String?,
-    var timeStartWork: Long?,
-    var timeEndWork: Long?,
+    @Embedded
+    val basicData: BasicData,
+    @Relation(parentColumn = "id", entityColumn = "baseId")
+    val locomotives: List<Locomotive>
 )

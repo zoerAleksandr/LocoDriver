@@ -145,7 +145,7 @@ fun RouteFormScreenContent(
     Column {
         val keyboardController = LocalSoftwareKeyboardController.current
         OutlinedTextField(
-            value = route?.number ?: "",
+            value = route?.basicData?.number ?: "",
             onValueChange = onNumberChanged,
             singleLine = true,
             keyboardActions = KeyboardActions(

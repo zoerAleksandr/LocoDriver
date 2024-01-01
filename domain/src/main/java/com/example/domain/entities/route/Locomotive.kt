@@ -3,12 +3,13 @@ package com.example.domain.entities.route
 import java.util.UUID
 
 data class Locomotive(
-    val id: String = UUID.randomUUID().toString(),
+    var locoId: String = UUID.randomUUID().toString(),
+    var basicId: String = "",
     var series: String? = null,
     var number: String? = null,
     var type: LocoType = LocoType.ELECTRIC,
-    var electricSectionList: List<SectionElectric>? = null,
-    var dieselSectionList: List<SectionDiesel>? = null,
+    var electricSectionList: MutableList<SectionElectric> = mutableListOf(),
+    var dieselSectionList: MutableList<SectionDiesel> = mutableListOf(),
     var timeStartOfAcceptance: Long? = null,
     var timeEndOfAcceptance: Long? = null,
     var timeStartOfDelivery: Long? = null,
@@ -16,18 +17,20 @@ data class Locomotive(
 )
 
 data class SectionElectric(
-    val id: String = UUID.randomUUID().toString(),
-    val type: LocoType = LocoType.ELECTRIC,
+    var sectionId: String = UUID.randomUUID().toString(),
+    var locoId: String = "",
+    var type: LocoType = LocoType.ELECTRIC,
     var acceptedEnergy: Double? = null,
     var deliveryEnergy: Double? = null,
     var acceptedRecovery: Double? = null,
     var deliveryRecovery: Double? = null
 )
 data class SectionDiesel(
-    val id: String = UUID.randomUUID().toString(),
-    val type: LocoType = LocoType.DIESEL,
-    val acceptedEnergy: Double? = null,
-    val deliveryEnergy: Double? = null,
+    var sectionId: String = UUID.randomUUID().toString(),
+    var locoId: String = "",
+    var type: LocoType = LocoType.DIESEL,
+    var acceptedFuel: Double? = null,
+    var deliveryFuel: Double? = null,
     var coefficient: Double? = null,
     var fuelSupply: Double? = null,
     var coefficientSupply: Double? = null,

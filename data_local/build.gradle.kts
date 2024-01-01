@@ -44,4 +44,8 @@ dependencies {
     implementation(Libs.room_ktx)
     implementation(Libs.gson)
     kapt(Libs.room_compiler)
+
+    androidTestImplementation(TestLibs.ext_junit)
+    androidTestImplementation(TestLibs.arch_core)
+    androidTestImplementation(TestLibs.test_runner)
 }

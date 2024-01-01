@@ -3,7 +3,8 @@ package com.example.domain.entities.route
 import java.util.UUID
 
 data class Passenger(
-    val id: String = UUID.randomUUID().toString(),
+    var passengerid: String = UUID.randomUUID().toString(),
+    var routeId: String = "",
     var trainNumber: String? = null,
     var stationDeparture: String? = null,
     var stationArrival: String? = null,

@@ -56,7 +56,7 @@ fun DetailsScreen(
                                     .fillMaxWidth(),
                                 horizontalArrangement = Arrangement.Start
                             ) {
-                                Text(text = route.number ?: "")
+                                Text(text = route.basicData.number ?: "")
                             }
                         },
                         navigationIcon = {
@@ -124,7 +124,7 @@ private fun TabContent(
         when (page) {
             0 -> {
                 Box(Modifier.fillMaxSize()) {
-                    Text(text = route.id)
+                    Text(text = route.basicData.id)
                 }
             }
 //                WorkTimeScreen(navController, state, minTimeRest)

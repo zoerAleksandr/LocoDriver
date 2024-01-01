@@ -6,6 +6,7 @@ import Versions.app_compat_version
 import Versions.coil_version
 import Versions.compose_ui_version
 import Versions.core_ktx_version
+import Versions.core_testing_version
 import Versions.coroutines_version
 import Versions.gson_version
 import Versions.koin_version
@@ -14,6 +15,8 @@ import Versions.lifecycle_viewmodel_version
 import Versions.material_compose
 import Versions.reveal_swipe_version
 import Versions.room_version
+import Versions.test_ext_version
+import Versions.test_runner_version
 import org.gradle.api.JavaVersion
 
 object Plugins {
@@ -52,7 +55,7 @@ object Versions {
     const val coil_version = "2.4.0"
     const val compose_ui_version = "1.5.1"
     const val core_ktx_version = "1.12.0"
-//    const val core_testing_version = "2.2.0"
+    const val core_testing_version = "2.2.0"
     const val coroutines_version = "1.7.1"
 //    const val dependencies_check_version = "0.46.0"
 //    const val espresso_core_version = "3.6.0-alpha01"
@@ -66,8 +69,8 @@ object Versions {
 //    const val playservices_version = "20.5.0"
     const val reveal_swipe_version = "1.1.0"
     const val room_version = "2.6.0"
-//    const val test_ext_version = "1.1.5"
-//    const val test_runner_version = "1.6.0-alpha01"
+    const val test_ext_version = "1.1.5"
+    const val test_runner_version = "1.6.0-alpha01"
 //    const val tracing_version = "1.1.0"
     const val koin_version = "3.1.2"
     const val accompanist_pager_version = "0.13.0"
@@ -142,4 +145,35 @@ object Libs {
         "androidx.compose.ui:ui-tooling:$compose_ui_version"
     const val ui_test_manifest =
         "androidx.compose.ui:ui-test-manifest:$compose_ui_version"
+}
+
+object TestLibs {
+    const val arch_core =
+        "androidx.arch.core:core-testing:$core_testing_version"
+//    const val arch_core_ktx =
+//        "androidx.test:core-ktx:$androidx_test_core_version"
+    const val compose_ui_test_junit =
+        "androidx.compose.ui:ui-test-junit4:$compose_ui_version"
+//    const val espresso_core =
+//        "androidx.test.espresso:espresso-core:$espresso_core_version"
+    const val ext_junit =
+        "androidx.test.ext:junit:$test_ext_version"
+//    const val ext_junit_ktx =
+//        "androidx.test.ext:junit-ktx:$androidx_test_ext_kotlin_runner_version"
+//    const val junit =
+//        "junit:junit:$junit_version"
+    const val kotlin_coroutines_test =
+        "org.jetbrains.kotlinx:kotlinx-coroutines-test:$coroutines_version"
+//    const val kotlin_reflect =
+//        "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
+//    const val mockk =
+//        "io.mockk:mockk:$mockk_version"
+//    const val mockk_android =
+//        "io.mockk:mockk-android:$mockk_version"
+//    const val mockk_agent_jvm =
+//        "io.mockk:mockk-agent-jvm:$mockk_version"
+    const val room =
+        "androidx.room:room-testing:$room_version"
+    const val test_runner =
+        "androidx.test:runner:$test_runner_version"
 }
