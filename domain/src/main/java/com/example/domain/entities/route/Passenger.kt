@@ -4,7 +4,7 @@ import java.util.UUID
 
 data class Passenger(
     var passengerid: String = UUID.randomUUID().toString(),
-    var routeId: String = "",
+    var baseId: String = "",
     var trainNumber: String? = null,
     var stationDeparture: String? = null,
     var stationArrival: String? = null,

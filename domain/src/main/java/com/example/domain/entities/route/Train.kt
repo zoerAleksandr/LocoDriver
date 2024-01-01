@@ -4,7 +4,7 @@ import java.util.UUID
 
 data class Train(
     var trainId: String = UUID.randomUUID().toString(),
-    var routeId: String = "",
+    var baseId: String = "",
     var number: String? = null,
     var weight: Int? = null,
     var axle: Int? = null,

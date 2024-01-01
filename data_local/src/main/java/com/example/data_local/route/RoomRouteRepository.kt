@@ -45,6 +45,21 @@ class RoomRouteRepository : RouteRepositories, KoinComponent {
                     it.basicId = route.basicData.id
                 }
             }
+            route.trains.forEach {
+                if (it.baseId.isBlank()){
+                    it.baseId = route.basicData.id
+                }
+            }
+            route.passengers.forEach {
+                if (it.baseId.isBlank()){
+                    it.baseId = route.basicData.id
+                }
+            }
+            route.notes?.let { notes ->
+                if (notes.baseId.isBlank()){
+                    notes.baseId = route.basicData.id
+                }
+            }
             dao.save(RouteConverter.fromData(route))
         }
     }

@@ -6,7 +6,7 @@ import com.example.data_local.route.entity.Train as TrainEntity
 internal object TrainConverter {
     private fun fromData(train: Train) = TrainEntity(
         train.trainId,
-        train.routeId,
+        train.baseId,
         train.number,
         train.weight,
         train.axle,
@@ -16,7 +16,7 @@ internal object TrainConverter {
 
     private fun toData(entity: TrainEntity) = Train().apply {
         trainId = entity.trainId
-        routeId = entity.routeId
+        baseId = entity.baseId
         number = entity.number
         weight = entity.weight
         axle = entity.axle

@@ -22,6 +22,15 @@ internal interface RouteDao {
         route.locomotives.forEach { locomotive ->
             saveLocomotive(locomotive)
         }
+        route.trains.forEach { train ->
+            saveTrain(train)
+        }
+        route.passengers.forEach { passenger ->
+            savePassenger(passenger)
+        }
+        route.notes?.let { notes ->
+            saveNotes(notes)
+        }
     }
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -40,12 +49,8 @@ internal interface RouteDao {
     suspend fun saveNotes(notes: Notes)
 
 
-    @Transaction
     suspend fun delete(route: Route) {
         deleteBasicData(route.basicData)
-        route.locomotives.forEach { locomotive ->
-            deleteLocomotives(locomotive)
-        }
     }
 
     @Delete
@@ -53,6 +58,12 @@ internal interface RouteDao {
 
     @Delete
     suspend fun deleteLocomotives(locomotive: Locomotive)
+    @Delete
+    suspend fun deleteTrain(train: Train)
+    @Delete
+    suspend fun deletePassenger(passenger: Passenger)
+    @Delete
+    suspend fun deleteNotes(notes: Notes)
 
     @Transaction
     @Query("SELECT * FROM BasicData WHERE id = :id")

@@ -6,14 +6,14 @@ import com.example.data_local.route.entity.Notes as NotesEntity
 internal object NotesConverter {
     fun fromData(notes: Notes) = NotesEntity(
         notes.notesId,
-        notes.routeId,
+        notes.baseId,
         notes.text,
         notes.photos
     )
 
     fun toData(entity: NotesEntity) = Notes().apply {
         notesId = entity.notesId
-        routeId = entity.routeId
+        baseId = entity.baseId
         text = entity.text
         photos = entity.photos
     }
