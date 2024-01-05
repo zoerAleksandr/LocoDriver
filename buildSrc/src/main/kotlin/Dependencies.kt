@@ -5,6 +5,7 @@ import Versions.activity_compose_version
 import Versions.app_compat_version
 import Versions.coil_version
 import Versions.compose_ui_version
+import Versions.constraint_layout_ver
 import Versions.core_ktx_version
 import Versions.core_testing_version
 import Versions.coroutines_version
@@ -75,6 +76,7 @@ object Versions {
     const val koin_version = "3.1.2"
     const val accompanist_pager_version = "0.13.0"
     const val gson_version = "2.9.0"
+    const val constraint_layout_ver = "1.0.1"
 }
 
 object Libs {
@@ -88,6 +90,7 @@ object Libs {
     const val project_feature_settings = ":features:settings"
 
     // Libs
+    const val constraint_layout = "androidx.constraintlayout:constraintlayout-compose:$constraint_layout_ver"
     const val accompanist_navigation_animation =
         "com.google.accompanist:accompanist-navigation-animation:$accompanist_navigation_animation_version"
     const val accompanist_swipe_refresh =

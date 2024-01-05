@@ -19,19 +19,19 @@ internal object LocomotiveConverter {
     )
 
 
-    fun toData(entity: LocomotiveEntity) = Locomotive().apply {
-        locoId = entity.locoId
-        basicId = entity.baseId
-        series = entity.series
-        number = entity.number
-        type = entity.type
-        electricSectionList = ElectricSectionConverter.toDataList(entity.electricSectionList)
-        dieselSectionList = DieselSectionConverter.toDataList(entity.dieselSectionList)
-        timeStartOfAcceptance = entity.timeStartOfAcceptance
-        timeEndOfAcceptance = entity.timeEndOfAcceptance
-        timeStartOfDelivery = entity.timeStartOfDelivery
-        timeEndOfDelivery = entity.timeEndOfDelivery
-    }
+    fun toData(entity: LocomotiveEntity) = Locomotive(
+        locoId = entity.locoId,
+        basicId = entity.baseId,
+        series = entity.series,
+        number = entity.number,
+        type = entity.type,
+        electricSectionList = ElectricSectionConverter.toDataList(entity.electricSectionList),
+        dieselSectionList = DieselSectionConverter.toDataList(entity.dieselSectionList),
+        timeStartOfAcceptance = entity.timeStartOfAcceptance,
+        timeEndOfAcceptance = entity.timeEndOfAcceptance,
+        timeStartOfDelivery = entity.timeStartOfDelivery,
+        timeEndOfDelivery = entity.timeEndOfDelivery,
+    )
 
     fun fromDataList(list: List<Locomotive>): MutableList<LocomotiveEntity> {
         return list.map {

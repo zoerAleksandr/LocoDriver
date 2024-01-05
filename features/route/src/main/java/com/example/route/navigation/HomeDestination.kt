@@ -1,7 +1,10 @@
 package com.example.route.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.domain.entities.route.Route
 import com.example.domain.navigation.Router
 import com.example.route.ui.HomeScreen
 import com.example.route.viewmodel.HomeViewModel
@@ -11,8 +14,22 @@ fun HomeDestination(
     router: Router
 ) {
     val homeViewModel: HomeViewModel = viewModel()
+    val homeUiState by homeViewModel.uiState.collectAsState()
     HomeScreen(
+        routeListState = homeUiState.routeListState,
+        removeRouteState = homeUiState.removeRouteState,
         onRouteClick = { router.showRouteDetails(it) },
-        addingRoute = { router.showRouteForm() }
+        onNewRouteClick = { router.showRouteForm() },
+        onDeleteRoute = homeViewModel::remove,
+        onDeleteRouteConfirmed = homeViewModel::resetRemoveRouteState,
+        reloadRoute = homeViewModel::loadRoutes,
+        onSettingsClick = { router.showSettings() },
+        onSearchClick = { router.showSearch() },
+        totalTime = homeViewModel.totalTime,
+        currentMonthOfYear = homeUiState.monthSelected,
+        monthList = homeViewModel.monthList,
+        yearList = homeViewModel.yearList,
+        selectMonth = homeViewModel::setMonthSelected,
+        selectYear = homeViewModel::setYearSelect
     )
 }

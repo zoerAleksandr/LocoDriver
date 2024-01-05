@@ -10,7 +10,7 @@ import com.example.core.ui.theme.custom.AppColors.Companion.appColors
 import com.example.core.ui.theme.custom.AppShapes
 import com.example.core.ui.theme.custom.AppShapes.Companion.appShapes
 import com.example.core.ui.theme.custom.AppTypography
-import com.example.core.ui.theme.custom.AppTypography.Companion.appTypography
+import com.example.core.ui.theme.custom.AppTypography.Companion.getType
 import com.example.core.ui.theme.custom.LocalAppColors
 import com.example.core.ui.theme.custom.LocalAppShapes
 import com.example.core.ui.theme.custom.LocalAppTypography
@@ -24,7 +24,7 @@ fun LocoAppTheme(
         appColors(isDark)
     }
     val appShapes: AppShapes = appShapes()
-    val appTypography: AppTypography = appTypography()
+    val appTypography: AppTypography = getType()
 
     CompositionLocalProvider(
         LocalAppTypography provides appTypography,

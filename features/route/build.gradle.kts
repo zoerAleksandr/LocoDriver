@@ -55,6 +55,9 @@ dependencies {
     implementation(Libs.koin_android)
     implementation(Libs.koin_androidx_compose)
 
+    implementation(Libs.reveal_swipe)
+    implementation(Libs.constraint_layout)
+
     implementation(Libs.accompanist_swipe_refresh)
     implementation(Libs.accompanist_navigation_animation)
 

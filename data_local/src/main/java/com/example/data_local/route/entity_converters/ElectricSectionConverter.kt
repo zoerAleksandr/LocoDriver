@@ -13,14 +13,14 @@ internal object ElectricSectionConverter {
         deliveryRecovery = section.deliveryRecovery
     )
 
-    private fun toData(sectionEntity: SectionElectricEntity) = SectionElectric().apply {
-        sectionId = sectionEntity.sectionId
-        locoId = sectionEntity.locoId
-        acceptedEnergy = sectionEntity.acceptedEnergy
-        deliveryEnergy = sectionEntity.deliveryEnergy
-        acceptedRecovery = sectionEntity.acceptedRecovery
-        deliveryRecovery = sectionEntity.deliveryRecovery
-    }
+    private fun toData(sectionEntity: SectionElectricEntity) = SectionElectric(
+        sectionId = sectionEntity.sectionId,
+        locoId = sectionEntity.locoId,
+        acceptedEnergy = sectionEntity.acceptedEnergy,
+        deliveryEnergy = sectionEntity.deliveryEnergy,
+        acceptedRecovery = sectionEntity.acceptedRecovery,
+        deliveryRecovery = sectionEntity.deliveryRecovery,
+    )
 
     fun fromDataList(list: List<SectionElectric>): MutableList<SectionElectricEntity> {
         return list.map {

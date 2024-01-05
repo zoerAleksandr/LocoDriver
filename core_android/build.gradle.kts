@@ -46,4 +46,7 @@ dependencies {
     implementation(Libs.core_ktx)
     implementation(Libs.app_compat)
     implementation(Libs.compose_material)
+    implementation(Libs.koin_core)
+    implementation(Libs.koin_android)
+    implementation(Libs.koin_androidx_compose)
 }
