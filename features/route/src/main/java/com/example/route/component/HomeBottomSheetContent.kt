@@ -1,13 +1,13 @@
 package com.example.route.component
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,11 +64,10 @@ fun HomeBottomSheetContent(
 
 @Composable
 fun EmptyList() {
-    Column(
-        Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
+    Box(
+        Modifier.fillMaxSize().padding(top = 24.dp),
+        contentAlignment = Alignment.TopCenter
     ) {
-        androidx.compose.material.Text(text = stringResource(id = R.string.msg_empty_route_list))
+        Text(text = stringResource(id = R.string.msg_empty_route_list))
     }
 }

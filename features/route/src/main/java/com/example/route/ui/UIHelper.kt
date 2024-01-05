@@ -27,7 +27,7 @@ fun changeAlphaWithOffset(offset: Float): Float {
     var alpha = (((offset - offsetMin) * alphaRange) / offsetRange) + alphaMin
 
     if (alpha > 1F) alpha = 1F
-    if (alpha < 0F) alpha = 0F
+    if (alpha < 0.2F) alpha = 0.2F
 
     return alpha
 }

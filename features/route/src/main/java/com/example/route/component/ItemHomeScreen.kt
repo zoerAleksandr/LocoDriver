@@ -121,14 +121,18 @@ fun ItemHomeScreen(
                         },
                     date = route.basicData.timeStartWork
                 )
-                CustomDivider(modifier = Modifier
+                CustomDivider(
+                    modifier = Modifier
                     .constrainAs(verticalDividerFirst) {
                         start.linkTo(date.end)
                         top.linkTo(parent.top)
                         bottom.linkTo(parent.bottom)
                     }
                     .padding(vertical = 10.dp),
-                    thickness = 0.5.dp, orientation = Orientation.Vertical)
+                    thickness = 0.5.dp,
+                    orientation = Orientation.Vertical,
+
+                    )
                 DetailsElementItem(
                     modifier = Modifier
                         .constrainAs(station) {
@@ -207,7 +211,9 @@ fun DetailsElementItem(
         ""
     }
     val textLocoNumber = if (route.locomotives.isNotEmpty()) {
-        "№${route.locomotives.first().number ?: ""}"
+        route.locomotives.first().number?.let { number ->
+            "№ $number"
+        } ?: ""
     } else {
         ""
     }
