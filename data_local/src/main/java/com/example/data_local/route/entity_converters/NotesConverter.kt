@@ -11,10 +11,10 @@ internal object NotesConverter {
         notes.photos
     )
 
-    fun toData(entity: NotesEntity) = Notes().apply {
-        notesId = entity.notesId
-        baseId = entity.baseId
-        text = entity.text
-        photos = entity.photos
-    }
+    fun toData(entity: NotesEntity) = Notes(
+        notesId = entity.notesId,
+        baseId = entity.baseId,
+        text = entity.text,
+        photos = entity.photos,
+    )
 }

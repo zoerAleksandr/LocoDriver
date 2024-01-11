@@ -1,4 +1,4 @@
-package com.example.route.ui
+package com.example.route.component
 
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState

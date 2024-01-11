@@ -58,7 +58,7 @@ data class AppTypography(
         get() = materialTypography.bodyLarge
 
     companion object {
-        fun appTypography(): AppTypography {
+        fun getType(): AppTypography {
             val fontFamily = AppFontFamilies.Oxygen
             val defaultTypography = Typography()
             return AppTypography(

@@ -14,4 +14,37 @@
     <!-- Button Texts -->
     <string name="button_save">Сохранить</string>
     <string name="button_ok">OK</string>
+    <string name="adding">Добавить</string>
+
+    <!-- Month short-->
+    // Month
+    <string name="january_short">ЯНВ</string>
+    <string name="february_short">ФЕВ</string>
+    <string name="march_short">МАР</string>
+    <string name="april_short">АПР</string>
+    <string name="may_short">МАЙ</string>
+    <string name="june_short">ИЮН</string>
+    <string name="july_short">ИЮЛ</string>
+    <string name="august_short">АВГ</string>
+    <string name="september_short">СЕН</string>
+    <string name="october_short">ОКТ</string>
+    <string name="november_short">НОЯ</string>
+    <string name="december_short">ДЕК</string>
+
+    <!-- Month full-->
+    // Month
+    <string name="january_full">ЯНВАРЬ</string>
+    <string name="february_full">ФЕВРАЛЬ</string>
+    <string name="march_full">МАРТ</string>
+    <string name="april_full">АПРЕЛЬ</string>
+    <string name="may_full">МАЙ</string>
+    <string name="june_full">ИЮНЬ</string>
+    <string name="july_full">ИЮЛЬ</string>
+    <string name="august_full">АВГУСТ</string>
+    <string name="september_full">СЕНТЯБРЬ</string>
+    <string name="october_full">ОКТЯБРЬ</string>
+    <string name="november_full">НОЯБРЬ</string>
+    <string name="december_full">ДЕКАБРЬ</string>
+
+
 </resources>

@@ -25,6 +25,7 @@ import com.example.core.ui.component.AsyncData
 import com.example.core.ui.component.GenericError
 import com.example.domain.entities.route.Route
 import com.example.route.R
+import com.example.route.component.CustomScrollableTabRow
 import com.google.accompanist.pager.ExperimentalPagerApi
 import com.google.accompanist.pager.HorizontalPager
 import com.google.accompanist.pager.PagerState

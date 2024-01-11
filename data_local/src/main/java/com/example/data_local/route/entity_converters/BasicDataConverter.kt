@@ -11,10 +11,10 @@ internal object BasicDataConverter {
         timeEndWork = basicData.timeEndWork
     )
 
-    fun toData(entity: BasicDataEntity) = BasicData().apply {
-        entity.id
-        entity.number
-        entity.timeStartWork
+    fun toData(entity: BasicDataEntity) = BasicData(
+        entity.id,
+        entity.number,
+        entity.timeStartWork,
         entity.timeEndWork
-    }
+    )
 }

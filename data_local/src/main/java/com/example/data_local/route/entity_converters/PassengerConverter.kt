@@ -14,15 +14,15 @@ internal object PassengerConverter {
         passenger.timeArrival
     )
 
-    private fun toData(entity: PassengerEntity) = Passenger().apply {
-        passengerid = entity.passengerId
-        baseId = entity.baseId
-        trainNumber = entity.trainNumber
-        stationDeparture = entity.stationDeparture
-        stationArrival = entity.stationArrival
-        timeDeparture = entity.timeDeparture
-        timeArrival = entity.timeArrival
-    }
+    private fun toData(entity: PassengerEntity) = Passenger(
+        passengerid = entity.passengerId,
+        baseId = entity.baseId,
+        trainNumber = entity.trainNumber,
+        stationDeparture = entity.stationDeparture,
+        stationArrival = entity.stationArrival,
+        timeDeparture = entity.timeDeparture,
+        timeArrival = entity.timeArrival,
+    )
 
     fun fromDataList(list: List<Passenger>): MutableList<PassengerEntity> {
         return list.map {

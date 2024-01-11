@@ -49,6 +49,7 @@ internal interface RouteDao {
     suspend fun saveNotes(notes: Notes)
 
 
+    @Transaction
     suspend fun delete(route: Route) {
         deleteBasicData(route.basicData)
     }
@@ -68,7 +69,6 @@ internal interface RouteDao {
     @Transaction
     @Query("SELECT * FROM BasicData WHERE id = :id")
     fun getRouteById(id: String): Flow<Route?>
-
 
     @Transaction
     @Query("SELECT * FROM BasicData")

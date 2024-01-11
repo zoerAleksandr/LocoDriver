@@ -1,6 +1,7 @@
 package com.example.locodriver.ui.navigation
 
 import androidx.navigation.NavHostController
+import com.example.domain.entities.route.BasicData
 import com.example.domain.entities.route.Route
 import com.example.domain.navigation.Router
 import com.example.login.navigation.LoginFeature
@@ -34,14 +35,18 @@ class RouterImpl(
         )
     }
 
-    override fun showRouteDetails(route: Route) {
+    override fun showRouteDetails(basicData: BasicData) {
         navController.navigate(
-            DetailsRoute.buildDetailsRoute(route.basicData.id)
+            DetailsRoute.buildDetailsRoute(basicData.id)
         )
     }
 
     override fun showSettings() {
         navController.navigate(SettingsFeature.route)
+    }
+
+    override fun showSearch() {
+        TODO("Not yet implemented")
     }
 
     override fun back() {

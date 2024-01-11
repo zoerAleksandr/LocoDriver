@@ -1,5 +1,6 @@
 package com.example.locodriver.di
 
+import com.example.locodriver.viewmodel.MainViewModel
 import com.example.login.viewmodel.LoginViewModel
 import com.example.route.viewmodel.DetailsViewModel
 import com.example.route.viewmodel.FormViewModel
@@ -14,4 +15,5 @@ val viewModelModule = module {
     viewModel { HomeViewModel() }
     viewModel { LoginViewModel() }
     viewModel { SettingsViewModel() }
+    viewModel { MainViewModel() }
 }

@@ -5,4 +5,7 @@
     <string name="train">Поезд</string>
     <string name="passenger">Пассажиром</string>
     <string name="notes">Примечания</string>
+
+    <string name="msg_route_deleted">Маршрут удален</string>
+    <string name="msg_empty_route_list">Список маршрутов пуст</string>
 </resources>

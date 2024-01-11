@@ -12,11 +12,11 @@ internal object RouteConverter {
         notes = route.notes?.let { NotesConverter.fromData(it) }
     )
 
-    fun toData(entity: RouteEntity) = Route().apply {
-        basicData = BasicDataConverter.toData(entity.basicData)
-        locomotives = LocomotiveConverter.toDataList(entity.locomotives)
-        trains = TrainConverter.toDataList(entity.trains)
-        passengers = PassengerConverter.toDataList(entity.passengers)
+    fun toData(entity: RouteEntity) = Route(
+        basicData = BasicDataConverter.toData(entity.basicData),
+        locomotives = LocomotiveConverter.toDataList(entity.locomotives),
+        trains = TrainConverter.toDataList(entity.trains),
+        passengers = PassengerConverter.toDataList(entity.passengers),
         notes = entity.notes?.let { NotesConverter.toData(it) }
-    }
+    )
 }
