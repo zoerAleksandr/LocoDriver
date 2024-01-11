@@ -4,6 +4,7 @@ import android.app.Application
 import com.example.data_local.route.di.roomRouteModule
 import com.example.data_local.setting.di.roomSettingsModule
 import com.example.locodriver.di.repositoryModule
+import com.example.locodriver.di.resourcesModule
 import com.example.locodriver.di.useCaseModule
 import com.example.locodriver.di.viewModelModule
 import org.koin.android.ext.koin.androidContext
@@ -16,10 +17,11 @@ class StartApp: Application()  {
             androidContext(this@StartApp)
             modules(
                 viewModelModule,
-                roomRouteModule,
                 roomSettingsModule,
+                roomRouteModule,
                 repositoryModule,
-                useCaseModule
+                useCaseModule,
+                resourcesModule
             )
         }
     }

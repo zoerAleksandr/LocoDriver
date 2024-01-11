@@ -12,13 +12,13 @@ internal object StationConverter {
         station.timeArrival
     )
 
-    private fun toData(entity: StationEntity) = Station().apply {
-        stationId = entity.stationId
-        trainId = entity.trainId
-        stationName = entity.stationName
-        timeDeparture = entity.timeDeparture
+    private fun toData(entity: StationEntity) = Station(
+        stationId = entity.stationId,
+        trainId = entity.trainId,
+        stationName = entity.stationName,
+        timeDeparture = entity.timeDeparture,
         timeArrival = entity.timeArrival
-    }
+    )
 
     fun fromDataList(list: List<Station>): MutableList<StationEntity> {
         return list.map {

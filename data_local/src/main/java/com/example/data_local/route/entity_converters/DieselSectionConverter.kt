@@ -5,23 +5,23 @@ import com.example.data_local.route.entity.SectionDiesel as SectionDieselEntity
 
 internal object DieselSectionConverter {
     private fun fromData(section: SectionDiesel) = SectionDieselEntity(
-            sectionId = section.sectionId,
-            locoId = section.locoId,
-            acceptedFuel = section.acceptedFuel,
-            deliveryFuel = section.deliveryFuel,
-            coefficient = section.coefficient,
-            fuelSupply = section.fuelSupply,
-            coefficientSupply = section.coefficientSupply
-        )
+        sectionId = section.sectionId,
+        locoId = section.locoId,
+        acceptedFuel = section.acceptedFuel,
+        deliveryFuel = section.deliveryFuel,
+        coefficient = section.coefficient,
+        fuelSupply = section.fuelSupply,
+        coefficientSupply = section.coefficientSupply
+    )
 
-    private fun toData(sectionEntity: SectionDieselEntity) = SectionDiesel().apply {
-        sectionId = sectionEntity.sectionId
-        locoId = sectionEntity.locoId
-        acceptedFuel = sectionEntity.acceptedFuel
-        deliveryFuel = sectionEntity.deliveryFuel
-        coefficient = sectionEntity.coefficient
-        coefficientSupply = sectionEntity.coefficientSupply
-    }
+    private fun toData(sectionEntity: SectionDieselEntity) = SectionDiesel(
+        sectionId = sectionEntity.sectionId,
+        locoId = sectionEntity.locoId,
+        acceptedFuel = sectionEntity.acceptedFuel,
+        deliveryFuel = sectionEntity.deliveryFuel,
+        coefficient = sectionEntity.coefficient,
+        coefficientSupply = sectionEntity.coefficientSupply,
+    )
 
     fun fromDataList(list: List<SectionDiesel>): MutableList<SectionDieselEntity> {
         return list.map {
