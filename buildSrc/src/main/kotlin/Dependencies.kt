@@ -68,7 +68,7 @@ object Versions {
     const val material_compose = "1.1.2"
 //    const val mockk_version = "1.13.2"
 //    const val playservices_version = "20.5.0"
-    const val reveal_swipe_version = "1.1.0"
+    const val reveal_swipe_version = "1.2.0"
     const val room_version = "2.6.0"
     const val test_ext_version = "1.1.5"
     const val test_runner_version = "1.6.0-alpha01"

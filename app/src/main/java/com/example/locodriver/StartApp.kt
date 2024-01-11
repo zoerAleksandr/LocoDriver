@@ -17,8 +17,8 @@ class StartApp: Application()  {
             androidContext(this@StartApp)
             modules(
                 viewModelModule,
-                roomRouteModule,
                 roomSettingsModule,
+                roomRouteModule,
                 repositoryModule,
                 useCaseModule,
                 resourcesModule

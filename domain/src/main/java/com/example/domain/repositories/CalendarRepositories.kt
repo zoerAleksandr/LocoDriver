@@ -5,7 +5,5 @@ import com.example.domain.entities.MonthOfYear
 import kotlinx.coroutines.flow.Flow
 
 interface CalendarRepositories {
-    fun getCurrentMonth(): Flow<ResultState<MonthOfYear>>
-    fun getMonthList(): Flow<ResultState<List<Int>>>
-    fun getYearList(): Flow<ResultState<List<Int>>>
+    fun getMonthOfYearList(): Flow<ResultState<List<MonthOfYear>>>
 }

@@ -74,7 +74,11 @@ fun CircularIndicator(
         animatorIndicatorValue.animateTo(allowedIndicatorValue.toFloat())
     }
 
-    val percent = (animatorIndicatorValue.value / maxIndicatorValue) * 100
+    val percent: Float = if (maxIndicatorValue != 0) {
+        (animatorIndicatorValue.value / maxIndicatorValue) * 100
+    } else {
+        0.0f
+    }
 
     val sweepAngle by animateFloatAsState(
         targetValue = (2.4 * percent).toFloat(),

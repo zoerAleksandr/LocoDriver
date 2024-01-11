@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import com.example.data_local.setting.entity.MonthOfYear
 import com.example.data_local.setting.entity.UserSettings
 import kotlinx.coroutines.flow.Flow
 
@@ -14,4 +15,12 @@ internal interface SettingsDao {
 
     @Query("SELECT * FROM UserSettings")
     fun getSettings(): Flow<UserSettings?>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @JvmSuppressWildcards
+    suspend fun saveMonthOfYearList(monthList: List<MonthOfYear>)
+
+
+    @Query("SELECT * FROM MonthOfYear")
+    fun getMonthOfYearList(): Flow<List<MonthOfYear>>
 }

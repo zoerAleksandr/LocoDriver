@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.domain.entities.route.Route
 import com.example.domain.navigation.Router
 import com.example.route.ui.HomeScreen
 import com.example.route.viewmodel.HomeViewModel
@@ -27,9 +26,8 @@ fun HomeDestination(
         onSearchClick = { router.showSearch() },
         totalTime = homeViewModel.totalTime,
         currentMonthOfYear = homeUiState.monthSelected,
-        monthList = homeViewModel.monthList,
-        yearList = homeViewModel.yearList,
-        selectMonth = homeViewModel::setMonthSelected,
-        selectYear = homeViewModel::setYearSelect
+        yearList = homeUiState.yearList,
+        monthList = homeUiState.monthList,
+        selectYearAndMonth = homeViewModel::setCurrentMonth,
     )
 }

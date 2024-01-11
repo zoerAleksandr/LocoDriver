@@ -2,6 +2,7 @@ package com.example.domain.use_cases
 
 import com.example.core.ErrorEntity
 import com.example.core.ResultState
+import com.example.domain.entities.MonthOfYear
 import com.example.domain.entities.UserSettings
 import com.example.domain.repositories.SettingsRepositories
 import kotlinx.coroutines.flow.Flow
@@ -27,5 +28,13 @@ class SettingsUseCase(private val repositories: SettingsRepositories) {
     private fun isSettingsValid(settings: UserSettings): Boolean {
         // TODO
         return true
+    }
+
+    fun loadMonthOfYearList(): Flow<ResultState<List<MonthOfYear>>> {
+        return repositories.getMonthOfYearList()
+    }
+
+    fun saveCalendar(calendar: List<MonthOfYear>): Flow<ResultState<Unit>> {
+        return repositories.saveCalendar(calendar)
     }
 }

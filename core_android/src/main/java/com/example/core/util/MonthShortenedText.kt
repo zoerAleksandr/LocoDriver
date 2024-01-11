@@ -4,7 +4,7 @@ import android.content.res.Resources
 import com.example.core.R
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-object MonthShorthand: KoinComponent {
+object MonthShortenedText: KoinComponent {
     private val res: Resources by inject()
 
     val JANUARY = res.getString(R.string.january_short)

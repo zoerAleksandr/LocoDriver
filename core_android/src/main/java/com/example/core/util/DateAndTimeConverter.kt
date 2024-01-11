@@ -25,41 +25,109 @@ object DateAndTimeConverter {
     fun Int.getMonthShortText(): String {
         return when (this) {
             0 -> {
-                MonthShorthand.JANUARY
+                MonthShortenedText.JANUARY
             }
+
             1 -> {
-                MonthShorthand.FEBRUARY
+                MonthShortenedText.FEBRUARY
             }
+
             2 -> {
-                MonthShorthand.MARCH
+                MonthShortenedText.MARCH
             }
+
             3 -> {
-                MonthShorthand.APRIL
+                MonthShortenedText.APRIL
             }
+
             4 -> {
-                MonthShorthand.MAY
+                MonthShortenedText.MAY
             }
+
             5 -> {
-                MonthShorthand.JUNE
+                MonthShortenedText.JUNE
             }
+
             6 -> {
-                MonthShorthand.JULY
+                MonthShortenedText.JULY
             }
+
             7 -> {
-                MonthShorthand.AUGUST
+                MonthShortenedText.AUGUST
             }
+
             8 -> {
-                MonthShorthand.SEPTEMBER
+                MonthShortenedText.SEPTEMBER
             }
+
             9 -> {
-                MonthShorthand.OCTOBER
+                MonthShortenedText.OCTOBER
             }
+
             10 -> {
-                MonthShorthand.NOVEMBER
+                MonthShortenedText.NOVEMBER
             }
+
             11 -> {
-                MonthShorthand.DECEMBER
+                MonthShortenedText.DECEMBER
             }
+
+            else -> {
+                ""
+            }
+        }
+    }
+
+    fun Int.getMonthFullText(): String {
+        return when (this) {
+            0 -> {
+                MonthFullText.JANUARY
+            }
+
+            1 -> {
+                MonthFullText.FEBRUARY
+            }
+
+            2 -> {
+                MonthFullText.MARCH
+            }
+
+            3 -> {
+                MonthFullText.APRIL
+            }
+
+            4 -> {
+                MonthFullText.MAY
+            }
+
+            5 -> {
+                MonthFullText.JUNE
+            }
+
+            6 -> {
+                MonthFullText.JULY
+            }
+
+            7 -> {
+                MonthFullText.AUGUST
+            }
+
+            8 -> {
+                MonthFullText.SEPTEMBER
+            }
+
+            9 -> {
+                MonthFullText.OCTOBER
+            }
+
+            10 -> {
+                MonthFullText.NOVEMBER
+            }
+
+            11 -> {
+                MonthFullText.DECEMBER
+            }
+
             else -> {
                 ""
             }
