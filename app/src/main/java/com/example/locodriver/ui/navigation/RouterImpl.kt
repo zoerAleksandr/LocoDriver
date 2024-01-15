@@ -2,7 +2,11 @@ package com.example.locodriver.ui.navigation
 
 import androidx.navigation.NavHostController
 import com.example.domain.entities.route.BasicData
+import com.example.domain.entities.route.Locomotive
+import com.example.domain.entities.route.Notes
+import com.example.domain.entities.route.Passenger
 import com.example.domain.entities.route.Route
+import com.example.domain.entities.route.Train
 import com.example.domain.navigation.Router
 import com.example.login.navigation.LoginFeature
 import com.example.login.navigation.LoginScreenRoute
@@ -55,5 +59,37 @@ class RouterImpl(
 
     override fun navigationUp(): Boolean {
         return navController.navigateUp()
+    }
+
+    override fun showLocoForm(locomotive: Locomotive?) {
+        TODO("Not yet implemented")
+    }
+
+    override fun showLocoDetails(locomotive: Locomotive) {
+        TODO("Not yet implemented")
+    }
+
+    override fun showTrainForm(train: Train?) {
+        TODO("Not yet implemented")
+    }
+
+    override fun showTrainDetails(train: Train) {
+        TODO("Not yet implemented")
+    }
+
+    override fun showPassengerForm(passenger: Passenger?) {
+        TODO("Not yet implemented")
+    }
+
+    override fun showPassengerDetails(passenger: Passenger) {
+        TODO("Not yet implemented")
+    }
+
+    override fun showNotesForm(notes: Notes?) {
+        TODO("Not yet implemented")
+    }
+
+    override fun showNotesDetails(notes: Notes) {
+        TODO("Not yet implemented")
     }
 }

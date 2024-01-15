@@ -15,21 +15,32 @@ import org.koin.core.parameter.parametersOf
 fun FormDestination(
     router: Router,
     backStackEntry: NavBackStackEntry
-){
+) {
     val routeId = FormRoute.getRouteId(backStackEntry) ?: NULLABLE_ID
     val viewModel = getViewModel<FormViewModel>(
         parameters = { parametersOf(routeId) }
     )
     val formUiState by viewModel.uiState.collectAsState()
-
     FormScreen(
         formUiState = formUiState,
         currentRoute = viewModel.currentRoute,
-        onBackPressed =  router::back,
+        onBackPressed = router::back,
         onRouteSaved = router::back,
         onSaveClick = viewModel::saveRoute,
         onNumberChanged = viewModel::setNumber,
+        onSettingClick = router::showSettings,
         resetSaveState = viewModel::resetSaveState,
         onClearAllField = {},
+        onTimeStartWorkChanged = viewModel::setTimeStartWork,
+        onTimeEndWorkChanged = viewModel::setTimeEndWork,
+        onRestChanged = viewModel::setRestValue,
+        onLocoClick = router::showLocoForm,
+        onDeleteLoco = viewModel::onDeleteLoco,
+        onTrainClick = router::showTrainForm,
+        onDeleteTrain = viewModel::onDeleteTrain,
+        onPassengerClick = router::showPassengerForm,
+        onDeletePassenger = viewModel::onDeletePassenger,
+        onNotesClick = router::showNotesForm,
+        onDeleteNotes = viewModel::onDeleteNotes
     )
 }
