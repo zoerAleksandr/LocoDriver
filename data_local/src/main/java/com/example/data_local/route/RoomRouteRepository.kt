@@ -4,8 +4,16 @@ import com.example.core.ResultState
 import com.example.core.ResultState.Companion.flowMap
 import com.example.core.ResultState.Companion.flowRequest
 import com.example.data_local.route.dao.RouteDao
+import com.example.data_local.route.entity_converters.LocomotiveConverter
+import com.example.data_local.route.entity_converters.NotesConverter
+import com.example.data_local.route.entity_converters.PassengerConverter
 import com.example.data_local.route.entity_converters.RouteConverter
+import com.example.data_local.route.entity_converters.TrainConverter
+import com.example.domain.entities.route.Locomotive
+import com.example.domain.entities.route.Notes
+import com.example.domain.entities.route.Passenger
 import com.example.domain.entities.route.Route
+import com.example.domain.entities.route.Train
 import com.example.domain.repositories.RouteRepositories
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -67,6 +75,30 @@ class RoomRouteRepository : RouteRepositories, KoinComponent {
     override fun remove(route: Route): Flow<ResultState<Unit>> {
         return flowRequest {
             dao.delete(RouteConverter.fromData(route))
+        }
+    }
+
+    override fun removeLoco(locomotive: Locomotive): Flow<ResultState<Unit>> {
+        return flowRequest {
+            dao.deleteLocomotives(LocomotiveConverter.fromData(locomotive))
+        }
+    }
+
+    override fun removeTrain(train: Train): Flow<ResultState<Unit>> {
+        return flowRequest {
+            dao.deleteTrain(TrainConverter.fromData(train))
+        }
+    }
+
+    override fun removePassenger(passenger: Passenger): Flow<ResultState<Unit>> {
+        return flowRequest {
+            dao.deletePassenger(PassengerConverter.fromData(passenger))
+        }
+    }
+
+    override fun removeNotes(notes: Notes): Flow<ResultState<Unit>> {
+        return flowRequest {
+            dao.deleteNotes(NotesConverter.fromData(notes))
         }
     }
 }

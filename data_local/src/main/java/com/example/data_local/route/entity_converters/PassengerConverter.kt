@@ -4,7 +4,7 @@ import com.example.domain.entities.route.Passenger
 import com.example.data_local.route.entity.Passenger as PassengerEntity
 
 internal object PassengerConverter {
-    private fun fromData(passenger: Passenger) = PassengerEntity(
+    fun fromData(passenger: Passenger) = PassengerEntity(
         passenger.passengerid,
         passenger.baseId,
         passenger.trainNumber,

@@ -41,7 +41,13 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
         }
         private set(value) {
             _uiState.update {
-                it.copy(routeDetailState = ResultState.Success(value))
+                it.copy(
+                    routeDetailState = ResultState.Success(value),
+                    locoListState = ResultState.Success(value?.locomotives),
+                    trainListState = ResultState.Success(value?.trains),
+                    passengerListState = ResultState.Success(value?.passengers),
+                    notesState = ResultState.Success(value?.notes)
+                )
             }
         }
 
@@ -154,7 +160,7 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
         }
     }
 
-    private fun getFullRest(route: Route){
+    private fun getFullRest(route: Route) {
         val fullTimeRest = routeUseCase.fullRest(route)
         _uiState.update {
             it.copy(fullTimeRest = fullTimeRest)
@@ -178,18 +184,19 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
         }
     }
 
-    fun onDeleteLoco(locomotive: Locomotive){
-
+    fun onDeleteLoco(locomotive: Locomotive) {
+        routeUseCase.removeLoco(locomotive)
     }
-    fun onDeleteTrain(train: Train) {
 
+    fun onDeleteTrain(train: Train) {
+        routeUseCase.removeTrain(train)
     }
 
     fun onDeletePassenger(passenger: Passenger) {
-
+        routeUseCase.removePassenger(passenger)
     }
 
     fun onDeleteNotes(notes: Notes) {
-
+        routeUseCase.removeNotes(notes)
     }
 }

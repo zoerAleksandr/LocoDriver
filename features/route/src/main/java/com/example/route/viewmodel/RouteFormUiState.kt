@@ -9,10 +9,10 @@ import com.example.domain.entities.route.Train
 
 data class RouteFormUiState(
     val routeDetailState : ResultState<Route?> = ResultState.Loading,
-    val locoListState: ResultState<List<Locomotive>> = ResultState.Success(listOf(Locomotive())),
-    val trainListState: ResultState<List<Train>> = ResultState.Success(listOf(Train())),
-    val passengerListState: ResultState<List<Passenger>> = ResultState.Success(listOf(Passenger())),
-    val notesState: ResultState<Notes> = ResultState.Success(Notes()),
+    val locoListState: ResultState<MutableList<Locomotive>?> = ResultState.Loading,
+    val trainListState: ResultState<MutableList<Train>?> = ResultState.Loading,
+    val passengerListState: ResultState<MutableList<Passenger>?> = ResultState.Loading,
+    val notesState: ResultState<Notes?> = ResultState.Loading,
     val saveRouteState : ResultState<Unit>? = null,
     val errorMessage: String? = null,
     val minTimeRest: Long? = null,
