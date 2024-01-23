@@ -43,6 +43,16 @@ class RoomRouteRepository : RouteRepositories, KoinComponent {
         }
     }
 
+    override fun loadLoco(locoId: String): Flow<ResultState<Locomotive?>> {
+        return flowMap {
+            dao.getLocoById(locoId).map { loco ->
+                ResultState.Success(
+                    loco?.let { LocomotiveConverter.toData(loco) }
+                )
+            }
+        }
+    }
+
     override fun saveRoute(route: Route): Flow<ResultState<Unit>> {
         return flowRequest{
             if (route.basicData.id.isBlank()){
@@ -99,6 +109,18 @@ class RoomRouteRepository : RouteRepositories, KoinComponent {
     override fun removeNotes(notes: Notes): Flow<ResultState<Unit>> {
         return flowRequest {
             dao.deleteNotes(NotesConverter.fromData(notes))
+        }
+    }
+
+    override fun saveLocomotive(locomotive: Locomotive): Flow<ResultState<Unit>> {
+        return flowRequest {
+            if (locomotive.locoId.isBlank()){
+                locomotive.locoId = UUID.randomUUID().toString()
+            }
+            locomotive.basicId.let {
+                locomotive.basicId = ""
+            }
+            dao.saveLocomotive(LocomotiveConverter.fromData(locomotive))
         }
     }
 }

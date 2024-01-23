@@ -1,5 +1,6 @@
 package com.example.route.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.core.ResultState
@@ -36,6 +37,7 @@ class DetailsViewModel constructor(
     }
 
     init {
+        Log.d("ZZZ", "routeId = $routeId")
         getRouteById(routeId)
     }
 

@@ -16,7 +16,8 @@ interface Router {
     fun showSearch()
     fun back()
     fun navigationUp(): Boolean
-    fun showLocoForm(locomotive: Locomotive?)
+    fun showChangedLocoForm(locomotive: Locomotive)
+    fun showEmptyLocoForm(basicId: String)
     fun showLocoDetails(locomotive: Locomotive)
     fun showTrainForm(train: Train?)
     fun showTrainDetails(train: Train)

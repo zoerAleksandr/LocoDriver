@@ -41,3 +41,15 @@ fun startIndexLastWord(text: String): Int {
     }
     return overLength
 }
+
+fun maskInKilo(string: String?): String? {
+    return string?.let {
+        "$it кг"
+    }
+}
+
+fun maskInLiter(string: String?): String? {
+    return string?.let {
+        "$it л"
+    }
+}

@@ -40,5 +40,12 @@ fun NavGraphBuilder.homeGraph(
         ){backStackEntry ->
             FormDestination(router = router, backStackEntry = backStackEntry)
         }
+
+        composablePopup(
+            route = FormLoco.route,
+            arguments = FormLoco.navArguments,
+        ){backStackEntry ->
+            FormLocoDestination(router = router, backStackEntry = backStackEntry)
+        }
     }
 }

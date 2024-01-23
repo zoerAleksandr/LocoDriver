@@ -199,4 +199,8 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
     fun onDeleteNotes(notes: Notes) {
         routeUseCase.removeNotes(notes)
     }
+
+    fun createChildEntityLocomotive(): Locomotive {
+        return Locomotive(basicId = currentRoute?.basicData?.id!!)
+    }
 }

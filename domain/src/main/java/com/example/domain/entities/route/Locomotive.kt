@@ -4,12 +4,12 @@ import java.util.UUID
 
 data class Locomotive(
     var locoId: String = UUID.randomUUID().toString(),
-    var basicId: String = "",
+    var basicId: String,
     var series: String? = null,
     var number: String? = null,
     var type: LocoType = LocoType.ELECTRIC,
     var electricSectionList: MutableList<SectionElectric> = mutableListOf(),
-    var dieselSectionList: MutableList<SectionDiesel> = mutableListOf(),
+    var dieselSectionList: MutableList<SectionDiesel> = mutableListOf(SectionDiesel()),
     var timeStartOfAcceptance: Long? = null,
     var timeEndOfAcceptance: Long? = null,
     var timeStartOfDelivery: Long? = null,

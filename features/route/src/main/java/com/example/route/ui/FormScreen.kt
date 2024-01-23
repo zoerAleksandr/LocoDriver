@@ -28,8 +28,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
@@ -55,7 +55,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -109,7 +108,8 @@ fun FormScreen(
     onTimeStartWorkChanged: (Long?) -> Unit,
     onTimeEndWorkChanged: (Long?) -> Unit,
     onRestChanged: (Boolean) -> Unit,
-    onLocoClick: (loco: Locomotive?) -> Unit,
+    onChangedLocoClick: (loco: Locomotive) -> Unit,
+    onNewLocoClick: (basicId: String) -> Unit,
     onDeleteLoco: (loco: Locomotive) -> Unit,
     onTrainClick: (train: Train?) -> Unit,
     onDeleteTrain: (train: Train) -> Unit,
@@ -127,12 +127,12 @@ fun FormScreen(
             }, navigationIcon = {
                 IconButton(onClick = onBackPressed) {
                     Icon(
-                        imageVector = Icons.Default.ArrowBack, contentDescription = "Назад"
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад"
                     )
                 }
             }, actions = {
                 ClickableText(text = AnnotatedString(text = "Сохранить"),
-                    onClick = { onSaveClick.invoke() }
+                    onClick = { onSaveClick() }
 
                 )
                 var dropDownExpanded by remember { mutableStateOf(false) }
@@ -187,7 +187,8 @@ fun FormScreen(
                                 minTimeRest = formUiState.minTimeRest,
                                 fullTimeRest = formUiState.fullTimeRest,
                                 locoListState = formUiState.locoListState,
-                                onLocoClick = onLocoClick,
+                                onChangedLocoClick = onChangedLocoClick,
+                                onNewLocoClick = onNewLocoClick,
                                 onDeleteLoco = onDeleteLoco,
                                 trainListState = formUiState.trainListState,
                                 onTrainClick = onTrainClick,
@@ -207,9 +208,9 @@ fun FormScreen(
     }
 }
 
-@OptIn(ExperimentalComposeUiApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RouteFormScreenContent(
+private fun RouteFormScreenContent(
     route: Route,
     onNumberChanged: (String) -> Unit,
     errorMessage: String?,
@@ -220,7 +221,8 @@ fun RouteFormScreenContent(
     minTimeRest: Long?,
     fullTimeRest: Long?,
     locoListState: ResultState<MutableList<Locomotive>?>,
-    onLocoClick: (loco: Locomotive?) -> Unit,
+    onChangedLocoClick: (loco: Locomotive) -> Unit,
+    onNewLocoClick: (basicId: String) -> Unit,
     onDeleteLoco: (loco: Locomotive) -> Unit,
     trainListState: ResultState<MutableList<Train>?>,
     onTrainClick: (train: Train?) -> Unit,
@@ -233,398 +235,403 @@ fun RouteFormScreenContent(
     onDeleteNotes: (notes: Notes) -> Unit
 ) {
     val scrollState = rememberLazyListState()
-    Box {
 
-        var showStartTimePicker by remember {
-            mutableStateOf(false)
-        }
+    var showStartTimePicker by remember {
+        mutableStateOf(false)
+    }
 
-        var showStartDatePicker by remember {
-            mutableStateOf(false)
-        }
+    var showStartDatePicker by remember {
+        mutableStateOf(false)
+    }
 
-        var showEndTimePicker by remember {
-            mutableStateOf(false)
-        }
+    var showEndTimePicker by remember {
+        mutableStateOf(false)
+    }
 
-        var showEndDatePicker by remember {
-            mutableStateOf(false)
-        }
+    var showEndDatePicker by remember {
+        mutableStateOf(false)
+    }
 
-        val startCalendar by remember {
-            mutableStateOf(Calendar.getInstance())
-        }
+    val startCalendar by remember {
+        mutableStateOf(Calendar.getInstance())
+    }
 
-        val startTimePickerState = rememberTimePickerState(
-            initialHour = startCalendar.get(Calendar.HOUR),
-            initialMinute = startCalendar.get(Calendar.MINUTE),
-            is24Hour = true
-        )
+    val startTimePickerState = rememberTimePickerState(
+        initialHour = startCalendar.get(Calendar.HOUR),
+        initialMinute = startCalendar.get(Calendar.MINUTE),
+        is24Hour = true
+    )
 
-        val startDatePickerState =
-            rememberDatePickerState(initialSelectedDateMillis = startCalendar.timeInMillis)
+    val startDatePickerState =
+        rememberDatePickerState(initialSelectedDateMillis = startCalendar.timeInMillis)
 
-        if (showStartTimePicker) {
-            TimePickerDialog(timePickerState = startTimePickerState,
-                onDismissRequest = { showStartTimePicker = false },
-                onConfirmRequest = {
-                    showStartTimePicker = false
-                    startCalendar.set(Calendar.HOUR, startTimePickerState.hour)
-                    startCalendar.set(Calendar.MINUTE, startTimePickerState.minute)
-                    onTimeStartWorkChanged(startCalendar.timeInMillis)
+    if (showStartTimePicker) {
+        TimePickerDialog(timePickerState = startTimePickerState,
+            onDismissRequest = { showStartTimePicker = false },
+            onConfirmRequest = {
+                showStartTimePicker = false
+                startCalendar.set(Calendar.HOUR, startTimePickerState.hour)
+                startCalendar.set(Calendar.MINUTE, startTimePickerState.minute)
+                onTimeStartWorkChanged(startCalendar.timeInMillis)
 
-                })
-        }
-
-        if (showStartDatePicker) {
-            DatePickerDialog(datePickerState = startDatePickerState, onDismissRequest = {
-                showStartDatePicker = false
-            }, onConfirmRequest = {
-                showStartDatePicker = false
-                showStartTimePicker = true
-                startCalendar.timeInMillis = startDatePickerState.selectedDateMillis!!
-            }, onClearRequest = {
-                showStartDatePicker = false
-                onTimeStartWorkChanged(null)
             })
-        }
+    }
 
-        val endCalendar by remember {
-            mutableStateOf(Calendar.getInstance())
-        }
+    if (showStartDatePicker) {
+        DatePickerDialog(datePickerState = startDatePickerState, onDismissRequest = {
+            showStartDatePicker = false
+        }, onConfirmRequest = {
+            showStartDatePicker = false
+            showStartTimePicker = true
+            startCalendar.timeInMillis = startDatePickerState.selectedDateMillis!!
+        }, onClearRequest = {
+            showStartDatePicker = false
+            onTimeStartWorkChanged(null)
+        })
+    }
 
-        val endTimePickerState = rememberTimePickerState(
-            initialHour = endCalendar.get(Calendar.HOUR),
-            initialMinute = endCalendar.get(Calendar.MINUTE),
-            is24Hour = true
+    val endCalendar by remember {
+        mutableStateOf(Calendar.getInstance())
+    }
+
+    val endTimePickerState = rememberTimePickerState(
+        initialHour = endCalendar.get(Calendar.HOUR),
+        initialMinute = endCalendar.get(Calendar.MINUTE),
+        is24Hour = true
+    )
+
+    val endDatePickerState =
+        rememberDatePickerState(initialSelectedDateMillis = endCalendar.timeInMillis)
+
+    if (showEndTimePicker) {
+        TimePickerDialog(
+            timePickerState = endTimePickerState,
+            onDismissRequest = { showEndTimePicker = false },
+            onConfirmRequest = {
+                showEndTimePicker = false
+                endCalendar.set(Calendar.HOUR, endTimePickerState.hour)
+                endCalendar.set(Calendar.MINUTE, endTimePickerState.minute)
+                onTimeEndWorkChanged(endCalendar.timeInMillis)
+            }
         )
+    }
 
-        val endDatePickerState =
-            rememberDatePickerState(initialSelectedDateMillis = endCalendar.timeInMillis)
-
-        if (showEndTimePicker) {
-            TimePickerDialog(
-                timePickerState = endTimePickerState,
-                onDismissRequest = { showEndTimePicker = false },
-                onConfirmRequest = {
-                    showEndTimePicker = false
-                    endCalendar.set(Calendar.HOUR, endTimePickerState.hour)
-                    endCalendar.set(Calendar.MINUTE, endTimePickerState.minute)
-                    onTimeEndWorkChanged(endCalendar.timeInMillis)
-                }
-            )
-        }
-
-        if (showEndDatePicker) {
-            DatePickerDialog(
-                datePickerState = endDatePickerState,
-                onDismissRequest = {
-                    showEndDatePicker = false
-                },
-                onConfirmRequest = {
-                    showEndDatePicker = false
-                    showEndTimePicker = true
-                    endCalendar.timeInMillis = endDatePickerState.selectedDateMillis!!
-                },
-                onClearRequest = {
-                    showEndDatePicker = false
-                    onTimeEndWorkChanged(null)
-                }
-            )
-        }
-
-        AnimatedVisibility(
-            modifier = Modifier
-                .zIndex(1f),
-            visible = !scrollState.isScrollInInitialState(),
-            enter = fadeIn(animationSpec = tween(durationMillis = 300)),
-            exit = fadeOut(animationSpec = tween(durationMillis = 300))
-        ) {
-            BottomShadow()
-        }
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            state = scrollState,
-        ) {
-            val startTimeInLong = route.basicData.timeStartWork
-            val endTimeInLong = route.basicData.timeEndWork
-            val workTimeInLong = endTimeInLong - startTimeInLong
-            val workTimeInFormatted = ConverterLongToTime.getTimeInStringFormat(workTimeInLong)
-
-            item {
-                Row(
-                    modifier = Modifier.padding(24.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    errorMessage?.let { message ->
-                        Icon(
-                            imageVector = Icons.Default.Warning,
-                            tint = MaterialTheme.colorScheme.error,
-                            contentDescription = "Ошибка"
-                        )
-                        Text(
-                            modifier = Modifier.padding(start = 8.dp),
-                            text = message,
-                        )
-                    } ?: Text(text = workTimeInFormatted, style = AppTypography.getType().bodyLarge)
-
-                }
+    if (showEndDatePicker) {
+        DatePickerDialog(
+            datePickerState = endDatePickerState,
+            onDismissRequest = {
+                showEndDatePicker = false
+            },
+            onConfirmRequest = {
+                showEndDatePicker = false
+                showEndTimePicker = true
+                endCalendar.timeInMillis = endDatePickerState.selectedDateMillis!!
+            },
+            onClearRequest = {
+                showEndDatePicker = false
+                onTimeEndWorkChanged(null)
             }
+        )
+    }
 
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    Column(modifier = Modifier
-                        .clickable {
-                            showStartDatePicker = true
-                        }
-                        .border(
-                            width = 1.dp,
-                            shape = Shapes.small,
-                            color = MaterialTheme.colorScheme.outline
-                        )
-                        .padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        val dateStartText = startTimeInLong?.let { millis ->
-                            SimpleDateFormat(
-                                DateAndTimeFormat.DATE_FORMAT, Locale.getDefault()
-                            ).format(
-                                millis
-                            )
-                        } ?: DateAndTimeFormat.DEFAULT_DATE_TEXT
+    AnimatedVisibility(
+        modifier = Modifier
+            .zIndex(1f),
+        visible = !scrollState.isScrollInInitialState(),
+        enter = fadeIn(animationSpec = tween(durationMillis = 300)),
+        exit = fadeOut(animationSpec = tween(durationMillis = 300))
+    ) {
+        BottomShadow()
+    }
 
-                        Text(
-                            text = dateStartText,
-                            style = AppTypography.getType().bodyLarge,
-                        )
-                        startTimeInLong?.let { millis ->
-                            val time = SimpleDateFormat(
-                                DateAndTimeFormat.TIME_FORMAT, Locale.getDefault()
-                            ).format(millis)
-                            Text(
-                                text = time,
-                                style = AppTypography.getType().bodyLarge,
-                            )
-                        }
-                    }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        state = scrollState,
+    ) {
+        val startTimeInLong = route.basicData.timeStartWork
+        val endTimeInLong = route.basicData.timeEndWork
+        val workTimeInLong = endTimeInLong - startTimeInLong
+        val workTimeInFormatted = ConverterLongToTime.getTimeInStringFormat(workTimeInLong)
 
-                    Column(modifier = Modifier
-                        .clickable {
-                            showEndDatePicker = true
-                        }
-                        .border(
-                            width = 1.dp,
-                            shape = Shapes.small,
-                            color = MaterialTheme.colorScheme.outline
-                        )
-                        .padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        val dateStartText = endTimeInLong?.let { millis ->
-                            SimpleDateFormat(
-                                DateAndTimeFormat.DATE_FORMAT, Locale.getDefault()
-                            ).format(
-                                millis
-                            )
-                        } ?: DateAndTimeFormat.DEFAULT_DATE_TEXT
-
-                        Text(
-                            text = dateStartText,
-                            style = AppTypography.getType().bodyLarge,
-                        )
-                        endTimeInLong?.let { millis ->
-                            val time = SimpleDateFormat(
-                                DateAndTimeFormat.TIME_FORMAT, Locale.getDefault()
-                            ).format(millis)
-                            Text(
-                                text = time,
-                                style = AppTypography.getType().bodyLarge,
-                            )
-                        }
-                    }
-                }
-            }
-
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(end = 16.dp, top = 24.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.End
-                ) {
+        item {
+            Row(
+                modifier = Modifier.padding(24.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                errorMessage?.let { message ->
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        tint = MaterialTheme.colorScheme.error,
+                        contentDescription = "Ошибка"
+                    )
                     Text(
-                        modifier = Modifier
-                            .padding(end = 8.dp),
-                        text = stringResource(id = R.string.text_switсh_onRest)
+                        modifier = Modifier.padding(start = 8.dp),
+                        text = message,
                     )
+                } ?: Text(text = workTimeInFormatted, style = AppTypography.getType().bodyLarge)
 
-                    Switch(
-                        checked = route.basicData.restPointOfTurnover,
-                        onCheckedChange = {
-                            onRestChanged(it)
-                        },
-                    )
-                }
             }
+        }
 
-            val minTimeRestText = ConverterLongToTime.getDateAndTimeStringFormat(minTimeRest)
-            val fullTimeRestText = ConverterLongToTime.getDateAndTimeStringFormat(fullTimeRest)
-
-            item {
-                val link = buildAnnotatedString {
-                    val text =
-                        stringResource(id = R.string.info_text_min_time_rest, minTimeRestText)
-
-                    val endIndex = text.length - 1
-                    val startIndex = startIndexLastWord(text)
-
-                    append(text)
-                    addStyle(
-                        style = SpanStyle(
-                            color = MaterialTheme.colorScheme.tertiary,
-                            textDecoration = TextDecoration.Underline
-                        ), start = startIndex, end = endIndex
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                Column(modifier = Modifier
+                    .clickable {
+                        showStartDatePicker = true
+                    }
+                    .border(
+                        width = 1.dp,
+                        shape = Shapes.small,
+                        color = MaterialTheme.colorScheme.outline
                     )
+                    .padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    val dateStartText = startTimeInLong?.let { millis ->
+                        SimpleDateFormat(
+                            DateAndTimeFormat.DATE_FORMAT, Locale.getDefault()
+                        ).format(
+                            millis
+                        )
+                    } ?: DateAndTimeFormat.DEFAULT_DATE_TEXT
 
-                    addStringAnnotation(
-                        tag = LINK_TO_SETTING,
-                        annotation = LINK_TO_SETTING,
-                        start = startIndex,
-                        end = endIndex
+                    Text(
+                        text = dateStartText,
+                        style = AppTypography.getType().bodyLarge,
                     )
+                    startTimeInLong?.let { millis ->
+                        val time = SimpleDateFormat(
+                            DateAndTimeFormat.TIME_FORMAT, Locale.getDefault()
+                        ).format(millis)
+                        Text(
+                            text = time,
+                            style = AppTypography.getType().bodyLarge,
+                        )
+                    }
                 }
-                AnimatedVisibility(
-                    visible = route.basicData.restPointOfTurnover,
-                    enter = slideInHorizontally(animationSpec = tween(durationMillis = 300))
-                            + fadeIn(animationSpec = tween(durationMillis = 300)),
-                    exit = slideOutHorizontally(animationSpec = tween(durationMillis = 300))
-                            + fadeOut(animationSpec = tween(durationMillis = 150)),
-                    label = ""
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f)),
-                        horizontalAlignment = Alignment.Start
-                    ) {
-                        Icon(
-                            modifier = Modifier.padding(
-                                top = 16.dp,
-                                start = 16.dp,
-                                bottom = 8.dp
-                            ),
-                            imageVector = Icons.Default.Info,
-                            tint = MaterialTheme.colorScheme.tertiary,
-                            contentDescription = null
-                        )
 
+                Column(modifier = Modifier
+                    .clickable {
+                        showEndDatePicker = true
+                    }
+                    .border(
+                        width = 1.dp,
+                        shape = Shapes.small,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                    .padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    val dateStartText = endTimeInLong?.let { millis ->
+                        SimpleDateFormat(
+                            DateAndTimeFormat.DATE_FORMAT, Locale.getDefault()
+                        ).format(
+                            millis
+                        )
+                    } ?: DateAndTimeFormat.DEFAULT_DATE_TEXT
+
+                    Text(
+                        text = dateStartText,
+                        style = AppTypography.getType().bodyLarge,
+                    )
+                    endTimeInLong?.let { millis ->
+                        val time = SimpleDateFormat(
+                            DateAndTimeFormat.TIME_FORMAT, Locale.getDefault()
+                        ).format(millis)
                         Text(
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            text = stringResource(
-                                id = R.string.min_time_rest_text,
-                                minTimeRestText
-                            ),
-                            style = AppTypography.getType().bodyMedium,
-                            textAlign = TextAlign.End
+                            text = time,
+                            style = AppTypography.getType().bodyLarge,
                         )
-
-                        Text(
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            text = stringResource(
-                                id = R.string.complete_time_rest_text,
-                                fullTimeRestText
-                            ),
-                            style = AppTypography.getType().bodyMedium,
-                            textAlign = TextAlign.End
-                        )
-
-                        ClickableText(
-                            modifier = Modifier.padding(
-                                start = 16.dp,
-                                bottom = 16.dp,
-                                end = 16.dp,
-                                top = 12.dp
-                            ),
-                            text = link,
-                            style = AppTypography.getType().bodySmall
-                                .copy(
-                                    fontStyle = FontStyle.Italic,
-                                    color = MaterialTheme.colorScheme.onBackground
-                                ),
-                        ) {
-                            link.getStringAnnotations(LINK_TO_SETTING, it, it)
-                                .firstOrNull()?.let {
-                                    onSettingClick()
-                                }
-                        }
                     }
                 }
             }
-            item {
-                val keyboardController = LocalSoftwareKeyboardController.current
-                val focusManager = LocalFocusManager.current
+        }
 
-                OutlinedTextField(
-                    value = route.basicData.number ?: "",
-                    onValueChange = onNumberChanged,
-                    singleLine = true,
-                    placeholder = {
-                        Text(text = "маршрута")
-                    },
-                    prefix = {
-                        Text(text = "№")
-                    },
-                    keyboardActions = KeyboardActions(onDone = {
-                        keyboardController?.hide()
-                        focusManager.clearFocus()
-                    }),
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = 16.dp, top = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.End
+            ) {
+                Text(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 12.dp, horizontal = 16.dp),
-                    keyboardOptions = KeyboardOptions.Default.copy(capitalization = KeyboardCapitalization.Words),
+                        .padding(end = 8.dp),
+                    text = stringResource(id = R.string.text_switсh_onRest)
+                )
+
+                Switch(
+                    checked = route.basicData.restPointOfTurnover,
+                    onCheckedChange = {
+                        onRestChanged(it)
+                    },
                 )
             }
-            item {
+        }
+
+        val minTimeRestText = ConverterLongToTime.getDateAndTimeStringFormat(minTimeRest)
+        val fullTimeRestText = ConverterLongToTime.getDateAndTimeStringFormat(fullTimeRest)
+
+        item {
+            val link = buildAnnotatedString {
+                val text =
+                    stringResource(id = R.string.info_text_min_time_rest, minTimeRestText)
+
+                val endIndex = text.length - 1
+                val startIndex = startIndexLastWord(text)
+
+                append(text)
+                addStyle(
+                    style = SpanStyle(
+                        color = MaterialTheme.colorScheme.tertiary,
+                        textDecoration = TextDecoration.Underline
+                    ), start = startIndex, end = endIndex
+                )
+
+                addStringAnnotation(
+                    tag = LINK_TO_SETTING,
+                    annotation = LINK_TO_SETTING,
+                    start = startIndex,
+                    end = endIndex
+                )
+            }
+            AnimatedVisibility(
+                visible = route.basicData.restPointOfTurnover,
+                enter = slideInHorizontally(animationSpec = tween(durationMillis = 300))
+                        + fadeIn(animationSpec = tween(durationMillis = 300)),
+                exit = slideOutHorizontally(animationSpec = tween(durationMillis = 300))
+                        + fadeOut(animationSpec = tween(durationMillis = 150)),
+                label = ""
+            ) {
                 Column(
                     modifier = Modifier
-                        .padding(bottom = 32.dp)
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f)),
+                    horizontalAlignment = Alignment.Start
                 ) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    ItemAddingScreen(
-                        title = stringResource(id = R.string.locomotive),
-                        contentListState = locoListState,
-                        onClick = onLocoClick,
-                        onDeleteClick = onDeleteLoco
-                    ) { index, locomotive ->
-                        LocomotiveSubItem(locomotive, index)
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    ItemAddingScreen(
-                        stringResource(id = R.string.locomotive),
-                        trainListState,
-                        onTrainClick,
-                        onDeleteTrain,
-                    ) { index, train ->
-                        TrainSubItem(index, train)
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    ItemAddingScreen(
-                        stringResource(id = R.string.passenger),
-                        passengerListState,
-                        onPassengerClick,
-                        onDeletePassenger
-                    ) { index, passenger ->
-                        PassengerSubItem(index, passenger)
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    ItemNotes(
-                        notesState,
-                        onNotesClick,
-                        onDeleteNotes,
+                    Icon(
+                        modifier = Modifier.padding(
+                            top = 16.dp,
+                            start = 16.dp,
+                            bottom = 8.dp
+                        ),
+                        imageVector = Icons.Default.Info,
+                        tint = MaterialTheme.colorScheme.tertiary,
+                        contentDescription = null
                     )
+
+                    Text(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        text = stringResource(
+                            id = R.string.min_time_rest_text,
+                            minTimeRestText
+                        ),
+                        style = AppTypography.getType().bodyMedium,
+                        textAlign = TextAlign.End
+                    )
+
+                    Text(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        text = stringResource(
+                            id = R.string.complete_time_rest_text,
+                            fullTimeRestText
+                        ),
+                        style = AppTypography.getType().bodyMedium,
+                        textAlign = TextAlign.End
+                    )
+
+                    ClickableText(
+                        modifier = Modifier.padding(
+                            start = 16.dp,
+                            bottom = 16.dp,
+                            end = 16.dp,
+                            top = 12.dp
+                        ),
+                        text = link,
+                        style = AppTypography.getType().bodySmall
+                            .copy(
+                                fontStyle = FontStyle.Italic,
+                                color = MaterialTheme.colorScheme.onBackground
+                            ),
+                    ) {
+                        link.getStringAnnotations(LINK_TO_SETTING, it, it)
+                            .firstOrNull()?.let {
+                                onSettingClick()
+                            }
+                    }
                 }
+            }
+        }
+        item {
+            val keyboardController = LocalSoftwareKeyboardController.current
+            val focusManager = LocalFocusManager.current
+
+            OutlinedTextField(
+                value = route.basicData.number ?: "",
+                onValueChange = onNumberChanged,
+                singleLine = true,
+                placeholder = {
+                    Text(text = "маршрута")
+                },
+                prefix = {
+                    Text(text = "№")
+                },
+                keyboardActions = KeyboardActions(onDone = {
+                    keyboardController?.hide()
+                    focusManager.clearFocus()
+                }),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp, horizontal = 16.dp),
+                keyboardOptions = KeyboardOptions.Default.copy(capitalization = KeyboardCapitalization.Words),
+            )
+        }
+        item {
+            Column(
+                modifier = Modifier
+                    .padding(bottom = 32.dp)
+            ) {
+                val basicId = route.basicData.id
+                Spacer(modifier = Modifier.height(10.dp))
+                ItemAddingScreen(
+                    title = stringResource(id = R.string.locomotive),
+                    contentListState = locoListState,
+                    onChangedElementClick = onChangedLocoClick,
+                    onNewElementClick = onNewLocoClick,
+                    basicId = basicId,
+                    onDeleteClick = onDeleteLoco
+                ) { index, locomotive ->
+                    LocomotiveSubItem(locomotive, index)
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                ItemAddingScreen(
+                    title = stringResource(id = R.string.train),
+                    contentListState = trainListState,
+                    onChangedElementClick = onTrainClick,
+                    onNewElementClick = {},
+                    basicId = basicId,
+                    onDeleteClick = onDeleteTrain
+                ) { index, train ->
+                    TrainSubItem(index, train)
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                ItemAddingScreen(
+                    title = stringResource(id = R.string.passenger),
+                    contentListState = passengerListState,
+                    onChangedElementClick = onPassengerClick,
+                    onNewElementClick = {},
+                    basicId = basicId,
+                    onDeleteClick = onDeletePassenger
+                ) { index, passenger ->
+                    PassengerSubItem(index, passenger)
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                ItemNotes(
+                    notesState,
+                    onNotesClick,
+                    onDeleteNotes,
+                )
             }
         }
     }
@@ -634,7 +641,9 @@ fun RouteFormScreenContent(
 fun <T> ItemAddingScreen(
     title: String,
     contentListState: ResultState<MutableList<T>?>,
-    onClick: (element: T?) -> Unit,
+    onChangedElementClick: (element: T) -> Unit,
+    onNewElementClick: (basicId: String) -> Unit,
+    basicId: String,
     onDeleteClick: (element: T) -> Unit,
     subItem: @Composable RowScope.(index: Int, element: T) -> Unit
 ) {
@@ -653,7 +662,7 @@ fun <T> ItemAddingScreen(
                 text = title,
                 style = AppTypography.getType().titleLarge
             )
-            IconButton(onClick = { onClick(null) }) {
+            IconButton(onClick = { onNewElementClick(basicId) }  ) {
                 Icon(imageVector = Icons.Default.Add, contentDescription = null)
             }
         }
@@ -669,9 +678,10 @@ fun <T> ItemAddingScreen(
                         Row(
                             modifier = Modifier
                                 .padding(bottom = 6.dp)
-                                .fillMaxWidth(),
+                                .fillMaxWidth()
+                                .clickable { onChangedElementClick(element) },
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             subItem(index, element)
                             IconButton(onClick = { onDeleteClick(element) }) {

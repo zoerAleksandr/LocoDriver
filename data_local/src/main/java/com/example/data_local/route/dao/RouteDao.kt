@@ -77,4 +77,7 @@ internal interface RouteDao {
     @Transaction
     @Query("SELECT * FROM BasicData")
     fun getListItineraryByMonth(): Flow<List<Route>>
+
+    @Query("SELECT * FROM Locomotive WHERE locoId = :locoId")
+    fun getLocoById(locoId: String): Flow<Locomotive?>
 }

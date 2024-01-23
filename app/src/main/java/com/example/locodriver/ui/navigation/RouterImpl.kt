@@ -11,6 +11,7 @@ import com.example.domain.navigation.Router
 import com.example.login.navigation.LoginFeature
 import com.example.login.navigation.LoginScreenRoute
 import com.example.route.navigation.DetailsRoute
+import com.example.route.navigation.FormLoco
 import com.example.route.navigation.FormRoute
 import com.example.route.navigation.HomeRoute
 import com.example.settings.navigation.SettingsFeature
@@ -61,8 +62,16 @@ class RouterImpl(
         return navController.navigateUp()
     }
 
-    override fun showLocoForm(locomotive: Locomotive?) {
-        TODO("Not yet implemented")
+    override fun showChangedLocoForm(locomotive: Locomotive) {
+        navController.navigate(
+            FormLoco.buildDetailsRoute(locomotive.locoId, locomotive.basicId)
+        )
+    }
+
+    override fun showEmptyLocoForm(basicId: String) {
+        navController.navigate(
+            FormLoco.buildDetailsRoute(locoId = null, basicId = basicId)
+        )
     }
 
     override fun showLocoDetails(locomotive: Locomotive) {
