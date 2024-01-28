@@ -66,5 +66,6 @@ dependencies {
 
     implementation(Libs.coil_compose)
     implementation(Libs.reveal_swipe)
+    implementation(project(mapOf("path" to ":data_local")))
 
 }

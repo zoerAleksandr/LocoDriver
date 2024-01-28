@@ -9,6 +9,8 @@ import com.example.domain.entities.route.Notes
 import com.example.domain.entities.route.Passenger
 import com.example.domain.entities.route.Route
 import com.example.domain.entities.route.Train
+import com.example.domain.use_cases.LocomotiveUseCase
+import com.example.domain.use_cases.PreSaveLocomotiveUseCase
 import com.example.domain.use_cases.RouteUseCase
 import com.example.domain.use_cases.SettingsUseCase
 import com.example.route.Const.NULLABLE_ID
@@ -24,6 +26,8 @@ import org.koin.core.component.inject
 class FormViewModel constructor(private val routeId: String?) : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
+    private val locomotiveUseCase: LocomotiveUseCase by inject()
+    private val preLocomotiveUseCase: PreSaveLocomotiveUseCase by inject()
 
     private val _uiState = MutableStateFlow(RouteFormUiState())
     val uiState = _uiState.asStateFlow()
@@ -32,7 +36,7 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
     private var loadRouteJob: Job? = null
     private var saveRouteJob: Job? = null
     private var loadSettingsJob: Job? = null
-
+    private var loadPreSaveJob: Job? = null
     var currentRoute: Route?
         get() {
             return _uiState.value.routeDetailState.let {
@@ -43,10 +47,6 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
             _uiState.update {
                 it.copy(
                     routeDetailState = ResultState.Success(value),
-                    locoListState = ResultState.Success(value?.locomotives),
-                    trainListState = ResultState.Success(value?.trains),
-                    passengerListState = ResultState.Success(value?.passengers),
-                    notesState = ResultState.Success(value?.notes)
                 )
             }
         }
@@ -70,6 +70,16 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
             loadRoute(routeId!!)
         }
         loadSettings()
+        loadPreSaveData()
+    }
+
+    private fun loadPreSaveData() {
+        val state = _uiState.value.routeDetailState
+        if (state is ResultState.Success) {
+            state.data?.let { route ->
+                loadPreSaveLocomotive(route.basicData.id)
+            }
+        }
     }
 
     fun resetSaveState() {
@@ -100,6 +110,11 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
         }.launchIn(viewModelScope)
     }
 
+    private fun clearPreSaveRepository() {
+        preLocomotiveUseCase.clearRepository().launchIn(viewModelScope)
+    }
+
+
     fun saveRoute() {
         val state = _uiState.value.routeDetailState
         if (state is ResultState.Success) {
@@ -109,9 +124,25 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
                     _uiState.update {
                         it.copy(saveRouteState = saveRouteState)
                     }
+                    if (saveRouteState is ResultState.Success) {
+                        clearPreSaveRepository()
+                    }
+
                 }.launchIn(viewModelScope)
             }
         }
+    }
+
+    private fun loadPreSaveLocomotive(basicId: String) {
+        loadPreSaveJob?.cancel()
+        loadPreSaveJob = locomotiveUseCase.getAllLocomotiveFromPreSave(basicId)
+            .onEach { resultState ->
+                if (resultState is ResultState.Success) {
+                    currentRoute = currentRoute?.copy(
+                        locomotives = resultState.data.toMutableList()
+                    )
+                }
+            }.launchIn(viewModelScope)
     }
 
     fun setNumber(value: String) {
@@ -198,9 +229,5 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
 
     fun onDeleteNotes(notes: Notes) {
         routeUseCase.removeNotes(notes)
-    }
-
-    fun createChildEntityLocomotive(): Locomotive {
-        return Locomotive(basicId = currentRoute?.basicData?.id!!)
     }
 }

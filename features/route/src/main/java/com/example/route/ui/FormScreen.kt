@@ -1,5 +1,6 @@
 package com.example.route.ui
 
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -127,7 +128,8 @@ fun FormScreen(
             }, navigationIcon = {
                 IconButton(onClick = onBackPressed) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад"
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Назад"
                     )
                 }
             }, actions = {
@@ -186,17 +188,17 @@ fun FormScreen(
                                 onSettingClick = onSettingClick,
                                 minTimeRest = formUiState.minTimeRest,
                                 fullTimeRest = formUiState.fullTimeRest,
-                                locoListState = formUiState.locoListState,
+                                locoListState = route.locomotives,
                                 onChangedLocoClick = onChangedLocoClick,
                                 onNewLocoClick = onNewLocoClick,
                                 onDeleteLoco = onDeleteLoco,
-                                trainListState = formUiState.trainListState,
+                                trainListState = route.trains,
                                 onTrainClick = onTrainClick,
                                 onDeleteTrain = onDeleteTrain,
-                                passengerListState = formUiState.passengerListState,
+                                passengerListState = route.passengers,
                                 onPassengerClick = onPassengerClick,
                                 onDeletePassenger = onDeletePassenger,
-                                notesState = formUiState.notesState,
+                                notesState = route.notes,
                                 onNotesClick = onNotesClick,
                                 onDeleteNotes = onDeleteNotes
                             )
@@ -220,20 +222,21 @@ private fun RouteFormScreenContent(
     onSettingClick: () -> Unit,
     minTimeRest: Long?,
     fullTimeRest: Long?,
-    locoListState: ResultState<MutableList<Locomotive>?>,
+    locoListState: List<Locomotive>?,
     onChangedLocoClick: (loco: Locomotive) -> Unit,
     onNewLocoClick: (basicId: String) -> Unit,
     onDeleteLoco: (loco: Locomotive) -> Unit,
-    trainListState: ResultState<MutableList<Train>?>,
+    trainListState: List<Train>?,
     onTrainClick: (train: Train?) -> Unit,
     onDeleteTrain: (train: Train) -> Unit,
-    passengerListState: ResultState<MutableList<Passenger>?>,
+    passengerListState: List<Passenger>?,
     onPassengerClick: (passenger: Passenger?) -> Unit,
     onDeletePassenger: (passenger: Passenger) -> Unit,
-    notesState: ResultState<Notes?>,
+    notesState: Notes?,
     onNotesClick: (notes: Notes?) -> Unit,
     onDeleteNotes: (notes: Notes) -> Unit
 ) {
+    Log.d("ZZZ", "list loco = $locoListState")
     val scrollState = rememberLazyListState()
 
     var showStartTimePicker by remember {
@@ -596,7 +599,7 @@ private fun RouteFormScreenContent(
                 Spacer(modifier = Modifier.height(10.dp))
                 ItemAddingScreen(
                     title = stringResource(id = R.string.locomotive),
-                    contentListState = locoListState,
+                    contentList = locoListState,
                     onChangedElementClick = onChangedLocoClick,
                     onNewElementClick = onNewLocoClick,
                     basicId = basicId,
@@ -607,7 +610,7 @@ private fun RouteFormScreenContent(
                 Spacer(modifier = Modifier.height(16.dp))
                 ItemAddingScreen(
                     title = stringResource(id = R.string.train),
-                    contentListState = trainListState,
+                    contentList = trainListState,
                     onChangedElementClick = onTrainClick,
                     onNewElementClick = {},
                     basicId = basicId,
@@ -618,7 +621,7 @@ private fun RouteFormScreenContent(
                 Spacer(modifier = Modifier.height(16.dp))
                 ItemAddingScreen(
                     title = stringResource(id = R.string.passenger),
-                    contentListState = passengerListState,
+                    contentList = passengerListState,
                     onChangedElementClick = onPassengerClick,
                     onNewElementClick = {},
                     basicId = basicId,
@@ -640,7 +643,7 @@ private fun RouteFormScreenContent(
 @Composable
 fun <T> ItemAddingScreen(
     title: String,
-    contentListState: ResultState<MutableList<T>?>,
+    contentList: List<T>?,
     onChangedElementClick: (element: T) -> Unit,
     onNewElementClick: (basicId: String) -> Unit,
     basicId: String,
@@ -662,35 +665,32 @@ fun <T> ItemAddingScreen(
                 text = title,
                 style = AppTypography.getType().titleLarge
             )
-            IconButton(onClick = { onNewElementClick(basicId) }  ) {
+            IconButton(onClick = { onNewElementClick(basicId) }) {
                 Icon(imageVector = Icons.Default.Add, contentDescription = null)
             }
         }
-
-        AsyncData(resultState = contentListState) { list ->
-            list?.let { elements ->
-                Column(
-                    modifier = Modifier
-                        .padding(start = 24.dp, end = 24.dp, top = 12.dp)
-                        .fillMaxWidth()
-                ) {
-                    elements.forEachIndexed { index, element ->
-                        Row(
-                            modifier = Modifier
-                                .padding(bottom = 6.dp)
-                                .fillMaxWidth()
-                                .clickable { onChangedElementClick(element) },
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            subItem(index, element)
-                            IconButton(onClick = { onDeleteClick(element) }) {
-                                Icon(imageVector = Icons.Default.Delete, contentDescription = null)
-                            }
+        contentList?.let { elements ->
+            Column(
+                modifier = Modifier
+                    .padding(start = 24.dp, end = 24.dp, top = 12.dp)
+                    .fillMaxWidth()
+            ) {
+                elements.forEachIndexed { index, element ->
+                    Row(
+                        modifier = Modifier
+                            .padding(bottom = 6.dp)
+                            .fillMaxWidth()
+                            .clickable { onChangedElementClick(element) },
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        subItem(index, element)
+                        IconButton(onClick = { onDeleteClick(element) }) {
+                            Icon(imageVector = Icons.Default.Delete, contentDescription = null)
                         }
-                        if (index != elements.lastIndex) {
-                            Divider()
-                        }
+                    }
+                    if (index != elements.lastIndex) {
+                        Divider()
                     }
                 }
             }
@@ -733,7 +733,7 @@ private fun PassengerSubItem(index: Int, passenger: Passenger) {
 
 @Composable
 fun ItemNotes(
-    notesState: ResultState<Notes?>,
+    notes: Notes?,
     onNotesClick: (notes: Notes?) -> Unit,
     onDeleteNotes: (notes: Notes) -> Unit,
 ) {
@@ -756,25 +756,23 @@ fun ItemNotes(
                 Icon(imageVector = Icons.Default.Add, contentDescription = null)
             }
         }
-        AsyncData(resultState = notesState) { notes ->
-            notes?.let {
-                Row(
+        notes?.let {
+            Row(
+                modifier = Modifier
+                    .padding(start = 24.dp, end = 24.dp, top = 12.dp)
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
                     modifier = Modifier
-                        .padding(start = 24.dp, end = 24.dp, top = 12.dp)
-                        .fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        modifier = Modifier
-                            .padding(bottom = 8.dp),
-                        text = it.text ?: "",
-                        overflow = TextOverflow.Ellipsis,
-                        maxLines = 2
-                    )
-                    IconButton(onClick = { onDeleteNotes(it) }) {
-                        Icon(imageVector = Icons.Default.Delete, contentDescription = null)
-                    }
+                        .padding(bottom = 8.dp),
+                    text = it.text ?: "",
+                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 2
+                )
+                IconButton(onClick = { onDeleteNotes(it) }) {
+                    Icon(imageVector = Icons.Default.Delete, contentDescription = null)
                 }
             }
         }

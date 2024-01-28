@@ -9,7 +9,7 @@ data class Locomotive(
     var number: String? = null,
     var type: LocoType = LocoType.ELECTRIC,
     var electricSectionList: MutableList<SectionElectric> = mutableListOf(),
-    var dieselSectionList: MutableList<SectionDiesel> = mutableListOf(SectionDiesel()),
+    var dieselSectionList: MutableList<SectionDiesel> = mutableListOf(),
     var timeStartOfAcceptance: Long? = null,
     var timeEndOfAcceptance: Long? = null,
     var timeStartOfDelivery: Long? = null,

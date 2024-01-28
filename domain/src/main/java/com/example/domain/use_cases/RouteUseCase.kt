@@ -7,7 +7,7 @@ import com.example.domain.entities.route.Notes
 import com.example.domain.entities.route.Passenger
 import com.example.domain.entities.route.Route
 import com.example.domain.entities.route.Train
-import com.example.domain.repositories.RouteRepositories
+import com.example.domain.repositories.RouteRepository
 import com.example.domain.util.moreThan
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -15,7 +15,7 @@ import com.example.domain.util.minus
 import com.example.domain.util.div
 import com.example.domain.util.plus
 
-class RouteUseCase(private val repository: RouteRepositories) {
+class RouteUseCase(private val repository: RouteRepository) {
     fun listRoutes(): Flow<ResultState<List<Route>>> {
         return repository.loadRoutes()
     }

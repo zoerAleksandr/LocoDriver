@@ -68,8 +68,8 @@ import com.example.core.ui.theme.Shapes
 import com.example.core.ui.theme.custom.AppTypography
 import com.example.core.util.DateAndTimeFormat
 import com.example.domain.entities.route.LocoType
-import com.example.domain.entities.route.Locomotive
 import com.example.domain.entities.route.SectionDiesel
+import com.example.domain.entities.route.pre_save.PreLocomotive
 import com.example.domain.util.CalculationEnergy
 import com.example.domain.util.str
 import com.example.route.R
@@ -88,7 +88,7 @@ import com.example.domain.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FormLocoScreen(
-    currentLoco: Locomotive?,
+    currentLoco: PreLocomotive?,
     onBackPressed: () -> Unit,
     onSaveClick: () -> Unit,
     onLocoSaved: () -> Unit,
@@ -249,7 +249,7 @@ fun FormLocoScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LocoFormScreenContent(
-    locomotive: Locomotive,
+    locomotive: PreLocomotive,
     onNumberChanged: (String) -> Unit,
     onSeriesChanged: (String) -> Unit,
     onTypeLocoChanged: (Int) -> Unit,
