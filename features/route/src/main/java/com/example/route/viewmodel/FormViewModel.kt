@@ -37,6 +37,10 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
     private var saveRouteJob: Job? = null
     private var loadSettingsJob: Job? = null
     private var loadPreSaveJob: Job? = null
+    private var deleteLocoJob: Job? = null
+    private var deleteTrainJob: Job? = null
+    private var deletePassengerJob: Job? = null
+    private var deleteNotesJob: Job? = null
     var currentRoute: Route?
         get() {
             return _uiState.value.routeDetailState.let {
@@ -216,18 +220,22 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
     }
 
     fun onDeleteLoco(locomotive: Locomotive) {
-        routeUseCase.removeLoco(locomotive)
+        deleteLocoJob?.cancel()
+        deleteLocoJob = routeUseCase.removeLoco(locomotive).launchIn(viewModelScope)
     }
 
     fun onDeleteTrain(train: Train) {
-        routeUseCase.removeTrain(train)
+        deleteTrainJob?.cancel()
+        deleteTrainJob = routeUseCase.removeTrain(train).launchIn(viewModelScope)
     }
 
     fun onDeletePassenger(passenger: Passenger) {
-        routeUseCase.removePassenger(passenger)
+        deletePassengerJob?.cancel()
+        deletePassengerJob = routeUseCase.removePassenger(passenger).launchIn(viewModelScope)
     }
 
     fun onDeleteNotes(notes: Notes) {
-        routeUseCase.removeNotes(notes)
+        deleteNotesJob?.cancel()
+        deleteNotesJob = routeUseCase.removeNotes(notes).launchIn(viewModelScope)
     }
 }
