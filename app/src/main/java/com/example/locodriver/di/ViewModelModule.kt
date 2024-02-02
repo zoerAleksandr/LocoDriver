@@ -17,7 +17,7 @@ val viewModelModule = module {
     viewModel { LoginViewModel() }
     viewModel { SettingsViewModel() }
     viewModel { MainViewModel() }
-    viewModel { (locoId: String?) ->
-        LocoFormViewModel(locoId = locoId)
+    viewModel { (locoId: String?, basicId: String) ->
+        LocoFormViewModel(locoId = locoId, basicId = basicId)
     }
 }

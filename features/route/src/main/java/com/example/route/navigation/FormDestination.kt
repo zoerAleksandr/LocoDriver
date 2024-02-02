@@ -35,7 +35,10 @@ fun FormDestination(
         onTimeEndWorkChanged = viewModel::setTimeEndWork,
         onRestChanged = viewModel::setRestValue,
         onChangedLocoClick = router::showChangedLocoForm,
-        onNewLocoClick = router::showEmptyLocoForm,
+        onNewLocoClick = {
+            router.showEmptyLocoForm(it)
+            viewModel.checkingSaveRoute()
+        },
         onDeleteLoco = viewModel::onDeleteLoco,
         onTrainClick = router::showTrainForm,
         onDeleteTrain = viewModel::onDeleteTrain,

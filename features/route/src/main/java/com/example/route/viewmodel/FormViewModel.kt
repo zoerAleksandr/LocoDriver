@@ -1,33 +1,24 @@
 package com.example.route.viewmodel
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.core.ResultState
 import com.example.domain.entities.UserSettings
-import com.example.domain.entities.route.Locomotive
-import com.example.domain.entities.route.Notes
-import com.example.domain.entities.route.Passenger
-import com.example.domain.entities.route.Route
-import com.example.domain.entities.route.Train
-import com.example.domain.use_cases.LocomotiveUseCase
-import com.example.domain.use_cases.PreSaveLocomotiveUseCase
-import com.example.domain.use_cases.RouteUseCase
-import com.example.domain.use_cases.SettingsUseCase
+import com.example.domain.entities.route.*
+import com.example.domain.use_cases.*
 import com.example.route.Const.NULLABLE_ID
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import kotlin.properties.Delegates
 
 class FormViewModel constructor(private val routeId: String?) : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
-    private val locomotiveUseCase: LocomotiveUseCase by inject()
-    private val preLocomotiveUseCase: PreSaveLocomotiveUseCase by inject()
 
     private val _uiState = MutableStateFlow(RouteFormUiState())
     val uiState = _uiState.asStateFlow()
@@ -36,11 +27,13 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
     private var loadRouteJob: Job? = null
     private var saveRouteJob: Job? = null
     private var loadSettingsJob: Job? = null
-    private var loadPreSaveJob: Job? = null
     private var deleteLocoJob: Job? = null
     private var deleteTrainJob: Job? = null
     private var deletePassengerJob: Job? = null
     private var deleteNotesJob: Job? = null
+
+    private var isSaving by mutableStateOf(false)
+    private var isNewRoute by Delegates.notNull<Boolean>()
     var currentRoute: Route?
         get() {
             return _uiState.value.routeDetailState.let {
@@ -70,20 +63,12 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
     init {
         if (routeId == NULLABLE_ID) {
             currentRoute = Route()
+            isNewRoute = true
         } else {
             loadRoute(routeId!!)
+            isNewRoute = false
         }
         loadSettings()
-        loadPreSaveData()
-    }
-
-    private fun loadPreSaveData() {
-        val state = _uiState.value.routeDetailState
-        if (state is ResultState.Success) {
-            state.data?.let { route ->
-                loadPreSaveLocomotive(route.basicData.id)
-            }
-        }
     }
 
     fun resetSaveState() {
@@ -99,6 +84,7 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
             _uiState.update {
                 if (routeState is ResultState.Success) {
                     currentRoute = routeState.data
+                    isSaving = true
                 }
                 it.copy(routeDetailState = routeState)
             }
@@ -114,11 +100,6 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
         }.launchIn(viewModelScope)
     }
 
-    private fun clearPreSaveRepository() {
-        preLocomotiveUseCase.clearRepository().launchIn(viewModelScope)
-    }
-
-
     fun saveRoute() {
         val state = _uiState.value.routeDetailState
         if (state is ResultState.Success) {
@@ -128,23 +109,61 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
                     _uiState.update {
                         it.copy(saveRouteState = saveRouteState)
                     }
-                    if (saveRouteState is ResultState.Success) {
-                        clearPreSaveRepository()
-                    }
-
                 }.launchIn(viewModelScope)
             }
         }
     }
 
-    private fun loadPreSaveLocomotive(basicId: String) {
-        loadPreSaveJob?.cancel()
-        loadPreSaveJob = locomotiveUseCase.getAllLocomotiveFromPreSave(basicId)
-            .onEach { resultState ->
-                if (resultState is ResultState.Success) {
-                    currentRoute = currentRoute?.copy(
-                        locomotives = resultState.data.toMutableList()
-                    )
+    private fun preSaveRoute() {
+        val state = _uiState.value.routeDetailState
+        if (state is ResultState.Success) {
+            state.data?.let { route ->
+                saveRouteJob?.cancel()
+                saveRouteJob = routeUseCase.saveRoute(route).onEach { saveRouteState ->
+                    if (saveRouteState is ResultState.Success) {
+                        isSaving = true
+                        subscribeToChanges(route.basicData.id)
+                        changesHave()
+                    }
+                }.launchIn(viewModelScope)
+            }
+        }
+    }
+
+    private fun changesHave() {
+        if (!_uiState.value.changesHaveState) {
+            _uiState.update {
+                it.copy(
+                    changesHaveState = true
+                )
+            }
+        }
+    }
+
+    fun exitWithoutSaving(){
+        if (_uiState.value.changesHaveState && isNewRoute) {
+            val state = _uiState.value.routeDetailState
+            if (state is ResultState.Success) {
+                state.data?.let { route ->
+                    routeUseCase.removeRoute(route).launchIn(viewModelScope)
+                }
+            }
+        }
+    }
+
+    fun clearRoute(){
+        currentRoute = Route()
+    }
+
+    private fun subscribeToChanges(routeId: String) {
+        loadRouteJob?.cancel()
+        loadRouteJob =
+            routeUseCase.routeDetails(routeId).onEach { routeState ->
+                _uiState.update {
+                    if (routeState is ResultState.Success) {
+                        currentRoute = routeState.data
+                    }
+                    it.copy(routeDetailState = routeState)
                 }
             }.launchIn(viewModelScope)
     }
@@ -155,6 +174,7 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
                 number = value
             )
         )
+        changesHave()
     }
 
     fun setTimeStartWork(timeInLong: Long?) {
@@ -164,6 +184,7 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
             )
         )
         isValidTime()
+        changesHave()
     }
 
     fun setTimeEndWork(timeInLong: Long?) {
@@ -173,6 +194,7 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
             )
         )
         isValidTime()
+        changesHave()
     }
 
     fun setRestValue(value: Boolean) {
@@ -185,6 +207,7 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
             getMinTimeRest(currentRoute!!)
             getFullRest(currentRoute!!)
         }
+        changesHave()
     }
 
     private fun getMinTimeRest(route: Route) {
@@ -237,5 +260,11 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
     fun onDeleteNotes(notes: Notes) {
         deleteNotesJob?.cancel()
         deleteNotesJob = routeUseCase.removeNotes(notes).launchIn(viewModelScope)
+    }
+
+    fun checkingSaveRoute() {
+        if (!isSaving) {
+            preSaveRoute()
+        }
     }
 }

@@ -6,13 +6,12 @@ import com.example.domain.entities.route.Notes
 import com.example.domain.entities.route.Passenger
 import com.example.domain.entities.route.Route
 import com.example.domain.entities.route.Train
-import com.example.domain.entities.route.pre_save.PreLocomotive
 import kotlinx.coroutines.flow.Flow
 
 interface RouteRepository {
     fun loadRoutes(): Flow<ResultState<List<Route>>>
     fun loadRoute(routeId: String): Flow<ResultState<Route?>>
-    fun loadLoco(locoId: String): Flow<ResultState<PreLocomotive?>>
+    fun loadLoco(locoId: String): Flow<ResultState<Locomotive?>>
     fun saveRoute(route: Route): Flow<ResultState<Unit>>
     fun remove(route: Route): Flow<ResultState<Unit>>
     fun removeLoco(locomotive: Locomotive): Flow<ResultState<Unit>>
@@ -20,4 +19,7 @@ interface RouteRepository {
     fun removePassenger(passenger: Passenger): Flow<ResultState<Unit>>
     fun removeNotes(notes: Notes): Flow<ResultState<Unit>>
     fun saveLocomotive(locomotive: Locomotive): Flow<ResultState<Unit>>
+    fun saveTrain(train: Train): Flow<ResultState<Unit>>
+    fun savePassenger(passenger: Passenger): Flow<ResultState<Unit>>
+    fun saveNotes(notes: Notes): Flow<ResultState<Unit>>
 }

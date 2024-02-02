@@ -5,7 +5,7 @@ import com.example.data_local.route.entity.Passenger as PassengerEntity
 
 internal object PassengerConverter {
     fun fromData(passenger: Passenger) = PassengerEntity(
-        passenger.passengerid,
+        passenger.passengerId,
         passenger.baseId,
         passenger.trainNumber,
         passenger.stationDeparture,
@@ -14,8 +14,8 @@ internal object PassengerConverter {
         passenger.timeArrival
     )
 
-    private fun toData(entity: PassengerEntity) = Passenger(
-        passengerid = entity.passengerId,
+    fun toData(entity: PassengerEntity) = Passenger(
+        passengerId = entity.passengerId,
         baseId = entity.baseId,
         trainNumber = entity.trainNumber,
         stationDeparture = entity.stationDeparture,

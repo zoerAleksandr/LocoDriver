@@ -1,6 +1,5 @@
 package com.example.route.ui
 
-import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -236,7 +235,6 @@ private fun RouteFormScreenContent(
     onNotesClick: (notes: Notes?) -> Unit,
     onDeleteNotes: (notes: Notes) -> Unit
 ) {
-    Log.d("ZZZ", "list loco = $locoListState")
     val scrollState = rememberLazyListState()
 
     var showStartTimePicker by remember {

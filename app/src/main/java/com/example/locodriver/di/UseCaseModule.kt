@@ -1,18 +1,15 @@
 package com.example.locodriver.di
 
-import com.example.domain.use_cases.AuthUseCase
-import com.example.domain.use_cases.CalendarUseCase
-import com.example.domain.use_cases.LocomotiveUseCase
-import com.example.domain.use_cases.PreSaveLocomotiveUseCase
-import com.example.domain.use_cases.RouteUseCase
-import com.example.domain.use_cases.SettingsUseCase
+import com.example.domain.use_cases.*
 import org.koin.dsl.module
 
 val useCaseModule = module {
     single { AuthUseCase() }
     single { RouteUseCase(repository = get()) }
-    single { LocomotiveUseCase(repository = get(), preSaveRepository = get()) }
+    single { LocomotiveUseCase(repository = get()) }
     single { SettingsUseCase(repositories = get()) }
     single { CalendarUseCase(repositories = get()) }
-    single { PreSaveLocomotiveUseCase(preSaveRepository = get(), repository = get()) }
+    single { TrainUseCase(repository = get()) }
+    single { PassengerUseCase(repository = get()) }
+    single { NotesUseCase(repository = get()) }
 }

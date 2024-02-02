@@ -32,31 +32,22 @@ internal interface RouteDao {
             saveNotes(notes)
         }
     }
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveBasicData(basicData: BasicData)
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveLocomotive(locomotive: Locomotive)
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveTrain(train: Train)
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun savePassenger(passenger: Passenger)
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveNotes(notes: Notes)
-
-
     @Transaction
     suspend fun delete(route: Route) {
         deleteBasicData(route.basicData)
     }
-
     @Delete
     suspend fun deleteBasicData(basicData: BasicData)
-
     @Delete
     suspend fun deleteLocomotives(locomotive: Locomotive)
     @Delete
@@ -65,19 +56,22 @@ internal interface RouteDao {
     suspend fun deletePassenger(passenger: Passenger)
     @Delete
     suspend fun deleteNotes(notes: Notes)
-
     @Transaction
     @Query("SELECT * FROM BasicData WHERE id = :id")
     fun getRouteById(id: String): Flow<Route?>
-
     @Transaction
     @Query("SELECT * FROM BasicData")
     fun getAllRoute(): Flow<List<Route>>
-
     @Transaction
     @Query("SELECT * FROM BasicData")
     fun getListItineraryByMonth(): Flow<List<Route>>
-
     @Query("SELECT * FROM Locomotive WHERE locoId = :locoId")
     fun getLocoById(locoId: String): Flow<Locomotive?>
+    @Query("SELECT * FROM Train WHERE trainId = :trainId")
+    fun getTrainById(trainId: String): Flow<Train?>
+    @Query("SELECT * FROM Passenger WHERE passengerId = :passengerId")
+    fun getPassengerById(passengerId: String): Flow<Passenger?>
+    @Query("SELECT * FROM Notes WHERE notesId = :notesId")
+    fun getNotesById(notesId: String): Flow<Notes?>
+
 }

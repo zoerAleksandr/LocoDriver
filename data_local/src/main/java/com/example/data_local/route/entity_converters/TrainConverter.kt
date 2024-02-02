@@ -14,7 +14,7 @@ internal object TrainConverter {
         StationConverter.fromDataList(train.stations)
     )
 
-    private fun toData(entity: TrainEntity) = Train(
+    fun toData(entity: TrainEntity) = Train(
         trainId = entity.trainId,
         baseId = entity.baseId,
         number = entity.number,

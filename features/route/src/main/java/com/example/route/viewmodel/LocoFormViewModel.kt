@@ -4,9 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.core.ResultState
 import com.example.domain.entities.route.LocoType
+import com.example.domain.entities.route.Locomotive
 import com.example.domain.entities.route.SectionDiesel
-import com.example.domain.entities.route.pre_save.PreLocomotive
-import com.example.domain.use_cases.PreSaveLocomotiveUseCase
+import com.example.domain.use_cases.LocomotiveUseCase
 import com.example.domain.util.addOrReplace
 import com.example.route.Const.NULLABLE_ID
 import kotlinx.coroutines.Job
@@ -19,9 +19,10 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
 class LocoFormViewModel constructor(
-    private val locoId: String?
+    private val locoId: String?,
+    private val basicId: String
 ) : ViewModel(), KoinComponent {
-    private val preSaveLocomotiveUseCase: PreSaveLocomotiveUseCase by inject()
+    private val locomotiveUseCase: LocomotiveUseCase by inject()
 
     private val _uiState = MutableStateFlow(LocoFormUiState())
     val uiState = _uiState.asStateFlow()
@@ -29,7 +30,7 @@ class LocoFormViewModel constructor(
     private var loadLocoJob: Job? = null
     private var saveLocoJob: Job? = null
 
-    var currentLoco: PreLocomotive?
+    var currentLoco: Locomotive?
         get() {
             return _uiState.value.locoDetailState.let {
                 if (it is ResultState.Success) it.data else null
@@ -45,7 +46,7 @@ class LocoFormViewModel constructor(
 
     init {
         if (locoId == NULLABLE_ID) {
-            currentLoco = PreLocomotive()
+            currentLoco = Locomotive(basicId = basicId)
         } else {
             loadLoco(locoId!!)
         }
@@ -54,7 +55,7 @@ class LocoFormViewModel constructor(
     private fun loadLoco(id: String) {
         if (locoId == currentLoco?.locoId) return
         loadLocoJob?.cancel()
-        loadLocoJob = preSaveLocomotiveUseCase.getLocoById(id).onEach { routeState ->
+        loadLocoJob = locomotiveUseCase.getLocoById(id).onEach { routeState ->
             _uiState.update {
                 if (routeState is ResultState.Success) {
                     currentLoco = routeState.data
@@ -69,12 +70,12 @@ class LocoFormViewModel constructor(
         if (state is ResultState.Success) {
             state.data?.let { loco ->
                 saveLocoJob?.cancel()
-                saveLocoJob = preSaveLocomotiveUseCase.saveLocomotive(loco).onEach { saveLocoState ->
-                    _uiState.update {
-                        it.copy(saveLocoState = saveLocoState)
-                    }
-
-                }.launchIn(viewModelScope)
+                saveLocoJob =
+                    locomotiveUseCase.saveLocomotive(loco).onEach { saveLocoState ->
+                        _uiState.update {
+                            it.copy(saveLocoState = saveLocoState)
+                        }
+                    }.launchIn(viewModelScope)
             }
         }
     }
@@ -135,7 +136,7 @@ class LocoFormViewModel constructor(
 
         if (locoDetailState is ResultState.Success) {
             locoDetailState.data?.let {
-                val errorMessage = if (!preSaveLocomotiveUseCase.isValidAcceptedTime(it)) {
+                val errorMessage = if (!locomotiveUseCase.isValidAcceptedTime(it)) {
                     "Ошибка"
                 } else {
                     null
@@ -166,7 +167,7 @@ class LocoFormViewModel constructor(
 
         if (locoDetailState is ResultState.Success) {
             locoDetailState.data?.let {
-                val errorMessage = if (!preSaveLocomotiveUseCase.isValidDeliveryTime(it)) {
+                val errorMessage = if (!locomotiveUseCase.isValidDeliveryTime(it)) {
                     "Ошибка"
                 } else {
                     null

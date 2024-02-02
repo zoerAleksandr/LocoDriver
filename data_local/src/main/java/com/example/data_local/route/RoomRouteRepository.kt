@@ -4,18 +4,8 @@ import com.example.core.ResultState
 import com.example.core.ResultState.Companion.flowMap
 import com.example.core.ResultState.Companion.flowRequest
 import com.example.data_local.route.dao.RouteDao
-import com.example.data_local.route.entity_converters.LocomotiveConverter
-import com.example.data_local.route.entity_converters.NotesConverter
-import com.example.data_local.route.entity_converters.PassengerConverter
-import com.example.data_local.route.entity_converters.PreLocomotiveConverter
-import com.example.data_local.route.entity_converters.RouteConverter
-import com.example.data_local.route.entity_converters.TrainConverter
-import com.example.domain.entities.route.Locomotive
-import com.example.domain.entities.route.Notes
-import com.example.domain.entities.route.Passenger
-import com.example.domain.entities.route.Route
-import com.example.domain.entities.route.Train
-import com.example.domain.entities.route.pre_save.PreLocomotive
+import com.example.data_local.route.entity_converters.*
+import com.example.domain.entities.route.*
 import com.example.domain.repositories.RouteRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -45,14 +35,12 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
         }
     }
 
-    override fun loadLoco(locoId: String): Flow<ResultState<PreLocomotive?>> {
+    override fun loadLoco(locoId: String): Flow<ResultState<Locomotive?>> {
         return flowMap {
             dao.getLocoById(locoId).map { loco ->
                 ResultState.Success(
                     loco?.let {
-                        PreLocomotiveConverter.toPreSave(
-                            LocomotiveConverter.toData(loco)
-                        )
+                        LocomotiveConverter.toData(loco)
                     }
                 )
             }
@@ -124,6 +112,33 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
                 locomotive.locoId = UUID.randomUUID().toString()
             }
             dao.saveLocomotive(LocomotiveConverter.fromData(locomotive))
+        }
+    }
+
+    override fun saveTrain(train: Train): Flow<ResultState<Unit>> {
+        return flowRequest {
+            if (train.trainId.isBlank()) {
+                train.trainId = UUID.randomUUID().toString()
+            }
+            dao.saveTrain(TrainConverter.fromData(train))
+        }
+    }
+
+    override fun savePassenger(passenger: Passenger): Flow<ResultState<Unit>> {
+        return flowRequest {
+            if (passenger.passengerId.isBlank()) {
+                passenger.passengerId = UUID.randomUUID().toString()
+            }
+            dao.savePassenger(PassengerConverter.fromData(passenger))
+        }
+    }
+
+    override fun saveNotes(notes: Notes): Flow<ResultState<Unit>> {
+        return flowRequest {
+            if (notes.notesId.isBlank()) {
+                notes.notesId = UUID.randomUUID().toString()
+            }
+            dao.saveNotes(NotesConverter.fromData(notes))
         }
     }
 }
