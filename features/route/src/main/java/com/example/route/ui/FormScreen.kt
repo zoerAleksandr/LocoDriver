@@ -88,6 +88,7 @@ import com.example.domain.entities.route.Passenger
 import com.example.domain.entities.route.Train
 import com.example.route.R
 import com.example.route.component.BottomShadow
+import com.example.route.component.ConfirmExitDialog
 import java.util.Calendar
 import com.example.route.extention.isScrollInInitialState
 
@@ -98,7 +99,10 @@ const val LINK_TO_SETTING = "LINK_TO_SETTING"
 fun FormScreen(
     formUiState: RouteFormUiState,
     currentRoute: Route?,
-    onBackPressed: () -> Unit,
+    onExit: () -> Unit,
+    exitWithoutSave: () -> Unit,
+    checkBeforeExit: () -> Unit,
+    showExitConfirmDialog: (Boolean) -> Unit,
     onRouteSaved: () -> Unit,
     onSaveClick: () -> Unit,
     onSettingClick: () -> Unit,
@@ -118,6 +122,13 @@ fun FormScreen(
     onNotesClick: (notes: Notes?) -> Unit,
     onDeleteNotes: (notes: Notes) -> Unit
 ) {
+    if (formUiState.confirmExitDialogShow) {
+        ConfirmExitDialog(
+            showExitConfirmDialog,
+            onSaveClick,
+            exitWithoutSave
+        )
+    }
     Scaffold(
         topBar = {
             MediumTopAppBar(title = {
@@ -125,43 +136,43 @@ fun FormScreen(
                     text = "Маршрут",
                 )
             }, navigationIcon = {
-                IconButton(onClick = onBackPressed) {
+                IconButton(onClick = checkBeforeExit) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Назад"
                     )
                 }
             }, actions = {
-                ClickableText(text = AnnotatedString(text = "Сохранить"),
-                    onClick = { onSaveClick() }
+                    ClickableText(text = AnnotatedString(text = "Сохранить"),
+                        onClick = { onSaveClick() }
 
-                )
-                var dropDownExpanded by remember { mutableStateOf(false) }
-
-                IconButton(onClick = {
-                    dropDownExpanded = true
-                }) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert, contentDescription = "Меню"
                     )
-                    DropdownMenu(
-                        expanded = dropDownExpanded,
-                        onDismissRequest = { dropDownExpanded = false },
-                        offset = DpOffset(x = 4.dp, y = 8.dp)
-                    ) {
-                        DropdownMenuItem(modifier = Modifier.padding(horizontal = 16.dp),
-                            onClick = {
-                                onClearAllField.invoke()
-                                dropDownExpanded = false
-                            },
-                            text = {
-                                Text(
-                                    text = "Очистить",
-                                )
-                            })
+                    var dropDownExpanded by remember { mutableStateOf(false) }
+
+                    IconButton(onClick = {
+                        dropDownExpanded = true
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert, contentDescription = "Меню"
+                        )
+                        DropdownMenu(
+                            expanded = dropDownExpanded,
+                            onDismissRequest = { dropDownExpanded = false },
+                            offset = DpOffset(x = 4.dp, y = 8.dp)
+                        ) {
+                            DropdownMenuItem(modifier = Modifier.padding(horizontal = 16.dp),
+                                onClick = {
+                                    onClearAllField.invoke()
+                                    dropDownExpanded = false
+                                },
+                                text = {
+                                    Text(
+                                        text = "Очистить",
+                                    )
+                                })
+                        }
                     }
-                }
-            })
+                })
         },
     ) {
         Box(Modifier.padding(it)) {
@@ -175,6 +186,10 @@ fun FormScreen(
                         if (formUiState.saveRouteState is ResultState.Success) {
                             LaunchedEffect(formUiState.saveRouteState) {
                                 onRouteSaved()
+                            }
+                        } else if (formUiState.exitFromScreen) {
+                            LaunchedEffect(formUiState.saveRouteState) {
+                                onExit()
                             }
                         } else {
                             RouteFormScreenContent(

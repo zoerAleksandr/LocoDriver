@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredWidth
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerState
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,10 +31,10 @@ fun DatePickerDialog(
     onConfirmRequest: () -> Unit,
     onClearRequest: () -> Unit
 ) {
-    AlertDialog(
+    BasicAlertDialog(
+        onDismissRequest = onDismissRequest,
         modifier = Modifier
-            .fillMaxWidth(),
-        onDismissRequest = onDismissRequest
+            .fillMaxWidth()
     ) {
         Surface(
             modifier = Modifier

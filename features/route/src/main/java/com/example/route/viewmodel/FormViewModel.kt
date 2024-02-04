@@ -140,8 +140,8 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
         }
     }
 
-    fun exitWithoutSaving(){
-        if (_uiState.value.changesHaveState && isNewRoute) {
+    fun exitWithoutSaving() {
+        if (isNewRoute) {
             val state = _uiState.value.routeDetailState
             if (state is ResultState.Success) {
                 state.data?.let { route ->
@@ -149,10 +149,39 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
                 }
             }
         }
+        _uiState.update {
+            it.copy(
+                confirmExitDialogShow = false,
+                exitFromScreen = true
+            )
+        }
     }
 
-    fun clearRoute(){
-        currentRoute = Route()
+    fun checkBeforeExitTheScreen() {
+        if (_uiState.value.changesHaveState) {
+            _uiState.update {
+                it.copy(confirmExitDialogShow = true)
+            }
+        } else {
+            _uiState.update {
+                it.copy(exitFromScreen = true)
+            }
+        }
+    }
+
+    fun showConfirmDialog(isShow: Boolean) {
+        _uiState.update {
+            it.copy(confirmExitDialogShow = isShow)
+        }
+    }
+
+    fun clearRoute() {
+        currentRoute = if (routeId == null) {
+            Route()
+        } else {
+            Route(BasicData(id = routeId))
+        }
+        changesHave()
     }
 
     private fun subscribeToChanges(routeId: String) {
