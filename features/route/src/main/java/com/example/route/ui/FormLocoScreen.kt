@@ -49,6 +49,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
@@ -69,7 +70,6 @@ import com.example.core.ui.theme.custom.AppTypography
 import com.example.core.util.DateAndTimeFormat
 import com.example.domain.entities.route.LocoType
 import com.example.domain.entities.route.Locomotive
-import com.example.domain.entities.route.SectionDiesel
 import com.example.domain.util.CalculationEnergy
 import com.example.domain.util.str
 import com.example.route.R
@@ -84,11 +84,19 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import com.example.domain.util.*
+import com.example.route.component.ElectricSectionItem
+import com.example.route.viewmodel.DieselSectionFormState
+import com.example.route.viewmodel.DieselSectionType
+import com.example.route.viewmodel.ElectricSectionFormState
+import com.example.route.viewmodel.ElectricSectionType
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FormLocoScreen(
     currentLoco: Locomotive?,
+    dieselSectionListState: SnapshotStateList<DieselSectionFormState>?,
+    electricSectionListState: SnapshotStateList<ElectricSectionFormState>?,
     onBackPressed: () -> Unit,
     onSaveClick: () -> Unit,
     onLocoSaved: () -> Unit,
@@ -102,9 +110,19 @@ fun FormLocoScreen(
     onEndAcceptedTimeChanged: (Long?) -> Unit,
     onStartDeliveryTimeChanged: (Long?) -> Unit,
     onEndDeliveryTimeChanged: (Long?) -> Unit,
-    onFuelAcceptedChanged: (SectionDiesel, String) -> Unit,
-    onFuelDeliveredChanged: (SectionDiesel, String) -> Unit,
-    onDeleteSectionDiesel: (SectionDiesel) -> Unit
+    onFuelAcceptedChanged: (Int, String?) -> Unit,
+    onFuelDeliveredChanged: (Int, String?) -> Unit,
+    onDeleteSectionDiesel: (DieselSectionFormState) -> Unit,
+    addingSectionDiesel: () -> Unit,
+    focusChangedDieselSection: (Int, DieselSectionType) -> Unit,
+    onEnergyAcceptedChanged: (Int, String?) -> Unit,
+    onEnergyDeliveryChanged: (Int, String?) -> Unit,
+    onRecoveryAcceptedChanged: (Int, String?) -> Unit,
+    onRecoveryDeliveryChanged: (Int, String?) -> Unit,
+    onDeleteSectionElectric: (ElectricSectionFormState) -> Unit,
+    addingSectionElectric: () -> Unit,
+    focusChangedElectricSection: (Int, ElectricSectionType) -> Unit,
+    onExpandStateElectricSection: (Int, Boolean) -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
@@ -216,6 +234,8 @@ fun FormLocoScreen(
                         } else {
                             LocoFormScreenContent(
                                 locomotive = locomotive,
+                                dieselSectionListState = dieselSectionListState,
+                                electricSectionListState = electricSectionListState,
                                 onNumberChanged = onNumberChanged,
                                 onSeriesChanged = onSeriesChanged,
                                 onTypeLocoChanged = onChangedTypeLoco,
@@ -225,7 +245,17 @@ fun FormLocoScreen(
                                 onEndDeliveryTimeChanged = onEndDeliveryTimeChanged,
                                 onFuelAcceptedChanged = onFuelAcceptedChanged,
                                 onFuelDeliveredChanged = onFuelDeliveredChanged,
-                                onDeleteSectionDiesel = onDeleteSectionDiesel
+                                onDeleteSectionDiesel = onDeleteSectionDiesel,
+                                addingSectionDiesel = addingSectionDiesel,
+                                focusChangedDieselSection = focusChangedDieselSection,
+                                onEnergyAcceptedChanged = onEnergyAcceptedChanged,
+                                onEnergyDeliveryChanged = onEnergyDeliveryChanged,
+                                onRecoveryAcceptedChanged = onRecoveryAcceptedChanged,
+                                onRecoveryDeliveryChanged = onRecoveryDeliveryChanged,
+                                onDeleteSectionElectric = onDeleteSectionElectric,
+                                addingSectionElectric = addingSectionElectric,
+                                focusChangedElectricSection = focusChangedElectricSection,
+                                onExpandStateElectricSection = onExpandStateElectricSection
                             )
                         }
                     }
@@ -239,6 +269,8 @@ fun FormLocoScreen(
 @Composable
 private fun LocoFormScreenContent(
     locomotive: Locomotive,
+    dieselSectionListState: SnapshotStateList<DieselSectionFormState>?,
+    electricSectionListState: SnapshotStateList<ElectricSectionFormState>?,
     onNumberChanged: (String) -> Unit,
     onSeriesChanged: (String) -> Unit,
     onTypeLocoChanged: (Int) -> Unit,
@@ -246,12 +278,23 @@ private fun LocoFormScreenContent(
     onEndAcceptedTimeChanged: (Long?) -> Unit,
     onStartDeliveryTimeChanged: (Long?) -> Unit,
     onEndDeliveryTimeChanged: (Long?) -> Unit,
-    onFuelAcceptedChanged: (SectionDiesel, String) -> Unit,
-    onFuelDeliveredChanged: (SectionDiesel, String) -> Unit,
-    onDeleteSectionDiesel: (SectionDiesel) -> Unit
+    onFuelAcceptedChanged: (Int, String?) -> Unit,
+    onFuelDeliveredChanged: (Int, String?) -> Unit,
+    onDeleteSectionDiesel: (DieselSectionFormState) -> Unit,
+    addingSectionDiesel: () -> Unit,
+    focusChangedDieselSection: (Int, DieselSectionType) -> Unit,
+    onEnergyAcceptedChanged: (Int, String?) -> Unit,
+    onEnergyDeliveryChanged: (Int, String?) -> Unit,
+    onRecoveryAcceptedChanged: (Int, String?) -> Unit,
+    onRecoveryDeliveryChanged: (Int, String?) -> Unit,
+    onDeleteSectionElectric: (ElectricSectionFormState) -> Unit,
+    addingSectionElectric: () -> Unit,
+    focusChangedElectricSection: (Int, ElectricSectionType) -> Unit,
+    onExpandStateElectricSection: (Int, Boolean) -> Unit
 ) {
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
+    val scope = rememberCoroutineScope()
 
     AnimatedVisibility(
         modifier = Modifier
@@ -767,152 +810,132 @@ private fun LocoFormScreenContent(
         }
         when (locomotive.type.name) {
             LocoType.DIESEL.name -> {
-                val list = locomotive.dieselSectionList
-                itemsIndexed(
-                    items = list,
-                    key = { _, item -> item.sectionId }
-                ) { index, item ->
-                    if (index == 0) {
-                        Spacer(modifier = Modifier.height(dimensionResource(id = CoreR.dimen.secondary_spacing)))
-                    } else {
-                        Spacer(modifier = Modifier.height(dimensionResource(id = CoreR.dimen.secondary_spacing) / 2))
-                    }
-                    DieselSectionItem(
-                        item = item,
-                        index = index,
-                        showRefuelDialog = {},
-                        showCoefficientDialog = {},
-                        onFuelAcceptedChanged = onFuelAcceptedChanged,
-                        onFuelDeliveredChanged = onFuelDeliveredChanged,
-                        onDeleteItem = onDeleteSectionDiesel
-                    )
-
-                    if (index == list.lastIndex && index > 0) {
-                        var overResult: Double? = null
-                        locomotive.dieselSectionList.forEach {
-                            val accepted = it.acceptedFuel
-                            val delivery = it.deliveryFuel
-                            val refuel = it.fuelSupply
-                            val result = CalculationEnergy.getTotalFuelConsumption(
-                                accepted, delivery, refuel
-                            )
-                            overResult += result
+                dieselSectionListState?.let {
+                    itemsIndexed(
+                        items = dieselSectionListState,
+                        key = { _, item -> item.sectionId }
+                    ) { index, item ->
+                        if (index == 0) {
+                            Spacer(modifier = Modifier.height(dimensionResource(id = CoreR.dimen.secondary_spacing)))
+                        } else {
+                            Spacer(modifier = Modifier.height(dimensionResource(id = CoreR.dimen.secondary_spacing) / 2))
                         }
-                        overResult?.let {
-                            Text(
-                                text = "Всего расход = ${maskInLiter(it.str())}",
-                                style = AppTypography.getType().bodyMedium
-                            )
+                        DieselSectionItem(
+                            item = item,
+                            index = index,
+                            showRefuelDialog = {},
+                            showCoefficientDialog = {},
+                            onFuelAcceptedChanged = onFuelAcceptedChanged,
+                            onFuelDeliveredChanged = onFuelDeliveredChanged,
+                            onDeleteItem = onDeleteSectionDiesel,
+                            focusChangedDieselSection = focusChangedDieselSection
+                        )
+
+                        if (index == dieselSectionListState.lastIndex && index > 0) {
+                            var overResult: Double? = null
+                            locomotive.dieselSectionList.forEach {
+                                val accepted = it.acceptedFuel
+                                val delivery = it.deliveryFuel
+                                val refuel = it.fuelSupply
+                                val result = CalculationEnergy.getTotalFuelConsumption(
+                                    accepted, delivery, refuel
+                                )
+                                overResult += result
+                            }
+                            overResult?.let {
+                                Text(
+                                    text = "Всего расход = ${maskInLiter(it.str())}",
+                                    style = AppTypography.getType().bodyMedium
+                                )
+                            }
                         }
                     }
                 }
             }
 
-//            LocoType.ELECTRIC.name -> {
-//                val list = addingLocoViewModel.electricSectionListState
-//                val revealedSectionIds =
-//                    addingLocoViewModel.revealedItemElectricSectionIdsList
-//                itemsIndexed(
-//                    items = list,
-//                    key = { _, item -> item.sectionId }
-//                ) { index, item ->
-//                    if (index == 0) {
-//                        Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.secondary_spacing)))
-//                    } else {
-//                        Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.secondary_spacing) / 2))
-//                    }
-//                    Box(
-//                        modifier = Modifier
-//                            .animateItemPlacement(
-//                                animationSpec = tween(
-//                                    durationMillis = 500,
-//                                    delayMillis = 100,
-//                                    easing = FastOutLinearInEasing
-//                                )
-//                            )
-//                            .wrapContentSize()
-//                            .padding(bottom = 12.dp),
-//                        contentAlignment = Alignment.CenterEnd
-//                    ) {
-//                        ActionsRow(
-//                            onDelete = { addingLocoViewModel.removeElectricSection(item) }
-//                        )
-//                        DraggableElectricItem(
-//                            item = item,
-//                            isRevealed = revealedSectionIds.contains(item.sectionId),
-//                            onExpand = {
-//                                addingLocoViewModel.onExpandedElectricSection(
-//                                    item.sectionId
-//                                )
-//                            },
-//                            onCollapse = {
-//                                addingLocoViewModel.onCollapsedElectricSection(
-//                                    item.sectionId
-//                                )
-//                            },
-//                            index = index,
-//                            viewModel = addingLocoViewModel
-//                        )
-//                    }
-//                    if (index == list.lastIndex && index > 0) {
-//                        var overResult: Double? = null
-//                        var overRecovery: Double? = null
-//
-//                        addingLocoViewModel.electricSectionListState.forEach {
-//                            val accepted = it.accepted.data?.toDoubleOrNull()
-//                            val delivery = it.delivery.data?.toDoubleOrNull()
-//                            val acceptedRecovery =
-//                                it.recoveryAccepted.data?.toDoubleOrNull()
-//                            val deliveryRecovery =
-//                                it.recoveryDelivery.data?.toDoubleOrNull()
-//
-//                            val result = Calculation.getTotalEnergyConsumption(
-//                                accepted, delivery
-//                            )
-//                            val resultRecovery = Calculation.getTotalEnergyConsumption(
-//                                acceptedRecovery, deliveryRecovery
-//                            )
-//                            overResult += result
-//                            overRecovery += resultRecovery
-//                        }
-//                        Column(horizontalAlignment = Alignment.End) {
-//                            overResult?.let {
-//                                Text(
-//                                    text = "Всего расход = ${it.str()}",
-//                                    style = Typography.bodyMedium.copy(color = MaterialTheme.colorScheme.secondary),
-//                                )
-//                            }
-//                            overRecovery?.let {
-//                                Text(
-//                                    text = "Всего рекуперация = ${it.str()}",
-//                                    style = Typography.bodyMedium.copy(color = MaterialTheme.colorScheme.secondary),
-//                                )
-//                            }
-//                        }
-//                    }
-//                }
-//            }
+            LocoType.ELECTRIC.name -> {
+                electricSectionListState?.let {
+                    itemsIndexed(
+                        items = electricSectionListState,
+                        key = { _, item -> item.sectionId }
+                    ) { index, item ->
+                        if (index == 0) {
+                            Spacer(modifier = Modifier.height(dimensionResource(id = CoreR.dimen.secondary_spacing)))
+                        } else {
+                            Spacer(modifier = Modifier.height(dimensionResource(id = CoreR.dimen.secondary_spacing) / 2))
+                        }
+                        ElectricSectionItem(
+                            index = index,
+                            item = item,
+                            onDeleteItem = onDeleteSectionElectric,
+                            onEnergyAcceptedChanged = onEnergyAcceptedChanged,
+                            onEnergyDeliveryChanged = onEnergyDeliveryChanged,
+                            onRecoveryAcceptedChanged = onRecoveryAcceptedChanged,
+                            onRecoveryDeliveryChanged = onRecoveryDeliveryChanged,
+                            focusChangedElectricSection = focusChangedElectricSection,
+                            onExpandStateChanged = onExpandStateElectricSection
+                        )
+
+                        if (index == electricSectionListState.lastIndex && index > 0) {
+                            var overResult: Double? = null
+                            var overRecovery: Double? = null
+
+                            electricSectionListState.forEach {
+                                val accepted = it.accepted.data?.toDoubleOrNull()
+                                val delivery = it.delivery.data?.toDoubleOrNull()
+                                val acceptedRecovery =
+                                    it.recoveryAccepted.data?.toDoubleOrNull()
+                                val deliveryRecovery =
+                                    it.recoveryDelivery.data?.toDoubleOrNull()
+
+                                val result = CalculationEnergy.getTotalEnergyConsumption(
+                                    accepted, delivery
+                                )
+                                val resultRecovery = CalculationEnergy.getTotalEnergyConsumption(
+                                    acceptedRecovery, deliveryRecovery
+                                )
+                                overResult += result
+                                overRecovery += resultRecovery
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                overResult?.let {
+                                    Text(
+                                        text = "Всего расход = ${it.str()}",
+                                        style = AppTypography.getType().bodyMedium,
+                                    )
+                                }
+                                overRecovery?.let {
+                                    Text(
+                                        text = "Всего рекуперация = ${it.str()}",
+                                        style = AppTypography.getType().bodyMedium,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
-//        item {
-//            ClickableText(
-//                modifier = Modifier.padding(top = 24.dp),
-//                text = AnnotatedString("Добавить секцию"),
-//                style = Typography.titleMedium.copy(color = MaterialTheme.colorScheme.tertiary)
-//            ) {
-//                when (tabState) {
-//                    0 -> addingLocoViewModel.addDieselSection(SectionDiesel())
-//                    1 -> addingLocoViewModel.addElectricSection(SectionElectric())
-//                }
-//
-//                scope.launch {
-//                    val countItems = scrollState.layoutInfo.totalItemsCount
-//                    scrollState.animateScrollToItem(countItems)
-//                }
-//            }
-//        }
+        item {
+            ClickableText(
+                modifier = Modifier.padding(top = 24.dp),
+                text = AnnotatedString("Добавить секцию"),
+                style = AppTypography.getType().titleMedium
+            ) {
+                when (locomotive.type.name) {
+                    LocoType.DIESEL.name -> addingSectionDiesel()
+                    LocoType.ELECTRIC.name -> addingSectionElectric()
+                }
+                scope.launch {
+                    val countItems = scrollState.layoutInfo.totalItemsCount
+                    scrollState.animateScrollToItem(countItems)
+                }
+            }
+        }
         item { Spacer(modifier = Modifier.height(40.dp)) }
     }
 }
+
 //        val scrollState = rememberLazyListState()
 //        ConstraintLayout(
 //            modifier = Modifier

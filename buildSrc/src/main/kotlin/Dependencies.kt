@@ -9,6 +9,7 @@ import Versions.constraint_layout_ver
 import Versions.core_ktx_version
 import Versions.core_testing_version
 import Versions.coroutines_version
+import Versions.datastore_pref_ver
 import Versions.gson_version
 import Versions.koin_version
 import Versions.lifecycle_runtime_version
@@ -68,6 +69,7 @@ object Versions {
     const val accompanist_pager_version = "0.13.0"
     const val gson_version = "2.9.0"
     const val constraint_layout_ver = "1.0.1"
+    const val datastore_pref_ver = "1.0.0"
 }
 
 object Libs {
@@ -81,6 +83,7 @@ object Libs {
     const val project_feature_settings = ":features:settings"
 
     // Libs
+    const val datastore_pref = "androidx.datastore:datastore-preferences:$datastore_pref_ver"
     const val constraint_layout = "androidx.constraintlayout:constraintlayout-compose:$constraint_layout_ver"
     const val accompanist_navigation_animation =
         "com.google.accompanist:accompanist-navigation-animation:$accompanist_navigation_animation_version"

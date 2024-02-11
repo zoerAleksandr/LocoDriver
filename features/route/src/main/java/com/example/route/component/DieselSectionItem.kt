@@ -1,5 +1,6 @@
 package com.example.route.component
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,6 +23,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,10 +41,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.constraintlayout.compose.Dimension
-import androidx.constraintlayout.compose.Visibility
 import com.example.core.ui.theme.Shapes
 import com.example.core.ui.theme.custom.AppTypography
-import com.example.domain.entities.route.SectionDiesel
 import com.example.domain.util.CalculationEnergy
 import com.example.domain.util.CalculationEnergy.rounding
 import com.example.domain.util.str
@@ -50,6 +52,8 @@ import com.example.route.R
 import com.example.route.ui.maskInKilo
 import com.example.core.R as CoreR
 import com.example.route.ui.maskInLiter
+import com.example.route.viewmodel.DieselSectionFormState
+import com.example.route.viewmodel.DieselSectionType
 import de.charlex.compose.RevealDirection
 import de.charlex.compose.RevealSwipe
 import de.charlex.compose.RevealValue
@@ -59,27 +63,33 @@ import de.charlex.compose.rememberRevealState
 @Composable
 fun DieselSectionItem(
     index: Int,
-    item: SectionDiesel,
+    item: DieselSectionFormState,
     showRefuelDialog: (Double?) -> Unit,
     showCoefficientDialog: (Double?) -> Unit,
-    onFuelAcceptedChanged: (SectionDiesel, String) -> Unit,
-    onFuelDeliveredChanged: (SectionDiesel, String) -> Unit,
-    onDeleteItem: (SectionDiesel) -> Unit
+    onFuelAcceptedChanged: (Int, String?) -> Unit,
+    onFuelDeliveredChanged: (Int, String?) -> Unit,
+    onDeleteItem: (DieselSectionFormState) -> Unit,
+    focusChangedDieselSection: (Int, DieselSectionType) -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
     val revealState = rememberRevealState()
 
-    val acceptedText = item.acceptedFuel?.str() ?: ""
-    val deliveryText = item.deliveryFuel?.str() ?: ""
-    val acceptedInKilo = item.acceptedFuel.times(item.coefficient)
-    val deliveryInKilo = item.deliveryFuel.times(item.coefficient)
+    val acceptedText = item.accepted.data ?: ""
+    val deliveryText = item.delivery.data ?: ""
+    val acceptedInKilo =
+        item.accepted.data?.toDoubleOrNull().times(item.coefficient.data?.toDoubleOrNull())
+    val deliveryInKilo =
+        item.delivery.data?.toDoubleOrNull().times(item.coefficient.data?.toDoubleOrNull())
     val result = CalculationEnergy.getTotalFuelConsumption(
-        item.acceptedFuel,
-        item.deliveryFuel,
-        item.fuelSupply
+        item.accepted.data?.toDoubleOrNull(),
+        item.delivery.data?.toDoubleOrNull(),
+        item.refuel.data?.toDoubleOrNull()
     )
-    val resultInKilo = CalculationEnergy.getTotalFuelInKiloConsumption(result, item.coefficient)
+    val resultInKilo = CalculationEnergy.getTotalFuelInKiloConsumption(
+        result,
+        item.coefficient.data?.toDoubleOrNull()
+    )
 
     RevealSwipe(
         state = revealState,
@@ -138,13 +148,13 @@ fun DieselSectionItem(
                         end.linkTo(parent.end)
                     }
                     .clickable {
-                        showRefuelDialog(item.fuelSupply)
+                        showRefuelDialog(item.refuel.data?.toDoubleOrNull())
                     }
                     .padding(top = 16.dp, end = 16.dp),
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically)
                 {
-                    item.fuelSupply?.let {
+                    item.refuel.data?.toDoubleOrNull()?.let {
                         Text(
                             text = maskInLiter(it.str()) ?: "",
                             style = AppTypography.getType().bodyLarge,
@@ -170,7 +180,8 @@ fun DieselSectionItem(
                         },
                     value = acceptedText,
                     onValueChange = {
-                        onFuelAcceptedChanged(item, it)
+                        onFuelAcceptedChanged(index, it)
+                        focusChangedDieselSection(index, DieselSectionType.ACCEPTED)
                     },
                     placeholder = {
                         Text(text = "Принято")
@@ -196,7 +207,8 @@ fun DieselSectionItem(
                         },
                     value = deliveryText,
                     onValueChange = {
-                        onFuelDeliveredChanged(item, it)
+                        onFuelDeliveredChanged(index, it)
+                        focusChangedDieselSection(index, DieselSectionType.DELIVERY)
                     },
                     placeholder = {
                         Text(text = "Сдано", color = MaterialTheme.colorScheme.secondary)
@@ -212,46 +224,49 @@ fun DieselSectionItem(
                     })
                 )
 
-                val visibleInfoInKiloState =
-                    (!item.acceptedFuel?.str().isNullOrBlank() || !item.deliveryFuel?.str()
-                        .isNullOrBlank())
+                val resultVisibleState by remember { mutableStateOf(item.resultVisibility) }
 
-                Row(
+                AnimatedContent(
                     modifier = Modifier
                         .constrainAs(inKiloBlock) {
                             start.linkTo(parent.start)
                             end.linkTo(parent.end)
                             top.linkTo(energyAccepted.bottom)
-                            visibility =
-                                if (visibleInfoInKiloState) Visibility.Visible else Visibility.Gone
                         }
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(end = 8.dp),
-                        contentAlignment = Alignment.TopStart
-                    ) {
-                        val acceptedInKiloText = rounding(acceptedInKilo, 2)?.str()
-                        Text(
-                            text = maskInKilo(acceptedInKiloText) ?: "",
-                            style = AppTypography.getType().bodyMedium
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(start = 8.dp),
-                        contentAlignment = Alignment.TopStart
-                    ) {
-                        val deliveryInKiloText = rounding(deliveryInKilo, 2)?.str()
-                        Text(
-                            text = maskInKilo(deliveryInKiloText) ?: "",
-                            style = AppTypography.getType().bodyMedium
-                        )
+                    targetState = resultVisibleState,
+                    label = ""
+                ) { visibleState ->
+                    if (visibleState) {
+                        Row(
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(end = 8.dp),
+                                contentAlignment = Alignment.TopStart
+                            ) {
+                                val acceptedInKiloText = rounding(acceptedInKilo, 2)?.str()
+                                Text(
+                                    text = maskInKilo(acceptedInKiloText) ?: "",
+                                    style = AppTypography.getType().bodyMedium
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(start = 8.dp),
+                                contentAlignment = Alignment.TopStart
+                            ) {
+                                val deliveryInKiloText = rounding(deliveryInKilo, 2)?.str()
+                                Text(
+                                    text = maskInKilo(deliveryInKiloText) ?: "",
+                                    style = AppTypography.getType().bodyMedium
+                                )
+                            }
+                        }
                     }
                 }
 
@@ -267,10 +282,10 @@ fun DieselSectionItem(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     ClickableText(
-                        text = AnnotatedString("k = ${item.coefficient ?: 0.0}"),
+                        text = AnnotatedString("k = ${item.coefficient.data ?: 0.0}"),
                         style = AppTypography.getType().bodyLarge,
                         onClick = {
-                            showCoefficientDialog(item.coefficient)
+                            showCoefficientDialog(item.coefficient.data?.toDoubleOrNull())
                         })
 
                     result?.let {

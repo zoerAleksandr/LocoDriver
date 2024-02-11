@@ -25,10 +25,12 @@ fun FormLocoDestination(
 
     FormLocoScreen(
         currentLoco = viewModel.currentLoco,
-        onBackPressed =  router::back,
+        dieselSectionListState = formUiState.dieselSectionList,
+        electricSectionListState = formUiState.electricSectionList,
+        onBackPressed = router::back,
         onSaveClick = viewModel::saveLoco,
         onLocoSaved = router::back,
-        onClearAllField = { /*TODO*/ },
+        onClearAllField = viewModel::clearAllField,
         formUiState = formUiState,
         resetSaveState = viewModel::resetSaveState,
         onNumberChanged = viewModel::setNumber,
@@ -40,6 +42,16 @@ fun FormLocoDestination(
         onEndDeliveryTimeChanged = viewModel::setEndDeliveryTime,
         onFuelAcceptedChanged = viewModel::setFuelAccepted,
         onFuelDeliveredChanged = viewModel::setFuelDelivery,
-        onDeleteSectionDiesel = viewModel::deleteSection
+        onDeleteSectionDiesel = viewModel::deleteSectionDiesel,
+        addingSectionDiesel = viewModel::addingSectionDiesel,
+        focusChangedDieselSection = viewModel::focusChangedDieselSection,
+        onEnergyAcceptedChanged = viewModel::setEnergyAccepted,
+        onEnergyDeliveryChanged = viewModel::setEnergyDelivery,
+        onRecoveryAcceptedChanged = viewModel::setRecoveryAccepted,
+        onRecoveryDeliveryChanged = viewModel::setRecoveryDelivery,
+        onDeleteSectionElectric = viewModel::deleteSectionElectric,
+        addingSectionElectric = viewModel::addingSectionElectric,
+        focusChangedElectricSection = viewModel::focusChangedElectricSection,
+        onExpandStateElectricSection = viewModel::changeElectricItemExpand
     )
 }

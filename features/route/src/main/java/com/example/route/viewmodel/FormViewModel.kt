@@ -6,7 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.core.ResultState
-import com.example.domain.entities.UserSettings
+import com.example.data_local.setting.DataStoreRepository
 import com.example.domain.entities.route.*
 import com.example.domain.use_cases.*
 import com.example.route.Const.NULLABLE_ID
@@ -18,12 +18,13 @@ import kotlin.properties.Delegates
 
 class FormViewModel constructor(private val routeId: String?) : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
-    private val settingsUseCase: SettingsUseCase by inject()
+
+    private val dataStoreRepository: DataStoreRepository by inject()
+
 
     private val _uiState = MutableStateFlow(RouteFormUiState())
     val uiState = _uiState.asStateFlow()
 
-    private val userSettingState = MutableStateFlow<ResultState<UserSettings?>>(ResultState.Loading)
     private var loadRouteJob: Job? = null
     private var saveRouteJob: Job? = null
     private var loadSettingsJob: Job? = null
@@ -48,17 +49,7 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
             }
         }
 
-    private var setting: UserSettings?
-        get() {
-            return userSettingState.value.let {
-                if (it is ResultState.Success) it.data else null
-            }
-        }
-        private set(value) {
-            userSettingState.update {
-                ResultState.Success(value)
-            }
-        }
+    private var minTimeRest by mutableStateOf<Long?>(null)
 
     init {
         if (routeId == NULLABLE_ID) {
@@ -93,10 +84,8 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
 
     private fun loadSettings() {
         loadSettingsJob?.cancel()
-        loadSettingsJob = settingsUseCase.loadSettings().onEach { settingState ->
-            if (settingState is ResultState.Success) {
-                setting = settingState.data
-            }
+        loadSettingsJob = dataStoreRepository.getMinTimeRest().onEach {
+            minTimeRest = it
         }.launchIn(viewModelScope)
     }
 
@@ -240,7 +229,6 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
     }
 
     private fun getMinTimeRest(route: Route) {
-        val minTimeRest = setting?.minTimeRest
         val timeRest = routeUseCase.getMinRest(route, minTimeRest)
         _uiState.update {
             it.copy(minTimeRest = timeRest)

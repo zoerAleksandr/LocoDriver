@@ -1,11 +1,13 @@
 package com.example.locodriver.di
 
-import com.example.data_local.calendar.CalendarRepositoryImpl
+import com.example.data_local.calendar.CalendarStorageLocalImpl
 import com.example.data_local.route.RoomRouteRepository
-import com.example.data_local.setting.RoomSettingsRepository
-import com.example.domain.repositories.CalendarRepositories
+import com.example.data_local.setting.DataStoreRepository
+import com.example.data_local.setting.RoomCalendarRepository
+import com.example.domain.repositories.CalendarStorage
 import com.example.domain.repositories.RouteRepository
-import com.example.domain.repositories.SettingsRepositories
+import com.example.domain.repositories.CalendarRepositories
+import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
 val repositoryModule = module {
@@ -13,11 +15,13 @@ val repositoryModule = module {
         RoomRouteRepository()
     }
 
-    single<SettingsRepositories> {
-        RoomSettingsRepository()
+    single<CalendarRepositories> {
+        RoomCalendarRepository()
     }
 
-    single<CalendarRepositories> {
-        CalendarRepositoryImpl()
+    single<CalendarStorage> {
+        CalendarStorageLocalImpl()
     }
+
+    single { DataStoreRepository(androidContext()) }
 }

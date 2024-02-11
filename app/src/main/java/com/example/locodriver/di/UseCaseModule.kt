@@ -7,8 +7,8 @@ val useCaseModule = module {
     single { AuthUseCase() }
     single { RouteUseCase(repository = get()) }
     single { LocomotiveUseCase(repository = get()) }
-    single { SettingsUseCase(repositories = get()) }
     single { CalendarUseCase(repositories = get()) }
+    single { LoadCalendarFromStorage(repositories = get()) }
     single { TrainUseCase(repository = get()) }
     single { PassengerUseCase(repository = get()) }
     single { NotesUseCase(repository = get()) }
