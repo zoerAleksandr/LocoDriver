@@ -83,7 +83,7 @@ class LocoFormViewModel constructor(
 
     private var lastEnteredCoefficient by mutableStateOf(0.0)
 
-    fun clearAllField(){
+    fun clearAllField() {
         currentLoco = Locomotive(basicId = basicId)
         electricSectionListState.clear()
         dieselSectionListState.clear()
@@ -132,6 +132,16 @@ class LocoFormViewModel constructor(
                     recoveryDelivery = ElectricSectionFieldState(
                         data = section.deliveryRecovery?.str() ?: "",
                         type = ElectricSectionType.RECOVERY_DELIVERY
+                    ),
+                    resultVisibility = isVisibilityResultElectricSection(
+                        section.acceptedEnergy?.str(),
+                        section.deliveryEnergy?.str(),
+                        section.acceptedRecovery?.str(),
+                        section.deliveryRecovery?.str()
+                    ),
+                    expandItemState = isExpandElectricItem(
+                        section.acceptedRecovery?.str(),
+                        section.deliveryRecovery?.str()
                     )
                 )
             )
@@ -228,13 +238,6 @@ class LocoFormViewModel constructor(
         currentLoco = currentLoco?.copy(
             number = number
         )
-    }
-
-    fun changeElectricItemExpand(index: Int, value: Boolean){
-        electricSectionListState[index] =
-            electricSectionListState[index].copy(
-                expandItemState = value
-            )
     }
 
     fun setSeries(series: String) {
@@ -418,6 +421,19 @@ class LocoFormViewModel constructor(
         dieselSectionListState.clear()
     }
 
+    private fun isExpandElectricItem(
+        acceptedRecovery: String?,
+        deliveryRecovery: String?,
+    ): Boolean {
+        return (!acceptedRecovery.isNullOrBlank() || !deliveryRecovery.isNullOrBlank())
+    }
+
+    fun isExpandElectricItem(index: Int, isExpand: Boolean){
+        electricSectionListState[index] = electricSectionListState[index].copy(
+            expandItemState = isExpand
+        )
+    }
+
     private fun onElectricSectionEvent(event: ElectricSectionEvent) {
         when (event) {
             is ElectricSectionEvent.EnteredAccepted -> {
@@ -460,20 +476,14 @@ class LocoFormViewModel constructor(
                 val deliveryRecovery =
                     electricSectionListState[event.index].recoveryDelivery.data
 
-                if ((!accepted.isNullOrBlank() && !delivery.isNullOrBlank())
-                    || (!acceptedRecovery.isNullOrBlank() && !deliveryRecovery.isNullOrBlank())
-                ) {
-                    electricSectionListState[event.index] =
-                        electricSectionListState[event.index].copy(
-                            resultVisibility = true
-                        )
-                } else {
-                    electricSectionListState[event.index] =
-                        electricSectionListState[event.index].copy(
-                            resultVisibility = false
-                        )
-                }
-                changeElectricItemExpand(event.index, !acceptedRecovery.isNullOrBlank() && !deliveryRecovery.isNullOrBlank())
+                val isVisibilityResult = isVisibilityResultElectricSection(
+                    accepted, delivery, acceptedRecovery, deliveryRecovery
+                )
+                val isExpand = isExpandElectricItem(acceptedRecovery, deliveryRecovery)
+                electricSectionListState[event.index] = electricSectionListState[event.index].copy(
+                    resultVisibility = isVisibilityResult,
+                    expandItemState = isExpand
+                )
 
                 when (event.fieldName) {
                     ElectricSectionType.ACCEPTED -> {
@@ -530,6 +540,24 @@ class LocoFormViewModel constructor(
                 }
             }
         }
+    }
+
+    private fun isVisibilityResultElectricSection(
+//        event: ElectricSectionEvent.FocusChange,
+        accepted: String?,
+        delivery: String?,
+        acceptedRecovery: String?,
+        deliveryRecovery: String?
+    ): Boolean {
+//        val accepted = electricSectionListState[event.index].accepted.data
+//        val delivery = electricSectionListState[event.index].delivery.data
+//        val acceptedRecovery =
+//            electricSectionListState[event.index].recoveryAccepted.data
+//        val deliveryRecovery =
+//            electricSectionListState[event.index].recoveryDelivery.data
+
+        return ((!accepted.isNullOrBlank() && !delivery.isNullOrBlank())
+                || (!acceptedRecovery.isNullOrBlank() && !deliveryRecovery.isNullOrBlank()))
     }
 
     private fun validateElectricSection(
@@ -657,19 +685,6 @@ class LocoFormViewModel constructor(
                             dieselSectionListState[event.index].copy(
                                 formValid = isValid
                             )
-                        val accepted = dieselSectionListState[event.index].accepted.data
-                        val delivery = dieselSectionListState[event.index].delivery.data
-                        if (!accepted.isNullOrBlank() && !delivery.isNullOrBlank()) {
-                            dieselSectionListState[event.index] =
-                                dieselSectionListState[event.index].copy(
-                                    resultVisibility = true
-                                )
-                        } else {
-                            dieselSectionListState[event.index] =
-                                dieselSectionListState[event.index].copy(
-                                    resultVisibility = false
-                                )
-                        }
                     }
 
                     DieselSectionType.DELIVERY -> {
@@ -682,19 +697,6 @@ class LocoFormViewModel constructor(
                             dieselSectionListState[event.index].copy(
                                 formValid = isValid
                             )
-                        val accepted = dieselSectionListState[event.index].accepted.data
-                        val delivery = dieselSectionListState[event.index].delivery.data
-                        if (!accepted.isNullOrBlank() && !delivery.isNullOrBlank()) {
-                            dieselSectionListState[event.index] =
-                                dieselSectionListState[event.index].copy(
-                                    resultVisibility = true
-                                )
-                        } else {
-                            dieselSectionListState[event.index] =
-                                dieselSectionListState[event.index].copy(
-                                    resultVisibility = false
-                                )
-                        }
                     }
 
                     DieselSectionType.COEFFICIENT -> {

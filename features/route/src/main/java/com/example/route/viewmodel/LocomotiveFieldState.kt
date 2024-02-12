@@ -37,5 +37,4 @@ data class DieselSectionFormState(
     val refuel: DieselSectionFieldState = DieselSectionFieldState(type = DieselSectionType.REFUEL),
     val formValid: Boolean = true,
     val errorMessage: String = "",
-    val resultVisibility: Boolean = false
 )

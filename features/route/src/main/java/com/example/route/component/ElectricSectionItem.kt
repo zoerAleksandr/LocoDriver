@@ -32,8 +32,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.constraintlayout.compose.ConstraintLayout
-import androidx.constraintlayout.compose.Dimension
 import com.example.core.ui.theme.Shapes
 import com.example.core.ui.theme.custom.AppTypography
 import com.example.domain.util.CalculationEnergy
@@ -106,41 +104,50 @@ fun ElectricSectionItem(
         shape = Shapes.medium
     ) {
         Card(
+            modifier = Modifier
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outline,
+                    shape = Shapes.extraSmall
+                ),
             shape = Shapes.extraSmall
         ) {
-            ConstraintLayout(
-                modifier = Modifier
-                    .border(
-                        width = 1.dp,
-                        color = MaterialTheme.colorScheme.outline,
-                        shape = Shapes.extraSmall
-                    )
-                    .fillMaxWidth()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                val (
-                    sectionNum, energyAccepted, buttonVisible,
-                    energyDelivery, recoveryBlock,
-                    infoBlock, errorMessage
-                ) = createRefs()
-
-                Text(modifier = Modifier
-                    .constrainAs(sectionNum) {
-                        top.linkTo(errorMessage.bottom)
-                        start.linkTo(parent.start)
-                    }
-                    .padding(top = 16.dp, start = 16.dp),
+                Text(
+                    modifier = Modifier
+                        .padding(top = 8.dp, start = 16.dp),
                     text = "${index + 1} секция",
                     style = AppTypography.getType().bodyLarge
                 )
 
+                IconButton(
+                    modifier = Modifier,
+                    onClick = {
+                        onExpandStateChanged(index, !item.expandItemState)
+                    }
+                ) {
+                    AnimatedContent(targetState = item.expandItemState, label = "") {
+                        Icon(
+                            painter = if (it) {
+                                painterResource(R.drawable.close_fullscreen_24px)
+                            } else {
+                                painterResource(R.drawable.open_in_full_24px)
+                            },
+                            contentDescription = null
+                        )
+                    }
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
                 OutlinedTextField(
                     modifier = Modifier
-                        .constrainAs(energyAccepted) {
-                            start.linkTo(parent.start)
-                            end.linkTo(energyDelivery.start)
-                            top.linkTo(sectionNum.bottom)
-                            width = Dimension.fillToConstraints
-                        }
+                        .weight(1f)
                         .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 16.dp),
                     value = acceptedText,
                     onValueChange = {
@@ -163,12 +170,7 @@ fun ElectricSectionItem(
 
                 OutlinedTextField(
                     modifier = Modifier
-                        .constrainAs(energyDelivery) {
-                            end.linkTo(parent.end)
-                            top.linkTo(sectionNum.bottom)
-                            start.linkTo(energyAccepted.end)
-                            width = Dimension.fillToConstraints
-                        }
+                        .weight(1f)
                         .padding(start = 8.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
                     value = deliveryText,
                     textStyle = AppTypography.getType().bodyLarge,
@@ -188,135 +190,103 @@ fun ElectricSectionItem(
                         }
                     })
                 )
+            }
 
-                AnimatedContent(
-                    modifier = Modifier.constrainAs(recoveryBlock) {
-                        top.linkTo(energyAccepted.bottom)
-                        start.linkTo(parent.start)
-                        end.linkTo(parent.end)
-                    },
-                    targetState = item.expandItemState, label = ""
-                ) { targetState ->
-                    if (targetState) {
-                        Row(
-                            modifier = Modifier
-                                .padding(start = 8.dp, end = 8.dp, bottom = 16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            OutlinedTextField(
-                                modifier = Modifier
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                                    .weight(0.5f),
-                                value = recoveryAcceptedText,
-                                onValueChange = {
-                                    onRecoveryAcceptedChanged(index, it)
-                                    focusChangedElectricSection(
-                                        index,
-                                        ElectricSectionType.RECOVERY_ACCEPTED
-                                    )
-                                },
-                                textStyle = AppTypography.getType().bodyLarge,
-                                placeholder = {
-                                    Text(
-                                        text = "Принято",
-                                        color = MaterialTheme.colorScheme.secondary
-                                    )
-                                },
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Number,
-                                    imeAction = ImeAction.Next
-                                ), keyboardActions = KeyboardActions(onNext = {
-                                    scope.launch {
-                                        focusManager.moveFocus(FocusDirection.Right)
-                                    }
-                                })
-                            )
-
-                            OutlinedTextField(
-                                modifier = Modifier
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                                    .weight(0.5f),
-                                value = recoveryDeliveryText,
-                                onValueChange = {
-                                    onRecoveryDeliveryChanged(index, it)
-                                    focusChangedElectricSection(
-                                        index,
-                                        ElectricSectionType.RECOVERY_DELIVERY
-                                    )
-                                },
-                                textStyle = AppTypography.getType().bodyLarge,
-                                placeholder = {
-                                    Text(
-                                        text = "Сдано",
-                                        color = MaterialTheme.colorScheme.secondary
-                                    )
-                                },
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Number,
-                                    imeAction = ImeAction.Done
-                                ),
-                                keyboardActions = KeyboardActions(onDone = {
-                                    scope.launch {
-                                        focusManager.clearFocus()
-                                    }
-                                })
-                            )
-                        }
-                    }
-                }
-
-                androidx.compose.animation.AnimatedVisibility(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .constrainAs(infoBlock) {
-                            end.linkTo(parent.end)
-                            start.linkTo(parent.start)
-                            top.linkTo(recoveryBlock.bottom)
-                        }
-                        .padding(bottom = 8.dp, start = 16.dp),
-                    visible = item.resultVisibility,
-                    enter = slideInHorizontally(animationSpec = tween(durationMillis = 300))
-                            + fadeIn(animationSpec = tween(durationMillis = 300)),
-                    exit = slideOutHorizontally(animationSpec = tween(durationMillis = 300))
-                            + fadeOut(animationSpec = tween(durationMillis = 150)),
-                    label = ""
-                ) {
+            AnimatedContent(
+                targetState = item.expandItemState, label = ""
+            ) { targetState ->
+                if (targetState) {
                     Row(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(end = 16.dp),
-                        horizontalArrangement = Arrangement.End
+                            .padding(start = 8.dp, end = 8.dp, bottom = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        result?.let {
-                            Text(text = it.str())
-                        }
-                        resultRecovery?.let {
-                            Text(text = " / ${it.str()}")
-                        }
-
-                    }
-                }
-
-                IconButton(
-                    modifier = Modifier
-                        .constrainAs(buttonVisible) {
-                            end.linkTo(parent.end)
-                            top.linkTo(parent.top)
-                        },
-                    onClick = {
-                        onExpandStateChanged(index, !item.expandItemState)
-                    }
-                ) {
-                    AnimatedContent(targetState = item.expandItemState, label = "") {
-                        Icon(
-                            painter =  if (it) {
-                                painterResource(R.drawable.close_fullscreen_24px)
-                            } else {
-                                painterResource(R.drawable.open_in_full_24px)
+                        OutlinedTextField(
+                            modifier = Modifier
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                .weight(0.5f),
+                            value = recoveryAcceptedText,
+                            onValueChange = {
+                                onRecoveryAcceptedChanged(index, it)
+                                focusChangedElectricSection(
+                                    index,
+                                    ElectricSectionType.RECOVERY_ACCEPTED
+                                )
                             },
-                            contentDescription = null
+                            textStyle = AppTypography.getType().bodyLarge,
+                            placeholder = {
+                                Text(
+                                    text = "Принято",
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                            },
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Number,
+                                imeAction = ImeAction.Next
+                            ), keyboardActions = KeyboardActions(onNext = {
+                                scope.launch {
+                                    focusManager.moveFocus(FocusDirection.Right)
+                                }
+                            })
+                        )
+
+                        OutlinedTextField(
+                            modifier = Modifier
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                .weight(0.5f),
+                            value = recoveryDeliveryText,
+                            onValueChange = {
+                                onRecoveryDeliveryChanged(index, it)
+                                focusChangedElectricSection(
+                                    index,
+                                    ElectricSectionType.RECOVERY_DELIVERY
+                                )
+                            },
+                            textStyle = AppTypography.getType().bodyLarge,
+                            placeholder = {
+                                Text(
+                                    text = "Сдано",
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                            },
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Number,
+                                imeAction = ImeAction.Done
+                            ),
+                            keyboardActions = KeyboardActions(onDone = {
+                                scope.launch {
+                                    focusManager.clearFocus()
+                                }
+                            })
                         )
                     }
+                }
+            }
+
+            androidx.compose.animation.AnimatedVisibility(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp, start = 16.dp),
+                visible = item.resultVisibility,
+                enter = slideInHorizontally(animationSpec = tween(durationMillis = 300))
+                        + fadeIn(animationSpec = tween(durationMillis = 300)),
+                exit = slideOutHorizontally(animationSpec = tween(durationMillis = 300))
+                        + fadeOut(animationSpec = tween(durationMillis = 150)),
+                label = ""
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(end = 16.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    result?.let {
+                        Text(text = it.str())
+                    }
+                    resultRecovery?.let {
+                        Text(text = " / ${it.str()}")
+                    }
+
                 }
             }
         }

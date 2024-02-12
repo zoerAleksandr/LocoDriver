@@ -52,6 +52,6 @@ fun FormLocoDestination(
         onDeleteSectionElectric = viewModel::deleteSectionElectric,
         addingSectionElectric = viewModel::addingSectionElectric,
         focusChangedElectricSection = viewModel::focusChangedElectricSection,
-        onExpandStateElectricSection = viewModel::changeElectricItemExpand
+        onExpandStateElectricSection = viewModel::isExpandElectricItem
     )
 }
