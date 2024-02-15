@@ -40,8 +40,8 @@ class LocoFormViewModel constructor(
 
     private var loadLocoJob: Job? = null
     private var saveLocoJob: Job? = null
-    private var loadSetting: Job? = null
-    private var saveSetting: Job? = null
+    private var loadSettingJob: Job? = null
+    private var saveSettingJob: Job? = null
 
     var currentLoco: Locomotive?
         get() {
@@ -158,15 +158,15 @@ class LocoFormViewModel constructor(
     }
 
     private fun loadSetting() {
-        loadSetting?.cancel()
-        loadSetting = dataStoreRepository.getDieselCoefficient().onEach {
+        loadSettingJob?.cancel()
+        loadSettingJob = dataStoreRepository.getDieselCoefficient().onEach {
             lastEnteredCoefficient = it
         }.launchIn(viewModelScope)
     }
 
     private fun saveCoefficient(data: String?) {
-        saveSetting?.cancel()
-        saveSetting = dataStoreRepository
+        saveSettingJob?.cancel()
+        saveSettingJob = dataStoreRepository
             .setDieselCoefficient(data?.toDoubleOrNull()).launchIn(viewModelScope)
     }
 
@@ -339,6 +339,38 @@ class LocoFormViewModel constructor(
         onDieselSectionEvent(
             DieselSectionEvent.EnteredDelivery(
                 index, s
+            )
+        )
+    }
+
+    fun setRefuel(index: Int, d: String?) {
+        onDieselSectionEvent(
+            DieselSectionEvent.EnteredRefuel(
+                index, d?.toDoubleOrNull()
+            )
+        )
+    }
+
+    fun showRefuelDialog(value: Pair<Boolean, Int>){
+        _uiState.update {
+            it.copy(
+                refuelDialogShow = value
+            )
+        }
+    }
+    fun showCoefficientDialog(value: Pair<Boolean, Int>){
+        _uiState.update {
+            it.copy(
+                coefficientDialogShow = value
+            )
+        }
+    }
+
+
+    fun setCoefficient(index: Int, coefficient: String?) {
+        onDieselSectionEvent(
+            DieselSectionEvent.EnteredCoefficient(
+                index, coefficient?.toDoubleOrNull()
             )
         )
     }
@@ -543,19 +575,11 @@ class LocoFormViewModel constructor(
     }
 
     private fun isVisibilityResultElectricSection(
-//        event: ElectricSectionEvent.FocusChange,
         accepted: String?,
         delivery: String?,
         acceptedRecovery: String?,
         deliveryRecovery: String?
     ): Boolean {
-//        val accepted = electricSectionListState[event.index].accepted.data
-//        val delivery = electricSectionListState[event.index].delivery.data
-//        val acceptedRecovery =
-//            electricSectionListState[event.index].recoveryAccepted.data
-//        val deliveryRecovery =
-//            electricSectionListState[event.index].recoveryDelivery.data
-
         return ((!accepted.isNullOrBlank() && !delivery.isNullOrBlank())
                 || (!acceptedRecovery.isNullOrBlank() && !deliveryRecovery.isNullOrBlank()))
     }

@@ -1,14 +1,11 @@
 package com.example.route.component
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -27,9 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.ImeAction
@@ -44,7 +39,6 @@ import kotlinx.coroutines.launch
 import com.example.domain.util.times
 import com.example.route.R
 import com.example.route.ui.maskInKilo
-import com.example.core.R as CoreR
 import com.example.route.ui.maskInLiter
 import com.example.route.viewmodel.DieselSectionFormState
 import com.example.route.viewmodel.DieselSectionType
@@ -58,12 +52,16 @@ import de.charlex.compose.rememberRevealState
 fun DieselSectionItem(
     index: Int,
     item: DieselSectionFormState,
-    showRefuelDialog: (Double?) -> Unit,
-    showCoefficientDialog: (Double?) -> Unit,
+    isShowRefuelDialog: Pair<Boolean, Int>,
+    isShowCoefficientDialog: Pair<Boolean, Int>,
     onFuelAcceptedChanged: (Int, String?) -> Unit,
     onFuelDeliveredChanged: (Int, String?) -> Unit,
     onDeleteItem: (DieselSectionFormState) -> Unit,
-    focusChangedDieselSection: (Int, DieselSectionType) -> Unit
+    focusChangedDieselSection: (Int, DieselSectionType) -> Unit,
+    showRefuelDialog: (Pair<Boolean, Int>) -> Unit,
+    onRefuelValueChanged: (Int, String?) -> Unit,
+    showCoefficientDialog: (Pair<Boolean, Int>) -> Unit,
+    onCoefficientValueChanged: (Int, String?) -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
@@ -84,6 +82,26 @@ fun DieselSectionItem(
         result,
         item.coefficient.data?.toDoubleOrNull()
     )
+
+    if (isShowRefuelDialog.first) {
+        EnteredRefuelDialog(
+            index = isShowRefuelDialog.second,
+            refuelValue = item.refuel.data,
+            showDialog = showRefuelDialog,
+            onSaveClick = onRefuelValueChanged,
+            focusChangedDieselSection = focusChangedDieselSection
+        )
+    }
+
+    if (isShowCoefficientDialog.first) {
+        EnteredCoefficientDialog(
+            index = isShowCoefficientDialog.second,
+            coefficientValue = item.coefficient.data,
+            showDialog = showCoefficientDialog,
+            onSaveClick = onCoefficientValueChanged,
+            focusChangedDieselSection = focusChangedDieselSection
+        )
+    }
 
     RevealSwipe(
         state = revealState,
@@ -131,10 +149,6 @@ fun DieselSectionItem(
                 )
 
                 Row(
-                    modifier = Modifier
-                        .clickable {
-                            showRefuelDialog(item.refuel.data?.toDoubleOrNull())
-                        },
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -144,14 +158,14 @@ fun DieselSectionItem(
                             style = AppTypography.getType().bodyLarge,
                         )
                     }
-                    Image(
-                        modifier = Modifier
-                            .size(dimensionResource(id = CoreR.dimen.min_size_view))
-                            .padding(8.dp),
-                        painter = painterResource(id = R.drawable.refuel_icon),
-                        contentDescription = null,
-                        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.tertiary)
-                    )
+                    IconButton(onClick = { showRefuelDialog(Pair(true, index)) }) {
+                        Icon(
+                            modifier = Modifier
+                                .padding(8.dp),
+                            painter = painterResource(id = R.drawable.refuel_icon),
+                            contentDescription = null,
+                        )
+                    }
                 }
             }
 
@@ -250,7 +264,7 @@ fun DieselSectionItem(
                     text = AnnotatedString("k = ${item.coefficient.data ?: 0.0}"),
                     style = AppTypography.getType().bodyLarge,
                     onClick = {
-                        showCoefficientDialog(item.coefficient.data?.toDoubleOrNull())
+                        showCoefficientDialog(Pair(true, index))
                     })
                 result?.let {
                     val resultInLiterText = maskInLiter(it.str())

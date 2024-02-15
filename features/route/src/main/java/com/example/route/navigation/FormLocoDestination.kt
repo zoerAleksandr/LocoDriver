@@ -52,6 +52,12 @@ fun FormLocoDestination(
         onDeleteSectionElectric = viewModel::deleteSectionElectric,
         addingSectionElectric = viewModel::addingSectionElectric,
         focusChangedElectricSection = viewModel::focusChangedElectricSection,
-        onExpandStateElectricSection = viewModel::isExpandElectricItem
+        onExpandStateElectricSection = viewModel::isExpandElectricItem,
+        isShowRefuelDialog = formUiState.refuelDialogShow,
+        showRefuelDialog = viewModel::showRefuelDialog,
+        onRefuelValueChanged = viewModel::setRefuel,
+        isShowCoefficientDialog = formUiState.coefficientDialogShow,
+        showCoefficientDialog = viewModel::showCoefficientDialog,
+        onCoefficientValueChanged = viewModel::setCoefficient
     )
 }

@@ -10,5 +10,7 @@ data class LocoFormUiState(
     val dieselSectionList: SnapshotStateList<DieselSectionFormState>? = mutableStateListOf(),
     val electricSectionList: SnapshotStateList<ElectricSectionFormState>? = mutableStateListOf(),
     val saveLocoState: ResultState<Unit>? = null,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val refuelDialogShow: Pair<Boolean, Int> = Pair(false, 0),
+    val coefficientDialogShow: Pair<Boolean, Int> = Pair(false, 0)
 )

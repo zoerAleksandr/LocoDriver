@@ -20,6 +20,7 @@ internal object DieselSectionConverter {
         acceptedFuel = sectionEntity.acceptedFuel,
         deliveryFuel = sectionEntity.deliveryFuel,
         coefficient = sectionEntity.coefficient,
+        fuelSupply = sectionEntity.fuelSupply,
         coefficientSupply = sectionEntity.coefficientSupply,
     )
 

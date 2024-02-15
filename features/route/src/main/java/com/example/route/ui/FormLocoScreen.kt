@@ -1,5 +1,6 @@
 package com.example.route.ui
 
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -22,7 +23,7 @@ import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -42,12 +43,10 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
@@ -122,39 +121,14 @@ fun FormLocoScreen(
     onDeleteSectionElectric: (ElectricSectionFormState) -> Unit,
     addingSectionElectric: () -> Unit,
     focusChangedElectricSection: (Int, ElectricSectionType) -> Unit,
-    onExpandStateElectricSection: (Int, Boolean) -> Unit
+    onExpandStateElectricSection: (Int, Boolean) -> Unit,
+    showRefuelDialog: (Pair<Boolean, Int>) -> Unit,
+    onRefuelValueChanged: (Int, String?) -> Unit,
+    showCoefficientDialog: (Pair<Boolean, Int>) -> Unit,
+    onCoefficientValueChanged: (Int, String?) -> Unit,
+    isShowRefuelDialog: Pair<Boolean, Int>,
+    isShowCoefficientDialog: Pair<Boolean, Int>,
 ) {
-    val scope = rememberCoroutineScope()
-    val focusManager = LocalFocusManager.current
-    var openBottomSheet by rememberSaveable { mutableStateOf(false) }
-
-    val closeSheet: () -> Unit = {
-        openBottomSheet = false
-    }
-
-    val coefficientState: MutableState<Pair<Int, String>> = remember {
-        mutableStateOf(Pair(0, "0.0"))
-    }
-    val refuelState: MutableState<Pair<Int, String>> = remember {
-        mutableStateOf(Pair(0, "0.0"))
-    }
-
-    if (openBottomSheet) {
-//        Dialog(onDismissRequest = { openBottomSheet = false }) {
-//            ElevatedCard {
-//                currentSheet?.let { sheet ->
-//                    SheetLayoutLoco(
-//                        sheet = sheet,
-//                        viewModel = addingLocoViewModel,
-//                        closeSheet = closeSheet,
-//                        coefficientState = coefficientState,
-//                        refuelState = refuelState
-//                    )
-//                }
-//            }
-//        }
-    }
-
     Scaffold(
         modifier = Modifier
             .fillMaxWidth(),
@@ -170,7 +144,7 @@ fun FormLocoScreen(
                 navigationIcon = {
                     IconButton(onClick = { onBackPressed() }) {
                         Icon(
-                            imageVector = Icons.Default.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Default.ArrowBack,
                             contentDescription = "Назад"
                         )
                     }
@@ -255,7 +229,13 @@ fun FormLocoScreen(
                                 onDeleteSectionElectric = onDeleteSectionElectric,
                                 addingSectionElectric = addingSectionElectric,
                                 focusChangedElectricSection = focusChangedElectricSection,
-                                onExpandStateElectricSection = onExpandStateElectricSection
+                                onExpandStateElectricSection = onExpandStateElectricSection,
+                                isShowRefuelDialog = isShowRefuelDialog,
+                                showRefuelDialog = showRefuelDialog,
+                                onRefuelValueChanged = onRefuelValueChanged,
+                                isShowCoefficientDialog = isShowCoefficientDialog,
+                                showCoefficientDialog = showCoefficientDialog,
+                                onCoefficientValueChanged = onCoefficientValueChanged
                             )
                         }
                     }
@@ -290,11 +270,19 @@ private fun LocoFormScreenContent(
     onDeleteSectionElectric: (ElectricSectionFormState) -> Unit,
     addingSectionElectric: () -> Unit,
     focusChangedElectricSection: (Int, ElectricSectionType) -> Unit,
-    onExpandStateElectricSection: (Int, Boolean) -> Unit
+    onExpandStateElectricSection: (Int, Boolean) -> Unit,
+    isShowRefuelDialog: Pair<Boolean, Int>,
+    showRefuelDialog: (Pair<Boolean, Int>) -> Unit,
+    onRefuelValueChanged: (Int, String?) -> Unit,
+    isShowCoefficientDialog: Pair<Boolean, Int>,
+    showCoefficientDialog: (Pair<Boolean, Int>) -> Unit,
+    onCoefficientValueChanged: (Int, String?) -> Unit
 ) {
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
+
+
 
     AnimatedVisibility(
         modifier = Modifier
@@ -823,25 +811,32 @@ private fun LocoFormScreenContent(
                         DieselSectionItem(
                             item = item,
                             index = index,
-                            showRefuelDialog = {},
-                            showCoefficientDialog = {},
+                            isShowRefuelDialog = isShowRefuelDialog,
+                            isShowCoefficientDialog = isShowCoefficientDialog,
                             onFuelAcceptedChanged = onFuelAcceptedChanged,
                             onFuelDeliveredChanged = onFuelDeliveredChanged,
                             onDeleteItem = onDeleteSectionDiesel,
-                            focusChangedDieselSection = focusChangedDieselSection
+                            focusChangedDieselSection = focusChangedDieselSection,
+                            showRefuelDialog = showRefuelDialog,
+                            onRefuelValueChanged = onRefuelValueChanged,
+                            showCoefficientDialog = showCoefficientDialog,
+                            onCoefficientValueChanged = onCoefficientValueChanged
                         )
 
                         if (index == dieselSectionListState.lastIndex && index > 0) {
                             var overResult: Double? = null
-                            locomotive.dieselSectionList.forEach {
-                                val accepted = it.acceptedFuel
-                                val delivery = it.deliveryFuel
-                                val refuel = it.fuelSupply
+                            dieselSectionListState.forEach {
+                                val accepted = it.accepted.data?.toDoubleOrNull()
+                                val delivery = it.delivery.data?.toDoubleOrNull()
+                                val refuel = it.refuel.data?.toDoubleOrNull()
                                 val result = CalculationEnergy.getTotalFuelConsumption(
                                     accepted, delivery, refuel
                                 )
                                 overResult += result
+                                Log.d("ZZZ", "accepted = $accepted")
+                                Log.d("ZZZ", "delivery = $delivery")
                             }
+                            Log.d("ZZZ", "overResult = $overResult")
                             overResult?.let {
                                 Text(
                                     text = "Всего расход = ${maskInLiter(it.str())}",
@@ -935,818 +930,3 @@ private fun LocoFormScreenContent(
         item { Spacer(modifier = Modifier.height(40.dp)) }
     }
 }
-
-//        val scrollState = rememberLazyListState()
-//        ConstraintLayout(
-//            modifier = Modifier
-//                .fillMaxWidth()
-//                .padding(paddingValues),
-//        ) {
-//            val (topShadow, lazyColumn) = createRefs()
-//            val number = addingLocoViewModel.numberLocoState
-//            val series = addingLocoViewModel.seriesLocoState
-//            val tabState = addingLocoViewModel.tabState
-//
-//            AnimatedVisibility(
-//                modifier = Modifier
-//                    .zIndex(1f)
-//                    .constrainAs(topShadow) {
-//                        top.linkTo(parent.top)
-//                        start.linkTo(parent.start)
-//                        end.linkTo(parent.end)
-//                        width = Dimension.fillToConstraints
-//                    },
-//                visible = !scrollState.isScrollInInitialState(),
-//                enter = fadeIn(animationSpec = tween(durationMillis = 300)),
-//                exit = fadeOut(animationSpec = tween(durationMillis = 300))
-//            ) {
-//                BottomShadow()
-//            }
-//            LazyColumn(
-//                modifier = Modifier
-//                    .constrainAs(lazyColumn) {
-//                        top.linkTo(parent.top)
-//                        start.linkTo(parent.start)
-//                        end.linkTo(parent.end)
-//                        width = Dimension.fillToConstraints
-//                    },
-//                state = scrollState,
-//                horizontalAlignment = Alignment.End,
-//                contentPadding = PaddingValues(horizontal = 24.dp)
-//            ) {
-//                item {
-//                    Row(
-//                        modifier = Modifier
-//                            .fillMaxWidth()
-//                            .padding(top = 24.dp)
-//                    ) {
-//                        OutlinedTextField(
-//                            modifier = Modifier
-//                                .padding(end = 8.dp)
-//                                .weight(1f),
-//                            value = series,
-//                            textStyle = Typography.bodyLarge
-//                                .copy(color = MaterialTheme.colorScheme.primary),
-//                            placeholder = {
-//                                Text(text = "Серия", color = MaterialTheme.colorScheme.secondary)
-//                            },
-//                            onValueChange = {
-//                                addingLocoViewModel.setSeriesLoco(it)
-//                            },
-//                            keyboardOptions = KeyboardOptions(
-//                                imeAction = ImeAction.Next
-//                            ),
-//                            keyboardActions = KeyboardActions(
-//                                onNext = {
-//                                    scope.launch {
-//                                        focusManager.moveFocus(FocusDirection.Right)
-//                                    }
-//                                }
-//                            ),
-//                            singleLine = true
-//                        )
-//                        OutlinedTextField(
-//                            modifier = Modifier
-//                                .padding(start = 8.dp)
-//                                .weight(1f),
-//                            value = number,
-//                            textStyle = Typography.bodyLarge
-//                                .copy(color = MaterialTheme.colorScheme.primary),
-//                            placeholder = {
-//                                Text(
-//                                    text = "Номер",
-//                                    color = MaterialTheme.colorScheme.secondary
-//                                )
-//                            },
-//                            onValueChange = {
-//                                addingLocoViewModel.setNumberLoco(it)
-//                            },
-//                            keyboardOptions = KeyboardOptions(
-//                                keyboardType = KeyboardType.Number,
-//                                imeAction = ImeAction.Done
-//                            ),
-//                            keyboardActions = KeyboardActions(
-//                                onDone = {
-//                                    scope.launch {
-//                                        focusManager.clearFocus()
-//                                    }
-//                                }
-//                            ),
-//                            singleLine = true
-//                        )
-//                    }
-//                }
-//                item {
-//                    val indicator = @Composable { tabPositions: List<TabPosition> ->
-//                        LocoTypeIndicator(
-//                            Modifier.tabIndicatorOffset(tabPositions[tabState]),
-//                            MaterialTheme.colorScheme.primary
-//                        )
-//                    }
-//                    val items = listOf(
-//                        stringResource(id = R.string.dieselType),
-//                        stringResource(id = R.string.electricType)
-//                    )
-//                    TabRow(
-//                        modifier = Modifier
-//                            .padding(top = 12.dp),
-//                        selectedTabIndex = tabState,
-//                        indicator = indicator,
-//                        divider = {}
-//                    ) {
-//                        items.forEachIndexed { index, title ->
-//                            val isSelected = tabState == index
-//                            Tab(
-//                                modifier = Modifier.zIndex(1f),
-//                                selected = isSelected,
-//                                onClick = { addingLocoViewModel.setTabPosition(index) },
-//                                text = {
-//                                    Text(
-//                                        text = title,
-//                                        maxLines = 1,
-//                                        overflow = TextOverflow.Ellipsis,
-//                                        style = Typography.bodyLarge,
-//                                        color = if (isSelected) {
-//                                            MaterialTheme.colorScheme.onSecondary
-//                                        } else {
-//                                            MaterialTheme.colorScheme.secondary
-//                                        }
-//                                    )
-//                                }
-//                            )
-//                        }
-//                    }
-//                }
-//                item {
-//                    val stateAccepted = addingLocoViewModel.acceptedTimeState.value
-//                    val startAcceptedTime = stateAccepted.startAccepted.time
-//                    val endAcceptedTime = stateAccepted.endAccepted.time
-//
-//                    val startAcceptedCalendar by remember {
-//                        mutableStateOf(Calendar.getInstance().also { calendar ->
-//                            startAcceptedTime?.let { millis ->
-//                                calendar.timeInMillis = millis
-//                            }
-//                        })
-//                    }
-//
-//                    val startAcceptedTimePickerState = rememberTimePickerState(
-//                        initialHour = startAcceptedCalendar.get(Calendar.HOUR),
-//                        initialMinute = startAcceptedCalendar.get(Calendar.MINUTE),
-//                        is24Hour = true
-//                    )
-//
-//                    val startAcceptedDatePickerState =
-//                        rememberDatePickerState(initialSelectedDateMillis = startAcceptedTime)
-//
-//                    var showStartAcceptedTimePicker by remember {
-//                        mutableStateOf(false)
-//                    }
-//
-//                    var showStartAcceptedDatePicker by remember {
-//                        mutableStateOf(false)
-//                    }
-//
-//                    if (showStartAcceptedDatePicker) {
-//                        DatePickerDialog(
-//                            datePickerState = startAcceptedDatePickerState,
-//                            onDismissRequest = {
-//                                showStartAcceptedDatePicker = false
-//                            },
-//                            onConfirmRequest = {
-//                                showStartAcceptedDatePicker = false
-//                                showStartAcceptedTimePicker = true
-//                                startAcceptedCalendar.timeInMillis =
-//                                    startAcceptedDatePickerState.selectedDateMillis!!
-//                            },
-//                            onClearRequest = {
-//                                showStartAcceptedDatePicker = false
-//                                addingLocoViewModel.createEventAccepted(
-//                                    AcceptedEvent.EnteredStartAccepted(
-//                                        null
-//                                    )
-//                                )
-//                            }
-//                        )
-//                    }
-//
-//                    if (showStartAcceptedTimePicker) {
-//                        TimePickerDialog(
-//                            timePickerState = startAcceptedTimePickerState,
-//                            onDismissRequest = { showStartAcceptedTimePicker = false },
-//                            onConfirmRequest = {
-//                                showStartAcceptedTimePicker = false
-//                                startAcceptedCalendar.set(
-//                                    Calendar.HOUR,
-//                                    startAcceptedTimePickerState.hour
-//                                )
-//                                startAcceptedCalendar.set(
-//                                    Calendar.MINUTE,
-//                                    startAcceptedTimePickerState.minute
-//                                )
-//                                addingLocoViewModel.createEventAccepted(
-//                                    AcceptedEvent.EnteredStartAccepted(
-//                                        startAcceptedCalendar.timeInMillis
-//                                    )
-//                                )
-//                                addingLocoViewModel.createEventAccepted(
-//                                    AcceptedEvent.FocusChange(
-//                                        AcceptedType.START
-//                                    )
-//                                )
-//                            }
-//                        )
-//                    }
-//
-//                    val endAcceptedCalendar by remember {
-//                        mutableStateOf(Calendar.getInstance().also { calendar ->
-//                            endAcceptedTime?.let { millis ->
-//                                calendar.timeInMillis = millis
-//                            }
-//                        })
-//                    }
-//
-//                    val endAcceptedTimePickerState = rememberTimePickerState(
-//                        initialHour = endAcceptedCalendar.get(Calendar.HOUR),
-//                        initialMinute = endAcceptedCalendar.get(Calendar.MINUTE),
-//                        is24Hour = true
-//                    )
-//
-//                    val endAcceptedDatePickerState =
-//                        rememberDatePickerState(initialSelectedDateMillis = endAcceptedTime)
-//
-//                    var showEndAcceptedTimePicker by remember {
-//                        mutableStateOf(false)
-//                    }
-//
-//                    var showEndAcceptedDatePicker by remember {
-//                        mutableStateOf(false)
-//                    }
-//
-//                    if (showEndAcceptedDatePicker) {
-//                        DatePickerDialog(
-//                            datePickerState = endAcceptedDatePickerState,
-//                            onDismissRequest = {
-//                                showEndAcceptedDatePicker = false
-//                            },
-//                            onConfirmRequest = {
-//                                showEndAcceptedDatePicker = false
-//                                showEndAcceptedTimePicker = true
-//                                endAcceptedCalendar.timeInMillis =
-//                                    endAcceptedDatePickerState.selectedDateMillis!!
-//                            },
-//                            onClearRequest = {
-//                                showEndAcceptedDatePicker = false
-//                                addingLocoViewModel.createEventAccepted(
-//                                    AcceptedEvent.EnteredEndAccepted(
-//                                        null
-//                                    )
-//                                )
-//                            }
-//                        )
-//                    }
-//
-//                    if (showEndAcceptedTimePicker) {
-//                        TimePickerDialog(
-//                            timePickerState = endAcceptedTimePickerState,
-//                            onDismissRequest = { showEndAcceptedTimePicker = false },
-//                            onConfirmRequest = {
-//                                showEndAcceptedTimePicker = false
-//                                endAcceptedCalendar.set(
-//                                    Calendar.HOUR,
-//                                    endAcceptedTimePickerState.hour
-//                                )
-//                                endAcceptedCalendar.set(
-//                                    Calendar.MINUTE,
-//                                    endAcceptedTimePickerState.minute
-//                                )
-//                                addingLocoViewModel.createEventAccepted(
-//                                    AcceptedEvent.EnteredEndAccepted(
-//                                        endAcceptedCalendar.timeInMillis
-//                                    )
-//                                )
-//                                addingLocoViewModel.createEventAccepted(
-//                                    AcceptedEvent.FocusChange(
-//                                        AcceptedType.END
-//                                    )
-//                                )
-//                            }
-//                        )
-//                    }
-//
-//                    Column(
-//                        modifier = Modifier
-//                            .padding(top = 12.dp)
-//                            .border(
-//                                width = 1.dp,
-//                                shape = ShapeBackground.small,
-//                                color = MaterialTheme.colorScheme.outline
-//                            ),
-//                        horizontalAlignment = Alignment.CenterHorizontally
-//                    ) {
-//                        if (!stateAccepted.formValid) {
-//                            Row(
-//                                modifier = Modifier
-//                                    .padding(top = 12.dp, start = 16.dp, end = 16.dp),
-//                                verticalAlignment = Alignment.CenterVertically
-//                            ) {
-//                                Icon(
-//                                    painter = painterResource(id = R.drawable.error_icon),
-//                                    tint = Color.Red,
-//                                    contentDescription = null
-//                                )
-//                                Text(
-//                                    modifier = Modifier.padding(start = 8.dp),
-//                                    text = stateAccepted.errorMessage,
-//                                    style = Typography.bodySmall.copy(color = Color.Red),
-//                                )
-//                            }
-//                        }
-//                        Row(
-//                            modifier = Modifier.fillMaxWidth(),
-//                            horizontalArrangement = Arrangement.SpaceBetween,
-//                            verticalAlignment = Alignment.CenterVertically
-//                        ) {
-//                            Text(
-//                                modifier = Modifier.padding(start = 16.dp),
-//                                text = "Приемка",
-//                                style = Typography.bodyLarge.copy(color = MaterialTheme.colorScheme.secondary)
-//                            )
-//
-//                            Row(
-//                                modifier = Modifier.padding(horizontal = 16.dp),
-//                                horizontalArrangement = Arrangement.SpaceAround,
-//                                verticalAlignment = Alignment.CenterVertically
-//                            ) {
-//                                Box(
-//                                    modifier = Modifier
-//                                        .clickable {
-//                                            showStartAcceptedDatePicker = true
-//                                        }
-//                                        .padding(horizontal = 18.dp),
-//                                    contentAlignment = Alignment.Center
-//                                ) {
-//                                    val timeStartText = startAcceptedTime?.let { millis ->
-//                                        SimpleDateFormat(
-//                                            DateAndTimeFormat.TIME_FORMAT,
-//                                            Locale.getDefault()
-//                                        ).format(
-//                                            millis
-//                                        )
-//                                    } ?: DateAndTimeFormat.DEFAULT_TIME_TEXT
-//
-//                                    Text(
-//                                        text = timeStartText,
-//                                        style = Typography.bodyLarge,
-//                                    )
-//                                }
-//                                Text(" - ")
-//                                Box(
-//                                    modifier = Modifier
-//                                        .padding(18.dp)
-//                                        .clickable {
-//                                            showEndAcceptedDatePicker = true
-//                                        },
-//                                    contentAlignment = Alignment.Center
-//                                ) {
-//                                    val timeStartText = endAcceptedTime?.let { millis ->
-//                                        SimpleDateFormat(
-//                                            DateAndTimeFormat.TIME_FORMAT,
-//                                            Locale.getDefault()
-//                                        ).format(
-//                                            millis
-//                                        )
-//                                    } ?: DateAndTimeFormat.DEFAULT_TIME_TEXT
-//
-//                                    Text(
-//                                        text = timeStartText,
-//                                        style = Typography.bodyLarge,
-//                                    )
-//                                }
-//                            }
-//                        }
-//                    }
-//                }
-//                item {
-//                    val stateDelivery = addingLocoViewModel.deliveryTimeState.value
-//                    val startDeliveryTime = stateDelivery.startDelivered.time
-//                    val endDeliveryTime = stateDelivery.endDelivered.time
-//
-//                    val startDeliveryCalendar by remember {
-//                        mutableStateOf(Calendar.getInstance().also { calendar ->
-//                            startDeliveryTime?.let { millis ->
-//                                calendar.timeInMillis = millis
-//                            }
-//                        })
-//                    }
-//
-//                    val startDeliveryTimePickerState = rememberTimePickerState(
-//                        initialHour = startDeliveryCalendar.get(Calendar.HOUR),
-//                        initialMinute = startDeliveryCalendar.get(Calendar.MINUTE),
-//                        is24Hour = true
-//                    )
-//
-//                    val startDeliveryDatePickerState =
-//                        rememberDatePickerState(initialSelectedDateMillis = startDeliveryTime)
-//
-//                    var showStartDeliveryTimePicker by remember {
-//                        mutableStateOf(false)
-//                    }
-//
-//                    var showStartDeliveryDatePicker by remember {
-//                        mutableStateOf(false)
-//                    }
-//
-//                    if (showStartDeliveryDatePicker) {
-//                        DatePickerDialog(
-//                            datePickerState = startDeliveryDatePickerState,
-//                            onDismissRequest = {
-//                                showStartDeliveryDatePicker = false
-//                            },
-//                            onConfirmRequest = {
-//                                showStartDeliveryDatePicker = false
-//                                showStartDeliveryTimePicker = true
-//                                startDeliveryCalendar.timeInMillis =
-//                                    startDeliveryDatePickerState.selectedDateMillis!!
-//                            },
-//                            onClearRequest = {
-//                                showStartDeliveryDatePicker = false
-//                                addingLocoViewModel.createEventDelivery(
-//                                    DeliveryEvent.EnteredStartDelivery(null)
-//                                )
-//                            }
-//                        )
-//                    }
-//
-//                    if (showStartDeliveryTimePicker) {
-//                        TimePickerDialog(
-//                            timePickerState = startDeliveryTimePickerState,
-//                            onDismissRequest = { showStartDeliveryTimePicker = false },
-//                            onConfirmRequest = {
-//                                showStartDeliveryTimePicker = false
-//                                startDeliveryCalendar.set(
-//                                    Calendar.HOUR,
-//                                    startDeliveryTimePickerState.hour
-//                                )
-//                                startDeliveryCalendar.set(
-//                                    Calendar.MINUTE,
-//                                    startDeliveryTimePickerState.minute
-//                                )
-//                                addingLocoViewModel.createEventDelivery(
-//                                    DeliveryEvent.EnteredStartDelivery(
-//                                        startDeliveryCalendar.timeInMillis
-//                                    )
-//                                )
-//                                addingLocoViewModel.createEventDelivery(
-//                                    DeliveryEvent.FocusChange(
-//                                        DeliveredType.START
-//                                    )
-//                                )
-//                            }
-//                        )
-//                    }
-//
-//                    val endDeliveryCalendar by remember {
-//                        mutableStateOf(Calendar.getInstance().also { calendar ->
-//                            endDeliveryTime?.let { millis ->
-//                                calendar.timeInMillis = millis
-//                            }
-//                        })
-//                    }
-//
-//                    val endDeliveryTimePickerState = rememberTimePickerState(
-//                        initialHour = endDeliveryCalendar.get(Calendar.HOUR),
-//                        initialMinute = endDeliveryCalendar.get(Calendar.MINUTE),
-//                        is24Hour = true
-//                    )
-//
-//                    val endDeliveryDatePickerState =
-//                        rememberDatePickerState(initialSelectedDateMillis = endDeliveryTime)
-//
-//                    var showEndDeliveryTimePicker by remember {
-//                        mutableStateOf(false)
-//                    }
-//
-//                    var showEndDeliveryDatePicker by remember {
-//                        mutableStateOf(false)
-//                    }
-//
-//                    if (showEndDeliveryDatePicker) {
-//                        DatePickerDialog(
-//                            datePickerState = endDeliveryDatePickerState,
-//                            onDismissRequest = {
-//                                showEndDeliveryDatePicker = false
-//                            },
-//                            onConfirmRequest = {
-//                                showEndDeliveryDatePicker = false
-//                                showEndDeliveryTimePicker = true
-//                                endDeliveryCalendar.timeInMillis =
-//                                    endDeliveryDatePickerState.selectedDateMillis!!
-//                            },
-//                            onClearRequest = {
-//                                showEndDeliveryDatePicker = false
-//                                addingLocoViewModel.createEventDelivery(
-//                                    DeliveryEvent.EnteredEndDelivery(
-//                                        null
-//                                    )
-//                                )
-//                            }
-//                        )
-//                    }
-//
-//                    if (showEndDeliveryTimePicker) {
-//                        TimePickerDialog(
-//                            timePickerState = endDeliveryTimePickerState,
-//                            onDismissRequest = { showEndDeliveryTimePicker = false },
-//                            onConfirmRequest = {
-//                                showEndDeliveryTimePicker = false
-//                                endDeliveryCalendar.set(
-//                                    Calendar.HOUR,
-//                                    endDeliveryTimePickerState.hour
-//                                )
-//                                endDeliveryCalendar.set(
-//                                    Calendar.MINUTE,
-//                                    endDeliveryTimePickerState.minute
-//                                )
-//                                addingLocoViewModel.createEventDelivery(
-//                                    DeliveryEvent.EnteredEndDelivery(
-//                                        endDeliveryCalendar.timeInMillis
-//                                    )
-//                                )
-//                                addingLocoViewModel.createEventDelivery(
-//                                    DeliveryEvent.FocusChange(
-//                                        DeliveredType.END
-//                                    )
-//                                )
-//                            }
-//                        )
-//                    }
-//
-//                    Column(
-//                        modifier = Modifier
-//                            .padding(top = 12.dp)
-//                            .border(
-//                                width = 1.dp,
-//                                shape = ShapeBackground.small,
-//                                color = MaterialTheme.colorScheme.outline
-//                            ),
-//                        horizontalAlignment = Alignment.CenterHorizontally
-//                    ) {
-//                        if (!stateDelivery.formValid) {
-//                            Row(
-//                                modifier = Modifier
-//                                    .padding(top = 12.dp, start = 16.dp, end = 16.dp),
-//                                verticalAlignment = Alignment.CenterVertically
-//                            ) {
-//                                Icon(
-//                                    painter = painterResource(id = R.drawable.error_icon),
-//                                    tint = Color.Red,
-//                                    contentDescription = null
-//                                )
-//                                Text(
-//                                    modifier = Modifier.padding(start = 8.dp),
-//                                    text = stateDelivery.errorMessage,
-//                                    style = Typography.bodySmall.copy(color = Color.Red),
-//                                )
-//                            }
-//                        }
-//                        Row(
-//                            modifier = Modifier.fillMaxWidth(),
-//                            horizontalArrangement = Arrangement.SpaceBetween,
-//                            verticalAlignment = Alignment.CenterVertically
-//                        ) {
-//                            Text(
-//                                modifier = Modifier.padding(start = 16.dp),
-//                                text = "Сдача",
-//                                style = Typography.bodyLarge.copy(color = MaterialTheme.colorScheme.secondary)
-//                            )
-//
-//                            Row(
-//                                modifier = Modifier.padding(horizontal = 16.dp),
-//                                horizontalArrangement = Arrangement.SpaceAround,
-//                                verticalAlignment = Alignment.CenterVertically
-//                            ) {
-//                                Box(
-//                                    modifier = Modifier
-//                                        .clickable {
-//                                            showStartDeliveryDatePicker = true
-//                                        }
-//                                        .padding(horizontal = 18.dp),
-//                                    contentAlignment = Alignment.Center
-//                                ) {
-//                                    val timeStartText = startDeliveryTime?.let { millis ->
-//                                        SimpleDateFormat(
-//                                            DateAndTimeFormat.TIME_FORMAT,
-//                                            Locale.getDefault()
-//                                        ).format(
-//                                            millis
-//                                        )
-//                                    } ?: DateAndTimeFormat.DEFAULT_TIME_TEXT
-//
-//                                    Text(
-//                                        text = timeStartText,
-//                                        style = Typography.bodyLarge,
-//                                    )
-//                                }
-//                                Text(" - ")
-//                                Box(
-//                                    modifier = Modifier
-//                                        .padding(18.dp)
-//                                        .clickable {
-//                                            showEndDeliveryDatePicker = true
-//                                        },
-//                                    contentAlignment = Alignment.Center
-//                                ) {
-//                                    val timeEndText = endDeliveryTime?.let { millis ->
-//                                        SimpleDateFormat(
-//                                            DateAndTimeFormat.TIME_FORMAT,
-//                                            Locale.getDefault()
-//                                        ).format(
-//                                            millis
-//                                        )
-//                                    } ?: DateAndTimeFormat.DEFAULT_TIME_TEXT
-//
-//                                    Text(
-//                                        text = timeEndText,
-//                                        style = Typography.bodyLarge,
-//                                    )
-//                                }
-//                            }
-//                        }
-//                    }
-//                }
-//                when (tabState) {
-//                    0 -> {
-//                        val list = addingLocoViewModel.dieselSectionListState
-//                        val revealedSectionIds =
-//                            addingLocoViewModel.revealedItemDieselSectionIdsList
-//                        itemsIndexed(
-//                            items = list,
-//                            key = { _, item -> item.sectionId }
-//                        ) { index, item ->
-//                            if (index == 0) {
-//                                Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.secondary_spacing)))
-//                            } else {
-//                                Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.secondary_spacing) / 2))
-//                            }
-//                            Box(
-//                                modifier = Modifier
-//                                    .animateItemPlacement(
-//                                        animationSpec = tween(
-//                                            durationMillis = 500,
-//                                            delayMillis = 100,
-//                                            easing = FastOutLinearInEasing
-//                                        )
-//                                    )
-//                                    .wrapContentSize(),
-//                                contentAlignment = Alignment.CenterEnd
-//                            ) {
-//                                ActionsRow(
-//                                    onDelete = { addingLocoViewModel.removeDieselSection(item) }
-//                                )
-//                                DraggableDieselItem(
-//                                    item = item,
-//                                    index = index,
-//                                    viewModel = addingLocoViewModel,
-//                                    coefficientState = coefficientState,
-//                                    refuelState = refuelState,
-//                                    openSheet = openSheet,
-//                                    isRevealed = revealedSectionIds.contains(item.sectionId),
-//                                    onCollapse = {
-//                                        addingLocoViewModel.onCollapsedDieselSection(
-//                                            item.sectionId
-//                                        )
-//                                    },
-//                                    onExpand = {
-//                                        addingLocoViewModel.onExpandedDieselSection(
-//                                            item.sectionId
-//                                        )
-//                                    },
-//                                )
-//                            }
-//                            if (index == list.lastIndex && index > 0) {
-//                                var overResult: Double? = null
-//                                addingLocoViewModel.dieselSectionListState.forEach {
-//                                    val accepted = it.accepted.data?.toDoubleOrNull()
-//                                    val delivery = it.delivery.data?.toDoubleOrNull()
-//                                    val refuel = it.refuel.data?.toDoubleOrNull()
-//                                    val result = Calculation.getTotalFuelConsumption(
-//                                        accepted, delivery, refuel
-//                                    )
-//                                    overResult += result
-//                                }
-//                                overResult?.let {
-//                                    Text(
-//                                        text = "Всего расход = ${maskInLiter(it.str())}",
-//                                        style = Typography.bodyMedium.copy(color = MaterialTheme.colorScheme.secondary),
-//                                    )
-//                                }
-//                            }
-//                        }
-//                    }
-//
-//                    1 -> {
-//                        val list = addingLocoViewModel.electricSectionListState
-//                        val revealedSectionIds =
-//                            addingLocoViewModel.revealedItemElectricSectionIdsList
-//                        itemsIndexed(
-//                            items = list,
-//                            key = { _, item -> item.sectionId }
-//                        ) { index, item ->
-//                            if (index == 0) {
-//                                Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.secondary_spacing)))
-//                            } else {
-//                                Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.secondary_spacing) / 2))
-//                            }
-//                            Box(
-//                                modifier = Modifier
-//                                    .animateItemPlacement(
-//                                        animationSpec = tween(
-//                                            durationMillis = 500,
-//                                            delayMillis = 100,
-//                                            easing = FastOutLinearInEasing
-//                                        )
-//                                    )
-//                                    .wrapContentSize()
-//                                    .padding(bottom = 12.dp),
-//                                contentAlignment = Alignment.CenterEnd
-//                            ) {
-//                                ActionsRow(
-//                                    onDelete = { addingLocoViewModel.removeElectricSection(item) }
-//                                )
-//                                DraggableElectricItem(
-//                                    item = item,
-//                                    isRevealed = revealedSectionIds.contains(item.sectionId),
-//                                    onExpand = {
-//                                        addingLocoViewModel.onExpandedElectricSection(
-//                                            item.sectionId
-//                                        )
-//                                    },
-//                                    onCollapse = {
-//                                        addingLocoViewModel.onCollapsedElectricSection(
-//                                            item.sectionId
-//                                        )
-//                                    },
-//                                    index = index,
-//                                    viewModel = addingLocoViewModel
-//                                )
-//                            }
-//                            if (index == list.lastIndex && index > 0) {
-//                                var overResult: Double? = null
-//                                var overRecovery: Double? = null
-//
-//                                addingLocoViewModel.electricSectionListState.forEach {
-//                                    val accepted = it.accepted.data?.toDoubleOrNull()
-//                                    val delivery = it.delivery.data?.toDoubleOrNull()
-//                                    val acceptedRecovery =
-//                                        it.recoveryAccepted.data?.toDoubleOrNull()
-//                                    val deliveryRecovery =
-//                                        it.recoveryDelivery.data?.toDoubleOrNull()
-//
-//                                    val result = Calculation.getTotalEnergyConsumption(
-//                                        accepted, delivery
-//                                    )
-//                                    val resultRecovery = Calculation.getTotalEnergyConsumption(
-//                                        acceptedRecovery, deliveryRecovery
-//                                    )
-//                                    overResult += result
-//                                    overRecovery += resultRecovery
-//                                }
-//                                Column(horizontalAlignment = Alignment.End) {
-//                                    overResult?.let {
-//                                        Text(
-//                                            text = "Всего расход = ${it.str()}",
-//                                            style = Typography.bodyMedium.copy(color = MaterialTheme.colorScheme.secondary),
-//                                        )
-//                                    }
-//                                    overRecovery?.let {
-//                                        Text(
-//                                            text = "Всего рекуперация = ${it.str()}",
-//                                            style = Typography.bodyMedium.copy(color = MaterialTheme.colorScheme.secondary),
-//                                        )
-//                                    }
-//                                }
-//                            }
-//                        }
-//                    }
-//                }
-//                item {
-//                    ClickableText(
-//                        modifier = Modifier.padding(top = 24.dp),
-//                        text = AnnotatedString("Добавить секцию"),
-//                        style = Typography.titleMedium.copy(color = MaterialTheme.colorScheme.tertiary)
-//                    ) {
-//                        when (tabState) {
-//                            0 -> addingLocoViewModel.addDieselSection(SectionDiesel())
-//                            1 -> addingLocoViewModel.addElectricSection(SectionElectric())
-//                        }
-//
-//                        scope.launch {
-//                            val countItems = scrollState.layoutInfo.totalItemsCount
-//                            scrollState.animateScrollToItem(countItems)
-//                        }
-//                    }
-//                }
-//                item { Spacer(modifier = Modifier.height(40.dp)) }
-//            }
-//        }
