@@ -129,6 +129,11 @@ fun FormScreen(
             exitWithoutSave
         )
     }
+    if (formUiState.exitFromScreen) {
+        LaunchedEffect(Unit) {
+            onExit()
+        }
+    }
     Scaffold(
         topBar = {
             MediumTopAppBar(title = {
@@ -143,36 +148,36 @@ fun FormScreen(
                     )
                 }
             }, actions = {
-                    ClickableText(text = AnnotatedString(text = "Сохранить"),
-                        onClick = { onSaveClick() }
+                ClickableText(text = AnnotatedString(text = "Сохранить"),
+                    onClick = { onSaveClick() }
 
+                )
+                var dropDownExpanded by remember { mutableStateOf(false) }
+
+                IconButton(onClick = {
+                    dropDownExpanded = true
+                }) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert, contentDescription = "Меню"
                     )
-                    var dropDownExpanded by remember { mutableStateOf(false) }
-
-                    IconButton(onClick = {
-                        dropDownExpanded = true
-                    }) {
-                        Icon(
-                            imageVector = Icons.Default.MoreVert, contentDescription = "Меню"
-                        )
-                        DropdownMenu(
-                            expanded = dropDownExpanded,
-                            onDismissRequest = { dropDownExpanded = false },
-                            offset = DpOffset(x = 4.dp, y = 8.dp)
-                        ) {
-                            DropdownMenuItem(modifier = Modifier.padding(horizontal = 16.dp),
-                                onClick = {
-                                    onClearAllField.invoke()
-                                    dropDownExpanded = false
-                                },
-                                text = {
-                                    Text(
-                                        text = "Очистить",
-                                    )
-                                })
-                        }
+                    DropdownMenu(
+                        expanded = dropDownExpanded,
+                        onDismissRequest = { dropDownExpanded = false },
+                        offset = DpOffset(x = 4.dp, y = 8.dp)
+                    ) {
+                        DropdownMenuItem(modifier = Modifier.padding(horizontal = 16.dp),
+                            onClick = {
+                                onClearAllField.invoke()
+                                dropDownExpanded = false
+                            },
+                            text = {
+                                Text(
+                                    text = "Очистить",
+                                )
+                            })
                     }
-                })
+                }
+            })
         },
     ) {
         Box(Modifier.padding(it)) {
@@ -186,10 +191,6 @@ fun FormScreen(
                         if (formUiState.saveRouteState is ResultState.Success) {
                             LaunchedEffect(formUiState.saveRouteState) {
                                 onRouteSaved()
-                            }
-                        } else if (formUiState.exitFromScreen) {
-                            LaunchedEffect(formUiState.saveRouteState) {
-                                onExit()
                             }
                         } else {
                             RouteFormScreenContent(

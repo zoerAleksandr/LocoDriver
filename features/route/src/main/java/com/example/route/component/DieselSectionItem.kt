@@ -104,8 +104,10 @@ fun DieselSectionItem(
     }
 
     RevealSwipe(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(6.dp),
         state = revealState,
-        maxRevealDp = 75.dp,
         directions = setOf(
             RevealDirection.EndToStart
         ),
@@ -119,7 +121,7 @@ fun DieselSectionItem(
                 }
             ) {
                 Icon(
-                    modifier = Modifier.padding(horizontal = 25.dp),
+                    modifier = Modifier.padding(end = 15.dp),
                     imageVector = Icons.Outlined.Delete,
                     tint = Color.White,
                     contentDescription = null

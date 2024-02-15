@@ -134,15 +134,18 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
             val state = _uiState.value.routeDetailState
             if (state is ResultState.Success) {
                 state.data?.let { route ->
-                    routeUseCase.removeRoute(route).launchIn(viewModelScope)
+                    routeUseCase.removeRoute(route).onEach { result ->
+                        if (result is ResultState.Success) {
+                            _uiState.update {
+                                it.copy(
+                                    confirmExitDialogShow = false,
+                                    exitFromScreen = true
+                                )
+                            }
+                        }
+                    }.launchIn(viewModelScope)
                 }
             }
-        }
-        _uiState.update {
-            it.copy(
-                confirmExitDialogShow = false,
-                exitFromScreen = true
-            )
         }
     }
 
