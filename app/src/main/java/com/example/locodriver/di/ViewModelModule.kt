@@ -6,6 +6,7 @@ import com.example.route.viewmodel.DetailsViewModel
 import com.example.route.viewmodel.FormViewModel
 import com.example.route.viewmodel.HomeViewModel
 import com.example.route.viewmodel.LocoFormViewModel
+import com.example.route.viewmodel.TrainFormViewModel
 import com.example.settings.viewmodel.SettingsViewModel
 import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.dsl.module
@@ -19,5 +20,8 @@ val viewModelModule = module {
     viewModel { MainViewModel() }
     viewModel { (locoId: String?, basicId: String) ->
         LocoFormViewModel(locoId = locoId, basicId = basicId)
+    }
+    viewModel {(trainId: String?, basicId: String) ->
+        TrainFormViewModel(trainId = trainId, basicId = basicId)
     }
 }

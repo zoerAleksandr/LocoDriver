@@ -26,9 +26,9 @@ internal data class Train(
     @ColumnInfo(index = true)
     var baseId: String,
     var number: String?,
-    var weight: Int?,
-    var axle: Int?,
-    var conditionalLength: Int?,
+    var weight: String?,
+    var axle: String?,
+    var conditionalLength: String?,
     var stations: List<Station> = listOf()
 )
 

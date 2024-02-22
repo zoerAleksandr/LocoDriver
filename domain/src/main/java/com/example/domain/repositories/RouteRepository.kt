@@ -12,12 +12,15 @@ interface RouteRepository {
     fun loadRoutes(): Flow<ResultState<List<Route>>>
     fun loadRoute(routeId: String): Flow<ResultState<Route?>>
     fun loadLoco(locoId: String): Flow<ResultState<Locomotive?>>
-    fun saveRoute(route: Route): Flow<ResultState<Unit>>
+    fun loadTrain(trainId: String): Flow<ResultState<Train?>>
+    fun loadPassenger(passengerId: String): Flow<ResultState<Passenger?>>
+    fun loadNotes(notesId: String): Flow<ResultState<Notes?>>
     fun remove(route: Route): Flow<ResultState<Unit>>
     fun removeLoco(locomotive: Locomotive): Flow<ResultState<Unit>>
     fun removeTrain(train: Train): Flow<ResultState<Unit>>
     fun removePassenger(passenger: Passenger): Flow<ResultState<Unit>>
     fun removeNotes(notes: Notes): Flow<ResultState<Unit>>
+    fun saveRoute(route: Route): Flow<ResultState<Unit>>
     fun saveLocomotive(locomotive: Locomotive): Flow<ResultState<Unit>>
     fun saveTrain(train: Train): Flow<ResultState<Unit>>
     fun savePassenger(passenger: Passenger): Flow<ResultState<Unit>>

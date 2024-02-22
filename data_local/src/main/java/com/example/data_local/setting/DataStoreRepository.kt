@@ -146,7 +146,7 @@ class DataStoreRepository(context: Context) : UserSettingsRepository {
         }
     }
 
-    override suspend fun getTypeLoco(): Flow<LocoType> {
+    override fun getTypeLoco(): Flow<LocoType> {
         return dataStore.data
             .catch { exception ->
                 if (exception is IOException) {

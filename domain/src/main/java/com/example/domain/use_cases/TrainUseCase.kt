@@ -11,4 +11,8 @@ class TrainUseCase(
     fun saveTrain(train: Train): Flow<ResultState<Unit>> {
         return repository.saveTrain(train)
     }
+
+    fun getTrainById(trainId: String): Flow<ResultState<Train?>> {
+        return repository.loadTrain(trainId)
+    }
 }

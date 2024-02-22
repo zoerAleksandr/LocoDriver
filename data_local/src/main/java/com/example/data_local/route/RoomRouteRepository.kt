@@ -47,6 +47,42 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
         }
     }
 
+    override fun loadTrain(trainId: String): Flow<ResultState<Train?>> {
+        return flowMap {
+            dao.getTrainById(trainId).map { train ->
+                ResultState.Success(
+                    train?.let {
+                        TrainConverter.toData(train)
+                    }
+                )
+            }
+        }
+    }
+
+    override fun loadPassenger(passengerId: String): Flow<ResultState<Passenger?>> {
+        return flowMap {
+            dao.getPassengerById(passengerId).map { passenger ->
+                ResultState.Success(
+                    passenger?.let {
+                        PassengerConverter.toData(passenger)
+                    }
+                )
+            }
+        }
+    }
+
+    override fun loadNotes(notesId: String): Flow<ResultState<Notes?>> {
+        return flowMap {
+            dao.getNotesById(notesId).map { notes ->
+                ResultState.Success(
+                    notes?.let {
+                        NotesConverter.toData(notes)
+                    }
+                )
+            }
+        }
+    }
+
     override fun saveRoute(route: Route): Flow<ResultState<Unit>> {
         return flowRequest {
             if (route.basicData.id.isBlank()) {
@@ -58,8 +94,8 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
                 }
             }
             route.trains.forEach {
-                if (it.baseId.isBlank()) {
-                    it.baseId = route.basicData.id
+                if (it.basicId.isBlank()) {
+                    it.basicId = route.basicData.id
                 }
             }
             route.passengers.forEach {

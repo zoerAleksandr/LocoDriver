@@ -11,6 +11,6 @@ interface UserSettingsRepository {
     fun setMinTimeRest(value: Long): Flow<ResultState<Unit>>
     fun getStandardDurationOfWork(): Flow<Long>
     fun setStandardDurationOfWork(value: Long): Flow<ResultState<Unit>>
-    suspend fun getTypeLoco(): Flow<LocoType>
+    fun getTypeLoco(): Flow<LocoType>
     fun setTypeLoco(type: LocoType): Flow<ResultState<Unit>>
 }

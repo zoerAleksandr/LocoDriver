@@ -115,9 +115,11 @@ fun FormScreen(
     onChangedLocoClick: (loco: Locomotive) -> Unit,
     onNewLocoClick: (basicId: String) -> Unit,
     onDeleteLoco: (loco: Locomotive) -> Unit,
-    onTrainClick: (train: Train?) -> Unit,
+    onChangeTrainClick: (train: Train) -> Unit,
+    onNewTrainClick: (basicId: String) -> Unit,
     onDeleteTrain: (train: Train) -> Unit,
-    onPassengerClick: (passenger: Passenger?) -> Unit,
+    onChangePassengerClick: (passenger: Passenger) -> Unit,
+    onNewPassengerClick: (basicId: String) -> Unit,
     onDeletePassenger: (passenger: Passenger) -> Unit,
     onNotesClick: (notes: Notes?) -> Unit,
     onDeleteNotes: (notes: Notes) -> Unit
@@ -204,14 +206,16 @@ fun FormScreen(
                                 minTimeRest = formUiState.minTimeRest,
                                 fullTimeRest = formUiState.fullTimeRest,
                                 locoListState = route.locomotives,
-                                onChangedLocoClick = onChangedLocoClick,
+                                onChangeLocoClick = onChangedLocoClick,
                                 onNewLocoClick = onNewLocoClick,
                                 onDeleteLoco = onDeleteLoco,
                                 trainListState = route.trains,
-                                onTrainClick = onTrainClick,
+                                onChangeTrainClick = onChangeTrainClick,
+                                onNewTrainClick = onNewTrainClick,
                                 onDeleteTrain = onDeleteTrain,
                                 passengerListState = route.passengers,
-                                onPassengerClick = onPassengerClick,
+                                onChangePassengerClick = onChangePassengerClick,
+                                onNewPassengerClick = onNewPassengerClick,
                                 onDeletePassenger = onDeletePassenger,
                                 notesState = route.notes,
                                 onNotesClick = onNotesClick,
@@ -238,14 +242,16 @@ private fun RouteFormScreenContent(
     minTimeRest: Long?,
     fullTimeRest: Long?,
     locoListState: List<Locomotive>?,
-    onChangedLocoClick: (loco: Locomotive) -> Unit,
+    onChangeLocoClick: (loco: Locomotive) -> Unit,
     onNewLocoClick: (basicId: String) -> Unit,
     onDeleteLoco: (loco: Locomotive) -> Unit,
     trainListState: List<Train>?,
-    onTrainClick: (train: Train?) -> Unit,
+    onChangeTrainClick: (train: Train) -> Unit,
+    onNewTrainClick: (basicId: String) -> Unit,
     onDeleteTrain: (train: Train) -> Unit,
     passengerListState: List<Passenger>?,
-    onPassengerClick: (passenger: Passenger?) -> Unit,
+    onChangePassengerClick: (passenger: Passenger) -> Unit,
+    onNewPassengerClick: (basicId: String) -> Unit,
     onDeletePassenger: (passenger: Passenger) -> Unit,
     notesState: Notes?,
     onNotesClick: (notes: Notes?) -> Unit,
@@ -614,7 +620,7 @@ private fun RouteFormScreenContent(
                 ItemAddingScreen(
                     title = stringResource(id = R.string.locomotive),
                     contentList = locoListState,
-                    onChangedElementClick = onChangedLocoClick,
+                    onChangeElementClick = onChangeLocoClick,
                     onNewElementClick = onNewLocoClick,
                     basicId = basicId,
                     onDeleteClick = onDeleteLoco
@@ -625,8 +631,8 @@ private fun RouteFormScreenContent(
                 ItemAddingScreen(
                     title = stringResource(id = R.string.train),
                     contentList = trainListState,
-                    onChangedElementClick = onTrainClick,
-                    onNewElementClick = {},
+                    onChangeElementClick = onChangeTrainClick,
+                    onNewElementClick = onNewTrainClick,
                     basicId = basicId,
                     onDeleteClick = onDeleteTrain
                 ) { index, train ->
@@ -636,8 +642,8 @@ private fun RouteFormScreenContent(
                 ItemAddingScreen(
                     title = stringResource(id = R.string.passenger),
                     contentList = passengerListState,
-                    onChangedElementClick = onPassengerClick,
-                    onNewElementClick = {},
+                    onChangeElementClick = onChangePassengerClick,
+                    onNewElementClick = onNewPassengerClick,
                     basicId = basicId,
                     onDeleteClick = onDeletePassenger
                 ) { index, passenger ->
@@ -658,7 +664,7 @@ private fun RouteFormScreenContent(
 fun <T> ItemAddingScreen(
     title: String,
     contentList: List<T>?,
-    onChangedElementClick: (element: T) -> Unit,
+    onChangeElementClick: (element: T) -> Unit,
     onNewElementClick: (basicId: String) -> Unit,
     basicId: String,
     onDeleteClick: (element: T) -> Unit,
@@ -694,7 +700,7 @@ fun <T> ItemAddingScreen(
                         modifier = Modifier
                             .padding(bottom = 6.dp)
                             .fillMaxWidth()
-                            .clickable { onChangedElementClick(element) },
+                            .clickable { onChangeElementClick(element) },
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {

@@ -40,8 +40,9 @@ class LocoFormViewModel constructor(
 
     private var loadLocoJob: Job? = null
     private var saveLocoJob: Job? = null
-    private var loadSettingJob: Job? = null
-    private var saveSettingJob: Job? = null
+    private var loadCoefficientJob: Job? = null
+    private var saveCoefficientJob: Job? = null
+    private var loadDefaultTypeLoco: Job? = null
 
     var currentLoco: Locomotive?
         get() {
@@ -82,9 +83,18 @@ class LocoFormViewModel constructor(
         }
 
     private var lastEnteredCoefficient by mutableStateOf(0.0)
+    private var defaultTypeLoco by mutableStateOf(LocoType.ELECTRIC)
 
     fun clearAllField() {
-        currentLoco = Locomotive(basicId = basicId)
+        currentLoco = currentLoco?.copy(
+            series = null,
+            number = null,
+            type = defaultTypeLoco,
+            timeStartOfAcceptance = null,
+            timeEndOfAcceptance = null,
+            timeStartOfDelivery = null,
+            timeEndOfDelivery = null
+        )
         electricSectionListState.clear()
         dieselSectionListState.clear()
     }
@@ -158,15 +168,19 @@ class LocoFormViewModel constructor(
     }
 
     private fun loadSetting() {
-        loadSettingJob?.cancel()
-        loadSettingJob = dataStoreRepository.getDieselCoefficient().onEach {
+        loadCoefficientJob?.cancel()
+        loadCoefficientJob = dataStoreRepository.getDieselCoefficient().onEach {
             lastEnteredCoefficient = it
+        }.launchIn(viewModelScope)
+        loadDefaultTypeLoco?.cancel()
+        loadDefaultTypeLoco = dataStoreRepository.getTypeLoco().onEach {
+            defaultTypeLoco = it
         }.launchIn(viewModelScope)
     }
 
     private fun saveCoefficient(data: String?) {
-        saveSettingJob?.cancel()
-        saveSettingJob = dataStoreRepository
+        saveCoefficientJob?.cancel()
+        saveCoefficientJob = dataStoreRepository
             .setDieselCoefficient(data?.toDoubleOrNull()).launchIn(viewModelScope)
     }
 

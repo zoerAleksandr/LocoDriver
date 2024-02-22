@@ -13,6 +13,7 @@ import com.example.login.navigation.LoginScreenRoute
 import com.example.route.navigation.DetailsRoute
 import com.example.route.navigation.FormLoco
 import com.example.route.navigation.FormRoute
+import com.example.route.navigation.FormTrain
 import com.example.route.navigation.HomeRoute
 import com.example.settings.navigation.SettingsFeature
 
@@ -78,15 +79,27 @@ class RouterImpl(
         TODO("Not yet implemented")
     }
 
-    override fun showTrainForm(train: Train?) {
-        TODO("Not yet implemented")
+    override fun showChangeTrainForm(train: Train) {
+        navController.navigate(
+            FormTrain.buildDetailsRoute(train.trainId, train.basicId)
+        )
+    }
+
+    override fun showEmptyTrainForm(basicId: String) {
+        navController.navigate(
+            FormTrain.buildDetailsRoute(trainId = null, basicId = basicId)
+        )
     }
 
     override fun showTrainDetails(train: Train) {
         TODO("Not yet implemented")
     }
 
-    override fun showPassengerForm(passenger: Passenger?) {
+    override fun showChangePassengerForm(passenger: Passenger) {
+        TODO("Not yet implemented")
+    }
+
+    override fun showEmptyPassengerForm(basicId: String) {
         TODO("Not yet implemented")
     }
 

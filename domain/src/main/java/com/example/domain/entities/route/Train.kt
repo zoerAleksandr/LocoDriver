@@ -4,11 +4,11 @@ import java.util.UUID
 
 data class Train(
     var trainId: String = UUID.randomUUID().toString(),
-    var baseId: String = "",
+    var basicId: String = "",
     var number: String? = null,
-    var weight: Int? = null,
-    var axle: Int? = null,
-    var conditionalLength: Int? = null,
+    var weight: String? = null,
+    var axle: String? = null,
+    var conditionalLength: String? = null,
     var stations: MutableList<Station> = mutableListOf()
 )
 

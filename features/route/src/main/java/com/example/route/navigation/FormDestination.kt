@@ -43,9 +43,17 @@ fun FormDestination(
             viewModel.checkingSaveRoute()
         },
         onDeleteLoco = viewModel::onDeleteLoco,
-        onTrainClick = router::showTrainForm,
+        onChangeTrainClick = router::showChangeTrainForm,
+        onNewTrainClick = {
+            router.showEmptyTrainForm(it)
+            viewModel.checkingSaveRoute()
+        },
         onDeleteTrain = viewModel::onDeleteTrain,
-        onPassengerClick = router::showPassengerForm,
+        onChangePassengerClick = router::showChangePassengerForm,
+        onNewPassengerClick = {
+            router.showEmptyPassengerForm(it)
+            viewModel.checkingSaveRoute()
+        },
         onDeletePassenger = viewModel::onDeletePassenger,
         onNotesClick = router::showNotesForm,
         onDeleteNotes = viewModel::onDeleteNotes
