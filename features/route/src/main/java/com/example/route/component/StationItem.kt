@@ -41,7 +41,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.example.core.ui.theme.Shapes
 import com.example.core.util.DateAndTimeFormat
-import com.example.route.viewmodel.StationDataType
 import com.example.route.viewmodel.StationFormState
 import de.charlex.compose.RevealDirection
 import de.charlex.compose.RevealSwipe
@@ -60,7 +59,6 @@ fun StationItem(
     onStationNameChanged: (Int, String) -> Unit,
     onArrivalTimeChanged: (Int, Long?) -> Unit,
     onDepartureTimeChanged: (Int, Long?) -> Unit,
-    onFocusChange: (Int, StationDataType) -> Unit,
     onDelete: (StationFormState) -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
@@ -84,12 +82,28 @@ fun StationItem(
         mutableStateOf(false)
     }
 
+    val arrivalTime = Calendar.getInstance().also { calendar ->
+        stationFormState.arrival.data?.let {
+            calendar.timeInMillis = it
+        }
+    }
+
+    val departureTime = Calendar.getInstance().also { calendar ->
+        stationFormState.departure.data?.let {
+            calendar.timeInMillis = it
+        }
+    }
+
     val arrivalCalendar by remember {
-        mutableStateOf(Calendar.getInstance())
+        mutableStateOf(arrivalTime)
+    }
+
+    val departureCalendar by remember {
+        mutableStateOf(departureTime)
     }
 
     val arrivalTimePickerState = rememberTimePickerState(
-        initialHour = arrivalCalendar.get(Calendar.HOUR),
+        initialHour = arrivalCalendar.get(Calendar.HOUR_OF_DAY),
         initialMinute = arrivalCalendar.get(Calendar.MINUTE),
         is24Hour = true
     )
@@ -97,12 +111,8 @@ fun StationItem(
     val arrivalDatePickerState =
         rememberDatePickerState(initialSelectedDateMillis = arrivalCalendar.timeInMillis)
 
-    val departureCalendar by remember {
-        mutableStateOf(Calendar.getInstance())
-    }
-
     val departureTimePickerState = rememberTimePickerState(
-        initialHour = departureCalendar.get(Calendar.HOUR),
+        initialHour = departureCalendar.get(Calendar.HOUR_OF_DAY),
         initialMinute = departureCalendar.get(Calendar.MINUTE),
         is24Hour = true
     )
@@ -142,7 +152,7 @@ fun StationItem(
         Card(
             shape = Shapes.medium,
             colors = CardDefaults.cardColors(
-                containerColor = if (!stationFormState.formValid.data){
+                containerColor = if (!stationFormState.formValid.data) {
                     MaterialTheme.colorScheme.errorContainer
                 } else {
                     CardDefaults.cardColors().containerColor
@@ -265,7 +275,6 @@ fun StationItem(
             onClearRequest = {
                 showArrivalDatePicker = false
                 onArrivalTimeChanged(index, null)
-//                onFocusChange(index, StationDataType.ARRIVAL)
             }
         )
     }
@@ -276,10 +285,9 @@ fun StationItem(
             onDismissRequest = { showArrivalTimePicker = false },
             onConfirmRequest = {
                 showArrivalTimePicker = false
-                arrivalCalendar.set(Calendar.HOUR, arrivalTimePickerState.hour)
+                arrivalCalendar.set(Calendar.HOUR_OF_DAY, arrivalTimePickerState.hour)
                 arrivalCalendar.set(Calendar.MINUTE, arrivalTimePickerState.minute)
                 onArrivalTimeChanged(index, arrivalCalendar.timeInMillis)
-//                onFocusChange(index, StationDataType.ARRIVAL)
             }
         )
     }
@@ -296,7 +304,6 @@ fun StationItem(
             onClearRequest = {
                 showDepartureDatePicker = false
                 onDepartureTimeChanged(index, null)
-//                onFocusChange(index, StationDataType.DEPARTURE)
             }
         )
     }
@@ -307,10 +314,9 @@ fun StationItem(
             onDismissRequest = { showDepartureTimePicker = false },
             onConfirmRequest = {
                 showDepartureTimePicker = false
-                departureCalendar.set(Calendar.HOUR, departureTimePickerState.hour)
+                departureCalendar.set(Calendar.HOUR_OF_DAY, departureTimePickerState.hour)
                 departureCalendar.set(Calendar.MINUTE, departureTimePickerState.minute)
                 onDepartureTimeChanged(index, departureCalendar.timeInMillis)
-//                onFocusChange(index, StationDataType.DEPARTURE)
             }
         )
     }

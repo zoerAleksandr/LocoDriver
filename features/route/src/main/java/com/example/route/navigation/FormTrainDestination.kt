@@ -42,7 +42,6 @@ fun FormTrainDestination(
         onStationNameChanged = viewModel::setStationName,
         onArrivalTimeChanged = viewModel::setArrivalTime,
         onDepartureTimeChanged = viewModel::setDepartureTime,
-        focusStationChanged = viewModel::focusChangedStation,
         stationListState = formUiState.stationsListState
     )
 }

@@ -390,7 +390,7 @@ private fun LocoFormScreenContent(
             }
 
             val startAcceptedTimePickerState = rememberTimePickerState(
-                initialHour = startAcceptedCalendar.get(Calendar.HOUR),
+                initialHour = startAcceptedCalendar.get(Calendar.HOUR_OF_DAY),
                 initialMinute = startAcceptedCalendar.get(Calendar.MINUTE),
                 is24Hour = true
             )
@@ -435,7 +435,7 @@ private fun LocoFormScreenContent(
                     onConfirmRequest = {
                         showStartAcceptedTimePicker = false
                         startAcceptedCalendar.set(
-                            Calendar.HOUR,
+                            Calendar.HOUR_OF_DAY,
                             startAcceptedTimePickerState.hour
                         )
                         startAcceptedCalendar.set(
@@ -456,7 +456,7 @@ private fun LocoFormScreenContent(
             }
 
             val endAcceptedTimePickerState = rememberTimePickerState(
-                initialHour = endAcceptedCalendar.get(Calendar.HOUR),
+                initialHour = endAcceptedCalendar.get(Calendar.HOUR_OF_DAY),
                 initialMinute = endAcceptedCalendar.get(Calendar.MINUTE),
                 is24Hour = true
             )
@@ -500,7 +500,7 @@ private fun LocoFormScreenContent(
                     onConfirmRequest = {
                         showEndAcceptedTimePicker = false
                         endAcceptedCalendar.set(
-                            Calendar.HOUR,
+                            Calendar.HOUR_OF_DAY,
                             endAcceptedTimePickerState.hour
                         )
                         endAcceptedCalendar.set(
@@ -599,7 +599,7 @@ private fun LocoFormScreenContent(
             }
 
             val startDeliveryTimePickerState = rememberTimePickerState(
-                initialHour = startDeliveryCalendar.get(Calendar.HOUR),
+                initialHour = startDeliveryCalendar.get(Calendar.HOUR_OF_DAY),
                 initialMinute = startDeliveryCalendar.get(Calendar.MINUTE),
                 is24Hour = true
             )
@@ -644,7 +644,7 @@ private fun LocoFormScreenContent(
                     onConfirmRequest = {
                         showStartDeliveryTimePicker = false
                         startDeliveryCalendar.set(
-                            Calendar.HOUR,
+                            Calendar.HOUR_OF_DAY,
                             startDeliveryTimePickerState.hour
                         )
                         startDeliveryCalendar.set(
@@ -665,7 +665,7 @@ private fun LocoFormScreenContent(
             }
 
             val endDeliveryTimePickerState = rememberTimePickerState(
-                initialHour = endDeliveryCalendar.get(Calendar.HOUR),
+                initialHour = endDeliveryCalendar.get(Calendar.HOUR_OF_DAY),
                 initialMinute = endDeliveryCalendar.get(Calendar.MINUTE),
                 is24Hour = true
             )
@@ -709,7 +709,7 @@ private fun LocoFormScreenContent(
                     onConfirmRequest = {
                         showEndDeliveryTimePicker = false
                         endDeliveryCalendar.set(
-                            Calendar.HOUR,
+                            Calendar.HOUR_OF_DAY,
                             endDeliveryTimePickerState.hour
                         )
                         endDeliveryCalendar.set(

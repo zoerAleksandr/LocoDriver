@@ -275,12 +275,18 @@ private fun RouteFormScreenContent(
         mutableStateOf(false)
     }
 
+    val startOfWorkTime = Calendar.getInstance().also { calendar ->
+        route.basicData.timeStartWork?.let {
+            calendar.timeInMillis = it
+        }
+    }
+
     val startCalendar by remember {
-        mutableStateOf(Calendar.getInstance())
+        mutableStateOf(startOfWorkTime)
     }
 
     val startTimePickerState = rememberTimePickerState(
-        initialHour = startCalendar.get(Calendar.HOUR),
+        initialHour = startCalendar.get(Calendar.HOUR_OF_DAY),
         initialMinute = startCalendar.get(Calendar.MINUTE),
         is24Hour = true
     )
@@ -293,10 +299,9 @@ private fun RouteFormScreenContent(
             onDismissRequest = { showStartTimePicker = false },
             onConfirmRequest = {
                 showStartTimePicker = false
-                startCalendar.set(Calendar.HOUR, startTimePickerState.hour)
+                startCalendar.set(Calendar.HOUR_OF_DAY, startTimePickerState.hour)
                 startCalendar.set(Calendar.MINUTE, startTimePickerState.minute)
                 onTimeStartWorkChanged(startCalendar.timeInMillis)
-
             })
     }
 
@@ -313,12 +318,18 @@ private fun RouteFormScreenContent(
         })
     }
 
+    val endOfWorkTime = Calendar.getInstance().also { calendar ->
+        route.basicData.timeEndWork?.let {
+            calendar.timeInMillis = it
+        }
+    }
+
     val endCalendar by remember {
-        mutableStateOf(Calendar.getInstance())
+        mutableStateOf(endOfWorkTime)
     }
 
     val endTimePickerState = rememberTimePickerState(
-        initialHour = endCalendar.get(Calendar.HOUR),
+        initialHour = endCalendar.get(Calendar.HOUR_OF_DAY),
         initialMinute = endCalendar.get(Calendar.MINUTE),
         is24Hour = true
     )
@@ -332,7 +343,7 @@ private fun RouteFormScreenContent(
             onDismissRequest = { showEndTimePicker = false },
             onConfirmRequest = {
                 showEndTimePicker = false
-                endCalendar.set(Calendar.HOUR, endTimePickerState.hour)
+                endCalendar.set(Calendar.HOUR_OF_DAY, endTimePickerState.hour)
                 endCalendar.set(Calendar.MINUTE, endTimePickerState.minute)
                 onTimeEndWorkChanged(endCalendar.timeInMillis)
             }

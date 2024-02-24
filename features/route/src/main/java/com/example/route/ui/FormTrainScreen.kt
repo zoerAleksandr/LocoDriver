@@ -67,7 +67,6 @@ import com.example.domain.entities.route.Train
 import com.example.route.component.BottomShadow
 import com.example.route.component.StationItem
 import com.example.route.extention.isScrollInInitialState
-import com.example.route.viewmodel.StationDataType
 import com.example.route.viewmodel.StationFormState
 import com.example.route.viewmodel.TrainFormUiState
 import kotlinx.coroutines.launch
@@ -92,7 +91,6 @@ fun FormTrainScreen(
     onStationNameChanged: (index: Int, s: String) -> Unit,
     onDepartureTimeChanged: (index: Int, time: Long?) -> Unit,
     onArrivalTimeChanged: (index: Int, time: Long?) -> Unit,
-    focusStationChanged: (index: Int, field: StationDataType) -> Unit,
     stationListState: SnapshotStateList<StationFormState>?
 ) {
     val scope = rememberCoroutineScope()
@@ -208,7 +206,6 @@ fun FormTrainScreen(
                                 onStationNameChanged = onStationNameChanged,
                                 onDepartureTimeChanged = onDepartureTimeChanged,
                                 onArrivalTimeChanged = onArrivalTimeChanged,
-                                focusStationChanged = focusStationChanged,
                                 stationListState = stationListState
                             )
                         }
@@ -231,7 +228,6 @@ fun TrainFormScreenContent(
     onStationNameChanged: (index: Int, s: String) -> Unit,
     onDepartureTimeChanged: (index: Int, time: Long?) -> Unit,
     onArrivalTimeChanged: (index: Int, time: Long?) -> Unit,
-    focusStationChanged: (index: Int, field: StationDataType) -> Unit,
     stationListState: SnapshotStateList<StationFormState>?
 ) {
     val scrollState = rememberLazyListState()
@@ -377,7 +373,6 @@ fun TrainFormScreenContent(
                     onStationNameChanged = onStationNameChanged,
                     onArrivalTimeChanged = onArrivalTimeChanged,
                     onDepartureTimeChanged = onDepartureTimeChanged,
-                    onFocusChange = focusStationChanged
                 )
             }
         }

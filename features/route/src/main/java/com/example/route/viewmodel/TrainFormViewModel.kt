@@ -145,6 +145,7 @@ class TrainFormViewModel constructor(
 
     private fun setStations(stations: MutableList<Station>) {
         stations.forEach { station ->
+            val formValid = formValidStation(station)
             stationsListState.addOrReplace(
                 StationFormState(
                     id = station.stationId,
@@ -161,7 +162,7 @@ class TrainFormViewModel constructor(
                         type = StationDataType.DEPARTURE
                     ),
                     formValid = StationIsValidField(
-
+                        data = formValid
                     )
                 )
             )
@@ -237,6 +238,13 @@ class TrainFormViewModel constructor(
     ): Boolean {
         val departure = station.departure.data
         val arrival = station.arrival.data
+        return arrival.compareWithNullable(departure)
+    }
+    private fun formValidStation(
+        station: Station
+    ): Boolean {
+        val departure = station.timeDeparture
+        val arrival = station.timeArrival
         return arrival.compareWithNullable(departure)
     }
 
