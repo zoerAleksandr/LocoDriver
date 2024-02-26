@@ -5,23 +5,25 @@ import com.example.data_local.route.entity.Passenger as PassengerEntity
 
 internal object PassengerConverter {
     fun fromData(passenger: Passenger) = PassengerEntity(
-        passenger.passengerId,
-        passenger.baseId,
-        passenger.trainNumber,
-        passenger.stationDeparture,
-        passenger.stationArrival,
-        passenger.timeDeparture,
-        passenger.timeArrival
+        passengerId = passenger.passengerId,
+        basicId = passenger.basicId,
+        trainNumber = passenger.trainNumber,
+        stationDeparture = passenger.stationDeparture,
+        stationArrival = passenger.stationArrival,
+        timeDeparture = passenger.timeDeparture,
+        timeArrival = passenger.timeArrival,
+        notes = passenger.notes
     )
 
     fun toData(entity: PassengerEntity) = Passenger(
         passengerId = entity.passengerId,
-        baseId = entity.baseId,
+        basicId = entity.basicId,
         trainNumber = entity.trainNumber,
         stationDeparture = entity.stationDeparture,
         stationArrival = entity.stationArrival,
         timeDeparture = entity.timeDeparture,
         timeArrival = entity.timeArrival,
+        notes = entity.notes
     )
 
     fun fromDataList(list: List<Passenger>): MutableList<PassengerEntity> {

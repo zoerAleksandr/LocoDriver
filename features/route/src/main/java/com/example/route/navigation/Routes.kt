@@ -85,3 +85,25 @@ object FormTrain: AppRoutes("FormTrain") {
     fun buildDetailsRoute(trainId: String?, basicId: String) =
         "$baseRoute/$basicId?$trainId"
 }
+
+object FormPassenger: AppRoutes("FormPassenger") {
+    private const val paramPassengerId = "passengerId"
+    private const val paramBasicId = "basicId"
+    override val route: String = "$baseRoute/{$paramBasicId}?{$paramPassengerId}"
+    val navArguments = listOf(
+        navArgument(paramPassengerId) {
+            type = NavType.StringType
+            nullable = true
+        },
+        navArgument(paramBasicId) {
+            type = NavType.StringType
+            nullable = true
+        }
+    )
+    fun getPassengerId(backStackEntry: NavBackStackEntry): String? =
+        backStackEntry.arguments?.getString(paramPassengerId)
+    fun getBasicId(backStackEntry: NavBackStackEntry): String? =
+        backStackEntry.arguments?.getString(paramBasicId)
+    fun buildDetailsRoute(passengerId: String?, basicId: String) =
+        "$baseRoute/$basicId?$passengerId"
+}

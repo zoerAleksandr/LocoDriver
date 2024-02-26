@@ -25,7 +25,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -109,7 +108,7 @@ fun StationItem(
     )
 
     val arrivalDatePickerState =
-        rememberDatePickerState(initialSelectedDateMillis = arrivalCalendar.timeInMillis)
+        rememberDatePickerStateInLocale(initialSelectedDateMillis = arrivalCalendar.timeInMillis)
 
     val departureTimePickerState = rememberTimePickerState(
         initialHour = departureCalendar.get(Calendar.HOUR_OF_DAY),
@@ -118,7 +117,7 @@ fun StationItem(
     )
 
     val departureDatePickerState =
-        rememberDatePickerState(initialSelectedDateMillis = departureCalendar.timeInMillis)
+        rememberDatePickerStateInLocale(initialSelectedDateMillis = departureCalendar.timeInMillis)
 
 
 

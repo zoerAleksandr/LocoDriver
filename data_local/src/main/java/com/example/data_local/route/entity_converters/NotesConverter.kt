@@ -13,7 +13,7 @@ internal object NotesConverter {
 
     fun toData(entity: NotesEntity) = Notes(
         notesId = entity.notesId,
-        baseId = entity.baseId,
+        baseId = entity.basicId,
         text = entity.text,
         photos = entity.photos,
     )

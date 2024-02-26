@@ -11,4 +11,7 @@ class PassengerUseCase(
     fun savePassenger(passenger: Passenger): Flow<ResultState<Unit>> {
         return repository.savePassenger(passenger)
     }
+    fun getPassengerById(passengerId: String): Flow<ResultState<Passenger?>> {
+        return repository.loadPassenger(passengerId)
+    }
 }

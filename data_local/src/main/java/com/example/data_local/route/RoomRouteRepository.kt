@@ -99,8 +99,8 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
                 }
             }
             route.passengers.forEach {
-                if (it.baseId.isBlank()) {
-                    it.baseId = route.basicData.id
+                if (it.basicId.isBlank()) {
+                    it.basicId = route.basicData.id
                 }
             }
             route.notes?.let { notes ->

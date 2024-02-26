@@ -18,7 +18,7 @@ fun NavGraphBuilder.homeGraph(
     navigation(
         route = HomeFeature.route,
         startDestination = HomeRoute.route
-    ){
+    ) {
         composableScreen(
             route = HomeRoute.route,
             targetIsPopup = popupScreen
@@ -30,29 +30,36 @@ fun NavGraphBuilder.homeGraph(
             route = DetailsRoute.route,
             arguments = DetailsRoute.navArguments,
             targetIsPopup = popupScreen
-        ){backStackEntry ->
+        ) { backStackEntry ->
             DetailsDestination(router = router, backStackEntry = backStackEntry)
         }
 
         composablePopup(
             route = FormRoute.route,
             arguments = FormRoute.navArguments
-        ){backStackEntry ->
+        ) { backStackEntry ->
             FormDestination(router = router, backStackEntry = backStackEntry)
         }
 
         composablePopup(
             route = FormLoco.route,
             arguments = FormLoco.navArguments,
-        ){backStackEntry ->
+        ) { backStackEntry ->
             FormLocoDestination(router = router, backStackEntry = backStackEntry)
         }
 
         composablePopup(
             route = FormTrain.route,
             arguments = FormTrain.navArguments,
-        ) {backStackEntry ->
+        ) { backStackEntry ->
             FormTrainDestination(router = router, backStackEntry = backStackEntry)
+        }
+
+        composablePopup(
+            route = FormPassenger.route,
+            arguments = FormPassenger.navArguments
+        ) { backStackEntry ->
+            FormPassengerDestination(router = router, backStackEntry = backStackEntry)
         }
     }
 }

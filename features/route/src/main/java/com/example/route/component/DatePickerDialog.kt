@@ -15,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,6 +23,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.core.ui.theme.Shapes
 import com.example.route.R
+import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,4 +82,14 @@ fun DatePickerDialog(
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun rememberDatePickerStateInLocale(initialSelectedDateMillis: Long): DatePickerState {
+    val calendar = Calendar.getInstance()
+    return rememberDatePickerState(
+        initialSelectedDateMillis = initialSelectedDateMillis
+                + calendar.timeZone.rawOffset
+    )
 }

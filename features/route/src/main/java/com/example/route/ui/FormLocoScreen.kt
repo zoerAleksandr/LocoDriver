@@ -39,7 +39,6 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -84,6 +83,7 @@ import java.util.Calendar
 import java.util.Locale
 import com.example.domain.util.*
 import com.example.route.component.ElectricSectionItem
+import com.example.route.component.rememberDatePickerStateInLocale
 import com.example.route.viewmodel.DieselSectionFormState
 import com.example.route.viewmodel.DieselSectionType
 import com.example.route.viewmodel.ElectricSectionFormState
@@ -396,7 +396,7 @@ private fun LocoFormScreenContent(
             )
 
             val startAcceptedDatePickerState =
-                rememberDatePickerState(
+                rememberDatePickerStateInLocale(
                     initialSelectedDateMillis = startAcceptedTime
                         ?: startAcceptedCalendar.timeInMillis
                 )
@@ -462,7 +462,7 @@ private fun LocoFormScreenContent(
             )
 
             val endAcceptedDatePickerState =
-                rememberDatePickerState(
+                rememberDatePickerStateInLocale(
                     initialSelectedDateMillis = endAcceptedTime ?: endAcceptedCalendar.timeInMillis
                 )
 
@@ -605,7 +605,7 @@ private fun LocoFormScreenContent(
             )
 
             val startDeliveryDatePickerState =
-                rememberDatePickerState(
+                rememberDatePickerStateInLocale(
                     initialSelectedDateMillis = startDeliveryTime
                         ?: startDeliveryCalendar.timeInMillis
                 )
@@ -671,7 +671,7 @@ private fun LocoFormScreenContent(
             )
 
             val endDeliveryDatePickerState =
-                rememberDatePickerState(
+                rememberDatePickerStateInLocale(
                     initialSelectedDateMillis = endDeliveryTime ?: endDeliveryCalendar.timeInMillis
                 )
 

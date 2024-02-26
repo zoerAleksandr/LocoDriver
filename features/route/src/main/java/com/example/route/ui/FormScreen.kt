@@ -46,7 +46,6 @@ import androidx.compose.material3.MediumTopAppBar
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -89,6 +88,7 @@ import com.example.domain.entities.route.Train
 import com.example.route.R
 import com.example.route.component.BottomShadow
 import com.example.route.component.ConfirmExitDialog
+import com.example.route.component.rememberDatePickerStateInLocale
 import java.util.Calendar
 import com.example.route.extention.isScrollInInitialState
 
@@ -292,7 +292,7 @@ private fun RouteFormScreenContent(
     )
 
     val startDatePickerState =
-        rememberDatePickerState(initialSelectedDateMillis = startCalendar.timeInMillis)
+        rememberDatePickerStateInLocale(initialSelectedDateMillis = startCalendar.timeInMillis)
 
     if (showStartTimePicker) {
         TimePickerDialog(timePickerState = startTimePickerState,
@@ -335,7 +335,7 @@ private fun RouteFormScreenContent(
     )
 
     val endDatePickerState =
-        rememberDatePickerState(initialSelectedDateMillis = endCalendar.timeInMillis)
+        rememberDatePickerStateInLocale(initialSelectedDateMillis = endCalendar.timeInMillis)
 
     if (showEndTimePicker) {
         TimePickerDialog(
@@ -403,7 +403,7 @@ private fun RouteFormScreenContent(
                         modifier = Modifier.padding(start = 8.dp),
                         text = message,
                     )
-                } ?: Text(text = workTimeInFormatted, style = AppTypography.getType().bodyLarge)
+                } ?: Text(text = workTimeInFormatted, style = AppTypography.getType().headlineLarge)
 
             }
         }

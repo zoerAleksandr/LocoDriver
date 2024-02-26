@@ -13,7 +13,7 @@ import java.util.UUID
         ForeignKey(
             entity = BasicData::class,
             parentColumns = ["id"],
-            childColumns = ["baseId"],
+            childColumns = ["basicId"],
             onDelete = ForeignKey.CASCADE,
             onUpdate = ForeignKey.CASCADE
         )
@@ -24,7 +24,7 @@ internal data class Notes(
     @PrimaryKey
     var notesId: String = UUID.randomUUID().toString(),
     @ColumnInfo(index = true)
-    var baseId: String,
+    var basicId: String,
     var text: String? = null,
     var photos: MutableList<String> = mutableListOf()
 )

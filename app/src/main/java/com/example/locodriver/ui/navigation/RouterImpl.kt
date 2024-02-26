@@ -12,6 +12,7 @@ import com.example.login.navigation.LoginFeature
 import com.example.login.navigation.LoginScreenRoute
 import com.example.route.navigation.DetailsRoute
 import com.example.route.navigation.FormLoco
+import com.example.route.navigation.FormPassenger
 import com.example.route.navigation.FormRoute
 import com.example.route.navigation.FormTrain
 import com.example.route.navigation.HomeRoute
@@ -96,11 +97,15 @@ class RouterImpl(
     }
 
     override fun showChangePassengerForm(passenger: Passenger) {
-        TODO("Not yet implemented")
+        navController.navigate(
+            FormPassenger.buildDetailsRoute(passenger.passengerId, passenger.basicId)
+        )
     }
 
     override fun showEmptyPassengerForm(basicId: String) {
-        TODO("Not yet implemented")
+        navController.navigate(
+            FormPassenger.buildDetailsRoute(passengerId = null, basicId = basicId)
+        )
     }
 
     override fun showPassengerDetails(passenger: Passenger) {

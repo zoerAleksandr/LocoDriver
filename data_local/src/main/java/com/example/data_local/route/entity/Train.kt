@@ -13,7 +13,7 @@ import com.example.data_local.route.type_converters.StationConverter
         ForeignKey(
             entity = BasicData::class,
             parentColumns = ["id"],
-            childColumns = ["baseId"],
+            childColumns = ["basicId"],
             onDelete = CASCADE,
             onUpdate = CASCADE
         )
@@ -24,7 +24,7 @@ internal data class Train(
     @PrimaryKey
     var trainId: String,
     @ColumnInfo(index = true)
-    var baseId: String,
+    var basicId: String,
     var number: String?,
     var weight: String?,
     var axle: String?,
