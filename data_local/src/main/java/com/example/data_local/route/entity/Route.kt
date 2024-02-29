@@ -12,6 +12,6 @@ internal data class Route(
     val trains: List<Train>,
     @Relation(parentColumn = "id", entityColumn = "basicId")
     val passengers: List<Passenger>,
-    @Embedded
+    @Relation(parentColumn = "id", entityColumn = "basicId")
     val notes: Notes?
 )

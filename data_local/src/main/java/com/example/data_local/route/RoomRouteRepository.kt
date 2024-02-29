@@ -104,8 +104,8 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
                 }
             }
             route.notes?.let { notes ->
-                if (notes.baseId.isBlank()) {
-                    notes.baseId = route.basicData.id
+                if (notes.basicId.isBlank()) {
+                    notes.basicId = route.basicData.id
                 }
             }
             dao.save(RouteConverter.fromData(route))

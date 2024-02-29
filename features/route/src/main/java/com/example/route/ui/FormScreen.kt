@@ -121,7 +121,7 @@ fun FormScreen(
     onChangePassengerClick: (passenger: Passenger) -> Unit,
     onNewPassengerClick: (basicId: String) -> Unit,
     onDeletePassenger: (passenger: Passenger) -> Unit,
-    onNotesClick: (notes: Notes?) -> Unit,
+    onNotesClick: (notes: Notes?, basicId: String) -> Unit,
     onDeleteNotes: (notes: Notes) -> Unit
 ) {
     if (formUiState.confirmExitDialogShow) {
@@ -217,7 +217,7 @@ fun FormScreen(
                                 onChangePassengerClick = onChangePassengerClick,
                                 onNewPassengerClick = onNewPassengerClick,
                                 onDeletePassenger = onDeletePassenger,
-                                notesState = route.notes,
+                                notes = route.notes,
                                 onNotesClick = onNotesClick,
                                 onDeleteNotes = onDeleteNotes
                             )
@@ -253,8 +253,8 @@ private fun RouteFormScreenContent(
     onChangePassengerClick: (passenger: Passenger) -> Unit,
     onNewPassengerClick: (basicId: String) -> Unit,
     onDeletePassenger: (passenger: Passenger) -> Unit,
-    notesState: Notes?,
-    onNotesClick: (notes: Notes?) -> Unit,
+    notes: Notes?,
+    onNotesClick: (notes: Notes?, basicId: String) -> Unit,
     onDeleteNotes: (notes: Notes) -> Unit
 ) {
     val scrollState = rememberLazyListState()
@@ -662,9 +662,10 @@ private fun RouteFormScreenContent(
                 }
                 Spacer(modifier = Modifier.height(16.dp))
                 ItemNotes(
-                    notesState,
-                    onNotesClick,
-                    onDeleteNotes,
+                    notes = notes,
+                    basicId = basicId,
+                    onNotesClick = onNotesClick,
+                    onDeleteNotes = onDeleteNotes,
                 )
             }
         }
@@ -765,7 +766,8 @@ private fun PassengerSubItem(index: Int, passenger: Passenger) {
 @Composable
 fun ItemNotes(
     notes: Notes?,
-    onNotesClick: (notes: Notes?) -> Unit,
+    basicId: String,
+    onNotesClick: (notes: Notes?, basicId: String) -> Unit,
     onDeleteNotes: (notes: Notes) -> Unit,
 ) {
     Card(
@@ -783,15 +785,22 @@ fun ItemNotes(
                 text = stringResource(id = R.string.notes),
                 style = AppTypography.getType().titleLarge
             )
-            IconButton(onClick = { onNotesClick(null) }) {
-                Icon(imageVector = Icons.Default.Add, contentDescription = null)
+            if (notes == null) {
+                IconButton(onClick = { onNotesClick(null, basicId) }) {
+                    Icon(imageVector = Icons.Default.Add, contentDescription = null)
+                }
+            } else {
+                IconButton(onClick = { onDeleteNotes(notes) }) {
+                    Icon(imageVector = Icons.Default.Delete, contentDescription = null)
+                }
             }
         }
         notes?.let {
             Row(
                 modifier = Modifier
                     .padding(start = 24.dp, end = 24.dp, top = 12.dp)
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .clickable { onNotesClick(it, basicId) },
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -802,9 +811,6 @@ fun ItemNotes(
                     overflow = TextOverflow.Ellipsis,
                     maxLines = 2
                 )
-                IconButton(onClick = { onDeleteNotes(it) }) {
-                    Icon(imageVector = Icons.Default.Delete, contentDescription = null)
-                }
             }
         }
     }

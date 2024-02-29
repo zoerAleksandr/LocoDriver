@@ -66,6 +66,7 @@ dependencies {
 
     implementation(Libs.coil_compose)
     implementation(Libs.reveal_swipe)
+    implementation(Libs.maxkeppeler_sheets)
     implementation(project(mapOf("path" to ":data_local")))
 
 }

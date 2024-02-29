@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.navigation.NavBackStackEntry
+import com.example.domain.entities.route.Notes
 import com.example.domain.navigation.Router
 import com.example.route.Const.NULLABLE_ID
 import com.example.route.ui.FormScreen
@@ -55,7 +56,10 @@ fun FormDestination(
             viewModel.checkingSaveRoute()
         },
         onDeletePassenger = viewModel::onDeletePassenger,
-        onNotesClick = router::showNotesForm,
+        onNotesClick = { notes: Notes?, basicId: String ->
+            router.showNotesForm(notes, basicId)
+            viewModel.checkingSaveRoute()
+        },
         onDeleteNotes = viewModel::onDeleteNotes
     )
 }

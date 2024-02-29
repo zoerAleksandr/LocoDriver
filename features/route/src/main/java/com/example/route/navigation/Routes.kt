@@ -9,7 +9,7 @@ object HomeFeature : AppRoutes("HomeFeature")
 object HomeRoute : AppRoutes("HomeRoute")
 object DetailsRoute : AppRoutes("RouteDetailsRoute") {
     private const val paramRouteId = "routeId"
-    override val route: String = "$baseRoute/{$paramRouteId}"
+    override val route: String = "$basicRoute/{$paramRouteId}"
     val navArguments = listOf(
         navArgument(paramRouteId) {
             type = NavType.StringType
@@ -19,12 +19,12 @@ object DetailsRoute : AppRoutes("RouteDetailsRoute") {
     fun getRouteId(backStackEntry: NavBackStackEntry): String? =
         backStackEntry.arguments?.getString(paramRouteId)
 
-    fun buildDetailsRoute(id: String) = "$baseRoute/$id"
+    fun buildDetailsRoute(id: String) = "$basicRoute/$id"
 }
 
 object FormRoute : AppRoutes("FormRoute") {
     private const val paramRouteId = "routeId"
-    override val route: String = "$baseRoute?$paramRouteId={$paramRouteId}"
+    override val route: String = "$basicRoute?$paramRouteId={$paramRouteId}"
     val navArguments = listOf(
         navArgument(paramRouteId) {
             type = NavType.StringType
@@ -36,13 +36,13 @@ object FormRoute : AppRoutes("FormRoute") {
         backStackEntry.arguments?.getString(paramRouteId)
 
     fun buildDetailsRoute(id: String?) =
-        id?.let { "$baseRoute?$paramRouteId=$id" } ?: baseRoute
+        id?.let { "$basicRoute?$paramRouteId=$id" } ?: basicRoute
 }
 
 object FormLoco : AppRoutes("FormLoco") {
     private const val paramLocoId = "locoId"
     private const val paramBasicId = "basicId"
-    override val route: String = "$baseRoute/{$paramBasicId}?{$paramLocoId}"
+    override val route: String = "$basicRoute/{$paramBasicId}?{$paramLocoId}"
     val navArguments = listOf(
         navArgument(paramLocoId) {
             type = NavType.StringType
@@ -61,13 +61,13 @@ object FormLoco : AppRoutes("FormLoco") {
         backStackEntry.arguments?.getString(paramBasicId)
 
     fun buildDetailsRoute(locoId: String?, basicId: String) =
-        "$baseRoute/$basicId?$locoId"
+        "$basicRoute/$basicId?$locoId"
 }
 
 object FormTrain: AppRoutes("FormTrain") {
     private const val paramTrainId = "trainId"
     private const val paramBasicId = "basicId"
-    override val route: String = "$baseRoute/{$paramBasicId}?{$paramTrainId}"
+    override val route: String = "$basicRoute/{$paramBasicId}?{$paramTrainId}"
     val navArguments = listOf(
         navArgument(paramTrainId) {
             type = NavType.StringType
@@ -83,13 +83,13 @@ object FormTrain: AppRoutes("FormTrain") {
     fun getBasicId(backStackEntry: NavBackStackEntry): String? =
         backStackEntry.arguments?.getString(paramBasicId)
     fun buildDetailsRoute(trainId: String?, basicId: String) =
-        "$baseRoute/$basicId?$trainId"
+        "$basicRoute/$basicId?$trainId"
 }
 
 object FormPassenger: AppRoutes("FormPassenger") {
     private const val paramPassengerId = "passengerId"
     private const val paramBasicId = "basicId"
-    override val route: String = "$baseRoute/{$paramBasicId}?{$paramPassengerId}"
+    override val route: String = "$basicRoute/{$paramBasicId}?{$paramPassengerId}"
     val navArguments = listOf(
         navArgument(paramPassengerId) {
             type = NavType.StringType
@@ -105,5 +105,27 @@ object FormPassenger: AppRoutes("FormPassenger") {
     fun getBasicId(backStackEntry: NavBackStackEntry): String? =
         backStackEntry.arguments?.getString(paramBasicId)
     fun buildDetailsRoute(passengerId: String?, basicId: String) =
-        "$baseRoute/$basicId?$passengerId"
+        "$basicRoute/$basicId?$passengerId"
+}
+
+object FormNotes: AppRoutes("FormNotes") {
+    private const val paramNotesId = "notesId"
+    private const val paramBasicId = "basicId"
+    override val route: String = "$basicRoute/{$paramBasicId}?{$paramNotesId}"
+    val navArguments = listOf(
+        navArgument(paramNotesId){
+            type = NavType.StringType
+            nullable = true
+        },
+        navArgument(paramBasicId){
+            type = NavType.StringType
+            nullable = true
+        }
+    )
+    fun getNotesId(backStackEntry: NavBackStackEntry): String? =
+        backStackEntry.arguments?.getString(paramNotesId)
+    fun getBasicId(backStackEntry: NavBackStackEntry): String? =
+        backStackEntry.arguments?.getString(paramBasicId)
+    fun buildDetailsRoute(notesId: String?, basicId: String) =
+        "$basicRoute/$basicId?$notesId"
 }

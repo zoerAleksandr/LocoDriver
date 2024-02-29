@@ -12,6 +12,7 @@ import com.example.login.navigation.LoginFeature
 import com.example.login.navigation.LoginScreenRoute
 import com.example.route.navigation.DetailsRoute
 import com.example.route.navigation.FormLoco
+import com.example.route.navigation.FormNotes
 import com.example.route.navigation.FormPassenger
 import com.example.route.navigation.FormRoute
 import com.example.route.navigation.FormTrain
@@ -112,11 +113,21 @@ class RouterImpl(
         TODO("Not yet implemented")
     }
 
-    override fun showNotesForm(notes: Notes?) {
-        TODO("Not yet implemented")
+    override fun showNotesForm(notes: Notes?, basicId: String) {
+        navController.navigate(
+            FormNotes.buildDetailsRoute(notesId = notes?.notesId, basicId = basicId)
+        )
     }
 
     override fun showNotesDetails(notes: Notes) {
+        TODO("Not yet implemented")
+    }
+
+    override fun showCameraScreen() {
+        TODO("Not yet implemented")
+    }
+
+    override fun showViewingPhotoScreen(photo: String) {
         TODO("Not yet implemented")
     }
 }

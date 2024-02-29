@@ -15,6 +15,7 @@ import Versions.koin_version
 import Versions.lifecycle_runtime_version
 import Versions.lifecycle_viewmodel_version
 import Versions.material_compose
+import Versions.maxkeppeler_sheets_ver
 import Versions.reveal_swipe_version
 import Versions.room_version
 import Versions.test_ext_version
@@ -70,6 +71,7 @@ object Versions {
     const val gson_version = "2.9.0"
     const val constraint_layout_ver = "1.0.1"
     const val datastore_pref_ver = "1.0.0"
+    const val maxkeppeler_sheets_ver = "1.1.1"
 }
 
 object Libs {
@@ -131,8 +133,11 @@ object Libs {
         "com.google.accompanist:accompanist-pager-indicators:$accompanist_pager_version"
     const val gson =
         "com.google.code.gson:gson:$gson_version"
+    const val maxkeppeler_sheets =
+        "com.maxkeppeler.sheets-compose-dialogs:core:$maxkeppeler_sheets_ver"
 
-//     Debug
+
+    //     Debug
     const val ui_tooling =
         "androidx.compose.ui:ui-tooling:$compose_ui_version"
     const val ui_test_manifest =

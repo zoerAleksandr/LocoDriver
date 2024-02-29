@@ -11,4 +11,7 @@ class NotesUseCase(
     fun saveNotes(notes: Notes): Flow<ResultState<Unit>> {
         return repository.saveNotes(notes)
     }
+    fun loadNotes(notesId: String): Flow<ResultState<Notes?>> {
+        return repository.loadNotes(notesId)
+    }
 }

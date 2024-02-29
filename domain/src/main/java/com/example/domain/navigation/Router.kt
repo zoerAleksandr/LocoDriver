@@ -25,6 +25,8 @@ interface Router {
     fun showChangePassengerForm(passenger: Passenger)
     fun showEmptyPassengerForm(basicId: String)
     fun showPassengerDetails(passenger: Passenger)
-    fun showNotesForm(notes: Notes?)
+    fun showNotesForm(notes: Notes?, basicId: String)
     fun showNotesDetails(notes: Notes)
+    fun showCameraScreen()
+    fun showViewingPhotoScreen(photo: String)
 }
