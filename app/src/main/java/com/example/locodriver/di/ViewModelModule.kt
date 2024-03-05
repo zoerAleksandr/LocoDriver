@@ -2,6 +2,7 @@ package com.example.locodriver.di
 
 import com.example.locodriver.viewmodel.MainViewModel
 import com.example.login.viewmodel.LoginViewModel
+import com.example.route.viewmodel.CreatePhotoViewModel
 import com.example.route.viewmodel.DetailsViewModel
 import com.example.route.viewmodel.FormViewModel
 import com.example.route.viewmodel.HomeViewModel
@@ -29,7 +30,10 @@ val viewModelModule = module {
     viewModel { (passengerId: String?, basicId: String) ->
         PassengerFormViewModel(passengerId = passengerId, basicId = basicId)
     }
-    viewModel { (notesId: String?, basicId: String) ->
-        NotesFormViewModel(notesId = notesId, basicId = basicId)
+    viewModel { (basicId: String) ->
+        NotesFormViewModel(basicId = basicId)
+    }
+    viewModel { (notesId: String) ->
+        CreatePhotoViewModel(basicId = notesId)
     }
 }

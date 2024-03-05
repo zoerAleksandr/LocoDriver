@@ -2,7 +2,6 @@ package com.example.domain.navigation
 
 import com.example.domain.entities.route.BasicData
 import com.example.domain.entities.route.Locomotive
-import com.example.domain.entities.route.Notes
 import com.example.domain.entities.route.Passenger
 import com.example.domain.entities.route.Route
 import com.example.domain.entities.route.Train
@@ -25,8 +24,8 @@ interface Router {
     fun showChangePassengerForm(passenger: Passenger)
     fun showEmptyPassengerForm(basicId: String)
     fun showPassengerDetails(passenger: Passenger)
-    fun showNotesForm(notes: Notes?, basicId: String)
-    fun showNotesDetails(notes: Notes)
-    fun showCameraScreen()
+    fun showNotesForm(basicId: String)
+    fun showNotesDetails(basicId: String)
+    fun showCameraScreen(notesId: String)
     fun showViewingPhotoScreen(photo: String)
 }

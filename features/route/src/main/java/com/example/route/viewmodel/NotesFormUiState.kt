@@ -1,11 +1,9 @@
 package com.example.route.viewmodel
 
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.example.core.ResultState
-import com.example.domain.entities.route.Notes
+import com.example.domain.entities.route.Photo
 
 data class NotesFormUiState(
-    val notesDetailState: ResultState<Notes?> = ResultState.Loading,
-    val saveNotesState: ResultState<Unit>? = null,
-    val photosListState: SnapshotStateList<String>? = null
+    val notesText: String? = null,
+    val photosListState: ResultState<List<Photo>> = ResultState.Loading
 )

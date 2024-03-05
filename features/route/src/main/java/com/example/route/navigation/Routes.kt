@@ -109,23 +109,31 @@ object FormPassenger: AppRoutes("FormPassenger") {
 }
 
 object FormNotes: AppRoutes("FormNotes") {
-    private const val paramNotesId = "notesId"
     private const val paramBasicId = "basicId"
-    override val route: String = "$basicRoute/{$paramBasicId}?{$paramNotesId}"
+    override val route: String = "$basicRoute/{$paramBasicId}"
     val navArguments = listOf(
-        navArgument(paramNotesId){
-            type = NavType.StringType
-            nullable = true
-        },
         navArgument(paramBasicId){
             type = NavType.StringType
             nullable = true
         }
     )
-    fun getNotesId(backStackEntry: NavBackStackEntry): String? =
-        backStackEntry.arguments?.getString(paramNotesId)
     fun getBasicId(backStackEntry: NavBackStackEntry): String? =
         backStackEntry.arguments?.getString(paramBasicId)
-    fun buildDetailsRoute(notesId: String?, basicId: String) =
-        "$basicRoute/$basicId?$notesId"
+    fun buildDetailsRoute(basicId: String) =
+        "$basicRoute/$basicId"
+}
+
+object CreatePhotoRoute: AppRoutes("CreatePhoto") {
+    private const val paramNotesId = "notesId"
+    override val route: String = "$basicRoute/{$paramNotesId}"
+    val navArguments = listOf(
+        navArgument(paramNotesId){
+            type = NavType.StringType
+            nullable = false
+        }
+    )
+    fun getNotesId(backStackEntry: NavBackStackEntry): String? =
+        backStackEntry.arguments?.getString(paramNotesId)
+    fun buildRoute(notesId: String) =
+        "$basicRoute/$notesId"
 }

@@ -13,5 +13,5 @@ internal data class Route(
     @Relation(parentColumn = "id", entityColumn = "basicId")
     val passengers: List<Passenger>,
     @Relation(parentColumn = "id", entityColumn = "basicId")
-    val notes: Notes?
+    val photos: List<Photo>
 )

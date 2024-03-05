@@ -10,5 +10,6 @@ internal data class BasicData(
     var number: String?,
     var timeStartWork: Long?,
     var timeEndWork: Long?,
-    var restPointOfTurnover: Boolean
+    var restPointOfTurnover: Boolean,
+    var notes: String?
 )

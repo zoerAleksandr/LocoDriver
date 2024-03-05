@@ -7,5 +7,6 @@ data class BasicData(
     var number: String? = null,
     var timeStartWork: Long? = null,
     var timeEndWork: Long? = null,
-    var restPointOfTurnover: Boolean = false
+    var restPointOfTurnover: Boolean = false,
+    var notes: String? = null
 )

@@ -1,15 +1,12 @@
 package com.example.route.viewmodel
 
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.core.ResultState
-import com.example.domain.entities.route.Notes
-import com.example.domain.use_cases.NotesUseCase
-import com.example.domain.util.addOrReplace
-import com.example.route.Const.NULLABLE_ID
-import com.example.route.extention.EMPTY_IMAGE_URI
+import com.example.domain.use_cases.PhotosUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,116 +17,74 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
 class NotesFormViewModel constructor(
-    notesId: String?,
-    basicId: String
+    private val basicId: String,
 ) : ViewModel(), KoinComponent {
     private val _uiState = MutableStateFlow(NotesFormUiState())
     val uiState = _uiState.asStateFlow()
 
-    private val notesUseCase: NotesUseCase by inject()
-    private var loadNotesJob: Job? = null
-    private var saveNotesJob: Job? = null
-    var currentNotes: Notes?
-        get() {
-            return _uiState.value.notesDetailState.let {
-                if (it is ResultState.Success) it.data else null
-            }
-        }
-        set(value) {
+    private val photosUseCase: PhotosUseCase by inject()
+    private var loadPhotosJob: Job? = null
+
+    private var isSaving by mutableStateOf(false)
+
+    var currentNotes: String?
+        get() = _uiState.value.notesText
+
+        private set(value) {
             _uiState.update {
                 it.copy(
-                    notesDetailState = ResultState.Success(value)
+                    notesText = value
                 )
             }
         }
 
-    var photosListState: SnapshotStateList<String>
-        get() {
-            return _uiState.value.photosListState ?: mutableStateListOf(EMPTY_IMAGE_URI)
-        }
-        set(value) {
-            _uiState.update {
-                it.copy(
-                    photosListState = value
-                )
-            }
-        }
+//    var photosListState: MutableList<Photo>?
+//        get() {
+//            return if (_uiState.value.photosListState is ResultState.Success) {
+//                _uiState.value.photosListState.data.toMutableList()
+//            } else {
+//                mutableListOf()
+//            }
+//        }
+//        set(value) {
+//            _uiState.update {
+//                it.copy(
+//                    photosListState = value
+//                )
+//            }
+//        }
 
     init {
-        if (notesId == NULLABLE_ID) {
-            currentNotes = Notes(basicId = basicId)
-        } else {
-            loadNotes(notesId!!)
-        }
+        loadPhoto(basicId)
     }
 
-    private fun loadNotes(notesId: String) {
-        loadNotesJob?.cancel()
-        loadNotesJob = notesUseCase.loadNotes(notesId).onEach { resultState ->
+    private fun loadPhoto(basicId: String) {
+        loadPhotosJob?.cancel()
+        loadPhotosJob = photosUseCase.getPhotoByRoute(basicId).onEach { resultState ->
             _uiState.update {
                 it.copy(
-                    notesDetailState = resultState
+                    photosListState = resultState
                 )
             }
             if (resultState is ResultState.Success) {
-                currentNotes = resultState.data
-                resultState.data?.let { notes ->
-                    setPhotosList(notes.photos)
-                }
+                isSaving = true
             }
         }.launchIn(viewModelScope)
     }
 
-    private fun setPhotosList(list: MutableList<String>) {
-        photosListState.add(EMPTY_IMAGE_URI)
-        list.forEach { photo ->
-            photosListState.addOrReplace(photo)
-        }
-    }
-
-    fun saveNotes() {
-        val state = _uiState.value.notesDetailState
-        if (state is ResultState.Success) {
-            state.data?.let { notes ->
-                val photoList = photosListState
-                photoList.remove(EMPTY_IMAGE_URI)
-                notes.photos = photoList
-                saveNotesJob?.cancel()
-                saveNotesJob = notesUseCase.saveNotes(notes).onEach { resultState ->
-                    _uiState.update {
-                        it.copy(
-                            saveNotesState = resultState
-                        )
-                    }
-                }.launchIn(viewModelScope)
-            }
-        }
-    }
-
-    fun resetSaveState() {
-        _uiState.update {
-            it.copy(saveNotesState = null)
-        }
-    }
-
     fun clearAllField() {
-        currentNotes = currentNotes?.copy(
-            text = null
-        )
-        photosListState = mutableStateListOf(EMPTY_IMAGE_URI)
+
     }
 
-    fun setNoteText(text: String) {
-        currentNotes = currentNotes?.copy(
-            text = text
-        )
+    fun setNotesText(text: String) {
+        currentNotes = text
     }
-
-    fun addingPhoto(url: String) {
-        photosListState.add(url)
-    }
-
-    fun deletePhoto(url: String) {
-        photosListState.remove(url)
-    }
+//
+//    fun addingPhoto(url: String) {
+//        photosListState.add(url)
+//    }
+//
+//    fun deletePhoto(url: String) {
+//        photosListState.remove(url)
+//    }
 }

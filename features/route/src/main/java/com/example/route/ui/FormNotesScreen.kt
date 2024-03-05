@@ -43,7 +43,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -63,23 +62,22 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import coil.compose.rememberAsyncImagePainter
 import com.example.core.ResultState
-import com.example.core.ui.component.AsyncData
-import com.example.core.ui.component.GenericError
 import com.example.core.ui.theme.Shapes
 import com.example.core.ui.theme.custom.AppTypography
-import com.example.domain.entities.route.Notes
 import com.example.route.R
 import com.example.route.component.BottomShadow
+import com.example.route.component.camera.CameraCapturePreview
 import com.example.route.extention.EMPTY_IMAGE_URI
 import com.example.route.extention.isScrollInInitialState
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.maxkeppeker.sheets.core.views.Grid
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FormNotesScreen(
-    notesDetailState: ResultState<Notes?>,
     saveNotesState: ResultState<Unit>?,
-    currentNotes: Notes?,
+    currentNotes: String?,
     onBackPressed: () -> Unit,
     onSaveClick: () -> Unit,
     onTrainSaved: () -> Unit,
@@ -89,7 +87,7 @@ fun FormNotesScreen(
     onTextChanged: (String) -> Unit,
     onAddingPhoto: (String) -> Unit,
     onDeletePhoto: (String) -> Unit,
-    createPhoto: () -> Unit,
+    createPhoto: (notesId: String) -> Unit,
     onViewingPhoto: (String) -> Unit
 ) {
     val scaffoldState = rememberBottomSheetScaffoldState(
@@ -170,43 +168,27 @@ fun FormNotesScreen(
         }
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues)) {
-            AsyncData(resultState = notesDetailState) {
-                currentNotes?.let { notes ->
-                    AsyncData(resultState = saveNotesState, errorContent = {
-                        GenericError(
-                            onDismissAction = resetSaveState
-                        )
-                    }) {
-                        if (saveNotesState is ResultState.Success) {
-                            LaunchedEffect(saveNotesState) {
-                                onTrainSaved()
-                            }
-                        } else {
-                            FormNotesScreenContent(
-                                notes = notes,
-                                photoListState = photoListState,
-                                onTextChanged = onTextChanged,
-                                onAddingPhoto = onAddingPhoto,
-                                onDeletePhoto = onDeletePhoto,
-                                createPhoto = createPhoto,
-                                onViewingPhoto = onViewingPhoto
-                            )
-                        }
-                    }
-                }
-            }
+            FormNotesScreenContent(
+                notes = currentNotes,
+                photoListState = photoListState,
+                onTextChanged = onTextChanged,
+                onAddingPhoto = onAddingPhoto,
+                onDeletePhoto = onDeletePhoto,
+                createPhoto = createPhoto,
+                onViewingPhoto = onViewingPhoto
+            )
         }
     }
 }
 
 @Composable
 fun FormNotesScreenContent(
-    notes: Notes,
+    notes: String?,
     photoListState: SnapshotStateList<String>,
     onTextChanged: (String) -> Unit,
     onAddingPhoto: (String) -> Unit,
     onDeletePhoto: (String) -> Unit,
-    createPhoto: () -> Unit,
+    createPhoto: (notesId: String) -> Unit,
     onViewingPhoto: (String) -> Unit
 ) {
     val scrollState = rememberLazyListState()
@@ -229,7 +211,7 @@ fun FormNotesScreenContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(24.dp),
-                value = notes.text ?: "",
+                value = notes ?: "",
                 onValueChange = {
                     onTextChanged(it)
                 },
@@ -254,7 +236,7 @@ fun FormNotesScreenContent(
                 ) { item ->
                     if (listPhotos.isEmpty() || item == EMPTY_IMAGE_URI) {
                         ItemCameraPreview(
-                            createPhoto = createPhoto
+                            createPhoto = { createPhoto("") }
                         )
                     } else {
                         ItemPhoto(
@@ -326,6 +308,7 @@ fun ItemPhoto(
     )
 }
 
+@OptIn(ExperimentalPermissionsApi::class, ExperimentalCoroutinesApi::class)
 @Composable
 fun ItemCameraPreview(
     createPhoto: () -> Unit
@@ -350,10 +333,10 @@ fun ItemCameraPreview(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-//            CameraCapturePreview(
-//                modifier = Modifier
-//                    .fillMaxSize()
-//            )
+            CameraCapturePreview(
+                modifier = Modifier
+                    .fillMaxSize()
+            )
             Box(
                 modifier = Modifier
                     .fillMaxSize()

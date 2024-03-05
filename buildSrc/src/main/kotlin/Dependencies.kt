@@ -3,6 +3,7 @@ import Versions.accompanist_pager_version
 import Versions.accompanist_swiperefresh_version
 import Versions.activity_compose_version
 import Versions.app_compat_version
+import Versions.camera_ver
 import Versions.coil_version
 import Versions.compose_ui_version
 import Versions.constraint_layout_ver
@@ -16,6 +17,7 @@ import Versions.lifecycle_runtime_version
 import Versions.lifecycle_viewmodel_version
 import Versions.material_compose
 import Versions.maxkeppeler_sheets_ver
+import Versions.permission_accompanist_ver
 import Versions.reveal_swipe_version
 import Versions.room_version
 import Versions.test_ext_version
@@ -29,6 +31,7 @@ object Plugins {
     const val kotlin_jvm = "org.jetbrains.kotlin.jvm"
     const val kotlin_kapt = "kapt"
     const val java_lib = "java-library"
+    const val google_relay = "com.google.relay"
 }
 
 object Apps {
@@ -72,6 +75,9 @@ object Versions {
     const val constraint_layout_ver = "1.0.1"
     const val datastore_pref_ver = "1.0.0"
     const val maxkeppeler_sheets_ver = "1.1.1"
+    const val camera_ver = "1.3.1"
+    const val permission_accompanist_ver = "0.31.0-alpha"
+    const val google_relay_ver = "0.3.11"
 }
 
 object Libs {
@@ -135,6 +141,10 @@ object Libs {
         "com.google.code.gson:gson:$gson_version"
     const val maxkeppeler_sheets =
         "com.maxkeppeler.sheets-compose-dialogs:core:$maxkeppeler_sheets_ver"
+    const val camera_camera2 = "androidx.camera:camera-camera2:$camera_ver"
+    const val camera_lifecycle = "androidx.camera:camera-lifecycle:$camera_ver"
+    const val camera_view = "androidx.camera:camera-view:$camera_ver"
+    const val permission_accompanist = "com.google.accompanist:accompanist-permissions:$permission_accompanist_ver"
 
 
     //     Debug

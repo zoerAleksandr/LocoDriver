@@ -5,9 +5,8 @@ import androidx.room.RoomDatabase
 import com.example.data_local.route.dao.RouteDao
 import com.example.data_local.route.entity.BasicData
 import com.example.data_local.route.entity.Locomotive
-import com.example.data_local.route.entity.Notes
 import com.example.data_local.route.entity.Passenger
-import com.example.data_local.route.entity.Route
+import com.example.data_local.route.entity.Photo
 import com.example.data_local.route.entity.Train
 
 @Database(
@@ -16,7 +15,7 @@ import com.example.data_local.route.entity.Train
         Locomotive::class,
         Train::class,
         Passenger::class,
-        Notes::class
+        Photo::class
     ],
     version = 1,
     exportSchema = false

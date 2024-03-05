@@ -3,13 +3,13 @@ package com.example.locodriver.ui.navigation
 import androidx.navigation.NavHostController
 import com.example.domain.entities.route.BasicData
 import com.example.domain.entities.route.Locomotive
-import com.example.domain.entities.route.Notes
 import com.example.domain.entities.route.Passenger
 import com.example.domain.entities.route.Route
 import com.example.domain.entities.route.Train
 import com.example.domain.navigation.Router
 import com.example.login.navigation.LoginFeature
 import com.example.login.navigation.LoginScreenRoute
+import com.example.route.navigation.CreatePhotoRoute
 import com.example.route.navigation.DetailsRoute
 import com.example.route.navigation.FormLoco
 import com.example.route.navigation.FormNotes
@@ -113,18 +113,20 @@ class RouterImpl(
         TODO("Not yet implemented")
     }
 
-    override fun showNotesForm(notes: Notes?, basicId: String) {
+    override fun showNotesForm(basicId: String) {
         navController.navigate(
-            FormNotes.buildDetailsRoute(notesId = notes?.notesId, basicId = basicId)
+            FormNotes.buildDetailsRoute(basicId = basicId)
         )
     }
 
-    override fun showNotesDetails(notes: Notes) {
+    override fun showNotesDetails(basicId: String) {
         TODO("Not yet implemented")
     }
 
-    override fun showCameraScreen() {
-        TODO("Not yet implemented")
+    override fun showCameraScreen(notesId: String) {
+        navController.navigate(
+            CreatePhotoRoute.buildRoute(notesId)
+        )
     }
 
     override fun showViewingPhotoScreen(photo: String) {

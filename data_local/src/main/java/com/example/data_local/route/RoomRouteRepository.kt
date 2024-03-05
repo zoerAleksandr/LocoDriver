@@ -18,9 +18,11 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
     override fun loadRoutes(): Flow<ResultState<List<Route>>> {
         return flowMap {
             dao.getAllRoute().map { routes ->
-                ResultState.Success(routes.map { route ->
-                    RouteConverter.toData(route)
-                })
+                ResultState.Success(
+                    routes.map { route ->
+                        RouteConverter.toData(route)
+                    }
+                )
             }
         }
     }
@@ -71,12 +73,24 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
         }
     }
 
-    override fun loadNotes(notesId: String): Flow<ResultState<Notes?>> {
+    override fun loadPhoto(photoId: String): Flow<ResultState<Photo?>> {
         return flowMap {
-            dao.getNotesById(notesId).map { notes ->
+            dao.getPhotoById(photoId).map { photo ->
                 ResultState.Success(
-                    notes?.let {
-                        NotesConverter.toData(notes)
+                    photo?.let {
+                        PhotoConverter.toData(photo)
+                    }
+                )
+            }
+        }
+    }
+
+    override fun loadPhotosByRoute(basicId: String): Flow<ResultState<List<Photo>>> {
+        return flowMap {
+            dao.getPhotosByRoute(basicId).map { photos ->
+                ResultState.Success(
+                    photos.map { photo ->
+                        PhotoConverter.toData(photo)
                     }
                 )
             }
@@ -103,9 +117,9 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
                     it.basicId = route.basicData.id
                 }
             }
-            route.notes?.let { notes ->
-                if (notes.basicId.isBlank()) {
-                    notes.basicId = route.basicData.id
+            route.photos.forEach {
+                if (it.basicId.isBlank()) {
+                    it.basicId = route.basicData.id
                 }
             }
             dao.save(RouteConverter.fromData(route))
@@ -136,9 +150,9 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
         }
     }
 
-    override fun removeNotes(notes: Notes): Flow<ResultState<Unit>> {
+    override fun removePhoto(photo: Photo): Flow<ResultState<Unit>> {
         return flowRequest {
-            dao.deleteNotes(NotesConverter.fromData(notes))
+            dao.deletePhoto(PhotoConverter.fromData(photo))
         }
     }
 
@@ -169,12 +183,12 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
         }
     }
 
-    override fun saveNotes(notes: Notes): Flow<ResultState<Unit>> {
+    override fun savePhoto(photo: Photo): Flow<ResultState<Unit>> {
         return flowRequest {
-            if (notes.notesId.isBlank()) {
-                notes.notesId = UUID.randomUUID().toString()
+            if (photo.photoId.isBlank()) {
+                photo.photoId = UUID.randomUUID().toString()
             }
-            dao.saveNotes(NotesConverter.fromData(notes))
+            dao.savePhoto(PhotoConverter.fromData(photo))
         }
     }
 }

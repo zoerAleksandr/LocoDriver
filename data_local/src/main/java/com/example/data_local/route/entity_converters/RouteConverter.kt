@@ -9,7 +9,7 @@ internal object RouteConverter {
         locomotives = LocomotiveConverter.fromDataList(route.locomotives),
         trains = TrainConverter.fromDataList(route.trains),
         passengers = PassengerConverter.fromDataList(route.passengers),
-        notes = route.notes?.let { NotesConverter.fromData(it) }
+        photos = PhotoConverter.fromDataList(route.photos)
     )
 
     fun toData(entity: RouteEntity) = Route(
@@ -17,6 +17,6 @@ internal object RouteConverter {
         locomotives = LocomotiveConverter.toDataList(entity.locomotives),
         trains = TrainConverter.toDataList(entity.trains),
         passengers = PassengerConverter.toDataList(entity.passengers),
-        notes = entity.notes?.let { NotesConverter.toData(it) }
+        photos = PhotoConverter.toDataList(entity.photos)
     )
 }

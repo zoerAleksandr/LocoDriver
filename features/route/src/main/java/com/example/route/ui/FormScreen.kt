@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import com.example.route.component.TimePickerDialog
 import com.example.route.component.DatePickerDialog
@@ -20,7 +21,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.ClickableText
@@ -35,6 +38,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -55,6 +59,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
@@ -65,10 +71,10 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import coil.compose.rememberAsyncImagePainter
 import com.example.core.ResultState
 import com.example.core.ui.component.AsyncData
 import com.example.core.ui.component.GenericError
@@ -82,8 +88,8 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import com.example.core.util.DateAndTimeFormat
 import com.example.domain.entities.route.Locomotive
-import com.example.domain.entities.route.Notes
 import com.example.domain.entities.route.Passenger
+import com.example.domain.entities.route.Photo
 import com.example.domain.entities.route.Train
 import com.example.route.R
 import com.example.route.component.BottomShadow
@@ -109,6 +115,7 @@ fun FormScreen(
     onClearAllField: () -> Unit,
     resetSaveState: () -> Unit,
     onNumberChanged: (String) -> Unit,
+    onNotesChanged: (String) -> Unit,
     onTimeStartWorkChanged: (Long?) -> Unit,
     onTimeEndWorkChanged: (Long?) -> Unit,
     onRestChanged: (Boolean) -> Unit,
@@ -121,8 +128,7 @@ fun FormScreen(
     onChangePassengerClick: (passenger: Passenger) -> Unit,
     onNewPassengerClick: (basicId: String) -> Unit,
     onDeletePassenger: (passenger: Passenger) -> Unit,
-    onNotesClick: (notes: Notes?, basicId: String) -> Unit,
-    onDeleteNotes: (notes: Notes) -> Unit
+    onNotesClick: (basicId: String) -> Unit,
 ) {
     if (formUiState.confirmExitDialogShow) {
         ConfirmExitDialog(
@@ -198,6 +204,7 @@ fun FormScreen(
                             RouteFormScreenContent(
                                 route = route,
                                 onNumberChanged = onNumberChanged,
+                                onNotesChanged = onNotesChanged,
                                 errorMessage = formUiState.errorMessage,
                                 onTimeStartWorkChanged = onTimeStartWorkChanged,
                                 onTimeEndWorkChanged = onTimeEndWorkChanged,
@@ -217,9 +224,7 @@ fun FormScreen(
                                 onChangePassengerClick = onChangePassengerClick,
                                 onNewPassengerClick = onNewPassengerClick,
                                 onDeletePassenger = onDeletePassenger,
-                                notes = route.notes,
                                 onNotesClick = onNotesClick,
-                                onDeleteNotes = onDeleteNotes
                             )
                         }
                     }
@@ -234,6 +239,7 @@ fun FormScreen(
 private fun RouteFormScreenContent(
     route: Route,
     onNumberChanged: (String) -> Unit,
+    onNotesChanged: (String) -> Unit,
     errorMessage: String?,
     onTimeStartWorkChanged: (Long?) -> Unit,
     onTimeEndWorkChanged: (Long?) -> Unit,
@@ -253,9 +259,7 @@ private fun RouteFormScreenContent(
     onChangePassengerClick: (passenger: Passenger) -> Unit,
     onNewPassengerClick: (basicId: String) -> Unit,
     onDeletePassenger: (passenger: Passenger) -> Unit,
-    notes: Notes?,
-    onNotesClick: (notes: Notes?, basicId: String) -> Unit,
-    onDeleteNotes: (notes: Notes) -> Unit
+    onNotesClick: (basicId: String) -> Unit
 ) {
     val scrollState = rememberLazyListState()
 
@@ -662,10 +666,11 @@ private fun RouteFormScreenContent(
                 }
                 Spacer(modifier = Modifier.height(16.dp))
                 ItemNotes(
-                    notes = notes,
+                    notes = route.basicData.notes,
+                    onNotesChanged = onNotesChanged,
+                    photosList = route.photos,
                     basicId = basicId,
                     onNotesClick = onNotesClick,
-                    onDeleteNotes = onDeleteNotes,
                 )
             }
         }
@@ -765,52 +770,51 @@ private fun PassengerSubItem(index: Int, passenger: Passenger) {
 
 @Composable
 fun ItemNotes(
-    notes: Notes?,
+    notes: String?,
+    onNotesChanged: (String) -> Unit,
+    photosList: List<Photo>,
     basicId: String,
-    onNotesClick: (notes: Notes?, basicId: String) -> Unit,
-    onDeleteNotes: (notes: Notes) -> Unit,
+    onNotesClick: (basicId: String) -> Unit,
 ) {
     Card(
         modifier = Modifier.padding(horizontal = 16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         shape = Shapes.extraSmall
     ) {
         Row(
             modifier = Modifier
-                .padding(12.dp)
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = stringResource(id = R.string.notes),
-                style = AppTypography.getType().titleLarge
-            )
-            if (notes == null) {
-                IconButton(onClick = { onNotesClick(null, basicId) }) {
-                    Icon(imageVector = Icons.Default.Add, contentDescription = null)
-                }
-            } else {
-                IconButton(onClick = { onDeleteNotes(notes) }) {
-                    Icon(imageVector = Icons.Default.Delete, contentDescription = null)
-                }
-            }
-        }
-        notes?.let {
-            Row(
+            OutlinedTextField(
                 modifier = Modifier
-                    .padding(start = 24.dp, end = 24.dp, top = 12.dp)
-                    .fillMaxWidth()
-                    .clickable { onNotesClick(it, basicId) },
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    modifier = Modifier
-                        .padding(bottom = 8.dp),
-                    text = it.text ?: "",
-                    overflow = TextOverflow.Ellipsis,
-                    maxLines = 2
-                )
+                    .heightIn(min = 100.dp, max = 105.dp)
+                    .fillMaxWidth(),
+                value = notes ?: "",
+                onValueChange = {
+                    onNotesChanged(it)
+                },
+                placeholder = {
+                    Text(text = "Примечания")
+                }
+            )
+        }
+        Column(
+            modifier = Modifier
+                .padding(start = 24.dp, end = 24.dp, top = 12.dp)
+                .fillMaxWidth()
+                .clickable { onNotesClick(basicId) },
+        ) {
+            Row {
+                photosList.forEach { photo ->
+                    Image(
+                        modifier = Modifier.size(58.dp),
+                        painter = rememberAsyncImagePainter(photo),
+                        contentScale = ContentScale.Crop,
+                        contentDescription = null
+                    )
+                }
             }
         }
     }

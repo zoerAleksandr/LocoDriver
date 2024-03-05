@@ -31,7 +31,6 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
     private var deleteLocoJob: Job? = null
     private var deleteTrainJob: Job? = null
     private var deletePassengerJob: Job? = null
-    private var deleteNotesJob: Job? = null
 
     private var isSaving by mutableStateOf(false)
     private var isNewRoute by Delegates.notNull<Boolean>()
@@ -198,6 +197,16 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
         changesHave()
     }
 
+
+    fun setNotes(text: String) {
+        currentRoute = currentRoute?.copy(
+            basicData = currentRoute!!.basicData.copy(
+                notes = text
+            )
+        )
+        changesHave()
+    }
+
     fun setTimeStartWork(timeInLong: Long?) {
         currentRoute = currentRoute?.copy(
             basicData = currentRoute!!.basicData.copy(
@@ -275,11 +284,6 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
     fun onDeletePassenger(passenger: Passenger) {
         deletePassengerJob?.cancel()
         deletePassengerJob = routeUseCase.removePassenger(passenger).launchIn(viewModelScope)
-    }
-
-    fun onDeleteNotes(notes: Notes) {
-        deleteNotesJob?.cancel()
-        deleteNotesJob = routeUseCase.removeNotes(notes).launchIn(viewModelScope)
     }
 
     fun checkingSaveRoute() {

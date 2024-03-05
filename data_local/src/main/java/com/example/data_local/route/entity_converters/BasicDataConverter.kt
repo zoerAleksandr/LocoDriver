@@ -9,14 +9,16 @@ internal object BasicDataConverter {
         number = basicData.number,
         timeStartWork = basicData.timeStartWork,
         timeEndWork = basicData.timeEndWork,
-        restPointOfTurnover = basicData.restPointOfTurnover
+        restPointOfTurnover = basicData.restPointOfTurnover,
+        notes = basicData.notes
     )
 
     fun toData(entity: BasicDataEntity) = BasicData(
-        entity.id,
-        entity.number,
-        entity.timeStartWork,
-        entity.timeEndWork,
-        entity.restPointOfTurnover
+        id = entity.id,
+        number = entity.number,
+        timeStartWork = entity.timeStartWork,
+        timeEndWork = entity.timeEndWork,
+        restPointOfTurnover = entity.restPointOfTurnover,
+        notes = entity.notes
     )
 }
