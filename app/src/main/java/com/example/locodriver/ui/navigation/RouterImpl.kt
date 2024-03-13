@@ -17,6 +17,7 @@ import com.example.route.navigation.FormPassenger
 import com.example.route.navigation.FormRoute
 import com.example.route.navigation.FormTrain
 import com.example.route.navigation.HomeRoute
+import com.example.route.navigation.PreviewPhotoRoute
 import com.example.settings.navigation.SettingsFeature
 
 class RouterImpl(
@@ -37,9 +38,9 @@ class RouterImpl(
         }
     }
 
-    override fun showRouteForm(route: Route?) {
+    override fun showRouteForm(basicId: String?) {
         navController.navigate(
-            FormRoute.buildDetailsRoute(route?.basicData?.id)
+            FormRoute.buildDetailsRoute(basicId)
         )
     }
 
@@ -123,13 +124,15 @@ class RouterImpl(
         TODO("Not yet implemented")
     }
 
-    override fun showCameraScreen(notesId: String) {
+    override fun showCameraScreen(basicId: String) {
         navController.navigate(
-            CreatePhotoRoute.buildRoute(notesId)
+            CreatePhotoRoute.buildRoute(basicId)
         )
     }
 
-    override fun showViewingPhotoScreen(photo: String) {
-        TODO("Not yet implemented")
+    override fun showViewingPhotoScreen(photo: String, basicId: String) {
+        navController.navigate(
+            PreviewPhotoRoute.buildRoute(photo, basicId)
+        )
     }
 }

@@ -16,9 +16,9 @@ fun CreatePhotoDestination(
     router: Router,
     backStackEntry: NavBackStackEntry
 ) {
-    val notesId = CreatePhotoRoute.getNotesId(backStackEntry) ?: NULLABLE_ID
+    val basicId = CreatePhotoRoute.getBasicId(backStackEntry) ?: NULLABLE_ID
     val viewModel = getViewModel<CreatePhotoViewModel>(
-        parameters = { parametersOf(notesId) }
+        parameters = { parametersOf(basicId) }
     )
     val formUiState by viewModel.uiState.collectAsState()
 
@@ -27,6 +27,7 @@ fun CreatePhotoDestination(
         onSelectPhotosInGallery = viewModel::savePhotoInNotes,
         onPhotoSelected = router::back,
         onCreatePhoto = router::showViewingPhotoScreen,
-        onDismissPermission = router::back
+        onDismissPermission = router::back,
+        basicId = basicId
     )
 }

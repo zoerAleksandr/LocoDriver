@@ -24,7 +24,6 @@ fun GallerySelect(
     onImageUri: (List<Uri>) -> Unit = { },
     onDismissPermission: () -> Unit
 ) {
-    val context = LocalContext.current
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents(),
         onResult = { listUri: List<Uri> ->

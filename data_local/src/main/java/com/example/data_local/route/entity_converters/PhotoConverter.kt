@@ -7,13 +7,13 @@ internal object PhotoConverter {
     fun fromData(photo: Photo) = PhotoEntity(
         photoId = photo.photoId,
         basicId = photo.basicId,
-        uriPhoto = photo.uriPhoto
+        urlPhoto = photo.urlPhoto
     )
 
     fun toData(entity: PhotoEntity) = Photo(
         photoId = entity.photoId,
         basicId = entity.basicId,
-        uriPhoto = entity.uriPhoto
+        urlPhoto = entity.urlPhoto
     )
 
     fun fromDataList(list: List<Photo>): MutableList<PhotoEntity> {

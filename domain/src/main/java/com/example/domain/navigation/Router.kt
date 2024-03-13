@@ -9,7 +9,7 @@ import com.example.domain.entities.route.Train
 interface Router {
     fun showLogin()
     fun showHome()
-    fun showRouteForm(route: Route? = null)
+    fun showRouteForm(basicId: String? = null)
     fun showRouteDetails(basicData: BasicData)
     fun showSettings()
     fun showSearch()
@@ -26,6 +26,6 @@ interface Router {
     fun showPassengerDetails(passenger: Passenger)
     fun showNotesForm(basicId: String)
     fun showNotesDetails(basicId: String)
-    fun showCameraScreen(notesId: String)
-    fun showViewingPhotoScreen(photo: String)
+    fun showCameraScreen(basicId: String)
+    fun showViewingPhotoScreen(photo: String, basicId: String)
 }

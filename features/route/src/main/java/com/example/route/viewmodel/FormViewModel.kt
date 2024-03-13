@@ -16,11 +16,10 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlin.properties.Delegates
 
-class FormViewModel constructor(private val routeId: String?) : ViewModel(), KoinComponent {
+class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
 
     private val dataStoreRepository: DataStoreRepository by inject()
-
 
     private val _uiState = MutableStateFlow(RouteFormUiState())
     val uiState = _uiState.asStateFlow()
@@ -32,7 +31,6 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
     private var deleteTrainJob: Job? = null
     private var deletePassengerJob: Job? = null
 
-    private var isSaving by mutableStateOf(false)
     private var isNewRoute by Delegates.notNull<Boolean>()
     var currentRoute: Route?
         get() {
@@ -74,7 +72,6 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
             _uiState.update {
                 if (routeState is ResultState.Success) {
                     currentRoute = routeState.data
-                    isSaving = true
                 }
                 it.copy(routeDetailState = routeState)
             }
@@ -102,14 +99,13 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
         }
     }
 
-    private fun preSaveRoute() {
+    fun preSaveRoute() {
         val state = _uiState.value.routeDetailState
         if (state is ResultState.Success) {
             state.data?.let { route ->
                 saveRouteJob?.cancel()
                 saveRouteJob = routeUseCase.saveRoute(route).onEach { saveRouteState ->
                     if (saveRouteState is ResultState.Success) {
-                        isSaving = true
                         subscribeToChanges(route.basicData.id)
                         changesHave()
                     }
@@ -284,11 +280,5 @@ class FormViewModel constructor(private val routeId: String?) : ViewModel(), Koi
     fun onDeletePassenger(passenger: Passenger) {
         deletePassengerJob?.cancel()
         deletePassengerJob = routeUseCase.removePassenger(passenger).launchIn(viewModelScope)
-    }
-
-    fun checkingSaveRoute() {
-        if (!isSaving) {
-            preSaveRoute()
-        }
     }
 }

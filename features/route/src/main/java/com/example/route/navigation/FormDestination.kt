@@ -24,11 +24,11 @@ fun FormDestination(
     FormScreen(
         formUiState = formUiState,
         currentRoute = viewModel.currentRoute,
-        onExit = router::back,
+        onExit = router::showHome,
         exitWithoutSave = viewModel::exitWithoutSaving,
         checkBeforeExit = viewModel::checkBeforeExitTheScreen,
         showExitConfirmDialog = viewModel::showConfirmDialog,
-        onRouteSaved = router::back,
+        onRouteSaved = router::showHome,
         onSaveClick = viewModel::saveRoute,
         onNumberChanged = viewModel::setNumber,
         onNotesChanged = viewModel::setNotes,
@@ -41,24 +41,24 @@ fun FormDestination(
         onChangedLocoClick = router::showChangedLocoForm,
         onNewLocoClick = {
             router.showEmptyLocoForm(it)
-            viewModel.checkingSaveRoute()
+            viewModel.preSaveRoute()
         },
         onDeleteLoco = viewModel::onDeleteLoco,
         onChangeTrainClick = router::showChangeTrainForm,
         onNewTrainClick = {
             router.showEmptyTrainForm(it)
-            viewModel.checkingSaveRoute()
+            viewModel.preSaveRoute()
         },
         onDeleteTrain = viewModel::onDeleteTrain,
         onChangePassengerClick = router::showChangePassengerForm,
         onNewPassengerClick = {
             router.showEmptyPassengerForm(it)
-            viewModel.checkingSaveRoute()
+            viewModel.preSaveRoute()
         },
         onDeletePassenger = viewModel::onDeletePassenger,
-        onNotesClick = { basicId: String ->
-            router.showNotesForm(basicId)
-            viewModel.checkingSaveRoute()
+        onNewPhotoClick = {
+            router.showCameraScreen(it)
+            viewModel.preSaveRoute()
         }
     )
 }

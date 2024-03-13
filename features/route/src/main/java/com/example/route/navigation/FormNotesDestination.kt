@@ -24,21 +24,21 @@ fun FormNotesDestination(
     )
     val formUiState by viewModel.uiState.collectAsState()
 
-    FormNotesScreen(
-        saveNotesState = ResultState.Loading,
-        currentNotes = viewModel.currentNotes,
-        onBackPressed = router::back,
-        onSaveClick = {},
-        onTrainSaved = router::back,
-        onClearAllField = viewModel::clearAllField,
-        resetSaveState = {},
-        photoListState = mutableStateListOf(),
-        onTextChanged = viewModel::setNotesText,
-        onAddingPhoto = {},
-        onDeletePhoto = {},
-        createPhoto = {
-            router.showCameraScreen(it)
-        },
-        onViewingPhoto = router::showViewingPhotoScreen
-    )
+//    FormNotesScreen(
+//        saveNotesState = ResultState.Loading,
+//        currentNotes = viewModel.currentNotes,
+//        onBackPressed = router::back,
+//        onSaveClick = {},
+//        onTrainSaved = router::back,
+//        onClearAllField = viewModel::clearAllField,
+//        resetSaveState = {},
+//        photoListState = mutableStateListOf(),
+//        onTextChanged = viewModel::setNotesText,
+//        onAddingPhoto = {},
+//        onDeletePhoto = {},
+//        createPhoto = {
+//            router.showCameraScreen(it)
+//        },
+//        onViewingPhoto = router::showViewingPhotoScreen
+//    )
 }

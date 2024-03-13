@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
@@ -60,9 +61,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -81,6 +83,7 @@ import com.example.core.ui.component.GenericError
 import com.example.core.ui.theme.Shapes
 import com.example.core.ui.theme.custom.AppTypography
 import com.example.core.util.ConverterLongToTime
+import com.example.core.util.ConverterUrlBase64
 import com.example.domain.entities.route.Route
 import com.example.route.viewmodel.RouteFormUiState
 import com.example.domain.util.minus
@@ -97,6 +100,8 @@ import com.example.route.component.ConfirmExitDialog
 import com.example.route.component.rememberDatePickerStateInLocale
 import java.util.Calendar
 import com.example.route.extention.isScrollInInitialState
+import com.maxkeppeker.sheets.core.views.Grid
+import kotlin.io.encoding.ExperimentalEncodingApi
 
 const val LINK_TO_SETTING = "LINK_TO_SETTING"
 
@@ -128,7 +133,7 @@ fun FormScreen(
     onChangePassengerClick: (passenger: Passenger) -> Unit,
     onNewPassengerClick: (basicId: String) -> Unit,
     onDeletePassenger: (passenger: Passenger) -> Unit,
-    onNotesClick: (basicId: String) -> Unit,
+    onNewPhotoClick: (basicId: String) -> Unit,
 ) {
     if (formUiState.confirmExitDialogShow) {
         ConfirmExitDialog(
@@ -224,7 +229,7 @@ fun FormScreen(
                                 onChangePassengerClick = onChangePassengerClick,
                                 onNewPassengerClick = onNewPassengerClick,
                                 onDeletePassenger = onDeletePassenger,
-                                onNotesClick = onNotesClick,
+                                onNewPhotoClick = onNewPhotoClick
                             )
                         }
                     }
@@ -259,7 +264,7 @@ private fun RouteFormScreenContent(
     onChangePassengerClick: (passenger: Passenger) -> Unit,
     onNewPassengerClick: (basicId: String) -> Unit,
     onDeletePassenger: (passenger: Passenger) -> Unit,
-    onNotesClick: (basicId: String) -> Unit
+    onNewPhotoClick: (basicId: String) -> Unit,
 ) {
     val scrollState = rememberLazyListState()
 
@@ -628,7 +633,8 @@ private fun RouteFormScreenContent(
         item {
             Column(
                 modifier = Modifier
-                    .padding(bottom = 32.dp)
+                    .padding(bottom = 32.dp, end = 16.dp, start = 16.dp),
+                horizontalAlignment = Alignment.End
             ) {
                 val basicId = route.basicData.id
                 Spacer(modifier = Modifier.height(10.dp))
@@ -668,10 +674,19 @@ private fun RouteFormScreenContent(
                 ItemNotes(
                     notes = route.basicData.notes,
                     onNotesChanged = onNotesChanged,
-                    photosList = route.photos,
-                    basicId = basicId,
-                    onNotesClick = onNotesClick,
+                    photosList = route.photos
                 )
+                Button(
+                    modifier = Modifier.padding(top = 12.dp),
+                    onClick = { onNewPhotoClick(basicId) }
+                ) {
+                    Icon(
+                        modifier = Modifier.padding(end = 6.dp),
+                        painter = painterResource(id = R.drawable.add_a_photo_24px),
+                        contentDescription = null
+                    )
+                    Text("Добавить фото")
+                }
             }
         }
     }
@@ -688,7 +703,6 @@ fun <T> ItemAddingScreen(
     subItem: @Composable RowScope.(index: Int, element: T) -> Unit
 ) {
     Card(
-        modifier = Modifier.padding(horizontal = 16.dp),
         shape = Shapes.extraSmall
     ) {
         Row(
@@ -768,16 +782,14 @@ private fun PassengerSubItem(index: Int, passenger: Passenger) {
     }
 }
 
+@OptIn(ExperimentalEncodingApi::class)
 @Composable
 fun ItemNotes(
     notes: String?,
     onNotesChanged: (String) -> Unit,
-    photosList: List<Photo>,
-    basicId: String,
-    onNotesClick: (basicId: String) -> Unit,
+    photosList: List<Photo>
 ) {
     Card(
-        modifier = Modifier.padding(horizontal = 16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         shape = Shapes.extraSmall
     ) {
@@ -800,18 +812,25 @@ fun ItemNotes(
                 }
             )
         }
-        Column(
+        val widthScreen = LocalConfiguration.current.screenWidthDp
+        val imageSize = widthScreen - 6 - 24
+
+        Grid(
             modifier = Modifier
-                .padding(start = 24.dp, end = 24.dp, top = 12.dp)
-                .fillMaxWidth()
-                .clickable { onNotesClick(basicId) },
-        ) {
-            Row {
-                photosList.forEach { photo ->
+                .padding(top = 12.dp),
+            items = photosList,
+            columns = 2,
+            rowSpacing = 6.dp,
+            columnSpacing = 6.dp
+        ) { photo ->
+            Card(
+                modifier = Modifier.size(height = imageSize.dp, width = imageSize.dp),
+                shape = Shapes.extraSmall
+            ) {
+                photo.urlPhoto.let { base64String ->
+                    val decodedImage = ConverterUrlBase64.base64toBitmap(base64String)
                     Image(
-                        modifier = Modifier.size(58.dp),
-                        painter = rememberAsyncImagePainter(photo),
-                        contentScale = ContentScale.Crop,
+                        painter = rememberAsyncImagePainter(model = decodedImage),
                         contentDescription = null
                     )
                 }
