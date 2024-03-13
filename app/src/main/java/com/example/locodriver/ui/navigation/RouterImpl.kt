@@ -4,7 +4,6 @@ import androidx.navigation.NavHostController
 import com.example.domain.entities.route.BasicData
 import com.example.domain.entities.route.Locomotive
 import com.example.domain.entities.route.Passenger
-import com.example.domain.entities.route.Route
 import com.example.domain.entities.route.Train
 import com.example.domain.navigation.Router
 import com.example.login.navigation.LoginFeature
@@ -12,7 +11,6 @@ import com.example.login.navigation.LoginScreenRoute
 import com.example.route.navigation.CreatePhotoRoute
 import com.example.route.navigation.DetailsRoute
 import com.example.route.navigation.FormLoco
-import com.example.route.navigation.FormNotes
 import com.example.route.navigation.FormPassenger
 import com.example.route.navigation.FormRoute
 import com.example.route.navigation.FormTrain
@@ -111,16 +109,6 @@ class RouterImpl(
     }
 
     override fun showPassengerDetails(passenger: Passenger) {
-        TODO("Not yet implemented")
-    }
-
-    override fun showNotesForm(basicId: String) {
-        navController.navigate(
-            FormNotes.buildDetailsRoute(basicId = basicId)
-        )
-    }
-
-    override fun showNotesDetails(basicId: String) {
         TODO("Not yet implemented")
     }
 

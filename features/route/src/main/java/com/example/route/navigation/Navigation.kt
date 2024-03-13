@@ -62,13 +62,6 @@ fun NavGraphBuilder.homeGraph(
             FormPassengerDestination(router = router, backStackEntry = backStackEntry)
         }
 
-//        composablePopup(
-//            route = FormNotes.route,
-//            arguments = FormNotes.navArguments
-//        ) {backStackEntry ->
-//            FormNotesDestination(router = router, backStackEntry = backStackEntry)
-//        }
-
         composablePopup(
             route = CreatePhotoRoute.route,
             arguments = CreatePhotoRoute.navArguments

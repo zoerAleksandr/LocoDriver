@@ -108,21 +108,6 @@ object FormPassenger: AppRoutes("FormPassenger") {
         "$basicRoute/$basicId?$passengerId"
 }
 
-object FormNotes: AppRoutes("FormNotes") {
-    private const val paramBasicId = "basicId"
-    override val route: String = "$basicRoute/{$paramBasicId}"
-    val navArguments = listOf(
-        navArgument(paramBasicId){
-            type = NavType.StringType
-            nullable = true
-        }
-    )
-    fun getBasicId(backStackEntry: NavBackStackEntry): String? =
-        backStackEntry.arguments?.getString(paramBasicId)
-    fun buildDetailsRoute(basicId: String) =
-        "$basicRoute/$basicId"
-}
-
 object CreatePhotoRoute: AppRoutes("CreatePhoto") {
     private const val paramBasicId = "basicId"
     override val route: String = "$basicRoute/{$paramBasicId}"

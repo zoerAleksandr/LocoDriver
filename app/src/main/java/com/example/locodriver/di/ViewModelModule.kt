@@ -7,7 +7,6 @@ import com.example.route.viewmodel.DetailsViewModel
 import com.example.route.viewmodel.FormViewModel
 import com.example.route.viewmodel.HomeViewModel
 import com.example.route.viewmodel.LocoFormViewModel
-import com.example.route.viewmodel.NotesFormViewModel
 import com.example.route.viewmodel.PassengerFormViewModel
 import com.example.route.viewmodel.PreviewPhotoViewModel
 import com.example.route.viewmodel.TrainFormViewModel
@@ -31,9 +30,6 @@ val viewModelModule = module {
     }
     viewModel { (passengerId: String?, basicId: String) ->
         PassengerFormViewModel(passengerId = passengerId, basicId = basicId)
-    }
-    viewModel { (basicId: String) ->
-        NotesFormViewModel(basicId = basicId)
     }
     viewModel { (notesId: String) ->
         CreatePhotoViewModel(application = androidApplication(), basicId = notesId)
