@@ -39,6 +39,6 @@ val viewModelModule = module {
         CreatePhotoViewModel(application = androidApplication(), basicId = notesId)
     }
     viewModel {(photoUrl: String, basicId: String) ->
-        PreviewPhotoViewModel(photoUrl = photoUrl, basicId = basicId)
+        PreviewPhotoViewModel(photoUri = photoUrl, basicId = basicId)
     }
 }

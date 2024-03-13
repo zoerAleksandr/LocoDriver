@@ -26,7 +26,7 @@ fun CreatePhotoScreen(
     savePhotoState: ResultState<Unit>?,
     onSelectPhotosInGallery: (photo: Bitmap) -> Unit,
     onPhotoSelected: () -> Unit,
-    onCreatePhoto: (photo: String, basicId: String) -> Unit,
+    onCreatePhoto: (base64asString: String, basicId: String) -> Unit,
     onDismissPermission: () -> Unit,
     basicId: String
 ) {
@@ -48,7 +48,7 @@ fun CreatePhotoScreen(
 @Composable
 fun CreatePhotoScreenContent(
     onSelectPhotosInGallery: (photo: Bitmap) -> Unit,
-    onCreatePhoto: (photo: String, basicId: String) -> Unit,
+    onCreatePhoto: (base64asString: String, basicId: String) -> Unit,
     onDismissPermission: () -> Unit,
     basicId: String
 ) {

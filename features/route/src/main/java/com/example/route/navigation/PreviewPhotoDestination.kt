@@ -24,7 +24,7 @@ fun PreviewPhotoDestination(
     val uiState = viewModel.uiState.collectAsState()
 
     PreviewPhotoScreen(
-        photoUrl = photoUrl,
+        uri = photoUrl,
         onSavePhoto = viewModel::savePhoto,
         reshoot = router::back,
         onPhotoSaved = router::showRouteForm,

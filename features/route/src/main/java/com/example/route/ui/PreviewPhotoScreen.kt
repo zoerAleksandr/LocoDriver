@@ -1,5 +1,6 @@
 package com.example.route.ui
 
+import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,21 +17,25 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.net.toUri
 import coil.compose.rememberAsyncImagePainter
 import com.example.core.ResultState
 import com.example.core.ui.component.AsyncData
 import com.example.core.ui.component.GenericError
+import com.example.core.util.ConverterUrlBase64
 
 @Composable
 fun PreviewPhotoScreen(
-    photoUrl: String,
+    uri: String,
     basicId: String,
-    onSavePhoto: () -> Unit,
+    onSavePhoto: (bitmap: Bitmap) -> Unit,
     reshoot: () -> Unit,
     onPhotoSaved: (String) -> Unit,
     resetSaveState: () -> Unit,
     photoSaveState: ResultState<Unit>?
 ) {
+    val context = LocalContext.current
     AsyncData(
         resultState = photoSaveState,
         errorContent = { GenericError(onDismissAction = resetSaveState) }
@@ -46,7 +51,8 @@ fun PreviewPhotoScreen(
                         actions = {
                             IconButton(
                                 onClick = {
-                                    onSavePhoto()
+                                    val bitmap = ConverterUrlBase64.uriToBitmap(uri.toUri(), context.contentResolver)
+                                    onSavePhoto(bitmap)
                                 }
                             ) {
                                 Icon(
@@ -75,7 +81,7 @@ fun PreviewPhotoScreen(
                 ) {
                     Image(
                         modifier = Modifier.fillMaxSize(),
-                        painter = rememberAsyncImagePainter(photoUrl),
+                        painter = rememberAsyncImagePainter(uri),
                         contentScale = ContentScale.FillWidth,
                         contentDescription = null
                     )
