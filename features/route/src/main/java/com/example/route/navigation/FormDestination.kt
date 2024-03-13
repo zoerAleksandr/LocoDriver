@@ -59,6 +59,7 @@ fun FormDestination(
         onNewPhotoClick = {
             router.showCameraScreen(it)
             viewModel.preSaveRoute()
-        }
+        },
+        onDeletePhoto = viewModel::onDeletePhoto
     )
 }

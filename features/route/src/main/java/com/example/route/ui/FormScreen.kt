@@ -24,8 +24,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -33,6 +35,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
@@ -49,6 +53,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MediumTopAppBar
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberTimePickerState
@@ -61,6 +66,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -134,6 +140,7 @@ fun FormScreen(
     onNewPassengerClick: (basicId: String) -> Unit,
     onDeletePassenger: (passenger: Passenger) -> Unit,
     onNewPhotoClick: (basicId: String) -> Unit,
+    onDeletePhoto: (photo: Photo) -> Unit
 ) {
     if (formUiState.confirmExitDialogShow) {
         ConfirmExitDialog(
@@ -229,7 +236,8 @@ fun FormScreen(
                                 onChangePassengerClick = onChangePassengerClick,
                                 onNewPassengerClick = onNewPassengerClick,
                                 onDeletePassenger = onDeletePassenger,
-                                onNewPhotoClick = onNewPhotoClick
+                                onNewPhotoClick = onNewPhotoClick,
+                                onDeletePhoto = onDeletePhoto
                             )
                         }
                     }
@@ -265,6 +273,7 @@ private fun RouteFormScreenContent(
     onNewPassengerClick: (basicId: String) -> Unit,
     onDeletePassenger: (passenger: Passenger) -> Unit,
     onNewPhotoClick: (basicId: String) -> Unit,
+    onDeletePhoto: (photo: Photo) -> Unit
 ) {
     val scrollState = rememberLazyListState()
 
@@ -674,7 +683,8 @@ private fun RouteFormScreenContent(
                 ItemNotes(
                     notes = route.basicData.notes,
                     onNotesChanged = onNotesChanged,
-                    photosList = route.photos
+                    photosList = route.photos,
+                    onDeletePhoto = onDeletePhoto,
                 )
                 Button(
                     modifier = Modifier.padding(top = 12.dp),
@@ -782,12 +792,12 @@ private fun PassengerSubItem(index: Int, passenger: Passenger) {
     }
 }
 
-@OptIn(ExperimentalEncodingApi::class)
 @Composable
 fun ItemNotes(
     notes: String?,
     onNotesChanged: (String) -> Unit,
-    photosList: List<Photo>
+    photosList: List<Photo>,
+    onDeletePhoto: (photo: Photo) -> Unit
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
@@ -813,13 +823,13 @@ fun ItemNotes(
             )
         }
         val widthScreen = LocalConfiguration.current.screenWidthDp
-        val imageSize = widthScreen - 6 - 24
+        val imageSize = (widthScreen - 12 - 24) / 3
 
         Grid(
             modifier = Modifier
                 .padding(top = 12.dp),
             items = photosList,
-            columns = 2,
+            columns = 3,
             rowSpacing = 6.dp,
             columnSpacing = 6.dp
         ) { photo ->
@@ -827,12 +837,31 @@ fun ItemNotes(
                 modifier = Modifier.size(height = imageSize.dp, width = imageSize.dp),
                 shape = Shapes.extraSmall
             ) {
-                photo.urlPhoto.let { base64String ->
-                    val decodedImage = ConverterUrlBase64.base64toBitmap(base64String)
-                    Image(
-                        painter = rememberAsyncImagePainter(model = decodedImage),
-                        contentDescription = null
-                    )
+                Box(modifier = Modifier.fillMaxSize()) {
+                    photo.urlPhoto.let { base64String ->
+                        val decodedImage = ConverterUrlBase64.base64toBitmap(base64String)
+                        Image(
+                            modifier = Modifier.fillMaxSize(),
+                            painter = rememberAsyncImagePainter(model = decodedImage),
+                            contentScale = ContentScale.Crop,
+                            contentDescription = null
+                        )
+                    }
+                    IconButton(
+                        modifier = Modifier
+                            .padding(4.dp)
+                            .align(Alignment.TopEnd)
+                            .background(
+                                color = Color.White.copy(alpha = 0.3f),
+                                shape = CircleShape
+                            ).wrapContentSize(),
+                        onClick = { onDeletePhoto(photo) }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Clear,
+                            contentDescription = null
+                        )
+                    }
                 }
             }
         }

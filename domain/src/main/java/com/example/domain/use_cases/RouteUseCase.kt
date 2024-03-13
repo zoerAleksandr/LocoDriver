@@ -4,6 +4,7 @@ import com.example.core.ErrorEntity
 import com.example.core.ResultState
 import com.example.domain.entities.route.Locomotive
 import com.example.domain.entities.route.Passenger
+import com.example.domain.entities.route.Photo
 import com.example.domain.entities.route.Route
 import com.example.domain.entities.route.Train
 import com.example.domain.repositories.RouteRepository
@@ -90,5 +91,9 @@ class RouteUseCase(private val repository: RouteRepository) {
 
     fun removePassenger(passenger: Passenger): Flow<ResultState<Unit>>{
         return repository.removePassenger(passenger)
+    }
+
+    fun removePhoto(photo: Photo): Flow<ResultState<Unit>>{
+        return repository.removePhoto(photo)
     }
 }

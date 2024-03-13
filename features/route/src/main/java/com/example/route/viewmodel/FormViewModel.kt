@@ -30,6 +30,7 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
     private var deleteLocoJob: Job? = null
     private var deleteTrainJob: Job? = null
     private var deletePassengerJob: Job? = null
+    private var deletePhotoJob: Job? = null
 
     private var isNewRoute by Delegates.notNull<Boolean>()
     var currentRoute: Route?
@@ -280,5 +281,10 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
     fun onDeletePassenger(passenger: Passenger) {
         deletePassengerJob?.cancel()
         deletePassengerJob = routeUseCase.removePassenger(passenger).launchIn(viewModelScope)
+    }
+
+    fun onDeletePhoto(photo: Photo){
+        deletePhotoJob?.cancel()
+        deletePhotoJob = routeUseCase.removePhoto(photo).launchIn(viewModelScope)
     }
 }
