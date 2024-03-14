@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.route"
+    namespace = "com.z_company.route"
     compileSdk = Apps.compile_sdk_version
 
     defaultConfig {

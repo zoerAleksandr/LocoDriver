@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.locodriver"
+    namespace = "com.z_company.loco_driver"
     compileSdk = Apps.compile_sdk_version
 
     defaultConfig {

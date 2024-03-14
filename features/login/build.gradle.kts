@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.login"
+    namespace = "com.z_company.login"
     compileSdk = Apps.compile_sdk_version
 
     defaultConfig {

@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.core"
+    namespace = "com.z_company.core"
     compileSdk = Apps.compile_sdk_version
 
     defaultConfig {
