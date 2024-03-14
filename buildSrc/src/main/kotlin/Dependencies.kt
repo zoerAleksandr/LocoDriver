@@ -3,6 +3,7 @@ import Versions.accompanist_pager_version
 import Versions.accompanist_swiperefresh_version
 import Versions.activity_compose_version
 import Versions.app_compat_version
+import Versions.appwrite_ver
 import Versions.camera_ver
 import Versions.coil_version
 import Versions.compose_ui_version
@@ -78,6 +79,7 @@ object Versions {
     const val camera_ver = "1.3.1"
     const val permission_accompanist_ver = "0.31.0-alpha"
     const val google_relay_ver = "0.3.11"
+    const val appwrite_ver = "4.0.1"
 }
 
 object Libs {
@@ -146,6 +148,7 @@ object Libs {
     const val camera_view = "androidx.camera:camera-view:$camera_ver"
     const val permission_accompanist = "com.google.accompanist:accompanist-permissions:$permission_accompanist_ver"
 
+    const val appwrite = "io.appwrite:sdk-for-android:$appwrite_ver"
 
     //     Debug
     const val ui_tooling =

@@ -71,6 +71,8 @@ dependencies {
     implementation(Libs.koin_android)
     implementation(Libs.koin_androidx_compose)
 
+    implementation(Libs.appwrite)
+
     debugImplementation(Libs.ui_tooling)
     debugImplementation(Libs.ui_test_manifest)
 }
