@@ -18,6 +18,10 @@ import kotlin.properties.Delegates
 
 class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
+    private val locoUseCase: LocomotiveUseCase by inject()
+    private val trainUseCase: TrainUseCase by inject()
+    private val passengerUseCase: PassengerUseCase by inject()
+    private val photoUseCase: PhotoUseCase by inject()
 
     private val dataStoreRepository: DataStoreRepository by inject()
 
@@ -141,6 +145,13 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
                         }
                     }.launchIn(viewModelScope)
                 }
+            }
+        } else {
+            _uiState.update {
+                it.copy(
+                    confirmExitDialogShow = false,
+                    exitFromScreen = true
+                )
             }
         }
     }
@@ -270,21 +281,21 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
 
     fun onDeleteLoco(locomotive: Locomotive) {
         deleteLocoJob?.cancel()
-        deleteLocoJob = routeUseCase.removeLoco(locomotive).launchIn(viewModelScope)
+        deleteLocoJob = locoUseCase.removeLoco(locomotive).launchIn(viewModelScope)
     }
 
     fun onDeleteTrain(train: Train) {
         deleteTrainJob?.cancel()
-        deleteTrainJob = routeUseCase.removeTrain(train).launchIn(viewModelScope)
+        deleteTrainJob = trainUseCase.removeTrain(train).launchIn(viewModelScope)
     }
 
     fun onDeletePassenger(passenger: Passenger) {
         deletePassengerJob?.cancel()
-        deletePassengerJob = routeUseCase.removePassenger(passenger).launchIn(viewModelScope)
+        deletePassengerJob = passengerUseCase.removePassenger(passenger).launchIn(viewModelScope)
     }
 
     fun onDeletePhoto(photo: Photo){
         deletePhotoJob?.cancel()
-        deletePhotoJob = routeUseCase.removePhoto(photo).launchIn(viewModelScope)
+        deletePhotoJob = photoUseCase.removePhoto(photo).launchIn(viewModelScope)
     }
 }

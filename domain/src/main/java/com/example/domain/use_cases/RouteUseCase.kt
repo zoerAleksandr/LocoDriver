@@ -2,11 +2,7 @@ package com.example.domain.use_cases
 
 import com.example.core.ErrorEntity
 import com.example.core.ResultState
-import com.example.domain.entities.route.Locomotive
-import com.example.domain.entities.route.Passenger
-import com.example.domain.entities.route.Photo
 import com.example.domain.entities.route.Route
-import com.example.domain.entities.route.Train
 import com.example.domain.repositories.RouteRepository
 import com.example.domain.util.moreThan
 import kotlinx.coroutines.flow.Flow
@@ -79,21 +75,5 @@ class RouteUseCase(private val repository: RouteRepository) {
         } else {
             null
         }
-    }
-
-    fun removeLoco(locomotive: Locomotive): Flow<ResultState<Unit>>{
-        return repository.removeLoco(locomotive)
-    }
-
-    fun removeTrain(train: Train): Flow<ResultState<Unit>> {
-        return repository.removeTrain(train)
-    }
-
-    fun removePassenger(passenger: Passenger): Flow<ResultState<Unit>>{
-        return repository.removePassenger(passenger)
-    }
-
-    fun removePhoto(photo: Photo): Flow<ResultState<Unit>>{
-        return repository.removePhoto(photo)
     }
 }

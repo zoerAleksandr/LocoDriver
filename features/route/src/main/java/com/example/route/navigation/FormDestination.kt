@@ -24,10 +24,6 @@ fun FormDestination(
     FormScreen(
         formUiState = formUiState,
         currentRoute = viewModel.currentRoute,
-        onExit = router::showHome,
-        exitWithoutSave = viewModel::exitWithoutSaving,
-        checkBeforeExit = viewModel::checkBeforeExitTheScreen,
-        showExitConfirmDialog = viewModel::showConfirmDialog,
         onRouteSaved = router::showHome,
         onSaveClick = viewModel::saveRoute,
         onNumberChanged = viewModel::setNumber,
@@ -60,6 +56,7 @@ fun FormDestination(
             router.showCameraScreen(it)
             viewModel.preSaveRoute()
         },
-        onDeletePhoto = viewModel::onDeletePhoto
+        onDeletePhoto = viewModel::onDeletePhoto,
+        onPhotoClick = router::showViewingImageScreen
     )
 }

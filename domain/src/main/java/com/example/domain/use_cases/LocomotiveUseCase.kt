@@ -21,4 +21,7 @@ class LocomotiveUseCase(
     fun isValidDeliveryTime(locomotive: Locomotive): Boolean {
         return true
     }
+    fun removeLoco(locomotive: Locomotive): Flow<ResultState<Unit>>{
+        return repository.removeLoco(locomotive)
+    }
 }

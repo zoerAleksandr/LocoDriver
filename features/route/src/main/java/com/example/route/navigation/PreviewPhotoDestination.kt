@@ -19,7 +19,7 @@ fun PreviewPhotoDestination(
     val basicId = PreviewPhotoRoute.getBasicId(backStackEntry) ?: NULLABLE_ID
 
     val viewModel = getViewModel<PreviewPhotoViewModel>(
-        parameters = { parametersOf(photoUrl, basicId) }
+        parameters = { parametersOf(basicId) }
     )
     val uiState = viewModel.uiState.collectAsState()
 

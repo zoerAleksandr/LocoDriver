@@ -15,4 +15,7 @@ class TrainUseCase(
     fun getTrainById(trainId: String): Flow<ResultState<Train?>> {
         return repository.loadTrain(trainId)
     }
+    fun removeTrain(train: Train): Flow<ResultState<Unit>> {
+        return repository.removeTrain(train)
+    }
 }

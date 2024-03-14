@@ -3,7 +3,6 @@ package com.example.domain.navigation
 import com.example.domain.entities.route.BasicData
 import com.example.domain.entities.route.Locomotive
 import com.example.domain.entities.route.Passenger
-import com.example.domain.entities.route.Route
 import com.example.domain.entities.route.Train
 
 interface Router {
@@ -25,5 +24,6 @@ interface Router {
     fun showEmptyPassengerForm(basicId: String)
     fun showPassengerDetails(passenger: Passenger)
     fun showCameraScreen(basicId: String)
-    fun showViewingPhotoScreen(photo: String, basicId: String)
+    fun showPreviewPhotoScreen(photo: String, basicId: String)
+    fun showViewingImageScreen(imageId: String)
 }

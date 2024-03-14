@@ -24,9 +24,9 @@ fun CreatePhotoDestination(
 
     CreatePhotoScreen(
         savePhotoState = formUiState.savePhotoState,
-        onSelectPhotosInGallery = viewModel::savePhotoInNotes,
+        onSelectPhotosInGallery = viewModel::savePhotoFromGallery,
         onPhotoSelected = router::back,
-        onCreatePhoto = router::showViewingPhotoScreen,
+        onCreatePhoto = router::showPreviewPhotoScreen,
         onDismissPermission = router::back,
         basicId = basicId
     )

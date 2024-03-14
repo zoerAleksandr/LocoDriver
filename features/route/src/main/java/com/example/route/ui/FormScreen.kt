@@ -36,24 +36,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MediumTopAppBar
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Shapes
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberTimePickerState
@@ -79,7 +74,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import coil.compose.rememberAsyncImagePainter
@@ -102,12 +96,10 @@ import com.example.domain.entities.route.Photo
 import com.example.domain.entities.route.Train
 import com.example.route.R
 import com.example.route.component.BottomShadow
-import com.example.route.component.ConfirmExitDialog
 import com.example.route.component.rememberDatePickerStateInLocale
 import java.util.Calendar
 import com.example.route.extention.isScrollInInitialState
 import com.maxkeppeker.sheets.core.views.Grid
-import kotlin.io.encoding.ExperimentalEncodingApi
 
 const val LINK_TO_SETTING = "LINK_TO_SETTING"
 
@@ -116,10 +108,6 @@ const val LINK_TO_SETTING = "LINK_TO_SETTING"
 fun FormScreen(
     formUiState: RouteFormUiState,
     currentRoute: Route?,
-    onExit: () -> Unit,
-    exitWithoutSave: () -> Unit,
-    checkBeforeExit: () -> Unit,
-    showExitConfirmDialog: (Boolean) -> Unit,
     onRouteSaved: () -> Unit,
     onSaveClick: () -> Unit,
     onSettingClick: () -> Unit,
@@ -140,20 +128,9 @@ fun FormScreen(
     onNewPassengerClick: (basicId: String) -> Unit,
     onDeletePassenger: (passenger: Passenger) -> Unit,
     onNewPhotoClick: (basicId: String) -> Unit,
-    onDeletePhoto: (photo: Photo) -> Unit
+    onDeletePhoto: (photo: Photo) -> Unit,
+    onPhotoClick: (photoId: String) -> Unit,
 ) {
-    if (formUiState.confirmExitDialogShow) {
-        ConfirmExitDialog(
-            showExitConfirmDialog,
-            onSaveClick,
-            exitWithoutSave
-        )
-    }
-    if (formUiState.exitFromScreen) {
-        LaunchedEffect(Unit) {
-            onExit()
-        }
-    }
     Scaffold(
         topBar = {
             MediumTopAppBar(title = {
@@ -161,42 +138,16 @@ fun FormScreen(
                     text = "Маршрут",
                 )
             }, navigationIcon = {
-                IconButton(onClick = checkBeforeExit) {
+                IconButton(onClick = onSaveClick) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Назад"
                     )
                 }
             }, actions = {
-                ClickableText(text = AnnotatedString(text = "Сохранить"),
-                    onClick = { onSaveClick() }
-
-                )
-                var dropDownExpanded by remember { mutableStateOf(false) }
-
-                IconButton(onClick = {
-                    dropDownExpanded = true
-                }) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert, contentDescription = "Меню"
-                    )
-                    DropdownMenu(
-                        expanded = dropDownExpanded,
-                        onDismissRequest = { dropDownExpanded = false },
-                        offset = DpOffset(x = 4.dp, y = 8.dp)
-                    ) {
-                        DropdownMenuItem(modifier = Modifier.padding(horizontal = 16.dp),
-                            onClick = {
-                                onClearAllField.invoke()
-                                dropDownExpanded = false
-                            },
-                            text = {
-                                Text(
-                                    text = "Очистить",
-                                )
-                            })
-                    }
-                }
+                ClickableText(modifier = Modifier.padding(horizontal = 16.dp),
+                    text = AnnotatedString(text = "Очистить"),
+                    onClick = { onClearAllField() })
             })
         },
     ) {
@@ -237,7 +188,8 @@ fun FormScreen(
                                 onNewPassengerClick = onNewPassengerClick,
                                 onDeletePassenger = onDeletePassenger,
                                 onNewPhotoClick = onNewPhotoClick,
-                                onDeletePhoto = onDeletePhoto
+                                onDeletePhoto = onDeletePhoto,
+                                onPhotoClick = onPhotoClick
                             )
                         }
                     }
@@ -273,7 +225,8 @@ private fun RouteFormScreenContent(
     onNewPassengerClick: (basicId: String) -> Unit,
     onDeletePassenger: (passenger: Passenger) -> Unit,
     onNewPhotoClick: (basicId: String) -> Unit,
-    onDeletePhoto: (photo: Photo) -> Unit
+    onDeletePhoto: (photo: Photo) -> Unit,
+    onPhotoClick: (photoId: String) -> Unit,
 ) {
     val scrollState = rememberLazyListState()
 
@@ -356,39 +309,31 @@ private fun RouteFormScreenContent(
         rememberDatePickerStateInLocale(initialSelectedDateMillis = endCalendar.timeInMillis)
 
     if (showEndTimePicker) {
-        TimePickerDialog(
-            timePickerState = endTimePickerState,
+        TimePickerDialog(timePickerState = endTimePickerState,
             onDismissRequest = { showEndTimePicker = false },
             onConfirmRequest = {
                 showEndTimePicker = false
                 endCalendar.set(Calendar.HOUR_OF_DAY, endTimePickerState.hour)
                 endCalendar.set(Calendar.MINUTE, endTimePickerState.minute)
                 onTimeEndWorkChanged(endCalendar.timeInMillis)
-            }
-        )
+            })
     }
 
     if (showEndDatePicker) {
-        DatePickerDialog(
-            datePickerState = endDatePickerState,
-            onDismissRequest = {
-                showEndDatePicker = false
-            },
-            onConfirmRequest = {
-                showEndDatePicker = false
-                showEndTimePicker = true
-                endCalendar.timeInMillis = endDatePickerState.selectedDateMillis!!
-            },
-            onClearRequest = {
-                showEndDatePicker = false
-                onTimeEndWorkChanged(null)
-            }
-        )
+        DatePickerDialog(datePickerState = endDatePickerState, onDismissRequest = {
+            showEndDatePicker = false
+        }, onConfirmRequest = {
+            showEndDatePicker = false
+            showEndTimePicker = true
+            endCalendar.timeInMillis = endDatePickerState.selectedDateMillis!!
+        }, onClearRequest = {
+            showEndDatePicker = false
+            onTimeEndWorkChanged(null)
+        })
     }
 
     AnimatedVisibility(
-        modifier = Modifier
-            .zIndex(1f),
+        modifier = Modifier.zIndex(1f),
         visible = !scrollState.isScrollInInitialState(),
         enter = fadeIn(animationSpec = tween(durationMillis = 300)),
         exit = fadeOut(animationSpec = tween(durationMillis = 300))
@@ -408,8 +353,7 @@ private fun RouteFormScreenContent(
 
         item {
             Row(
-                modifier = Modifier.padding(24.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.padding(24.dp), verticalAlignment = Alignment.CenterVertically
             ) {
                 errorMessage?.let { message ->
                     Icon(
@@ -428,8 +372,7 @@ private fun RouteFormScreenContent(
 
         item {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 Column(modifier = Modifier
                     .clickable {
@@ -508,8 +451,7 @@ private fun RouteFormScreenContent(
                 horizontalArrangement = Arrangement.End
             ) {
                 Text(
-                    modifier = Modifier
-                        .padding(end = 8.dp),
+                    modifier = Modifier.padding(end = 8.dp),
                     text = stringResource(id = R.string.text_switсh_onRest)
                 )
 
@@ -527,8 +469,7 @@ private fun RouteFormScreenContent(
 
         item {
             val link = buildAnnotatedString {
-                val text =
-                    stringResource(id = R.string.info_text_min_time_rest, minTimeRestText)
+                val text = stringResource(id = R.string.info_text_min_time_rest, minTimeRestText)
 
                 val endIndex = text.length - 1
                 val startIndex = startIndexLastWord(text)
@@ -550,10 +491,12 @@ private fun RouteFormScreenContent(
             }
             AnimatedVisibility(
                 visible = route.basicData.restPointOfTurnover,
-                enter = slideInHorizontally(animationSpec = tween(durationMillis = 300))
-                        + fadeIn(animationSpec = tween(durationMillis = 300)),
-                exit = slideOutHorizontally(animationSpec = tween(durationMillis = 300))
-                        + fadeOut(animationSpec = tween(durationMillis = 150)),
+                enter = slideInHorizontally(animationSpec = tween(durationMillis = 300)) + fadeIn(
+                    animationSpec = tween(durationMillis = 300)
+                ),
+                exit = slideOutHorizontally(animationSpec = tween(durationMillis = 300)) + fadeOut(
+                    animationSpec = tween(durationMillis = 150)
+                ),
                 label = ""
             ) {
                 Column(
@@ -564,9 +507,7 @@ private fun RouteFormScreenContent(
                 ) {
                     Icon(
                         modifier = Modifier.padding(
-                            top = 16.dp,
-                            start = 16.dp,
-                            bottom = 8.dp
+                            top = 16.dp, start = 16.dp, bottom = 8.dp
                         ),
                         imageVector = Icons.Default.Info,
                         tint = MaterialTheme.colorScheme.tertiary,
@@ -574,41 +515,28 @@ private fun RouteFormScreenContent(
                     )
 
                     Text(
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        text = stringResource(
-                            id = R.string.min_time_rest_text,
-                            minTimeRestText
-                        ),
-                        style = AppTypography.getType().bodyMedium,
-                        textAlign = TextAlign.End
+                        modifier = Modifier.padding(horizontal = 16.dp), text = stringResource(
+                            id = R.string.min_time_rest_text, minTimeRestText
+                        ), style = AppTypography.getType().bodyMedium, textAlign = TextAlign.End
                     )
 
                     Text(
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        text = stringResource(
-                            id = R.string.complete_time_rest_text,
-                            fullTimeRestText
-                        ),
-                        style = AppTypography.getType().bodyMedium,
-                        textAlign = TextAlign.End
+                        modifier = Modifier.padding(horizontal = 16.dp), text = stringResource(
+                            id = R.string.complete_time_rest_text, fullTimeRestText
+                        ), style = AppTypography.getType().bodyMedium, textAlign = TextAlign.End
                     )
 
                     ClickableText(
                         modifier = Modifier.padding(
-                            start = 16.dp,
-                            bottom = 16.dp,
-                            end = 16.dp,
-                            top = 12.dp
+                            start = 16.dp, bottom = 16.dp, end = 16.dp, top = 12.dp
                         ),
                         text = link,
-                        style = AppTypography.getType().bodySmall
-                            .copy(
+                        style = AppTypography.getType().bodySmall.copy(
                                 fontStyle = FontStyle.Italic,
                                 color = MaterialTheme.colorScheme.onBackground
                             ),
                     ) {
-                        link.getStringAnnotations(LINK_TO_SETTING, it, it)
-                            .firstOrNull()?.let {
+                        link.getStringAnnotations(LINK_TO_SETTING, it, it).firstOrNull()?.let {
                                 onSettingClick()
                             }
                     }
@@ -641,8 +569,7 @@ private fun RouteFormScreenContent(
         }
         item {
             Column(
-                modifier = Modifier
-                    .padding(bottom = 32.dp, end = 16.dp, start = 16.dp),
+                modifier = Modifier.padding(bottom = 32.dp, end = 16.dp, start = 16.dp),
                 horizontalAlignment = Alignment.End
             ) {
                 val basicId = route.basicData.id
@@ -685,11 +612,10 @@ private fun RouteFormScreenContent(
                     onNotesChanged = onNotesChanged,
                     photosList = route.photos,
                     onDeletePhoto = onDeletePhoto,
+                    onPhotoClick = onPhotoClick
                 )
-                Button(
-                    modifier = Modifier.padding(top = 12.dp),
-                    onClick = { onNewPhotoClick(basicId) }
-                ) {
+                Button(modifier = Modifier.padding(top = 12.dp),
+                    onClick = { onNewPhotoClick(basicId) }) {
                     Icon(
                         modifier = Modifier.padding(end = 6.dp),
                         painter = painterResource(id = R.drawable.add_a_photo_24px),
@@ -723,8 +649,7 @@ fun <T> ItemAddingScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = title,
-                style = AppTypography.getType().titleLarge
+                text = title, style = AppTypography.getType().titleLarge
             )
             IconButton(onClick = { onNewElementClick(basicId) }) {
                 Icon(imageVector = Icons.Default.Add, contentDescription = null)
@@ -797,48 +722,50 @@ fun ItemNotes(
     notes: String?,
     onNotesChanged: (String) -> Unit,
     photosList: List<Photo>,
-    onDeletePhoto: (photo: Photo) -> Unit
+    onDeletePhoto: (photo: Photo) -> Unit,
+    onPhotoClick: (photoId: String) -> Unit,
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         shape = Shapes.extraSmall
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            OutlinedTextField(
-                modifier = Modifier
-                    .heightIn(min = 100.dp, max = 105.dp)
-                    .fillMaxWidth(),
+            OutlinedTextField(modifier = Modifier
+                .heightIn(min = 100.dp, max = 105.dp)
+                .fillMaxWidth(),
                 value = notes ?: "",
                 onValueChange = {
                     onNotesChanged(it)
                 },
                 placeholder = {
                     Text(text = "Примечания")
-                }
-            )
+                })
         }
         val widthScreen = LocalConfiguration.current.screenWidthDp
         val imageSize = (widthScreen - 12 - 24) / 3
 
         Grid(
-            modifier = Modifier
-                .padding(top = 12.dp),
+            modifier = Modifier.padding(top = 12.dp),
             items = photosList,
             columns = 3,
             rowSpacing = 6.dp,
             columnSpacing = 6.dp
         ) { photo ->
             Card(
-                modifier = Modifier.size(height = imageSize.dp, width = imageSize.dp),
-                shape = Shapes.extraSmall
-            ) {
+                modifier = Modifier
+                    .size(height = imageSize.dp, width = imageSize.dp)
+                    .clickable {
+                        onPhotoClick(photo.photoId)
+                    },
+                shape = Shapes.extraSmall,
+
+                ) {
                 Box(modifier = Modifier.fillMaxSize()) {
-                    photo.urlPhoto.let { base64String ->
+                    photo.base64.let { base64String ->
                         val decodedImage = ConverterUrlBase64.base64toBitmap(base64String)
                         Image(
                             modifier = Modifier.fillMaxSize(),
@@ -847,19 +774,15 @@ fun ItemNotes(
                             contentDescription = null
                         )
                     }
-                    IconButton(
-                        modifier = Modifier
-                            .padding(4.dp)
-                            .align(Alignment.TopEnd)
-                            .background(
-                                color = Color.White.copy(alpha = 0.3f),
-                                shape = CircleShape
-                            ).wrapContentSize(),
-                        onClick = { onDeletePhoto(photo) }
-                    ) {
+                    IconButton(modifier = Modifier
+                        .padding(4.dp)
+                        .align(Alignment.TopEnd)
+                        .background(
+                            color = Color.White.copy(alpha = 0.3f), shape = CircleShape
+                        )
+                        .wrapContentSize(), onClick = { onDeletePhoto(photo) }) {
                         Icon(
-                            imageVector = Icons.Default.Clear,
-                            contentDescription = null
+                            imageVector = Icons.Default.Clear, contentDescription = null
                         )
                     }
                 }

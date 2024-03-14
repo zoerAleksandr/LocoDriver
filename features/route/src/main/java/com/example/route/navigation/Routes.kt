@@ -123,7 +123,7 @@ object CreatePhotoRoute: AppRoutes("CreatePhoto") {
         "$basicRoute/$basicId"
 }
 
-object PreviewPhotoRoute: AppRoutes("ViewingPhoto") {
+object PreviewPhotoRoute: AppRoutes("PreviewPhoto") {
     private const val paramPhotoUrl = "paramPhotoUrl"
     private const val paramBasicId = "paramBasicId"
 
@@ -141,4 +141,20 @@ object PreviewPhotoRoute: AppRoutes("ViewingPhoto") {
         backStackEntry.arguments?.getString(paramBasicId)
     fun buildRoute(photoUrl: String, basicId: String) =
         "$basicRoute/$basicId/$photoUrl"
+}
+
+object ViewingImageRoute: AppRoutes("ViewingImage") {
+    private const val paramImageId = "paramImageId"
+
+    override val route: String = "$basicRoute/{$paramImageId}"
+    val navArguments = listOf(
+        navArgument(paramImageId) {
+            type = NavType.StringType
+            nullable = false
+        }
+    )
+    fun getImageId(backStackEntry: NavBackStackEntry): String? =
+        backStackEntry.arguments?.getString(paramImageId)
+    fun buildRoute(imageId: String) =
+        "$basicRoute/$imageId"
 }

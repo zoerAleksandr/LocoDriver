@@ -75,5 +75,13 @@ fun NavGraphBuilder.homeGraph(
         ) { backStackEntry ->
             PreviewPhotoDestination(router = router, backStackEntry = backStackEntry)
         }
+
+        composablePopup(
+            route = ViewingImageRoute.route,
+            arguments = ViewingImageRoute.navArguments
+        ) {
+            navBackStackEntry ->
+            ViewingImageDestination(router = router, navBackStackEntry = navBackStackEntry)
+        }
     }
 }

@@ -16,6 +16,7 @@ import com.example.route.navigation.FormRoute
 import com.example.route.navigation.FormTrain
 import com.example.route.navigation.HomeRoute
 import com.example.route.navigation.PreviewPhotoRoute
+import com.example.route.navigation.ViewingImageRoute
 import com.example.settings.navigation.SettingsFeature
 
 class RouterImpl(
@@ -118,9 +119,15 @@ class RouterImpl(
         )
     }
 
-    override fun showViewingPhotoScreen(photo: String, basicId: String) {
+    override fun showPreviewPhotoScreen(photo: String, basicId: String) {
         navController.navigate(
             PreviewPhotoRoute.buildRoute(photo, basicId)
+        )
+    }
+
+    override fun showViewingImageScreen(imageId: String) {
+        navController.navigate(
+            ViewingImageRoute.buildRoute(imageId)
         )
     }
 }

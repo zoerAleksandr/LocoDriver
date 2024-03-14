@@ -1,12 +1,11 @@
 package com.example.route.viewmodel
 
-import android.app.Application
 import android.graphics.Bitmap
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.core.util.ConverterUrlBase64
 import com.example.domain.entities.route.Photo
-import com.example.domain.use_cases.PhotosUseCase
+import com.example.domain.use_cases.PhotoUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,27 +14,29 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import java.util.Calendar
 
 
 class CreatePhotoViewModel(
-    application: Application,
     private val basicId: String
-) : AndroidViewModel(application), KoinComponent {
+) : ViewModel(), KoinComponent {
 
-    private val photosUseCase: PhotosUseCase by inject()
+    private val photoUseCase: PhotoUseCase by inject()
     private val _uiState = MutableStateFlow(CreatePhotoScreenUiState())
     val uiState = _uiState.asStateFlow()
 
     private var savePhotoJob: Job? = null
 
-    fun savePhotoInNotes(bitmap: Bitmap) {
+    fun savePhotoFromGallery(bitmap: Bitmap) {
         val base64 = ConverterUrlBase64.bitmapToBase64(bitmap)
+        val currentDate = Calendar.getInstance().timeInMillis
         val photo = Photo(
             basicId = basicId,
-            urlPhoto = base64
+            base64 = base64,
+            dateOfCreate = currentDate
         )
         savePhotoJob?.cancel()
-        savePhotoJob = photosUseCase.addingPhoto(photo).onEach { result ->
+        savePhotoJob = photoUseCase.addingPhoto(photo).onEach { result ->
             _uiState.update {
                 it.copy(
                     savePhotoState = result

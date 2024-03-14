@@ -10,8 +10,8 @@ import com.example.route.viewmodel.LocoFormViewModel
 import com.example.route.viewmodel.PassengerFormViewModel
 import com.example.route.viewmodel.PreviewPhotoViewModel
 import com.example.route.viewmodel.TrainFormViewModel
+import com.example.route.viewmodel.ViewingImageViewModel
 import com.example.settings.viewmodel.SettingsViewModel
-import org.koin.android.ext.koin.androidApplication
 import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.dsl.module
 
@@ -32,9 +32,12 @@ val viewModelModule = module {
         PassengerFormViewModel(passengerId = passengerId, basicId = basicId)
     }
     viewModel { (notesId: String) ->
-        CreatePhotoViewModel(application = androidApplication(), basicId = notesId)
+        CreatePhotoViewModel(basicId = notesId)
     }
-    viewModel {(photoUrl: String, basicId: String) ->
-        PreviewPhotoViewModel(photoUri = photoUrl, basicId = basicId)
+    viewModel {(basicId: String) ->
+        PreviewPhotoViewModel(basicId = basicId)
+    }
+    viewModel { (imageId: String) ->
+        ViewingImageViewModel(imageId = imageId)
     }
 }
