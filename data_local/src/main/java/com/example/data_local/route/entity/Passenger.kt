@@ -11,7 +11,7 @@ import java.util.UUID
         ForeignKey(
             entity = BasicData::class,
             parentColumns = ["id"],
-            childColumns = ["baseId"],
+            childColumns = ["basicId"],
             onDelete = ForeignKey.CASCADE,
             onUpdate = ForeignKey.CASCADE
         )
@@ -21,7 +21,7 @@ internal data class Passenger(
     @PrimaryKey
     var passengerId: String = UUID.randomUUID().toString(),
     @ColumnInfo(index = true)
-    var baseId: String = "",
+    var basicId: String = "",
     var trainNumber: String? = null,
     var stationDeparture: String? = null,
     var stationArrival: String? = null,

@@ -9,7 +9,7 @@ import com.example.core.ResultState
 import com.example.domain.entities.route.Route
 import com.example.domain.entities.route.UtilsForEntities.getWorkTime
 import com.example.domain.use_cases.RouteUseCase
-import com.example.domain.use_cases.SettingsUseCase
+import com.example.domain.use_cases.CalendarUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,7 +22,7 @@ import java.util.Calendar
 
 class HomeViewModel : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
-    private val settingsUseCase: SettingsUseCase by inject()
+    private val calendarUseCase: CalendarUseCase by inject()
     var totalTime by mutableLongStateOf(0L)
         private set
 
@@ -72,7 +72,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
     fun setCurrentMonth(yearAndMonth: Pair<Int, Int>) {
         setCalendarJob?.cancel()
-        setCalendarJob = settingsUseCase.loadMonthOfYearList().onEach { result ->
+        setCalendarJob = calendarUseCase.loadMonthOfYearList().onEach { result ->
             if (result is ResultState.Success) {
                 result.data.find {
                     it.year == yearAndMonth.first && it.month == yearAndMonth.second
@@ -88,7 +88,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
     private fun loadMonthList() {
         loadCalendarJob?.cancel()
-        loadCalendarJob = settingsUseCase.loadMonthOfYearList().onEach { result ->
+        loadCalendarJob = calendarUseCase.loadMonthOfYearList().onEach { result ->
             if (result is ResultState.Success) {
                 _uiState.update { state ->
                     state.copy(

@@ -5,7 +5,6 @@ import com.example.data_local.route.data_base.RouteDB
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
-
 private const val DB_ROUTE_NAME = "Route.db"
 val roomRouteModule = module {
     single {

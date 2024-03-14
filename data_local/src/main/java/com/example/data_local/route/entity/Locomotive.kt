@@ -17,7 +17,7 @@ import org.jetbrains.annotations.NotNull
         ForeignKey(
             entity = BasicData::class,
             parentColumns = ["id"],
-            childColumns = ["baseId"],
+            childColumns = ["basicId"],
             onDelete = CASCADE,
             onUpdate = CASCADE
         )
@@ -34,12 +34,12 @@ internal data class Locomotive(
     val locoId: String,
     @NotNull
     @ColumnInfo(index = true)
-    val baseId: String,
+    val basicId: String,
     var series: String? = null,
     var number: String? = null,
     var type: LocoType = LocoType.ELECTRIC,
-    var electricSectionList: List<SectionElectric> = listOf(),
-    var dieselSectionList: List<SectionDiesel> = listOf(),
+    var electricSectionList: List<SectionElectric> = emptyList(),
+    var dieselSectionList: List<SectionDiesel> = emptyList(),
     var timeStartOfAcceptance: Long? = null,
     var timeEndOfAcceptance: Long? = null,
     var timeStartOfDelivery: Long? = null,

@@ -4,19 +4,19 @@ import com.example.domain.entities.route.Train
 import com.example.data_local.route.entity.Train as TrainEntity
 
 internal object TrainConverter {
-    private fun fromData(train: Train) = TrainEntity(
-        train.trainId,
-        train.baseId,
-        train.number,
-        train.weight,
-        train.axle,
-        train.conditionalLength,
-        StationConverter.fromDataList(train.stations)
+    fun fromData(train: Train) = TrainEntity(
+        trainId = train.trainId,
+        basicId = train.basicId,
+        number = train.number,
+        weight = train.weight,
+        axle = train.axle,
+        conditionalLength = train.conditionalLength,
+        stations = StationConverter.fromDataList(train.stations)
     )
 
-    private fun toData(entity: TrainEntity) = Train(
+    fun toData(entity: TrainEntity) = Train(
         trainId = entity.trainId,
-        baseId = entity.baseId,
+        basicId = entity.basicId,
         number = entity.number,
         weight = entity.weight,
         axle = entity.axle,

@@ -3,17 +3,21 @@ import Versions.accompanist_pager_version
 import Versions.accompanist_swiperefresh_version
 import Versions.activity_compose_version
 import Versions.app_compat_version
+import Versions.camera_ver
 import Versions.coil_version
 import Versions.compose_ui_version
 import Versions.constraint_layout_ver
 import Versions.core_ktx_version
 import Versions.core_testing_version
 import Versions.coroutines_version
+import Versions.datastore_pref_ver
 import Versions.gson_version
 import Versions.koin_version
 import Versions.lifecycle_runtime_version
 import Versions.lifecycle_viewmodel_version
 import Versions.material_compose
+import Versions.maxkeppeler_sheets_ver
+import Versions.permission_accompanist_ver
 import Versions.reveal_swipe_version
 import Versions.room_version
 import Versions.test_ext_version
@@ -27,6 +31,7 @@ object Plugins {
     const val kotlin_jvm = "org.jetbrains.kotlin.jvm"
     const val kotlin_kapt = "kapt"
     const val java_lib = "java-library"
+    const val google_relay = "com.google.relay"
 }
 
 object Apps {
@@ -49,34 +54,30 @@ object Versions {
     const val accompanist_navigation_animation_version = "0.31.3-beta"
     const val accompanist_swiperefresh_version = "0.31.3-beta"
     const val activity_compose_version = "1.7.2"
-//    const val androidx_exif_version = "1.3.6"
-//    const val androidx_test_core_version = "1.6.0-alpha01"
-//    const val androidx_test_ext_kotlin_runner_version = "1.1.5"
     const val app_compat_version = "1.7.0-alpha02"
     const val coil_version = "2.4.0"
     const val compose_ui_version = "1.5.1"
     const val core_ktx_version = "1.12.0"
     const val core_testing_version = "2.2.0"
     const val coroutines_version = "1.7.1"
-//    const val dependencies_check_version = "0.46.0"
-//    const val espresso_core_version = "3.6.0-alpha01"
-//    const val junit_version = "4.13.2"
     const val kotlin_version = "1.8.21"
     const val kotlin_compiler_ext_version = "1.4.7"
     const val lifecycle_runtime_version = "2.6.1"
     const val lifecycle_viewmodel_version = "2.6.1"
-    const val material_compose = "1.1.2"
-//    const val mockk_version = "1.13.2"
-//    const val playservices_version = "20.5.0"
+    const val material_compose = "1.2.0-beta01"
     const val reveal_swipe_version = "1.2.0"
     const val room_version = "2.6.0"
     const val test_ext_version = "1.1.5"
     const val test_runner_version = "1.6.0-alpha01"
-//    const val tracing_version = "1.1.0"
     const val koin_version = "3.1.2"
     const val accompanist_pager_version = "0.13.0"
     const val gson_version = "2.9.0"
     const val constraint_layout_ver = "1.0.1"
+    const val datastore_pref_ver = "1.0.0"
+    const val maxkeppeler_sheets_ver = "1.1.1"
+    const val camera_ver = "1.3.1"
+    const val permission_accompanist_ver = "0.31.0-alpha"
+    const val google_relay_ver = "0.3.11"
 }
 
 object Libs {
@@ -90,6 +91,7 @@ object Libs {
     const val project_feature_settings = ":features:settings"
 
     // Libs
+    const val datastore_pref = "androidx.datastore:datastore-preferences:$datastore_pref_ver"
     const val constraint_layout = "androidx.constraintlayout:constraintlayout-compose:$constraint_layout_ver"
     const val accompanist_navigation_animation =
         "com.google.accompanist:accompanist-navigation-animation:$accompanist_navigation_animation_version"
@@ -107,9 +109,6 @@ object Libs {
         "androidx.compose.material3:material3:$material_compose"
     const val core_ktx =
         "androidx.core:core-ktx:$core_ktx_version"
-//    const val exif_interface =
-//        "androidx.exifinterface:exifinterface:$androidx_exif_version"
-
     const val kotlinx_coroutines_core =
         "org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutines_version"
     const val lifecycle_runtime_ktx =
@@ -126,8 +125,6 @@ object Libs {
         "androidx.room:room-ktx:$room_version"
     const val room_runtime =
         "androidx.room:room-runtime:$room_version"
-//    const val tracing =
-//        "androidx.tracing:tracing:$tracing_version"
     const val ui_tooling_preview =
         "androidx.compose.ui:ui-tooling-preview:$compose_ui_version"
     const val koin_core =
@@ -142,8 +139,15 @@ object Libs {
         "com.google.accompanist:accompanist-pager-indicators:$accompanist_pager_version"
     const val gson =
         "com.google.code.gson:gson:$gson_version"
+    const val maxkeppeler_sheets =
+        "com.maxkeppeler.sheets-compose-dialogs:core:$maxkeppeler_sheets_ver"
+    const val camera_camera2 = "androidx.camera:camera-camera2:$camera_ver"
+    const val camera_lifecycle = "androidx.camera:camera-lifecycle:$camera_ver"
+    const val camera_view = "androidx.camera:camera-view:$camera_ver"
+    const val permission_accompanist = "com.google.accompanist:accompanist-permissions:$permission_accompanist_ver"
 
-//     Debug
+
+    //     Debug
     const val ui_tooling =
         "androidx.compose.ui:ui-tooling:$compose_ui_version"
     const val ui_test_manifest =
@@ -153,28 +157,12 @@ object Libs {
 object TestLibs {
     const val arch_core =
         "androidx.arch.core:core-testing:$core_testing_version"
-//    const val arch_core_ktx =
-//        "androidx.test:core-ktx:$androidx_test_core_version"
     const val compose_ui_test_junit =
         "androidx.compose.ui:ui-test-junit4:$compose_ui_version"
-//    const val espresso_core =
-//        "androidx.test.espresso:espresso-core:$espresso_core_version"
     const val ext_junit =
         "androidx.test.ext:junit:$test_ext_version"
-//    const val ext_junit_ktx =
-//        "androidx.test.ext:junit-ktx:$androidx_test_ext_kotlin_runner_version"
-//    const val junit =
-//        "junit:junit:$junit_version"
     const val kotlin_coroutines_test =
         "org.jetbrains.kotlinx:kotlinx-coroutines-test:$coroutines_version"
-//    const val kotlin_reflect =
-//        "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
-//    const val mockk =
-//        "io.mockk:mockk:$mockk_version"
-//    const val mockk_android =
-//        "io.mockk:mockk-android:$mockk_version"
-//    const val mockk_agent_jvm =
-//        "io.mockk:mockk-agent-jvm:$mockk_version"
     const val room =
         "androidx.room:room-testing:$room_version"
     const val test_runner =

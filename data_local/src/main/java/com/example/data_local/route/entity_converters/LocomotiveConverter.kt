@@ -6,7 +6,7 @@ import com.example.data_local.route.entity.Locomotive as LocomotiveEntity
 internal object LocomotiveConverter {
     fun fromData(locomotive: Locomotive) = LocomotiveEntity(
         locoId = locomotive.locoId,
-        baseId = locomotive.basicId,
+        basicId = locomotive.basicId,
         series = locomotive.series,
         number = locomotive.number,
         type = locomotive.type,
@@ -21,7 +21,7 @@ internal object LocomotiveConverter {
 
     fun toData(entity: LocomotiveEntity) = Locomotive(
         locoId = entity.locoId,
-        basicId = entity.baseId,
+        basicId = entity.basicId,
         series = entity.series,
         number = entity.number,
         type = entity.type,

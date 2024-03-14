@@ -2,13 +2,13 @@ package com.example.data_local.calendar
 
 import com.example.core.ResultState
 import com.example.domain.entities.MonthOfYear
-import com.example.domain.repositories.CalendarRepositories
+import com.example.domain.repositories.CalendarStorage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
 
-class CalendarRepositoryImpl : CalendarRepositories {
+class CalendarStorageLocalImpl : CalendarStorage {
 
     private val monthOfYearList = listOf(
         MonthOfYear(0, year = 2023, month = 0, normaHours = 180),

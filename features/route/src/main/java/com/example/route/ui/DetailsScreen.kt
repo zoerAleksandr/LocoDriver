@@ -37,7 +37,7 @@ import com.google.accompanist.pager.rememberPagerState
 fun DetailsScreen(
     routeDetailState: ResultState<Route?>,
     minTimeRest: Long,
-    onEditClick: (Route) -> Unit,
+    onEditClick: (String) -> Unit,
     onBackPressed: () -> Unit,
 ) {
     AsyncData(routeDetailState) { route ->
@@ -69,7 +69,7 @@ fun DetailsScreen(
                             }
                         },
                         actions = {
-                            IconButton(onClick = { onEditClick(route) }) {
+                            IconButton(onClick = { onEditClick(route.basicData.id) }) {
                                 Icon(
                                     imageVector = Icons.Default.Edit,
                                     contentDescription = "Изменить"

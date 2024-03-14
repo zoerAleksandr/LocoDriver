@@ -8,4 +8,18 @@
 
     <string name="msg_route_deleted">Маршрут удален</string>
     <string name="msg_empty_route_list">Список маршрутов пуст</string>
+
+    <string name="text_btn_dismiss">Отмена</string>
+    <string name="text_btn_confirm">Выбрать</string>
+    <string name="text_btn_clear">Сбросить</string>
+    <string name="text_switсh_onRest">Отдых в ПО</string>
+    <string name="info_text_min_time_rest">
+        Время минимального отдыха составляет %1$s часа.
+        Изменить это время можно в настройках.</string>
+    <string name="min_time_rest_text">MIN отдых до %1$s</string>
+    <string name="complete_time_rest_text">MAX отдых до %1$s</string>
+
+    <string name="dieselType">Тепловоз</string>
+    <string name="electricType">Электоровоз</string>
+
 </resources>

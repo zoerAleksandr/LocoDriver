@@ -1,6 +1,8 @@
 package com.example.core.util
 
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Locale
 
 object DateAndTimeConverter {
     private val currentTimeInLong = Calendar.getInstance().timeInMillis
@@ -165,8 +167,22 @@ object DateAndTimeConverter {
         }
     }
 
-    fun Long?.compareWithNullable(other: Long?): Boolean {
-        return if (this == null || other == null) true
-        else this < other
+    fun getDateAndTime(value: Long): String {
+        val time = value.let { millis ->
+            SimpleDateFormat(
+                DateAndTimeFormat.TIME_FORMAT,
+                Locale.getDefault()
+            ).format(
+                millis
+            )
+        }
+        val date = value.let { millis ->
+            SimpleDateFormat(
+                DateAndTimeFormat.DATE_FORMAT, Locale.getDefault()
+            ).format(
+                millis
+            )
+        }
+        return "$date $time"
     }
 }

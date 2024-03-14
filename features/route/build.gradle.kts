@@ -66,5 +66,12 @@ dependencies {
 
     implementation(Libs.coil_compose)
     implementation(Libs.reveal_swipe)
+    implementation(Libs.maxkeppeler_sheets)
+
+    implementation(Libs.camera_camera2)
+    implementation(Libs.camera_lifecycle)
+    implementation(Libs.camera_view)
+    implementation(Libs.permission_accompanist)
+    implementation(project(mapOf("path" to ":data_local")))
 
 }

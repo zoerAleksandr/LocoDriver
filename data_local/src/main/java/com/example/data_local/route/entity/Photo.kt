@@ -4,8 +4,6 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
-import androidx.room.TypeConverters
-import com.example.data_local.route.type_converters.PhotosConverter
 import java.util.UUID
 
 @Entity(
@@ -13,18 +11,17 @@ import java.util.UUID
         ForeignKey(
             entity = BasicData::class,
             parentColumns = ["id"],
-            childColumns = ["baseId"],
+            childColumns = ["basicId"],
             onDelete = ForeignKey.CASCADE,
             onUpdate = ForeignKey.CASCADE
         )
     ]
 )
-@TypeConverters(PhotosConverter::class)
-internal data class Notes(
+internal data class Photo(
     @PrimaryKey
-    var notesId: String = UUID.randomUUID().toString(),
+    var photoId: String = UUID.randomUUID().toString(),
     @ColumnInfo(index = true)
-    var baseId: String,
-    var text: String? = null,
-    var photos: MutableList<String> = mutableListOf()
+    var basicId: String,
+    var base64: String = "",
+    var dateOfCreate: Long
 )

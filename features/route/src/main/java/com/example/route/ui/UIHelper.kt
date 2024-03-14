@@ -31,3 +31,25 @@ fun changeAlphaWithOffset(offset: Float): Float {
 
     return alpha
 }
+
+fun startIndexLastWord(text: String): Int {
+    val overLength = text.length
+    for (index in overLength - 1 downTo 0) {
+        if (text[index] == ' ') {
+            return index + 1
+        }
+    }
+    return overLength
+}
+
+fun maskInKilo(string: String?): String? {
+    return string?.let {
+        "$it кг"
+    }
+}
+
+fun maskInLiter(string: String?): String? {
+    return string?.let {
+        "$it л"
+    }
+}
