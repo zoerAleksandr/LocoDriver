@@ -20,8 +20,7 @@ fun MainNavigation(
     appState: LocoDriverAppState,
     isLoggedIn: Boolean,
 ) {
-    val initialRoute =
-        if (isLoggedIn) HomeFeature.route else LoginFeature.route
+    val initialRoute = if (isLoggedIn) HomeFeature.route else LoginFeature.route
 
     AnimatedNavHost(
         appState.navHostController,

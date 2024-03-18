@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.z_company.core"
+    namespace = "com.z_company.data_local"
     compileSdk = Apps.compile_sdk_version
 
     defaultConfig {

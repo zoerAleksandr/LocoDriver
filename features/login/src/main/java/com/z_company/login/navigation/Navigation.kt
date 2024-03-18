@@ -25,8 +25,8 @@ fun NavGraphBuilder.loginGraph(
             LoginScreen(
                 loginState = loginState,
                 onLoginSuccess = router::showHome,
-                resetLoginState = viewModel::resetLoginState,
-                onLoginClick = viewModel::login
+                requestingSMS = viewModel::requestingSMSCode,
+                loginWithPhone = viewModel::loginWithPhone,
             )
         }
     }

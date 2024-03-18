@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.ir.backend.js.compile
+
 plugins {
     id(Plugins.android_lib)
     id(Plugins.kotlin_android)
@@ -41,6 +43,9 @@ android {
 dependencies {
     implementation(project(Libs.project_domain))
     implementation(project(Libs.project_core_android))
+    implementation(project(Libs.project_data_remote))
+    implementation(Libs.yandex_auth)
+    implementation(Libs.appwrite)
     implementation(Libs.activity_compose)
     implementation(Libs.core_ktx)
     implementation(Libs.lifecycle_viewmodel_ktx)

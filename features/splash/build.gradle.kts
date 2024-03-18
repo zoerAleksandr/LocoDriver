@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.z_company.settings"
+    namespace = "com.example.splash"
     compileSdk = Apps.compile_sdk_version
 
     defaultConfig {
@@ -39,11 +39,9 @@ android {
 }
 
 dependencies {
-
-    implementation(project(Libs.project_core_android))
     implementation(project(Libs.project_domain))
     implementation(project(Libs.project_data_remote))
-    implementation(project(Libs.project_data_local))
+    implementation(Libs.appwrite)
 
     implementation(Libs.activity_compose)
     implementation(Libs.core_ktx)

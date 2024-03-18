@@ -9,6 +9,7 @@ android {
     compileSdk = Apps.compile_sdk_version
 
     defaultConfig {
+        manifestPlaceholders["YANDEX_CLIENT_ID"] = "4d53408130284375ae226f02d1a24c28"
         applicationId = Apps.application_id
         minSdk = Apps.min_sdk_version
         targetSdk = Apps.target_sdk_version
@@ -57,7 +58,10 @@ dependencies {
     implementation(project(Libs.project_feature_login))
     implementation(project(Libs.project_feature_route))
     implementation(project(Libs.project_feature_settings))
+    implementation(project(Libs.project_data_remote))
 
+    implementation(Libs.appwrite)
+    implementation(Libs.splash_screen)
     implementation(Libs.core_ktx)
     implementation(Libs.lifecycle_runtime_ktx)
     implementation(Libs.activity_compose)
@@ -70,8 +74,6 @@ dependencies {
     implementation(Libs.koin_core)
     implementation(Libs.koin_android)
     implementation(Libs.koin_androidx_compose)
-
-    implementation(Libs.appwrite)
 
     debugImplementation(Libs.ui_tooling)
     debugImplementation(Libs.ui_test_manifest)
