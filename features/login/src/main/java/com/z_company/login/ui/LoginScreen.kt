@@ -54,10 +54,6 @@ private fun LoginScreenContent(
     var number by remember { mutableStateOf("") }
     var SMSCode by remember { mutableStateOf("") }
 
-    LaunchedEffect(loginState.session) {
-        Log.d("ZZZ", "session = ${loginState.session}")
-    }
-
     Scaffold { padding ->
         if (loginState.loginState is ResultState.Loading) {
             GenericLoading(

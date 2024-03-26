@@ -18,13 +18,14 @@ import Versions.lifecycle_runtime_version
 import Versions.lifecycle_viewmodel_version
 import Versions.material_compose
 import Versions.maxkeppeler_sheets_ver
+import Versions.parse_sdk_android_ver
 import Versions.permission_accompanist_ver
 import Versions.reveal_swipe_version
 import Versions.room_version
 import Versions.splash_screen_ver
 import Versions.test_ext_version
 import Versions.test_runner_version
-import Versions.yandex_auth_ver
+import Versions.vkid_ver
 import org.gradle.api.JavaVersion
 
 object Plugins {
@@ -83,8 +84,9 @@ object Versions {
     const val google_relay_ver = "0.3.11"
     const val appwrite_ver = "4.0.0"
 
-    const val yandex_auth_ver = "3.1.0"
     const val splash_screen_ver = "1.0.1"
+    const val vkid_ver = "1.3.2"
+    const val parse_sdk_android_ver = "4.2.1"
 }
 
 object Libs {
@@ -97,7 +99,6 @@ object Libs {
     const val project_feature_login = ":features:login"
     const val project_feature_route = ":features:route"
     const val project_feature_settings = ":features:settings"
-    const val project_splash = ":features:splash"
 
     // Libs
     const val datastore_pref = "androidx.datastore:datastore-preferences:$datastore_pref_ver"
@@ -158,8 +159,9 @@ object Libs {
         "com.google.accompanist:accompanist-permissions:$permission_accompanist_ver"
 
     const val appwrite = "io.appwrite:sdk-for-android:$appwrite_ver"
-    const val yandex_auth = "com.yandex.android:authsdk:$yandex_auth_ver"
     const val splash_screen = "androidx.core:core-splashscreen:$splash_screen_ver"
+    const val vkid = "com.vk.id:vkid:$vkid_ver"
+    const val parse_sdk_android = "com.github.parse-community.Parse-SDK-Android:parse:$parse_sdk_android_ver"
 
     //     Debug
     const val ui_tooling =

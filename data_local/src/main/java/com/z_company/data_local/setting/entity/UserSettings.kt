@@ -7,6 +7,6 @@ import androidx.room.PrimaryKey
 internal data class UserSettings(
     @PrimaryKey
     val key: String,
-    val minTimeRest: Long,
+    val minTimeRest: Long?,
     val lastEnteredDieselCoefficient: Double
 )

@@ -833,10 +833,7 @@ private fun LocoFormScreenContent(
                                     accepted, delivery, refuel
                                 )
                                 overResult += result
-                                Log.d("ZZZ", "accepted = $accepted")
-                                Log.d("ZZZ", "delivery = $delivery")
                             }
-                            Log.d("ZZZ", "overResult = $overResult")
                             overResult?.let {
                                 Text(
                                     text = "Всего расход = ${maskInLiter(it.str())}",

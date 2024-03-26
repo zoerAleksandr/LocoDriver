@@ -1,10 +1,12 @@
 package com.z_company.settings.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.data_local.setting.DataStoreRepository
 import com.z_company.data_remote.LoginUseCase
+import com.z_company.domain.entities.User
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.use_cases.CalendarUseCase
 import kotlinx.coroutines.Job
@@ -44,6 +46,18 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             }
         }
 
+    var currentUser: User?
+        get() {
+            return _uiState.value.userDetailsState.let {
+                if (it is ResultState.Success) it.data else null
+            }
+        }
+        private set(value) {
+            _uiState.update {
+                it.copy(userDetailsState = ResultState.Success(value))
+            }
+        }
+
     init {
         loadSettings()
         loadLogin()
@@ -56,11 +70,12 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     }
 
     private fun loadSettings() {
-        dataStoreRepository.getMinTimeRest().onEach { time ->
+        loadSettingsJob?.cancel()
+        loadSettingsJob = dataStoreRepository.getMinTimeRest().onEach { time ->
             time?.let {
                 currentSettings = currentSettings?.copy(
                     minTimeRest = it
-                )
+                ) ?: UserSettings(minTimeRest = time)
             }
         }.launchIn(viewModelScope)
     }
@@ -71,11 +86,32 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             _uiState.update {
                 it.copy(userDetailsState = resultState)
             }
+            if (resultState is ResultState.Success) {
+                currentUser = resultState.data
+            }
         }.launchIn(viewModelScope)
 
     }
 
     fun saveSettings() {
+        currentSettings?.let { setting ->
+            Log.d("ZZZ", "setting.minTimeRest = ${setting.minTimeRest}")
+            saveSettingsJob?.cancel()
+            saveSettingsJob = dataStoreRepository.setMinTimeRest(
+                setting.minTimeRest
+            ).onEach { resultState ->
+                if (resultState is ResultState.Success) {
+                    _uiState.update {
+                        it.copy(saveSettings = resultState)
+                    }
+                }
+            }.launchIn(viewModelScope)
+        }
+    }
 
+    fun changedMinTimeRest(time: String) {
+        currentSettings = currentSettings?.copy(
+            minTimeRest = time.toLongOrNull()
+        )
     }
 }

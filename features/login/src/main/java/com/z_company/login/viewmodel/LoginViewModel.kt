@@ -27,7 +27,6 @@ class LoginViewModel : ViewModel(),
         loginJob = viewModelScope.launch {
             try {
                 userIdPhone = authUseCase.requestingSMSCode(number)
-                Log.d("ZZZ", "userId = $userIdPhone")
             } catch (e: Exception) {
                 _loginState.update {
                     it.copy(

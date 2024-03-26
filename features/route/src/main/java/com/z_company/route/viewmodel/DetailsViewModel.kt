@@ -37,7 +37,6 @@ class DetailsViewModel constructor(
     }
 
     init {
-        Log.d("ZZZ", "routeId = $routeId")
         getRouteById(routeId)
     }
 

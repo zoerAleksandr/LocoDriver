@@ -8,7 +8,7 @@ interface UserSettingsRepository {
     fun getDieselCoefficient(): Flow<Double>
     fun setDieselCoefficient(value: Double?): Flow<ResultState<Unit>>
     fun getMinTimeRest(): Flow<Long?>
-    fun setMinTimeRest(value: Long): Flow<ResultState<Unit>>
+    fun setMinTimeRest(value: Long?): Flow<ResultState<Unit>>
     fun getStandardDurationOfWork(): Flow<Long>
     fun setStandardDurationOfWork(value: Long): Flow<ResultState<Unit>>
     fun getTypeLoco(): Flow<LocoType>

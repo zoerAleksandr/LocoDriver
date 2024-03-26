@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.io.IOException
+import com.z_company.domain.util.times
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "locomotive_driver_pref")
 private const val NOT_AUTH = "NOT_AUTH"
@@ -98,10 +99,10 @@ class DataStoreRepository(context: Context) : UserSettingsRepository {
         }
     }
 
-    override fun setMinTimeRest(value: Long): Flow<ResultState<Unit>> {
+    override fun setMinTimeRest(value: Long?): Flow<ResultState<Unit>> {
         return flowRequest {
             dataStore.edit { pref ->
-                pref[PreferencesKey.minTimeRest] = value * oneHourInMillis
+                pref[PreferencesKey.minTimeRest] = oneHourInMillis.times(value ?: 0)
             }
         }
     }

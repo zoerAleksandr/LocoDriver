@@ -44,7 +44,6 @@ dependencies {
     implementation(project(Libs.project_domain))
     implementation(project(Libs.project_core_android))
     implementation(project(Libs.project_data_remote))
-    implementation(Libs.yandex_auth)
     implementation(Libs.appwrite)
     implementation(Libs.activity_compose)
     implementation(Libs.core_ktx)
