@@ -1,8 +1,9 @@
 package com.z_company.login.viewmodel
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.parse.ParseException
+import com.parse.ParseUser
 import com.z_company.core.ResultState
 import com.z_company.data_remote.AuthUseCase
 import kotlinx.coroutines.Job
@@ -17,50 +18,79 @@ class LoginViewModel : ViewModel(),
     KoinComponent {
     private val authUseCase: AuthUseCase by inject()
     private val _loginState = MutableStateFlow(LoginUiState())
-    val loginState = _loginState.asStateFlow()
+    val uiState = _loginState.asStateFlow()
 
     private var loginJob: Job? = null
-    private var userIdPhone: String = ""
+    private var registeredJob: Job? = null
 
-    fun requestingSMSCode(number: String) {
-        loginJob?.cancel()
-        loginJob = viewModelScope.launch {
-            try {
-                userIdPhone = authUseCase.requestingSMSCode(number)
-            } catch (e: Exception) {
-                _loginState.update {
-                    it.copy(
-                        loginState = ResultState.Success(false),
-                        errorMessage = e.message
-                    )
+    fun registeredUser(name: String, password: String, email: String) {
+        registeredJob?.cancel()
+        registeredJob = viewModelScope.launch {
+            _loginState.update {
+                it.copy(
+                    loginState = ResultState.Loading
+                )
+            }
+            val user = ParseUser()
+            user.username = name
+            user.setPassword(password)
+            user.email = email
+            user.signUpInBackground { parseException ->
+                if (parseException == null) {
+                    _loginState.update {
+                        it.copy(
+                            loginState = ResultState.Success(true)
+                        )
+                    }
+                } else {
+                    _loginState.update {
+                        it.copy(
+                            loginState = ResultState.Success(false),
+                            errorMessage = parseException.message
+                        )
+                    }
+                    ParseUser.logOut()
                 }
-                e.printStackTrace()
             }
         }
     }
 
-    fun loginWithPhone(secret: String) {
+    fun loginUser(username: String, password: String) {
         loginJob?.cancel()
         loginJob = viewModelScope.launch {
-            try {
-                val session = authUseCase.loginWithPhone(userIdPhone, secret)
-                if (session.current) {
+            _loginState.update {
+                it.copy(
+                    loginState = ResultState.Loading
+                )
+            }
+            ParseUser.logInInBackground(
+                username,
+                password
+            ) { parseUser: ParseUser?, parseException: ParseException? ->
+                if (parseUser != null) {
                     _loginState.update {
                         it.copy(
-                            loginState = ResultState.Success(true),
-                            session = session
+                            loginState = ResultState.Success(true)
+                        )
+                    }
+                } else {
+                    ParseUser.logOut()
+                    _loginState.update {
+                        it.copy(
+                            loginState = ResultState.Success(false),
+                            errorMessage = parseException?.message
                         )
                     }
                 }
-            } catch (e: Exception) {
-                _loginState.update {
-                    it.copy(
-                        loginState = ResultState.Success(false),
-                        errorMessage = e.message
-                    )
-                }
-                e.printStackTrace()
             }
+        }
+    }
+
+    fun resetErrorState(){
+        _loginState.update {
+            it.copy(
+                errorMessage = null
+            )
         }
     }
 }

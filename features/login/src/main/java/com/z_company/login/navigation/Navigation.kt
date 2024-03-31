@@ -1,33 +1,28 @@
 package com.z_company.login.navigation
 
+import android.util.Log
 import androidx.compose.animation.ExperimentalAnimationApi
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.navigation
 import com.z_company.domain.navigation.Router
-import com.z_company.login.ui.LoginScreen
-import com.z_company.login.viewmodel.LoginViewModel
-import com.google.accompanist.navigation.animation.composable
+import com.z_company.core.ui.navigation.composableScreen
 
 @ExperimentalAnimationApi
 fun NavGraphBuilder.loginGraph(
     router: Router
 ) {
+
     navigation(
         route = LoginFeature.route,
         startDestination = LoginScreenRoute.route,
     ) {
-        composable(LoginScreenRoute.route) {
-            val viewModel: LoginViewModel = viewModel()
-            val loginState by viewModel.loginState.collectAsState()
-            LoginScreen(
-                loginState = loginState,
-                onLoginSuccess = router::showHome,
-                requestingSMS = viewModel::requestingSMSCode,
-                loginWithPhone = viewModel::loginWithPhone,
-            )
+        composableScreen(LoginScreenRoute.route) {
+            Log.i("NAV", LoginScreenRoute.route)
+            LoginDestination(router)
+        }
+        composableScreen(RecoveryPasswordRoute.route) {
+            Log.i("NAV", RecoveryPasswordRoute.route)
+            PasswordRecoveryDestination(router)
         }
     }
 }

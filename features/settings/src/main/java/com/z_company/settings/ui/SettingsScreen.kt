@@ -11,7 +11,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
@@ -43,6 +47,7 @@ fun SettingsScreen(
     onSaveClick: () -> Unit,
     onSettingSaved: () -> Unit,
     minTimeRestChanged: (String) -> Unit,
+    onLogOut: () -> Unit
 ) {
     Scaffold(topBar = {
         TopAppBar(navigationIcon = {
@@ -75,7 +80,8 @@ fun SettingsScreen(
                         userDetail = settingsUiState.userDetailsState,
                         currentSettings = currentSettings,
                         currentUser = currentUser,
-                        minTimeRestChanged = minTimeRestChanged
+                        minTimeRestChanged = minTimeRestChanged,
+                        onLogOut = onLogOut
                     )
                 }
             }
@@ -91,6 +97,7 @@ fun ScreenContent(
     userDetail: ResultState<User?>,
     currentUser: User?,
     minTimeRestChanged: (String) -> Unit,
+    onLogOut: () -> Unit
 ) {
     Column(modifier = modifier) {
         SettingScreenContent(
@@ -99,7 +106,9 @@ fun ScreenContent(
             minTimeRestChanged = minTimeRestChanged
         )
         UserScreenContent(
-            userDetail = userDetail, currentUser = currentUser
+            userDetail = userDetail,
+            currentUser = currentUser,
+            onLogOut = onLogOut
         )
     }
 }
@@ -158,6 +167,7 @@ fun UserScreenContent(
     modifier: Modifier = Modifier,
     userDetail: ResultState<User?>,
     currentUser: User?,
+    onLogOut: () -> Unit
 ) {
     Box(modifier = modifier.fillMaxWidth()) {
         AsyncData(resultState = userDetail) {
@@ -170,6 +180,29 @@ fun UserScreenContent(
                     Text(user.name)
                     Text(user.phone)
                     Text(user.email)
+                    var email by remember {
+                        mutableStateOf("")
+                    }
+                    OutlinedTextField(
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .fillMaxWidth(0.5f),
+                        value = email,
+                        onValueChange = {
+                            email = it
+                        },
+                        label = {
+                            Text(text = "email", color = MaterialTheme.colorScheme.secondary)
+                        },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Email,
+                            imeAction = ImeAction.Done
+                        ),
+                        singleLine = true
+                    )
+                    Button(onClick = { onLogOut() }) {
+                        Text("выйти")
+                    }
                 }
             }
         }

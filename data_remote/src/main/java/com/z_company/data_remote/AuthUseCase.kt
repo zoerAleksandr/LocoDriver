@@ -7,21 +7,21 @@ import kotlinx.coroutines.flow.Flow
 
 class AuthUseCase {
 
-    suspend fun requestingSMSCode(number: String): String {
-        return Appwrite.requestingSMSCode(number)
-    }
-
-    suspend fun loginWithPhone(userId: String, secret: String): Session {
-        return Appwrite.loginWithPhone(userId, secret)
-    }
-
-    fun getSession(): Flow<ResultState<Session>> {
-       return flowRequest{
-           Appwrite.getSession()
-       }
-    }
-
-    suspend fun logout() {
-        Appwrite.onLogout()
-    }
+//    suspend fun requestingSMSCode(number: String): String {
+//        return Appwrite.requestingSMSCode(number)
+//    }
+//
+//    suspend fun loginWithPhone(userId: String, secret: String): Session {
+//        return Appwrite.loginWithPhone(userId, secret)
+//    }
+//
+//    fun getSession(): Flow<ResultState<Session>> {
+//       return flowRequest{
+//           Appwrite.getSession()
+//       }
+//    }
+//
+//    suspend fun logout() {
+//        Appwrite.onLogout()
+//    }
 }

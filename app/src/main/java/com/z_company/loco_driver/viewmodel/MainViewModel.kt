@@ -5,6 +5,7 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.parse.ParseUser
 import com.z_company.core.ResultState
 import com.z_company.data_remote.AuthUseCase
 import com.z_company.domain.entities.MonthOfYear
@@ -13,13 +14,14 @@ import com.z_company.domain.use_cases.CalendarUseCase
 import io.appwrite.models.Session
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
 private const val TAG = "MainViewModel_TAG"
+
 class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private val loadCalendarFromStorage: LoadCalendarFromStorage by inject()
     private val calendarUseCase: CalendarUseCase by inject()
@@ -30,16 +32,17 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private var getSessionJob: Job? = null
 
 
-
     var _inProgress = MutableLiveData(true)
     val inProgress: MutableLiveData<Boolean> get() = _inProgress
 
-    private var _session = MutableLiveData<Session?>()
-    val session : MutableLiveData<Session?> get() = _session
+    private var _isRegistered = MutableLiveData<Boolean>()
+    val isRegistered: MutableLiveData<Boolean> get() = _isRegistered
 
     init {
         loadCalendar()
-        getSession()
+        viewModelScope.launch {
+            getSession()
+        }
     }
 
     private fun loadCalendar() {
@@ -59,19 +62,20 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
             }
         }.launchIn(viewModelScope)
     }
-    private fun getSession(){
-        getSessionJob?.cancel()
-        getSessionJob = authUseCase.getSession().onEach { resultState ->
-            if (resultState is ResultState.Success) {
-                _session.postValue(resultState.data)
-                inProgress.postValue(false)
-            } else if (resultState is ResultState.Error) {
-                if (resultState.entity.throwable is java.net.UnknownHostException){
-                    // TODO нет интернета
-                }
-                _session.postValue(null)
-                inProgress.postValue(false)
+
+    private suspend fun getSession() {
+        val isRegisteredJob = viewModelScope.launch {
+            val session = ParseUser.getCurrentUser()
+            Log.d("ZZZ", "session = ${session}")
+            if (session != null) {
+                _isRegistered.postValue(true)
+            } else {
+                _isRegistered.postValue(false)
             }
-        }.launchIn(viewModelScope)
+        }
+        delay(500L)
+        isRegisteredJob.join()
+
+        inProgress.postValue(false)
     }
 }

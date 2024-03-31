@@ -1,7 +1,7 @@
 package com.z_company.login.ui
 
-import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,7 +9,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -23,39 +26,59 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.GenericLoading
-import com.z_company.login.viewmodel.LoginUiState
 
 @Composable
 fun LoginScreen(
-    loginState: LoginUiState,
+    loginState: ResultState<Boolean>,
     onLoginSuccess: () -> Unit,
-    requestingSMS: (number: String) -> Unit,
-    loginWithPhone: (SMS: String) -> Unit,
+    registeredUser: (String, String, String) -> Unit,
+    errorMessage: String?,
+    logInUser: (String, String) -> Unit,
+    onPasswordRecovery: () -> Unit,
+    resetErrorState: () -> Unit
 ) {
-    if (loginState.session != null) {
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    if (loginState == ResultState.Success(true)) {
         LaunchedEffect(Unit) {
             onLoginSuccess()
         }
-    } else {
+    }
+    LaunchedEffect(errorMessage) {
+        if (errorMessage != null) {
+            snackbarHostState.showSnackbar("$errorMessage")
+            resetErrorState()
+        }
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { padding ->
         LoginScreenContent(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
             loginState = loginState,
-            requestingSMS = requestingSMS,
-            loginWithPhone = loginWithPhone,
+            registeredUser = registeredUser,
+            logInUser = logInUser,
+            onPasswordRecovery = onPasswordRecovery
         )
     }
 }
 
 @Composable
 private fun LoginScreenContent(
-    loginState: LoginUiState,
-    requestingSMS: (number: String) -> Unit,
-    loginWithPhone: (SMS: String) -> Unit,
+    modifier: Modifier,
+    loginState: ResultState<Boolean>,
+    registeredUser: (String, String, String) -> Unit,
+    logInUser: (String, String) -> Unit,
+    onPasswordRecovery: () -> Unit
 ) {
-    var number by remember { mutableStateOf("") }
-    var SMSCode by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
 
-    Scaffold { padding ->
-        if (loginState.loginState is ResultState.Loading) {
+    Box(modifier = modifier) {
+        if (loginState is ResultState.Loading) {
             GenericLoading(
                 message = "Пожалуйста подождите..."
             )
@@ -65,35 +88,34 @@ private fun LoginScreenContent(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
         ) {
-            loginState.errorMessage?.let { message ->
-                Text(text = message)
-            }
-
             TextField(
-                value = number,
-                onValueChange = { number = it },
-                label = { Text("number") },
+                value = email,
+                onValueChange = { email = it },
+                label = { Text("email") },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
             )
             TextField(
-                value = SMSCode,
-                onValueChange = { SMSCode = it },
-                label = { Text("SMS") },
+                value = password,
+                onValueChange = { password = it },
+                label = { Text("password") },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
             )
-            Button(onClick = { requestingSMS(number) }) {
-                Text("Получить СМС код")
+            TextButton(onClick = { onPasswordRecovery() }) {
+                Text("Забыли пароль?")
             }
-            Button(onClick = { loginWithPhone(SMSCode) }) {
-                Text("Подтвердить SMS")
+            Button(onClick = { logInUser(email, password) }) {
+                Text("Вход")
+            }
+
+            Button(onClick = { registeredUser(email, password, email) }) {
+                Text("Регистрация")
             }
         }
     }

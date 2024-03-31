@@ -1,7 +1,9 @@
 package com.z_company.loco_driver.di
 
+import com.vk.id.VKID
 import com.z_company.loco_driver.viewmodel.MainViewModel
 import com.z_company.login.viewmodel.LoginViewModel
+import com.z_company.login.viewmodel.PasswordRecoveryViewModel
 import com.z_company.route.viewmodel.CreatePhotoViewModel
 import com.z_company.route.viewmodel.DetailsViewModel
 import com.z_company.route.viewmodel.FormViewModel
@@ -14,12 +16,15 @@ import com.z_company.route.viewmodel.ViewingImageViewModel
 import com.z_company.settings.viewmodel.SettingsViewModel
 import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.dsl.module
+import org.koin.android.ext.koin.androidContext
 
 val viewModelModule = module {
+    single { VKID(context = androidContext()) }
     viewModel { FormViewModel(get()) }
     viewModel { DetailsViewModel(get()) }
     viewModel { HomeViewModel() }
-    viewModel { LoginViewModel() }
+    viewModel { LoginViewModel(vkid = get()) }
+    viewModel { PasswordRecoveryViewModel() }
     viewModel { SettingsViewModel() }
     viewModel { MainViewModel() }
     viewModel { (locoId: String?, basicId: String) ->
@@ -34,7 +39,7 @@ val viewModelModule = module {
     viewModel { (notesId: String) ->
         CreatePhotoViewModel(basicId = notesId)
     }
-    viewModel {(basicId: String) ->
+    viewModel { (basicId: String) ->
         PreviewPhotoViewModel(basicId = basicId)
     }
     viewModel { (imageId: String) ->

@@ -23,15 +23,15 @@ android {
     }
 
     defaultConfig {
-        val VKIDClientSecret = properties.getProperty("VKIDClientSecret")
-        val VKIDClientID = properties.getProperty("VKIDClientID")
+//        val VKIDClientSecret = properties.getProperty("VKIDClientSecret")
+//        val VKIDClientID = properties.getProperty("VKIDClientID")
 
         addManifestPlaceholders(
             mapOf(
                 "VKIDRedirectHost" to "vk.com",
                 "VKIDRedirectScheme" to "vk51884740",
-                "VKIDClientID" to VKIDClientID,
-                "VKIDClientSecret" to VKIDClientSecret
+                "VKIDClientID" to "51884740",
+                "VKIDClientSecret" to "l3G9HVocppd94ooNSBSs"
             )
         )
 

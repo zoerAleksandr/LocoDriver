@@ -3,6 +3,7 @@ package com.z_company.settings.viewmodel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.parse.ParseUser
 import com.z_company.core.ResultState
 import com.z_company.data_local.setting.DataStoreRepository
 import com.z_company.data_remote.LoginUseCase
@@ -113,5 +114,9 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         currentSettings = currentSettings?.copy(
             minTimeRest = time.toLongOrNull()
         )
+    }
+
+    fun logOut(){
+        ParseUser.logOutInBackground()
     }
 }

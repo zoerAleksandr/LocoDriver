@@ -161,6 +161,8 @@ object Libs {
     const val appwrite = "io.appwrite:sdk-for-android:$appwrite_ver"
     const val splash_screen = "androidx.core:core-splashscreen:$splash_screen_ver"
     const val vkid = "com.vk.id:vkid:$vkid_ver"
+    const val vkid_onetap ="com.vk.id:onetap-compose:$vkid_ver"
+
     const val parse_sdk_android = "com.github.parse-community.Parse-SDK-Android:parse:$parse_sdk_android_ver"
 
     //     Debug
