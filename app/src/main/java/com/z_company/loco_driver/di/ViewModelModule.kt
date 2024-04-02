@@ -23,7 +23,7 @@ val viewModelModule = module {
     viewModel { FormViewModel(get()) }
     viewModel { DetailsViewModel(get()) }
     viewModel { HomeViewModel() }
-    viewModel { LoginViewModel(vkid = get()) }
+    viewModel { LoginViewModel() }
     viewModel { PasswordRecoveryViewModel() }
     viewModel { SettingsViewModel() }
     viewModel { MainViewModel() }

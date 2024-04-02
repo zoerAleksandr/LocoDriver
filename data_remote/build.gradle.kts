@@ -36,7 +36,8 @@ dependencies {
     implementation(Libs.core_ktx)
     implementation(Libs.app_compat)
     implementation(Libs.material)
-    implementation(Libs.appwrite)
+    implementation(Libs.parse_sdk_android)
+    implementation(Libs.parse_sdk_android_coroutine)
     implementation(project(":domain"))
 
     testImplementation("junit:junit:4.13.2")

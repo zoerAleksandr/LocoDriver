@@ -8,7 +8,7 @@ import com.z_company.domain.entities.User
 class LoginUseCase {
     fun getUser(): Flow<ResultState<User>> {
         return flowRequest {
-            User(name = "default name", phone = "see LoginUseCase", email = "")
+            User(name = "default name", email = "")
         }
     }
 }

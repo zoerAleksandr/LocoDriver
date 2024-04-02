@@ -16,10 +16,9 @@ fun LoginDestination(
     val uiState by viewModel.uiState.collectAsState()
 
     LoginScreen(
-        loginState = uiState.loginState,
+        userState = uiState.userState,
         onLoginSuccess = router::showHome,
         registeredUser = viewModel::registeredUser,
-        errorMessage = uiState.errorMessage,
         logInUser = viewModel::loginUser,
         onPasswordRecovery = router::showRecoveryPassword,
         resetErrorState = viewModel::resetErrorState

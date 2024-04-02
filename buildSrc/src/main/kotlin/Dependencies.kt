@@ -86,7 +86,7 @@ object Versions {
 
     const val splash_screen_ver = "1.0.1"
     const val vkid_ver = "1.3.2"
-    const val parse_sdk_android_ver = "4.2.1"
+    const val parse_sdk_android_ver = "4.3.0"
 }
 
 object Libs {
@@ -164,6 +164,7 @@ object Libs {
     const val vkid_onetap ="com.vk.id:onetap-compose:$vkid_ver"
 
     const val parse_sdk_android = "com.github.parse-community.Parse-SDK-Android:parse:$parse_sdk_android_ver"
+    const val parse_sdk_android_coroutine = "com.github.parse-community.Parse-SDK-Android:coroutines:$parse_sdk_android_ver"
 
     //     Debug
     const val ui_tooling =

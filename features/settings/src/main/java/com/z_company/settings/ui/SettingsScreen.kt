@@ -178,7 +178,6 @@ fun UserScreenContent(
                         .background(Color.Red)
                 ) {
                     Text(user.name)
-                    Text(user.phone)
                     Text(user.email)
                     var email by remember {
                         mutableStateOf("")
