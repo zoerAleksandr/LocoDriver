@@ -41,17 +41,20 @@ class LogInViewModel : ViewModel(), KoinComponent {
     var confirm: String by mutableStateOf("")
 
     fun setEmailData(value: String) {
-        email = value
+        val valueWithoutWhitespace = value.filterNot { it.isWhitespace() }
+        email = valueWithoutWhitespace
         checkingCorrectPassword()
     }
 
     fun setPasswordData(value: String) {
-        password = value
+        val valueWithoutWhitespace = value.filterNot { it.isWhitespace() }
+        password = valueWithoutWhitespace
         checkingCorrectPassword()
     }
 
     fun setConfirmData(value: String) {
-        confirm = value
+        val valueWithoutWhitespace = value.filterNot { it.isWhitespace() }
+        confirm = valueWithoutWhitespace
         checkingCorrectPassword()
     }
 

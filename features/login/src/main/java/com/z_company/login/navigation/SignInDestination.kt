@@ -19,7 +19,7 @@ fun SignInDestination(
         userState = uiState.userState,
         onSignInSuccess = router::showHome,
         onRegisteredClick = router::showLogIn,
-        logInUser = viewModel::loginUser,
+        logInUser = viewModel::signInUser,
         onPasswordRecovery = router::showRecoveryPassword,
     )
 }

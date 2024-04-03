@@ -75,6 +75,7 @@ fun SignInScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
+                singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
             )
             TextField(
@@ -84,6 +85,7 @@ fun SignInScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
+                singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
             )
             TextButton(onClick = { onPasswordRecovery() }) {

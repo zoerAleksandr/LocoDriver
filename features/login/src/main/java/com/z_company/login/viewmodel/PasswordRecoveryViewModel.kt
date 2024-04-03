@@ -20,12 +20,13 @@ class PasswordRecoveryViewModel : ViewModel() {
 
     private var requestJob: Job? = null
     fun requestPasswordReset(email: String) {
+        val emailWithoutWhitespace = email.filterNot { it.isWhitespace() }
         _uiState.update {
             it.copy(isLoading = true)
         }
         requestJob?.cancel()
         requestJob = viewModelScope.launch {
-            ParseUser.requestPasswordResetInBackground(email)
+            ParseUser.requestPasswordResetInBackground(emailWithoutWhitespace)
                 .continueWith {
                     if (it.isCompleted) {
                         _uiState.update {

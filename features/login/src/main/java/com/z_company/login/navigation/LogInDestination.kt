@@ -27,7 +27,6 @@ fun LogInDestination(
         setPassword = viewModel::setPasswordData,
         confirm = viewModel.confirm,
         setConfirm = viewModel::setConfirmData
-//        checkingData = viewModel::checkingCorrectPassword
     )
 
 }

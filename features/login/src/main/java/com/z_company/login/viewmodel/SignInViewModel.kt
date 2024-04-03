@@ -20,14 +20,17 @@ class SignInViewModel : ViewModel(),
 
     private var loginJob: Job? = null
 
-    fun loginUser(username: String, password: String) {
+    fun signInUser(username: String, password: String) {
+        val usernameWithoutWhitespace = username.filterNot { it.isWhitespace() }
+        val passwordWithoutWhitespace = password.filterNot { it.isWhitespace() }
         loginJob?.cancel()
-        loginJob = authUseCase.loginWithEmail(username, password).onEach { result ->
-            _uiState.update {
-                it.copy(
-                    userState = result
-                )
-            }
-        }.launchIn(viewModelScope)
+        loginJob = authUseCase.loginWithEmail(usernameWithoutWhitespace, passwordWithoutWhitespace)
+            .onEach { result ->
+                _uiState.update {
+                    it.copy(
+                        userState = result
+                    )
+                }
+            }.launchIn(viewModelScope)
     }
 }
