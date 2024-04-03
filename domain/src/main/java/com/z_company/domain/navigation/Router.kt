@@ -6,7 +6,8 @@ import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Train
 
 interface Router {
-    fun showLogin()
+    fun showSignIn()
+    fun showLogIn()
     fun showRecoveryPassword()
     fun showHome()
     fun showRouteForm(basicId: String? = null)

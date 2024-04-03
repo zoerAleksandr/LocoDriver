@@ -11,18 +11,27 @@ import com.z_company.core.ui.navigation.composableScreen
 fun NavGraphBuilder.loginGraph(
     router: Router
 ) {
-
     navigation(
-        route = LoginFeature.route,
-        startDestination = LoginScreenRoute.route,
+        route = AuthFeature.route,
+        startDestination = SignInScreenRoute.route,
     ) {
-        composableScreen(LoginScreenRoute.route) {
-            Log.i("NAV", LoginScreenRoute.route)
-            LoginDestination(router)
+        composableScreen(
+            route = SignInScreenRoute.route,
+        ) {
+            Log.i("NAV", SignInScreenRoute.route)
+            SignInDestination(router)
         }
-        composableScreen(RecoveryPasswordRoute.route) {
+        composableScreen(
+            route = RecoveryPasswordRoute.route,
+        ) {
             Log.i("NAV", RecoveryPasswordRoute.route)
             PasswordRecoveryDestination(router)
+        }
+        composableScreen(
+            route = LogInScreenRoute.route,
+        ) {
+            Log.i("NAV", LogInScreenRoute.route)
+            LogInDestination(router)
         }
     }
 }

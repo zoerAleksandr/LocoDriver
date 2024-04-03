@@ -16,13 +16,20 @@ class AuthUseCase {
         }
     }
 
-    suspend fun registeredUserByEmail(){
-        ParseUser().apply {
-            setUsername("my name")
-            setPassword("my pass")
-            setEmail("email@example.com")
-        }.also {
-            it.suspendSignUp()
+    suspend fun registeredUserByEmail(
+        name: String,
+        password: String,
+        email: String
+    ): Flow<ResultState<User>> {
+        return flowRequest {
+            val user = ParseUser().apply {
+                username = name
+                setPassword(password)
+                setEmail(email)
+            }.also {
+                it.suspendSignUp()
+            }
+            UserConverter.toData(user)
         }
     }
 

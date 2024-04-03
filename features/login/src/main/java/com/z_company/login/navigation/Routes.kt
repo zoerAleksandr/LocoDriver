@@ -2,7 +2,8 @@ package com.z_company.login.navigation
 
 import com.z_company.core.navigation.AppRoutes
 
-object LoginFeature: AppRoutes("LoginFeature")
+object AuthFeature: AppRoutes("AuthFeature")
 
-object LoginScreenRoute: AppRoutes("LoginScreen")
+object SignInScreenRoute: AppRoutes("SignInScreen")
 object RecoveryPasswordRoute: AppRoutes("RecoveryPassword")
+object LogInScreenRoute: AppRoutes("LogInScreen")

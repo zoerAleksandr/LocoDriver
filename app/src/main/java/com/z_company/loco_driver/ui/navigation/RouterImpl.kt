@@ -6,8 +6,9 @@ import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.navigation.Router
-import com.z_company.login.navigation.LoginFeature
-import com.z_company.login.navigation.LoginScreenRoute
+import com.z_company.login.navigation.AuthFeature
+import com.z_company.login.navigation.LogInScreenRoute
+import com.z_company.login.navigation.SignInScreenRoute
 import com.z_company.login.navigation.RecoveryPasswordRoute
 import com.z_company.route.navigation.CreatePhotoRoute
 import com.z_company.route.navigation.DetailsRoute
@@ -23,10 +24,14 @@ import com.z_company.settings.navigation.SettingsFeature
 class RouterImpl(
     private val navController: NavHostController
 ) : Router {
-    override fun showLogin() {
-        navController.navigate(LoginScreenRoute.route) {
+    override fun showSignIn() {
+        navController.navigate(SignInScreenRoute.route) {
             popUpTo(0)
         }
+    }
+
+    override fun showLogIn() {
+        navController.navigate(LogInScreenRoute.route)
     }
 
     override fun showRecoveryPassword() {
@@ -35,7 +40,7 @@ class RouterImpl(
 
     override fun showHome() {
         navController.navigate(HomeRoute.route) {
-            popUpTo(LoginFeature.route) {
+            popUpTo(AuthFeature.route) {
                 inclusive = true
                 saveState = false
             }

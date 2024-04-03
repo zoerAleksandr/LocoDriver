@@ -15,11 +15,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
@@ -30,18 +27,21 @@ import com.z_company.domain.entities.User
 import kotlinx.coroutines.launch
 
 @Composable
-fun LoginScreen(
+fun LogInScreen(
     userState: ResultState<User?>,
-    onLoginSuccess: () -> Unit,
-    registeredUser: (String, String, String) -> Unit,
-    logInUser: (String, String) -> Unit,
-    onPasswordRecovery: () -> Unit,
-    resetErrorState: () -> Unit
+    isEnableButton: Boolean,
+    onLogInSuccess: () -> Unit,
+    onRegisteredClick: (name: String, password: String, email: String) -> Unit,
+    onSignInClick: () -> Unit,
+    email: String,
+    setEmail: (String) -> Unit,
+    password: String,
+    setPassword: (String) -> Unit,
+    confirm: String,
+    setConfirm: (String) -> Unit
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
 
-    var password by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
     if (userState is ResultState.Loading) {
@@ -51,13 +51,12 @@ fun LoginScreen(
         LaunchedEffect(Unit) {
             scope.launch {
                 snackbarHostState.showSnackbar("${userState.entity.throwable?.message}")
-                resetErrorState()
             }
         }
     }
     if (userState is ResultState.Success) {
         if (userState.data != null) {
-            onLoginSuccess()
+            onLogInSuccess()
         }
     }
     Scaffold(
@@ -72,7 +71,9 @@ fun LoginScreen(
         ) {
             TextField(
                 value = email,
-                onValueChange = { email = it },
+                onValueChange = {
+                    setEmail(it)
+                },
                 label = { Text("email") },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -81,22 +82,38 @@ fun LoginScreen(
             )
             TextField(
                 value = password,
-                onValueChange = { password = it },
+                onValueChange = {
+                    setPassword(it)
+                },
                 label = { Text("password") },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
             )
-            TextButton(onClick = { onPasswordRecovery() }) {
-                Text("Забыли пароль?")
-            }
-            Button(onClick = { logInUser(email, password) }) {
-                Text("Вход")
+            TextField(
+                value = confirm,
+                onValueChange = {
+                    setConfirm(it)
+                },
+                label = { Text("confirm password") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+            )
+
+            Button(
+                enabled = isEnableButton,
+                onClick = { onRegisteredClick(email, password, email) }
+            ) {
+                Text("Зарегистрировать")
             }
 
-            Button(onClick = { registeredUser(email, password, email) }) {
-                Text("Регистрация")
+            Text(text = "Если у Вас есть аккаунт выполните вход")
+
+            TextButton(onClick = onSignInClick) {
+                Text(text = "Войти")
             }
         }
     }

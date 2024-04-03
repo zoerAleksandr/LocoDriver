@@ -2,7 +2,8 @@ package com.z_company.loco_driver.di
 
 import com.vk.id.VKID
 import com.z_company.loco_driver.viewmodel.MainViewModel
-import com.z_company.login.viewmodel.LoginViewModel
+import com.z_company.login.viewmodel.LogInViewModel
+import com.z_company.login.viewmodel.SignInViewModel
 import com.z_company.login.viewmodel.PasswordRecoveryViewModel
 import com.z_company.route.viewmodel.CreatePhotoViewModel
 import com.z_company.route.viewmodel.DetailsViewModel
@@ -23,7 +24,8 @@ val viewModelModule = module {
     viewModel { FormViewModel(get()) }
     viewModel { DetailsViewModel(get()) }
     viewModel { HomeViewModel() }
-    viewModel { LoginViewModel() }
+    viewModel { SignInViewModel() }
+    viewModel { LogInViewModel() }
     viewModel { PasswordRecoveryViewModel() }
     viewModel { SettingsViewModel() }
     viewModel { MainViewModel() }
