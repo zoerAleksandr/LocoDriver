@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -23,7 +22,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -175,23 +173,23 @@ fun UserScreenContent(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color.Red)
+                        .padding(16.dp)
                 ) {
                     Text(user.name)
                     Text(user.email)
-                    var email by remember {
+                    var name by remember {
                         mutableStateOf("")
                     }
                     OutlinedTextField(
                         modifier = Modifier
                             .padding(end = 8.dp)
                             .fillMaxWidth(0.5f),
-                        value = email,
+                        value = name,
                         onValueChange = {
-                            email = it
+                            name = it
                         },
                         label = {
-                            Text(text = "email", color = MaterialTheme.colorScheme.secondary)
+                            Text(text = "name", color = MaterialTheme.colorScheme.secondary)
                         },
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Email,
