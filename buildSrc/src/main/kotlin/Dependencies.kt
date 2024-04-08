@@ -26,6 +26,7 @@ import Versions.splash_screen_ver
 import Versions.test_ext_version
 import Versions.test_runner_version
 import Versions.vkid_ver
+import Versions.work_manager_version
 import org.gradle.api.JavaVersion
 
 object Plugins {
@@ -87,6 +88,7 @@ object Versions {
     const val splash_screen_ver = "1.0.1"
     const val vkid_ver = "1.3.2"
     const val parse_sdk_android_ver = "4.3.0"
+    const val work_manager_version = "2.9.0"
 }
 
 object Libs {
@@ -165,7 +167,7 @@ object Libs {
 
     const val parse_sdk_android = "com.github.parse-community.Parse-SDK-Android:parse:$parse_sdk_android_ver"
     const val parse_sdk_android_coroutine = "com.github.parse-community.Parse-SDK-Android:coroutines:$parse_sdk_android_ver"
-
+    const val work_manager = "androidx.work:work-runtime-ktx:$work_manager_version"
     //     Debug
     const val ui_tooling =
         "androidx.compose.ui:ui-tooling:$compose_ui_version"

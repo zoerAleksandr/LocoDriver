@@ -1,50 +1,38 @@
 package com.z_company.data_remote
 
-import com.parse.ParseObject
-import com.parse.ParseRelation
-import com.parse.coroutines.suspendSave
-import com.z_company.core.ResultState
+import android.content.Context
+import androidx.work.Constraints
+import androidx.work.Data
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import com.z_company.converter.BasicDataConverter
 import com.z_company.domain.entities.route.BasicData
-import com.z_company.domain.entities.route.Route
 import com.z_company.domain.repositories.RemoteRouteRepository
-import kotlinx.coroutines.flow.Flow
+import com.z_company.work_manager.SaveBasicDataWorker
 
+private const val SAVE_ROUTE_TAG = "SAVE_ROUTE_TAG"
+const val BASIC_DATA_INPUT = "BASIC_DATA_INPUT"
 
-private const val routeNameClassRemote = "Route"
-private const val basicDataNameClassRemote = "BasicData"
+class B4ARouteRepository(private val context: Context) : RemoteRouteRepository {
+    override fun saveBasicData(basicData: BasicData) {
+        val basicDataJSON = BasicDataConverter.toString(basicData)
 
-class B4ARouteRepository : RemoteRouteRepository {
-    override fun saveRoute(route: Route): Flow<ResultState<Unit>> {
-        val routeObject = ParseObject(routeNameClassRemote)
+        val inputData = Data.Builder()
+            .putString(BASIC_DATA_INPUT, basicDataJSON)
+            .build()
 
-//        val basicDataObject = ParseObject(basicDataNameClassRemote)
-//
-//        val relationBasicData: ParseRelation<ParseObject> =
-//            routeObject.getRelation("basicData")
-//        relationBasicData.add(basicDataObject)
+        val constraints = Constraints.Builder()
+            .setRequiresBatteryNotLow(true)
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
 
-        return ResultState.flowRequest {
-            routeObject.suspendSave()
-        }
-    }
+        val worker = OneTimeWorkRequestBuilder<SaveBasicDataWorker>()
+            .setInputData(inputData)
+            .addTag(SAVE_ROUTE_TAG)
+            .setConstraints(constraints)
+            .build()
 
-    override fun saveBasicData(basicData: BasicData): Flow<ResultState<Unit>> {
-        val basicDataObject = ParseObject(basicDataNameClassRemote)
-        basicData.number?.let { number ->
-            basicDataObject.put("number", number)
-        }
-        basicData.timeStartWork?.let { time ->
-            basicDataObject.put("timeStartWork", time)
-        }
-        basicData.timeEndWork?.let { time ->
-            basicDataObject.put("timeEndWork", time)
-        }
-        basicDataObject.put("restPointOfTurnover", basicData.restPointOfTurnover)
-        basicData.notes?.let { notes ->
-            basicDataObject.put("notes", notes)
-        }
-        return ResultState.flowRequest {
-            basicDataObject.suspendSave()
-        }
+        WorkManager.getInstance(context).enqueue(worker)
     }
 }

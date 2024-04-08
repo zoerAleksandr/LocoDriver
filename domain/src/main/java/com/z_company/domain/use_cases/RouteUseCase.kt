@@ -33,9 +33,7 @@ class RouteUseCase(
     }
 
     fun saveRoute(route: Route): Flow<ResultState<Unit>> {
-        remoteRepository.saveRoute(route).onEach {
-            print("result = $it")
-        }.launchIn(CoroutineScope(Dispatchers.IO))
+        remoteRepository.saveBasicData(route.basicData)
 
         return if (isRouteValid(route)) {
             repository.saveRoute(route)

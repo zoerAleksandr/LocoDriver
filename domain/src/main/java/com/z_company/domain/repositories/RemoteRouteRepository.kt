@@ -6,6 +6,5 @@ import com.z_company.domain.entities.route.Route
 import kotlinx.coroutines.flow.Flow
 
 interface RemoteRouteRepository {
-    fun saveRoute(route: Route): Flow<ResultState<Unit>>
-    fun saveBasicData(basicData: BasicData): Flow<ResultState<Unit>>
+    fun saveBasicData(basicData: BasicData)
 }

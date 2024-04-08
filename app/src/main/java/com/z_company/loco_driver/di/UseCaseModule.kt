@@ -1,7 +1,7 @@
 package com.z_company.loco_driver.di
 
-import com.z_company.data_remote.AuthUseCase
-import com.z_company.data_remote.LoginUseCase
+import com.z_company.use_case.AuthUseCase
+import com.z_company.use_case.LoginUseCase
 import com.z_company.domain.repositories.RemoteRouteRepository
 import com.z_company.domain.repositories.RouteRepository
 import com.z_company.domain.use_cases.RemoteRouteUseCase

@@ -27,5 +27,5 @@ val repositoryModule = module {
 
     single { DataStoreRepository(androidContext()) }
 
-    single<RemoteRouteRepository> { B4ARouteRepository() }
+    single<RemoteRouteRepository> { B4ARouteRepository(androidContext()) }
 }

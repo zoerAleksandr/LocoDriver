@@ -1,4 +1,4 @@
-package com.z_company.data_remote
+package com.z_company.use_case
 
 import com.parse.ParseUser
 import com.z_company.core.ResultState

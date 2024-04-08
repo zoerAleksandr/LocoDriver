@@ -38,6 +38,11 @@ dependencies {
     implementation(Libs.material)
     implementation(Libs.parse_sdk_android)
     implementation(Libs.parse_sdk_android_coroutine)
+    implementation(Libs.work_manager)
+    implementation(Libs.koin_core)
+    implementation(Libs.koin_android)
+    implementation(Libs.koin_androidx_compose)
+    implementation(Libs.gson)
     implementation(project(":domain"))
 
     testImplementation("junit:junit:4.13.2")
