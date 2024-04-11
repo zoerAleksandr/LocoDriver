@@ -10,6 +10,7 @@ import com.z_company.use_case.LoginUseCase
 import com.z_company.domain.entities.User
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.use_cases.CalendarUseCase
+import com.z_company.domain.use_cases.RemoteRouteUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,6 +23,7 @@ import org.koin.core.component.inject
 class SettingsViewModel : ViewModel(), KoinComponent {
     private val calendarUseCase: CalendarUseCase by inject()
     private val loginUseCase: LoginUseCase by inject()
+    private val remoteRouteUseCase: RemoteRouteUseCase by inject()
     private val dataStoreRepository: DataStoreRepository by inject()
 
 
@@ -118,5 +120,9 @@ class SettingsViewModel : ViewModel(), KoinComponent {
 
     fun logOut(){
         ParseUser.logOutInBackground()
+    }
+
+    fun onSync() {
+        remoteRouteUseCase.syncData()
     }
 }

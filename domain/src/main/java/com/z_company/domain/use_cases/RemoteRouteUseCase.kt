@@ -7,10 +7,13 @@ import com.z_company.domain.repositories.RemoteRouteRepository
 import kotlinx.coroutines.flow.Flow
 
 class RemoteRouteUseCase(val repository: RemoteRouteRepository) {
-    fun saveRoute(route: Route): Flow<ResultState<Unit>> {
-        return repository.saveRoute(route)
+    fun getAllBasicData(route: Route) {
+        return repository.getAllBasicData()
     }
-    fun saveBasicData(basicData: BasicData): Flow<ResultState<Unit>> {
-        return repository.saveBasicData(basicData)
+    fun saveBasicData(basicData: BasicData) {
+         repository.saveBasicData(basicData)
+    }
+    fun syncData() {
+        repository.syncData()
     }
 }

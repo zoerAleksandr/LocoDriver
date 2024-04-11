@@ -3,7 +3,6 @@ package com.z_company.domain.use_cases
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.route.Route
-import com.z_company.domain.repositories.RemoteRouteRepository
 import com.z_company.domain.repositories.RouteRepository
 import com.z_company.domain.util.moreThan
 import kotlinx.coroutines.flow.Flow
@@ -11,15 +10,8 @@ import kotlinx.coroutines.flow.flowOf
 import com.z_company.domain.util.minus
 import com.z_company.domain.util.div
 import com.z_company.domain.util.plus
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 
-class RouteUseCase(
-    private val repository: RouteRepository,
-    private val remoteRepository: RemoteRouteRepository
-) {
+class RouteUseCase(private val repository: RouteRepository) {
     fun listRoutes(): Flow<ResultState<List<Route>>> {
         return repository.loadRoutes()
     }
@@ -33,8 +25,6 @@ class RouteUseCase(
     }
 
     fun saveRoute(route: Route): Flow<ResultState<Unit>> {
-        remoteRepository.saveBasicData(route.basicData)
-
         return if (isRouteValid(route)) {
             repository.saveRoute(route)
         } else {
@@ -58,7 +48,7 @@ class RouteUseCase(
         return !startTime.moreThan(endTime)
     }
 
-    fun getMinRest(route: Route, minTimeRest: Long?): Long?{
+    fun getMinRest(route: Route, minTimeRest: Long?): Long? {
         return if (isTimeWorkValid(route)) {
             val startTime = route.basicData.timeStartWork
             val endTime = route.basicData.timeEndWork
@@ -76,7 +66,7 @@ class RouteUseCase(
         }
     }
 
-    fun fullRest(route: Route): Long?{
+    fun fullRest(route: Route): Long? {
         val startTime = route.basicData.timeStartWork
         val endTime = route.basicData.timeEndWork
         val timeResult = endTime - startTime

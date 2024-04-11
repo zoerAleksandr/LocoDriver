@@ -1,4 +1,4 @@
-package com.z_company.data_remote
+package com.z_company
 
 import com.parse.ParseUser
 import com.z_company.domain.entities.User

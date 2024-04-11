@@ -45,7 +45,8 @@ fun SettingsScreen(
     onSaveClick: () -> Unit,
     onSettingSaved: () -> Unit,
     minTimeRestChanged: (String) -> Unit,
-    onLogOut: () -> Unit
+    onLogOut: () -> Unit,
+    onSync: () -> Unit
 ) {
     Scaffold(topBar = {
         TopAppBar(navigationIcon = {
@@ -79,7 +80,8 @@ fun SettingsScreen(
                         currentSettings = currentSettings,
                         currentUser = currentUser,
                         minTimeRestChanged = minTimeRestChanged,
-                        onLogOut = onLogOut
+                        onLogOut = onLogOut,
+                        onSync = onSync
                     )
                 }
             }
@@ -95,7 +97,8 @@ fun ScreenContent(
     userDetail: ResultState<User?>,
     currentUser: User?,
     minTimeRestChanged: (String) -> Unit,
-    onLogOut: () -> Unit
+    onLogOut: () -> Unit,
+    onSync: () -> Unit
 ) {
     Column(modifier = modifier) {
         SettingScreenContent(
@@ -106,7 +109,8 @@ fun ScreenContent(
         UserScreenContent(
             userDetail = userDetail,
             currentUser = currentUser,
-            onLogOut = onLogOut
+            onLogOut = onLogOut,
+            onSync = onSync
         )
     }
 }
@@ -165,7 +169,8 @@ fun UserScreenContent(
     modifier: Modifier = Modifier,
     userDetail: ResultState<User?>,
     currentUser: User?,
-    onLogOut: () -> Unit
+    onLogOut: () -> Unit,
+    onSync: () -> Unit
 ) {
     Box(modifier = modifier.fillMaxWidth()) {
         AsyncData(resultState = userDetail) {
@@ -199,6 +204,9 @@ fun UserScreenContent(
                     )
                     Button(onClick = { onLogOut() }) {
                         Text("выйти")
+                    }
+                    Button(onClick = { onSync() }) {
+                        Text("sync")
                     }
                 }
             }

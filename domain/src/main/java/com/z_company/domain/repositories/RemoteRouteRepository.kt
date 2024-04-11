@@ -7,4 +7,6 @@ import kotlinx.coroutines.flow.Flow
 
 interface RemoteRouteRepository {
     fun saveBasicData(basicData: BasicData)
+    fun getAllBasicData()
+    fun syncData()
 }

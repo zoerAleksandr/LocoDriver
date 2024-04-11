@@ -1,11 +1,13 @@
 package com.z_company.data_local.route.entity_converters
 
 import com.z_company.domain.entities.route.BasicData
+import java.util.Date
 import com.z_company.data_local.route.entity.BasicData as BasicDataEntity
 
 internal object BasicDataConverter {
     fun fromData(basicData: BasicData) = BasicDataEntity(
         id = basicData.id,
+        updateAt = Date(),
         number = basicData.number,
         timeStartWork = basicData.timeStartWork,
         timeEndWork = basicData.timeEndWork,
@@ -15,6 +17,7 @@ internal object BasicDataConverter {
 
     fun toData(entity: BasicDataEntity) = BasicData(
         id = entity.id,
+        updateAt = entity.updateAt,
         number = entity.number,
         timeStartWork = entity.timeStartWork,
         timeEndWork = entity.timeEndWork,
