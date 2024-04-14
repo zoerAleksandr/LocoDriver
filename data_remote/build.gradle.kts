@@ -33,6 +33,8 @@ android {
 }
 
 dependencies {
+    implementation(project(Libs.project_domain))
+    implementation(project(Libs.project_core_android))
     implementation(Libs.core_ktx)
     implementation(Libs.app_compat)
     implementation(Libs.material)
@@ -43,7 +45,6 @@ dependencies {
     implementation(Libs.koin_android)
     implementation(Libs.koin_androidx_compose)
     implementation(Libs.gson)
-    implementation(project(":domain"))
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

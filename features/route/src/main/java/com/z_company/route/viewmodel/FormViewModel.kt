@@ -7,17 +7,20 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.data_local.setting.DataStoreRepository
+import com.z_company.data_remote.RemoteRouteUseCase
 import com.z_company.domain.entities.route.*
 import com.z_company.domain.use_cases.*
 import com.z_company.route.Const.NULLABLE_ID
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlin.properties.Delegates
 
 class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
+    private val remoteRouteUseCase: RemoteRouteUseCase by inject()
     private val locoUseCase: LocomotiveUseCase by inject()
     private val trainUseCase: TrainUseCase by inject()
     private val passengerUseCase: PassengerUseCase by inject()
@@ -94,6 +97,11 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
         val state = _uiState.value.routeDetailState
         if (state is ResultState.Success) {
             state.data?.let { route ->
+
+                viewModelScope.launch {
+                    remoteRouteUseCase.saveBasicData(route.basicData)
+                }
+
                 saveRouteJob?.cancel()
                 saveRouteJob = routeUseCase.saveRoute(route).onEach { saveRouteState ->
                     _uiState.update {
@@ -294,7 +302,7 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
         deletePassengerJob = passengerUseCase.removePassenger(passenger).launchIn(viewModelScope)
     }
 
-    fun onDeletePhoto(photo: Photo){
+    fun onDeletePhoto(photo: Photo) {
         deletePhotoJob?.cancel()
         deletePhotoJob = photoUseCase.removePhoto(photo).launchIn(viewModelScope)
     }

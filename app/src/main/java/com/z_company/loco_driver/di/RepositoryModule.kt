@@ -5,10 +5,10 @@ import com.z_company.data_local.route.RoomRouteRepository
 import com.z_company.data_local.setting.DataStoreRepository
 import com.z_company.data_local.setting.RoomCalendarRepository
 import com.z_company.data_remote.B4ARouteRepository
+import com.z_company.data_remote.RemoteRouteRepository
 import com.z_company.domain.repositories.CalendarStorage
 import com.z_company.domain.repositories.RouteRepository
 import com.z_company.domain.repositories.CalendarRepositories
-import com.z_company.domain.repositories.RemoteRouteRepository
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 

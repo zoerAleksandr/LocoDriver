@@ -10,13 +10,14 @@ import com.z_company.use_case.LoginUseCase
 import com.z_company.domain.entities.User
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.use_cases.CalendarUseCase
-import com.z_company.domain.use_cases.RemoteRouteUseCase
+import com.z_company.data_remote.RemoteRouteUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -118,11 +119,13 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         )
     }
 
-    fun logOut(){
+    fun logOut() {
         ParseUser.logOutInBackground()
     }
 
     fun onSync() {
-        remoteRouteUseCase.syncData()
+        viewModelScope.launch {
+            remoteRouteUseCase.syncData()
+        }
     }
 }

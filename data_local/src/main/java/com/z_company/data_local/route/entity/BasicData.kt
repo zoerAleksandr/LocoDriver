@@ -13,7 +13,8 @@ import java.util.Date
 internal data class BasicData(
     @PrimaryKey
     val id: String,
-    var updateAt: Date,
+    var synch: Boolean,
+    var updatedAt: Date,
     var number: String?,
     var timeStartWork: Long?,
     var timeEndWork: Long?,
