@@ -125,7 +125,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
 
     fun onSync() {
         viewModelScope.launch {
-            remoteRouteUseCase.syncData()
+            remoteRouteUseCase.getAllBasicData()
         }
     }
 }

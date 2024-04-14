@@ -1,8 +1,11 @@
 package com.z_company.data_remote
 
-import com.z_company.domain.entities.route.BasicData
+import androidx.work.Data
+import com.z_company.core.ResultState
+import com.z_company.entity.BasicData as BasicDataRemote
+import kotlinx.coroutines.flow.Flow
 
 interface RemoteRouteRepository {
-    suspend fun saveBasicData(basicData: BasicData)
-    suspend fun getAllBasicData()
+    suspend fun saveBasicData(basicData: BasicDataRemote, objectId: String): Flow<ResultState<Data>>
+    suspend fun getAllBasicData(): Flow<ResultState<List<BasicDataRemote>?>>
 }
