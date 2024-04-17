@@ -10,13 +10,13 @@ import com.parse.ParseQuery
 import com.parse.ParseUser
 import com.z_company.type_converter.BasicDataJSONConverter
 import com.z_company.entity.BasicData
-import com.z_company.work_manager.BasicDataFieldName.BASIC_DATA_NAME_CLASS_REMOTE
+import com.z_company.work_manager.BasicDataFieldName.BASIC_DATA_CLASS_NAME_REMOTE
 import com.z_company.work_manager.BasicDataFieldName.NOTES_FIELD_NAME
 import com.z_company.work_manager.BasicDataFieldName.NUMBER_FIELD_NAME
 import com.z_company.work_manager.BasicDataFieldName.REST_FIELD_NAME
 import com.z_company.work_manager.BasicDataFieldName.TIME_END_WORK_FIELD_NAME
 import com.z_company.work_manager.BasicDataFieldName.TIME_START_WORK_FIELD_NAME
-import com.z_company.work_manager.BasicDataFieldName.UID_FIELD_NAME
+import com.z_company.work_manager.BasicDataFieldName.BASIC_DATA_UID_FIELD_NAME
 import com.z_company.work_manager.BasicDataFieldName.USER_FIELD_NAME
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -28,23 +28,23 @@ class GetBasicDataListWorker(val context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params), KoinComponent {
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         try {
-            val parseQuery: ParseQuery<ParseObject> = ParseQuery(BASIC_DATA_NAME_CLASS_REMOTE)
+            val parseQuery: ParseQuery<ParseObject> = ParseQuery(BASIC_DATA_CLASS_NAME_REMOTE)
             parseQuery.whereEqualTo(USER_FIELD_NAME, ParseUser.getCurrentUser())
-            parseQuery.orderByDescending(UID_FIELD_NAME)
+            parseQuery.orderByDescending(BASIC_DATA_UID_FIELD_NAME)
             val remoteList = parseQuery.find()
             val basicDataList: MutableList<BasicData> = mutableListOf()
 
             remoteList.forEach { parseObject ->
                 var basicData = BasicData()
                 parseObject?.apply {
-                    getString(UID_FIELD_NAME)?.let { id ->
+                    getString(BASIC_DATA_UID_FIELD_NAME)?.let { id ->
                         basicData = basicData.copy(id = id)
                     }
                     getString(NUMBER_FIELD_NAME)?.let { number ->
                         basicData = basicData.copy(number = number)
                     }
                     basicData = basicData.copy(updatedAt = updatedAt)
-                    basicData = basicData.copy(objectId = objectId)
+                    basicData = basicData.copy(remoteObjectId = objectId)
                     getLong(TIME_START_WORK_FIELD_NAME).let { timeStart ->
                         basicData = basicData.copy(timeStartWork = timeStart)
                     }

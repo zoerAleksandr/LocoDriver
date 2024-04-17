@@ -60,8 +60,11 @@ internal interface RouteDao {
     @Query("SELECT * FROM BasicData WHERE id = :id")
     fun getRouteById(id: String): Flow<Route?>
     @Transaction
-    @Query("SELECT * FROM BasicData")
+    @Query("SELECT * FROM BasicData WHERE isDeleted = 0")
     fun getAllRoute(): Flow<List<Route>>
+    @Transaction
+    @Query("SELECT * FROM BasicData")
+    fun getAllRouteWithDeleting(): List<Route>
     @Transaction
     @Query("SELECT * FROM BasicData")
     fun getListItineraryByMonth(): Flow<List<Route>>
@@ -75,4 +78,6 @@ internal interface RouteDao {
     fun getPhotoById(photoId: String): Flow<Photo?>
     @Query("SELECT * FROM Photo WHERE basicId = :basicId")
     fun getPhotosByRoute(basicId: String): Flow<List<Photo>>
+    @Query("UPDATE BasicData SET isSynchronized = 1, remoteObjectId =:remoteObjectId WHERE id =:id")
+    fun isSynchronized(id: String, remoteObjectId: String)
 }

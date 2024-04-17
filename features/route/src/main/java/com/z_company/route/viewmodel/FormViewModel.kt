@@ -98,9 +98,9 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
         if (state is ResultState.Success) {
             state.data?.let { route ->
 
-                viewModelScope.launch {
-                    remoteRouteUseCase.saveBasicData(route.basicData)
-                }
+//                viewModelScope.launch {
+//                    remoteRouteUseCase.saveBasicData(route)
+//                }
 
                 saveRouteJob?.cancel()
                 saveRouteJob = routeUseCase.saveRoute(route).onEach { saveRouteState ->

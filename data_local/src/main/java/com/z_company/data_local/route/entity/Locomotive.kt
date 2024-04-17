@@ -34,7 +34,7 @@ internal data class Locomotive(
     val locoId: String,
     @NotNull
     @ColumnInfo(index = true)
-    val basicId: String,
+    var basicId: String,
     var series: String? = null,
     var number: String? = null,
     var type: LocoType = LocoType.ELECTRIC,

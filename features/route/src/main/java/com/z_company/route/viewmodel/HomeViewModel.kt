@@ -48,7 +48,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
     fun remove(route: Route) {
         removeRouteJob?.cancel()
-        removeRouteJob = routeUseCase.removeRoute(route).onEach { result ->
+        removeRouteJob = routeUseCase.markAsRemoved(route).onEach { result ->
             _uiState.update {
                 it.copy(removeRouteState = result)
             }

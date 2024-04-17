@@ -27,6 +27,12 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
         }
     }
 
+    override fun loadRoutesWithDeleting(): List<Route> {
+        return dao.getAllRouteWithDeleting().map {
+            RouteConverter.toData(it)
+        }
+    }
+
     override fun loadRoute(routeId: String): Flow<ResultState<Route?>> {
         return flowMap {
             dao.getRouteById(routeId).map { route ->
@@ -99,30 +105,42 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
 
     override fun saveRoute(route: Route): Flow<ResultState<Unit>> {
         return flowRequest {
+            var newRoute = RouteConverter.fromData(route)
             if (route.basicData.id.isBlank()) {
                 route.basicData.id = UUID.randomUUID().toString()
             }
-            route.locomotives.forEach {
+            newRoute.locomotives.forEach {
                 if (it.basicId.isBlank()) {
-                    it.basicId = route.basicData.id
+                    it.basicId = newRoute.basicData.id
                 }
             }
-            route.trains.forEach {
+            newRoute.trains.forEach {
                 if (it.basicId.isBlank()) {
-                    it.basicId = route.basicData.id
+                    it.basicId = newRoute.basicData.id
                 }
             }
-            route.passengers.forEach {
+            newRoute.passengers.forEach {
                 if (it.basicId.isBlank()) {
-                    it.basicId = route.basicData.id
+                    it.basicId = newRoute.basicData.id
                 }
             }
-            route.photos.forEach {
+            newRoute.photos.forEach {
                 if (it.basicId.isBlank()) {
-                    it.basicId = route.basicData.id
+                    it.basicId = newRoute.basicData.id
                 }
             }
-            dao.save(RouteConverter.fromData(route))
+            newRoute = newRoute.copy(
+                basicData = newRoute.basicData.copy(
+                    isSynchronized = false
+                )
+            )
+            dao.save(newRoute)
+        }
+    }
+
+    override fun isSynchronized(basicId: String, remoteObjectId: String): Flow<ResultState<Unit>> {
+        return flowRequest {
+            dao.isSynchronized(basicId, remoteObjectId)
         }
     }
 
@@ -189,6 +207,13 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
                 photo.photoId = UUID.randomUUID().toString()
             }
             dao.savePhoto(PhotoConverter.fromData(photo))
+        }
+    }
+
+    override fun markAsRemoved(route: Route): Flow<ResultState<Unit>> {
+        val newRoute = route.copy(basicData = route.basicData.copy(isDeleted = true))
+        return flowRequest {
+            dao.save(RouteConverter.fromData(newRoute))
         }
     }
 }

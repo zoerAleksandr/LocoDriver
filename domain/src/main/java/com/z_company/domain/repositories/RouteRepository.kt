@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface RouteRepository {
     fun loadRoutes(): Flow<ResultState<List<Route>>>
+    fun loadRoutesWithDeleting(): List<Route>
     fun loadRoute(routeId: String): Flow<ResultState<Route?>>
     fun loadLoco(locoId: String): Flow<ResultState<Locomotive?>>
     fun loadTrain(trainId: String): Flow<ResultState<Train?>>
@@ -22,8 +23,10 @@ interface RouteRepository {
     fun removePassenger(passenger: Passenger): Flow<ResultState<Unit>>
     fun removePhoto(photo: Photo): Flow<ResultState<Unit>>
     fun saveRoute(route: Route): Flow<ResultState<Unit>>
+    fun isSynchronized(basicId: String, remoteObjectId: String): Flow<ResultState<Unit>>
     fun saveLocomotive(locomotive: Locomotive): Flow<ResultState<Unit>>
     fun saveTrain(train: Train): Flow<ResultState<Unit>>
     fun savePassenger(passenger: Passenger): Flow<ResultState<Unit>>
     fun savePhoto(photo: Photo): Flow<ResultState<Unit>>
+    fun markAsRemoved(route: Route): Flow<ResultState<Unit>>
 }

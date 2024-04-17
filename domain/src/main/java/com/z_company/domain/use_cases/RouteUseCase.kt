@@ -16,12 +16,20 @@ class RouteUseCase(private val repository: RouteRepository) {
         return repository.loadRoutes()
     }
 
+    fun listRouteWithDeleting(): List<Route> {
+        return repository.loadRoutesWithDeleting()
+    }
+
     fun routeDetails(routeId: String): Flow<ResultState<Route?>> {
         return repository.loadRoute(routeId)
     }
 
     fun removeRoute(route: Route): Flow<ResultState<Unit>> {
         return repository.remove(route)
+    }
+
+    fun markAsRemoved(route: Route): Flow<ResultState<Unit>> {
+        return repository.markAsRemoved(route)
     }
 
     fun saveRoute(route: Route): Flow<ResultState<Unit>> {
@@ -34,6 +42,10 @@ class RouteUseCase(private val repository: RouteRepository) {
                 )
             )
         }
+    }
+
+    fun isSynchronizedRoute(basicId: String, remoteObjectId: String): Flow<ResultState<Unit>> {
+        return repository.isSynchronized(basicId, remoteObjectId)
     }
 
     private fun isRouteValid(route: Route): Boolean {

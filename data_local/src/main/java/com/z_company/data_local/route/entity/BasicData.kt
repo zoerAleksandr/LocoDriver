@@ -13,7 +13,9 @@ import java.util.Date
 internal data class BasicData(
     @PrimaryKey
     val id: String,
-    var synch: Boolean,
+    var isSynchronized: Boolean = false,
+    var remoteObjectId: String? = null,
+    var isDeleted: Boolean,
     var updatedAt: Date,
     var number: String?,
     var timeStartWork: Long?,

@@ -7,7 +7,9 @@ import com.z_company.data_local.route.entity.BasicData as BasicDataEntity
 internal object BasicDataConverter {
     fun fromData(basicData: BasicData) = BasicDataEntity(
         id = basicData.id,
-        synch = basicData.synch,
+        isSynchronized = basicData.isSynchronized,
+        isDeleted = basicData.isDeleted,
+        remoteObjectId = basicData.remoteObjectId,
         updatedAt = Date(),
         number = basicData.number,
         timeStartWork = basicData.timeStartWork,
@@ -18,7 +20,9 @@ internal object BasicDataConverter {
 
     fun toData(entity: BasicDataEntity) = BasicData(
         id = entity.id,
-        synch = entity.synch,
+        isSynchronized = entity.isSynchronized,
+        isDeleted = entity.isDeleted,
+        remoteObjectId = entity.remoteObjectId,
         updatedAt = entity.updatedAt,
         number = entity.number,
         timeStartWork = entity.timeStartWork,

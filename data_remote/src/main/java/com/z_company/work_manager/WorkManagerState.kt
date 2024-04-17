@@ -20,32 +20,26 @@ object WorkManagerState {
                     when (it.state) {
                         WorkInfo.State.SUCCEEDED -> {
                             it.outputData
-                            Log.d("ZZZ", "WorkInfo.State.SUCCEEDED")
                             emit(ResultState.Success(it.outputData))
                         }
 
                         WorkInfo.State.RUNNING -> {
-                            Log.d("ZZZ", "WorkInfo.State.RUNNING")
                             emit(ResultState.Loading)
                         }
 
                         WorkInfo.State.ENQUEUED -> {
-                            Log.d("ZZZ", "WorkInfo.State.ENQUEUED")
                             emit(ResultState.Loading)
                         }
 
                         WorkInfo.State.BLOCKED -> {
-                            Log.d("ZZZ", "WorkInfo.State.BLOCKED")
                             emit(ResultState.Error(ErrorEntity(message = "Work $workerId State.BLOCKED")))
                         }
 
                         WorkInfo.State.FAILED -> {
-                            Log.d("ZZZ", "WorkInfo.State.FAILED")
                             emit(ResultState.Error(ErrorEntity(message = "Work $workerId State.FAILED")))
                         }
 
                         WorkInfo.State.CANCELLED -> {
-                            Log.d("ZZZ", "WorkInfo.State.CANCELLED")
                             emit(ResultState.Error(ErrorEntity(message = "Work $workerId State.CANCELLED")))
                         }
                     }

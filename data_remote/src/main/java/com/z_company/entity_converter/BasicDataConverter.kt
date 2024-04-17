@@ -7,7 +7,8 @@ import java.util.Date
 object BasicDataConverter {
     fun fromData(basicData: BasicData) = BasicDataRemote(
         id = basicData.id,
-        synch = basicData.synch,
+        isSynchronized = basicData.isSynchronized,
+        remoteObjectId = basicData.remoteObjectId ?: "",
         updatedAt = Date(),
         number = basicData.number,
         timeStartWork = basicData.timeStartWork,
@@ -18,7 +19,8 @@ object BasicDataConverter {
 
     fun toData(entity: BasicDataRemote) = BasicData(
         id = entity.id,
-        synch = entity.synch,
+        isSynchronized = entity.isSynchronized,
+        remoteObjectId = entity.remoteObjectId,
         updatedAt = entity.updatedAt,
         number = entity.number,
         timeStartWork = entity.timeStartWork,

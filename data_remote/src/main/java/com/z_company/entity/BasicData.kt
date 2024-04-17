@@ -4,8 +4,8 @@ import java.util.Date
 
 data class BasicData(
     val id: String = "",
-    var synch: Boolean = false,
-    var objectId: String = "",
+    var isSynchronized: Boolean = false,
+    var remoteObjectId: String = "",
     var updatedAt: Date = Date(),
     var number: String? = null,
     var timeStartWork: Long? = null,
