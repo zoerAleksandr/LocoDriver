@@ -35,6 +35,7 @@ internal data class Locomotive(
     @NotNull
     @ColumnInfo(index = true)
     var basicId: String,
+    var removeObjectId: String,
     var series: String? = null,
     var number: String? = null,
     var type: LocoType = LocoType.ELECTRIC,

@@ -1,10 +1,10 @@
-package com.z_company.data_local.route.entity_converters
+package com.z_company.entity_converter
 
 import com.z_company.domain.entities.route.Locomotive
-import com.z_company.data_local.route.entity.Locomotive as LocomotiveEntity
+import com.z_company.entity.Locomotive as LocomotiveRemote
 
 internal object LocomotiveConverter {
-    fun fromData(locomotive: Locomotive) = LocomotiveEntity(
+    fun fromData(locomotive: Locomotive) = LocomotiveRemote(
         locoId = locomotive.locoId,
         basicId = locomotive.basicId,
         removeObjectId = locomotive.remoteObjectId ?: "",
@@ -20,7 +20,7 @@ internal object LocomotiveConverter {
     )
 
 
-    fun toData(entity: LocomotiveEntity) = Locomotive(
+    fun toData(entity: LocomotiveRemote) = Locomotive(
         locoId = entity.locoId,
         basicId = entity.basicId,
         remoteObjectId = entity.removeObjectId,
@@ -34,16 +34,4 @@ internal object LocomotiveConverter {
         timeStartOfDelivery = entity.timeStartOfDelivery,
         timeEndOfDelivery = entity.timeEndOfDelivery,
     )
-
-    fun fromDataList(list: List<Locomotive>): MutableList<LocomotiveEntity> {
-        return list.map {
-            fromData(it)
-        }.toMutableList()
-    }
-
-    fun toDataList(entityList: List<LocomotiveEntity>): MutableList<Locomotive> {
-        return entityList.map { section ->
-            toData(section)
-        }.toMutableList()
-    }
 }

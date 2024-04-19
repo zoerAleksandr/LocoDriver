@@ -44,8 +44,12 @@ class RouteUseCase(private val repository: RouteRepository) {
         }
     }
 
-    fun isSynchronizedRoute(basicId: String, remoteObjectId: String): Flow<ResultState<Unit>> {
-        return repository.isSynchronized(basicId, remoteObjectId)
+    fun isSynchronizedBasicData(basicId: String, remoteObjectId: String): Flow<ResultState<Unit>> {
+        return repository.isSynchronizedBasicData(basicId, remoteObjectId)
+    }
+
+    fun isSynchronizedLocomotive(locoId: String, remoteObjectId: String): Flow<ResultState<Unit>> {
+        return repository.isSynchronizedLocomotive(locoId, remoteObjectId)
     }
 
     private fun isRouteValid(route: Route): Boolean {

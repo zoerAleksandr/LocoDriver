@@ -32,13 +32,17 @@ class SynchronizedWorker(context: Context, params: WorkerParameters) :
                 route.basicData.remoteObjectId?.let { remoteId ->
                     remoteRepository.removeBasicData(remoteId)
                 }
+                route.locomotives.forEach { locomotive ->
+                    locomotive.remoteObjectId?.let { remoteId ->
+                        remoteRepository.removeLocomotive(remoteId)
+                    }
+                }
             }
             val notSynchronizedList = list.filter { route ->
                 !route.basicData.isSynchronized
             }
             notSynchronizedList.forEach { route ->
-                Log.d("ZZZ", "route $route")
-                remoteRepository.saveBasicData(BasicDataConverter.fromData(route.basicData))
+                remoteRepository.saveRoute(route)
             }
             return@withContext Result.success()
         } catch (e: Exception) {

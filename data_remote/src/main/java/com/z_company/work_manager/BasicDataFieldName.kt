@@ -14,8 +14,9 @@ object BasicDataFieldName {
 object LocomotiveFieldName {
     const val LOCOMOTIVE_CLASS_NAME_REMOTE = "Loco"
     const val LOCOMOTIVE_UID_FIELD_NAME = "uid"
+    const val LOCOMOTIVE_BASIC_ID_FIELD_NAME = "basicId"
     const val SERIES_FIELD_NAME = "series"
-    const val NUMBER_FIELD_NAME = "number"
+    const val LOCOMOTIVE_NUMBER_FIELD_NAME = "number"
     const val TYPE_FIELD_NAME = "type"
     const val ELECTRIC_SECTIONS_FIELD_NAME = "electricSections"
     const val DIESEL_SECTIONS_FIELD_NAME = "dieselSections"

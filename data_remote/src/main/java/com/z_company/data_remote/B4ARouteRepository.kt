@@ -3,43 +3,59 @@ package com.z_company.data_remote
 import android.content.Context
 import androidx.work.Constraints
 import androidx.work.Data
-import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.z_company.type_converter.BasicDataJSONConverter
 import com.z_company.core.ResultState
+import com.z_company.domain.entities.route.Route
 import com.z_company.entity.BasicData
+import com.z_company.entity.Locomotive
+import com.z_company.entity_converter.BasicDataConverter
+import com.z_company.entity_converter.LocomotiveConverter
+import com.z_company.type_converter.LocomotiveJSONConverter
 import com.z_company.work_manager.BASIC_DATA_INPUT_KEY
 import com.z_company.work_manager.GET_BASIC_DATA_WORKER_OUTPUT_KEY
 import com.z_company.work_manager.SaveBasicDataWorker
 import com.z_company.work_manager.GetBasicDataListWorker
-import com.z_company.work_manager.OBJECT_ID_INPUT_KEY
-import com.z_company.work_manager.REMOVE_OBJECT_ID_KEY
+import com.z_company.work_manager.LOCOMOTIVE_INPUT_KEY
+import com.z_company.work_manager.REMOVE_BASIC_DATA_OBJECT_ID_KEY
+import com.z_company.work_manager.REMOVE_LOCOMOTIVE_OBJECT_ID_KEY
 import com.z_company.work_manager.RemoveBasicDataWorker
+import com.z_company.work_manager.RemoveLocomotiveWorker
+import com.z_company.work_manager.SaveLocomotiveListWorker
 import com.z_company.work_manager.SynchronizedWorker
 import com.z_company.work_manager.WorkManagerState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import java.util.concurrent.TimeUnit
 
 private const val SAVE_ROUTE_WORKER_TAG = "SAVE_ROUTE_WORKER_TAG"
+private const val SAVE_LOCO_WORKER_TAG = "SAVE_LOCO_WORKER_TAG"
 private const val GET_ALL_DATA_WORKER_TAG = "SYNC_DATA_WORKER_TAG"
 private const val SYNC_DATA_WORKER_TAG = "SYNC_DATA_WORKER_TAG"
-private const val REMOVE_ROUTE_WORKER_TAG = "REMOVE_ROUTE_WORKER_TAG"
+private const val REMOVE_BASIC_DATA_WORKER_TAG = "REMOVE_BASIC_DATA_WORKER_TAG"
+private const val REMOVE_LOCOMOTIVE_WORKER_TAG = "REMOVE_LOCOMOTIVE_WORKER_TAG"
 
-/**
- * проверять время обновления последнего файла в remote и сравнивать со временем обновления
- * последнего файла local если время меньше записывать его в remote
- **/
 class B4ARouteRepository(private val context: Context) : RemoteRouteRepository {
-    override suspend fun saveBasicData(basicData: BasicData): Flow<ResultState<Data>> {
-        val basicDataJSON = BasicDataJSONConverter.toString(basicData)
+    override suspend fun saveRoute(route: Route): Flow<ResultState<Data>> {
+        val basicDataJSON = BasicDataJSONConverter.toString(
+            BasicDataConverter.fromData(route.basicData)
+        )
 
-        val inputData = Data.Builder()
-            .putString(OBJECT_ID_INPUT_KEY, basicData.remoteObjectId)
+        val locomotiveJSONList: Array<String> = Array(route.locomotives.size) { "0" }
+
+        route.locomotives.forEachIndexed { index, loco ->
+            locomotiveJSONList[index] = (LocomotiveJSONConverter.toString(
+                LocomotiveConverter.fromData(loco)
+            ))
+        }
+
+        val basicDataInput = Data.Builder()
             .putString(BASIC_DATA_INPUT_KEY, basicDataJSON)
+            .build()
+
+        val locomotiveInput = Data.Builder()
+            .putStringArray(LOCOMOTIVE_INPUT_KEY, locomotiveJSONList)
             .build()
 
         val constraints = Constraints.Builder()
@@ -48,12 +64,21 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository {
             .build()
 
         val worker = OneTimeWorkRequestBuilder<SaveBasicDataWorker>()
-            .setInputData(inputData)
+            .setInputData(basicDataInput)
             .addTag(SAVE_ROUTE_WORKER_TAG)
             .setConstraints(constraints)
             .build()
 
-        WorkManager.getInstance(context).enqueue(worker)
+        val locoWorker = OneTimeWorkRequestBuilder<SaveLocomotiveListWorker>()
+            .setInputData(locomotiveInput)
+            .addTag(SAVE_LOCO_WORKER_TAG)
+            .setConstraints(constraints)
+            .build()
+
+        WorkManager.getInstance(context)
+            .beginWith(worker)
+            .then(locoWorker)
+            .enqueue()
         return WorkManagerState.state(context, worker.id)
     }
 
@@ -95,7 +120,7 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository {
 
     override suspend fun removeBasicData(remoteObjectId: String): Flow<ResultState<Data>> {
         val inputData = Data.Builder()
-            .putString(REMOVE_OBJECT_ID_KEY, remoteObjectId)
+            .putString(REMOVE_BASIC_DATA_OBJECT_ID_KEY, remoteObjectId)
             .build()
 
         val constraints = Constraints.Builder()
@@ -105,7 +130,7 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository {
 
         val worker = OneTimeWorkRequestBuilder<RemoveBasicDataWorker>()
             .setInputData(inputData)
-            .addTag(REMOVE_ROUTE_WORKER_TAG)
+            .addTag(REMOVE_BASIC_DATA_WORKER_TAG)
             .setConstraints(constraints)
             .build()
         WorkManager.getInstance(context).enqueue(worker)
@@ -118,14 +143,55 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository {
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
-        val worker = PeriodicWorkRequestBuilder<SynchronizedWorker>(15, TimeUnit.MINUTES)
+//        val worker = PeriodicWorkRequestBuilder<SynchronizedWorker>(15, TimeUnit.MINUTES)
+//            .setConstraints(constraints)
+//            .addTag(SYNC_DATA_WORKER_TAG)
+//            .build()
+
+        val work = OneTimeWorkRequestBuilder<SynchronizedWorker>()
             .setConstraints(constraints)
             .addTag(SYNC_DATA_WORKER_TAG)
             .build()
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-            "periodicSynchronized",
-            ExistingPeriodicWorkPolicy.KEEP,
-            worker
-        )
+
+//
+//        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+//            "periodicSynchronized",
+//            ExistingPeriodicWorkPolicy.KEEP,
+//            worker
+//        )
+        WorkManager.getInstance(context).enqueue(work)
+    }
+
+    override suspend fun saveLocomotive(locomotive: Locomotive): Flow<ResultState<Data>> {
+        val constraints = Constraints.Builder()
+            .setRequiresBatteryNotLow(true)
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+
+        val workerSaveLoco = OneTimeWorkRequestBuilder<SaveLocomotiveListWorker>()
+            .setConstraints(constraints)
+            .addTag(SAVE_LOCO_WORKER_TAG)
+            .build()
+        WorkManager.getInstance(context).enqueue(workerSaveLoco)
+        return WorkManagerState.state(context, workerSaveLoco.id)
+    }
+
+    override suspend fun removeLocomotive(remoteObjectId: String): Flow<ResultState<Data>> {
+        val inputData = Data.Builder()
+            .putString(REMOVE_LOCOMOTIVE_OBJECT_ID_KEY, remoteObjectId)
+            .build()
+
+        val constraints = Constraints.Builder()
+            .setRequiresBatteryNotLow(true)
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+
+        val worker = OneTimeWorkRequestBuilder<RemoveLocomotiveWorker>()
+            .setInputData(inputData)
+            .addTag(REMOVE_LOCOMOTIVE_WORKER_TAG)
+            .setConstraints(constraints)
+            .build()
+        WorkManager.getInstance(context).enqueue(worker)
+        return WorkManagerState.state(context, worker.id)
     }
 }

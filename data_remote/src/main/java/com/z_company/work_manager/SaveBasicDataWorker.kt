@@ -1,11 +1,15 @@
 package com.z_company.work_manager
 
 import android.content.Context
+import android.util.Log
 import androidx.work.CoroutineWorker
+import androidx.work.Data
 import androidx.work.WorkerParameters
 import com.parse.ParseObject
 import com.parse.ParseRelation
 import com.parse.ParseUser
+import com.parse.coroutines.suspendSave
+import com.z_company.data_remote.RemoteRouteUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.type_converter.BasicDataJSONConverter
 import com.z_company.work_manager.BasicDataFieldName.BASIC_DATA_CLASS_NAME_REMOTE
@@ -19,28 +23,29 @@ import com.z_company.work_manager.BasicDataFieldName.USER_FIELD_NAME
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
 const val BASIC_DATA_INPUT_KEY = "BASIC_DATA_INPUT_KEY"
-const val OBJECT_ID_INPUT_KEY = "OBJECT_ID_INPUT_KEY"
+const val BASIC_DATA_OBJECT_ID_KEY = "BASIC_DATA_OBJECT_ID_KEY"
 
 class SaveBasicDataWorker(context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
+    private val remoteRouteUseCase: RemoteRouteUseCase by inject()
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val value = inputData.getString(BASIC_DATA_INPUT_KEY)
-        val objectId = inputData.getString(OBJECT_ID_INPUT_KEY) ?: ""
         val basicData = BasicDataJSONConverter.fromString(value!!)
 
         val basicDataObject = ParseObject(BASIC_DATA_CLASS_NAME_REMOTE)
-        if (objectId.isNotEmpty()) {
-            basicDataObject.objectId = objectId
+        if (basicData.remoteObjectId.isNotEmpty()) {
+            basicDataObject.objectId = basicData.remoteObjectId
         }
         try {
-            val userId = ParseUser.getCurrentUser()
-
+            val currentUser = ParseUser.getCurrentUser()
+            basicData.remoteObjectId
             basicDataObject.put(BASIC_DATA_UID_FIELD_NAME, basicData.id)
             basicData.number?.let { number ->
                 basicDataObject.put(NUMBER_FIELD_NAME, number)
@@ -56,15 +61,16 @@ class SaveBasicDataWorker(context: Context, params: WorkerParameters) :
                 basicDataObject.put(NOTES_FIELD_NAME, notes)
             }
             val relation: ParseRelation<ParseUser> = basicDataObject.getRelation(USER_FIELD_NAME)
-            relation.add(userId)
+            relation.add(currentUser)
 
-            basicDataObject.saveInBackground {
-                if (it == null) {
-                    routeUseCase.isSynchronizedRoute(basicData.id, basicDataObject.objectId)
-                        .launchIn(CoroutineScope(Dispatchers.IO))
-                }
-            }
-            return@withContext Result.success()
+            this.launch {
+                basicDataObject.suspendSave()
+            }.join()
+            routeUseCase.isSynchronizedBasicData(basicData.id, basicDataObject.objectId)
+                .launchIn(this)
+
+            val data = Data.Builder().putString(BASIC_DATA_OBJECT_ID_KEY, basicDataObject.objectId)
+            return@withContext Result.success(data.build())
         } catch (e: Exception) {
             return@withContext Result.retry()
         }

@@ -138,9 +138,21 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
         }
     }
 
-    override fun isSynchronized(basicId: String, remoteObjectId: String): Flow<ResultState<Unit>> {
+    override fun isSynchronizedBasicData(
+        basicId: String,
+        remoteObjectId: String
+    ): Flow<ResultState<Unit>> {
         return flowRequest {
-            dao.isSynchronized(basicId, remoteObjectId)
+            dao.isSynchronizedBasicData(basicId, remoteObjectId)
+        }
+    }
+
+    override fun isSynchronizedLocomotive(
+        locoId: String,
+        remoteObjectId: String
+    ): Flow<ResultState<Unit>> {
+        return flowRequest {
+            dao.isSynchronizedLocomotive(locoId, remoteObjectId)
         }
     }
 

@@ -5,6 +5,7 @@ import java.util.UUID
 data class Locomotive(
     var locoId: String = UUID.randomUUID().toString(),
     var basicId: String,
+    var remoteObjectId: String? = null,
     var series: String? = null,
     var number: String? = null,
     var type: LocoType = LocoType.ELECTRIC,
