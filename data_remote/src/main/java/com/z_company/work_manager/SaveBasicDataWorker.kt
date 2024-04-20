@@ -66,6 +66,7 @@ class SaveBasicDataWorker(context: Context, params: WorkerParameters) :
             this.launch {
                 basicDataObject.suspendSave()
             }.join()
+
             routeUseCase.isSynchronizedBasicData(basicData.id, basicDataObject.objectId)
                 .launchIn(this)
 

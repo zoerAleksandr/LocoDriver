@@ -44,6 +44,8 @@ class SynchronizedWorker(context: Context, params: WorkerParameters) :
             notSynchronizedList.forEach { route ->
                 remoteRepository.saveRoute(route)
             }
+            // присвоение remoteObjectId сразу после сохранения в workManager
+            // установка маркера isSynchronized после успешного завершения сохранения всей цепочки
             return@withContext Result.success()
         } catch (e: Exception) {
             Log.d("ZZZ", "ex sync = ${e.message}")
