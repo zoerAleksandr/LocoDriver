@@ -1,6 +1,9 @@
 package com.z_company.data_remote
 
 import android.content.Context
+import android.content.ContextWrapper
+import android.util.Log
+import androidx.lifecycle.LifecycleOwner
 import androidx.work.Constraints
 import androidx.work.Data
 import androidx.work.NetworkType
@@ -9,6 +12,7 @@ import androidx.work.WorkManager
 import com.z_company.type_converter.BasicDataJSONConverter
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.entity.BasicData
 import com.z_company.entity.Locomotive
 import com.z_company.entity_converter.BasicDataConverter
@@ -26,8 +30,14 @@ import com.z_company.work_manager.RemoveLocomotiveWorker
 import com.z_company.work_manager.SaveLocomotiveListWorker
 import com.z_company.work_manager.SynchronizedWorker
 import com.z_company.work_manager.WorkManagerState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.launch
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 private const val SAVE_ROUTE_WORKER_TAG = "SAVE_ROUTE_WORKER_TAG"
 private const val SAVE_LOCO_WORKER_TAG = "SAVE_LOCO_WORKER_TAG"
@@ -36,7 +46,8 @@ private const val SYNC_DATA_WORKER_TAG = "SYNC_DATA_WORKER_TAG"
 private const val REMOVE_BASIC_DATA_WORKER_TAG = "REMOVE_BASIC_DATA_WORKER_TAG"
 private const val REMOVE_LOCOMOTIVE_WORKER_TAG = "REMOVE_LOCOMOTIVE_WORKER_TAG"
 
-class B4ARouteRepository(private val context: Context) : RemoteRouteRepository {
+class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, KoinComponent {
+    private val routeUseCase: RouteUseCase by inject()
     override suspend fun saveRoute(route: Route): Flow<ResultState<Data>> {
         val basicDataJSON = BasicDataJSONConverter.toString(
             BasicDataConverter.fromData(route.basicData)
@@ -63,7 +74,7 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository {
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
-        val worker = OneTimeWorkRequestBuilder<SaveBasicDataWorker>()
+        val basicDataWorker = OneTimeWorkRequestBuilder<SaveBasicDataWorker>()
             .setInputData(basicDataInput)
             .addTag(SAVE_ROUTE_WORKER_TAG)
             .setConstraints(constraints)
@@ -75,11 +86,22 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository {
             .setConstraints(constraints)
             .build()
 
-        WorkManager.getInstance(context)
-            .beginWith(worker)
+        val workChain = WorkManager.getInstance(context)
+            .beginWith(basicDataWorker)
             .then(locoWorker)
-            .enqueue()
-        return WorkManagerState.state(context, worker.id)
+
+        workChain.enqueue()
+
+        val worksList = listOf(basicDataWorker.id, locoWorker.id)
+
+        WorkManagerState.listState(context, worksList, basicDataWorker.id).collect { result ->
+            if (result is ResultState.Success) {
+                routeUseCase.isSynchronizedBasicData(result.data)
+                    .launchIn(CoroutineScope(Dispatchers.IO))
+            }
+        }
+
+        return WorkManagerState.state(context, basicDataWorker.id)
     }
 
     override suspend fun getAllBasicData(): Flow<ResultState<List<BasicData>?>> {
@@ -193,5 +215,18 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository {
             .build()
         WorkManager.getInstance(context).enqueue(worker)
         return WorkManagerState.state(context, worker.id)
+    }
+}
+
+fun Context.lifecycleOwner(): LifecycleOwner? {
+    var curContext = this
+    var maxDepth = 20
+    while (maxDepth-- > 0 && curContext !is LifecycleOwner) {
+        curContext = (curContext as ContextWrapper).baseContext
+    }
+    return if (curContext is LifecycleOwner) {
+        curContext as LifecycleOwner
+    } else {
+        null
     }
 }

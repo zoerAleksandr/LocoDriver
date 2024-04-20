@@ -44,12 +44,22 @@ class RouteUseCase(private val repository: RouteRepository) {
         }
     }
 
-    fun isSynchronizedBasicData(basicId: String, remoteObjectId: String): Flow<ResultState<Unit>> {
-        return repository.isSynchronizedBasicData(basicId, remoteObjectId)
+    fun isSynchronizedBasicData(basicId: String): Flow<ResultState<Unit>> {
+        return repository.isSynchronizedBasicData(basicId)
     }
 
-    fun isSynchronizedLocomotive(locoId: String, remoteObjectId: String): Flow<ResultState<Unit>> {
-        return repository.isSynchronizedLocomotive(locoId, remoteObjectId)
+    fun setRemoteObjectIdBasicData(
+        basicId: String,
+        remoteObjectId: String
+    ): Flow<ResultState<Unit>> {
+        return repository.setRemoteObjectIdBasicData(basicId, remoteObjectId)
+    }
+
+    fun setRemoteObjectIdLocomotive(
+        locoId: String,
+        remoteObjectId: String
+    ): Flow<ResultState<Unit>> {
+        return repository.setRemoteObjectIdLocomotive(locoId, remoteObjectId)
     }
 
     private fun isRouteValid(route: Route): Boolean {

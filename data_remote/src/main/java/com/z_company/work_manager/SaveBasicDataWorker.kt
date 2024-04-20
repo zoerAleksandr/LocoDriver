@@ -67,7 +67,7 @@ class SaveBasicDataWorker(context: Context, params: WorkerParameters) :
                 basicDataObject.suspendSave()
             }.join()
 
-            routeUseCase.isSynchronizedBasicData(basicData.id, basicDataObject.objectId)
+            routeUseCase.setRemoteObjectIdBasicData(basicData.id, basicDataObject.objectId)
                 .launchIn(this)
 
             val data = Data.Builder().putString(BASIC_DATA_OBJECT_ID_KEY, basicDataObject.objectId)

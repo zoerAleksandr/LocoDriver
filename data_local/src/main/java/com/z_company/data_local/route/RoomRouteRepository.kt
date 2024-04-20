@@ -138,21 +138,21 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
         }
     }
 
-    override fun isSynchronizedBasicData(
+    override fun setRemoteObjectIdBasicData(
         basicId: String,
         remoteObjectId: String
     ): Flow<ResultState<Unit>> {
         return flowRequest {
-            dao.isSynchronizedBasicData(basicId, remoteObjectId)
+            dao.setRemoteObjectIdBasicData(basicId, remoteObjectId)
         }
     }
 
-    override fun isSynchronizedLocomotive(
+    override fun setRemoteObjectIdLocomotive(
         locoId: String,
         remoteObjectId: String
     ): Flow<ResultState<Unit>> {
         return flowRequest {
-            dao.isSynchronizedLocomotive(locoId, remoteObjectId)
+            dao.setRemoteObjectIdLocomotive(locoId, remoteObjectId)
         }
     }
 
@@ -226,6 +226,12 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
         val newRoute = route.copy(basicData = route.basicData.copy(isDeleted = true))
         return flowRequest {
             dao.save(RouteConverter.fromData(newRoute))
+        }
+    }
+
+    override fun isSynchronizedBasicData(basicId: String): Flow<ResultState<Unit>> {
+        return flowRequest {
+            dao.isSynchronizedRoute(basicId)
         }
     }
 }

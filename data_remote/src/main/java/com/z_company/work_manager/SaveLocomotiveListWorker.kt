@@ -101,7 +101,7 @@ class SaveLocomotiveListWorker(context: Context, params: WorkerParameters) :
                 this.launch {
                     locomotiveObject.suspendSave()
                 }.join()
-                routeUseCase.isSynchronizedLocomotive(locomotive.locoId, locomotiveObject.objectId)
+                routeUseCase.setRemoteObjectIdLocomotive(locomotive.locoId, locomotiveObject.objectId)
                     .launchIn(this)
             }
             return@withContext Result.success()
