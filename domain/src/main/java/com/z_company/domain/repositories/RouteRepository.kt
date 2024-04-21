@@ -25,6 +25,7 @@ interface RouteRepository {
     fun saveRoute(route: Route): Flow<ResultState<Unit>>
     fun setRemoteObjectIdBasicData(basicId: String, remoteObjectId: String): Flow<ResultState<Unit>>
     fun setRemoteObjectIdLocomotive(locoId: String, remoteObjectId: String): Flow<ResultState<Unit>>
+    fun setRemoteObjectIdTrain(trainId: String, remoteObjectId: String): Flow<ResultState<Unit>>
     fun saveLocomotive(locomotive: Locomotive): Flow<ResultState<Unit>>
     fun saveTrain(train: Train): Flow<ResultState<Unit>>
     fun savePassenger(passenger: Passenger): Flow<ResultState<Unit>>

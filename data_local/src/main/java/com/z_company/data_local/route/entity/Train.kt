@@ -25,6 +25,7 @@ internal data class Train(
     var trainId: String,
     @ColumnInfo(index = true)
     var basicId: String,
+    var remoteObjectId: String = "",
     var number: String?,
     var weight: String?,
     var axle: String?,

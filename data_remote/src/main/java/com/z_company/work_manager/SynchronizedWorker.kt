@@ -6,8 +6,6 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.z_company.data_remote.RemoteRouteRepository
 import com.z_company.domain.use_cases.RouteUseCase
-import com.z_company.entity_converter.BasicDataConverter
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.withContext

@@ -26,3 +26,15 @@ object LocomotiveFieldName {
     const val TIME_END_DELIVERY_FIELD_NAME = "timeEndOfDelivery"
     const val BASIC_DATA_FIELD_NAME = "basicData"
 }
+
+object TrainFieldName {
+    const val TRAIN_CLASS_NAME_REMOTE = "Train"
+    const val TRAIN_ID_FIELD_NAME = "trainId"
+    const val TRAIN_BASIC_ID_FIELD_NAME = "basicId"
+    const val TRAIN_NUMBER_FIELD_NAME = "number"
+    const val WEIGHT_FIELD_NAME = "weight"
+    const val AXLE_FIELD_NAME = "axle"
+    const val LENGTH_FIELD_NAME = "conditionalLength"
+    const val STATIONS_FIELD_NAME = "stations"
+    const val BASIC_DATA_FIELD_NAME = "basicData"
+}

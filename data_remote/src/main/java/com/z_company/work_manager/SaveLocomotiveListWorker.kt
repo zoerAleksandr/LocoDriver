@@ -50,6 +50,7 @@ class SaveLocomotiveListWorker(context: Context, params: WorkerParameters) :
             value?.forEach { locomotiveJSON ->
                 val locomotiveObject = ParseObject(LOCOMOTIVE_CLASS_NAME_REMOTE)
                 val locomotive = LocomotiveJSONConverter.fromString(locomotiveJSON)
+                Log.d("ZZZ", "id in locomotiveObject 1 ${locomotiveObject.objectId}")
 
                 if (locomotive.removeObjectId.isNotEmpty()) {
                     locomotiveObject.objectId = locomotive.removeObjectId
@@ -98,6 +99,7 @@ class SaveLocomotiveListWorker(context: Context, params: WorkerParameters) :
                 val basicDataRelation: ParseRelation<ParseObject> =
                     locomotiveObject.getRelation(BASIC_DATA_FIELD_NAME)
                 basicDataRelation.add(basicDataObject)
+
                 this.launch {
                     locomotiveObject.suspendSave()
                 }.join()

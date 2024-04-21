@@ -16,6 +16,8 @@ import com.z_company.entity.BasicData
 import com.z_company.entity.Locomotive
 import com.z_company.entity_converter.BasicDataConverter
 import com.z_company.entity_converter.LocomotiveConverter
+import com.z_company.entity_converter.TrainConverter
+import com.z_company.entity_converter.TrainJSONConverter
 import com.z_company.type_converter.LocomotiveJSONConverter
 import com.z_company.work_manager.BASIC_DATA_INPUT_KEY
 import com.z_company.work_manager.GET_BASIC_DATA_WORKER_OUTPUT_KEY
@@ -27,7 +29,9 @@ import com.z_company.work_manager.REMOVE_LOCOMOTIVE_OBJECT_ID_KEY
 import com.z_company.work_manager.RemoveBasicDataWorker
 import com.z_company.work_manager.RemoveLocomotiveWorker
 import com.z_company.work_manager.SaveLocomotiveListWorker
+import com.z_company.work_manager.SaveTrainListWorker
 import com.z_company.work_manager.SynchronizedWorker
+import com.z_company.work_manager.TRAINS_INPUT_KEY
 import com.z_company.work_manager.WorkManagerState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -41,6 +45,8 @@ import java.util.concurrent.TimeUnit
 
 private const val SAVE_ROUTE_WORKER_TAG = "SAVE_ROUTE_WORKER_TAG"
 private const val SAVE_LOCO_WORKER_TAG = "SAVE_LOCO_WORKER_TAG"
+private const val SAVE_TRAIN_WORKER_TAG = "SAVE_TRAIN_WORKER_TAG"
+
 private const val GET_ALL_DATA_WORKER_TAG = "SYNC_DATA_WORKER_TAG"
 private const val SYNC_DATA_WORKER_TAG = "SYNC_DATA_WORKER_TAG"
 private const val REMOVE_BASIC_DATA_WORKER_TAG = "REMOVE_BASIC_DATA_WORKER_TAG"
@@ -53,12 +59,18 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
             BasicDataConverter.fromData(route.basicData)
         )
 
-        val locomotiveJSONList: Array<String> = Array(route.locomotives.size) { "0" }
-
+        val locomotiveJSONList: Array<String> = Array(route.locomotives.size) {""}
         route.locomotives.forEachIndexed { index, loco ->
-            locomotiveJSONList[index] = (LocomotiveJSONConverter.toString(
+            locomotiveJSONList[index] = LocomotiveJSONConverter.toString(
                 LocomotiveConverter.fromData(loco)
-            ))
+            )
+        }
+
+        val trainJSONList: Array<String> = Array(route.trains.size) {""}
+        route.trains.forEachIndexed { index, train ->
+            trainJSONList[index] = TrainJSONConverter.toString(
+                TrainConverter.toRemote(train)
+            )
         }
 
         val basicDataInput = Data.Builder()
@@ -67,6 +79,10 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
 
         val locomotiveInput = Data.Builder()
             .putStringArray(LOCOMOTIVE_INPUT_KEY, locomotiveJSONList)
+            .build()
+
+        val trainInput = Data.Builder()
+            .putStringArray(TRAINS_INPUT_KEY, trainJSONList)
             .build()
 
         val constraints = Constraints.Builder()
@@ -86,13 +102,20 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
             .setConstraints(constraints)
             .build()
 
+        val trainWorker = OneTimeWorkRequestBuilder<SaveTrainListWorker>()
+            .setInputData(trainInput)
+            .addTag(SAVE_TRAIN_WORKER_TAG)
+            .setConstraints(constraints)
+            .build()
+
         val workChain = WorkManager.getInstance(context)
             .beginWith(basicDataWorker)
-            .then(locoWorker)
+            .then(listOf(locoWorker, trainWorker))
 
         workChain.enqueue()
 
-        val worksList = listOf(basicDataWorker.id, locoWorker.id)
+        val worksList = listOf(basicDataWorker.id, locoWorker.id, trainWorker.id)
+
         CoroutineScope(Dispatchers.IO).launch {
             WorkManagerState.listState(context, worksList, basicDataWorker.id).collect { result ->
                 if (result is ResultState.Success) {
@@ -166,21 +189,26 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
-        val worker = PeriodicWorkRequestBuilder<SynchronizedWorker>(
-            15,
-            TimeUnit.MINUTES,
-            )
-//            .setInitialDelay(15, TimeUnit.MINUTES)
+        val w = OneTimeWorkRequestBuilder<SynchronizedWorker>()
             .setConstraints(constraints)
             .addTag(SYNC_DATA_WORKER_TAG)
             .build()
+        WorkManager.getInstance(context).enqueue(w)
 
+//        val worker = PeriodicWorkRequestBuilder<SynchronizedWorker>(
+//            15,
+//            TimeUnit.MINUTES,
+//            )
+//            .setInitialDelay(15, TimeUnit.MINUTES)
+//            .setConstraints(constraints)
+//            .addTag(SYNC_DATA_WORKER_TAG)
+//            .build()
 
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-            "periodicSynchronized",
-            ExistingPeriodicWorkPolicy.KEEP,
-            worker
-        )
+//        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+//            "periodicSynchronized",
+//            ExistingPeriodicWorkPolicy.KEEP,
+//            worker
+//        )
 
     }
 
@@ -215,5 +243,9 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
             .build()
         WorkManager.getInstance(context).enqueue(worker)
         return WorkManagerState.state(context, worker.id)
+    }
+
+    override suspend fun remoteTrain(remoteObjectId: String): Flow<ResultState<Data>> {
+         return
     }
 }
