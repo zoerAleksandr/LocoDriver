@@ -1,13 +1,12 @@
 package com.z_company.data_remote
 
 import android.content.Context
-import android.content.ContextWrapper
-import android.util.Log
-import androidx.lifecycle.LifecycleOwner
 import androidx.work.Constraints
 import androidx.work.Data
+import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.z_company.type_converter.BasicDataJSONConverter
 import com.z_company.core.ResultState
@@ -38,6 +37,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import java.util.concurrent.TimeUnit
 
 private const val SAVE_ROUTE_WORKER_TAG = "SAVE_ROUTE_WORKER_TAG"
 private const val SAVE_LOCO_WORKER_TAG = "SAVE_LOCO_WORKER_TAG"
@@ -93,11 +93,12 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
         workChain.enqueue()
 
         val worksList = listOf(basicDataWorker.id, locoWorker.id)
-
-        WorkManagerState.listState(context, worksList, basicDataWorker.id).collect { result ->
-            if (result is ResultState.Success) {
-                routeUseCase.isSynchronizedBasicData(result.data)
-                    .launchIn(CoroutineScope(Dispatchers.IO))
+        CoroutineScope(Dispatchers.IO).launch {
+            WorkManagerState.listState(context, worksList, basicDataWorker.id).collect { result ->
+                if (result is ResultState.Success) {
+                    routeUseCase.isSynchronizedBasicData(result.data)
+                        .launchIn(this)
+                }
             }
         }
 
@@ -165,23 +166,22 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
-//        val worker = PeriodicWorkRequestBuilder<SynchronizedWorker>(15, TimeUnit.MINUTES)
-//            .setConstraints(constraints)
-//            .addTag(SYNC_DATA_WORKER_TAG)
-//            .build()
-
-        val work = OneTimeWorkRequestBuilder<SynchronizedWorker>()
+        val worker = PeriodicWorkRequestBuilder<SynchronizedWorker>(
+            15,
+            TimeUnit.MINUTES,
+            )
+//            .setInitialDelay(15, TimeUnit.MINUTES)
             .setConstraints(constraints)
             .addTag(SYNC_DATA_WORKER_TAG)
             .build()
 
-//
-//        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-//            "periodicSynchronized",
-//            ExistingPeriodicWorkPolicy.KEEP,
-//            worker
-//        )
-        WorkManager.getInstance(context).enqueue(work)
+
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            "periodicSynchronized",
+            ExistingPeriodicWorkPolicy.KEEP,
+            worker
+        )
+
     }
 
     override suspend fun saveLocomotive(locomotive: Locomotive): Flow<ResultState<Data>> {
@@ -215,18 +215,5 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
             .build()
         WorkManager.getInstance(context).enqueue(worker)
         return WorkManagerState.state(context, worker.id)
-    }
-}
-
-fun Context.lifecycleOwner(): LifecycleOwner? {
-    var curContext = this
-    var maxDepth = 20
-    while (maxDepth-- > 0 && curContext !is LifecycleOwner) {
-        curContext = (curContext as ContextWrapper).baseContext
-    }
-    return if (curContext is LifecycleOwner) {
-        curContext as LifecycleOwner
-    } else {
-        null
     }
 }
