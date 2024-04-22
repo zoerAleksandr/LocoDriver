@@ -14,10 +14,10 @@ class RemoveLocomotiveWorker(context: Context, parameters: WorkerParameters) :
     CoroutineWorker(context, parameters) {
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         try {
-            val basicDataObject = ParseObject(LOCOMOTIVE_CLASS_NAME_REMOTE)
+            val locomotiveObject = ParseObject(LOCOMOTIVE_CLASS_NAME_REMOTE)
             val data = inputData.getString(REMOVE_LOCOMOTIVE_OBJECT_ID_KEY)
-            basicDataObject.objectId = data
-            basicDataObject.deleteInBackground()
+            locomotiveObject.objectId = data
+            locomotiveObject.deleteInBackground()
             return@withContext Result.success()
         } catch (e: Exception) {
             Log.d("ZZZ", "ex sync = ${e.message}")

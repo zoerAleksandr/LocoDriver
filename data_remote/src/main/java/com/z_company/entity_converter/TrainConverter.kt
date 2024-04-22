@@ -7,6 +7,7 @@ object TrainConverter {
     fun toRemote(train: Train) = TrainRemote(
         trainId = train.trainId,
         basicId = train.basicId,
+        remoteObjectId = train.remoteObjectId ?: "",
         number = train.number,
         weight = train.weight,
         axle = train.axle,
@@ -17,6 +18,7 @@ object TrainConverter {
     fun fromRemote(trainRemote: TrainRemote) = Train(
         trainId = trainRemote.trainId,
         basicId = trainRemote.basicId,
+        remoteObjectId = trainRemote.remoteObjectId,
         number = trainRemote.number,
         weight = trainRemote.weight,
         axle = trainRemote.axle,

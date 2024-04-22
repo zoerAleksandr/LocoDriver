@@ -5,6 +5,7 @@ import java.util.UUID
 data class Train(
     var trainId: String = UUID.randomUUID().toString(),
     var basicId: String = "",
+    var remoteObjectId: String? = null,
     var number: String? = null,
     var weight: String? = null,
     var axle: String? = null,

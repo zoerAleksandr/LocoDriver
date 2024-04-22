@@ -7,6 +7,7 @@ internal object TrainConverter {
     fun fromData(train: Train) = TrainEntity(
         trainId = train.trainId,
         basicId = train.basicId,
+        remoteObjectId = train.remoteObjectId ?: "",
         number = train.number,
         weight = train.weight,
         axle = train.axle,
@@ -17,6 +18,7 @@ internal object TrainConverter {
     fun toData(entity: TrainEntity) = Train(
         trainId = entity.trainId,
         basicId = entity.basicId,
+        remoteObjectId = entity.remoteObjectId,
         number = entity.number,
         weight = entity.weight,
         axle = entity.axle,

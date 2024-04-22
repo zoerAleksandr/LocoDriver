@@ -39,7 +39,6 @@ class SaveTrainListWorker(context: Context, parameters: WorkerParameters) :
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         try {
             val basicDataObjectId = inputData.getString(BASIC_DATA_OBJECT_ID_KEY)
-            Log.d("ZZZ", "basicDataObjectId = ${basicDataObjectId}")
             val basicDataObject = ParseObject(BASIC_DATA_CLASS_NAME_REMOTE)
             basicDataObject.objectId = basicDataObjectId
             val value = inputData.getStringArray(TRAINS_INPUT_KEY)
