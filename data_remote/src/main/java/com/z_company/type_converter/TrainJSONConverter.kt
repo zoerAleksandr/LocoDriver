@@ -1,4 +1,4 @@
-package com.z_company.entity_converter
+package com.z_company.type_converter
 
 import com.google.gson.Gson
 import com.z_company.entity.Train

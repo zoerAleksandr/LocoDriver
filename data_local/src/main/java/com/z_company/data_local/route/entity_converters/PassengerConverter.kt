@@ -7,6 +7,7 @@ internal object PassengerConverter {
     fun fromData(passenger: Passenger) = PassengerEntity(
         passengerId = passenger.passengerId,
         basicId = passenger.basicId,
+        remoteObjectId = passenger.remoteObjectId,
         trainNumber = passenger.trainNumber,
         stationDeparture = passenger.stationDeparture,
         stationArrival = passenger.stationArrival,
@@ -18,6 +19,7 @@ internal object PassengerConverter {
     fun toData(entity: PassengerEntity) = Passenger(
         passengerId = entity.passengerId,
         basicId = entity.basicId,
+        remoteObjectId = entity.remoteObjectId,
         trainNumber = entity.trainNumber,
         stationDeparture = entity.stationDeparture,
         stationArrival = entity.stationArrival,

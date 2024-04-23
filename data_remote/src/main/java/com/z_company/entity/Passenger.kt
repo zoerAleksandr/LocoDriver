@@ -1,10 +1,8 @@
-package com.z_company.domain.entities.route
-
-import java.util.UUID
+package com.z_company.entity
 
 data class Passenger(
-    var passengerId: String = UUID.randomUUID().toString(),
-    var basicId: String = "",
+    var passengerId: String,
+    var basicId: String,
     var remoteObjectId: String? = null,
     var trainNumber: String? = null,
     var stationDeparture: String? = null,

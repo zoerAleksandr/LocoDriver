@@ -165,6 +165,15 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
         }
     }
 
+    override fun setRemoteObjectIdPassenger(
+        passengerId: String,
+        objectId: String
+    ): Flow<ResultState<Unit>> {
+        return flowRequest {
+            dao.setRemoteObjectIdPassenger(passengerId, objectId)
+        }
+    }
+
     override fun remove(route: Route): Flow<ResultState<Unit>> {
         return flowRequest {
             dao.delete(RouteConverter.fromData(route))

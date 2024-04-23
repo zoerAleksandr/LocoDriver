@@ -40,6 +40,11 @@ class SynchronizedWorker(context: Context, params: WorkerParameters) :
                         remoteRepository.removeTrain(remoteId)
                     }
                 }
+                route.passengers.forEach{ passenger ->
+                    passenger.remoteObjectId?.let { remoteId ->
+                        remoteRepository.removePassenger(remoteId)
+                    }
+                }
             }
             val notSynchronizedList = list.filter { route ->
                 !route.basicData.isSynchronized

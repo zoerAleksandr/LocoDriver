@@ -66,6 +66,10 @@ class RouteUseCase(private val repository: RouteRepository) {
         return repository.setRemoteObjectIdTrain(trainId, objectId)
     }
 
+    fun setRemoteObjectIdPassenger(passengerId: String, objectId: String): Flow<ResultState<Unit>> {
+        return repository.setRemoteObjectIdPassenger(passengerId, objectId)
+    }
+
     private fun isRouteValid(route: Route): Boolean {
         // TODO("Not yet implemented")
         return true

@@ -84,6 +84,8 @@ internal interface RouteDao {
     fun setRemoteObjectIdLocomotive(id: String, remoteObjectId: String)
     @Query("UPDATE Train SET remoteObjectId =:remoteObjectId WHERE trainId =:id")
     fun setRemoteObjectIdTrain(id: String, remoteObjectId: String)
+    @Query("UPDATE Passenger SET remoteObjectId =:objectId WHERE passengerId =:passengerId")
+    fun setRemoteObjectIdPassenger(passengerId: String, objectId: String)
     @Query("UPDATE BasicData SET isSynchronized = 1 WHERE remoteObjectId =:id")
     fun isSynchronizedRoute(id: String)
 }

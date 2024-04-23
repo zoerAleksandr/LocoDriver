@@ -22,6 +22,7 @@ internal data class Passenger(
     var passengerId: String = UUID.randomUUID().toString(),
     @ColumnInfo(index = true)
     var basicId: String = "",
+    var remoteObjectId: String? = null,
     var trainNumber: String? = null,
     var stationDeparture: String? = null,
     var stationArrival: String? = null,

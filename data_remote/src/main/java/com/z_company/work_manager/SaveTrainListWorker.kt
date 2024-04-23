@@ -6,10 +6,9 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.parse.ParseObject
 import com.parse.ParseRelation
-import com.parse.ParseUser
 import com.parse.coroutines.suspendSave
 import com.z_company.domain.use_cases.RouteUseCase
-import com.z_company.entity_converter.TrainJSONConverter
+import com.z_company.type_converter.TrainJSONConverter
 import com.z_company.type_converter.StationJSONConverter
 import com.z_company.work_manager.BasicDataFieldName.BASIC_DATA_CLASS_NAME_REMOTE
 import com.z_company.work_manager.TrainFieldName.AXLE_FIELD_NAME

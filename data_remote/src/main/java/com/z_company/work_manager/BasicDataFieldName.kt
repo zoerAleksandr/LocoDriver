@@ -38,3 +38,16 @@ object TrainFieldName {
     const val STATIONS_FIELD_NAME = "stations"
     const val BASIC_DATA_FIELD_NAME = "basicData"
 }
+
+object PassengerFieldName {
+    const val PASSENGER_CLASS_NAME_REMOTE = "Passenger"
+    const val PASSENGER_ID_FIELD_NAME = "passengerId"
+    const val PASSENGER_BASIC_ID_FIELD_NAME = "basicId"
+    const val PASSENGER_TRAIN_NUMBER_FIELD_NAME = "trainNumber"
+    const val STATION_DEPARTURE_FIELD_NAME = "stationDeparture"
+    const val STATION_ARRIVAL_FIELD_NAME = "stationArrival"
+    const val TIME_ARRIVAL_FIELD_NAME = "timeArrival"
+    const val TIME_DEPARTURE_FIELD_NAME = "timeDeparture"
+    const val NOTES_FIELD_NAME = "notes"
+    const val BASIC_DATA_FIELD_NAME = "basicData"
+}
