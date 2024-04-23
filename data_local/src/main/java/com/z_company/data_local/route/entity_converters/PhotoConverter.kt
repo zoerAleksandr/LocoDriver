@@ -7,6 +7,7 @@ internal object PhotoConverter {
     fun fromData(photo: Photo) = PhotoEntity(
         photoId = photo.photoId,
         basicId = photo.basicId,
+        remoteObjectId = photo.remoteObjectId,
         base64 = photo.base64,
         dateOfCreate = photo.dateOfCreate
     )
@@ -14,6 +15,7 @@ internal object PhotoConverter {
     fun toData(entity: PhotoEntity) = Photo(
         photoId = entity.photoId,
         basicId = entity.basicId,
+        remoteObjectId = entity.remoteObjectId,
         base64 = entity.base64,
         dateOfCreate = entity.dateOfCreate
     )

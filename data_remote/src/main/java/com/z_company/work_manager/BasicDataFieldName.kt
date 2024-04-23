@@ -51,3 +51,12 @@ object PassengerFieldName {
     const val NOTES_FIELD_NAME = "notes"
     const val BASIC_DATA_FIELD_NAME = "basicData"
 }
+
+object PhotoFieldName {
+    const val PHOTO_CLASS_NAME_REMOTE = "Photo"
+    const val PHOTO_ID_FIELD_NAME = "photoId"
+    const val PHOTO_BASIC_ID_FIELD_NAME = "basicId"
+    const val BASE_64_FIELD_NAME = "base64"
+    const val DATE_OF_CREATE = "dateOfCreate"
+    const val BASIC_DATA_FIELD_NAME = "basicData"
+}

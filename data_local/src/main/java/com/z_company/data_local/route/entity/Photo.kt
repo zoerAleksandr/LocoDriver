@@ -22,6 +22,7 @@ internal data class Photo(
     var photoId: String = UUID.randomUUID().toString(),
     @ColumnInfo(index = true)
     var basicId: String,
+    var remoteObjectId: String?,
     var base64: String = "",
     var dateOfCreate: Long
 )

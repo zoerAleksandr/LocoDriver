@@ -2,6 +2,7 @@ package com.z_company.domain.use_cases
 
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
+import com.z_company.domain.entities.route.Photo
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.repositories.RouteRepository
 import com.z_company.domain.util.moreThan
@@ -68,6 +69,12 @@ class RouteUseCase(private val repository: RouteRepository) {
 
     fun setRemoteObjectIdPassenger(passengerId: String, objectId: String): Flow<ResultState<Unit>> {
         return repository.setRemoteObjectIdPassenger(passengerId, objectId)
+    }
+    fun setRemoteObjectIdPhoto(photoId: String, objectId: String): Flow<ResultState<Unit>> {
+        return repository.setRemoteObjectIdPhoto(photoId, objectId)
+    }
+    fun getPhotoById(photoId: String): Flow<ResultState<Photo?>> {
+        return repository.loadPhoto(photoId)
     }
 
     private fun isRouteValid(route: Route): Boolean {

@@ -16,5 +16,5 @@ interface RemoteRouteRepository {
     suspend fun removeLocomotive(remoteObjectId: String): Flow<ResultState<Data>>
     suspend fun removeTrain(remoteObjectId: String): Flow<ResultState<Data>>
     suspend fun removePassenger(remoteId: String): Flow<ResultState<Data>>
-
+    suspend fun removePhoto(remoteId: String): Flow<ResultState<Data>>
 }
