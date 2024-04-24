@@ -34,4 +34,10 @@ internal object LocomotiveConverter {
         timeStartOfDelivery = entity.timeStartOfDelivery,
         timeEndOfDelivery = entity.timeEndOfDelivery,
     )
+
+    fun toDataList(remoteLocomotiveList: List<LocomotiveRemote>): MutableList<Locomotive> {
+        return remoteLocomotiveList.map {
+            toData(it)
+        }.toMutableList()
+    }
 }

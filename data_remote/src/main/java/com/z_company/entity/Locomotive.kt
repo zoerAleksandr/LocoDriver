@@ -4,8 +4,8 @@ import com.z_company.domain.entities.route.LocoType
 import java.util.UUID
 
 data class Locomotive(
-    var locoId: String = UUID.randomUUID().toString(),
-    var basicId: String,
+    var locoId: String = "",
+    var basicId: String = "",
     var removeObjectId: String = "",
     var series: String? = null,
     var number: String? = null,

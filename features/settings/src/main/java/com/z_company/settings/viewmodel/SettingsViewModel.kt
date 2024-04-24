@@ -10,7 +10,7 @@ import com.z_company.use_case.LoginUseCase
 import com.z_company.domain.entities.User
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.use_cases.CalendarUseCase
-import com.z_company.data_remote.RemoteRouteUseCase
+import com.z_company.use_case.RemoteRouteUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -126,6 +126,12 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     fun onSync() {
         viewModelScope.launch {
             remoteRouteUseCase.syncBasicData()
+        }
+    }
+
+    fun loadDataFromRemote() {
+        viewModelScope.launch {
+            remoteRouteUseCase.loadingRoutesFromRemote()
         }
     }
 }

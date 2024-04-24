@@ -1,11 +1,10 @@
-package com.z_company.data_remote
+package com.z_company.repository
 
 import android.content.Context
 import android.util.Log
 import androidx.work.Constraints
 import androidx.work.Data
 import androidx.work.NetworkType
-import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.z_company.type_converter.BasicDataJSONConverter
@@ -17,17 +16,18 @@ import com.z_company.entity.Locomotive
 import com.z_company.entity_converter.BasicDataConverter
 import com.z_company.entity_converter.LocomotiveConverter
 import com.z_company.entity_converter.PassengerConverter
-import com.z_company.entity_converter.PhotoConverter
 import com.z_company.entity_converter.TrainConverter
 import com.z_company.type_converter.TrainJSONConverter
 import com.z_company.type_converter.LocomotiveJSONConverter
 import com.z_company.type_converter.PassengerJSONConverter
-import com.z_company.type_converter.PhotoJSONConverter
 import com.z_company.work_manager.BASIC_DATA_INPUT_KEY
 import com.z_company.work_manager.GET_BASIC_DATA_WORKER_OUTPUT_KEY
 import com.z_company.work_manager.SaveBasicDataWorker
-import com.z_company.work_manager.GetBasicDataListWorker
+import com.z_company.work_manager.LoadBasicDataListWorker
+import com.z_company.work_manager.LOAD_LOCOMOTIVE_WORKER_INPUT_KEY
+import com.z_company.work_manager.LOAD_LOCOMOTIVE_WORKER_OUTPUT_KEY
 import com.z_company.work_manager.LOCOMOTIVE_INPUT_KEY
+import com.z_company.work_manager.LoadLocomotiveFromRemoteWorker
 import com.z_company.work_manager.PASSENGERS_INPUT_KEY
 import com.z_company.work_manager.PHOTOS_INPUT_KEY
 import com.z_company.work_manager.REMOVE_BASIC_DATA_OBJECT_ID_KEY
@@ -69,6 +69,8 @@ private const val REMOVE_LOCOMOTIVE_WORKER_TAG = "REMOVE_LOCOMOTIVE_WORKER_TAG"
 private const val REMOVE_TRAIN_WORKER_TAG = "REMOVE_TRAIN_WORKER_TAG"
 private const val REMOVE_PASSENGER_WORKER_TAG = "REMOVE_PASSENGER_WORKER_TAG"
 private const val REMOVE_PHOTO_WORKER_TAG = "REMOVE_PHOTO_WORKER_TAG"
+
+private const val LOAD_LOCOMOTIVE_FROM_REMOTE_WORKER_TAG = "LOAD_DATA_FROM_REMOTE_WORKER_TAG"
 
 class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
@@ -165,7 +167,13 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
         workChain.enqueue()
 
         val worksList =
-            listOf(basicDataWorker.id, locoWorker.id, trainWorker.id, passengerWorker.id, photoWorker.id)
+            listOf(
+                basicDataWorker.id,
+                locoWorker.id,
+                trainWorker.id,
+                passengerWorker.id,
+                photoWorker.id
+            )
 
         CoroutineScope(Dispatchers.IO).launch {
             WorkManagerState.listState(context, worksList, basicDataWorker.id).collect { result ->
@@ -185,7 +193,7 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
-        val worker = OneTimeWorkRequestBuilder<GetBasicDataListWorker>()
+        val worker = OneTimeWorkRequestBuilder<LoadBasicDataListWorker>()
             .addTag(GET_ALL_DATA_WORKER_TAG)
             .setConstraints(constraints)
             .build()
@@ -347,5 +355,46 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
             .build()
         WorkManager.getInstance(context).enqueue(worker)
         return WorkManagerState.state(context, worker.id)
+    }
+
+    override suspend fun loadLocomotiveFromRemote(basicId: String): Flow<ResultState<List<Locomotive>?>> {
+        val inputData = Data.Builder()
+            .putString(LOAD_LOCOMOTIVE_WORKER_INPUT_KEY, basicId)
+            .build()
+
+        val constraints = Constraints.Builder()
+            .setRequiresBatteryNotLow(true)
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+
+        val worker = OneTimeWorkRequestBuilder<LoadLocomotiveFromRemoteWorker>()
+            .setInputData(inputData)
+            .setConstraints(constraints)
+            .addTag(LOAD_LOCOMOTIVE_FROM_REMOTE_WORKER_TAG)
+            .build()
+        WorkManager.getInstance(context).enqueue(worker)
+        return  flow {
+            WorkManagerState.state(context, worker.id)
+                .collect { result ->
+                    when (result) {
+                        is ResultState.Success -> {
+                            val stringList = result.data
+                                .getStringArray(LOAD_LOCOMOTIVE_WORKER_OUTPUT_KEY)
+                            val locomotiveList = stringList?.map {
+                                LocomotiveJSONConverter.fromString(it)
+                            }
+                            emit(ResultState.Success(locomotiveList))
+                        }
+
+                        is ResultState.Loading -> {
+                            emit(result)
+                        }
+
+                        is ResultState.Error -> {
+                            emit(result)
+                        }
+                    }
+                }
+        }
     }
 }

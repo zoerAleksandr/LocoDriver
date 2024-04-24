@@ -46,7 +46,8 @@ fun SettingsScreen(
     onSettingSaved: () -> Unit,
     minTimeRestChanged: (String) -> Unit,
     onLogOut: () -> Unit,
-    onSync: () -> Unit
+    onSync: () -> Unit,
+    onLoading: () -> Unit,
 ) {
     Scaffold(topBar = {
         TopAppBar(navigationIcon = {
@@ -81,7 +82,8 @@ fun SettingsScreen(
                         currentUser = currentUser,
                         minTimeRestChanged = minTimeRestChanged,
                         onLogOut = onLogOut,
-                        onSync = onSync
+                        onSync = onSync,
+                        onLoading = onLoading
                     )
                 }
             }
@@ -98,7 +100,8 @@ fun ScreenContent(
     currentUser: User?,
     minTimeRestChanged: (String) -> Unit,
     onLogOut: () -> Unit,
-    onSync: () -> Unit
+    onSync: () -> Unit,
+    onLoading: () -> Unit
 ) {
     Column(modifier = modifier) {
         SettingScreenContent(
@@ -110,7 +113,8 @@ fun ScreenContent(
             userDetail = userDetail,
             currentUser = currentUser,
             onLogOut = onLogOut,
-            onSync = onSync
+            onSync = onSync,
+            onLoading = onLoading
         )
     }
 }
@@ -170,7 +174,8 @@ fun UserScreenContent(
     userDetail: ResultState<User?>,
     currentUser: User?,
     onLogOut: () -> Unit,
-    onSync: () -> Unit
+    onSync: () -> Unit,
+    onLoading: () -> Unit,
 ) {
     Box(modifier = modifier.fillMaxWidth()) {
         AsyncData(resultState = userDetail) {
@@ -207,6 +212,9 @@ fun UserScreenContent(
                     }
                     Button(onClick = { onSync() }) {
                         Text("sync")
+                    }
+                    Button(onClick = { onLoading() }) {
+                        Text("loading")
                     }
                 }
             }

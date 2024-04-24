@@ -1,7 +1,6 @@
 package com.z_company.work_manager
 
 import android.content.Context
-import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.WorkerParameters
@@ -9,7 +8,7 @@ import com.parse.ParseObject
 import com.parse.ParseRelation
 import com.parse.ParseUser
 import com.parse.coroutines.suspendSave
-import com.z_company.data_remote.RemoteRouteUseCase
+import com.z_company.use_case.RemoteRouteUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.type_converter.BasicDataJSONConverter
 import com.z_company.work_manager.BasicDataFieldName.BASIC_DATA_CLASS_NAME_REMOTE
@@ -20,7 +19,6 @@ import com.z_company.work_manager.BasicDataFieldName.TIME_END_WORK_FIELD_NAME
 import com.z_company.work_manager.BasicDataFieldName.REST_FIELD_NAME
 import com.z_company.work_manager.BasicDataFieldName.NOTES_FIELD_NAME
 import com.z_company.work_manager.BasicDataFieldName.USER_FIELD_NAME
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.launch

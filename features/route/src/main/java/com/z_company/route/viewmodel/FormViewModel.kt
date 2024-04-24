@@ -7,13 +7,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.data_local.setting.DataStoreRepository
-import com.z_company.data_remote.RemoteRouteUseCase
+import com.z_company.use_case.RemoteRouteUseCase
 import com.z_company.domain.entities.route.*
 import com.z_company.domain.use_cases.*
 import com.z_company.route.Const.NULLABLE_ID
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlin.properties.Delegates

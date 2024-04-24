@@ -4,7 +4,7 @@ import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.z_company.data_remote.RemoteRouteRepository
+import com.z_company.repository.RemoteRouteRepository
 import com.z_company.domain.use_cases.RouteUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.launchIn

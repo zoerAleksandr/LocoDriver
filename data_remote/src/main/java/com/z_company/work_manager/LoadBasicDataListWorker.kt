@@ -8,6 +8,8 @@ import androidx.work.WorkerParameters
 import com.parse.ParseObject
 import com.parse.ParseQuery
 import com.parse.ParseUser
+import com.parse.coroutines.suspendFind
+import com.z_company.domain.util.ifNotZero
 import com.z_company.type_converter.BasicDataJSONConverter
 import com.z_company.entity.BasicData
 import com.z_company.work_manager.BasicDataFieldName.BASIC_DATA_CLASS_NAME_REMOTE
@@ -21,34 +23,37 @@ import com.z_company.work_manager.BasicDataFieldName.USER_FIELD_NAME
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
+import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.InvocationKind
+import kotlin.contracts.contract
 
 const val GET_BASIC_DATA_WORKER_OUTPUT_KEY = "GET_BASIC_DATA_WORKER_OUTPUT_KEY"
 
-class GetBasicDataListWorker(val context: Context, params: WorkerParameters) :
+class LoadBasicDataListWorker(val context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params), KoinComponent {
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         try {
             val parseQuery: ParseQuery<ParseObject> = ParseQuery(BASIC_DATA_CLASS_NAME_REMOTE)
             parseQuery.whereEqualTo(USER_FIELD_NAME, ParseUser.getCurrentUser())
             parseQuery.orderByDescending(BASIC_DATA_UID_FIELD_NAME)
-            val remoteList = parseQuery.find()
+            val remoteList = parseQuery.suspendFind()
             val basicDataList: MutableList<BasicData> = mutableListOf()
 
             remoteList.forEach { parseObject ->
                 var basicData = BasicData()
-                parseObject?.apply {
+                parseObject.apply {
                     getString(BASIC_DATA_UID_FIELD_NAME)?.let { id ->
-                        basicData = basicData.copy(id = id)
+                        basicData = basicData.copy(id = id, isSynchronized = true)
                     }
                     getString(NUMBER_FIELD_NAME)?.let { number ->
                         basicData = basicData.copy(number = number)
                     }
                     basicData = basicData.copy(updatedAt = updatedAt)
                     basicData = basicData.copy(remoteObjectId = objectId)
-                    getLong(TIME_START_WORK_FIELD_NAME).let { timeStart ->
+                    getLong(TIME_START_WORK_FIELD_NAME).ifNotZero().let { timeStart ->
                         basicData = basicData.copy(timeStartWork = timeStart)
                     }
-                    getLong(TIME_END_WORK_FIELD_NAME).let { timeStart ->
+                    getLong(TIME_END_WORK_FIELD_NAME).ifNotZero().let { timeStart ->
                         basicData = basicData.copy(timeEndWork = timeStart)
                     }
                     getBoolean(REST_FIELD_NAME).let { rest ->

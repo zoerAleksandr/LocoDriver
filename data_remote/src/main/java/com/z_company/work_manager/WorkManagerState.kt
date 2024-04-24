@@ -72,7 +72,6 @@ object WorkManagerState {
             var job: Job? = null
             job = CoroutineScope(Dispatchers.IO).launch {
                 state(context, uuid).collect { result ->
-                    Log.d("ZZZ", "$uuid $result")
                     if (result is ResultState.Success) {
                         if (uuid == basicDataWorkId) {
                             result.data.getString(BASIC_DATA_OBJECT_ID_KEY)?.let { id ->

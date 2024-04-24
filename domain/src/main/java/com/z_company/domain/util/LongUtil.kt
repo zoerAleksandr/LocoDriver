@@ -13,4 +13,7 @@ fun Long?.compareWithNullable(other: Long?): Boolean {
     return if (this == null || other == null) true
     else this < other
 }
+fun Long.ifNotZero(): Long? =
+    if (this == 0L) null
+    else this
 
