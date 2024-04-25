@@ -70,9 +70,11 @@ class RouteUseCase(private val repository: RouteRepository) {
     fun setRemoteObjectIdPassenger(passengerId: String, objectId: String): Flow<ResultState<Unit>> {
         return repository.setRemoteObjectIdPassenger(passengerId, objectId)
     }
+
     fun setRemoteObjectIdPhoto(photoId: String, objectId: String): Flow<ResultState<Unit>> {
         return repository.setRemoteObjectIdPhoto(photoId, objectId)
     }
+
     fun getPhotoById(photoId: String): Flow<ResultState<Photo?>> {
         return repository.loadPhoto(photoId)
     }

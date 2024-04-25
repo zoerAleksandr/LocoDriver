@@ -126,5 +126,4 @@ class LoadLocomotiveFromRemoteWorker(context: Context, parameters: WorkerParamet
             return@withContext Result.retry()
         }
     }
-
 }

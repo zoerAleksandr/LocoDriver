@@ -25,4 +25,10 @@ object TrainConverter {
         conditionalLength = trainRemote.conditionalLength,
         stations = StationConverter.fromRemoteList(trainRemote.stations)
     )
+
+    fun fromRemoteList(trains: List<TrainRemote>): MutableList<Train> {
+        return trains.map { train ->
+            fromRemote(train)
+        }.toMutableList()
+    }
 }
