@@ -3,6 +3,7 @@ import Versions.accompanist_pager_version
 import Versions.accompanist_swiperefresh_version
 import Versions.activity_compose_version
 import Versions.app_compat_version
+import Versions.appwrite_ver
 import Versions.camera_ver
 import Versions.coil_version
 import Versions.compose_ui_version
@@ -17,11 +18,15 @@ import Versions.lifecycle_runtime_version
 import Versions.lifecycle_viewmodel_version
 import Versions.material_compose
 import Versions.maxkeppeler_sheets_ver
+import Versions.parse_sdk_android_ver
 import Versions.permission_accompanist_ver
 import Versions.reveal_swipe_version
 import Versions.room_version
+import Versions.splash_screen_ver
 import Versions.test_ext_version
 import Versions.test_runner_version
+import Versions.vkid_ver
+import Versions.work_manager_version
 import org.gradle.api.JavaVersion
 
 object Plugins {
@@ -35,7 +40,7 @@ object Plugins {
 }
 
 object Apps {
-    const val application_id = "com.example.locodriver"
+    const val application_id = "com.z_company.loco_driver"
     const val compile_sdk_version = 34
     const val min_sdk_version = 24
     const val target_sdk_version = 34
@@ -78,6 +83,12 @@ object Versions {
     const val camera_ver = "1.3.1"
     const val permission_accompanist_ver = "0.31.0-alpha"
     const val google_relay_ver = "0.3.11"
+    const val appwrite_ver = "4.0.0"
+
+    const val splash_screen_ver = "1.0.1"
+    const val vkid_ver = "1.3.2"
+    const val parse_sdk_android_ver = "4.3.0"
+    const val work_manager_version = "2.9.0"
 }
 
 object Libs {
@@ -86,13 +97,15 @@ object Libs {
     const val project_core_android = ":core_android"
     const val project_domain = ":domain"
     const val project_data_local = ":data_local"
+    const val project_data_remote = ":data_remote"
     const val project_feature_login = ":features:login"
     const val project_feature_route = ":features:route"
     const val project_feature_settings = ":features:settings"
 
     // Libs
     const val datastore_pref = "androidx.datastore:datastore-preferences:$datastore_pref_ver"
-    const val constraint_layout = "androidx.constraintlayout:constraintlayout-compose:$constraint_layout_ver"
+    const val constraint_layout =
+        "androidx.constraintlayout:constraintlayout-compose:$constraint_layout_ver"
     const val accompanist_navigation_animation =
         "com.google.accompanist:accompanist-navigation-animation:$accompanist_navigation_animation_version"
     const val accompanist_swipe_refresh =
@@ -144,9 +157,17 @@ object Libs {
     const val camera_camera2 = "androidx.camera:camera-camera2:$camera_ver"
     const val camera_lifecycle = "androidx.camera:camera-lifecycle:$camera_ver"
     const val camera_view = "androidx.camera:camera-view:$camera_ver"
-    const val permission_accompanist = "com.google.accompanist:accompanist-permissions:$permission_accompanist_ver"
+    const val permission_accompanist =
+        "com.google.accompanist:accompanist-permissions:$permission_accompanist_ver"
 
+    const val appwrite = "io.appwrite:sdk-for-android:$appwrite_ver"
+    const val splash_screen = "androidx.core:core-splashscreen:$splash_screen_ver"
+    const val vkid = "com.vk.id:vkid:$vkid_ver"
+    const val vkid_onetap ="com.vk.id:onetap-compose:$vkid_ver"
 
+    const val parse_sdk_android = "com.github.parse-community.Parse-SDK-Android:parse:$parse_sdk_android_ver"
+    const val parse_sdk_android_coroutine = "com.github.parse-community.Parse-SDK-Android:coroutines:$parse_sdk_android_ver"
+    const val work_manager = "androidx.work:work-runtime-ktx:$work_manager_version"
     //     Debug
     const val ui_tooling =
         "androidx.compose.ui:ui-tooling:$compose_ui_version"

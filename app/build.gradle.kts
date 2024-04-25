@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id(Plugins.android_app)
     id(Plugins.kotlin_android)
@@ -5,10 +7,34 @@ plugins {
 }
 
 android {
-    namespace = "com.example.locodriver"
+    namespace = "com.z_company.loco_driver"
     compileSdk = Apps.compile_sdk_version
+    val properties = Properties()
+    properties.load(project.rootProject.file("secret.properties").inputStream())
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
 
     defaultConfig {
+//        val VKIDClientSecret = properties.getProperty("VKIDClientSecret")
+//        val VKIDClientID = properties.getProperty("VKIDClientID")
+
+        addManifestPlaceholders(
+            mapOf(
+                "VKIDRedirectHost" to "vk.com",
+                "VKIDRedirectScheme" to "vk51884740",
+                "VKIDClientID" to "51884740",
+                "VKIDClientSecret" to "l3G9HVocppd94ooNSBSs"
+            )
+        )
+
         applicationId = Apps.application_id
         minSdk = Apps.min_sdk_version
         targetSdk = Apps.target_sdk_version
@@ -21,15 +47,6 @@ android {
         }
     }
 
-    buildTypes {
-        release {
-            isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-        }
-    }
     compileOptions {
         sourceCompatibility = Apps.java_compatibility_version
         targetCompatibility = Apps.java_compatibility_version
@@ -38,6 +55,7 @@ android {
         jvmTarget = Apps.jvm_target_version
     }
     buildFeatures {
+        buildConfig = true
         compose = true
     }
     composeOptions {
@@ -57,7 +75,11 @@ dependencies {
     implementation(project(Libs.project_feature_login))
     implementation(project(Libs.project_feature_route))
     implementation(project(Libs.project_feature_settings))
-
+    implementation(project(Libs.project_data_remote))
+    implementation(Libs.parse_sdk_android)
+    implementation(Libs.vkid)
+    implementation(Libs.appwrite)
+    implementation(Libs.splash_screen)
     implementation(Libs.core_ktx)
     implementation(Libs.lifecycle_runtime_ktx)
     implementation(Libs.activity_compose)

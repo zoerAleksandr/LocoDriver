@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.route"
+    namespace = "com.z_company.route"
     compileSdk = Apps.compile_sdk_version
 
     defaultConfig {
@@ -42,6 +42,7 @@ dependencies {
 
     implementation(project(Libs.project_core_android))
     implementation(project(Libs.project_domain))
+    implementation(project(Libs.project_data_remote))
 
     implementation(Libs.activity_compose)
     implementation(Libs.core_ktx)

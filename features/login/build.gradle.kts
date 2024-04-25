@@ -1,10 +1,12 @@
+import org.jetbrains.kotlin.ir.backend.js.compile
+
 plugins {
     id(Plugins.android_lib)
     id(Plugins.kotlin_android)
 }
 
 android {
-    namespace = "com.example.login"
+    namespace = "com.z_company.login"
     compileSdk = Apps.compile_sdk_version
 
     defaultConfig {
@@ -41,6 +43,10 @@ android {
 dependencies {
     implementation(project(Libs.project_domain))
     implementation(project(Libs.project_core_android))
+    implementation(project(Libs.project_data_remote))
+    implementation(Libs.parse_sdk_android)
+    implementation(Libs.vkid)
+    implementation(Libs.vkid_onetap)
     implementation(Libs.activity_compose)
     implementation(Libs.core_ktx)
     implementation(Libs.lifecycle_viewmodel_ktx)
