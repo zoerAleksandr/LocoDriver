@@ -1,6 +1,7 @@
 import Versions.accompanist_navigation_animation_version
 import Versions.accompanist_pager_version
 import Versions.accompanist_swiperefresh_version
+import Versions.accompanist_ui_controller_version
 import Versions.activity_compose_version
 import Versions.app_compat_version
 import Versions.appwrite_ver
@@ -58,7 +59,7 @@ object Versions {
     const val android_plugin_id = "8.1.1"
     const val accompanist_navigation_animation_version = "0.31.3-beta"
     const val accompanist_swiperefresh_version = "0.31.3-beta"
-    const val activity_compose_version = "1.7.2"
+    const val activity_compose_version = "1.9.0"
     const val app_compat_version = "1.7.0-alpha02"
     const val coil_version = "2.4.0"
     const val compose_ui_version = "1.5.1"
@@ -89,6 +90,7 @@ object Versions {
     const val vkid_ver = "1.3.2"
     const val parse_sdk_android_ver = "4.3.0"
     const val work_manager_version = "2.9.0"
+    const val accompanist_ui_controller_version = "0.35.0-alpha"
 }
 
 object Libs {
@@ -150,6 +152,8 @@ object Libs {
         "com.google.accompanist:accompanist-pager:$accompanist_pager_version"
     const val accompanist_pager_indicator =
         "com.google.accompanist:accompanist-pager-indicators:$accompanist_pager_version"
+    const val accompanist_ui_controller =
+        "com.google.accompanist:accompanist-systemuicontroller:$accompanist_ui_controller_version"
     const val gson =
         "com.google.code.gson:gson:$gson_version"
     const val maxkeppeler_sheets =
