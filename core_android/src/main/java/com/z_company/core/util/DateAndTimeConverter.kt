@@ -178,7 +178,7 @@ object DateAndTimeConverter {
         }
         val date = value.let { millis ->
             SimpleDateFormat(
-                DateAndTimeFormat.DATE_FORMAT, Locale.getDefault()
+                DateAndTimeFormat.MINI_DATE_FORMAT, Locale.getDefault()
             ).format(
                 millis
             )

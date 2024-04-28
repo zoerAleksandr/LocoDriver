@@ -74,5 +74,6 @@ dependencies {
     implementation(Libs.camera_view)
     implementation(Libs.permission_accompanist)
     implementation(project(mapOf("path" to ":data_local")))
+    debugImplementation("androidx.compose.ui:ui-tooling:1.6.6")
 
 }

@@ -1,6 +1,8 @@
 package com.z_company.route.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,7 +15,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,20 +35,28 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.z_company.core.ResultState
+import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.DateAndTimeConverter
-import com.z_company.core.util.DateAndTimeConverter.getMonthShortText
+import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.route.component.HomeBottomSheetContent
 import com.z_company.route.component.DialogSelectMonthOfYear
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Route
 import com.z_company.route.R
-import com.z_company.route.component.CircularIndicator
+import com.z_company.route.component.ButtonLocoDriver
 import kotlinx.coroutines.launch
+import java.util.Locale
 import com.z_company.core.R as CoreR
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -78,9 +87,7 @@ fun HomeScreen(
         )
     )
     val heightScreen = LocalConfiguration.current.screenHeightDp
-    val widthScreen = LocalConfiguration.current.screenWidthDp
     val sheetPeekHeight = heightScreen.times(0.3)
-    val indicatorSize = widthScreen.times(0.75)
     val offset = try {
         scaffoldState.bottomSheetState.requireOffset()
     } catch (e: Throwable) {
@@ -145,45 +152,143 @@ fun HomeScreen(
                 isExpand
             )
         }
-    ) { paddingValues ->
+    ) {
         Column(
             Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
+                .padding(horizontal = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom
             ) {
-                IconButton(onClick = { onSettingsClick() }) {
-                    Icon(imageVector = Icons.Default.Settings, contentDescription = null)
+                IconButton(
+                    modifier = Modifier.background(
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        shape = Shapes.medium
+                    ),
+                    onClick = { onSettingsClick() }) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = null
+                    )
                 }
-                TextButton(onClick = {
-                    showMonthSelectorDialog.value = true
-                }) {
-                    Text(text = "${currentMonthOfYear.year} ${currentMonthOfYear.month.getMonthShortText()}")
+                TextButton(
+                    shape = Shapes.medium,
+                    onClick = {
+                        showMonthSelectorDialog.value = true
+                    }) {
+                    Text(
+                        text = "${
+                            currentMonthOfYear.month.getMonthFullText().toLowerCase(Locale.ROOT)
+                        } ${currentMonthOfYear.year}",
+                        style = AppTypography.getType().headlineSmall,
+
+                        )
                 }
-                IconButton(onClick = { onSearchClick() }) {
-                    Icon(imageVector = Icons.Default.Search, contentDescription = null)
+                IconButton(
+                    modifier = Modifier.background(
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        shape = Shapes.medium
+                    ),
+                    onClick = { onSearchClick() }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null
+                    )
                 }
             }
-            Spacer(modifier = Modifier.height(54.dp))
-            CircularIndicator(
-                canvasSize = indicatorSize.dp,
-                valueHour = DateAndTimeConverter.getHourInDate(totalTime),
-                valueMinute = DateAndTimeConverter.getRemainingMinuteFromHour(totalTime),
-                maxIndicatorValue = currentMonthOfYear.normaHours
+            Spacer(modifier = Modifier.height(124.dp))
+            TotalTime(
+                valueTime = totalTime,
+                normaHours = currentMonthOfYear.normaHours,
+                nightHours = 12,
+                passengerHours = 8
             )
-            Button(
+            Spacer(modifier = Modifier.height(100.dp))
+            ButtonLocoDriver(
                 modifier = Modifier
-                    .fillMaxWidth(0.70f),
+                    .fillMaxWidth()
+                    .height(52.dp),
                 onClick = { onNewRouteClick() }
             ) {
                 Text(
                     text = stringResource(id = CoreR.string.adding),
-                    style = AppTypography.getType().labelLarge
+                    style = AppTypography.getType().headlineSmall
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun TotalTime(valueTime: Long, normaHours: Int, nightHours: Long, passengerHours: Long) {
+    Column(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+        ) {
+            Text(
+                modifier = Modifier
+                    .padding(0.dp),
+                text = buildAnnotatedString {
+                    withStyle(
+                        SpanStyle(
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 70.sp
+                        )
+                    ) {
+                        append(DateAndTimeConverter.getTimeInStringFormat(valueTime))
+                    }
+                    withStyle(
+                        SpanStyle(
+                            fontWeight = FontWeight.Light,
+                            fontSize = 24.sp
+                        )
+                    ) {
+                        append(" / $normaHours")
+                    }
+                },
+                fontFamily = AppTypography.Companion.AppFontFamilies.RobotoConsed
+            )
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+            horizontalArrangement = Arrangement.Start
+        ) {
+            Row(
+                modifier = Modifier.padding(end = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    modifier = Modifier.padding(end = 4.dp),
+                    painter = painterResource(id = CoreR.drawable.ic_star_border),
+                    contentDescription = null
+                )
+                Text(
+                    text = DateAndTimeConverter.getTimeInStringFormat(nightHours),
+                    style = AppTypography.getType().headlineSmall,
+                    fontWeight = FontWeight.Light
+                )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    modifier = Modifier.padding(end = 4.dp),
+                    painter = painterResource(id = CoreR.drawable.ic_star_border),
+                    contentDescription = null
+                )
+                Text(
+                    text = DateAndTimeConverter.getTimeInStringFormat(passengerHours),
+                    style = AppTypography.getType().headlineSmall,
+                    fontWeight = FontWeight.Light
                 )
             }
         }

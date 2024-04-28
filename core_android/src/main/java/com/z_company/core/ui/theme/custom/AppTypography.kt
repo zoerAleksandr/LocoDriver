@@ -25,10 +25,10 @@ data class AppTypography(
         get() = materialTypography.displayLarge
 
     val displayMedium: TextStyle
-        get() = materialTypography.displayLarge
+        get() = materialTypography.displayMedium
 
     val displaySmall: TextStyle
-        get() = materialTypography.displayLarge
+        get() = materialTypography.displaySmall
 
     val headlineSmall: TextStyle
         get() = materialTypography.headlineSmall
@@ -59,7 +59,7 @@ data class AppTypography(
 
     companion object {
         fun getType(): AppTypography {
-            val fontFamily = AppFontFamilies.Oxygen
+            val fontFamily = AppFontFamilies.RobotoConsed
             val defaultTypography = Typography()
             return AppTypography(
                 materialTypography = Typography(
@@ -85,7 +85,7 @@ data class AppTypography(
         @Immutable
         object AppFontFamilies {
             @Stable
-            val Oxygen = FontFamily(
+            val RobotoConsed = FontFamily(
                 Font(
                     resId = R.font.roboto_condensed_regular,
                     weight = FontWeight.Normal,

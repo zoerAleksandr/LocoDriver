@@ -9,10 +9,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.GenericError
@@ -31,6 +37,16 @@ fun HomeBottomSheetContent(
     offset: Float,
     isExpand: Boolean
 ) {
+    var requiredSize by remember {
+        mutableStateOf(24.sp)
+    }
+
+    fun changingTextSize(value: TextUnit){
+        if (requiredSize > value){
+            requiredSize = value
+        }
+    }
+
     AsyncData(resultState = routeListState, errorContent = {
         GenericError(onDismissAction = reloadRoute)
     }) { routeList ->
@@ -50,7 +66,9 @@ fun HomeBottomSheetContent(
                             route = route,
                             isExpand = isExpand,
                             onDelete = onDeleteRoute,
-                            alpha = changeAlphaWithOffset(offset)
+                            alpha = changeAlphaWithOffset(offset),
+                            requiredSizeText = requiredSize,
+                            changingTextSize = ::changingTextSize
                         ) {
                             onRouteClick(route.basicData)
                         }
