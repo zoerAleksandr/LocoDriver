@@ -2,10 +2,10 @@ package com.z_company.route.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -22,7 +22,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
@@ -44,6 +43,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ResultState
+import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.DateAndTimeConverter
@@ -56,7 +56,6 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.route.R
 import com.z_company.route.component.ButtonLocoDriver
 import kotlinx.coroutines.launch
-import java.util.Locale
 import com.z_company.core.R as CoreR
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -156,20 +155,27 @@ fun HomeScreen(
         Column(
             Modifier
                 .fillMaxSize()
-                .padding(horizontal = 32.dp),
+                .padding(start = 32.dp, end = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Spacer(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(heightScreen.times(0.02f).dp)
+            )
             Row(
                 modifier = Modifier
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .height(heightScreen.times(0.07f).dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
-                    modifier = Modifier.background(
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        shape = Shapes.medium
-                    ),
+                    modifier = Modifier
+                        .background(
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            shape = Shapes.medium
+                        ),
                     onClick = { onSettingsClick() }) {
                     Icon(
                         imageVector = Icons.Default.Settings,
@@ -177,23 +183,25 @@ fun HomeScreen(
                     )
                 }
                 TextButton(
+                    modifier = Modifier,
                     shape = Shapes.medium,
                     onClick = {
                         showMonthSelectorDialog.value = true
                     }) {
-                    Text(
+                    AutoSizeText(
                         text = "${
-                            currentMonthOfYear.month.getMonthFullText().toLowerCase(Locale.ROOT)
+                            currentMonthOfYear.month.getMonthFullText()
                         } ${currentMonthOfYear.year}",
                         style = AppTypography.getType().headlineSmall,
-
-                        )
+                        maxTextSize = 24.sp,
+                    )
                 }
                 IconButton(
-                    modifier = Modifier.background(
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        shape = Shapes.medium
-                    ),
+                    modifier = Modifier
+                        .background(
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            shape = Shapes.medium
+                        ),
                     onClick = { onSearchClick() }
                 ) {
                     Icon(
@@ -202,23 +210,69 @@ fun HomeScreen(
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(124.dp))
+            Spacer(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(heightScreen.times(0.14f).dp)
+            )
             TotalTime(
+                modifier = Modifier
+                    .height(heightScreen.times(0.13f).dp),
                 valueTime = totalTime,
                 normaHours = currentMonthOfYear.normaHours,
-                nightHours = 12,
-                passengerHours = 8
             )
-            Spacer(modifier = Modifier.height(100.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(heightScreen.times(0.05f).dp),
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.Top
+            ) {
+                Row(
+                    modifier = Modifier.padding(end = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        modifier = Modifier.padding(end = 4.dp),
+                        painter = painterResource(id = CoreR.drawable.ic_star_border),
+                        contentDescription = null
+                    )
+                    AutoSizeText(
+                        text = DateAndTimeConverter.getTimeInStringFormat(12L),
+                        style = AppTypography.getType().headlineSmall,
+                        maxTextSize = 24.sp,
+                        fontWeight = FontWeight.Light
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        modifier = Modifier.padding(end = 4.dp),
+                        painter = painterResource(id = CoreR.drawable.ic_star_border),
+                        contentDescription = null
+                    )
+                    AutoSizeText(
+                        text = DateAndTimeConverter.getTimeInStringFormat(8L),
+                        style = AppTypography.getType().headlineSmall,
+                        maxTextSize = 24.sp,
+                        fontWeight = FontWeight.Light
+                    )
+                }
+            }
+            Spacer(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(heightScreen.times(0.19f).dp)
+            )
             ButtonLocoDriver(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp),
+                    .height(heightScreen.times(0.08f).dp),
                 onClick = { onNewRouteClick() }
             ) {
-                Text(
+                AutoSizeText(
                     text = stringResource(id = CoreR.string.adding),
-                    style = AppTypography.getType().headlineSmall
+                    style = AppTypography.getType().headlineSmall,
+                    maxTextSize = 24.sp,
                 )
             }
         }
@@ -226,71 +280,32 @@ fun HomeScreen(
 }
 
 @Composable
-fun TotalTime(valueTime: Long, normaHours: Int, nightHours: Long, passengerHours: Long) {
-    Column(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-        ) {
-            Text(
-                modifier = Modifier
-                    .padding(0.dp),
-                text = buildAnnotatedString {
-                    withStyle(
-                        SpanStyle(
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 70.sp
-                        )
-                    ) {
-                        append(DateAndTimeConverter.getTimeInStringFormat(valueTime))
-                    }
-                    withStyle(
-                        SpanStyle(
-                            fontWeight = FontWeight.Light,
-                            fontSize = 24.sp
-                        )
-                    ) {
-                        append(" / $normaHours")
-                    }
-                },
-                fontFamily = AppTypography.Companion.AppFontFamilies.RobotoConsed
-            )
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp),
-            horizontalArrangement = Arrangement.Start
-        ) {
-            Row(
-                modifier = Modifier.padding(end = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
+fun TotalTime(
+    modifier: Modifier,
+    valueTime: Long,
+    normaHours: Int
+) {
+    AutoSizeText(
+        modifier = modifier.fillMaxWidth(),
+        alignment = Alignment.BottomStart,
+        text = buildAnnotatedString {
+            withStyle(
+                SpanStyle(
+                    fontWeight = FontWeight.Medium,
+                )
             ) {
-                Icon(
-                    modifier = Modifier.padding(end = 4.dp),
-                    painter = painterResource(id = CoreR.drawable.ic_star_border),
-                    contentDescription = null
-                )
-                Text(
-                    text = DateAndTimeConverter.getTimeInStringFormat(nightHours),
-                    style = AppTypography.getType().headlineSmall,
-                    fontWeight = FontWeight.Light
-                )
+                append(DateAndTimeConverter.getTimeInStringFormat(valueTime))
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    modifier = Modifier.padding(end = 4.dp),
-                    painter = painterResource(id = CoreR.drawable.ic_star_border),
-                    contentDescription = null
+            withStyle(
+                SpanStyle(
+                    fontWeight = FontWeight.Light,
+                    fontSize = 24.sp
                 )
-                Text(
-                    text = DateAndTimeConverter.getTimeInStringFormat(passengerHours),
-                    style = AppTypography.getType().headlineSmall,
-                    fontWeight = FontWeight.Light
-                )
+            ) {
+                append(" / $normaHours")
             }
-        }
-    }
+        },
+        maxTextSize = 70.sp,
+        fontFamily = AppTypography.Companion.AppFontFamilies.RobotoConsed
+    )
 }
