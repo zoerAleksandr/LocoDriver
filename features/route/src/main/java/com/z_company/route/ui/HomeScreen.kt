@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -126,11 +125,12 @@ fun HomeScreen(
             }
         },
         sheetPeekHeight = sheetPeekHeight.dp,
-        sheetContainerColor = MaterialTheme.colorScheme.background.copy(
-            alpha = changeAlphaWithOffset(
-                offset = offset
-            )
-        ),
+        sheetContainerColor = MaterialTheme.colorScheme.background
+            .copy(
+                alpha = changeAlphaWithOffset(
+                    offset = offset
+                )
+            ),
         sheetDragHandle = {
             BottomSheetDefaults.DragHandle(
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
@@ -150,7 +150,8 @@ fun HomeScreen(
                 offset,
                 isExpand
             )
-        }
+        },
+        containerColor = MaterialTheme.colorScheme.background
     ) {
         Column(
             Modifier

@@ -1,5 +1,6 @@
 package com.z_company.route.component
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,6 +29,7 @@ import com.z_company.route.R
 import com.z_company.route.ui.changeAlphaWithOffset
 import com.z_company.route.ui.changeDpWithScroll
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeBottomSheetContent(
     routeListState: ResultState<List<Route>>,
@@ -61,8 +63,9 @@ fun HomeBottomSheetContent(
                         .fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    items(routeList) { route ->
+                    items(routeList, key = {route -> route.basicData.id}) { route ->
                         ItemHomeScreen(
+                            modifier = Modifier.animateItemPlacement(),
                             route = route,
                             isExpand = isExpand,
                             onDelete = onDeleteRoute,

@@ -1,5 +1,6 @@
 package com.z_company.route.component
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material3.IconButton
@@ -16,6 +18,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -46,6 +49,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun ItemHomeScreen(
+    modifier: Modifier = Modifier,
     route: Route,
     alpha: Float,
     isExpand: Boolean,
@@ -67,37 +71,39 @@ fun ItemHomeScreen(
     }
 
     RevealSwipe(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .padding(top = 12.dp, start = 8.dp, end = 8.dp, bottom = 6.dp)
             .height(80.dp),
         enableSwipe = isExpand,
         state = revealState,
-        maxRevealDp = 75.dp,
         directions = setOf(
             RevealDirection.EndToStart
         ),
         hiddenContentEnd = {
-            IconButton(onClick = {
-                onDelete(route)
-                scope.launch {
-                    revealState.animateTo(RevealValue.Default)
+            Box(
+                modifier = Modifier
+                    .width(75.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                IconButton(onClick = {
+                    onDelete(route)
+                    scope.launch {
+                        revealState.animateTo(RevealValue.Default)
+                    }
+                }) {
+                    Icon(
+                        imageVector = Icons.Outlined.Delete,
+                        tint = MaterialTheme.colorScheme.onError,
+                        contentDescription = null
+                    )
                 }
-            }) {
-                Icon(
-                    modifier = Modifier.padding(horizontal = 25.dp),
-                    imageVector = Icons.Outlined.Delete,
-                    tint = Color.White,
-                    contentDescription = null
-                )
             }
         },
-        backgroundCardEndColor = MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
+        backgroundCardEndColor = MaterialTheme.colorScheme.error.copy(alpha = 0.2f),
         shape = Shapes.medium
     ) {
         Card(
             modifier = Modifier
-                .padding(top = 8.dp)
                 .fillMaxWidth()
                 .wrapContentHeight()
                 .height(80.dp)

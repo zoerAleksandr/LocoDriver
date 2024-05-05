@@ -27,8 +27,7 @@ fun LocoDriverApp(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .navigationBarsPadding(),
-            color = MaterialTheme.colorScheme.background
+                .navigationBarsPadding()
         ) {
             MainNavigation(appState, isLoggedIn)
         }

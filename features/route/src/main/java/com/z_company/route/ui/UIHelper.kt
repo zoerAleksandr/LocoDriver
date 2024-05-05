@@ -16,7 +16,7 @@ fun changeDpWithScroll(offset: Float, max: Int, min: Int): Float {
 
 fun changeAlphaWithOffset(offset: Float): Float {
     val offsetMax = 1500
-    val offsetMin = 250
+    val offsetMin = 200
 
     val alphaMax = 0.2f
     val alphaMin = 1.0f
