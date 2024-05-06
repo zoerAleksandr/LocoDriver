@@ -26,8 +26,6 @@ import com.z_company.core.ui.component.GenericError
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Route
 import com.z_company.route.R
-import com.z_company.route.ui.changeAlphaWithOffset
-import com.z_company.route.ui.changeDpWithScroll
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -36,8 +34,7 @@ fun HomeBottomSheetContent(
     reloadRoute: () -> Unit,
     onDeleteRoute: (Route) -> Unit,
     onRouteClick: (BasicData) -> Unit,
-    offset: Float,
-    isExpand: Boolean
+    isExpand: Boolean,
 ) {
     var requiredSize by remember {
         mutableStateOf(24.sp)
@@ -56,20 +53,19 @@ fun HomeBottomSheetContent(
             if (routeList.isEmpty()) {
                 EmptyList()
             } else {
-                val paddingTop = changeDpWithScroll(offset, 48, 0).dp
                 LazyColumn(
                     modifier = Modifier
-                        .padding(top = paddingTop, start = 12.dp, end = 12.dp)
+                        .padding(horizontal = 12.dp)
                         .fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     items(routeList, key = {route -> route.basicData.id}) { route ->
+                        Spacer(modifier = Modifier.height(12.dp))
                         ItemHomeScreen(
                             modifier = Modifier.animateItemPlacement(),
                             route = route,
                             isExpand = isExpand,
                             onDelete = onDeleteRoute,
-                            alpha = changeAlphaWithOffset(offset),
                             requiredSizeText = requiredSize,
                             changingTextSize = ::changingTextSize
                         ) {
@@ -86,7 +82,9 @@ fun HomeBottomSheetContent(
 @Composable
 fun EmptyList() {
     Box(
-        Modifier.fillMaxSize().padding(top = 24.dp),
+        Modifier
+            .fillMaxSize()
+            .padding(top = 24.dp),
         contentAlignment = Alignment.TopCenter
     ) {
         Text(text = stringResource(id = R.string.msg_empty_route_list))

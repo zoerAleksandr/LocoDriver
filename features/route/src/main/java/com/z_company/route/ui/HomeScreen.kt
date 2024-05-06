@@ -85,13 +85,11 @@ fun HomeScreen(
         )
     )
     val heightScreen = LocalConfiguration.current.screenHeightDp
-    val sheetPeekHeight = heightScreen.times(0.3)
-    val offset = try {
-        scaffoldState.bottomSheetState.requireOffset()
-    } catch (e: Throwable) {
-        200f
+    val sheetPeekHeight = remember {
+        heightScreen.times(0.3)
     }
-    val isExpand = offset == 0.0f
+
+    val isExpand = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded
 
     if (removeRouteState is ResultState.Success) {
         LaunchedEffect(removeRouteState) {
@@ -125,19 +123,10 @@ fun HomeScreen(
             }
         },
         sheetPeekHeight = sheetPeekHeight.dp,
-        sheetContainerColor = MaterialTheme.colorScheme.background
-            .copy(
-                alpha = changeAlphaWithOffset(
-                    offset = offset
-                )
-            ),
+        sheetContainerColor = MaterialTheme.colorScheme.background,
         sheetDragHandle = {
             BottomSheetDefaults.DragHandle(
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                    alpha = changeAlphaWithOffset(
-                        offset = offset
-                    )
-                )
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         },
         sheetShadowElevation = 0.dp,
@@ -147,7 +136,6 @@ fun HomeScreen(
                 reloadRoute,
                 onDeleteRoute,
                 onRouteClick,
-                offset,
                 isExpand
             )
         },

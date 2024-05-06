@@ -68,6 +68,7 @@ dependencies {
     implementation(Libs.coil_compose)
     implementation(Libs.reveal_swipe)
     implementation(Libs.maxkeppeler_sheets)
+    implementation(Libs.rebugger)
 
     implementation(Libs.camera_camera2)
     implementation(Libs.camera_lifecycle)

@@ -21,6 +21,7 @@ import Versions.material_compose
 import Versions.maxkeppeler_sheets_ver
 import Versions.parse_sdk_android_ver
 import Versions.permission_accompanist_ver
+import Versions.rebugger_ver
 import Versions.reveal_swipe_version
 import Versions.room_version
 import Versions.splash_screen_ver
@@ -91,6 +92,7 @@ object Versions {
     const val parse_sdk_android_ver = "4.3.0"
     const val work_manager_version = "2.9.0"
     const val accompanist_ui_controller_version = "0.35.0-alpha"
+    const val rebugger_ver = "1.0.0-rc03"
 }
 
 object Libs {
@@ -105,6 +107,7 @@ object Libs {
     const val project_feature_settings = ":features:settings"
 
     // Libs
+    const val rebugger = "io.github.theapache64:rebugger:$rebugger_ver"
     const val datastore_pref = "androidx.datastore:datastore-preferences:$datastore_pref_ver"
     const val constraint_layout =
         "androidx.constraintlayout:constraintlayout-compose:$constraint_layout_ver"

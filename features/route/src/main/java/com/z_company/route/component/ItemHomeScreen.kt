@@ -1,6 +1,5 @@
 package com.z_company.route.component
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -18,14 +17,12 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
@@ -51,14 +48,13 @@ import java.util.Locale
 fun ItemHomeScreen(
     modifier: Modifier = Modifier,
     route: Route,
-    alpha: Float,
     isExpand: Boolean,
     onDelete: (Route) -> Unit,
     requiredSizeText: TextUnit,
     changingTextSize: (TextUnit) -> Unit,
     onClick: () -> Unit,
 ) {
-    val containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha)
+    val containerColor = MaterialTheme.colorScheme.secondaryContainer
     val revealState = rememberRevealState()
     val scope = rememberCoroutineScope()
 
@@ -112,7 +108,6 @@ fun ItemHomeScreen(
             colors = CardDefaults.cardColors(
                 containerColor = containerColor,
                 contentColor = MaterialTheme.colorScheme.contentColorFor(containerColor)
-                    .copy(alpha = alpha)
             )
         ) {
             Row(
