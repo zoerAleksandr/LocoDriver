@@ -1,6 +1,13 @@
 package com.z_company.route.component
 
+import android.util.Log
+import android.widget.Toast
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,9 +27,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
@@ -40,10 +51,12 @@ import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.DateAndTimeFormat
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-@OptIn(ExperimentalMaterialApi::class)
+@OptIn(ExperimentalMaterialApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun ItemHomeScreen(
     modifier: Modifier = Modifier,
@@ -52,11 +65,38 @@ fun ItemHomeScreen(
     onDelete: (Route) -> Unit,
     requiredSizeText: TextUnit,
     changingTextSize: (TextUnit) -> Unit,
-    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onClick: () -> Unit
 ) {
     val containerColor = MaterialTheme.colorScheme.secondaryContainer
     val revealState = rememberRevealState()
     val scope = rememberCoroutineScope()
+
+    val interactionSource = remember { MutableInteractionSource() }
+
+    val viewConfiguration = LocalViewConfiguration.current
+
+    LaunchedEffect(interactionSource) {
+        var isLongClick = false
+
+        interactionSource.interactions.collectLatest { interaction ->
+            when (interaction) {
+                is PressInteraction.Press -> {
+                    isLongClick = false
+                    delay(viewConfiguration.longPressTimeoutMillis)
+                    isLongClick = true
+                    Log.d("ZZZ", "Long click")
+                }
+
+                is PressInteraction.Release -> {
+                    if (isLongClick.not()) {
+                        Log.d("ZZZ", "click")
+                    }
+
+                }
+            }
+        }
+    }
 
     LaunchedEffect(isExpand) {
         if (!isExpand) {
@@ -103,7 +143,10 @@ fun ItemHomeScreen(
                 .fillMaxWidth()
                 .wrapContentHeight()
                 .height(80.dp)
-                .clickable { onClick() },
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = onLongClick
+                ),
             shape = Shapes.medium,
             colors = CardDefaults.cardColors(
                 containerColor = containerColor,
