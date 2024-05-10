@@ -128,30 +128,30 @@ class LocoFormViewModel constructor(
                 ElectricSectionFormState(
                     sectionId = section.sectionId,
                     accepted = ElectricSectionFieldState(
-                        data = section.acceptedEnergy?.str() ?: "",
+                        data = section.acceptedEnergy,
                         type = ElectricSectionType.ACCEPTED
                     ),
                     delivery = ElectricSectionFieldState(
-                        data = section.deliveryEnergy?.str() ?: "",
+                        data = section.deliveryEnergy,
                         type = ElectricSectionType.DELIVERY
                     ),
                     recoveryAccepted = ElectricSectionFieldState(
-                        data = section.acceptedRecovery?.str() ?: "",
+                        data = section.acceptedRecovery,
                         type = ElectricSectionType.RECOVERY_ACCEPTED
                     ),
                     recoveryDelivery = ElectricSectionFieldState(
-                        data = section.deliveryRecovery?.str() ?: "",
+                        data = section.deliveryRecovery,
                         type = ElectricSectionType.RECOVERY_DELIVERY
                     ),
                     resultVisibility = isVisibilityResultElectricSection(
-                        section.acceptedEnergy?.str(),
-                        section.deliveryEnergy?.str(),
-                        section.acceptedRecovery?.str(),
-                        section.deliveryRecovery?.str()
+                        section.acceptedEnergy,
+                        section.deliveryEnergy,
+                        section.acceptedRecovery,
+                        section.deliveryRecovery
                     ),
                     expandItemState = isExpandElectricItem(
-                        section.acceptedRecovery?.str(),
-                        section.deliveryRecovery?.str()
+                        section.acceptedRecovery,
+                        section.deliveryRecovery
                     )
                 )
             )
@@ -209,10 +209,10 @@ class LocoFormViewModel constructor(
                         loco.electricSectionList = electricSectionListState.map { state ->
                             SectionElectric(
                                 sectionId = state.sectionId,
-                                acceptedEnergy = state.accepted.data?.toDoubleOrNull(),
-                                deliveryEnergy = state.delivery.data?.toDoubleOrNull(),
-                                acceptedRecovery = state.recoveryAccepted.data?.toDoubleOrNull(),
-                                deliveryRecovery = state.recoveryDelivery.data?.toDoubleOrNull()
+                                acceptedEnergy = state.accepted.data,
+                                deliveryEnergy = state.delivery.data,
+                                acceptedRecovery = state.recoveryAccepted.data,
+                                deliveryRecovery = state.recoveryDelivery.data
                             )
                         }.toMutableList()
                     }
@@ -393,34 +393,34 @@ class LocoFormViewModel constructor(
         dieselSectionListState.remove(dieselSectionFormState)
     }
 
-    fun setEnergyAccepted(index: Int, s: String?) {
+    fun setEnergyAccepted(index: Int, data: Int?) {
         onElectricSectionEvent(
             ElectricSectionEvent.EnteredAccepted(
-                index = index, data = s
+                index = index, data = data
             )
         )
     }
 
-    fun setEnergyDelivery(index: Int, s: String?) {
+    fun setEnergyDelivery(index: Int, data: Int?) {
         onElectricSectionEvent(
             ElectricSectionEvent.EnteredDelivery(
-                index = index, data = s
+                index = index, data = data
             )
         )
     }
 
-    fun setRecoveryAccepted(index: Int, s: String?) {
+    fun setRecoveryAccepted(index: Int, data: Int?) {
         onElectricSectionEvent(
             ElectricSectionEvent.EnteredRecoveryAccepted(
-                index = index, data = s
+                index = index, data = data
             )
         )
     }
 
-    fun setRecoveryDelivery(index: Int, s: String?) {
+    fun setRecoveryDelivery(index: Int, data: Int?) {
         onElectricSectionEvent(
             ElectricSectionEvent.EnteredRecoveryDelivery(
-                index = index, data = s
+                index = index, data = data
             )
         )
     }
@@ -468,10 +468,10 @@ class LocoFormViewModel constructor(
     }
 
     private fun isExpandElectricItem(
-        acceptedRecovery: String?,
-        deliveryRecovery: String?,
+        acceptedRecovery: Int?,
+        deliveryRecovery: Int?,
     ): Boolean {
-        return (!acceptedRecovery.isNullOrBlank() || !deliveryRecovery.isNullOrBlank())
+        return (acceptedRecovery != null || deliveryRecovery != null)
     }
 
     fun isExpandElectricItem(index: Int, isExpand: Boolean){
@@ -589,28 +589,27 @@ class LocoFormViewModel constructor(
     }
 
     private fun isVisibilityResultElectricSection(
-        accepted: String?,
-        delivery: String?,
-        acceptedRecovery: String?,
-        deliveryRecovery: String?
+        accepted: Int?,
+        delivery: Int?,
+        acceptedRecovery: Int?,
+        deliveryRecovery: Int?
     ): Boolean {
-        return ((!accepted.isNullOrBlank() && !delivery.isNullOrBlank())
-                || (!acceptedRecovery.isNullOrBlank() && !deliveryRecovery.isNullOrBlank()))
+        return ((accepted != null && delivery != null)
+                || (acceptedRecovery != null && deliveryRecovery != null))
     }
 
     private fun validateElectricSection(
         index: Int,
-        inputValue: String?,
+        inputValue: Int?,
         type: ElectricSectionType
     ): Boolean {
         return when (type) {
 
             ElectricSectionType.ACCEPTED -> {
-                val accepted = inputValue?.toDoubleOrNull()
-                val delivery = electricSectionListState[index].delivery.data?.toDoubleOrNull()
+                val delivery = electricSectionListState[index].delivery.data
 
                 delivery?.let { del ->
-                    accepted?.let { acc ->
+                    inputValue?.let { acc ->
                         if (acc > del) {
                             electricSectionListState[index] = electricSectionListState[index].copy(
                                 errorMessage = "Принято больше чем сдано"
@@ -623,11 +622,10 @@ class LocoFormViewModel constructor(
             }
 
             ElectricSectionType.DELIVERY -> {
-                val accepted = electricSectionListState[index].accepted.data?.toDoubleOrNull()
-                val delivery = inputValue?.toDoubleOrNull()
+                val accepted = electricSectionListState[index].accepted.data
 
                 accepted?.let { acc ->
-                    delivery?.let { del ->
+                    inputValue?.let { del ->
                         if (del < acc) {
                             electricSectionListState[index] = electricSectionListState[index].copy(
                                 errorMessage = "Сдано меньше чем принято"
@@ -640,12 +638,11 @@ class LocoFormViewModel constructor(
             }
 
             ElectricSectionType.RECOVERY_ACCEPTED -> {
-                val accepted = inputValue?.toDoubleOrNull()
                 val delivery =
-                    electricSectionListState[index].recoveryDelivery.data?.toDoubleOrNull()
+                    electricSectionListState[index].recoveryDelivery.data
 
                 delivery?.let { del ->
-                    accepted?.let { acc ->
+                    inputValue?.let { acc ->
                         if (acc > del) {
                             electricSectionListState[index] = electricSectionListState[index].copy(
                                 errorMessage = "Принято больше чем сдано"
@@ -659,11 +656,10 @@ class LocoFormViewModel constructor(
 
             ElectricSectionType.RECOVERY_DELIVERY -> {
                 val accepted =
-                    electricSectionListState[index].recoveryAccepted.data?.toDoubleOrNull()
-                val delivery = inputValue?.toDoubleOrNull()
+                    electricSectionListState[index].recoveryAccepted.data
 
                 accepted?.let { acc ->
-                    delivery?.let { del ->
+                    inputValue?.let { del ->
                         if (del < acc) {
                             electricSectionListState[index] = electricSectionListState[index].copy(
                                 errorMessage = "Сдано меньше чем принято"

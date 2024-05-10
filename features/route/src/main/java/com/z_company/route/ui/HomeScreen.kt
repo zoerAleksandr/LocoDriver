@@ -96,7 +96,7 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
 import com.z_company.core.R as CoreR
-
+import com.z_company.domain.util.minus
 @RequiresApi(Build.VERSION_CODES.S)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -540,7 +540,7 @@ fun PreviewRoute(route: Route?) {
                                 )
                             }
                             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                val resultText = CalculationEnergy.getTotalEnergyConsumption(sectionElectric.acceptedEnergy, sectionElectric.deliveryEnergy)
+                                val resultText = sectionElectric.deliveryEnergy - sectionElectric.acceptedEnergy
                                 Text(
                                     modifier = Modifier.padding(end = 2.dp).weight(.25f),
                                     text = "Расход",
@@ -563,7 +563,7 @@ fun PreviewRoute(route: Route?) {
                                 )
                             }
                             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                val resultText = CalculationEnergy.getTotalEnergyConsumption(sectionElectric.acceptedRecovery, sectionElectric.deliveryRecovery)
+                                val resultText = sectionElectric.deliveryRecovery - sectionElectric.acceptedRecovery
                                 Text(
                                     modifier = Modifier.weight(.25f),
                                     text = "Рекуперация",

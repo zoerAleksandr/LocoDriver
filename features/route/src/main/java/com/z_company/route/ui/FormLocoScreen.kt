@@ -1,6 +1,5 @@
 package com.z_company.route.ui
 
-import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -114,10 +113,10 @@ fun FormLocoScreen(
     onDeleteSectionDiesel: (DieselSectionFormState) -> Unit,
     addingSectionDiesel: () -> Unit,
     focusChangedDieselSection: (Int, DieselSectionType) -> Unit,
-    onEnergyAcceptedChanged: (Int, String?) -> Unit,
-    onEnergyDeliveryChanged: (Int, String?) -> Unit,
-    onRecoveryAcceptedChanged: (Int, String?) -> Unit,
-    onRecoveryDeliveryChanged: (Int, String?) -> Unit,
+    onEnergyAcceptedChanged: (Int, Int?) -> Unit,
+    onEnergyDeliveryChanged: (Int, Int?) -> Unit,
+    onRecoveryAcceptedChanged: (Int, Int?) -> Unit,
+    onRecoveryDeliveryChanged: (Int, Int?) -> Unit,
     onDeleteSectionElectric: (ElectricSectionFormState) -> Unit,
     addingSectionElectric: () -> Unit,
     focusChangedElectricSection: (Int, ElectricSectionType) -> Unit,
@@ -263,10 +262,10 @@ private fun LocoFormScreenContent(
     onDeleteSectionDiesel: (DieselSectionFormState) -> Unit,
     addingSectionDiesel: () -> Unit,
     focusChangedDieselSection: (Int, DieselSectionType) -> Unit,
-    onEnergyAcceptedChanged: (Int, String?) -> Unit,
-    onEnergyDeliveryChanged: (Int, String?) -> Unit,
-    onRecoveryAcceptedChanged: (Int, String?) -> Unit,
-    onRecoveryDeliveryChanged: (Int, String?) -> Unit,
+    onEnergyAcceptedChanged: (Int, Int?) -> Unit,
+    onEnergyDeliveryChanged: (Int, Int?) -> Unit,
+    onRecoveryAcceptedChanged: (Int, Int?) -> Unit,
+    onRecoveryDeliveryChanged: (Int, Int?) -> Unit,
     onDeleteSectionElectric: (ElectricSectionFormState) -> Unit,
     addingSectionElectric: () -> Unit,
     focusChangedElectricSection: (Int, ElectricSectionType) -> Unit,
@@ -869,23 +868,19 @@ private fun LocoFormScreenContent(
                         )
 
                         if (index == electricSectionListState.lastIndex && index > 0) {
-                            var overResult: Double? = null
-                            var overRecovery: Double? = null
+                            var overResult: Int? = null
+                            var overRecovery: Int? = null
 
                             electricSectionListState.forEach {
-                                val accepted = it.accepted.data?.toDoubleOrNull()
-                                val delivery = it.delivery.data?.toDoubleOrNull()
+                                val accepted = it.accepted.data
+                                val delivery = it.delivery.data
                                 val acceptedRecovery =
-                                    it.recoveryAccepted.data?.toDoubleOrNull()
+                                    it.recoveryAccepted.data
                                 val deliveryRecovery =
-                                    it.recoveryDelivery.data?.toDoubleOrNull()
+                                    it.recoveryDelivery.data
 
-                                val result = CalculationEnergy.getTotalEnergyConsumption(
-                                    accepted, delivery
-                                )
-                                val resultRecovery = CalculationEnergy.getTotalEnergyConsumption(
-                                    acceptedRecovery, deliveryRecovery
-                                )
+                                val result = delivery - accepted
+                                val resultRecovery = deliveryRecovery - acceptedRecovery
                                 overResult += result
                                 overRecovery += resultRecovery
                             }

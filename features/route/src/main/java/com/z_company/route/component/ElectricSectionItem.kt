@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
@@ -44,6 +45,8 @@ import de.charlex.compose.RevealSwipe
 import de.charlex.compose.RevealValue
 import de.charlex.compose.rememberRevealState
 import kotlinx.coroutines.launch
+import com.z_company.domain.util.minus
+import java.math.BigInteger
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
@@ -51,10 +54,10 @@ fun ElectricSectionItem(
     index: Int,
     item: ElectricSectionFormState,
     onDeleteItem: (ElectricSectionFormState) -> Unit,
-    onEnergyAcceptedChanged: (Int, String?) -> Unit,
-    onEnergyDeliveryChanged: (Int, String?) -> Unit,
-    onRecoveryAcceptedChanged: (Int, String?) -> Unit,
-    onRecoveryDeliveryChanged: (Int, String?) -> Unit,
+    onEnergyAcceptedChanged: (Int, Int?) -> Unit,
+    onEnergyDeliveryChanged: (Int, Int?) -> Unit,
+    onRecoveryAcceptedChanged: (Int, Int?) -> Unit,
+    onRecoveryDeliveryChanged: (Int, Int?) -> Unit,
     focusChangedElectricSection: (Int, ElectricSectionType) -> Unit,
     onExpandStateChanged: (Int, Boolean) -> Unit
 ) {
@@ -62,20 +65,12 @@ fun ElectricSectionItem(
     val focusManager = LocalFocusManager.current
     val revealState = rememberRevealState()
 
-    val acceptedText = item.accepted.data ?: ""
-    val deliveryText = item.delivery.data ?: ""
-    val recoveryAcceptedText = item.recoveryAccepted.data ?: ""
-    val recoveryDeliveryText = item.recoveryDelivery.data ?: ""
-    val result =
-        CalculationEnergy.getTotalEnergyConsumption(
-            acceptedText.toDoubleOrNull(),
-            deliveryText.toDoubleOrNull()
-        )
-    val resultRecovery =
-        CalculationEnergy.getTotalEnergyConsumption(
-            recoveryAcceptedText.toDoubleOrNull(),
-            recoveryDeliveryText.toDoubleOrNull()
-        )
+    val acceptedText = item.accepted.data.str()
+    val deliveryText = item.delivery.data.str()
+    val recoveryAcceptedText = item.recoveryAccepted.data.str()
+    val recoveryDeliveryText = item.recoveryDelivery.data.str()
+    val result = item.delivery.data - item.accepted.data
+    val resultRecovery = item.recoveryDelivery.data - item.recoveryAccepted.data
 
     RevealSwipe(
         modifier = Modifier
@@ -151,7 +146,7 @@ fun ElectricSectionItem(
                         .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 16.dp),
                     value = acceptedText,
                     onValueChange = {
-                        onEnergyAcceptedChanged(index, it)
+                        onEnergyAcceptedChanged(index, it.take(10).toIntOrNull())
                         focusChangedElectricSection(index, ElectricSectionType.ACCEPTED)
                     },
                     textStyle = AppTypography.getType().bodyLarge,
@@ -175,7 +170,7 @@ fun ElectricSectionItem(
                     value = deliveryText,
                     textStyle = AppTypography.getType().bodyLarge,
                     onValueChange = {
-                        onEnergyDeliveryChanged(index, it)
+                        onEnergyDeliveryChanged(index, it.take(10).toIntOrNull())
                         focusChangedElectricSection(index, ElectricSectionType.DELIVERY)
                     },
                     placeholder = {
@@ -207,7 +202,7 @@ fun ElectricSectionItem(
                                 .weight(0.5f),
                             value = recoveryAcceptedText,
                             onValueChange = {
-                                onRecoveryAcceptedChanged(index, it)
+                                onRecoveryAcceptedChanged(index, it.take(10).toIntOrNull())
                                 focusChangedElectricSection(
                                     index,
                                     ElectricSectionType.RECOVERY_ACCEPTED
@@ -236,7 +231,7 @@ fun ElectricSectionItem(
                                 .weight(0.5f),
                             value = recoveryDeliveryText,
                             onValueChange = {
-                                onRecoveryDeliveryChanged(index, it)
+                                onRecoveryDeliveryChanged(index, it.take(10).toIntOrNull())
                                 focusChangedElectricSection(
                                     index,
                                     ElectricSectionType.RECOVERY_DELIVERY
