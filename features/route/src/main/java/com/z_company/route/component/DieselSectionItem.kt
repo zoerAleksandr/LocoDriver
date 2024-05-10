@@ -183,7 +183,7 @@ fun DieselSectionItem(
                         .weight(1f),
                     value = acceptedText,
                     onValueChange = {
-                        onFuelAcceptedChanged(index, it)
+                        onFuelAcceptedChanged(index, it.take(6))
                         focusChangedDieselSection(index, DieselSectionType.ACCEPTED)
                     },
                     placeholder = {
@@ -206,7 +206,7 @@ fun DieselSectionItem(
                         .padding(start = 4.dp),
                     value = deliveryText,
                     onValueChange = {
-                        onFuelDeliveredChanged(index, it)
+                        onFuelDeliveredChanged(index, it.take(6))
                         focusChangedDieselSection(index, DieselSectionType.DELIVERY)
                     },
                     placeholder = {

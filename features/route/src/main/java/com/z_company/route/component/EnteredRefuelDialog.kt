@@ -48,7 +48,7 @@ fun EnteredRefuelDialog(
                     .padding(end = 4.dp),
                 value = temporaryValue ?: "",
                 onValueChange = {
-                    temporaryValue = it
+                    temporaryValue = it.take(6)
                 },
                 suffix = {
                     Text(text = "л.")
