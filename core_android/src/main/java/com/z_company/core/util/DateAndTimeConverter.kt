@@ -185,4 +185,25 @@ object DateAndTimeConverter {
         }
         return "$date $time"
     }
+
+    fun getTimeFromDateLong(value: Long?): String {
+        return value?.let { millis ->
+            SimpleDateFormat(
+                DateAndTimeFormat.TIME_FORMAT,
+                Locale.getDefault()
+            ).format(
+                millis
+            )
+        } ?: ""
+    }
+
+    fun getDateFromDateLong(value: Long?): String {
+        return value?.let { millis ->
+            SimpleDateFormat(
+                DateAndTimeFormat.DATE_FORMAT, Locale.getDefault()
+            ).format(
+                millis
+            )
+        } ?: ""
+    }
 }

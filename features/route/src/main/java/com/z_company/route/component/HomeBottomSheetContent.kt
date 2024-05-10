@@ -34,7 +34,7 @@ fun HomeBottomSheetContent(
     reloadRoute: () -> Unit,
     onDeleteRoute: (Route) -> Unit,
     onRouteClick: (BasicData) -> Unit,
-    onRouteLongClick: (BasicData) -> Unit,
+    onRouteLongClick: (Route) -> Unit,
     isExpand: Boolean,
 ) {
     var requiredSize by remember {
@@ -69,7 +69,7 @@ fun HomeBottomSheetContent(
                             onDelete = onDeleteRoute,
                             requiredSizeText = requiredSize,
                             changingTextSize = ::changingTextSize,
-                            onLongClick = { onRouteLongClick(route.basicData) },
+                            onLongClick = { onRouteLongClick(route) },
                             onClick = { onRouteClick(route.basicData) }
                         )
                     }

@@ -47,10 +47,12 @@ fun Double.countCharsAfterDecimalPoint(): Int {
     return BigDecimal.valueOf(this).scale()
 }
 
-fun Double.str(): String {
-    return if (this % 1.0 == 0.0) {
-        this.toString().dropLast(2)
+fun Double?.str(): String {
+    return if (this == null) {
+        ""
+    } else if (this % 1.0 == 0.0) {
+        this.toBigDecimal().toPlainString().dropLast(2)
     } else {
-        this.toString()
+        this.toBigDecimal().toPlainString()
     }
 }
