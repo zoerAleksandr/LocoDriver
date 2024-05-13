@@ -3,30 +3,24 @@ package com.z_company.route.ui
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.ScrollState
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.BottomSheetDefaults
@@ -46,57 +40,50 @@ import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ResultState
-import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
-import com.z_company.core.util.ConverterLongToTime.getTimeInStringFormat
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.DateAndTimeConverter.getDateFromDateLong
 import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
 import com.z_company.core.util.DateAndTimeConverter.getTimeFromDateLong
-import com.z_company.core.util.DateAndTimeFormat
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.route.component.HomeBottomSheetContent
 import com.z_company.route.component.DialogSelectMonthOfYear
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.util.CalculationEnergy
+import com.z_company.domain.util.CalculationEnergy.rounding
+import com.z_company.domain.util.ifNullOrBlank
 import com.z_company.domain.util.str
 import com.z_company.route.R
 import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.ButtonLocoDriver
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Locale
 import com.z_company.core.R as CoreR
-import com.z_company.domain.util.minus
+import com.z_company.domain.util.times
+
 @RequiresApi(Build.VERSION_CODES.S)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -397,9 +384,17 @@ fun TotalTime(
 
 @Composable
 fun PreviewRoute(route: Route?) {
-    val styleTitle = AppTypography.getType().titleMedium.copy(fontWeight = FontWeight.W500)
-    val styleData = AppTypography.getType().bodyLarge.copy(fontWeight = FontWeight.W400)
-    val styleHint = AppTypography.getType().labelMedium.copy(fontWeight = FontWeight.W300)
+    val styleTitle = AppTypography.getType().titleSmall.copy(fontWeight = FontWeight.W600)
+    val styleData = AppTypography.getType().bodyMedium.copy(fontWeight = FontWeight.W400)
+    val styleHint = AppTypography.getType().bodySmall.copy(fontWeight = FontWeight.W300)
+    val paddingBetweenBlocks = 18.dp
+    val paddingInsideBlock = 16.dp
+    val paddingIcon = 12.dp
+    val horizontalPaddingSecondItem = 32.dp
+    val iconSize = 50.dp
+    val iconMiniSize = 18.dp
+
+
     route?.let {
         LazyColumn(
             modifier = Modifier
@@ -411,17 +406,37 @@ fun PreviewRoute(route: Route?) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 12.dp),
+                        .padding(top = paddingBetweenBlocks),
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    route.basicData.number?.let { number ->
-                        Text(
-                            text = "Маршрут №${number}  ",
-                            style = styleTitle,
-                        )
-                    }
+                    Text(
+                        text = "Маршрут ${route.basicData.number ?: "б/н"}  ",
+                        style = styleTitle,
+                    )
+                }
+            }
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = paddingBetweenBlocks),
+                    contentAlignment = Alignment.CenterStart
+                ) {
                     Text(
                         text = getDateFromDateLong(route.basicData.timeStartWork),
+                        style = styleData,
+                    )
+                }
+            }
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = paddingBetweenBlocks),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Text(
+                        text = "Рабочее время",
                         style = styleTitle,
                     )
                 }
@@ -429,181 +444,413 @@ fun PreviewRoute(route: Route?) {
             item {
                 Row(
                     modifier = Modifier
-                        .fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .fillMaxWidth()
+                        .padding(top = paddingInsideBlock),
                 ) {
-                    Row {
-                        Text(
-                            text = getTimeFromDateLong(route.basicData.timeStartWork),
-                            style = styleData,
-                            maxLines = 1
-                        )
+                    // Icon
+                    Box(
+                        modifier = Modifier
+                            .size(iconSize)
+                            .background(
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                shape = Shapes.medium
+                            )
+                    )
+                    Column(modifier = Modifier.padding(start = paddingIcon)) {
+                        Box {
+                            Text(
+                                text = DateAndTimeConverter.getTimeInStringFormat(route.getWorkTime()),
+                                style = styleData,
+                                maxLines = 1
+                            )
+                        }
+                        Row {
+                            Text(
+                                text = getTimeFromDateLong(route.basicData.timeStartWork),
+                                style = styleHint,
+                                maxLines = 1
+                            )
 
-                        Text(
-                            text = " - ${getTimeFromDateLong(route.basicData.timeEndWork)}",
-                            style = styleData,
-                            maxLines = 1
-                        )
+                            Text(
+                                text = " - ${getTimeFromDateLong(route.basicData.timeEndWork)}",
+                                style = styleHint,
+                                maxLines = 1
+                            )
+                        }
                     }
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = paddingInsideBlock),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    // Icon
+                    Box(
+                        modifier = Modifier
+                            .size(iconSize)
+                            .background(
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                shape = Shapes.medium
+                            )
+                    )
                     val restText = if (route.basicData.restPointOfTurnover) {
                         "Отдых в ПО"
                     } else {
                         "Домашний отдых"
                     }
+                    Column(modifier = Modifier.padding(start = paddingIcon)) {
+                        Text(
+                            text = restText,
+                            style = styleData,
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
 
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = paddingBetweenBlocks),
+                    contentAlignment = Alignment.CenterStart
+                ) {
                     Text(
-                        text = restText,
-                        style = styleData,
-                        maxLines = 1,
+                        text = "Локомотив",
+                        style = styleTitle,
                     )
                 }
             }
+
             items(route.locomotives, key = { loco -> loco.locoId }) { locomotive ->
+                var visibleState by remember {
+                    mutableStateOf(true)
+                }
+                val typeLocoText = when (locomotive.type) {
+                    LocoType.ELECTRIC -> "Электровоз"
+                    LocoType.DIESEL -> "Тепловоз"
+                }
+                val seriesText = locomotive.series.ifNullOrBlank { "" }
+                val numberText = locomotive.number.ifNullOrBlank { "" }
+                val timeStartAcceptedText =
+                    getTimeFromDateLong(locomotive.timeStartOfAcceptance)
+                val timeEndAcceptedText =
+                    getTimeFromDateLong(locomotive.timeEndOfAcceptance)
+                val timeStartDeliveryText =
+                    getTimeFromDateLong(locomotive.timeStartOfDelivery)
+                val timeEndDeliveryText =
+                    getTimeFromDateLong(locomotive.timeEndOfDelivery)
                 Column {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 12.dp),
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        val typeLocoText = when (locomotive.type) {
-                            LocoType.ELECTRIC -> "Электровоз"
-                            LocoType.DIESEL -> "Тепловоз"
-                        }
-                        Text(
-                            text = "$typeLocoText ",
-                            style = styleTitle
-                        )
-                        locomotive.series?.let { series ->
-                            Text(
-                                text = "$series - ",
-                                style = styleTitle
-                            )
-                        }
-                        locomotive.number?.let { number ->
-                            Text(
-                                text = number,
-                                style = styleTitle
-                            )
-                        }
-                    }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth(),
+                            .padding(top = paddingInsideBlock),
+                        verticalAlignment = Alignment.Top,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            val timeStartAcceptedText =
-                                getTimeFromDateLong(locomotive.timeStartOfAcceptance)
-                            val timeEndAcceptedText =
-                                getTimeFromDateLong(locomotive.timeEndOfAcceptance)
-                            Text(text = "Приемка", style = styleHint)
-                            Text(
-                                text = "$timeStartAcceptedText - $timeEndAcceptedText",
-                                style = styleData
+                        Row {
+                            // Icon
+                            Box(
+                                modifier = Modifier
+                                    .size(iconSize)
+                                    .background(
+                                        color = MaterialTheme.colorScheme.secondaryContainer,
+                                        shape = Shapes.medium
+                                    )
                             )
+                            Column(
+                                modifier = Modifier
+                                    .padding(start = paddingIcon)
+                            ) {
+                                Row {
+                                    if (locomotive.series == null) {
+                                        Text(
+                                            text = "$typeLocoText ",
+                                            style = styleData,
+                                        )
+                                    } else {
+                                        Text(
+                                            text = seriesText,
+                                            style = styleData,
+                                        )
+                                    }
+                                    locomotive.number?.let {
+                                        Text(
+                                            text = " - $numberText",
+                                            style = styleData,
+                                        )
+                                    }
+                                }
+                                if (locomotive.timeStartOfAcceptance != null || locomotive.timeEndOfAcceptance != null) {
+                                    Row {
+                                        Text(
+                                            text = "Приемка: ",
+                                            style = styleHint,
+                                        )
+                                        Text(
+                                            text = "$timeStartAcceptedText - ",
+                                            style = styleHint,
+                                        )
+                                        Text(
+                                            text = timeEndAcceptedText,
+                                            style = styleHint,
+                                        )
+                                    }
+                                }
+                                if (locomotive.timeStartOfDelivery != null || locomotive.timeEndOfDelivery != null) {
+                                    Row {
+                                        Text(
+                                            text = "Сдача: ",
+                                            style = styleHint,
+                                        )
+                                        Text(
+                                            text = "$timeStartDeliveryText - ",
+                                            style = styleHint,
+                                        )
+                                        Text(
+                                            text = timeEndDeliveryText,
+                                            style = styleHint,
+                                        )
+                                    }
+                                }
+                            }
                         }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            val timeStartDeliveryText =
-                                getTimeFromDateLong(locomotive.timeStartOfDelivery)
-                            val timeEndDeliveryText =
-                                getTimeFromDateLong(locomotive.timeEndOfDelivery)
-                            Text(text = "Сдача", style = styleHint)
-                            Text(
-                                text = "$timeStartDeliveryText - $timeEndDeliveryText",
-                                style = styleData
+                        IconButton(
+                            onClick = { visibleState = !visibleState }) {
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowDown,
+                                contentDescription = null
                             )
                         }
                     }
-                    locomotive.electricSectionList.forEachIndexed { index, sectionElectric ->
-                        Column(modifier = Modifier.padding(top = 12.dp)) {
-                            Row(modifier = Modifier.fillMaxWidth()) {
-                                Text(
-                                    modifier = Modifier.weight(.25f),
-                                    text = "Cекция ${index + 1}",
-                                    style = styleHint
-                                )
-                                Text(
-                                    modifier = Modifier.weight(.25f),
-                                    text = "Принял",
-                                    style = styleHint
-                                )
-                                Text(
-                                    modifier = Modifier.weight(.25f),
-                                    text = "Сдал",
-                                    style = styleHint
-                                )
-                                Text(
-                                    modifier = Modifier.weight(.25f),
-                                    text = "Итого",
-                                    style = styleHint
-                                )
+
+                    when (locomotive.type) {
+                        LocoType.ELECTRIC -> {
+                            AnimatedVisibility(visible = visibleState) {
+                                Column {
+                                    locomotive.electricSectionList.forEachIndexed { index, sectionElectric ->
+                                        Log.d(
+                                            "ZZZ",
+                                            "$index ${sectionElectric.acceptedRecovery} ${sectionElectric.deliveryRecovery}"
+                                        )
+                                        val acceptedEnergyText =
+                                            sectionElectric.acceptedEnergy.str()
+                                        val deliveryEnergyText =
+                                            sectionElectric.deliveryEnergy.str()
+                                        val acceptedRecoveryText =
+                                            sectionElectric.acceptedRecovery.str()
+                                        val deliveryRecoveryText =
+                                            sectionElectric.deliveryRecovery.str()
+                                        val consumptionEnergy =
+                                            CalculationEnergy.getTotalEnergyConsumption(
+                                                accepted = sectionElectric.acceptedEnergy,
+                                                delivery = sectionElectric.deliveryEnergy
+                                            )
+                                        val consumptionRecovery =
+                                            CalculationEnergy.getTotalEnergyConsumption(
+                                                accepted = sectionElectric.acceptedRecovery,
+                                                delivery = sectionElectric.deliveryRecovery
+                                            )
+
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(
+                                                    top = paddingInsideBlock,
+                                                    start = horizontalPaddingSecondItem
+                                                ),
+                                            verticalAlignment = Alignment.Top
+                                        ) {
+                                            // Icon
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(iconSize)
+                                                    .background(
+                                                        color = MaterialTheme.colorScheme.secondaryContainer,
+                                                        shape = Shapes.medium
+                                                    )
+                                            )
+                                            Column(modifier = Modifier.padding(start = paddingIcon)) {
+                                                if (sectionElectric.acceptedEnergy != null ||
+                                                    sectionElectric.deliveryEnergy != null
+                                                ) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(
+                                                            paddingIcon / 2
+                                                        )
+                                                    ) {
+                                                        // Icon energy symbol
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .size(iconMiniSize)
+                                                                .background(
+                                                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                                                    shape = Shapes.medium
+                                                                )
+                                                        )
+                                                        Text(
+                                                            text = "$acceptedEnergyText - $deliveryEnergyText",
+                                                            style = styleHint,
+                                                        )
+                                                    }
+                                                }
+                                                if (sectionElectric.acceptedRecovery != null ||
+                                                    sectionElectric.deliveryRecovery != null
+                                                ) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(
+                                                            paddingIcon / 2
+                                                        )
+                                                    ) {
+                                                        // Icon recovery symbol
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .size(iconMiniSize)
+                                                                .background(
+                                                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                                                    shape = Shapes.medium
+                                                                )
+                                                        )
+                                                        Text(
+                                                            text = "$acceptedRecoveryText - $deliveryRecoveryText",
+                                                            style = styleHint,
+                                                        )
+                                                    }
+                                                }
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(
+                                                        paddingIcon / 2
+                                                    )
+                                                ) {
+                                                    consumptionEnergy?.let {
+                                                        Text(
+                                                            text = "Расход: $consumptionEnergy",
+                                                            style = styleHint,
+                                                        )
+                                                    }
+                                                    consumptionRecovery?.let {
+                                                        Text(
+                                                            text = "Рекуперация: $consumptionRecovery",
+                                                            style = styleHint,
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
-                            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                val resultText = sectionElectric.deliveryEnergy - sectionElectric.acceptedEnergy
-                                Text(
-                                    modifier = Modifier.padding(end = 2.dp).weight(.25f),
-                                    text = "Расход",
-                                    style = styleHint
-                                )
-                                Text(
-                                    modifier = Modifier.padding(end = 2.dp).weight(.25f),
-                                    text = sectionElectric.acceptedEnergy.str(),
-                                    style = styleData
-                                )
-                                Text(
-                                    modifier = Modifier.padding(end = 2.dp).weight(.25f),
-                                    text = sectionElectric.deliveryEnergy.str(),
-                                    style = styleData
-                                )
-                                Text(
-                                    modifier = Modifier.weight(.25f),
-                                    text = resultText.str(),
-                                    style = styleData
-                                )
-                            }
-                            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                val resultText = sectionElectric.deliveryRecovery - sectionElectric.acceptedRecovery
-                                Text(
-                                    modifier = Modifier.weight(.25f),
-                                    text = "Рекуперация",
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    style = styleHint
-                                )
-                                Text(
-                                    modifier = Modifier.weight(.25f),
-                                    text = sectionElectric.acceptedRecovery.str(),
-                                    style = styleData
-                                )
-                                Text(
-                                    modifier = Modifier.weight(.25f),
-                                    text = sectionElectric.deliveryRecovery.str(),
-                                    style = styleData
-                                )
-                                Text(
-                                    modifier = Modifier.weight(.25f),
-                                    text = resultText.str(),
-                                    style = styleData
-                                )
+                        }
+
+                        LocoType.DIESEL -> {
+                            AnimatedVisibility(visible = visibleState) {
+                                locomotive.dieselSectionList.forEachIndexed { index, sectionDiesel ->
+                                    val consumption = CalculationEnergy.getTotalFuelConsumption(
+                                        accepted = sectionDiesel.acceptedFuel,
+                                        delivery = sectionDiesel.deliveryFuel,
+                                        refuel = sectionDiesel.fuelSupply
+                                    )
+                                    val consumptionInKilo =
+                                        CalculationEnergy.getTotalFuelInKiloConsumption(
+                                            consumption = consumption,
+                                            coefficient = sectionDiesel.coefficient
+                                        )
+                                    val consumptionText = consumption.str()
+                                    val consumptionInKiloText = consumptionInKilo.str()
+                                    val acceptedText = sectionDiesel.acceptedFuel.str()
+                                    val deliveryText = sectionDiesel.deliveryFuel.str()
+                                    val acceptedInKilo =
+                                        sectionDiesel.acceptedFuel.times(sectionDiesel.coefficient)
+                                    val acceptedInKiloText = rounding(acceptedInKilo, 2).str()
+                                    val deliveryInKilo =
+                                        sectionDiesel.deliveryFuel.times(sectionDiesel.coefficient)
+                                    val deliveryInKiloText = rounding(deliveryInKilo, 2).str()
+                                    val fuelSupplyText = sectionDiesel.fuelSupply.str()
+                                    val coefficientText = sectionDiesel.coefficient.str()
+
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(
+                                                top = paddingInsideBlock,
+                                                start = horizontalPaddingSecondItem
+                                            ),
+                                        verticalAlignment = Alignment.Top
+                                    ) {
+                                        // Icon
+                                        Box(
+                                            modifier = Modifier
+                                                .size(iconSize)
+                                                .background(
+                                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                                    shape = Shapes.medium
+                                                )
+                                        )
+
+                                        Column(modifier = Modifier.padding(start = paddingIcon)) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(
+                                                    paddingIcon / 2
+                                                )
+                                            ) {
+                                                Text(
+                                                    text = "$acceptedText - $deliveryText",
+                                                    style = styleHint
+                                                )
+                                                Text(
+                                                    text = "$consumptionText л.",
+                                                    style = styleHint
+                                                )
+                                            }
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(
+                                                    paddingIcon / 2
+                                                )
+                                            ) {
+                                                Text(
+                                                    text = "$acceptedInKiloText - $deliveryInKiloText",
+                                                    style = styleHint
+                                                )
+                                                Text(
+                                                    text = "$consumptionInKiloText кг.",
+                                                    style = styleHint
+                                                )
+                                            }
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(
+                                                    paddingIcon / 2
+                                                )
+                                            ) {
+                                                Text(
+                                                    text = "k: $coefficientText",
+                                                    style = styleHint
+                                                )
+                                                sectionDiesel.fuelSupply?.let {
+                                                    Text(
+                                                        text = "Снабжение: $fuelSupplyText л.",
+                                                        style = styleHint
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
-        }
-    }
-}
 
-@Composable
-fun Table(
-    rowCount: Int,
-    columnCount: Int,
-    rowContent: @Composable () -> Unit
-) {
-    (0 until columnCount).forEach {
-        Column {
-
+            item {
+                Spacer(modifier = Modifier.padding(top = 24.dp))
+            }
         }
     }
 }

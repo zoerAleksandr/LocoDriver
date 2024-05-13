@@ -250,13 +250,13 @@ class LocoFormViewModel constructor(
 
     fun setNumber(number: String) {
         currentLoco = currentLoco?.copy(
-            number = number
+            number = number.ifBlank { null }
         )
     }
 
     fun setSeries(series: String) {
         currentLoco = currentLoco?.copy(
-            series = series
+            series = series.ifBlank { null }
         )
     }
 

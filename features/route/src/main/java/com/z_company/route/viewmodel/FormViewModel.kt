@@ -206,7 +206,7 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
     fun setNumber(value: String) {
         currentRoute = currentRoute?.copy(
             basicData = currentRoute!!.basicData.copy(
-                number = value
+                number = value.ifBlank { null }
             )
         )
         changesHave()
