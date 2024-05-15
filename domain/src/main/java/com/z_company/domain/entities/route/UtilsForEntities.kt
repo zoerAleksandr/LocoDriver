@@ -10,4 +10,14 @@ object UtilsForEntities {
             null
         }
     }
+
+    fun Passenger.getFollowingTime(): Long? {
+        val timeEnd = this.timeArrival
+        val timeStart = this.timeDeparture
+        return if (timeEnd != null && timeStart != null) {
+            timeEnd - timeStart
+        } else {
+            null
+        }
+    }
 }

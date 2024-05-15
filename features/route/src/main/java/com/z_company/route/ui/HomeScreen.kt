@@ -1,9 +1,10 @@
 package com.z_company.route.ui
 
 import android.os.Build
-import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -47,6 +48,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -55,6 +57,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -72,6 +75,7 @@ import com.z_company.route.component.DialogSelectMonthOfYear
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.UtilsForEntities.getFollowingTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.util.CalculationEnergy
 import com.z_company.domain.util.CalculationEnergy.rounding
@@ -382,31 +386,33 @@ fun TotalTime(
     )
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PreviewRoute(route: Route?) {
     val styleTitle = AppTypography.getType().titleSmall.copy(fontWeight = FontWeight.W600)
     val styleData = AppTypography.getType().bodyMedium.copy(fontWeight = FontWeight.W400)
     val styleHint = AppTypography.getType().bodySmall.copy(fontWeight = FontWeight.W300)
-    val paddingBetweenBlocks = 18.dp
-    val paddingInsideBlock = 16.dp
+    val paddingBetweenBlocks = 20.dp
+    val paddingInsideBlock = 14.dp
     val paddingIcon = 12.dp
     val horizontalPaddingSecondItem = 32.dp
     val iconSize = 50.dp
+    val iconSizeSecond = iconSize * .8f
     val iconMiniSize = 18.dp
-
 
     route?.let {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             item {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = paddingBetweenBlocks),
+                        .padding(top = paddingBetweenBlocks)
+                        .animateItemPlacement(),
                     horizontalArrangement = Arrangement.Center
                 ) {
                     Text(
@@ -419,7 +425,8 @@ fun PreviewRoute(route: Route?) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = paddingBetweenBlocks),
+                        .padding(top = paddingBetweenBlocks)
+                        .animateItemPlacement(),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     Text(
@@ -432,7 +439,8 @@ fun PreviewRoute(route: Route?) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = paddingBetweenBlocks),
+                        .padding(top = paddingBetweenBlocks)
+                        .animateItemPlacement(),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     Text(
@@ -445,7 +453,8 @@ fun PreviewRoute(route: Route?) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = paddingInsideBlock),
+                        .padding(top = paddingInsideBlock)
+                        .animateItemPlacement(),
                 ) {
                     // Icon
                     Box(
@@ -479,10 +488,13 @@ fun PreviewRoute(route: Route?) {
                         }
                     }
                 }
+            }
+            item {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = paddingInsideBlock),
+                        .padding(top = paddingInsideBlock)
+                        .animateItemPlacement(),
                     verticalAlignment = Alignment.Top
                 ) {
                     // Icon
@@ -508,12 +520,12 @@ fun PreviewRoute(route: Route?) {
                     }
                 }
             }
-
             item {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = paddingBetweenBlocks),
+                        .padding(top = paddingBetweenBlocks)
+                        .animateItemPlacement(),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     Text(
@@ -522,9 +534,9 @@ fun PreviewRoute(route: Route?) {
                     )
                 }
             }
-
             items(route.locomotives, key = { loco -> loco.locoId }) { locomotive ->
-                var visibleState by remember {
+
+                var visibleSectionState by remember {
                     mutableStateOf(true)
                 }
                 val typeLocoText = when (locomotive.type) {
@@ -541,7 +553,14 @@ fun PreviewRoute(route: Route?) {
                     getTimeFromDateLong(locomotive.timeStartOfDelivery)
                 val timeEndDeliveryText =
                     getTimeFromDateLong(locomotive.timeEndOfDelivery)
-                Column {
+
+                val rotationSectionButton =
+                    animateFloatAsState(
+                        targetValue = if (visibleSectionState) 180f else 0f,
+                        label = ""
+                    )
+
+                Column(modifier = Modifier.animateItemPlacement()) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -617,7 +636,12 @@ fun PreviewRoute(route: Route?) {
                             }
                         }
                         IconButton(
-                            onClick = { visibleState = !visibleState }) {
+                            modifier = Modifier.graphicsLayer(
+                                rotationZ = rotationSectionButton.value
+                            ),
+                            onClick = {
+                                visibleSectionState = !visibleSectionState
+                            }) {
                             Icon(
                                 imageVector = Icons.Default.KeyboardArrowDown,
                                 contentDescription = null
@@ -627,13 +651,9 @@ fun PreviewRoute(route: Route?) {
 
                     when (locomotive.type) {
                         LocoType.ELECTRIC -> {
-                            AnimatedVisibility(visible = visibleState) {
+                            AnimatedVisibility(visible = visibleSectionState) {
                                 Column {
                                     locomotive.electricSectionList.forEachIndexed { index, sectionElectric ->
-                                        Log.d(
-                                            "ZZZ",
-                                            "$index ${sectionElectric.acceptedRecovery} ${sectionElectric.deliveryRecovery}"
-                                        )
                                         val acceptedEnergyText =
                                             sectionElectric.acceptedEnergy.str()
                                         val deliveryEnergyText =
@@ -665,7 +685,7 @@ fun PreviewRoute(route: Route?) {
                                             // Icon
                                             Box(
                                                 modifier = Modifier
-                                                    .size(iconSize)
+                                                    .size(iconSizeSecond)
                                                     .background(
                                                         color = MaterialTheme.colorScheme.secondaryContainer,
                                                         shape = Shapes.medium
@@ -747,7 +767,7 @@ fun PreviewRoute(route: Route?) {
                         }
 
                         LocoType.DIESEL -> {
-                            AnimatedVisibility(visible = visibleState) {
+                            AnimatedVisibility(visible = visibleSectionState) {
                                 locomotive.dieselSectionList.forEachIndexed { index, sectionDiesel ->
                                     val consumption = CalculationEnergy.getTotalFuelConsumption(
                                         accepted = sectionDiesel.acceptedFuel,
@@ -784,7 +804,7 @@ fun PreviewRoute(route: Route?) {
                                         // Icon
                                         Box(
                                             modifier = Modifier
-                                                .size(iconSize)
+                                                .size(iconSizeSecond)
                                                 .background(
                                                     color = MaterialTheme.colorScheme.secondaryContainer,
                                                     shape = Shapes.medium
@@ -847,7 +867,220 @@ fun PreviewRoute(route: Route?) {
                     }
                 }
             }
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = paddingBetweenBlocks)
+                        .animateItemPlacement(),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Text(
+                        text = "Поезд",
+                        style = styleTitle,
+                    )
+                }
+            }
+            items(route.trains, key = { train -> train.trainId }) { train ->
+                val numberText = train.number.ifNullOrBlank { "" }
+                val weightText = train.weight.ifNullOrBlank { "" }
+                val axleText = train.axle.ifNullOrBlank { "" }
+                val lengthText = train.conditionalLength.ifNullOrBlank { "" }
+                var visibleStationState by remember {
+                    mutableStateOf(true)
+                }
+                val rotationStationButton =
+                    animateFloatAsState(
+                        targetValue = if (visibleStationState) 180f else 0f,
+                        label = ""
+                    )
 
+                Column(modifier = Modifier.animateItemPlacement()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = paddingInsideBlock),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row {
+                            // Icon
+                            Box(
+                                modifier = Modifier
+                                    .size(iconSize)
+                                    .background(
+                                        color = MaterialTheme.colorScheme.secondaryContainer,
+                                        shape = Shapes.medium
+                                    )
+                            )
+                            Column(modifier = Modifier.padding(start = paddingIcon)) {
+                                Box {
+                                    Text(
+                                        text = numberText,
+                                        style = styleData,
+                                    )
+                                }
+                                Row {
+                                    Text(
+                                        text = "Вес: ",
+                                        style = styleHint,
+                                    )
+                                    Text(
+                                        text = weightText,
+                                        style = styleHint,
+                                    )
+                                    Text(
+                                        text = "  Оси: ",
+                                        style = styleHint,
+                                    )
+                                    Text(
+                                        text = axleText,
+                                        style = styleHint,
+                                    )
+                                    Text(
+                                        text = "  у.д.: ",
+                                        style = styleHint,
+                                    )
+                                    Text(
+                                        text = lengthText,
+                                        style = styleHint,
+                                    )
+                                }
+                            }
+                        }
+                        IconButton(
+                            modifier = Modifier.graphicsLayer(
+                                rotationZ = rotationStationButton.value
+                            ),
+                            onClick = {
+                                visibleStationState = !visibleStationState
+                            }) {
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowDown,
+                                contentDescription = null
+                            )
+                        }
+                    }
+                    AnimatedVisibility(visible = visibleStationState) {
+                        Column {
+                            train.stations.forEachIndexed { index, station ->
+                                val stationNameText = station.stationName.ifNullOrBlank { "" }
+                                val timeArrival = getTimeFromDateLong(station.timeArrival)
+                                val timeDeparture = getTimeFromDateLong(station.timeDeparture)
+                                // Icon
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(
+                                            top = paddingInsideBlock,
+                                            start = horizontalPaddingSecondItem
+                                        ),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(iconSizeSecond)
+                                            .background(
+                                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                                shape = Shapes.medium
+                                            )
+                                    )
+                                    Column(modifier = Modifier.padding(start = paddingIcon)) {
+                                        Text(text = stationNameText, style = styleHint)
+
+                                        Row {
+                                            Text(text = timeArrival, style = styleHint)
+                                            if (timeArrival.isNotBlank() && timeDeparture.isNotBlank()) {
+                                                Text(text = " - ", style = styleHint)
+                                            }
+                                            Text(text = timeDeparture, style = styleHint)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = paddingBetweenBlocks)
+                        .animateItemPlacement(),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Text(
+                        text = "Пассажир",
+                        style = styleTitle,
+                    )
+                }
+            }
+            items(route.passengers, key = { passenger -> passenger.passengerId }) { passenger ->
+                val numberText = passenger.trainNumber.ifNullOrBlank { "" }
+                val stationDeparture = passenger.stationDeparture.ifNullOrBlank { "" }
+                val stationArrival = passenger.stationArrival.ifNullOrBlank { "" }
+                val timeDeparture = getTimeFromDateLong(passenger.timeDeparture)
+                val timeArrival = getTimeFromDateLong(passenger.timeArrival)
+                val timeFollowing =
+                    DateAndTimeConverter.getTimeInStringFormat(passenger.getFollowingTime())
+                        .ifNullOrBlank { "" }
+                val notesText = passenger.notes.ifNullOrBlank { "" }
+
+                Column(modifier = Modifier.animateItemPlacement()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = paddingInsideBlock)
+                    ) {
+                        // Icon
+                        Box(
+                            modifier = Modifier
+                                .size(iconSize)
+                                .background(
+                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                    shape = Shapes.medium
+                                )
+                        )
+                        Column(modifier = Modifier.padding(start = paddingIcon)) {
+                            Text(text = timeFollowing, style = styleData)
+                            if (passenger.timeDeparture != null || passenger.timeArrival != null) {
+                                Row {
+                                    Text(text = "$timeDeparture - ", style = styleHint)
+                                    Text(text = timeArrival, style = styleHint)
+                                }
+                            }
+                        }
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = paddingInsideBlock)
+                    ) {
+                        // Icon
+                        Box(
+                            modifier = Modifier
+                                .size(iconSize)
+                                .background(
+                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                    shape = Shapes.medium
+                                )
+                        )
+                        Column(modifier = Modifier.padding(start = paddingIcon)) {
+                            Text(text = numberText, style = styleData)
+                            Row {
+                                Text(text = "$stationDeparture - ", style = styleHint)
+                                Text(text = stationArrival, style = styleHint)
+                            }
+                            Text(
+                                text = notesText,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = styleHint
+                            )
+                        }
+                    }
+                }
+            }
             item {
                 Spacer(modifier = Modifier.padding(top = 24.dp))
             }
