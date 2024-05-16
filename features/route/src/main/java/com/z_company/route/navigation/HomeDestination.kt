@@ -19,6 +19,9 @@ fun HomeDestination(
         removeRouteState = homeUiState.removeRouteState,
         onRouteClick = router::showRouteDetails,
         onNewRouteClick = { router.showRouteForm() },
+        onChangeRoute = {
+            router.showRouteForm(it)
+        },
         onDeleteRoute = homeViewModel::remove,
         onDeleteRouteConfirmed = homeViewModel::resetRemoveRouteState,
         reloadRoute = homeViewModel::loadRoutes,

@@ -3,9 +3,19 @@ package com.z_company.loco_driver.ui.theme
 import androidx.compose.ui.graphics.Color
 
 
-val Grey40 = Color(0xFF625b71)
+val DarkPrimary = Color(0xFFDDDBDB)
+val DarkOnPrimary = Color(0xFF1A1A1A)
+val DarkSurface = Color(0xFF292929)
+val DarkSecondary = Color(0xFF696969)
+val DarkSecondaryContainer = Color(0xFF363636)
+val DarkBackground = Color(0xFF141414)
+val DarkError = Color(0xFFF81A1A)
+
 val Blue = Color(0xFF0355FF)
 
-val Dark80 = Color(0xCD000000)
-val White = Color(0xFFECECEC)
-val Dark5 = Color(0x0D000000)
+val LightPrimary = Color(0xFF202020)
+val LightOnPrimary = Color(0xFFDBDBDB)
+val LightSurface = Color(0xFFF3F3F3)
+val LightSecondary = Color(0xFFB1B1B1)
+val LightSecondaryContainer = Color(0xFFEEEEEE)
+val LightBackground = Color(0xFFFFFFFF)

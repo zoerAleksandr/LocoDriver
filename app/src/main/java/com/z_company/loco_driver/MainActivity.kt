@@ -27,12 +27,7 @@ class MainActivity : ComponentActivity() {
         lifecycle.addObserver(mainViewModel)
         mainViewModel.isRegistered.observe(this) {
             setContent {
-                enableEdgeToEdge(
-                    navigationBarStyle = SystemBarStyle.auto(
-                        lightScrim = Color.Transparent.toArgb(),
-                        darkScrim = Color.Transparent.toArgb()
-                    )
-                )
+                enableEdgeToEdge()
                 val appState = rememberLocoDriverAppState()
                 LocoDriverApp(appState = appState, isLoggedIn = it != false)
             }

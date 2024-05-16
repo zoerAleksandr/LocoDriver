@@ -1,7 +1,5 @@
 package com.z_company.route.ui
 
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -20,7 +18,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -32,7 +32,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SheetValue
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -41,13 +40,13 @@ import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
@@ -70,8 +69,6 @@ import com.z_company.core.util.DateAndTimeConverter.getDateFromDateLong
 import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
 import com.z_company.core.util.DateAndTimeConverter.getTimeFromDateLong
 import com.z_company.domain.entities.MonthOfYear
-import com.z_company.route.component.HomeBottomSheetContent
-import com.z_company.route.component.DialogSelectMonthOfYear
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Route
@@ -81,20 +78,24 @@ import com.z_company.domain.util.CalculationEnergy
 import com.z_company.domain.util.CalculationEnergy.rounding
 import com.z_company.domain.util.ifNullOrBlank
 import com.z_company.domain.util.str
+import com.z_company.domain.util.times
 import com.z_company.route.R
 import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.ButtonLocoDriver
+import com.z_company.route.component.DialogSelectMonthOfYear
+import com.z_company.route.component.HomeBottomSheetContent
+import com.z_company.route.component.TopSnackbar
 import kotlinx.coroutines.launch
 import com.z_company.core.R as CoreR
-import com.z_company.domain.util.times
 
-@RequiresApi(Build.VERSION_CODES.S)
+//@RequiresApi(Build.VERSION_CODES.S)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     routeListState: ResultState<List<Route>>,
     removeRouteState: ResultState<Unit>?,
     onRouteClick: (BasicData) -> Unit,
+    onChangeRoute: (String) -> Unit,
     onNewRouteClick: () -> Unit,
     onDeleteRoute: (Route) -> Unit,
     onDeleteRouteConfirmed: () -> Unit,
@@ -172,14 +173,81 @@ fun HomeScreen(
             Column(
                 modifier = Modifier
                     .padding(end = 12.dp)
-                    .fillMaxWidth(0.5f)
-                    .background(color = Color.Red, shape = Shapes.medium)
+                    .fillMaxWidth(0.6f)
+                    .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
             ) {
-                Text(text = "item 1")
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .clickable {
+                            showContextDialog = false
+                            routeForPreview?.basicData?.let { basicData ->
+                                onRouteClick(basicData)
+                            }
+                        },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Просмотр",
+                        style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
+                    )
+                    Icon(
+                        painter = painterResource(id = R.drawable.rounded_visibility_24),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
                 HorizontalDivider()
-                Text(text = "item 2")
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .clickable {
+                            showContextDialog = false
+                            routeForPreview?.basicData?.let { basicData ->
+                                onChangeRoute(basicData.id)
+                            }
+                        },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Редактировать",
+                        style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
+                    )
+                    Icon(
+                        imageVector = Icons.Default.Create,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
                 HorizontalDivider()
-                Text(text = "item 3")
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .clickable {
+                            routeForPreview?.let { route ->
+                                onDeleteRoute(route)
+                            }
+                            showContextDialog = false
+                        },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Удалить",
+                        style = AppTypography.getType().bodyMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    Icon(
+                        painter = painterResource(id = R.drawable.delete_24px),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
             }
         }
     }
@@ -202,7 +270,7 @@ fun HomeScreen(
         scaffoldState = scaffoldState,
         snackbarHost = {
             SnackbarHost(hostState = scaffoldState.snackbarHostState) { snackBarData ->
-                Snackbar(snackBarData)
+                TopSnackbar(snackBarData = snackBarData)
             }
         },
         sheetPeekHeight = sheetPeekHeight.dp,
@@ -226,7 +294,8 @@ fun HomeScreen(
                 isExpand = isExpand
             )
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.background,
+        contentColor = MaterialTheme.colorScheme.primary
     ) {
         Column(
             Modifier
@@ -255,7 +324,8 @@ fun HomeScreen(
                     onClick = { onSettingsClick() }) {
                     Icon(
                         imageVector = Icons.Default.Settings,
-                        contentDescription = null
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
                     )
                 }
                 TextButton(
@@ -270,6 +340,7 @@ fun HomeScreen(
                         } ${currentMonthOfYear.year}",
                         style = AppTypography.getType().headlineSmall,
                         maxTextSize = 24.sp,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
                 IconButton(
@@ -282,7 +353,8 @@ fun HomeScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Search,
-                        contentDescription = null
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
                     )
                 }
             }
@@ -311,26 +383,30 @@ fun HomeScreen(
                     Icon(
                         modifier = Modifier.padding(end = 4.dp),
                         painter = painterResource(id = CoreR.drawable.ic_star_border),
-                        contentDescription = null
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
                     )
                     AutoSizeText(
                         text = DateAndTimeConverter.getTimeInStringFormat(12L),
                         style = AppTypography.getType().headlineSmall,
                         maxTextSize = 24.sp,
-                        fontWeight = FontWeight.Light
+                        fontWeight = FontWeight.Light,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         modifier = Modifier.padding(end = 4.dp),
                         painter = painterResource(id = CoreR.drawable.ic_star_border),
-                        contentDescription = null
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
                     )
                     AutoSizeText(
                         text = DateAndTimeConverter.getTimeInStringFormat(8L),
                         style = AppTypography.getType().headlineSmall,
                         maxTextSize = 24.sp,
-                        fontWeight = FontWeight.Light
+                        fontWeight = FontWeight.Light,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
@@ -347,7 +423,7 @@ fun HomeScreen(
             ) {
                 AutoSizeText(
                     text = stringResource(id = CoreR.string.adding),
-                    style = AppTypography.getType().headlineSmall,
+                    style = AppTypography.getType().headlineSmall.copy(color = MaterialTheme.colorScheme.onPrimary),
                     maxTextSize = 24.sp,
                 )
             }
@@ -368,6 +444,7 @@ fun TotalTime(
             withStyle(
                 SpanStyle(
                     fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.primary
                 )
             ) {
                 append(DateAndTimeConverter.getTimeInStringFormat(valueTime))
@@ -375,7 +452,8 @@ fun TotalTime(
             withStyle(
                 SpanStyle(
                     fontWeight = FontWeight.Light,
-                    fontSize = 24.sp
+                    fontSize = 24.sp,
+                    color = MaterialTheme.colorScheme.primary
                 )
             ) {
                 append(" / $normaHours")
@@ -389,9 +467,18 @@ fun TotalTime(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PreviewRoute(route: Route?) {
-    val styleTitle = AppTypography.getType().titleSmall.copy(fontWeight = FontWeight.W600)
-    val styleData = AppTypography.getType().bodyMedium.copy(fontWeight = FontWeight.W400)
-    val styleHint = AppTypography.getType().bodySmall.copy(fontWeight = FontWeight.W300)
+    val styleTitle = AppTypography.getType().titleSmall.copy(
+        fontWeight = FontWeight.W600,
+        color = MaterialTheme.colorScheme.primary
+    )
+    val styleData = AppTypography.getType().bodyMedium.copy(
+        fontWeight = FontWeight.W400,
+        color = MaterialTheme.colorScheme.primary
+    )
+    val styleHint = AppTypography.getType().bodySmall.copy(
+        fontWeight = FontWeight.W300,
+        color = MaterialTheme.colorScheme.primary
+    )
     val paddingBetweenBlocks = 20.dp
     val paddingInsideBlock = 14.dp
     val paddingIcon = 12.dp
@@ -400,6 +487,12 @@ fun PreviewRoute(route: Route?) {
     val iconSizeSecond = iconSize * .8f
     val iconMiniSize = 18.dp
 
+    val locomotiveExpandItemState = remember {
+        mutableStateMapOf<Int, Boolean>()
+    }
+    val trainExpandItemState = remember {
+        mutableStateMapOf<Int, Boolean>()
+    }
     route?.let {
         LazyColumn(
             modifier = Modifier
@@ -422,17 +515,19 @@ fun PreviewRoute(route: Route?) {
                 }
             }
             item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = paddingBetweenBlocks)
-                        .animateItemPlacement(),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Text(
-                        text = getDateFromDateLong(route.basicData.timeStartWork),
-                        style = styleData,
-                    )
+                route.basicData.timeStartWork?.let {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = paddingBetweenBlocks)
+                            .animateItemPlacement(),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Text(
+                            text = getDateFromDateLong(route.basicData.timeStartWork),
+                            style = styleData,
+                        )
+                    }
                 }
             }
             item {
@@ -461,7 +556,7 @@ fun PreviewRoute(route: Route?) {
                         modifier = Modifier
                             .size(iconSize)
                             .background(
-                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                color = MaterialTheme.colorScheme.secondary,
                                 shape = Shapes.medium
                             )
                     )
@@ -473,18 +568,20 @@ fun PreviewRoute(route: Route?) {
                                 maxLines = 1
                             )
                         }
-                        Row {
-                            Text(
-                                text = getTimeFromDateLong(route.basicData.timeStartWork),
-                                style = styleHint,
-                                maxLines = 1
-                            )
+                        if (route.basicData.timeStartWork != null || route.basicData.timeEndWork != null) {
+                            Row {
+                                Text(
+                                    text = getTimeFromDateLong(route.basicData.timeStartWork),
+                                    style = styleHint,
+                                    maxLines = 1
+                                )
 
-                            Text(
-                                text = " - ${getTimeFromDateLong(route.basicData.timeEndWork)}",
-                                style = styleHint,
-                                maxLines = 1
-                            )
+                                Text(
+                                    text = " - ${getTimeFromDateLong(route.basicData.timeEndWork)}",
+                                    style = styleHint,
+                                    maxLines = 1
+                                )
+                            }
                         }
                     }
                 }
@@ -502,7 +599,7 @@ fun PreviewRoute(route: Route?) {
                         modifier = Modifier
                             .size(iconSize)
                             .background(
-                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                color = MaterialTheme.colorScheme.secondary,
                                 shape = Shapes.medium
                             )
                     )
@@ -534,10 +631,11 @@ fun PreviewRoute(route: Route?) {
                     )
                 }
             }
-            items(route.locomotives, key = { loco -> loco.locoId }) { locomotive ->
-
-                var visibleSectionState by remember {
-                    mutableStateOf(true)
+            itemsIndexed(
+                items = route.locomotives,
+                key = { _, item -> item.locoId }) { index, locomotive ->
+                if (locomotiveExpandItemState[index] == null) {
+                    locomotiveExpandItemState[index] = true
                 }
                 val typeLocoText = when (locomotive.type) {
                     LocoType.ELECTRIC -> "Электровоз"
@@ -556,7 +654,7 @@ fun PreviewRoute(route: Route?) {
 
                 val rotationSectionButton =
                     animateFloatAsState(
-                        targetValue = if (visibleSectionState) 180f else 0f,
+                        targetValue = if (locomotiveExpandItemState[index]!!) 180f else 0f,
                         label = ""
                     )
 
@@ -574,7 +672,7 @@ fun PreviewRoute(route: Route?) {
                                 modifier = Modifier
                                     .size(iconSize)
                                     .background(
-                                        color = MaterialTheme.colorScheme.secondaryContainer,
+                                        color = MaterialTheme.colorScheme.secondary,
                                         shape = Shapes.medium
                                     )
                             )
@@ -640,18 +738,20 @@ fun PreviewRoute(route: Route?) {
                                 rotationZ = rotationSectionButton.value
                             ),
                             onClick = {
-                                visibleSectionState = !visibleSectionState
+                                locomotiveExpandItemState[index] =
+                                    !locomotiveExpandItemState[index]!!
                             }) {
                             Icon(
                                 imageVector = Icons.Default.KeyboardArrowDown,
-                                contentDescription = null
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
                             )
                         }
                     }
 
                     when (locomotive.type) {
                         LocoType.ELECTRIC -> {
-                            AnimatedVisibility(visible = visibleSectionState) {
+                            AnimatedVisibility(visible = locomotiveExpandItemState[index]!!) {
                                 Column {
                                     locomotive.electricSectionList.forEachIndexed { index, sectionElectric ->
                                         val acceptedEnergyText =
@@ -687,7 +787,7 @@ fun PreviewRoute(route: Route?) {
                                                 modifier = Modifier
                                                     .size(iconSizeSecond)
                                                     .background(
-                                                        color = MaterialTheme.colorScheme.secondaryContainer,
+                                                        color = MaterialTheme.colorScheme.secondary,
                                                         shape = Shapes.medium
                                                     )
                                             )
@@ -706,7 +806,7 @@ fun PreviewRoute(route: Route?) {
                                                             modifier = Modifier
                                                                 .size(iconMiniSize)
                                                                 .background(
-                                                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                                                    color = MaterialTheme.colorScheme.secondary,
                                                                     shape = Shapes.medium
                                                                 )
                                                         )
@@ -730,7 +830,7 @@ fun PreviewRoute(route: Route?) {
                                                             modifier = Modifier
                                                                 .size(iconMiniSize)
                                                                 .background(
-                                                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                                                    color = MaterialTheme.colorScheme.secondary,
                                                                     shape = Shapes.medium
                                                                 )
                                                         )
@@ -767,7 +867,7 @@ fun PreviewRoute(route: Route?) {
                         }
 
                         LocoType.DIESEL -> {
-                            AnimatedVisibility(visible = visibleSectionState) {
+                            AnimatedVisibility(visible = locomotiveExpandItemState[index]!!) {
                                 locomotive.dieselSectionList.forEachIndexed { index, sectionDiesel ->
                                     val consumption = CalculationEnergy.getTotalFuelConsumption(
                                         accepted = sectionDiesel.acceptedFuel,
@@ -806,7 +906,7 @@ fun PreviewRoute(route: Route?) {
                                             modifier = Modifier
                                                 .size(iconSizeSecond)
                                                 .background(
-                                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                                    color = MaterialTheme.colorScheme.secondary,
                                                     shape = Shapes.medium
                                                 )
                                         )
@@ -881,17 +981,18 @@ fun PreviewRoute(route: Route?) {
                     )
                 }
             }
-            items(route.trains, key = { train -> train.trainId }) { train ->
+            itemsIndexed(route.trains, key = { _, train -> train.trainId }) { index, train ->
+                if (trainExpandItemState[index] == null) {
+                    trainExpandItemState[index] = true
+                }
                 val numberText = train.number.ifNullOrBlank { "" }
                 val weightText = train.weight.ifNullOrBlank { "" }
                 val axleText = train.axle.ifNullOrBlank { "" }
                 val lengthText = train.conditionalLength.ifNullOrBlank { "" }
-                var visibleStationState by remember {
-                    mutableStateOf(true)
-                }
+
                 val rotationStationButton =
                     animateFloatAsState(
-                        targetValue = if (visibleStationState) 180f else 0f,
+                        targetValue = if (trainExpandItemState[index]!!) 180f else 0f,
                         label = ""
                     )
 
@@ -908,7 +1009,7 @@ fun PreviewRoute(route: Route?) {
                                 modifier = Modifier
                                     .size(iconSize)
                                     .background(
-                                        color = MaterialTheme.colorScheme.secondaryContainer,
+                                        color = MaterialTheme.colorScheme.secondary,
                                         shape = Shapes.medium
                                     )
                             )
@@ -920,30 +1021,36 @@ fun PreviewRoute(route: Route?) {
                                     )
                                 }
                                 Row {
-                                    Text(
-                                        text = "Вес: ",
-                                        style = styleHint,
-                                    )
-                                    Text(
-                                        text = weightText,
-                                        style = styleHint,
-                                    )
-                                    Text(
-                                        text = "  Оси: ",
-                                        style = styleHint,
-                                    )
-                                    Text(
-                                        text = axleText,
-                                        style = styleHint,
-                                    )
-                                    Text(
-                                        text = "  у.д.: ",
-                                        style = styleHint,
-                                    )
-                                    Text(
-                                        text = lengthText,
-                                        style = styleHint,
-                                    )
+                                    train.weight?.let {
+                                        Text(
+                                            text = "Вес: ",
+                                            style = styleHint,
+                                        )
+                                        Text(
+                                            text = weightText,
+                                            style = styleHint,
+                                        )
+                                    }
+                                    train.axle?.let {
+                                        Text(
+                                            text = "  Оси: ",
+                                            style = styleHint,
+                                        )
+                                        Text(
+                                            text = axleText,
+                                            style = styleHint,
+                                        )
+                                    }
+                                    train.conditionalLength?.let {
+                                        Text(
+                                            text = "  у.д.: ",
+                                            style = styleHint,
+                                        )
+                                        Text(
+                                            text = lengthText,
+                                            style = styleHint,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -952,15 +1059,16 @@ fun PreviewRoute(route: Route?) {
                                 rotationZ = rotationStationButton.value
                             ),
                             onClick = {
-                                visibleStationState = !visibleStationState
+                                trainExpandItemState[index] = !trainExpandItemState[index]!!
                             }) {
                             Icon(
                                 imageVector = Icons.Default.KeyboardArrowDown,
-                                contentDescription = null
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
                             )
                         }
                     }
-                    AnimatedVisibility(visible = visibleStationState) {
+                    AnimatedVisibility(visible = trainExpandItemState[index]!!) {
                         Column {
                             train.stations.forEachIndexed { index, station ->
                                 val stationNameText = station.stationName.ifNullOrBlank { "" }
@@ -980,7 +1088,7 @@ fun PreviewRoute(route: Route?) {
                                         modifier = Modifier
                                             .size(iconSizeSecond)
                                             .background(
-                                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                                color = MaterialTheme.colorScheme.secondary,
                                                 shape = Shapes.medium
                                             )
                                     )
@@ -1037,7 +1145,7 @@ fun PreviewRoute(route: Route?) {
                             modifier = Modifier
                                 .size(iconSize)
                                 .background(
-                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                    color = MaterialTheme.colorScheme.secondary,
                                     shape = Shapes.medium
                                 )
                         )
@@ -1061,7 +1169,7 @@ fun PreviewRoute(route: Route?) {
                             modifier = Modifier
                                 .size(iconSize)
                                 .background(
-                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                    color = MaterialTheme.colorScheme.secondary,
                                     shape = Shapes.medium
                                 )
                         )

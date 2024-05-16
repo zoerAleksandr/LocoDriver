@@ -17,7 +17,11 @@ fun ButtonLocoDriver(
     Button(
         modifier = modifier,
         onClick = onClick,
-        shape = Shapes.medium
+        shape = Shapes.medium,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
+        )
     ) {
         content()
     }

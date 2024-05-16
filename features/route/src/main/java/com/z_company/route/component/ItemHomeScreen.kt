@@ -85,7 +85,6 @@ fun ItemHomeScreen(
                     isLongClick = false
                     delay(viewConfiguration.longPressTimeoutMillis)
                     isLongClick = true
-                    Log.d("ZZZ", "Long click")
                 }
 
                 is PressInteraction.Release -> {
@@ -150,7 +149,7 @@ fun ItemHomeScreen(
             shape = Shapes.medium,
             colors = CardDefaults.cardColors(
                 containerColor = containerColor,
-                contentColor = MaterialTheme.colorScheme.contentColorFor(containerColor)
+                contentColor = MaterialTheme.colorScheme.primary
             )
         ) {
             Row(

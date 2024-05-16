@@ -13,29 +13,32 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
-
+    primary = DarkPrimary,
+    onPrimary = DarkOnPrimary,
+    secondaryContainer = DarkSecondaryContainer,
+    secondary = DarkSecondary,
+    tertiary = Blue,
+    surface = DarkSurface,
+    background = DarkBackground,
+    error = DarkError
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Dark80,
-    secondaryContainer = Dark5,
-    secondary = Grey40,
+    primary = LightPrimary,
+    onPrimary = LightOnPrimary,
+    secondaryContainer = LightSecondaryContainer,
+    secondary = LightSecondary,
     tertiary = Blue,
-    surface = White
+    surface = LightSurface,
+    background = LightBackground
 )
 
 @Composable
 fun LocoDriverTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
-//        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-//            val context = LocalContext.current
-//            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-//        }
-
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
@@ -43,7 +46,8 @@ fun LocoDriverTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = Color.Transparent.toArgb()
+            window.statusBarColor = colorScheme.background.toArgb()
+            window.navigationBarColor = colorScheme.background.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }

@@ -107,19 +107,19 @@ class PassengerFormViewModel constructor(
 
     fun setNumberTrain(number: String) {
         currentPassenger = currentPassenger?.copy(
-            trainNumber = number
+            trainNumber = number.ifBlank { null }
         )
     }
 
     fun setStationDeparture(station: String) {
         currentPassenger = currentPassenger?.copy(
-            stationDeparture = station
+            stationDeparture = station.ifBlank { null }
         )
     }
 
     fun setStationArrival(station: String) {
         currentPassenger = currentPassenger?.copy(
-            stationArrival = station
+            stationArrival = station.ifBlank { null }
         )
     }
 
@@ -139,7 +139,7 @@ class PassengerFormViewModel constructor(
 
     fun setNotes(notes: String) {
         currentPassenger = currentPassenger?.copy(
-            notes = notes
+            notes = notes.ifBlank { null }
         )
     }
 

@@ -149,7 +149,7 @@ object DateAndTimeConverter {
 
     fun getTimeInStringFormat(date: Long?): String {
         return if (date == null) {
-            "--/--"
+            ""
         } else {
             val hour = getHourInDate(date)
             val hourText = if (hour < 10) {
