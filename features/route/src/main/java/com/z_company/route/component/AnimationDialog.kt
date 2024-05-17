@@ -53,6 +53,7 @@ fun AnimationDialog(
             SideEffect {
                 dialogWindow.let { window ->
                     window?.setWindowAnimations(-1)
+                    window?.setDimAmount(.8f)
                 }
             }
 

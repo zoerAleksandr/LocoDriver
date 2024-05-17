@@ -9,5 +9,6 @@ data class HomeUiState(
     val removeRouteState: ResultState<Unit>? = null,
     val monthSelected: MonthOfYear = MonthOfYear(),
     val monthList: List<Int> = listOf(),
-    val yearList: List<Int> = listOf()
+    val yearList: List<Int> = listOf(),
+    val minTimeRest: Long? = null
 )

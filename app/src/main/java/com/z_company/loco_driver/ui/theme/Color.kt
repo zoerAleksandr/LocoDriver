@@ -9,7 +9,7 @@ val DarkSurface = Color(0xFF292929)
 val DarkSecondary = Color(0xFF696969)
 val DarkSecondaryContainer = Color(0xFF363636)
 val DarkBackground = Color(0xFF141414)
-val DarkError = Color(0xFFF81A1A)
+val DarkError = Color(0xFFFA3333)
 
 val Blue = Color(0xFF0355FF)
 

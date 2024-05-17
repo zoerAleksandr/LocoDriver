@@ -135,33 +135,33 @@ fun SettingScreenContent(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color.Yellow)
                 ) {
-                    OutlinedTextField(
-                        modifier = Modifier
-                            .padding(end = 8.dp)
-                            .fillMaxWidth(0.5f),
-                        value = userSettings.minTimeRest.toString(),
-                        onValueChange = {
-                            minTimeRestChanged(it)
-                        },
-                        label = {
-                            Text(text = "Номер", color = MaterialTheme.colorScheme.secondary)
-                        },
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Decimal,
-                            imeAction = ImeAction.Next
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onNext = {
-                                scope.launch {
-                                    focusManager.moveFocus(FocusDirection.Down)
-                                }
-                            }
-                        ),
-                        singleLine = true
-                    )
-                    Text(userSettings.minTimeRest.toString())
+                    val minTimeRestValue by remember {
+                        mutableStateOf(currentSettings.minTimeRest.toString())
+                    }
+//                    OutlinedTextField(
+//                        modifier = Modifier
+//                            .padding(end = 8.dp)
+//                            .fillMaxWidth(0.5f),
+//                        value = currentSettings.minTimeRest.toString(),
+//                        onValueChange = minTimeRestChanged,
+//                        label = {
+//                            Text(text = "Номер", color = MaterialTheme.colorScheme.secondary)
+//                        },
+//                        keyboardOptions = KeyboardOptions(
+//                            keyboardType = KeyboardType.Decimal,
+//                            imeAction = ImeAction.Next
+//                        ),
+//                        keyboardActions = KeyboardActions(
+//                            onNext = {
+//                                scope.launch {
+//                                    focusManager.moveFocus(FocusDirection.Down)
+//                                }
+//                            }
+//                        ),
+//                        singleLine = true
+//                    )
+                    Text(currentSettings.minTimeRest.toString())
                 }
             }
         }

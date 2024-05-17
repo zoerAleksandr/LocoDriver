@@ -216,7 +216,7 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
     fun setNotes(text: String) {
         currentRoute = currentRoute?.copy(
             basicData = currentRoute!!.basicData.copy(
-                notes = text
+                notes = text.ifBlank { null }
             )
         )
         changesHave()
@@ -256,16 +256,20 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
     }
 
     private fun getMinTimeRest(route: Route) {
-        val timeRest = routeUseCase.getMinRest(route, minTimeRest)
-        _uiState.update {
-            it.copy(minTimeRest = timeRest)
+        minTimeRest?.let { minTimeRest ->
+            val timeRest = routeUseCase.getMinRest(route, minTimeRest)
+            _uiState.update {
+                it.copy(minTimeRest = timeRest)
+            }
         }
     }
 
     private fun getFullRest(route: Route) {
-        val fullTimeRest = routeUseCase.fullRest(route)
-        _uiState.update {
-            it.copy(fullTimeRest = fullTimeRest)
+        minTimeRest?.let { minTimeRest ->
+            val fullTimeRest = routeUseCase.fullRest(route, minTimeRest)
+            _uiState.update {
+                it.copy(fullTimeRest = fullTimeRest)
+            }
         }
     }
 

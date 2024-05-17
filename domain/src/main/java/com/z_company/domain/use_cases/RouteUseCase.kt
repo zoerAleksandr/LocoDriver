@@ -4,13 +4,12 @@ import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.route.Photo
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.UtilsForEntities.fullRest
+import com.z_company.domain.entities.route.UtilsForEntities.isTimeWorkValid
+import com.z_company.domain.entities.route.UtilsForEntities.shortRest
 import com.z_company.domain.repositories.RouteRepository
-import com.z_company.domain.util.moreThan
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
-import com.z_company.domain.util.minus
-import com.z_company.domain.util.div
-import com.z_company.domain.util.plus
 
 class RouteUseCase(private val repository: RouteRepository) {
     fun listRoutes(): Flow<ResultState<List<Route>>> {
@@ -85,38 +84,14 @@ class RouteUseCase(private val repository: RouteRepository) {
     }
 
     fun isTimeWorkValid(route: Route): Boolean {
-        val startTime = route.basicData.timeStartWork
-        val endTime = route.basicData.timeEndWork
-
-        return !startTime.moreThan(endTime)
+        return route.isTimeWorkValid()
     }
 
-    fun getMinRest(route: Route, minTimeRest: Long?): Long? {
-        return if (isTimeWorkValid(route)) {
-            val startTime = route.basicData.timeStartWork
-            val endTime = route.basicData.timeEndWork
-            val timeResult = endTime - startTime
-            val halfRest = timeResult / 2
-            halfRest?.let { half ->
-                if (half.moreThan(minTimeRest)) {
-                    endTime + half
-                } else {
-                    endTime + minTimeRest
-                }
-            }
-        } else {
-            null
-        }
+    fun getMinRest(route: Route, minTimeRest: Long): Long? {
+        return route.shortRest(minTimeRest)
     }
 
-    fun fullRest(route: Route): Long? {
-        val startTime = route.basicData.timeStartWork
-        val endTime = route.basicData.timeEndWork
-        val timeResult = endTime - startTime
-        return if (isTimeWorkValid(route)) {
-            endTime + timeResult
-        } else {
-            null
-        }
+    fun fullRest(route: Route, minTimeRest: Long): Long? {
+        return route.fullRest(minTimeRest)
     }
 }

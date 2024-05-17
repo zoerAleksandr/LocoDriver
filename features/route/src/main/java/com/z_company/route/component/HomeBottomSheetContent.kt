@@ -17,12 +17,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.GenericError
+import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Route
 import com.z_company.route.R
@@ -88,6 +90,9 @@ fun EmptyList() {
             .padding(top = 24.dp),
         contentAlignment = Alignment.TopCenter
     ) {
-        Text(text = stringResource(id = R.string.msg_empty_route_list))
+        Text(
+            text = stringResource(id = R.string.msg_empty_route_list),
+            style = AppTypography.getType().titleMedium.copy(fontWeight = FontWeight.Light)
+            )
     }
 }

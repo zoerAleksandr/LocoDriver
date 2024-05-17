@@ -3,6 +3,7 @@ package com.z_company.route.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
+import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -49,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -60,10 +63,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.rememberAsyncImagePainter
+import com.maxkeppeker.sheets.core.views.Grid
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
+import com.z_company.core.util.ConverterLongToTime
+import com.z_company.core.util.ConverterUrlBase64
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.DateAndTimeConverter.getDateFromDateLong
 import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
@@ -72,8 +79,10 @@ import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.UtilsForEntities.fullRest
 import com.z_company.domain.entities.route.UtilsForEntities.getFollowingTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
+import com.z_company.domain.entities.route.UtilsForEntities.shortRest
 import com.z_company.domain.util.CalculationEnergy
 import com.z_company.domain.util.CalculationEnergy.rounding
 import com.z_company.domain.util.ifNullOrBlank
@@ -88,7 +97,6 @@ import com.z_company.route.component.TopSnackbar
 import kotlinx.coroutines.launch
 import com.z_company.core.R as CoreR
 
-//@RequiresApi(Build.VERSION_CODES.S)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -107,6 +115,7 @@ fun HomeScreen(
     monthList: List<Int>,
     yearList: List<Int>,
     selectYearAndMonth: (Pair<Int, Int>) -> Unit,
+    minTimeRest: Long?
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -167,7 +176,7 @@ fun HomeScreen(
                     .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
                     .clickable {}
             ) {
-                PreviewRoute(routeForPreview)
+                PreviewRoute(routeForPreview, minTimeRest)
             }
 
             Column(
@@ -387,7 +396,7 @@ fun HomeScreen(
                         tint = MaterialTheme.colorScheme.primary
                     )
                     AutoSizeText(
-                        text = DateAndTimeConverter.getTimeInStringFormat(12L),
+                        text = DateAndTimeConverter.getTimeInStringFormat(3_600_000L),
                         style = AppTypography.getType().headlineSmall,
                         maxTextSize = 24.sp,
                         fontWeight = FontWeight.Light,
@@ -402,7 +411,7 @@ fun HomeScreen(
                         tint = MaterialTheme.colorScheme.primary
                     )
                     AutoSizeText(
-                        text = DateAndTimeConverter.getTimeInStringFormat(8L),
+                        text = DateAndTimeConverter.getTimeInStringFormat(10_800_000L),
                         style = AppTypography.getType().headlineSmall,
                         maxTextSize = 24.sp,
                         fontWeight = FontWeight.Light,
@@ -466,7 +475,7 @@ fun TotalTime(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun PreviewRoute(route: Route?) {
+fun PreviewRoute(route: Route?, minTimeRest: Long?) {
     val styleTitle = AppTypography.getType().titleSmall.copy(
         fontWeight = FontWeight.W600,
         color = MaterialTheme.colorScheme.primary
@@ -486,6 +495,7 @@ fun PreviewRoute(route: Route?) {
     val iconSize = 50.dp
     val iconSizeSecond = iconSize * .8f
     val iconMiniSize = 18.dp
+    val widthScreen = LocalConfiguration.current.screenWidthDp
 
     val locomotiveExpandItemState = remember {
         mutableStateMapOf<Int, Boolean>()
@@ -545,30 +555,30 @@ fun PreviewRoute(route: Route?) {
                 }
             }
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = paddingInsideBlock)
-                        .animateItemPlacement(),
-                ) {
-                    // Icon
-                    Box(
+                if (route.basicData.timeStartWork != null || route.basicData.timeEndWork != null) {
+                    Row(
                         modifier = Modifier
-                            .size(iconSize)
-                            .background(
-                                color = MaterialTheme.colorScheme.secondary,
-                                shape = Shapes.medium
-                            )
-                    )
-                    Column(modifier = Modifier.padding(start = paddingIcon)) {
-                        Box {
-                            Text(
-                                text = DateAndTimeConverter.getTimeInStringFormat(route.getWorkTime()),
-                                style = styleData,
-                                maxLines = 1
-                            )
-                        }
-                        if (route.basicData.timeStartWork != null || route.basicData.timeEndWork != null) {
+                            .fillMaxWidth()
+                            .padding(top = paddingInsideBlock)
+                            .animateItemPlacement(),
+                    ) {
+                        // Icon
+                        Box(
+                            modifier = Modifier
+                                .size(iconSize)
+                                .background(
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    shape = Shapes.medium
+                                )
+                        )
+                        Column(modifier = Modifier.padding(start = paddingIcon)) {
+                            Box {
+                                Text(
+                                    text = DateAndTimeConverter.getTimeInStringFormat(route.getWorkTime()),
+                                    style = styleData,
+                                    maxLines = 1
+                                )
+                            }
                             Row {
                                 Text(
                                     text = getTimeFromDateLong(route.basicData.timeStartWork),
@@ -587,33 +597,53 @@ fun PreviewRoute(route: Route?) {
                 }
             }
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = paddingInsideBlock)
-                        .animateItemPlacement(),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    // Icon
-                    Box(
-                        modifier = Modifier
-                            .size(iconSize)
-                            .background(
-                                color = MaterialTheme.colorScheme.secondary,
-                                shape = Shapes.medium
-                            )
-                    )
+                if (route.basicData.timeStartWork != null && route.basicData.timeEndWork != null) {
                     val restText = if (route.basicData.restPointOfTurnover) {
                         "Отдых в ПО"
                     } else {
                         "Домашний отдых"
                     }
-                    Column(modifier = Modifier.padding(start = paddingIcon)) {
-                        Text(
-                            text = restText,
-                            style = styleData,
-                            maxLines = 1,
+                    // TODO !!!
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = paddingInsideBlock)
+                            .animateItemPlacement(),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        // Icon
+                        Box(
+                            modifier = Modifier
+                                .size(iconSize)
+                                .background(
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    shape = Shapes.medium
+                                )
                         )
+
+                        Column(modifier = Modifier.padding(start = paddingIcon)) {
+                            Text(
+                                text = restText,
+                                style = styleData,
+                                maxLines = 1,
+                            )
+                            if (route.basicData.restPointOfTurnover) {
+                                minTimeRest?.let {
+                                    val shortRestText = getTimeFromDateLong(
+                                            route.shortRest(minTimeRest)
+                                        )
+                                    val fullRestText = getTimeFromDateLong(
+                                            route.fullRest(minTimeRest)
+                                        )
+                                    Text(
+                                        text = "$shortRestText - $fullRestText",
+                                        style = styleHint,
+                                        maxLines = 1,
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1185,6 +1215,73 @@ fun PreviewRoute(route: Route?) {
                                 overflow = TextOverflow.Ellipsis,
                                 style = styleHint
                             )
+                        }
+                    }
+                }
+            }
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = paddingBetweenBlocks)
+                        .animateItemPlacement(),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Text(
+                        text = "Заметки",
+                        style = styleTitle,
+                    )
+                }
+            }
+            item {
+                val notesText = route.basicData.notes.ifNullOrBlank { "" }
+                val imageSize = (widthScreen - 24 - 24) / 3
+                Column(
+                    modifier = Modifier
+                        .padding(top = paddingInsideBlock)
+                        .fillMaxWidth()
+                ) {
+                    route.basicData.notes?.let {
+                        Row {
+                            Box(
+                                modifier = Modifier
+                                    .size(iconSize)
+                                    .background(
+                                        color = MaterialTheme.colorScheme.secondary,
+                                        shape = Shapes.medium
+                                    )
+                            )
+                            Text(
+                                text = notesText,
+                                style = styleData,
+                                modifier = Modifier.padding(start = paddingIcon)
+                            )
+                        }
+                    }
+                    Grid(
+                        modifier = Modifier.padding(top = paddingInsideBlock),
+                        items = route.photos,
+                        columns = 3,
+                        rowSpacing = paddingInsideBlock,
+                        columnSpacing = paddingInsideBlock
+                    ) { photo ->
+                        Card(
+                            modifier = Modifier
+                                .size(imageSize.dp),
+                            shape = Shapes.extraSmall,
+                        ) {
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                photo.base64.let { base64String ->
+                                    val decodedImage =
+                                        ConverterUrlBase64.base64toBitmap(base64String)
+                                    Image(
+                                        modifier = Modifier.fillMaxSize(),
+                                        painter = rememberAsyncImagePainter(model = decodedImage),
+                                        contentScale = ContentScale.Crop,
+                                        contentDescription = null
+                                    )
+                                }
+                            }
                         }
                     }
                 }

@@ -70,8 +70,7 @@ class DataStoreRepository(context: Context) : UserSettingsRepository {
                 }
             }
             .map { pref ->
-                pref[PreferencesKey.minTimeRest] ?: defaultTimeRest.div(oneHourInMillis)
-
+                pref[PreferencesKey.minTimeRest] ?: defaultTimeRest
             }
     }
 
@@ -102,7 +101,7 @@ class DataStoreRepository(context: Context) : UserSettingsRepository {
     override fun setMinTimeRest(value: Long?): Flow<ResultState<Unit>> {
         return flowRequest {
             dataStore.edit { pref ->
-                pref[PreferencesKey.minTimeRest] = oneHourInMillis.times(value ?: 0)
+                pref[PreferencesKey.minTimeRest] = value ?: 0
             }
         }
     }

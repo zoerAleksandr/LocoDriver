@@ -1,21 +1,27 @@
 package com.z_company.route.viewmodel
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
+import com.z_company.data_local.setting.DataStoreRepository
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.CalendarUseCase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.util.Calendar
@@ -23,6 +29,7 @@ import java.util.Calendar
 class HomeViewModel : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
+    private val dataStoreRepository: DataStoreRepository by inject()
     var totalTime by mutableLongStateOf(0L)
         private set
 
@@ -102,6 +109,17 @@ class HomeViewModel : ViewModel(), KoinComponent {
             .launchIn(viewModelScope)
     }
 
+    private fun loadMinTimeRestInRoute() {
+        CoroutineScope(Dispatchers.IO).launch {
+            val minTimeRest = viewModelScope.async { dataStoreRepository.getMinTimeRest() }.await()
+            minTimeRest.collect { time ->
+                Log.d("ZZZ", time.toString())
+                _uiState.update {
+                    it.copy(minTimeRest = time)
+                }
+            }
+        }
+    }
 
     init {
         val calendar = Calendar.getInstance()
@@ -114,5 +132,6 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 calendar.get(Calendar.MONTH)
             )
         )
+        loadMinTimeRestInRoute()
     }
 }
