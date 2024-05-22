@@ -13,6 +13,7 @@ import Versions.core_ktx_version
 import Versions.core_testing_version
 import Versions.coroutines_version
 import Versions.datastore_pref_ver
+import Versions.desugaring_ver
 import Versions.gson_version
 import Versions.koin_version
 import Versions.lifecycle_runtime_version
@@ -93,6 +94,7 @@ object Versions {
     const val work_manager_version = "2.9.0"
     const val accompanist_ui_controller_version = "0.35.0-alpha"
     const val rebugger_ver = "1.0.0-rc03"
+    const val desugaring_ver = "2.0.4"
 }
 
 object Libs {
@@ -107,6 +109,7 @@ object Libs {
     const val project_feature_settings = ":features:settings"
 
     // Libs
+    const val desugaring = "com.android.tools:desugar_jdk_libs:$desugaring_ver"
     const val rebugger = "io.github.theapache64:rebugger:$rebugger_ver"
     const val datastore_pref = "androidx.datastore:datastore-preferences:$datastore_pref_ver"
     const val constraint_layout =

@@ -65,7 +65,6 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private suspend fun getSession() {
         val isRegisteredJob = viewModelScope.launch {
             val session = ParseUser.getCurrentUser()
-            Log.d("ZZZ", "session = ${session}")
             if (session != null) {
                 _isRegistered.postValue(true)
             } else {

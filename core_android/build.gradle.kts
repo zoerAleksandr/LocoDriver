@@ -24,6 +24,7 @@ android {
         }
     }
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = Apps.java_compatibility_version
         targetCompatibility = Apps.java_compatibility_version
     }
@@ -49,4 +50,5 @@ dependencies {
     implementation(Libs.koin_core)
     implementation(Libs.koin_android)
     implementation(Libs.koin_androidx_compose)
+    coreLibraryDesugaring(Libs.desugaring)
 }

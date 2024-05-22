@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
+import com.z_company.core.util.CalculateNightTime
 import com.z_company.data_local.setting.DataStoreRepository
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
@@ -49,8 +50,18 @@ class HomeViewModel : ViewModel(), KoinComponent {
             }
             if (result is ResultState.Success) {
                 calculationOfTotalTime(result.data)
+                calculationOfNightTime(result.data)
             }
         }.launchIn(viewModelScope)
+    }
+
+    private fun calculationOfNightTime(routes: List<Route>) {
+        routes.forEach { route ->
+            CalculateNightTime.test(
+                route.basicData.timeStartWork,
+                route.basicData.timeEndWork
+            )
+        }
     }
 
     fun remove(route: Route) {
@@ -113,7 +124,6 @@ class HomeViewModel : ViewModel(), KoinComponent {
         CoroutineScope(Dispatchers.IO).launch {
             val minTimeRest = viewModelScope.async { dataStoreRepository.getMinTimeRest() }.await()
             minTimeRest.collect { time ->
-                Log.d("ZZZ", time.toString())
                 _uiState.update {
                     it.copy(minTimeRest = time)
                 }
