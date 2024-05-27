@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -21,6 +22,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.io.IOException
 import com.z_company.domain.util.times
+import kotlinx.coroutines.flow.take
+import org.json.JSONObject
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "locomotive_driver_pref")
 private const val NOT_AUTH = "NOT_AUTH"
@@ -32,6 +35,10 @@ class DataStoreRepository(context: Context) : UserSettingsRepository {
     private val defaultDieselCoefficient = 0.82
     private val defaultTypeLoco = LocoType.ELECTRIC
     private val defaultStandardDurationOfWork = 0L
+    private val defaultStartNightHour = 22
+    private val defaultStartNightMinute = 0
+    private val defaultEndNightHour = 6
+    private val defaultEndNightMinute = 0
 
     private object PreferencesKey {
         val uid = stringPreferencesKey(name = "uid")
@@ -39,6 +46,12 @@ class DataStoreRepository(context: Context) : UserSettingsRepository {
         val dieselCoefficient = doublePreferencesKey(name = "dieselCoefficient")
         val typeLoco = stringPreferencesKey(name = "typeLoco")
         val standardDurationWork = longPreferencesKey(name = "standardDurationWork")
+        val startNightHour = intPreferencesKey(name = "startNightHour")
+        val startNightMinute = intPreferencesKey(name = "startNightMinute")
+        val endNightHour = intPreferencesKey(name = "endNightHour")
+        val endNightMinute = intPreferencesKey(name = "endNightMinute")
+        val nightTime = stringPreferencesKey("nightTime")
+
     }
 
     private val dataStore = context.dataStore
@@ -59,6 +72,8 @@ class DataStoreRepository(context: Context) : UserSettingsRepository {
             pref[PreferencesKey.uid] = NOT_AUTH
         }
     }
+
+
 
     override fun getMinTimeRest(): Flow<Long?> {
         return dataStore.data
@@ -146,6 +161,76 @@ class DataStoreRepository(context: Context) : UserSettingsRepository {
         }
     }
 
+    fun getJSONNightTime(): Flow<String>{
+        return dataStore.data
+            .catch {exception ->
+                if (exception is IOException) {
+                    emit(emptyPreferences())
+                } else {
+                    throw exception
+                }
+            }
+            .map {pref ->
+                pref[PreferencesKey.nightTime] ?: ""
+            }
+    }
+
+    override fun getStartNightHour(): Flow<Int> {
+        return dataStore.data
+            .catch {exception ->
+                if (exception is IOException) {
+                    emit(emptyPreferences())
+                } else {
+                    throw exception
+                }
+            }
+            .map {pref ->
+                pref[PreferencesKey.startNightHour] ?: defaultStartNightHour
+            }
+    }
+
+    override fun getStartNightMinute(): Flow<Int> {
+        return dataStore.data
+            .catch {exception ->
+                if (exception is IOException) {
+                    emit(emptyPreferences())
+                } else {
+                    throw exception
+                }
+            }
+            .map {pref ->
+                pref[PreferencesKey.startNightMinute] ?: defaultStartNightMinute
+            }
+    }
+
+    override fun getEndNightHour(): Flow<Int> {
+        return dataStore.data
+            .catch {exception ->
+                if (exception is IOException) {
+                    emit(emptyPreferences())
+                } else {
+                    throw exception
+                }
+            }
+            .map {pref ->
+                pref[PreferencesKey.endNightHour] ?: defaultEndNightHour
+            }
+    }
+
+    override fun getEndNightMinute(): Flow<Int> {
+        return dataStore.data
+            .catch {exception ->
+                if (exception is IOException) {
+                    emit(emptyPreferences())
+                } else {
+                    throw exception
+                }
+            }
+            .map {pref ->
+                pref[PreferencesKey.endNightMinute] ?: defaultEndNightMinute
+            }
+    }
+
     override fun getTypeLoco(): Flow<LocoType> {
         return dataStore.data
             .catch { exception ->
@@ -165,3 +250,10 @@ class DataStoreRepository(context: Context) : UserSettingsRepository {
             }
     }
 }
+
+data class NightTime(
+    val startNightHour: Int = 22,
+    val startNightMinute: Int = 0,
+    val endNightHour: Int = 6,
+    val endNightMinute: Int = 0
+)

@@ -114,7 +114,8 @@ fun HomeScreen(
     monthList: List<Int>,
     yearList: List<Int>,
     selectYearAndMonth: (Pair<Int, Int>) -> Unit,
-    minTimeRest: Long?
+    minTimeRest: Long?,
+    nightTime: Long?
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -395,7 +396,7 @@ fun HomeScreen(
                         tint = MaterialTheme.colorScheme.primary
                     )
                     AutoSizeText(
-                        text = DateAndTimeConverter.getTimeInStringFormat(3_600_000L),
+                        text = DateAndTimeConverter.getTimeInStringFormat(nightTime),
                         style = AppTypography.getType().headlineSmall,
                         maxTextSize = 24.sp,
                         fontWeight = FontWeight.Light,

@@ -13,4 +13,9 @@ interface UserSettingsRepository {
     fun setStandardDurationOfWork(value: Long): Flow<ResultState<Unit>>
     fun getTypeLoco(): Flow<LocoType>
     fun setTypeLoco(type: LocoType): Flow<ResultState<Unit>>
+    fun getStartNightHour(): Flow<Int>
+    fun getStartNightMinute(): Flow<Int>
+    fun getEndNightHour(): Flow<Int>
+    fun getEndNightMinute(): Flow<Int>
+
 }
