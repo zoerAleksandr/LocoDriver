@@ -9,6 +9,7 @@ import com.z_company.domain.entities.route.Train
 import kotlinx.coroutines.flow.Flow
 
 interface RouteRepository {
+    fun loadRoutesByPeriod(startPeriod: Long, endPeriod: Long): Flow<ResultState<List<Route>>>
     fun loadRoutes(): Flow<ResultState<List<Route>>>
     fun loadRoutesWithDeleting(): List<Route>
     fun loadRoute(routeId: String): Flow<ResultState<Route?>>

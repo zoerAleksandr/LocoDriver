@@ -168,14 +168,15 @@ class LocoFormViewModel constructor(
     }
 
     private fun loadSetting() {
-        loadCoefficientJob?.cancel()
-        loadCoefficientJob = dataStoreRepository.getDieselCoefficient().onEach {
-            lastEnteredCoefficient = it
-        }.launchIn(viewModelScope)
-        loadDefaultTypeLoco?.cancel()
-        loadDefaultTypeLoco = dataStoreRepository.getTypeLoco().onEach {
-            defaultTypeLoco = it
-        }.launchIn(viewModelScope)
+        // TODO
+//        loadCoefficientJob?.cancel()
+//        loadCoefficientJob = dataStoreRepository.getDieselCoefficient().onEach {
+//            lastEnteredCoefficient = it
+//        }.launchIn(viewModelScope)
+//        loadDefaultTypeLoco?.cancel()
+//        loadDefaultTypeLoco = dataStoreRepository.getTypeLoco().onEach {
+//            defaultTypeLoco = it
+//        }.launchIn(viewModelScope)
     }
 
     private fun saveCoefficient(data: String?) {

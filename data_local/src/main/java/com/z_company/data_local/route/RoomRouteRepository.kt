@@ -15,6 +15,21 @@ import java.util.UUID
 
 class RoomRouteRepository : RouteRepository, KoinComponent {
     private val dao: RouteDao by inject()
+    override fun loadRoutesByPeriod(
+        startPeriod: Long,
+        endPeriod: Long
+    ): Flow<ResultState<List<Route>>> {
+        return flowMap {
+            dao.getAllRouteByPeriod(startPeriod, endPeriod).map { routes ->
+                ResultState.Success(
+                    routes.map { route ->
+                        RouteConverter.toData(route)
+                    }
+                )
+            }
+        }
+    }
+
     override fun loadRoutes(): Flow<ResultState<List<Route>>> {
         return flowMap {
             dao.getAllRoute().map { routes ->

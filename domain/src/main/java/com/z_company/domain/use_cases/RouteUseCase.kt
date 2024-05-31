@@ -2,6 +2,7 @@ package com.z_company.domain.use_cases
 
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
+import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.route.Photo
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.fullRest
@@ -10,8 +11,35 @@ import com.z_company.domain.entities.route.UtilsForEntities.shortRest
 import com.z_company.domain.repositories.RouteRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
+import java.util.Calendar
+import java.util.Calendar.*
 
 class RouteUseCase(private val repository: RouteRepository) {
+    fun listRoutesByMonth(monthOfYear: MonthOfYear): Flow<ResultState<List<Route>>> {
+        val startMonth: Calendar = getInstance().also {
+            it.set(YEAR, monthOfYear.year)
+            it.set(MONTH, monthOfYear.month)
+            it.set(DAY_OF_MONTH, 1)
+            it.set(HOUR_OF_DAY, 0)
+            it.set(MINUTE, 0)
+            it.set(SECOND, 0)
+            it.set(MILLISECOND, 0)
+        }
+        val startMonthInLong: Long = startMonth.timeInMillis
+        val maxDayOfMonth = startMonth.getActualMaximum(DAY_OF_MONTH)
+
+        val endMonthInLong: Long = getInstance().also {
+            it.set(YEAR, monthOfYear.year)
+            it.set(MONTH, monthOfYear.month)
+            it.set(DAY_OF_MONTH, maxDayOfMonth)
+            it.set(HOUR_OF_DAY, 23)
+            it.set(MINUTE, 59)
+            it.set(SECOND, 0)
+            it.set(MILLISECOND, 0)
+        }.timeInMillis
+        return repository.loadRoutesByPeriod(startMonthInLong, endMonthInLong)
+    }
+
     fun listRoutes(): Flow<ResultState<List<Route>>> {
         return repository.loadRoutes()
     }

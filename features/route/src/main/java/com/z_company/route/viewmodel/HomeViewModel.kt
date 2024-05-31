@@ -1,5 +1,6 @@
 package com.z_company.route.viewmodel
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -48,15 +49,16 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
     fun loadRoutes() {
         loadRouteJob?.cancel()
-        loadRouteJob = routeUseCase.listRoutes().onEach { result ->
-            _uiState.update {
-                it.copy(routeListState = result)
-            }
-            if (result is ResultState.Success) {
-                calculationOfTotalTime(result.data)
-                calculationOfNightTime(result.data)
-            }
-        }.launchIn(viewModelScope)
+        loadRouteJob =
+            routeUseCase.listRoutesByMonth(_uiState.value.monthSelected).onEach { result ->
+                _uiState.update {
+                    it.copy(routeListState = result)
+                }
+                if (result is ResultState.Success) {
+                    calculationOfTotalTime(result.data)
+                    calculationOfNightTime(result.data)
+                }
+            }.launchIn(viewModelScope)
     }
 
     private suspend fun calculationOfNightTime(routes: List<Route>) {
