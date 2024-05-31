@@ -20,9 +20,9 @@ import kotlinx.coroutines.flow.update
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
-class TrainFormViewModel constructor(
-    private val trainId: String?,
-    private val basicId: String
+class TrainFormViewModel(
+    trainId: String?,
+    basicId: String
 ) : ViewModel(), KoinComponent {
     private val trainUseCase: TrainUseCase by inject()
 

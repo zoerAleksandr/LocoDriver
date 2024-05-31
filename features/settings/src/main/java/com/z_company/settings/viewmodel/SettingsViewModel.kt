@@ -11,23 +11,17 @@ import com.z_company.domain.entities.User
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.use_case.RemoteRouteUseCase
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.single
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
 class SettingsViewModel : ViewModel(), KoinComponent {
-    private val calendarUseCase: CalendarUseCase by inject()
     private val loginUseCase: LoginUseCase by inject()
     private val remoteRouteUseCase: RemoteRouteUseCase by inject()
     private val dataStoreRepository: DataStoreRepository by inject()
@@ -40,7 +34,6 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private var saveSettingsJob: Job? = null
 
     private var loadLoginJob: Job? = null
-    private var saveLoginJob: Job? = null
 
 
     var currentSettings: UserSettings?
@@ -125,16 +118,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             Log.d("ZZZ", "setting.minTimeRest = ${setting.minTimeRest}")
             saveSettingsJob?.cancel()
             saveSettingsJob = viewModelScope.launch {
-                dataStoreRepository.setMinTimeRest(
-                    setting.minTimeRest
-                ).collect{resultState ->
-                    if (resultState is ResultState.Success) {
-                        _uiState.update {
-                            it.copy(saveSettings = resultState)
-                        }
-                    }
 
-                }
             }
 //                dataStoreRepository.setMinTimeRest(
 //                setting.minTimeRest

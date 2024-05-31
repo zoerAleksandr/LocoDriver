@@ -18,8 +18,8 @@ import org.koin.core.component.inject
 import com.z_company.domain.util.minus
 
 class PassengerFormViewModel constructor(
-    private val passengerId: String?,
-    private val basicId: String
+    passengerId: String?,
+    basicId: String
 ) : ViewModel(), KoinComponent {
     private val passengerUseCase: PassengerUseCase by inject()
     private val _uiState = MutableStateFlow(PassengerFormUiState())

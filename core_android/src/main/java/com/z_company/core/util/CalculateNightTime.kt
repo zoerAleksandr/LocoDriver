@@ -11,7 +11,6 @@ import java.util.Calendar.SECOND
 import java.util.Calendar.getInstance
 
 object CalculateNightTime : KoinComponent {
-    // Сделать получение начала и окончания ночи из shared preferens
     fun getNightTime(
         startMillis: Long?,
         endMillis: Long?,
@@ -19,7 +18,7 @@ object CalculateNightTime : KoinComponent {
         minuteStart: Int,
         hourEnd: Int,
         minuteEnd: Int
-        ): Long? {
+    ): Long? {
         if (startMillis == null || endMillis == null) {
             return null
         }
@@ -38,7 +37,7 @@ object CalculateNightTime : KoinComponent {
             it.set(HOUR_OF_DAY, 0)
             it.set(MINUTE, 0)
         }
-        while (dayOfWork.get(DAY_OF_MONTH) < endLocalDateTime.get(DAY_OF_MONTH)) {
+        while (isBeforeDay(dayOfWork, endLocalDateTime)) {
             dayOfWork.set(DAY_OF_MONTH, dayOfWork.get(DAY_OF_MONTH) + 1)
             val day = getInstance().also {
                 it.timeInMillis = dayOfWork.timeInMillis
@@ -47,7 +46,6 @@ object CalculateNightTime : KoinComponent {
         }
         var countNightTime = 0L
         dateList.forEach { calendar ->
-
             val startNight = getInstance().also {
                 it.timeInMillis = calendar.timeInMillis
                 it.set(HOUR_OF_DAY, hourStart)
@@ -98,7 +96,6 @@ object CalculateNightTime : KoinComponent {
                     countNightTime += nightTime
                 }
                 // Second part night
-
                 if (endTimeThisDay.after(startNightTime)) {
                     val nightTime = endTimeThisDay.timeInMillis - startNightTime.timeInMillis
                     countNightTime += nightTime
@@ -107,4 +104,23 @@ object CalculateNightTime : KoinComponent {
         }
         return countNightTime
     }
+}
+
+fun isBeforeDay(firstDay: Calendar, secondDay: Calendar): Boolean {
+    val firstDateWithOfTime = getInstance().also {
+        it.timeInMillis = firstDay.timeInMillis
+        it.set(HOUR_OF_DAY, 0)
+        it.set(MINUTE, 0)
+        it.set(SECOND, 0)
+        it.set(MILLISECOND, 0)
+    }
+    val secondDateWithOfTime = getInstance().also {
+        it.timeInMillis = secondDay.timeInMillis
+        it.set(HOUR_OF_DAY, 0)
+        it.set(MINUTE, 0)
+        it.set(SECOND, 0)
+        it.set(MILLISECOND, 0)
+    }
+
+    return firstDateWithOfTime.before(secondDateWithOfTime)
 }

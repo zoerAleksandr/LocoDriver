@@ -1,16 +1,19 @@
 package com.z_company.loco_driver.viewmodel
 
+import android.content.Context.MODE_PRIVATE
+import android.content.SharedPreferences
 import android.util.Log
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.parse.Parse.getApplicationContext
 import com.parse.ParseUser
 import com.z_company.core.ResultState
-import com.z_company.use_case.AuthUseCase
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.use_cases.LoadCalendarFromStorage
 import com.z_company.domain.use_cases.CalendarUseCase
+import com.z_company.domain.use_cases.SettingsUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.launchIn
@@ -24,11 +27,11 @@ private const val TAG = "MainViewModel_TAG"
 class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private val loadCalendarFromStorage: LoadCalendarFromStorage by inject()
     private val calendarUseCase: CalendarUseCase by inject()
-    private val authUseCase: AuthUseCase by inject()
+    private val settingsUseCase: SettingsUseCase by inject()
 
     private var loadCalendarJob: Job? = null
     private var saveCalendarInLocalJob: Job? = null
-    private var getSessionJob: Job? = null
+    private var setDefaultSetting: Job? = null
 
 
     var _inProgress = MutableLiveData(true)
@@ -38,10 +41,27 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     val isRegistered: MutableLiveData<Boolean> get() = _isRegistered
 
     init {
-        loadCalendar()
+        val sharedpref: SharedPreferences =
+            getApplicationContext().getSharedPreferences(
+                getApplicationContext().packageName,
+                MODE_PRIVATE
+            )
+
+        val token: String? = sharedpref.getString("token", null)
+        if (token == "False" || token == null) {
+            setDefaultSettings()
+            loadCalendar()
+            sharedpref.edit().putString("token", "true").apply()
+        }
+
         viewModelScope.launch {
             getSession()
         }
+    }
+
+    private fun setDefaultSettings() {
+        setDefaultSetting?.cancel()
+        setDefaultSetting = settingsUseCase.setDefaultSettings().launchIn(viewModelScope)
     }
 
     private fun loadCalendar() {

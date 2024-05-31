@@ -1,6 +1,5 @@
 package com.z_company.route.viewmodel
 
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -15,6 +14,7 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.CalendarUseCase
+import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.util.plus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,14 +22,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.util.Calendar
@@ -38,6 +34,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
     private val dataStoreRepository: DataStoreRepository by inject()
+    private val settingsUseCase: SettingsUseCase by inject()
     var totalTime by mutableLongStateOf(0L)
         private set
 
@@ -62,46 +59,42 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }.launchIn(viewModelScope)
     }
 
-    private suspend fun alternativeCalculateNightTime(){
-        val startNightHour = dataStoreRepository.getStartNightHour().take(1)
-    }
-
     private suspend fun calculationOfNightTime(routes: List<Route>) {
-        var nightTimeState by mutableStateOf<Long?>(0L)
-        var startNightHour by mutableIntStateOf(0)
-        var startNightMinute by mutableIntStateOf(0)
-        var endNightHour by mutableIntStateOf(0)
-        var endNightMinute by mutableIntStateOf(0)
-
-        Log.d("ZZZ", "before startNightHour = $startNightHour")
         viewModelScope.launch {
-            startNightHour = dataStoreRepository.getStartNightHour().take(1).first()
+            settingsUseCase.getCurrentSettings().collect { result ->
+                if (result is ResultState.Success) {
+                    var nightTimeState by mutableStateOf<Long?>(0L)
+                    var startNightHour by mutableIntStateOf(0)
+                    var startNightMinute by mutableIntStateOf(0)
+                    var endNightHour by mutableIntStateOf(0)
+                    var endNightMinute by mutableIntStateOf(0)
 
-            startNightMinute = dataStoreRepository.getStartNightMinute().take(1).first()
+                    result.data?.let {
+                        startNightHour = it.nightTime.startNightHour
+                        startNightMinute = it.nightTime.startNightMinute
+                        endNightHour = it.nightTime.endNightHour
+                        endNightMinute = it.nightTime.endNightMinute
+                    }
 
-            endNightHour = dataStoreRepository.getEndNightHour().take(1).first()
-
-            endNightMinute = dataStoreRepository.getEndNightMinute().take(1).first()
-
+                    routes.forEach { route ->
+                        val nightTimeInRoute = CalculateNightTime.getNightTime(
+                            startMillis = route.basicData.timeStartWork,
+                            endMillis = route.basicData.timeEndWork,
+                            hourStart = startNightHour,
+                            minuteStart = startNightMinute,
+                            hourEnd = endNightHour,
+                            minuteEnd = endNightMinute
+                        )
+                        nightTimeState = nightTimeState.plus(nightTimeInRoute ?: 0L)
+                    }
+                    _uiState.update {
+                        it.copy(
+                            nightTimeInRouteList = nightTimeState
+                        )
+                    }
+                }
+            }
         }.join()
-        Log.d("ZZZ", "after startNightHour = $startNightHour")
-
-        routes.forEach { route ->
-            val nightTimeInRoute = CalculateNightTime.getNightTime(
-                startMillis = route.basicData.timeStartWork,
-                endMillis = route.basicData.timeEndWork,
-                hourStart = startNightHour,
-                minuteStart = startNightMinute,
-                hourEnd = endNightHour,
-                minuteEnd = endNightMinute
-            )
-            nightTimeState = nightTimeState.plus(nightTimeInRoute)
-        }
-        _uiState.update {
-            it.copy(
-                nightTimeInRouteList = nightTimeState
-            )
-        }
     }
 
     fun remove(route: Route) {

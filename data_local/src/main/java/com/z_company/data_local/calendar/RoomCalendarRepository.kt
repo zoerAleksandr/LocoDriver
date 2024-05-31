@@ -1,4 +1,4 @@
-package com.z_company.data_local.setting
+package com.z_company.data_local.calendar
 
 import com.z_company.core.ResultState
 import com.z_company.core.ResultState.Companion.flowMap

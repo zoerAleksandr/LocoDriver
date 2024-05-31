@@ -1,7 +1,5 @@
 package com.z_company.core.ui.theme.custom
 
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable

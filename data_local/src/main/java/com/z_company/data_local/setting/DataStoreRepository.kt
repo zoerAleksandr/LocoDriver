@@ -10,26 +10,20 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.ResultState.Companion.flowRequest
 import com.z_company.domain.entities.route.LocoType
-import com.z_company.domain.repositories.UserSettingsRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.io.IOException
-import com.z_company.domain.util.times
-import kotlinx.coroutines.flow.take
-import org.json.JSONObject
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "locomotive_driver_pref")
 private const val NOT_AUTH = "NOT_AUTH"
 
-class DataStoreRepository(context: Context) : UserSettingsRepository {
-
+class DataStoreRepository(context: Context) {
+    // FOR EXAMPLE
     private val oneHourInMillis = 3_600_000L
     private val defaultTimeRest = oneHourInMillis * 3
     private val defaultDieselCoefficient = 0.82
@@ -74,8 +68,7 @@ class DataStoreRepository(context: Context) : UserSettingsRepository {
     }
 
 
-
-    override fun getMinTimeRest(): Flow<Long?> {
+    fun getMinTimeRest(): Flow<Long?> {
         return dataStore.data
             .catch { exception ->
                 if (exception is IOException) {
@@ -89,21 +82,8 @@ class DataStoreRepository(context: Context) : UserSettingsRepository {
             }
     }
 
-    override fun getDieselCoefficient(): Flow<Double> {
-        return dataStore.data
-            .catch { exception ->
-                if (exception is IOException) {
-                    emit(emptyPreferences())
-                } else {
-                    throw exception
-                }
-            }
-            .map { pref ->
-                pref[PreferencesKey.dieselCoefficient] ?: defaultDieselCoefficient
-            }
-    }
 
-    override fun setDieselCoefficient(value: Double?): Flow<ResultState<Unit>> {
+    fun setDieselCoefficient(value: Double?): Flow<ResultState<Unit>> {
         return flowRequest {
             value?.let {
                 dataStore.edit { pref ->
@@ -112,148 +92,4 @@ class DataStoreRepository(context: Context) : UserSettingsRepository {
             }
         }
     }
-
-    override fun setMinTimeRest(value: Long?): Flow<ResultState<Unit>> {
-        return flowRequest {
-            dataStore.edit { pref ->
-                pref[PreferencesKey.minTimeRest] = value ?: 0
-            }
-        }
-    }
-
-    override fun getStandardDurationOfWork(): Flow<Long> {
-        setStandardDurationOfWork(43200000L)
-        return dataStore.data
-            .catch { exception ->
-                if (exception is IOException) {
-                    emit(emptyPreferences())
-                } else {
-                    throw exception
-                }
-            }
-            .map { pref ->
-                pref[PreferencesKey.standardDurationWork] ?: defaultStandardDurationOfWork
-            }
-    }
-
-    override fun setStandardDurationOfWork(value: Long): Flow<ResultState<Unit>> {
-        return callbackFlow {
-            trySend(ResultState.Loading)
-            try {
-                dataStore.edit { pref ->
-                    pref[PreferencesKey.standardDurationWork] = value
-                }
-            } catch (e: Exception) {
-                trySend(ResultState.Error(ErrorEntity(e)))
-            }
-        }
-    }
-
-    override fun setTypeLoco(type: LocoType): Flow<ResultState<Unit>> {
-        return flowRequest {
-            dataStore.edit { pref ->
-                pref[PreferencesKey.typeLoco] =
-                    when (type) {
-                        LocoType.ELECTRIC -> LocoType.ELECTRIC.name
-                        LocoType.DIESEL -> LocoType.DIESEL.name
-                    }
-            }
-        }
-    }
-
-    fun getJSONNightTime(): Flow<String>{
-        return dataStore.data
-            .catch {exception ->
-                if (exception is IOException) {
-                    emit(emptyPreferences())
-                } else {
-                    throw exception
-                }
-            }
-            .map {pref ->
-                pref[PreferencesKey.nightTime] ?: ""
-            }
-    }
-
-    override fun getStartNightHour(): Flow<Int> {
-        return dataStore.data
-            .catch {exception ->
-                if (exception is IOException) {
-                    emit(emptyPreferences())
-                } else {
-                    throw exception
-                }
-            }
-            .map {pref ->
-                pref[PreferencesKey.startNightHour] ?: defaultStartNightHour
-            }
-    }
-
-    override fun getStartNightMinute(): Flow<Int> {
-        return dataStore.data
-            .catch {exception ->
-                if (exception is IOException) {
-                    emit(emptyPreferences())
-                } else {
-                    throw exception
-                }
-            }
-            .map {pref ->
-                pref[PreferencesKey.startNightMinute] ?: defaultStartNightMinute
-            }
-    }
-
-    override fun getEndNightHour(): Flow<Int> {
-        return dataStore.data
-            .catch {exception ->
-                if (exception is IOException) {
-                    emit(emptyPreferences())
-                } else {
-                    throw exception
-                }
-            }
-            .map {pref ->
-                pref[PreferencesKey.endNightHour] ?: defaultEndNightHour
-            }
-    }
-
-    override fun getEndNightMinute(): Flow<Int> {
-        return dataStore.data
-            .catch {exception ->
-                if (exception is IOException) {
-                    emit(emptyPreferences())
-                } else {
-                    throw exception
-                }
-            }
-            .map {pref ->
-                pref[PreferencesKey.endNightMinute] ?: defaultEndNightMinute
-            }
-    }
-
-    override fun getTypeLoco(): Flow<LocoType> {
-        return dataStore.data
-            .catch { exception ->
-                if (exception is IOException) {
-                    emit(emptyPreferences())
-                } else {
-                    throw exception
-                }
-
-            }
-            .map { pref ->
-                when (pref[PreferencesKey.typeLoco]) {
-                    LocoType.ELECTRIC.name -> LocoType.ELECTRIC
-                    LocoType.DIESEL.name -> LocoType.DIESEL
-                    else -> defaultTypeLoco
-                }
-            }
-    }
 }
-
-data class NightTime(
-    val startNightHour: Int = 22,
-    val startNightMinute: Int = 0,
-    val endNightHour: Int = 6,
-    val endNightMinute: Int = 0
-)
