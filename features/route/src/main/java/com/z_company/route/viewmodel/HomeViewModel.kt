@@ -1,6 +1,5 @@
 package com.z_company.route.viewmodel
 
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -30,7 +29,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import java.util.Calendar
 import java.util.Calendar.DAY_OF_MONTH
 import java.util.Calendar.HOUR_OF_DAY
 import java.util.Calendar.MILLISECOND
@@ -38,6 +36,7 @@ import java.util.Calendar.MINUTE
 import java.util.Calendar.MONTH
 import java.util.Calendar.YEAR
 import java.util.Calendar.getInstance
+import com.z_company.domain.util.minus
 
 class HomeViewModel : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
@@ -64,11 +63,35 @@ class HomeViewModel : ViewModel(), KoinComponent {
                         it.copy(routeListState = result)
                     }
                     if (result is ResultState.Success) {
-                        // Переделать методы с учетом переходных маршрутов
                         calculationOfTotalTime(result.data)
                         calculationOfNightTime(result.data)
+                        calculationPassengerTime(result.data)
                     }
                 }.launchIn(this)
+        }
+    }
+
+    private fun calculationPassengerTime(routes: List<Route>) {
+        var passengerTime by mutableLongStateOf(0L)
+        routes.forEach { route ->
+            route.passengers.forEach { passenger ->
+                passengerTime = if (isTransition(passenger.timeDeparture, passenger.timeArrival)) {
+                    passengerTime.plus(
+                        getTimeInCurrentMonth(
+                            passenger.timeDeparture!!,
+                            passenger.timeArrival!!,
+                            uiState.value.monthSelected
+                        )
+                    )
+                } else {
+                    passengerTime.plus((passenger.timeArrival - passenger.timeDeparture) ?: 0L)
+                }
+            }
+        }
+        _uiState.update {
+            it.copy(
+                passengerTimeInRouteList = passengerTime
+            )
         }
     }
 
@@ -89,7 +112,11 @@ class HomeViewModel : ViewModel(), KoinComponent {
                         endNightMinute = it.nightTime.endNightMinute
                     }
                     routes.forEach { route ->
-                        if (isTransitionRoute(route)) {
+                        if (isTransition(
+                                route.basicData.timeStartWork,
+                                route.basicData.timeEndWork
+                            )
+                        ) {
                             val nightTimeInRoute = CalculateNightTime.getNightTimeTransitionRoute(
                                 month = uiState.value.monthSelected.month,
                                 year = uiState.value.monthSelected.year,
@@ -120,7 +147,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     }
                 }
             }
-        }.join()
+        }
     }
 
     fun remove(route: Route) {
@@ -141,8 +168,12 @@ class HomeViewModel : ViewModel(), KoinComponent {
     private fun calculationOfTotalTime(routes: List<Route>) {
         totalTime = 0
         routes.forEach { route ->
-            if (isTransitionRoute(route)) {
-                totalTime += getWorkTimeInCurrentMonth(route, uiState.value.monthSelected)
+            if (isTransition(route.basicData.timeStartWork, route.basicData.timeEndWork)) {
+                totalTime += getTimeInCurrentMonth(
+                    route.basicData.timeStartWork!!,
+                    route.basicData.timeEndWork!!,
+                    uiState.value.monthSelected
+                )
             } else {
                 route.getWorkTime().let { time ->
                     totalTime += time ?: 0
@@ -151,60 +182,59 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    private fun isTransitionRoute(route: Route): Boolean {
-        if (route.basicData.timeStartWork != null && route.basicData.timeEndWork != null) {
-            val startWorkCalendar = getInstance().also {
-                it.timeInMillis = route.basicData.timeStartWork!!
+    private fun isTransition(startTime: Long?, endTime: Long?): Boolean {
+        if (startTime == null || endTime == null) {
+            return false
+        } else {
+            val startCalendar = getInstance().also {
+                it.timeInMillis = startTime
             }
-            val yearStartWork = startWorkCalendar.get(YEAR)
-            val monthStartWork = startWorkCalendar.get(MONTH)
+            val yearStart = startCalendar.get(YEAR)
+            val monthStart = startCalendar.get(MONTH)
 
-            val endWorkCalendar = getInstance().also {
-                it.timeInMillis = route.basicData.timeEndWork!!
+            val endCalendar = getInstance().also {
+                it.timeInMillis = endTime
             }
-            val yearEndWork = endWorkCalendar.get(YEAR)
-            val monthEndWork = endWorkCalendar.get(MONTH)
-
-            return if (monthStartWork < monthEndWork && yearStartWork == yearEndWork) {
+            val yearEnd = endCalendar.get(YEAR)
+            val monthEnd = endCalendar.get(MONTH)
+            return if (monthStart < monthEnd && yearStart == yearEnd) {
                 true
-            } else if (monthStartWork > monthEndWork && yearStartWork < yearEndWork) {
+            } else if (monthStart > monthEnd && yearStart < yearEnd) {
                 true
             } else {
                 false
             }
-        } else {
-            return false
         }
     }
 
-    private fun getWorkTimeInCurrentMonth(route: Route, monthOfYear: MonthOfYear): Long {
-        val startWorkCalendar = getInstance().also {
-            it.timeInMillis = route.basicData.timeStartWork!!
+    private fun getTimeInCurrentMonth(
+        startTime: Long,
+        endTime: Long,
+        monthOfYear: MonthOfYear
+    ): Long {
+        val startCalendar = getInstance().also {
+            it.timeInMillis = startTime
         }
 
-        val endWorkCalendar = getInstance().also {
-            it.timeInMillis = route.basicData.timeEndWork!!
-        }
-
-        if (startWorkCalendar.get(MONTH) == monthOfYear.month) {
+        if (startCalendar.get(MONTH) == monthOfYear.month) {
             val endCurrentDay = getInstance().also {
-                it.timeInMillis = route.basicData.timeStartWork!!
+                it.timeInMillis = startTime
                 it.set(DAY_OF_MONTH, it.get(DAY_OF_MONTH) + 1)
                 it.set(HOUR_OF_DAY, 0)
                 it.set(MINUTE, 0)
                 it.set(MILLISECOND, 0)
             }
             val endCurrentDayInMillis = endCurrentDay.timeInMillis
-            return endCurrentDayInMillis - startWorkCalendar.timeInMillis
+            return endCurrentDayInMillis - startTime
         } else {
             val startCurrentDay = getInstance().also {
-                it.timeInMillis = route.basicData.timeEndWork!!
+                it.timeInMillis = endTime
                 it.set(HOUR_OF_DAY, 0)
                 it.set(MINUTE, 0)
                 it.set(MILLISECOND, 0)
             }
             val startCurrentDayInMillis = startCurrentDay.timeInMillis
-            return endWorkCalendar.timeInMillis - startCurrentDayInMillis
+            return endTime - startCurrentDayInMillis
         }
     }
 
@@ -252,14 +282,14 @@ class HomeViewModel : ViewModel(), KoinComponent {
     }
 
     init {
-        val calendar = Calendar.getInstance()
+        val calendar = getInstance()
 
         loadRoutes()
         loadMonthList()
         setCurrentMonth(
             Pair(
-                calendar.get(Calendar.YEAR),
-                calendar.get(Calendar.MONTH)
+                calendar.get(YEAR),
+                calendar.get(MONTH)
             )
         )
         loadMinTimeRestInRoute()
