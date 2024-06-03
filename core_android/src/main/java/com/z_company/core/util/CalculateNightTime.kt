@@ -1,5 +1,6 @@
 package com.z_company.core.util
 
+import android.util.Log
 import androidx.core.util.rangeTo
 import org.koin.core.component.KoinComponent
 import java.util.Calendar
@@ -103,6 +104,64 @@ object CalculateNightTime : KoinComponent {
             }
         }
         return countNightTime
+    }
+
+    fun getNightTimeTransitionRoute(
+        month: Int,
+        year: Int,
+        startMillis: Long?,
+        endMillis: Long?,
+        hourStart: Int,
+        minuteStart: Int,
+        hourEnd: Int,
+        minuteEnd: Int
+    ): Long? {
+        if (startMillis == null || endMillis == null) {
+            return null
+        }
+        val startWorkCalendar = getInstance().also {
+            it.timeInMillis = startMillis
+        }
+
+        val endWorkCalendar = getInstance().also {
+            it.timeInMillis = endMillis
+        }
+        if (startWorkCalendar.get(Calendar.MONTH) == month) {
+            val endCurrentDay = getInstance().also {
+                it.timeInMillis = startMillis
+                it.set(DAY_OF_MONTH, it.get(DAY_OF_MONTH) + 1)
+                it.set(HOUR_OF_DAY, 0)
+                it.set(MINUTE, 0)
+                it.set(MILLISECOND, 0)
+            }
+            val startWorkCalendarInMillis = startWorkCalendar.timeInMillis
+            val endCurrentDayInMillis = endCurrentDay.timeInMillis
+            return getNightTime(
+                startMillis = startWorkCalendarInMillis,
+                endMillis = endCurrentDayInMillis,
+                hourStart = hourStart,
+                minuteStart = minuteStart,
+                hourEnd = hourEnd,
+                minuteEnd = minuteEnd
+            )
+        } else {
+            val startCurrentDay = getInstance().also {
+                it.timeInMillis = endMillis
+                it.set(HOUR_OF_DAY, 0)
+                it.set(MINUTE, 0)
+                it.set(MILLISECOND, 0)
+            }
+            val endWorkCalendarInMillis = endWorkCalendar.timeInMillis
+            val startCurrentDayInMillis = startCurrentDay.timeInMillis
+            return getNightTime(
+                startMillis = startCurrentDayInMillis,
+                endMillis = endWorkCalendarInMillis,
+                hourStart = hourStart,
+                minuteStart = minuteStart,
+                hourEnd = hourEnd,
+                minuteEnd = minuteEnd
+            )
+        }
     }
 }
 

@@ -11,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.core.util.CalculateNightTime
 import com.z_company.data_local.setting.DataStoreRepository
+import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.use_cases.RouteUseCase
@@ -30,6 +31,13 @@ import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.util.Calendar
+import java.util.Calendar.DAY_OF_MONTH
+import java.util.Calendar.HOUR_OF_DAY
+import java.util.Calendar.MILLISECOND
+import java.util.Calendar.MINUTE
+import java.util.Calendar.MONTH
+import java.util.Calendar.YEAR
+import java.util.Calendar.getInstance
 
 class HomeViewModel : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
@@ -49,16 +57,19 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
     fun loadRoutes() {
         loadRouteJob?.cancel()
-        loadRouteJob =
-            routeUseCase.listRoutesByMonth(_uiState.value.monthSelected).onEach { result ->
-                _uiState.update {
-                    it.copy(routeListState = result)
-                }
-                if (result is ResultState.Success) {
-                    calculationOfTotalTime(result.data)
-                    calculationOfNightTime(result.data)
-                }
-            }.launchIn(viewModelScope)
+        viewModelScope.launch {
+            loadRouteJob =
+                routeUseCase.listRoutesByMonth(_uiState.value.monthSelected).onEach { result ->
+                    _uiState.update {
+                        it.copy(routeListState = result)
+                    }
+                    if (result is ResultState.Success) {
+                        // Переделать методы с учетом переходных маршрутов
+                        calculationOfTotalTime(result.data)
+                        calculationOfNightTime(result.data)
+                    }
+                }.launchIn(this)
+        }
     }
 
     private suspend fun calculationOfNightTime(routes: List<Route>) {
@@ -77,17 +88,30 @@ class HomeViewModel : ViewModel(), KoinComponent {
                         endNightHour = it.nightTime.endNightHour
                         endNightMinute = it.nightTime.endNightMinute
                     }
-
                     routes.forEach { route ->
-                        val nightTimeInRoute = CalculateNightTime.getNightTime(
-                            startMillis = route.basicData.timeStartWork,
-                            endMillis = route.basicData.timeEndWork,
-                            hourStart = startNightHour,
-                            minuteStart = startNightMinute,
-                            hourEnd = endNightHour,
-                            minuteEnd = endNightMinute
-                        )
-                        nightTimeState = nightTimeState.plus(nightTimeInRoute ?: 0L)
+                        if (isTransitionRoute(route)) {
+                            val nightTimeInRoute = CalculateNightTime.getNightTimeTransitionRoute(
+                                month = uiState.value.monthSelected.month,
+                                year = uiState.value.monthSelected.year,
+                                startMillis = route.basicData.timeStartWork,
+                                endMillis = route.basicData.timeEndWork,
+                                hourStart = startNightHour,
+                                minuteStart = startNightMinute,
+                                hourEnd = endNightHour,
+                                minuteEnd = endNightMinute
+                            )
+                            nightTimeState = nightTimeState.plus(nightTimeInRoute ?: 0L)
+                        } else {
+                            val nightTimeInRoute = CalculateNightTime.getNightTime(
+                                startMillis = route.basicData.timeStartWork,
+                                endMillis = route.basicData.timeEndWork,
+                                hourStart = startNightHour,
+                                minuteStart = startNightMinute,
+                                hourEnd = endNightHour,
+                                minuteEnd = endNightMinute
+                            )
+                            nightTimeState = nightTimeState.plus(nightTimeInRoute ?: 0L)
+                        }
                     }
                     _uiState.update {
                         it.copy(
@@ -117,9 +141,70 @@ class HomeViewModel : ViewModel(), KoinComponent {
     private fun calculationOfTotalTime(routes: List<Route>) {
         totalTime = 0
         routes.forEach { route ->
-            route.getWorkTime().let { time ->
-                totalTime += time ?: 0
+            if (isTransitionRoute(route)) {
+                totalTime += getWorkTimeInCurrentMonth(route, uiState.value.monthSelected)
+            } else {
+                route.getWorkTime().let { time ->
+                    totalTime += time ?: 0
+                }
             }
+        }
+    }
+
+    private fun isTransitionRoute(route: Route): Boolean {
+        if (route.basicData.timeStartWork != null && route.basicData.timeEndWork != null) {
+            val startWorkCalendar = getInstance().also {
+                it.timeInMillis = route.basicData.timeStartWork!!
+            }
+            val yearStartWork = startWorkCalendar.get(YEAR)
+            val monthStartWork = startWorkCalendar.get(MONTH)
+
+            val endWorkCalendar = getInstance().also {
+                it.timeInMillis = route.basicData.timeEndWork!!
+            }
+            val yearEndWork = endWorkCalendar.get(YEAR)
+            val monthEndWork = endWorkCalendar.get(MONTH)
+
+            return if (monthStartWork < monthEndWork && yearStartWork == yearEndWork) {
+                true
+            } else if (monthStartWork > monthEndWork && yearStartWork < yearEndWork) {
+                true
+            } else {
+                false
+            }
+        } else {
+            return false
+        }
+    }
+
+    private fun getWorkTimeInCurrentMonth(route: Route, monthOfYear: MonthOfYear): Long {
+        val startWorkCalendar = getInstance().also {
+            it.timeInMillis = route.basicData.timeStartWork!!
+        }
+
+        val endWorkCalendar = getInstance().also {
+            it.timeInMillis = route.basicData.timeEndWork!!
+        }
+
+        if (startWorkCalendar.get(MONTH) == monthOfYear.month) {
+            val endCurrentDay = getInstance().also {
+                it.timeInMillis = route.basicData.timeStartWork!!
+                it.set(DAY_OF_MONTH, it.get(DAY_OF_MONTH) + 1)
+                it.set(HOUR_OF_DAY, 0)
+                it.set(MINUTE, 0)
+                it.set(MILLISECOND, 0)
+            }
+            val endCurrentDayInMillis = endCurrentDay.timeInMillis
+            return endCurrentDayInMillis - startWorkCalendar.timeInMillis
+        } else {
+            val startCurrentDay = getInstance().also {
+                it.timeInMillis = route.basicData.timeEndWork!!
+                it.set(HOUR_OF_DAY, 0)
+                it.set(MINUTE, 0)
+                it.set(MILLISECOND, 0)
+            }
+            val startCurrentDayInMillis = startCurrentDay.timeInMillis
+            return endWorkCalendar.timeInMillis - startCurrentDayInMillis
         }
     }
 

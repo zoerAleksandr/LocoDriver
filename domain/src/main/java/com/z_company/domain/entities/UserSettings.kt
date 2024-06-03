@@ -9,8 +9,8 @@ data class UserSettings(
 )
 
 data class NightTime(
-    val startNightHour: Int = 0,
+    val startNightHour: Int = 22,
     val startNightMinute: Int = 0,
-    val endNightHour: Int = 6,
-    val endNightMinute: Int = 0
+    val endNightHour: Int = 5,
+    val endNightMinute: Int = 30
 )
