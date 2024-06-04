@@ -72,7 +72,7 @@ object Versions {
     const val kotlin_compiler_ext_version = "1.4.7"
     const val lifecycle_runtime_version = "2.6.1"
     const val lifecycle_viewmodel_version = "2.6.1"
-    const val material_compose = "1.2.0-beta01"
+    const val material_compose = "1.2.1"
     const val reveal_swipe_version = "1.2.0"
     const val room_version = "2.6.0"
     const val test_ext_version = "1.1.5"
@@ -136,8 +136,6 @@ object Libs {
         "androidx.lifecycle:lifecycle-runtime-ktx:$lifecycle_runtime_version"
     const val lifecycle_viewmodel_ktx =
         "androidx.lifecycle:lifecycle-viewmodel-ktx:$lifecycle_viewmodel_version"
-    const val material =
-        "androidx.compose.material3:material3:$material_compose"
     const val reveal_swipe =
         "de.charlex.compose:revealswipe:$reveal_swipe_version"
     const val room_compiler =

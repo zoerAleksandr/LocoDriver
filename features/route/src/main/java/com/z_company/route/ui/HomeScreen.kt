@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -606,6 +607,7 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?) {
                         "Домашний отдых"
                     }
                     // TODO !!!
+                    Log.d("ZZZ", "min time Rest in ui ${ConverterLongToTime.getTimeInStringFormat(minTimeRest)}")
 
                     Row(
                         modifier = Modifier

@@ -248,6 +248,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     _uiState.update {
                         it.copy(monthSelected = selectMonthOfYear)
                     }
+                    loadRoutes()
                 }
             }
         }
@@ -271,11 +272,12 @@ class HomeViewModel : ViewModel(), KoinComponent {
     }
 
     private fun loadMinTimeRestInRoute() {
-        CoroutineScope(Dispatchers.IO).launch {
-            val minTimeRest = viewModelScope.async { dataStoreRepository.getMinTimeRest() }.await()
-            minTimeRest.collect { time ->
-                _uiState.update {
-                    it.copy(minTimeRest = time)
+        viewModelScope.launch {
+            settingsUseCase.getCurrentSettings().collect { result ->
+                if (result is ResultState.Success){
+                    _uiState.update {
+                        it.copy(minTimeRest = result.data?.minTimeRest)
+                    }
                 }
             }
         }
@@ -284,7 +286,6 @@ class HomeViewModel : ViewModel(), KoinComponent {
     init {
         val calendar = getInstance()
 
-        loadRoutes()
         loadMonthList()
         setCurrentMonth(
             Pair(

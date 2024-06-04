@@ -37,7 +37,7 @@ dependencies {
     implementation(project(Libs.project_core_android))
     implementation(Libs.core_ktx)
     implementation(Libs.app_compat)
-    implementation(Libs.material)
+    implementation(Libs.compose_material)
     implementation(Libs.parse_sdk_android)
     implementation(Libs.parse_sdk_android_coroutine)
     implementation(Libs.work_manager)
