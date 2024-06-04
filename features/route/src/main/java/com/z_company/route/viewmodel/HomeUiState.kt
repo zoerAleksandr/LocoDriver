@@ -11,6 +11,7 @@ data class HomeUiState(
     val monthList: List<Int> = listOf(),
     val yearList: List<Int> = listOf(),
     val minTimeRest: Long? = null,
+    val minTimeHomeRest: Long? = null,
     val nightTimeInRouteList: Long? = null,
     val passengerTimeInRouteList: Long? = null
 )

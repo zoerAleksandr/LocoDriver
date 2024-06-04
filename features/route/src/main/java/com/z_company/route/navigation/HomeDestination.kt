@@ -34,6 +34,7 @@ fun HomeDestination(
         selectYearAndMonth = homeViewModel::setCurrentMonth,
         minTimeRest = homeUiState.minTimeRest,
         nightTime = homeUiState.nightTimeInRouteList,
-        passengerTime = homeUiState.passengerTimeInRouteList
+        passengerTime = homeUiState.passengerTimeInRouteList,
+        calculationHomeRest = homeViewModel::calculationHomeRest
     )
 }

@@ -9,18 +9,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.core.util.CalculateNightTime
-import com.z_company.data_local.setting.DataStoreRepository
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.UtilsForEntities.getHomeRest
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.util.plus
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
@@ -41,7 +38,6 @@ import com.z_company.domain.util.minus
 class HomeViewModel : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
-    private val dataStoreRepository: DataStoreRepository by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     var totalTime by mutableLongStateOf(0L)
         private set
@@ -274,13 +270,29 @@ class HomeViewModel : ViewModel(), KoinComponent {
     private fun loadMinTimeRestInRoute() {
         viewModelScope.launch {
             settingsUseCase.getCurrentSettings().collect { result ->
-                if (result is ResultState.Success){
+                if (result is ResultState.Success) {
                     _uiState.update {
-                        it.copy(minTimeRest = result.data?.minTimeRest)
+                        it.copy(
+                            minTimeRest = result.data?.minTimeRest,
+                            minTimeHomeRest = result.data?.minTimeHomeRest
+                        )
                     }
                 }
             }
         }
+    }
+
+    fun calculationHomeRest(route: Route): Long? {
+        val minTimeHomeRest = uiState.value.minTimeHomeRest
+        uiState.value.routeListState.let {
+            if (it is ResultState.Success) {
+                return route.getHomeRest(
+                    parentList = it.data,
+                    minTimeHomeRest = minTimeHomeRest
+                )
+            }
+        }
+        return null
     }
 
     init {

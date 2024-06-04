@@ -1,6 +1,7 @@
 package com.z_company.domain.entities.route
 
 import com.z_company.domain.util.div
+import com.z_company.domain.util.lessThan
 import com.z_company.domain.util.minus
 import com.z_company.domain.util.moreThan
 import com.z_company.domain.util.plus
@@ -68,5 +69,43 @@ object UtilsForEntities {
         } else {
             null
         }
+    }
+
+    fun Route.getHomeRest(parentList: List<Route>, minTimeHomeRest: Long?): Long? {
+        val routeChain = mutableListOf<Route>()
+
+        var indexRoute = parentList.indexOf(this)
+        routeChain.add(parentList[indexRoute])
+        if (indexRoute > 0) {
+            indexRoute -= 1
+            while (parentList[indexRoute].basicData.restPointOfTurnover) {
+                routeChain.add(parentList[indexRoute])
+                if (indexRoute == 0) {
+                    break
+                } else {
+                    indexRoute -= 1
+                }
+            }
+        }
+
+        routeChain.sortBy {
+            it.basicData.timeStartWork
+        }
+        var totalWorkTime = 0L
+        var totalRestTime = 0L
+        routeChain.forEachIndexed { index, routeInChain ->
+            totalWorkTime += routeInChain.getWorkTime() ?: 0L
+            if (index != routeChain.lastIndex) {
+                val startRest = routeInChain.basicData.timeEndWork
+                val endRest = routeChain[index + 1].basicData.timeStartWork
+                val restTime = endRest - startRest
+                totalRestTime += restTime ?: 0L
+            }
+        }
+        var homeRest = (totalWorkTime * 2.6 - totalRestTime).toLong()
+        if (homeRest.lessThan(minTimeHomeRest)){
+            homeRest = minTimeHomeRest ?: 0L
+        }
+        return routeChain.last().basicData.timeEndWork + homeRest
     }
 }

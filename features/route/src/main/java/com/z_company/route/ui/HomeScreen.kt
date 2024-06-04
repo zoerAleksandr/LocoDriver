@@ -73,6 +73,7 @@ import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.ConverterUrlBase64
 import com.z_company.core.util.DateAndTimeConverter
+import com.z_company.core.util.DateAndTimeConverter.getDateAndTime
 import com.z_company.core.util.DateAndTimeConverter.getDateFromDateLong
 import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
 import com.z_company.core.util.DateAndTimeConverter.getTimeFromDateLong
@@ -118,7 +119,8 @@ fun HomeScreen(
     selectYearAndMonth: (Pair<Int, Int>) -> Unit,
     minTimeRest: Long?,
     nightTime: Long?,
-    passengerTime: Long?
+    passengerTime: Long?,
+    calculationHomeRest: (Route) -> Long?
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -179,7 +181,7 @@ fun HomeScreen(
                     .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
                     .clickable {}
             ) {
-                PreviewRoute(routeForPreview, minTimeRest)
+                PreviewRoute(routeForPreview, minTimeRest, calculationHomeRest)
             }
 
             Column(
@@ -478,7 +480,7 @@ fun TotalTime(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun PreviewRoute(route: Route?, minTimeRest: Long?) {
+fun PreviewRoute(route: Route?, minTimeRest: Long?, calculationHomeRest: (Route) -> Long?) {
     val styleTitle = AppTypography.getType().titleSmall.copy(
         fontWeight = FontWeight.W600,
         color = MaterialTheme.colorScheme.primary
@@ -606,9 +608,6 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?) {
                     } else {
                         "Домашний отдых"
                     }
-                    // TODO !!!
-                    Log.d("ZZZ", "min time Rest in ui ${ConverterLongToTime.getTimeInStringFormat(minTimeRest)}")
-
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -616,7 +615,6 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?) {
                             .animateItemPlacement(),
                         verticalAlignment = Alignment.Top
                     ) {
-                        // Icon
                         Box(
                             modifier = Modifier
                                 .size(iconSize)
@@ -635,13 +633,23 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?) {
                             if (route.basicData.restPointOfTurnover) {
                                 minTimeRest?.let {
                                     val shortRestText = getTimeFromDateLong(
-                                            route.shortRest(minTimeRest)
-                                        )
+                                        route.shortRest(minTimeRest)
+                                    )
                                     val fullRestText = getTimeFromDateLong(
-                                            route.fullRest(minTimeRest)
-                                        )
+                                        route.fullRest(minTimeRest)
+                                    )
                                     Text(
                                         text = "$shortRestText - $fullRestText",
+                                        style = styleHint,
+                                        maxLines = 1,
+                                    )
+                                }
+                            } else {
+                                val homeRestInLong = calculationHomeRest(route)
+                                homeRestInLong?.let {
+                                    val homeRestInLongText = getDateAndTime(homeRestInLong)
+                                    Text(
+                                        text = "до $homeRestInLongText",
                                         style = styleHint,
                                         maxLines = 1,
                                     )
@@ -651,18 +659,20 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?) {
                     }
                 }
             }
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = paddingBetweenBlocks)
-                        .animateItemPlacement(),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Text(
-                        text = "Локомотив",
-                        style = styleTitle,
-                    )
+            if (route.locomotives.isNotEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = paddingBetweenBlocks)
+                            .animateItemPlacement(),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Text(
+                            text = "Локомотив",
+                            style = styleTitle,
+                        )
+                    }
                 }
             }
             itemsIndexed(
@@ -1001,18 +1011,20 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?) {
                     }
                 }
             }
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = paddingBetweenBlocks)
-                        .animateItemPlacement(),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Text(
-                        text = "Поезд",
-                        style = styleTitle,
-                    )
+            if (route.trains.isNotEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = paddingBetweenBlocks)
+                            .animateItemPlacement(),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Text(
+                            text = "Поезд",
+                            style = styleTitle,
+                        )
+                    }
                 }
             }
             itemsIndexed(route.trains, key = { _, train -> train.trainId }) { index, train ->
@@ -1143,18 +1155,20 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?) {
                     }
                 }
             }
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = paddingBetweenBlocks)
-                        .animateItemPlacement(),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Text(
-                        text = "Пассажир",
-                        style = styleTitle,
-                    )
+            if (route.passengers.isNotEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = paddingBetweenBlocks)
+                            .animateItemPlacement(),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Text(
+                            text = "Пассажир",
+                            style = styleTitle,
+                        )
+                    }
                 }
             }
             items(route.passengers, key = { passenger -> passenger.passengerId }) { passenger ->
@@ -1209,9 +1223,11 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?) {
                         )
                         Column(modifier = Modifier.padding(start = paddingIcon)) {
                             Text(text = numberText, style = styleData)
-                            Row {
-                                Text(text = "$stationDeparture - ", style = styleHint)
-                                Text(text = stationArrival, style = styleHint)
+                            if (stationDeparture.isNotBlank() && stationArrival.isNotBlank()) {
+                                Row {
+                                    Text(text = "$stationDeparture - ", style = styleHint)
+                                    Text(text = stationArrival, style = styleHint)
+                                }
                             }
                             Text(
                                 text = notesText,
@@ -1223,18 +1239,20 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?) {
                     }
                 }
             }
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = paddingBetweenBlocks)
-                        .animateItemPlacement(),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Text(
-                        text = "Заметки",
-                        style = styleTitle,
-                    )
+            if (!route.basicData.notes.isNullOrBlank() && route.photos.isNotEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = paddingBetweenBlocks)
+                            .animateItemPlacement(),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Text(
+                            text = "Заметки",
+                            style = styleTitle,
+                        )
+                    }
                 }
             }
             item {
