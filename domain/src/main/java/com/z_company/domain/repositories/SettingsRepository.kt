@@ -19,4 +19,5 @@ interface SettingsRepository {
     fun updateNightTime(nightTime: NightTime): Flow<ResultState<Unit>>
     fun setSettings(userSettings: UserSettings): Flow<ResultState<Unit>>
     fun getSettings(): Flow<ResultState<UserSettings?>>
+    fun setUpdateAt(timestamp: Long): Flow<ResultState<Unit>>
 }

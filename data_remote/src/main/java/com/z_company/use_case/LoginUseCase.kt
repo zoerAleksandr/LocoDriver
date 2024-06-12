@@ -10,7 +10,7 @@ class LoginUseCase {
     fun getUser(): Flow<ResultState<User>> {
         val user = ParseUser.getCurrentUser()
         return flowRequest {
-            User(name = user.username, email = user.email)
+            User(name = user.username, email = user.email, updateAt = user.updatedAt.time)
         }
     }
 }

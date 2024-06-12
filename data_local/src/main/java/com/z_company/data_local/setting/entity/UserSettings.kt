@@ -14,7 +14,8 @@ internal data class UserSettings(
     val settingsKey: String,
     val minTimeRest: Long?,
     val lastEnteredDieselCoefficient: Double,
-    val nightTime: NightTime
+    val nightTime: NightTime,
+    val updateAt: Long,
 )
 
 data class NightTime(

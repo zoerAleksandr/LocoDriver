@@ -18,4 +18,8 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
     fun getCurrentSettings(): Flow<ResultState<UserSettings?>> {
         return settingsRepository.getSettings()
     }
+
+    fun setUpdateAt(timestamp: Long):  Flow<ResultState<Unit>> {
+        return settingsRepository.setUpdateAt(timestamp)
+    }
 }

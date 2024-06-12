@@ -7,5 +7,7 @@ import com.z_company.domain.entities.UserSettings
 data class SettingsUiState(
     val settingDetails: ResultState<UserSettings?> = ResultState.Loading,
     val userDetailsState: ResultState<User?> = ResultState.Loading,
-    val saveSettings: ResultState<Unit>? = null
+    val saveSettings: ResultState<Unit>? = null,
+    val updateRepositoryState: ResultState<Unit> = ResultState.Success(Unit),
+    val updateAt: ResultState<Long> = ResultState.Loading
 )

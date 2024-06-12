@@ -29,4 +29,7 @@ internal interface SettingsDao {
     @TypeConverters(NightTimeToPrimitiveConverter::class)
     @Query("UPDATE UserSettings SET nightTime =:nightTime WHERE settingsKey =:key")
     fun updateNightTime(nightTime: NightTime, key: String)
+
+    @Query("UPDATE UserSettings SET updateAt =:timestamp WHERE settingsKey =:key")
+    fun setUpdateAt(timestamp: Long, key: String)
 }

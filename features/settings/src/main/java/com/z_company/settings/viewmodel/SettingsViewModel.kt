@@ -6,10 +6,12 @@ import androidx.lifecycle.viewModelScope
 import com.parse.ParseUser
 import com.z_company.core.ResultState
 import com.z_company.data_local.setting.DataStoreRepository
+import com.z_company.data_local.setting.RoomSettingRepository
 import com.z_company.use_case.LoginUseCase
 import com.z_company.domain.entities.User
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.use_cases.CalendarUseCase
+import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.use_case.RemoteRouteUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,7 +26,7 @@ import org.koin.core.component.inject
 class SettingsViewModel : ViewModel(), KoinComponent {
     private val loginUseCase: LoginUseCase by inject()
     private val remoteRouteUseCase: RemoteRouteUseCase by inject()
-    private val dataStoreRepository: DataStoreRepository by inject()
+    private val settingsUseCase: SettingsUseCase by inject()
 
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -72,32 +74,25 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     }
 
     private fun loadSettings() {
-
-        // TODO
         loadSettingsJob?.cancel()
         loadSettingsJob = viewModelScope.launch {
-            dataStoreRepository.getMinTimeRest().collect { time ->
-                time?.let {
-                    currentSettings = currentSettings?.copy(
-                        minTimeRest = it
-                    ) ?: UserSettings(minTimeRest = time)
+            settingsUseCase.getCurrentSettings().collect { result ->
+                _uiState.update {
+                    it.copy(
+                        settingDetails = result,
+                    )
+                }
+                if (result is ResultState.Success) {
+                    result.data?.let { userSettings ->
+                        _uiState.update {
+                            it.copy(
+                                updateAt = ResultState.Success(userSettings.updateAt)
+                            )
+                        }
+                    }
                 }
             }
         }
-
-
-//        loadSettingsJob = launch {
-//
-//        }
-
-//            dataStoreRepository.getMinTimeRest().onEach { time ->
-//            time?.let {
-//                currentSettings = currentSettings?.copy(
-//                    minTimeRest = it
-//                ) ?: UserSettings(minTimeRest = time)
-//                Log.d("ZZZ", "before - ${currentSettings?.minTimeRest}")
-//            }
-//        }.launchIn(viewModelScope)
     }
 
     private fun loadLogin() {
@@ -115,25 +110,14 @@ class SettingsViewModel : ViewModel(), KoinComponent {
 
     fun saveSettings() {
         currentSettings?.let { setting ->
-            Log.d("ZZZ", "setting.minTimeRest = ${setting.minTimeRest}")
             saveSettingsJob?.cancel()
             saveSettingsJob = viewModelScope.launch {
 
             }
-//                dataStoreRepository.setMinTimeRest(
-//                setting.minTimeRest
-//            ).onEach { resultState ->
-//                if (resultState is ResultState.Success) {
-//                    _uiState.update {
-//                        it.copy(saveSettings = resultState)
-//                    }
-//                }
-//            }.launchIn(viewModelScope)
         }
     }
 
     fun changedMinTimeRest(time: String) {
-        Log.d("ZZZ", "time - $time")
         time.toLongOrNull()?.let { hour ->
             currentSettings = currentSettings?.copy(
                 minTimeRest = hour.times(3_600_00L)
@@ -142,12 +126,19 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     }
 
     fun logOut() {
+        // TODO сделать выход из аккаунта
         ParseUser.logOutInBackground()
     }
 
     fun onSync() {
         viewModelScope.launch {
-            remoteRouteUseCase.syncBasicData()
+            remoteRouteUseCase.syncBasicData().collect { result ->
+                _uiState.update {
+                    it.copy(
+                        updateRepositoryState = result
+                    )
+                }
+            }
         }
     }
 

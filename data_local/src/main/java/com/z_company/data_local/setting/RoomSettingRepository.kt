@@ -80,4 +80,10 @@ class RoomSettingRepository : SettingsRepository, KoinComponent {
             }
         }
     }
+
+    override fun setUpdateAt(timestamp: Long): Flow<ResultState<Unit>> {
+        return flowRequest {
+            dao.setUpdateAt(timestamp = timestamp, key = SETTINGS_KEY)
+        }
+    }
 }

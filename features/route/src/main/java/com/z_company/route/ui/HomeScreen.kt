@@ -1,6 +1,5 @@
 package com.z_company.route.ui
 
-import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -73,7 +72,7 @@ import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.ConverterUrlBase64
 import com.z_company.core.util.DateAndTimeConverter
-import com.z_company.core.util.DateAndTimeConverter.getDateAndTime
+import com.z_company.core.util.DateAndTimeConverter.getDateMiniAndTime
 import com.z_company.core.util.DateAndTimeConverter.getDateFromDateLong
 import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
 import com.z_company.core.util.DateAndTimeConverter.getTimeFromDateLong
@@ -647,7 +646,7 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, calculationHomeRest: (Route)
                             } else {
                                 val homeRestInLong = calculationHomeRest(route)
                                 homeRestInLong?.let {
-                                    val homeRestInLongText = getDateAndTime(homeRestInLong)
+                                    val homeRestInLongText = getDateMiniAndTime(homeRestInLong)
                                     Text(
                                         text = "до $homeRestInLongText",
                                         style = styleHint,

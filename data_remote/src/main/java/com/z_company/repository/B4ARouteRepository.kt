@@ -1,12 +1,14 @@
 package com.z_company.repository
 
 import android.content.Context
+import android.util.Log
 import androidx.work.Constraints
 import androidx.work.Data
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.z_company.type_converter.BasicDataJSONConverter
 import com.z_company.core.ResultState
@@ -58,15 +60,19 @@ import com.z_company.work_manager.SaveLocomotiveListWorker
 import com.z_company.work_manager.SavePassengerListWorker
 import com.z_company.work_manager.SavePhotoListWorker
 import com.z_company.work_manager.SaveTrainListWorker
+import com.z_company.work_manager.SynchronizedOneTimeWorker
 import com.z_company.work_manager.SynchronizedWorker
 import com.z_company.work_manager.TRAINS_INPUT_KEY
 import com.z_company.work_manager.WorkManagerState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.util.concurrent.TimeUnit
@@ -78,7 +84,8 @@ private const val SAVE_PASSENGER_WORKER_TAG = "SAVE_PASSENGER_WORKER_TAG"
 private const val SAVE_PHOTO_WORKER_TAG = "SAVE_PHOTO_WORKER_TAG"
 
 private const val GET_ALL_DATA_WORKER_TAG = "SYNC_DATA_WORKER_TAG"
-private const val SYNC_DATA_WORKER_TAG = "SYNC_DATA_WORKER_TAG"
+private const val SYNC_DATA_ONE_TIME_WORKER_TAG = "SYNC_DATA_ONE_TIME_WORKER_TAG"
+private const val SYNC_DATA_PERIODIC_WORKER_TAG = "SYNC_DATA_PERIODIC_WORKER_TAG"
 private const val REMOVE_BASIC_DATA_WORKER_TAG = "REMOVE_BASIC_DATA_WORKER_TAG"
 private const val REMOVE_LOCOMOTIVE_WORKER_TAG = "REMOVE_LOCOMOTIVE_WORKER_TAG"
 private const val REMOVE_TRAIN_WORKER_TAG = "REMOVE_TRAIN_WORKER_TAG"
@@ -260,26 +267,105 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
         return WorkManagerState.state(context, worker.id)
     }
 
-    override fun synchronizedRoute() {
+    override suspend fun synchronizedRoutePeriodic(): Flow<ResultState<Unit>> {
         val constraints = Constraints.Builder()
             .setRequiresBatteryNotLow(true)
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
-        
         val worker = PeriodicWorkRequestBuilder<SynchronizedWorker>(
-            12,
-            TimeUnit.HOURS,
+            15,
+            TimeUnit.MINUTES,
         )
-            .setInitialDelay(12, TimeUnit.HOURS)
+//            .setInitialDelay(12, TimeUnit.HOURS)
             .setConstraints(constraints)
-            .addTag(SYNC_DATA_WORKER_TAG)
+            .addTag(SYNC_DATA_PERIODIC_WORKER_TAG)
             .build()
 
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-            "periodicSynchronized",
-            ExistingPeriodicWorkPolicy.KEEP,
-            worker
-        )
+        withContext(Dispatchers.IO) {
+
+            val listInfo = WorkManager.getInstance(context)
+                .getWorkInfosByTag(SYNC_DATA_ONE_TIME_WORKER_TAG)
+                .get()
+            if (listInfo.isNotEmpty()) {
+                if (listInfo.last().state != WorkInfo.State.RUNNING) {
+                    WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+                        "periodicSynchronized",
+                        ExistingPeriodicWorkPolicy.KEEP,
+                        worker
+                    )
+                } else {
+
+                }
+            } else {
+                WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+                    "periodicSynchronized",
+                    ExistingPeriodicWorkPolicy.KEEP,
+                    worker
+                )
+            }
+        }
+
+        return flow {
+            WorkManagerState.state(context, worker.id).collect { result ->
+                when (result) {
+                    is ResultState.Loading -> {
+                        emit(result)
+                    }
+
+                    is ResultState.Success -> {
+                        emit(ResultState.Success(Unit))
+                    }
+
+                    is ResultState.Error -> {
+                        emit(result)
+                    }
+                }
+            }
+        }
+    }
+
+    override suspend fun synchronizedRouteOneTime(): Flow<ResultState<Unit>> {
+        val constraints = Constraints.Builder()
+            .setRequiresBatteryNotLow(true)
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+        val worker = OneTimeWorkRequestBuilder<SynchronizedOneTimeWorker>()
+            .setConstraints(constraints)
+            .addTag(SYNC_DATA_ONE_TIME_WORKER_TAG)
+            .build()
+
+//        withContext(Dispatchers.IO) {
+//            val listInfo = WorkManager.getInstance(context)
+//                .getWorkInfosForUniqueWork("periodicSynchronized")
+//                .get()
+//            if (listInfo.isNotEmpty()) {
+//                if (listInfo.last().state != WorkInfo.State.RUNNING) {
+//                    WorkManager.getInstance(context).enqueue(worker)
+//                } else {
+//
+//                }
+//            } else {
+                WorkManager.getInstance(context).enqueue(worker)
+//            }
+
+//        }
+        return flow {
+            WorkManagerState.state(context, worker.id).collect { result ->
+                when (result) {
+                    is ResultState.Loading -> {
+                        emit(result)
+                    }
+
+                    is ResultState.Success -> {
+                        emit(ResultState.Success(Unit))
+                    }
+
+                    is ResultState.Error -> {
+                        emit(result)
+                    }
+                }
+            }
+        }
     }
 
     override suspend fun saveLocomotive(locomotive: Locomotive): Flow<ResultState<Data>> {

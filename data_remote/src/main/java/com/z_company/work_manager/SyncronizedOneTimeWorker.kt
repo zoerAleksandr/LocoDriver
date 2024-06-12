@@ -2,33 +2,25 @@ package com.z_company.work_manager
 
 import android.content.Context
 import android.util.Log
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.WorkerParameters
 import com.z_company.core.ResultState
-import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
-import com.z_company.repository.RemoteRouteRepository
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.repository.RemoteRouteRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.internal.wait
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.util.Calendar
 
-const val SYNC_WORKER_OUTPUT_KEY = "SYNC_WORKER_OUTPUT_KEY"
-
-class SynchronizedWorker(context: Context, params: WorkerParameters) :
+class SynchronizedOneTimeWorker(context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params),
     KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
@@ -73,13 +65,13 @@ class SynchronizedWorker(context: Context, params: WorkerParameters) :
             }
             var timestamp: Long = 0
             var syncRouteCount = 0
-//            val setUpdateAtJob = this.launch {
-//                timestamp = Calendar.getInstance().timeInMillis
-//                Log.d("ZZZ", "timestamp = ${DateAndTimeConverter.getDateAndTime(timestamp)}")
-//                settingsUseCase.setUpdateAt(timestamp)
-//            }
+            val setUpdateAtJob = CoroutineScope(Dispatchers.IO).launch {
+                timestamp = Calendar.getInstance().timeInMillis
+                Log.d("ZZZ", "timestamp = ${DateAndTimeConverter.getDateAndTime(timestamp)}")
+                settingsUseCase.setUpdateAt(timestamp)
+            }
 
-            this.launch {
+//            this.launch {
 //                if (notSynchronizedList.isEmpty()) {
 //                    Log.d("ZZZ", "isEmpty")
 //                    setUpdateAtJob.start()
@@ -91,9 +83,9 @@ class SynchronizedWorker(context: Context, params: WorkerParameters) :
 //                } else {
                 Log.d("ZZZ", "size = ${notSynchronizedList.size}")
                 notSynchronizedList.forEach { route ->
-                    CoroutineScope(Dispatchers.IO).launch {
+                    this.launch {
                         remoteRepository.saveRoute(route).collect { result ->
-                            Log.d("ZZZ", "result save = ${result}")
+                            Log.d("ZZZ", "result save = $result")
                             if (result is ResultState.Success) {
                                 syncRouteCount += 1
                                 this.cancel()
@@ -118,7 +110,7 @@ class SynchronizedWorker(context: Context, params: WorkerParameters) :
                     }
 //                    }
                 }
-            }.join()
+//            }.join()
 
 //            val data = Data.Builder().putLong(SYNC_WORKER_OUTPUT_KEY, timestamp)
             return@withContext Result.success()

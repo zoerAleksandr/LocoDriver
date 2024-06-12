@@ -167,7 +167,7 @@ object DateAndTimeConverter {
         }
     }
 
-    fun getDateAndTime(value: Long): String {
+    fun getDateMiniAndTime(value: Long): String {
         val time = value.let { millis ->
             SimpleDateFormat(
                 DateAndTimeFormat.TIME_FORMAT,
@@ -179,6 +179,24 @@ object DateAndTimeConverter {
         val date = value.let { millis ->
             SimpleDateFormat(
                 DateAndTimeFormat.MINI_DATE_FORMAT, Locale.getDefault()
+            ).format(
+                millis
+            )
+        }
+        return "$date $time"
+    }
+    fun getDateAndTime(value: Long): String {
+        val time = value.let { millis ->
+            SimpleDateFormat(
+                DateAndTimeFormat.TIME_FORMAT,
+                Locale.getDefault()
+            ).format(
+                millis
+            )
+        }
+        val date = value.let { millis ->
+            SimpleDateFormat(
+                DateAndTimeFormat.DATE_FORMAT, Locale.getDefault()
             ).format(
                 millis
             )

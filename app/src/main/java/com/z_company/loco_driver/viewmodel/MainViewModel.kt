@@ -14,6 +14,7 @@ import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.use_cases.LoadCalendarFromStorage
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.use_case.RemoteRouteUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.launchIn
@@ -28,6 +29,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private val loadCalendarFromStorage: LoadCalendarFromStorage by inject()
     private val calendarUseCase: CalendarUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
+    private val remoteRouteUseCase: RemoteRouteUseCase by inject()
 
     private var loadCalendarJob: Job? = null
     private var saveCalendarInLocalJob: Job? = null
@@ -51,11 +53,18 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
         if (token == "False" || token == null) {
             setDefaultSettings()
             loadCalendar()
+//            enableSynchronisedRoute()
             sharedpref.edit().putString("token", "true").apply()
         }
 
         viewModelScope.launch {
             getSession()
+        }
+    }
+
+    private fun enableSynchronisedRoute() {
+        viewModelScope.launch {
+            remoteRouteUseCase.syncBasicDataPeriodic()
         }
     }
 

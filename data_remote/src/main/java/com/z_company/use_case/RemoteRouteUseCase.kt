@@ -13,6 +13,7 @@ import com.z_company.entity_converter.TrainConverter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -98,8 +99,12 @@ class RemoteRouteUseCase(private val repository: RemoteRouteRepository) : KoinCo
         repository.saveRoute(route)
     }
 
-    fun syncBasicData() {
-        repository.synchronizedRoute()
+    suspend fun syncBasicData(): Flow<ResultState<Unit>> {
+        return repository.synchronizedRouteOneTime()
+    }
+
+    suspend fun syncBasicDataPeriodic(): Flow<ResultState<Unit>> {
+        return repository.synchronizedRoutePeriodic()
     }
 
     private suspend fun removeBasicData(remoteObjectId: String) {

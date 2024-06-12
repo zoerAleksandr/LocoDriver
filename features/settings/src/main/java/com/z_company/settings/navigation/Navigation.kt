@@ -29,6 +29,7 @@ fun NavGraphBuilder.settingsGraph(
                 currentUser = settingsViewModel.currentUser,
                 resetSaveState = settingsViewModel::resetSaveState,
                 onSaveClick = settingsViewModel::saveSettings,
+                onBack = router::back,
                 onSettingSaved = router::back,
                 minTimeRestChanged = settingsViewModel::changedMinTimeRest,
                 onLogOut = settingsViewModel::logOut,
