@@ -83,6 +83,7 @@ private const val SAVE_TRAIN_WORKER_TAG = "SAVE_TRAIN_WORKER_TAG"
 private const val SAVE_PASSENGER_WORKER_TAG = "SAVE_PASSENGER_WORKER_TAG"
 private const val SAVE_PHOTO_WORKER_TAG = "SAVE_PHOTO_WORKER_TAG"
 
+private const val UNIQUE_SYNC_WORK_NAME = "periodicSynchronized"
 private const val GET_ALL_DATA_WORKER_TAG = "SYNC_DATA_WORKER_TAG"
 private const val SYNC_DATA_ONE_TIME_WORKER_TAG = "SYNC_DATA_ONE_TIME_WORKER_TAG"
 private const val SYNC_DATA_PERIODIC_WORKER_TAG = "SYNC_DATA_PERIODIC_WORKER_TAG"
@@ -273,10 +274,10 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
         val worker = PeriodicWorkRequestBuilder<SynchronizedWorker>(
-            15,
-            TimeUnit.MINUTES,
+            12,
+            TimeUnit.HOURS,
         )
-//            .setInitialDelay(12, TimeUnit.HOURS)
+            .setInitialDelay(12, TimeUnit.HOURS)
             .setConstraints(constraints)
             .addTag(SYNC_DATA_PERIODIC_WORKER_TAG)
             .build()
@@ -289,7 +290,7 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
             if (listInfo.isNotEmpty()) {
                 if (listInfo.last().state != WorkInfo.State.RUNNING) {
                     WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-                        "periodicSynchronized",
+                        UNIQUE_SYNC_WORK_NAME,
                         ExistingPeriodicWorkPolicy.KEEP,
                         worker
                     )
@@ -334,21 +335,19 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
             .addTag(SYNC_DATA_ONE_TIME_WORKER_TAG)
             .build()
 
-//        withContext(Dispatchers.IO) {
-//            val listInfo = WorkManager.getInstance(context)
-//                .getWorkInfosForUniqueWork("periodicSynchronized")
-//                .get()
-//            if (listInfo.isNotEmpty()) {
-//                if (listInfo.last().state != WorkInfo.State.RUNNING) {
-//                    WorkManager.getInstance(context).enqueue(worker)
-//                } else {
-//
-//                }
-//            } else {
-        WorkManager.getInstance(context).enqueue(worker)
-//            }
+        withContext(Dispatchers.IO) {
+            val listInfo = WorkManager.getInstance(context)
+                .getWorkInfosForUniqueWork(UNIQUE_SYNC_WORK_NAME)
+                .get()
+            if (listInfo.isNotEmpty()) {
+                if (listInfo.last().state != WorkInfo.State.RUNNING) {
+                    WorkManager.getInstance(context).enqueue(worker)
+                } else {}
+            } else {
+                WorkManager.getInstance(context).enqueue(worker)
+            }
 
-//        }
+        }
         return flow {
             WorkManagerState.state(context, worker.id).collect { result ->
                 when (result) {
