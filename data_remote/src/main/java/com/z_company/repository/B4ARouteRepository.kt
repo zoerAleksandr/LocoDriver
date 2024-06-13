@@ -345,7 +345,7 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
 //
 //                }
 //            } else {
-                WorkManager.getInstance(context).enqueue(worker)
+        WorkManager.getInstance(context).enqueue(worker)
 //            }
 
 //        }

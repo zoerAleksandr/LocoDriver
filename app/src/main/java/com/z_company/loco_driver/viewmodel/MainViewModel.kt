@@ -53,7 +53,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
         if (token == "False" || token == null) {
             setDefaultSettings()
             loadCalendar()
-//            enableSynchronisedRoute()
+            enableSynchronisedRoute()
             sharedpref.edit().putString("token", "true").apply()
         }
 

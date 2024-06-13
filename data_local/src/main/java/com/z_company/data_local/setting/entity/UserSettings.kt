@@ -12,15 +12,15 @@ import com.z_company.data_local.setting.type_converter.NightTimeToPrimitiveConve
 internal data class UserSettings(
     @PrimaryKey
     val settingsKey: String,
-    val minTimeRest: Long?,
-    val lastEnteredDieselCoefficient: Double,
-    val nightTime: NightTime,
-    val updateAt: Long,
+    var minTimeRest: Long?,
+    var lastEnteredDieselCoefficient: Double,
+    var nightTime: NightTime,
+    var updateAt: Long,
 )
 
 data class NightTime(
-    val startNightHour: Int = 22,
-    val startNightMinute: Int = 0,
-    val endNightHour: Int = 6,
-    val endNightMinute: Int = 0
+    var startNightHour: Int = 22,
+    var startNightMinute: Int = 0,
+    var endNightHour: Int = 6,
+    var endNightMinute: Int = 0
 )

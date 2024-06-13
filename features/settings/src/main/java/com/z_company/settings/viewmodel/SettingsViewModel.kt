@@ -1,16 +1,12 @@
 package com.z_company.settings.viewmodel
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.parse.ParseUser
 import com.z_company.core.ResultState
-import com.z_company.data_local.setting.DataStoreRepository
-import com.z_company.data_local.setting.RoomSettingRepository
 import com.z_company.use_case.LoginUseCase
 import com.z_company.domain.entities.User
 import com.z_company.domain.entities.UserSettings
-import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.use_case.RemoteRouteUseCase
 import kotlinx.coroutines.Job

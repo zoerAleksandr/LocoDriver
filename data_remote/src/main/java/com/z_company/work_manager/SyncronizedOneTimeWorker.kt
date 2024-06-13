@@ -3,10 +3,8 @@ package com.z_company.work_manager
 import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
-import androidx.work.Data
 import androidx.work.WorkerParameters
 import com.z_company.core.ResultState
-import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.repository.RemoteRouteRepository
@@ -65,54 +63,30 @@ class SynchronizedOneTimeWorker(context: Context, params: WorkerParameters) :
             }
             var timestamp: Long = 0
             var syncRouteCount = 0
-            val setUpdateAtJob = CoroutineScope(Dispatchers.IO).launch {
-                timestamp = Calendar.getInstance().timeInMillis
-                Log.d("ZZZ", "timestamp = ${DateAndTimeConverter.getDateAndTime(timestamp)}")
-                settingsUseCase.setUpdateAt(timestamp)
-            }
 
-//            this.launch {
-//                if (notSynchronizedList.isEmpty()) {
-//                    Log.d("ZZZ", "isEmpty")
-//                    setUpdateAtJob.start()
-////                    timestamp = Calendar.getInstance().timeInMillis
-////                    Log.d("ZZZ", "timestamp = ${DateAndTimeConverter.getDateAndTime(timestamp)}")
-////                    this.launch {
-////                        settingsUseCase.setUpdateAt(timestamp)
-////                    }
-//                } else {
-                Log.d("ZZZ", "size = ${notSynchronizedList.size}")
+            if (notSynchronizedList.isEmpty()) {
+                timestamp = Calendar.getInstance().timeInMillis
+                CoroutineScope(Dispatchers.IO).launch {
+                    settingsUseCase.setUpdateAt(timestamp).launchIn(this)
+                }
+            } else {
                 notSynchronizedList.forEach { route ->
                     this.launch {
                         remoteRepository.saveRoute(route).collect { result ->
-                            Log.d("ZZZ", "result save = $result")
                             if (result is ResultState.Success) {
                                 syncRouteCount += 1
                                 this.cancel()
                             }
-//                                if (syncRouteCount == notSynchronizedList.size) {
-//                                    CoroutineScope(Dispatchers.IO).launch {
-//                                        timestamp = Calendar.getInstance().timeInMillis
-//                                        Log.d("ZZZ", "timestamp = ${DateAndTimeConverter.getDateAndTime(timestamp)}")
-//                                        settingsUseCase.setUpdateAt(timestamp)
-//                                    }
-////                                    setUpdateAtJob.start()
-////                                    timestamp = Calendar.getInstance().timeInMillis
-////                                    Log.d(
-////                                        "ZZZ",
-////                                        "timestamp = ${DateAndTimeConverter.getDateAndTime(timestamp)}"
-////                                    )
-////                                    this.launch {
-////                                        settingsUseCase.setUpdateAt(timestamp)
-////                                    }
-//                                }
+                            if (syncRouteCount == notSynchronizedList.size) {
+                                timestamp = Calendar.getInstance().timeInMillis
+                                CoroutineScope(Dispatchers.IO).launch {
+                                    settingsUseCase.setUpdateAt(timestamp).launchIn(this)
+                                }
+                            }
                         }
                     }
-//                    }
                 }
-//            }.join()
-
-//            val data = Data.Builder().putLong(SYNC_WORKER_OUTPUT_KEY, timestamp)
+            }
             return@withContext Result.success()
         } catch (e: Exception) {
             Log.d("ZZZ", "ex sync = ${e.message}")

@@ -68,7 +68,7 @@ object WorkManagerState {
                             }
 
                             WorkInfo.State.ENQUEUED -> {
-                                emit(ResultState.Success(it.outputData))
+                                 emit(ResultState.Loading)
                             }
 
                             WorkInfo.State.BLOCKED -> {

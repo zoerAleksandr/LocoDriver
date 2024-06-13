@@ -1,8 +1,10 @@
 package com.z_company.domain.entities
 
 import com.z_company.domain.entities.route.LocoType
+import java.util.Calendar
 
 const val SETTINGS_KEY = "User_Settings_Key"
+val timestamp = Calendar.getInstance().timeInMillis
 data class UserSettings(
     var key: String = SETTINGS_KEY,
     var minTimeRest: Long? = 10_800_000L,
@@ -11,7 +13,7 @@ data class UserSettings(
     var nightTime: NightTime = NightTime(),
     var defaultLocoType: LocoType = LocoType.ELECTRIC,
     var defaultWorkTime: Long = 43_200_000L,
-    var updateAt: Long = 0L
+    var updateAt: Long = timestamp
 )
 
 data class NightTime(
