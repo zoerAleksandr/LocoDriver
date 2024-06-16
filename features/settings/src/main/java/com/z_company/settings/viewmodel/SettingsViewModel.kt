@@ -65,7 +65,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
 
     fun resetSaveState() {
         _uiState.update {
-            it.copy(saveSettings = null)
+            it.copy(saveSettingsState = null)
         }
     }
 
@@ -82,7 +82,11 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                     result.data?.let { userSettings ->
                         _uiState.update {
                             it.copy(
-                                updateAt = ResultState.Success(userSettings.updateAt)
+                                updateAt = ResultState.Success(userSettings.updateAt),
+                                minRestTime = ResultState.Success(userSettings.minTimeRest),
+                                minHomeRestTime = ResultState.Success(userSettings.minTimeHomeRest),
+                                defaultTypeLoco = ResultState.Success(userSettings.defaultLocoType),
+                                defaultWorkTime = ResultState.Success(userSettings.defaultWorkTime)
                             )
                         }
                     }
@@ -101,14 +105,22 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                 currentUser = resultState.data
             }
         }.launchIn(viewModelScope)
-
     }
 
     fun saveSettings() {
-        currentSettings?.let { setting ->
-            saveSettingsJob?.cancel()
-            saveSettingsJob = viewModelScope.launch {
-
+        val state = uiState.value.settingDetails
+        if (state is ResultState.Success) {
+            state.data?.let { settings ->
+                saveSettingsJob?.cancel()
+                saveSettingsJob = viewModelScope.launch {
+                    settingsUseCase.saveSetting(settings).collect { result ->
+                        _uiState.update {
+                            it.copy(
+                                saveSettingsState = result
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -142,5 +154,22 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         viewModelScope.launch {
             remoteRouteUseCase.loadingRoutesFromRemote()
         }
+    }
+
+    fun changedDefaultWorkTime(timeInMillis: Long) {
+        currentSettings = currentSettings?.copy(
+            defaultWorkTime = timeInMillis
+        )
+//        viewModelScope.launch {
+//            settingsUseCase.setWorkTimeDefault(timeInMillis).collect { result ->
+//                if (result is ResultState.Success) {
+//                    _uiState.update {
+//                        it.copy(
+//                            defaultWorkTime = ResultState.Success(timeInMillis)
+//                        )
+//                    }
+//                }
+//            }
+//        }
     }
 }

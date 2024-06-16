@@ -49,7 +49,7 @@ dependencies {
     implementation(Libs.lifecycle_viewmodel_ktx)
 
     implementation(Libs.compose_ui)
-    implementation(Libs.compose_material)
+    implementation(Libs.compose_material3)
     implementation(Libs.ui_tooling_preview)
 
     implementation(Libs.koin_core)

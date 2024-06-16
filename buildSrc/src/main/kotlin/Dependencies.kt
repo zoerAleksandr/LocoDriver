@@ -18,7 +18,7 @@ import Versions.gson_version
 import Versions.koin_version
 import Versions.lifecycle_runtime_version
 import Versions.lifecycle_viewmodel_version
-import Versions.material_compose
+import Versions.material_compose3
 import Versions.maxkeppeler_sheets_ver
 import Versions.parse_sdk_android_ver
 import Versions.permission_accompanist_ver
@@ -72,7 +72,7 @@ object Versions {
     const val kotlin_compiler_ext_version = "1.4.7"
     const val lifecycle_runtime_version = "2.6.1"
     const val lifecycle_viewmodel_version = "2.6.1"
-    const val material_compose = "1.2.1"
+    const val material_compose3 = "1.2.1"
     const val reveal_swipe_version = "1.2.0"
     const val room_version = "2.6.0"
     const val test_ext_version = "1.1.5"
@@ -126,8 +126,8 @@ object Libs {
         "io.coil-kt:coil-compose:$coil_version"
     const val compose_ui =
         "androidx.compose.ui:ui:$compose_ui_version"
-    const val compose_material =
-        "androidx.compose.material3:material3:$material_compose"
+    const val compose_material3 =
+        "androidx.compose.material3:material3:$material_compose3"
     const val core_ktx =
         "androidx.core:core-ktx:$core_ktx_version"
     const val kotlinx_coroutines_core =

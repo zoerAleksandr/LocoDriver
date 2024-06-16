@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.TypeConverters
 import com.z_company.data_local.setting.type_converter.NightTimeToPrimitiveConverter
+import com.z_company.domain.entities.route.LocoType
 
 @Entity
 @TypeConverters(
@@ -12,10 +13,12 @@ import com.z_company.data_local.setting.type_converter.NightTimeToPrimitiveConve
 internal data class UserSettings(
     @PrimaryKey
     val settingsKey: String,
-    var minTimeRest: Long?,
+    var minTimeRest: Long,
     var lastEnteredDieselCoefficient: Double,
     var nightTime: NightTime,
     var updateAt: Long,
+    var defaultLocoType: LocoType,
+    var defaultWorkTime: Long,
 )
 
 data class NightTime(

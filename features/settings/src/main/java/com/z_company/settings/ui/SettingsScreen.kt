@@ -8,12 +8,19 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -24,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.GenericError
+import com.z_company.core.ui.component.TimePickerDialog
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
@@ -49,6 +57,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onSettingSaved: () -> Unit,
     minTimeRestChanged: (String) -> Unit,
+    workTimeChanged: (Long) -> Unit,
     onLogOut: () -> Unit,
     onSync: () -> Unit,
     onLoading: () -> Unit,
@@ -75,351 +84,344 @@ fun SettingsScreen(
     }) {
         Box(Modifier.padding(it)) {
             AsyncData(
-                resultState = settingsUiState.saveSettings,
+                resultState = settingsUiState.settingDetails,
                 errorContent = {
                     GenericError(
                         onDismissAction = resetSaveState
                     )
                 }) {
-                if (settingsUiState.saveSettings is ResultState.Success) {
-                    LaunchedEffect(settingsUiState.saveSettings) {
-                        onSettingSaved()
+                currentSettings?.let { setting ->
+                    AsyncData(resultState = settingsUiState.saveSettingsState) {
+                        if (settingsUiState.saveSettingsState is ResultState.Success) {
+                            LaunchedEffect(settingsUiState.saveSettingsState) {
+                                onSettingSaved()
+                            }
+                        } else {
+                            SettingScreenContent(
+                                currentSettings = setting,
+                                minTimeRestChanged = minTimeRestChanged,
+                                onLogOut = onLogOut,
+                                onSync = onSync,
+                                onLoading = onLoading,
+                                updateRepoState = settingsUiState.updateRepositoryState,
+                                currentUser = currentUser,
+                                updateAtState = settingsUiState.updateAt,
+                                normaHours = 12, // TODO
+                                minTimeRest = settingsUiState.minRestTime,
+                                minTimeHomeRest = settingsUiState.minHomeRestTime,
+                                defaultLocoType = settingsUiState.defaultTypeLoco,
+//                                defaultWorkTime = settingsUiState.defaultWorkTime,
+                                workTimeChanged = workTimeChanged,
+                            )
+                        }
                     }
-                } else {
-                    ScreenContent(
-                        modifier = Modifier,
-                        settingDetail = settingsUiState.settingDetails,
-                        userDetail = settingsUiState.userDetailsState,
-                        currentSettings = currentSettings,
-                        currentUser = currentUser,
-                        minTimeRestChanged = minTimeRestChanged,
-                        onLogOut = onLogOut,
-                        onSync = onSync,
-                        onLoading = onLoading,
-                        updateRepoState = settingsUiState.updateRepositoryState,
-                        updateAtState = settingsUiState.updateAt
-                    )
                 }
             }
         }
     }
 }
 
-@Composable
-fun ScreenContent(
-    modifier: Modifier = Modifier,
-    settingDetail: ResultState<UserSettings?>,
-    currentSettings: UserSettings?,
-    userDetail: ResultState<User?>,
-    currentUser: User?,
-    minTimeRestChanged: (String) -> Unit,
-    onLogOut: () -> Unit,
-    onSync: () -> Unit,
-    onLoading: () -> Unit,
-    updateRepoState: ResultState<Unit>,
-    updateAtState: ResultState<Long>
-) {
-    Column(modifier = modifier.padding(start = 12.dp, end = 12.dp, top = 16.dp)) {
-        SettingScreenContent(
-            settingDetail = settingDetail,
-            currentSettings = currentSettings,
-            minTimeRestChanged = minTimeRestChanged,
-            onLogOut = onLogOut,
-            onSync = onSync,
-            onLoading = onLoading,
-            updateRepoState = updateRepoState,
-            userDetail = userDetail,
-            currentUser = currentUser,
-            updateAtState = updateAtState
-        )
-//        UserScreenContent(
-//            userDetail = userDetail,
-//            currentUser = currentUser,
-//            onLogOut = onLogOut,
-//            onSync = onSync,
-//            onLoading = onLoading,
-//            updateRepoState = updateRepoState
-//        )
-    }
-}
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingScreenContent(
-    modifier: Modifier = Modifier,
-    settingDetail: ResultState<UserSettings?>,
-    currentSettings: UserSettings?,
+    currentSettings: UserSettings,
     minTimeRestChanged: (String) -> Unit,
+    workTimeChanged: (Long) -> Unit,
     onLogOut: () -> Unit,
     onSync: () -> Unit,
     onLoading: () -> Unit,
     updateRepoState: ResultState<Unit>,
-    userDetail: ResultState<User?>,
     currentUser: User?,
-    updateAtState: ResultState<Long>
+    updateAtState: ResultState<Long>,
+    normaHours: Int,
+    minTimeRest: ResultState<Long>,
+    minTimeHomeRest: ResultState<Long>,
+    defaultLocoType: ResultState<LocoType>,
+//    defaultWorkTime: ResultState<Long>
 ) {
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
     val styleTitle = AppTypography.getType().bodySmall
     val styleSybTitle = AppTypography.getType().bodyMedium
     val styleData = AppTypography.getType().bodyMedium
+    var showWorkTimeDialog by remember {
+        mutableStateOf(false)
+    }
+    val workTimePickerState = rememberTimePickerState(
+        initialHour = ConverterLongToTime.getHour(currentSettings.defaultWorkTime),
+        initialMinute = ConverterLongToTime.getRemainingMinuteFromHour(currentSettings.defaultWorkTime),
+        is24Hour = true
+    )
 
-    Box(modifier = modifier.fillMaxWidth()) {
-        AsyncData(resultState = settingDetail) {
-            currentSettings?.let { userSettings ->
-                Column(
+    if (showWorkTimeDialog) {
+        TimePickerDialog(
+            timePickerState = workTimePickerState,
+            onDismissRequest = { showWorkTimeDialog = false },
+            onConfirmRequest = {
+                showWorkTimeDialog = false
+                var workTimeInLong: Long = 0
+                workTimeInLong += workTimePickerState.hour * 3_600_000
+                workTimeInLong += workTimePickerState.minute * 60_000
+                workTimeChanged(workTimeInLong)
+            },
+            isPicker = false
+        )
+    }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+            ) {
+                Text(
                     modifier = Modifier
-                        .fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                        .padding(start = 16.dp, bottom = 6.dp),
+                    text = "НОРМА ЧАСОВ",
+                    style = styleTitle
+                )
+                Box(
+                    modifier = Modifier
+                        .background(
+                            color = MaterialTheme.colorScheme.surface,
+                            shape = Shapes.medium
+                        )
+                        .padding(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        val currentMonth =
+                            Calendar.getInstance().get(MONTH).getMonthFullText()
+                        Text(text = currentMonth, style = styleSybTitle)
+                        Text(
+                            text = ConverterLongToTime.getTimeInStringFormat(
+                                normaHours.toLong()
+                            ),
+                            style = styleData
+                        )
+                    }
+                }
+            }
+        }
+        item {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Box(
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.surface,
+                            shape = Shapes.medium
+                        )
+                        .padding(16.dp)
                 ) {
                     Column(
                         modifier = Modifier
-                            .fillMaxWidth()
+                            .fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            modifier = Modifier
-                                .padding(start = 16.dp, bottom = 6.dp),
-                            text = "НОРМА ЧАСОВ",
-                            style = styleTitle
-                        )
-                        Box(
-                            modifier = Modifier
-                                .background(
-                                    color = MaterialTheme.colorScheme.surface,
-                                    shape = Shapes.medium
-                                )
-                                .padding(16.dp)
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                val currentMonth =
-                                    Calendar.getInstance().get(MONTH).getMonthFullText()
-                                Text(text = currentMonth, style = styleSybTitle)
+                            Text(text = "Отдых в ПО", style = styleSybTitle)
+                            AsyncData(resultState = minTimeRest) { time ->
+                                val text = ConverterLongToTime.getTimeInStringFormat(time)
                                 Text(
-                                    text = ConverterLongToTime.getTimeInStringFormat(userSettings.minTimeRest),
+                                    text = text,
+                                    style = styleData
+                                )
+                            }
+                        }
+                        HorizontalDivider()
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(text = "Домашний отдых", style = styleSybTitle)
+                            AsyncData(resultState = minTimeHomeRest) { time ->
+                                val text = ConverterLongToTime.getTimeInStringFormat(time)
+                                Text(
+                                    text = text,
                                     style = styleData
                                 )
                             }
                         }
                     }
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Box(
-                            modifier = Modifier
-                                .padding(top = 8.dp)
-                                .background(
-                                    color = MaterialTheme.colorScheme.surface,
-                                    shape = Shapes.medium
-                                )
-                                .padding(16.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
+                }
+                Text(
+                    modifier = Modifier.padding(start = 16.dp, top = 8.dp),
+                    text = "Установите время минимального отдыха. Это значение будет использовано при расчете отдыха после поездки.",
+                    style = AppTypography.getType().labelMedium
+                )
+            }
+        }
 
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(text = "Отдых в ПО", style = styleSybTitle)
-                                    Text(
-                                        text = ConverterLongToTime.getTimeInStringFormat(
-                                            userSettings.minTimeRest
-                                        ),
-                                        style = styleData
-                                    )
-                                }
-                                HorizontalDivider()
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(text = "Домашний отдых", style = styleSybTitle)
-                                    Text(
-                                        text = ConverterLongToTime.getTimeInStringFormat(
-                                            userSettings.minTimeHomeRest
-                                        ),
-                                        style = styleData
-                                    )
-                                }
-                            }
-                        }
-                        Text(
-                            modifier = Modifier.padding(start = 16.dp, top = 8.dp),
-                            text = "Установите время минимального отдыха. Это значение будет использовано при расчете отдыха после поездки.",
-                            style = AppTypography.getType().labelMedium
+        item {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Box(
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.surface,
+                            shape = Shapes.medium
                         )
-                    }
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Box(
-                            modifier = Modifier
-                                .padding(top = 8.dp)
-                                .background(
-                                    color = MaterialTheme.colorScheme.surface,
-                                    shape = Shapes.medium
-                                )
-                                .padding(16.dp)
+                        .padding(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    val textLocoType = when (userSettings.defaultLocoType) {
+                            Text(text = "Локомотив", style = styleSybTitle)
+                            AsyncData(resultState = defaultLocoType) { type ->
+                                type?.let {
+                                    val textLocoType = when (it) {
                                         LocoType.ELECTRIC -> "Электровоз"
                                         LocoType.DIESEL -> "Тепловоз"
                                     }
-                                    Text(text = "Локомотив", style = styleSybTitle)
                                     Text(
                                         text = textLocoType,
                                         style = styleData
                                     )
                                 }
-                                HorizontalDivider()
+                            }
+                        }
+                        HorizontalDivider()
 
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(text = "Время работы", style = styleSybTitle)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(text = "Время работы", style = styleSybTitle)
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+//                                AsyncData(resultState = defaultWorkTime) { time ->
+                                    val text = ConverterLongToTime.getTimeInStringFormat(currentSettings.defaultWorkTime)
                                     Text(
-                                        text = ConverterLongToTime.getTimeInStringFormat(
-                                            userSettings.defaultWorkTime
-                                        ),
+                                        text = text,
+                                        style = styleData
+                                    )
+//                                }
+                                Icon(
+                                    modifier = Modifier.clickable {
+                                        showWorkTimeDialog = true
+                                    },
+                                    imageVector = Icons.Default.KeyboardArrowRight,
+                                    contentDescription = null
+                                )
+                            }
+                        }
+                    }
+                }
+                Text(
+                    modifier = Modifier.padding(start = 16.dp, top = 8.dp),
+                    text = "Эти значения будут установлены по умолчанию при создании нового маршрута.",
+                    style = AppTypography.getType().labelMedium
+                )
+            }
+        }
+
+        item {
+            Text(
+                modifier = Modifier
+                    .padding(start = 16.dp, bottom = 6.dp),
+                text = "АККАУНТ",
+                style = styleTitle
+            )
+            Box(
+                modifier = Modifier
+                    .background(
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = Shapes.medium
+                    )
+                    .padding(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+
+                        Text(text = "E-mail", style = styleSybTitle)
+                        Text(
+                            text = currentUser?.email ?: "",
+                            style = styleData
+                        )
+                    }
+
+                    HorizontalDivider()
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(text = "Синхронизация", style = styleSybTitle)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            AsyncData(resultState = updateAtState) { updateAt ->
+                                updateAt?.let { timeInMillis ->
+                                    val textSyncDate =
+                                        DateAndTimeConverter.getDateAndTime(timeInMillis)
+
+                                    Text(
+                                        text = textSyncDate,
                                         style = styleData
                                     )
                                 }
                             }
-                        }
-                        Text(
-                            modifier = Modifier.padding(start = 16.dp, top = 8.dp),
-                            text = "Эти значения будут установлены по умолчанию при создании нового маршрута.",
-                            style = AppTypography.getType().labelMedium
-                        )
-                    }
-                    Text(
-                        modifier = Modifier
-                            .padding(start = 16.dp, bottom = 6.dp),
-                        text = "АККАУНТ",
-                        style = styleTitle
-                    )
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .background(
-                                    color = MaterialTheme.colorScheme.surface,
-                                    shape = Shapes.medium
-                                )
-                                .padding(16.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-
-                                Text(text = "E-mail", style = styleSybTitle)
-                                Text(
-                                    text = currentUser?.email ?: "",
-                                    style = styleData
-                                )
-                            }
-                        }
-
-
-                        Box(
-                            modifier = Modifier
-                                .background(
-                                    color = MaterialTheme.colorScheme.surface,
-                                    shape = Shapes.medium
-                                )
-                                .padding(16.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(text = "Синхронизация", style = styleSybTitle)
-                                AsyncData(resultState = updateAtState) { updateAt ->
-                                    updateAt?.let { timeInMillis ->
-                                        val textSyncDate =
-                                            DateAndTimeConverter.getDateAndTime(timeInMillis)
-
-                                        Text(
-                                            text = textSyncDate,
-                                            style = styleData
-                                        )
-                                    }
-                                }
-                                AsyncData(resultState = updateRepoState) {
-                                    // !!!
-                                    Icon(
-                                        modifier = Modifier.clickable { onSync() },
-                                        imageVector = Icons.Default.Refresh,
-                                        contentDescription = null
+                            AsyncData(
+                                resultState = updateRepoState,
+                                loadingContent = {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(24.dp),
+                                        strokeWidth = 2.dp
                                     )
                                 }
+                            ) {
+                                Icon(
+                                    modifier = Modifier.clickable { onSync() },
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = null
+                                )
                             }
                         }
-
-                        Button(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(
-                                    color = MaterialTheme.colorScheme.surface,
-                                    shape = Shapes.medium
-                                ),
-                            onClick = { onLogOut() }) {
-                            Text(text = "Выйти", color = MaterialTheme.colorScheme.error)
-                        }
-//                    Button(onClick = { onLoading() }) {
-//                        Text("loading")
-//                    }
                     }
                 }
+
+            }
+        }
+
+        item {
+            Button(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = Shapes.medium
+                    ),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface),
+                onClick = { onLogOut() }) {
+                Text(text = "Выйти", color = MaterialTheme.colorScheme.error)
             }
         }
     }
 }
 
-@Composable
-fun UserScreenContent(
-    modifier: Modifier = Modifier,
-    userDetail: ResultState<User?>,
-    currentUser: User?,
-    onLogOut: () -> Unit,
-    onSync: () -> Unit,
-    onLoading: () -> Unit,
-    updateRepoState: ResultState<Unit>
-) {
-    val styleTitle = AppTypography.getType().bodySmall
-    val styleSybTitle = AppTypography.getType().bodyMedium
-    val styleData = AppTypography.getType().bodyMedium
-
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(top = 24.dp)
-    ) {
-        AsyncData(resultState = userDetail) {
-            currentUser?.let { user ->
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                ) {
-
-                }
-            }
-        }
-    }
-}

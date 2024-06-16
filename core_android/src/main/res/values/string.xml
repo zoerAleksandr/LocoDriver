@@ -15,6 +15,9 @@
     <string name="button_save">Сохранить</string>
     <string name="button_ok">OK</string>
     <string name="adding">Добавить</string>
+    <string name="text_btn_dismiss">Отмена</string>
+    <string name="text_btn_confirm">Выбрать</string>
+    <string name="text_btn_clear">Сбросить</string>
 
     <!-- Month short-->
     // Month

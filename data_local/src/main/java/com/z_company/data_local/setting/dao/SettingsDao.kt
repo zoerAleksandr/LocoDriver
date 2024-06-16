@@ -32,4 +32,7 @@ internal interface SettingsDao {
 
     @Query("UPDATE UserSettings SET updateAt =:timestamp WHERE settingsKey =:key")
     fun setUpdateAt(timestamp: Long, key: String)
+
+    @Query("UPDATE UserSettings SET defaultWorkTime =:timeInMillis WHERE settingsKey =:key")
+    fun setWorkTimeDefault(timeInMillis: Long, key: String)
 }

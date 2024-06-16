@@ -20,4 +20,5 @@ interface SettingsRepository {
     fun setSettings(userSettings: UserSettings): Flow<ResultState<Unit>>
     fun getSettings(): Flow<ResultState<UserSettings?>>
     fun setUpdateAt(timestamp: Long): Flow<ResultState<Unit>>
+    fun setWorkTimeDefault(timeInMillis: Long): Flow<ResultState<Unit>>
 }

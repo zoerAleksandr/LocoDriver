@@ -22,4 +22,12 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
     fun setUpdateAt(timestamp: Long):  Flow<ResultState<Unit>> {
         return settingsRepository.setUpdateAt(timestamp)
     }
+
+    fun setWorkTimeDefault(timeInMillis: Long):  Flow<ResultState<Unit>> {
+        return settingsRepository.setWorkTimeDefault(timeInMillis)
+    }
+
+    fun saveSetting(settings: UserSettings): Flow<ResultState<Unit>> {
+        return settingsRepository.setSettings(settings)
+    }
 }
