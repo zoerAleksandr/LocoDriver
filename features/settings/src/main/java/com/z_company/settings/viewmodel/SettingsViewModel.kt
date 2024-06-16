@@ -7,6 +7,7 @@ import com.z_company.core.ResultState
 import com.z_company.use_case.LoginUseCase
 import com.z_company.domain.entities.User
 import com.z_company.domain.entities.UserSettings
+import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.use_case.RemoteRouteUseCase
 import kotlinx.coroutines.Job
@@ -160,16 +161,11 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         currentSettings = currentSettings?.copy(
             defaultWorkTime = timeInMillis
         )
-//        viewModelScope.launch {
-//            settingsUseCase.setWorkTimeDefault(timeInMillis).collect { result ->
-//                if (result is ResultState.Success) {
-//                    _uiState.update {
-//                        it.copy(
-//                            defaultWorkTime = ResultState.Success(timeInMillis)
-//                        )
-//                    }
-//                }
-//            }
-//        }
+    }
+
+    fun changeDefaultLocoType(locoType: LocoType) {
+        currentSettings = currentSettings?.copy(
+            defaultLocoType = locoType
+        )
     }
 }

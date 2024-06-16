@@ -19,18 +19,17 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.GenericError
+import com.z_company.settings.component.SelectedDialog
 import com.z_company.core.ui.component.TimePickerDialog
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
@@ -58,6 +57,7 @@ fun SettingsScreen(
     onSettingSaved: () -> Unit,
     minTimeRestChanged: (String) -> Unit,
     workTimeChanged: (Long) -> Unit,
+    locoTypeChanged: (LocoType) -> Unit,
     onLogOut: () -> Unit,
     onSync: () -> Unit,
     onLoading: () -> Unit,
@@ -102,16 +102,15 @@ fun SettingsScreen(
                                 minTimeRestChanged = minTimeRestChanged,
                                 onLogOut = onLogOut,
                                 onSync = onSync,
-                                onLoading = onLoading,
                                 updateRepoState = settingsUiState.updateRepositoryState,
                                 currentUser = currentUser,
                                 updateAtState = settingsUiState.updateAt,
                                 normaHours = 12, // TODO
                                 minTimeRest = settingsUiState.minRestTime,
                                 minTimeHomeRest = settingsUiState.minHomeRestTime,
-                                defaultLocoType = settingsUiState.defaultTypeLoco,
-//                                defaultWorkTime = settingsUiState.defaultWorkTime,
+//                                defaultLocoType = settingsUiState.defaultTypeLoco,
                                 workTimeChanged = workTimeChanged,
+                                locoTypeChanged = locoTypeChanged
                             )
                         }
                     }
@@ -127,25 +126,41 @@ fun SettingScreenContent(
     currentSettings: UserSettings,
     minTimeRestChanged: (String) -> Unit,
     workTimeChanged: (Long) -> Unit,
+    locoTypeChanged: (LocoType) -> Unit,
     onLogOut: () -> Unit,
     onSync: () -> Unit,
-    onLoading: () -> Unit,
     updateRepoState: ResultState<Unit>,
     currentUser: User?,
     updateAtState: ResultState<Long>,
     normaHours: Int,
     minTimeRest: ResultState<Long>,
     minTimeHomeRest: ResultState<Long>,
-    defaultLocoType: ResultState<LocoType>,
-//    defaultWorkTime: ResultState<Long>
 ) {
-    val focusManager = LocalFocusManager.current
-    val scope = rememberCoroutineScope()
     val styleTitle = AppTypography.getType().bodySmall
     val styleSybTitle = AppTypography.getType().bodyMedium
     val styleData = AppTypography.getType().bodyMedium
+
+    var showLocoTypeSelectedDialog by remember {
+        mutableStateOf(false)
+    }
+
     var showWorkTimeDialog by remember {
         mutableStateOf(false)
+    }
+
+    if (showLocoTypeSelectedDialog) {
+        val locoTypeList = LocoType.values().toList()
+        val indexSelected = locoTypeList.indexOf(currentSettings.defaultLocoType)
+
+        SelectedDialog(
+            onDismissRequest = { showLocoTypeSelectedDialog = false },
+            onConfirmRequest = {
+                showLocoTypeSelectedDialog = false
+                locoTypeChanged(it)
+            },
+            peekList = locoTypeList,
+            selectedItem = indexSelected
+        )
     }
     val workTimePickerState = rememberTimePickerState(
         initialHour = ConverterLongToTime.getHour(currentSettings.defaultWorkTime),
@@ -285,18 +300,17 @@ fun SettingScreenContent(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(text = "Локомотив", style = styleSybTitle)
-                            AsyncData(resultState = defaultLocoType) { type ->
-                                type?.let {
-                                    val textLocoType = when (it) {
-                                        LocoType.ELECTRIC -> "Электровоз"
-                                        LocoType.DIESEL -> "Тепловоз"
-                                    }
-                                    Text(
-                                        text = textLocoType,
-                                        style = styleData
-                                    )
-                                }
+                            val textLocoType = when (currentSettings.defaultLocoType) {
+                                LocoType.ELECTRIC -> "Электровоз"
+                                LocoType.DIESEL -> "Тепловоз"
                             }
+                            Text(
+                                modifier = Modifier.clickable {
+                                    showLocoTypeSelectedDialog = true
+                                },
+                                text = textLocoType,
+                                style = styleData
+                            )
                         }
                         HorizontalDivider()
 
@@ -308,13 +322,12 @@ fun SettingScreenContent(
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-//                                AsyncData(resultState = defaultWorkTime) { time ->
-                                    val text = ConverterLongToTime.getTimeInStringFormat(currentSettings.defaultWorkTime)
-                                    Text(
-                                        text = text,
-                                        style = styleData
-                                    )
-//                                }
+                                val text =
+                                    ConverterLongToTime.getTimeInStringFormat(currentSettings.defaultWorkTime)
+                                Text(
+                                    text = text,
+                                    style = styleData
+                                )
                                 Icon(
                                     modifier = Modifier.clickable {
                                         showWorkTimeDialog = true

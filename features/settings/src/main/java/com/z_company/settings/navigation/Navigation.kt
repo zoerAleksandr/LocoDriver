@@ -35,7 +35,8 @@ fun NavGraphBuilder.settingsGraph(
                 onLogOut = settingsViewModel::logOut,
                 onSync = settingsViewModel::onSync,
                 onLoading = settingsViewModel::loadDataFromRemote,
-                workTimeChanged = settingsViewModel::changedDefaultWorkTime
+                workTimeChanged = settingsViewModel::changedDefaultWorkTime,
+                locoTypeChanged = settingsViewModel::changeDefaultLocoType
             )
         }
     }

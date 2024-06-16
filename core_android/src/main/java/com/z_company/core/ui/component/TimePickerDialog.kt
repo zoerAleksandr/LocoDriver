@@ -1,5 +1,6 @@
 package com.z_company.core.ui.component
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,6 +28,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.R
+import com.z_company.core.ui.theme.custom.AppTypography
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,7 +52,7 @@ fun TimePickerDialog(
     ) {
         Column(
             modifier = Modifier
-                .padding(top = 28.dp, start = 20.dp, end = 20.dp, bottom = 12.dp),
+                .padding(24.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -63,7 +65,7 @@ fun TimePickerDialog(
 
             Row(
                 modifier = Modifier
-                    .padding(top = 12.dp)
+                    .padding(top = 16.dp)
                     .fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -89,16 +91,18 @@ fun TimePickerDialog(
                     }
                 }
                 Row(
-                    horizontalArrangement = Arrangement.End
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     TextButton(onClick = onDismissRequest) {
                         Text(text = stringResource(id = R.string.text_btn_dismiss))
                     }
 
                     TextButton(
-                        onClick = onConfirmRequest
+                        onClick = onConfirmRequest,
+                        shape = Shapes.medium,
+                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary)
                     ) {
-                        Text(text = stringResource(id = R.string.text_btn_confirm))
+                        Text(text = stringResource(id = R.string.text_btn_confirm), style = AppTypography.getType().bodyMedium)
                     }
                 }
             }
