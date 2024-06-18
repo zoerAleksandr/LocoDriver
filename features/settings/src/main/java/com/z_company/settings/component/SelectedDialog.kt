@@ -28,8 +28,8 @@ import androidx.compose.ui.unit.dp
 import com.z_company.core.R
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
+import com.z_company.core.util.LocoTypeHelper.converterLocoTypeToString
 import com.z_company.domain.entities.route.LocoType
-import com.z_company.domain.entities.route.LocoTypeHelper.converterLocoTypeToString
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

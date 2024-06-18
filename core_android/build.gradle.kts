@@ -50,5 +50,6 @@ dependencies {
     implementation(Libs.koin_core)
     implementation(Libs.koin_android)
     implementation(Libs.koin_androidx_compose)
+    implementation(project(":domain"))
     coreLibraryDesugaring(Libs.desugaring)
 }

@@ -18,6 +18,8 @@
     <string name="text_btn_dismiss">Отмена</string>
     <string name="text_btn_confirm">Выбрать</string>
     <string name="text_btn_clear">Сбросить</string>
+    <string name="dieselType">Тепловоз</string>
+    <string name="electricType">Электоровоз</string>
 
     <!-- Month short-->
     // Month

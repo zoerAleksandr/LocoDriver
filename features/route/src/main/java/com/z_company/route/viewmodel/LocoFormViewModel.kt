@@ -1,6 +1,7 @@
 package com.z_company.route.viewmodel
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -10,11 +11,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.data_local.setting.DataStoreRepository
+import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.SectionDiesel
 import com.z_company.domain.entities.route.SectionElectric
 import com.z_company.domain.use_cases.LocomotiveUseCase
+import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.util.CalculationEnergy
 import com.z_company.domain.util.addOrReplace
 import com.z_company.domain.util.str
@@ -28,13 +31,13 @@ import kotlinx.coroutines.flow.update
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
-class LocoFormViewModel constructor(
+class LocoFormViewModel(
     private val locoId: String?,
-    private val basicId: String
+    basicId: String
 ) : ViewModel(), KoinComponent {
     private val locomotiveUseCase: LocomotiveUseCase by inject()
     private val dataStoreRepository: DataStoreRepository by inject()
-
+    private val settingsUseCase: SettingsUseCase by inject()
     private val _uiState = MutableStateFlow(LocoFormUiState())
     val uiState = _uiState.asStateFlow()
 
@@ -42,7 +45,7 @@ class LocoFormViewModel constructor(
     private var saveLocoJob: Job? = null
     private var loadCoefficientJob: Job? = null
     private var saveCoefficientJob: Job? = null
-    private var loadDefaultTypeLoco: Job? = null
+    private var getSettingJob: Job? = null
 
     var currentLoco: Locomotive?
         get() {
@@ -81,9 +84,26 @@ class LocoFormViewModel constructor(
                 )
             }
         }
+    var currentSetting: UserSettings?
+        get() {
+            return _uiState.value.settingsState.let {
+                if (it is ResultState.Success) it.data else null
+            }
+        }
+        set(value) {
+            _uiState.update {
+                it.copy(
+                    settingsState = ResultState.Success(value)
+                )
+            }
+        }
 
-    private var lastEnteredCoefficient by mutableStateOf(0.0)
-    private var defaultTypeLoco by mutableStateOf(LocoType.ELECTRIC)
+    private var lastEnteredCoefficient by mutableDoubleStateOf(
+        currentSetting?.lastEnteredDieselCoefficient ?: 0.83
+    )
+    private var defaultTypeLoco by mutableStateOf(
+        currentSetting?.defaultLocoType ?: LocoType.ELECTRIC
+    )
 
     fun clearAllField() {
         currentLoco = currentLoco?.copy(
@@ -159,24 +179,31 @@ class LocoFormViewModel constructor(
     }
 
     init {
+        loadSetting()
+
         if (locoId == NULLABLE_ID) {
-            currentLoco = Locomotive(basicId = basicId)
+            currentLoco = Locomotive(
+                basicId = basicId,
+                type = currentSetting?.defaultLocoType ?: LocoType.ELECTRIC
+            )
         } else {
             loadLoco(locoId!!)
         }
-        loadSetting()
     }
 
     private fun loadSetting() {
-        // TODO
-//        loadCoefficientJob?.cancel()
-//        loadCoefficientJob = dataStoreRepository.getDieselCoefficient().onEach {
-//            lastEnteredCoefficient = it
-//        }.launchIn(viewModelScope)
-//        loadDefaultTypeLoco?.cancel()
-//        loadDefaultTypeLoco = dataStoreRepository.getTypeLoco().onEach {
-//            defaultTypeLoco = it
-//        }.launchIn(viewModelScope)
+        getSettingJob?.cancel()
+        getSettingJob = settingsUseCase.getCurrentSettings().onEach {
+            if (it is ResultState.Success) {
+                currentSetting = it.data
+                currentSetting?.let { setting ->
+                    currentLoco = currentLoco?.copy(
+                        type = setting.defaultLocoType
+                    )
+                }
+            }
+        }.launchIn(viewModelScope)
+
     }
 
     private fun saveCoefficient(data: String?) {
@@ -366,14 +393,15 @@ class LocoFormViewModel constructor(
         )
     }
 
-    fun showRefuelDialog(value: Pair<Boolean, Int>){
+    fun showRefuelDialog(value: Pair<Boolean, Int>) {
         _uiState.update {
             it.copy(
                 refuelDialogShow = value
             )
         }
     }
-    fun showCoefficientDialog(value: Pair<Boolean, Int>){
+
+    fun showCoefficientDialog(value: Pair<Boolean, Int>) {
         _uiState.update {
             it.copy(
                 coefficientDialogShow = value
@@ -475,7 +503,7 @@ class LocoFormViewModel constructor(
         return (acceptedRecovery != null || deliveryRecovery != null)
     }
 
-    fun isExpandElectricItem(index: Int, isExpand: Boolean){
+    fun isExpandElectricItem(index: Int, isExpand: Boolean) {
         electricSectionListState[index] = electricSectionListState[index].copy(
             expandItemState = isExpand
         )

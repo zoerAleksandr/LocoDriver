@@ -52,20 +52,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.dimensionResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import com.z_company.route.R
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.GenericError
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.DateAndTimeFormat
+import com.z_company.core.util.LocoTypeHelper.converterLocoTypeToString
+import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.util.CalculationEnergy
@@ -93,6 +93,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun FormLocoScreen(
     currentLoco: Locomotive?,
+    currentSetting: UserSettings?,
     dieselSectionListState: SnapshotStateList<DieselSectionFormState>?,
     electricSectionListState: SnapshotStateList<ElectricSectionFormState>?,
     onBackPressed: () -> Unit,
@@ -207,6 +208,7 @@ fun FormLocoScreen(
                         } else {
                             LocoFormScreenContent(
                                 locomotive = locomotive,
+                                setting = currentSetting,
                                 dieselSectionListState = dieselSectionListState,
                                 electricSectionListState = electricSectionListState,
                                 onNumberChanged = onNumberChanged,
@@ -248,6 +250,7 @@ fun FormLocoScreen(
 @Composable
 private fun LocoFormScreenContent(
     locomotive: Locomotive,
+    setting: UserSettings?,
     dieselSectionListState: SnapshotStateList<DieselSectionFormState>?,
     electricSectionListState: SnapshotStateList<ElectricSectionFormState>?,
     onNumberChanged: (String) -> Unit,
@@ -280,8 +283,6 @@ private fun LocoFormScreenContent(
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
-
-
 
     AnimatedVisibility(
         modifier = Modifier
@@ -351,10 +352,9 @@ private fun LocoFormScreenContent(
             }
         }
         item {
-            val types = listOf(
-                stringResource(id = R.string.electricType),
-                stringResource(id = R.string.dieselType),
-            )
+            val types = LocoType.values().map {
+                converterLocoTypeToString(it)
+            }
 
             SingleChoiceSegmentedButtonRow(
                 modifier = Modifier

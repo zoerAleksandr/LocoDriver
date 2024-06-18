@@ -25,6 +25,7 @@ fun FormLocoDestination(
 
     FormLocoScreen(
         currentLoco = viewModel.currentLoco,
+        currentSetting = viewModel.currentSetting,
         dieselSectionListState = formUiState.dieselSectionList,
         electricSectionListState = formUiState.electricSectionList,
         onBackPressed = router::back,
