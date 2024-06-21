@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -29,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.GenericError
+import com.z_company.core.ui.component.TimeInputDialog
 import com.z_company.settings.component.SelectedDialog
 import com.z_company.core.ui.component.TimePickerDialog
 import com.z_company.core.ui.theme.Shapes
@@ -55,9 +55,10 @@ fun SettingsScreen(
     onSaveClick: () -> Unit,
     onBack: () -> Unit,
     onSettingSaved: () -> Unit,
-    minTimeRestChanged: (String) -> Unit,
     workTimeChanged: (Long) -> Unit,
     locoTypeChanged: (LocoType) -> Unit,
+    restTimeChanged: (Long) -> Unit,
+    homeRestTimeChanged: (Long) -> Unit,
     onLogOut: () -> Unit,
     onSync: () -> Unit,
     onLoading: () -> Unit,
@@ -99,18 +100,16 @@ fun SettingsScreen(
                         } else {
                             SettingScreenContent(
                                 currentSettings = setting,
-                                minTimeRestChanged = minTimeRestChanged,
                                 onLogOut = onLogOut,
                                 onSync = onSync,
                                 updateRepoState = settingsUiState.updateRepositoryState,
                                 currentUser = currentUser,
                                 updateAtState = settingsUiState.updateAt,
                                 normaHours = 12, // TODO
-                                minTimeRest = settingsUiState.minRestTime,
-                                minTimeHomeRest = settingsUiState.minHomeRestTime,
-//                                defaultLocoType = settingsUiState.defaultTypeLoco,
                                 workTimeChanged = workTimeChanged,
-                                locoTypeChanged = locoTypeChanged
+                                locoTypeChanged = locoTypeChanged,
+                                restTimeChanged = restTimeChanged,
+                                homeRestTimeChanged = homeRestTimeChanged
                             )
                         }
                     }
@@ -120,25 +119,31 @@ fun SettingsScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingScreenContent(
     currentSettings: UserSettings,
-    minTimeRestChanged: (String) -> Unit,
     workTimeChanged: (Long) -> Unit,
     locoTypeChanged: (LocoType) -> Unit,
+    restTimeChanged: (Long) -> Unit,
+    homeRestTimeChanged: (Long) -> Unit,
     onLogOut: () -> Unit,
     onSync: () -> Unit,
     updateRepoState: ResultState<Unit>,
     currentUser: User?,
     updateAtState: ResultState<Long>,
     normaHours: Int,
-    minTimeRest: ResultState<Long>,
-    minTimeHomeRest: ResultState<Long>,
 ) {
     val styleTitle = AppTypography.getType().bodySmall
     val styleSybTitle = AppTypography.getType().bodyMedium
     val styleData = AppTypography.getType().bodyMedium
+
+    var showRestDialog by remember {
+        mutableStateOf(false)
+    }
+
+    var showHomeRestDialog by remember {
+        mutableStateOf(false)
+    }
 
     var showLocoTypeSelectedDialog by remember {
         mutableStateOf(false)
@@ -146,6 +151,26 @@ fun SettingScreenContent(
 
     var showWorkTimeDialog by remember {
         mutableStateOf(false)
+    }
+
+    if (showRestDialog) {
+        TimeInputDialog(
+            initValue = currentSettings.minTimeRest,
+            onDismissRequest = { showRestDialog = false }
+        ) { timeToLong ->
+            restTimeChanged(timeToLong)
+            showRestDialog = false
+        }
+    }
+
+    if (showHomeRestDialog) {
+        TimeInputDialog(
+            initValue = currentSettings.minTimeHomeRest,
+            onDismissRequest = { showHomeRestDialog = false }
+        ) { timeToLong ->
+            homeRestTimeChanged(timeToLong)
+            showHomeRestDialog = false
+        }
     }
 
     if (showLocoTypeSelectedDialog) {
@@ -162,25 +187,15 @@ fun SettingScreenContent(
             selectedItem = indexSelected
         )
     }
-    val workTimePickerState = rememberTimePickerState(
-        initialHour = ConverterLongToTime.getHour(currentSettings.defaultWorkTime),
-        initialMinute = ConverterLongToTime.getRemainingMinuteFromHour(currentSettings.defaultWorkTime),
-        is24Hour = true
-    )
 
     if (showWorkTimeDialog) {
-        TimePickerDialog(
-            timePickerState = workTimePickerState,
-            onDismissRequest = { showWorkTimeDialog = false },
-            onConfirmRequest = {
+        TimeInputDialog(
+            initValue = currentSettings.defaultWorkTime,
+            onDismissRequest = { showWorkTimeDialog = false }
+        ) { timeInLong ->
                 showWorkTimeDialog = false
-                var workTimeInLong: Long = 0
-                workTimeInLong += workTimePickerState.hour * 3_600_000
-                workTimeInLong += workTimePickerState.minute * 60_000
-                workTimeChanged(workTimeInLong)
-            },
-            isPicker = false
-        )
+                workTimeChanged(timeInLong)
+        }
     }
 
     LazyColumn(
@@ -242,32 +257,34 @@ fun SettingScreenContent(
                     ) {
 
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showRestDialog = true },
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(text = "Отдых в ПО", style = styleSybTitle)
-                            AsyncData(resultState = minTimeRest) { time ->
-                                val text = ConverterLongToTime.getTimeInStringFormat(time)
-                                Text(
-                                    text = text,
-                                    style = styleData
-                                )
-                            }
+                            val text =
+                                ConverterLongToTime.getTimeInStringFormat(currentSettings.minTimeRest)
+                            Text(
+                                text = text,
+                                style = styleData
+                            )
                         }
                         HorizontalDivider()
 
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showHomeRestDialog = true },
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(text = "Домашний отдых", style = styleSybTitle)
-                            AsyncData(resultState = minTimeHomeRest) { time ->
-                                val text = ConverterLongToTime.getTimeInStringFormat(time)
-                                Text(
-                                    text = text,
-                                    style = styleData
-                                )
-                            }
+                            val text =
+                                ConverterLongToTime.getTimeInStringFormat(currentSettings.minTimeHomeRest)
+                            Text(
+                                text = text,
+                                style = styleData
+                            )
                         }
                     }
                 }
@@ -315,27 +332,19 @@ fun SettingScreenContent(
                         HorizontalDivider()
 
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showWorkTimeDialog = true },
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(text = "Время работы", style = styleSybTitle)
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                val text =
-                                    ConverterLongToTime.getTimeInStringFormat(currentSettings.defaultWorkTime)
-                                Text(
-                                    text = text,
-                                    style = styleData
-                                )
-                                Icon(
-                                    modifier = Modifier.clickable {
-                                        showWorkTimeDialog = true
-                                    },
-                                    imageVector = Icons.Default.KeyboardArrowRight,
-                                    contentDescription = null
-                                )
-                            }
+
+                            val text =
+                                ConverterLongToTime.getTimeInStringFormat(currentSettings.defaultWorkTime)
+                            Text(
+                                text = text,
+                                style = styleData
+                            )
                         }
                     }
                 }

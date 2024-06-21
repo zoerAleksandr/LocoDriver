@@ -84,10 +84,6 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                         _uiState.update {
                             it.copy(
                                 updateAt = ResultState.Success(userSettings.updateAt),
-                                minRestTime = ResultState.Success(userSettings.minTimeRest),
-                                minHomeRestTime = ResultState.Success(userSettings.minTimeHomeRest),
-                                defaultTypeLoco = ResultState.Success(userSettings.defaultLocoType),
-                                defaultWorkTime = ResultState.Success(userSettings.defaultWorkTime)
                             )
                         }
                     }
@@ -126,12 +122,10 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun changedMinTimeRest(time: String) {
-        time.toLongOrNull()?.let { hour ->
-            currentSettings = currentSettings?.copy(
-                minTimeRest = hour.times(3_600_00L)
-            )
-        }
+    fun changeMinTimeRest(time: Long) {
+        currentSettings = currentSettings?.copy(
+            minTimeRest = time
+        )
     }
 
     fun logOut() {
@@ -157,7 +151,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun changedDefaultWorkTime(timeInMillis: Long) {
+    fun changeDefaultWorkTime(timeInMillis: Long) {
         currentSettings = currentSettings?.copy(
             defaultWorkTime = timeInMillis
         )
@@ -166,6 +160,12 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     fun changeDefaultLocoType(locoType: LocoType) {
         currentSettings = currentSettings?.copy(
             defaultLocoType = locoType
+        )
+    }
+
+    fun changeMinTimeHomeRest(time: Long) {
+        currentSettings = currentSettings?.copy(
+            minTimeHomeRest = time
         )
     }
 }

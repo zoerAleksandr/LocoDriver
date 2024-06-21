@@ -14,6 +14,7 @@ internal data class UserSettings(
     @PrimaryKey
     val settingsKey: String,
     var minTimeRest: Long,
+    var minTimeHomeRest: Long,
     var lastEnteredDieselCoefficient: Double,
     var nightTime: NightTime,
     var updateAt: Long,

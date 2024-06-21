@@ -11,8 +11,4 @@ data class SettingsUiState(
     val saveSettingsState: ResultState<Unit>? = null,
     val updateRepositoryState: ResultState<Unit> = ResultState.Success(Unit),
     val updateAt: ResultState<Long> = ResultState.Loading,
-    val defaultWorkTime: ResultState<Long> = ResultState.Loading,
-    val defaultTypeLoco: ResultState<LocoType> = ResultState.Loading,
-    val minRestTime: ResultState<Long> = ResultState.Loading,
-    val minHomeRestTime: ResultState<Long> = ResultState.Loading,
 )

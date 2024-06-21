@@ -31,12 +31,13 @@ fun NavGraphBuilder.settingsGraph(
                 onSaveClick = settingsViewModel::saveSettings,
                 onBack = router::back,
                 onSettingSaved = router::back,
-                minTimeRestChanged = settingsViewModel::changedMinTimeRest,
                 onLogOut = settingsViewModel::logOut,
                 onSync = settingsViewModel::onSync,
                 onLoading = settingsViewModel::loadDataFromRemote,
-                workTimeChanged = settingsViewModel::changedDefaultWorkTime,
-                locoTypeChanged = settingsViewModel::changeDefaultLocoType
+                workTimeChanged = settingsViewModel::changeDefaultWorkTime,
+                locoTypeChanged = settingsViewModel::changeDefaultLocoType,
+                restTimeChanged = settingsViewModel::changeMinTimeRest,
+                homeRestTimeChanged = settingsViewModel::changeMinTimeHomeRest
             )
         }
     }

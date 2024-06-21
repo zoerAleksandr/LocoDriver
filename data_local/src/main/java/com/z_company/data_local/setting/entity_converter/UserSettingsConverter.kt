@@ -7,6 +7,7 @@ internal object UserSettingsConverter {
     fun fromData(userSettings: UserSettings) = UserSettingsEntity(
         settingsKey = userSettings.key,
         minTimeRest = userSettings.minTimeRest,
+        minTimeHomeRest = userSettings.minTimeHomeRest,
         lastEnteredDieselCoefficient = userSettings.lastEnteredDieselCoefficient,
         nightTime = NightTimeConverter.fromData(userSettings.nightTime),
         updateAt = userSettings.updateAt,
@@ -17,6 +18,7 @@ internal object UserSettingsConverter {
     fun toData(userSettingsEntity: UserSettingsEntity) = UserSettings(
         key = userSettingsEntity.settingsKey,
         minTimeRest = userSettingsEntity.minTimeRest,
+        minTimeHomeRest = userSettingsEntity.minTimeHomeRest,
         lastEnteredDieselCoefficient = userSettingsEntity.lastEnteredDieselCoefficient,
         nightTime = NightTimeConverter.toData(userSettingsEntity.nightTime),
         updateAt = userSettingsEntity.updateAt,
