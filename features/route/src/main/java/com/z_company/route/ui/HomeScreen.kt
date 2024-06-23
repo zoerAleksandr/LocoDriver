@@ -77,6 +77,7 @@ import com.z_company.core.util.DateAndTimeConverter.getDateFromDateLong
 import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
 import com.z_company.core.util.DateAndTimeConverter.getTimeFromDateLong
 import com.z_company.domain.entities.MonthOfYear
+import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHours
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Route
@@ -380,7 +381,7 @@ fun HomeScreen(
                 modifier = Modifier
                     .height(heightScreen.times(0.13f).dp),
                 valueTime = totalTime,
-                normaHours = currentMonthOfYear.normaHours,
+                normaHours = currentMonthOfYear.getNormaHours(),
             )
             Row(
                 modifier = Modifier

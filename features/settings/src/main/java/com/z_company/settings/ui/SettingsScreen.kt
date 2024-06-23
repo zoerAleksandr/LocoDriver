@@ -1,5 +1,6 @@
 package com.z_company.settings.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -7,11 +8,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.outlined.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,14 +33,15 @@ import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.GenericError
 import com.z_company.core.ui.component.TimeInputDialog
 import com.z_company.settings.component.SelectedDialog
-import com.z_company.core.ui.component.TimePickerDialog
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
+import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.User
 import com.z_company.domain.entities.UserSettings
+import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHours
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.settings.viewmodel.SettingsUiState
 import java.util.Calendar
@@ -51,6 +55,7 @@ fun SettingsScreen(
     settingsUiState: SettingsUiState,
     currentSettings: UserSettings?,
     currentUser: User?,
+    currentMonthOfYear: MonthOfYear?,
     resetSaveState: () -> Unit,
     onSaveClick: () -> Unit,
     onBack: () -> Unit,
@@ -61,7 +66,7 @@ fun SettingsScreen(
     homeRestTimeChanged: (Long) -> Unit,
     onLogOut: () -> Unit,
     onSync: () -> Unit,
-    onLoading: () -> Unit,
+    showReleaseDaySelectScreen: () -> Unit
 ) {
     Scaffold(topBar = {
         TopAppBar(navigationIcon = {
@@ -100,16 +105,17 @@ fun SettingsScreen(
                         } else {
                             SettingScreenContent(
                                 currentSettings = setting,
+                                currentMonthOfYear = currentMonthOfYear,
                                 onLogOut = onLogOut,
                                 onSync = onSync,
                                 updateRepoState = settingsUiState.updateRepositoryState,
                                 currentUser = currentUser,
                                 updateAtState = settingsUiState.updateAt,
-                                normaHours = 12, // TODO
                                 workTimeChanged = workTimeChanged,
                                 locoTypeChanged = locoTypeChanged,
                                 restTimeChanged = restTimeChanged,
-                                homeRestTimeChanged = homeRestTimeChanged
+                                homeRestTimeChanged = homeRestTimeChanged,
+                                showReleaseDaySelectScreen = showReleaseDaySelectScreen
                             )
                         }
                     }
@@ -119,9 +125,11 @@ fun SettingsScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingScreenContent(
     currentSettings: UserSettings,
+    currentMonthOfYear: MonthOfYear?,
     workTimeChanged: (Long) -> Unit,
     locoTypeChanged: (LocoType) -> Unit,
     restTimeChanged: (Long) -> Unit,
@@ -131,7 +139,7 @@ fun SettingScreenContent(
     updateRepoState: ResultState<Unit>,
     currentUser: User?,
     updateAtState: ResultState<Long>,
-    normaHours: Int,
+    showReleaseDaySelectScreen: () -> Unit
 ) {
     val styleTitle = AppTypography.getType().bodySmall
     val styleSybTitle = AppTypography.getType().bodyMedium
@@ -152,6 +160,12 @@ fun SettingScreenContent(
     var showWorkTimeDialog by remember {
         mutableStateOf(false)
     }
+
+    var visibleCalendar by remember {
+        mutableStateOf(false)
+    }
+
+    val dateRangePickerState = rememberDateRangePickerState()
 
     if (showRestDialog) {
         TimeInputDialog(
@@ -193,8 +207,8 @@ fun SettingScreenContent(
             initValue = currentSettings.defaultWorkTime,
             onDismissRequest = { showWorkTimeDialog = false }
         ) { timeInLong ->
-                showWorkTimeDialog = false
-                workTimeChanged(timeInLong)
+            showWorkTimeDialog = false
+            workTimeChanged(timeInLong)
         }
     }
 
@@ -223,22 +237,41 @@ fun SettingScreenContent(
                         .padding(16.dp)
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                visibleCalendar = !visibleCalendar
+                            },
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         val currentMonth =
                             Calendar.getInstance().get(MONTH).getMonthFullText()
                         Text(text = currentMonth, style = styleSybTitle)
-                        Text(
-                            text = ConverterLongToTime.getTimeInStringFormat(
-                                normaHours.toLong()
-                            ),
-                            style = styleData
-                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = ConverterLongToTime.getTimeInStringFormat(
+                                    currentMonthOfYear?.getNormaHours()?.toLong()?.times(3_600_000)
+                                ),
+                                style = styleData
+                            )
+                            Icon(
+                                modifier = Modifier.clickable {
+                                    showReleaseDaySelectScreen()
+                                },
+                                imageVector = Icons.Outlined.KeyboardArrowRight,
+                                contentDescription = null
+                            )
+                        }
                     }
                 }
             }
         }
+        item {
+            AnimatedVisibility(visible = visibleCalendar) {
+                DateRangePicker(state = dateRangePickerState, modifier = Modifier.height(500.dp))
+            }
+        }
+
         item {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Box(

@@ -6,6 +6,7 @@
 
     <!-- Title Screens -->
     <string name="settings">Настройки</string>
+    <string name="norma_hours">Норма часов</string>
 
     <!-- Generic messages -->
     <string name="msg_generic_error">Что-то пошло не так…</string>

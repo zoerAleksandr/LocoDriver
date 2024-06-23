@@ -14,6 +14,7 @@ import com.z_company.route.viewmodel.PassengerFormViewModel
 import com.z_company.route.viewmodel.PreviewPhotoViewModel
 import com.z_company.route.viewmodel.TrainFormViewModel
 import com.z_company.route.viewmodel.ViewingImageViewModel
+import com.z_company.settings.viewmodel.SelectReleaseDaysViewModel
 import com.z_company.settings.viewmodel.SettingsViewModel
 import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.dsl.module
@@ -47,4 +48,5 @@ val viewModelModule = module {
     viewModel { (imageId: String) ->
         ViewingImageViewModel(imageId = imageId)
     }
+    viewModel { SelectReleaseDaysViewModel() }
 }

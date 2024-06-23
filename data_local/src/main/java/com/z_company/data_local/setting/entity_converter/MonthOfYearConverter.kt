@@ -8,14 +8,14 @@ object MonthOfYearConverter {
         id = monthOfYear.id,
         year = monthOfYear.year,
         month = monthOfYear.month,
-        normaHours = monthOfYear.normaHours
+        days = monthOfYear.days
     )
 
     fun toData(entity: MonthOfYearEntity) = MonthOfYear(
         id = entity.id,
         year = entity.year,
         month = entity.month,
-        normaHours = entity.normaHours
+        days = entity.days
     )
 
     fun fromDataList(list: List<MonthOfYear>): MutableList<MonthOfYearEntity> {

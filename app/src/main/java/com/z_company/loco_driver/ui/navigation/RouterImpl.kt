@@ -19,6 +19,7 @@ import com.z_company.route.navigation.FormTrain
 import com.z_company.route.navigation.HomeRoute
 import com.z_company.route.navigation.PreviewPhotoRoute
 import com.z_company.route.navigation.ViewingImageRoute
+import com.z_company.settings.navigation.SelectReleaseDaysScreenRoute
 import com.z_company.settings.navigation.SettingsFeature
 
 class RouterImpl(
@@ -138,6 +139,12 @@ class RouterImpl(
     override fun showViewingImageScreen(imageId: String) {
         navController.navigate(
             ViewingImageRoute.buildRoute(imageId)
+        )
+    }
+
+    override fun showSelectReleaseDayScreen() {
+        navController.navigate(
+            SelectReleaseDaysScreenRoute.route
         )
     }
 }
