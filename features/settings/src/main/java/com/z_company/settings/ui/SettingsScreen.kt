@@ -1,6 +1,5 @@
 package com.z_company.settings.ui
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -8,7 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -44,10 +42,7 @@ import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHours
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.settings.viewmodel.SettingsUiState
-import java.util.Calendar
-import java.util.Calendar.MONTH
 import com.z_company.core.R as CoreR
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -125,7 +120,6 @@ fun SettingsScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingScreenContent(
     currentSettings: UserSettings,
@@ -142,8 +136,8 @@ fun SettingScreenContent(
     showReleaseDaySelectScreen: () -> Unit
 ) {
     val styleTitle = AppTypography.getType().bodySmall
-    val styleSybTitle = AppTypography.getType().bodyMedium
     val styleData = AppTypography.getType().bodyMedium
+    val styleHint = AppTypography.getType().bodyMedium
 
     var showRestDialog by remember {
         mutableStateOf(false)
@@ -164,8 +158,6 @@ fun SettingScreenContent(
     var visibleCalendar by remember {
         mutableStateOf(false)
     }
-
-    val dateRangePickerState = rememberDateRangePickerState()
 
     if (showRestDialog) {
         TimeInputDialog(
@@ -244,15 +236,14 @@ fun SettingScreenContent(
                             },
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        val currentMonth =
-                            Calendar.getInstance().get(MONTH).getMonthFullText()
-                        Text(text = currentMonth, style = styleSybTitle)
+                        val currentMonth = currentMonthOfYear?.month?.getMonthFullText() ?: ""
+                        Text(text = currentMonth, style = styleData)
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
                                 text = ConverterLongToTime.getTimeInStringFormat(
                                     currentMonthOfYear?.getNormaHours()?.toLong()?.times(3_600_000)
                                 ),
-                                style = styleData
+                                style = styleHint
                             )
                             Icon(
                                 modifier = Modifier.clickable {
@@ -266,12 +257,6 @@ fun SettingScreenContent(
                 }
             }
         }
-        item {
-            AnimatedVisibility(visible = visibleCalendar) {
-                DateRangePicker(state = dateRangePickerState, modifier = Modifier.height(500.dp))
-            }
-        }
-
         item {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Box(
@@ -295,12 +280,12 @@ fun SettingScreenContent(
                                 .clickable { showRestDialog = true },
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(text = "Отдых в ПО", style = styleSybTitle)
+                            Text(text = "Отдых в ПО", style = styleData)
                             val text =
                                 ConverterLongToTime.getTimeInStringFormat(currentSettings.minTimeRest)
                             Text(
                                 text = text,
-                                style = styleData
+                                style = styleHint
                             )
                         }
                         HorizontalDivider()
@@ -311,12 +296,12 @@ fun SettingScreenContent(
                                 .clickable { showHomeRestDialog = true },
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(text = "Домашний отдых", style = styleSybTitle)
+                            Text(text = "Домашний отдых", style = styleData)
                             val text =
                                 ConverterLongToTime.getTimeInStringFormat(currentSettings.minTimeHomeRest)
                             Text(
                                 text = text,
-                                style = styleData
+                                style = styleHint
                             )
                         }
                     }
@@ -349,7 +334,7 @@ fun SettingScreenContent(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(text = "Локомотив", style = styleSybTitle)
+                            Text(text = "Локомотив", style = styleData)
                             val textLocoType = when (currentSettings.defaultLocoType) {
                                 LocoType.ELECTRIC -> "Электровоз"
                                 LocoType.DIESEL -> "Тепловоз"
@@ -359,7 +344,7 @@ fun SettingScreenContent(
                                     showLocoTypeSelectedDialog = true
                                 },
                                 text = textLocoType,
-                                style = styleData
+                                style = styleHint
                             )
                         }
                         HorizontalDivider()
@@ -370,13 +355,13 @@ fun SettingScreenContent(
                                 .clickable { showWorkTimeDialog = true },
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(text = "Время работы", style = styleSybTitle)
+                            Text(text = "Время работы", style = styleData)
 
                             val text =
                                 ConverterLongToTime.getTimeInStringFormat(currentSettings.defaultWorkTime)
                             Text(
                                 text = text,
-                                style = styleData
+                                style = styleHint
                             )
                         }
                     }
@@ -414,10 +399,10 @@ fun SettingScreenContent(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
 
-                        Text(text = "E-mail", style = styleSybTitle)
+                        Text(text = "E-mail", style = styleData)
                         Text(
                             text = currentUser?.email ?: "",
-                            style = styleData
+                            style = styleHint
                         )
                     }
 
@@ -427,7 +412,7 @@ fun SettingScreenContent(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(text = "Синхронизация", style = styleSybTitle)
+                        Text(text = "Синхронизация", style = styleData)
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
@@ -438,7 +423,7 @@ fun SettingScreenContent(
 
                                     Text(
                                         text = textSyncDate,
-                                        style = styleData
+                                        style = styleHint
                                     )
                                 }
                             }

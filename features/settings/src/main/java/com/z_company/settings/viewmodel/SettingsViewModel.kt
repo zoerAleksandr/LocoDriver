@@ -31,7 +31,6 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private val settingsUseCase: SettingsUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
 
-
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState = _uiState.asStateFlow()
 
