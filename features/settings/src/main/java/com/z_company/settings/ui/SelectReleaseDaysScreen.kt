@@ -1,7 +1,5 @@
 package com.z_company.settings.ui
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -43,6 +41,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,7 +49,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.alpha
+import com.z_company.core.ResultState
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
@@ -65,16 +64,13 @@ import kotlinx.coroutines.launch
 fun SelectReleaseDaysScreen(
     onBack: () -> Unit,
     onSaveClick: () -> Unit,
+    saveReleaseDaysState: ResultState<Unit>?,
+    onReleaseDaysSaved: () -> Unit,
     monthOfYear: MonthOfYear?,
     releasePeriodListState: SnapshotStateList<ReleasePeriod>?,
     addingReleasePeriod: (ReleasePeriod) -> Unit,
     removingReleasePeriod: (ReleasePeriod) -> Unit,
 ) {
-    val dateRangePickerState = rememberDateRangePickerState()
-    val scope = rememberCoroutineScope()
-    val styleTitle = AppTypography.getType().bodySmall
-    val styleData = AppTypography.getType().bodyMedium
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -102,145 +98,172 @@ fun SelectReleaseDaysScreen(
                     containerColor = Color.Transparent,
                 )
             )
-        },
-
-        ) {
-        val sheetState = rememberModalBottomSheetState(
-            skipPartiallyExpanded = true
-        )
-        var showBottomSheet by remember { mutableStateOf(false) }
-
-        if (showBottomSheet) {
-            SelectRangeDateBottomSheet(
-                onConfirmRequest = { period ->
-                    addingReleasePeriod(period)
-                },
-                onDismissRequest = {
-                    scope.launch { sheetState.hide() }.invokeOnCompletion {
-                        if (!sheetState.isVisible) {
-                            showBottomSheet = false
-                        }
-                    }
-                },
-                sheetState = sheetState,
-                dateRangePickerState = dateRangePickerState
-            )
-        }
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(
-                    top = it.calculateTopPadding(),
-                    bottom = it.calculateBottomPadding(),
-                    start = 16.dp,
-                    end = 16.dp
-                ),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .background(
-                            color = MaterialTheme.colorScheme.surface,
-                            shape = Shapes.medium
-                        )
-                        .padding(16.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = monthOfYear?.month?.getMonthFullText() ?: "",
-                            style = styleData
-                        )
-                        Text(
-                            text = ConverterLongToTime.getTimeInStringFormat(
-                                monthOfYear?.getNormaHours()?.toLong()?.times(3_600_000)
-                            ),
-                            style = styleData
-                        )
-                    }
-                }
-                Box(
-                    modifier = Modifier
-                        .background(
-                            color = MaterialTheme.colorScheme.surface,
-                            shape = Shapes.medium
-                        )
-                        .padding(16.dp)
-                ) {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        horizontalAlignment = Alignment.End
-                    ) {
-                        item {
-                            Text(
-                                modifier = Modifier.fillMaxWidth(),
-                                text = "Периоды отвлечения: ",
-                                style = styleData
-                            )
-                        }
-                        releasePeriodListState?.let { releaseDayList ->
-                            releaseDayList.sortBy { period ->
-                                period.start.timeInMillis
-                            }
-                            items(releasePeriodListState, key = { period ->
-                                period.id
-                            }) { period ->
-                                HorizontalDivider()
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .animateItemPlacement()
-                                        .padding(top = 8.dp, start = 16.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        Text(
-                                            text = DateAndTimeConverter.getDateFromDateLong(period.start.timeInMillis),
-                                            style = styleData
-                                        )
-                                        period.end?.let {
-                                            Text(text = " - ", style = styleData)
-                                            Text(
-                                                text = DateAndTimeConverter.getDateFromDateLong(it.timeInMillis),
-                                                style = styleData
-                                            )
-                                        }
-                                    }
-                                    Icon(
-                                        modifier = Modifier.clickable {
-                                            removingReleasePeriod(period)
-                                        },
-                                        imageVector = Icons.Outlined.Clear,
-                                        contentDescription = null
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+        }) { paddingValues ->
+        if (saveReleaseDaysState is ResultState.Success) {
+            LaunchedEffect(saveReleaseDaysState) {
+                onReleaseDaysSaved()
             }
-
-            Button(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                shape = Shapes.medium,
-                onClick = {
-                    showBottomSheet = true
-                }) {
-                Text("Добавить отвлечение")
+        } else {
+            Box(modifier = Modifier.padding(paddingValues)) {
+                SelectReleaseDaysContent(
+                    monthOfYear = monthOfYear,
+                    releasePeriodListState = releasePeriodListState,
+                    addingReleasePeriod = addingReleasePeriod,
+                    removingReleasePeriod = removingReleasePeriod
+                )
             }
         }
     }
 }
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+fun SelectReleaseDaysContent(
+    monthOfYear: MonthOfYear?,
+    releasePeriodListState: SnapshotStateList<ReleasePeriod>?,
+    addingReleasePeriod: (ReleasePeriod) -> Unit,
+    removingReleasePeriod: (ReleasePeriod) -> Unit,
+) {
+    val dateRangePickerState = rememberDateRangePickerState()
+    val scope = rememberCoroutineScope()
+    val styleTitle = AppTypography.getType().bodySmall
+    val styleData = AppTypography.getType().bodyMedium
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true
+    )
+    var showBottomSheet by remember { mutableStateOf(false) }
+
+    if (showBottomSheet) {
+        SelectRangeDateBottomSheet(
+            onConfirmRequest = { period ->
+                addingReleasePeriod(period)
+            },
+            onDismissRequest = {
+                scope.launch { sheetState.hide() }.invokeOnCompletion {
+                    if (!sheetState.isVisible) {
+                        showBottomSheet = false
+                    }
+                }
+            },
+            sheetState = sheetState,
+            dateRangePickerState = dateRangePickerState
+        )
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxSize(),
+//            .padding(
+//                top = it.calculateTopPadding(),
+//                bottom = it.calculateBottomPadding(),
+//                start = 16.dp,
+//                end = 16.dp
+//            ),
+        verticalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .background(
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = Shapes.medium
+                    )
+                    .padding(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = monthOfYear?.month?.getMonthFullText() ?: "",
+                        style = styleData
+                    )
+                    Text(
+                        text = ConverterLongToTime.getTimeInStringFormat(
+                            monthOfYear?.getNormaHours()?.toLong()?.times(3_600_000)
+                        ),
+                        style = styleData
+                    )
+                }
+            }
+            Box(
+                modifier = Modifier
+                    .background(
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = Shapes.medium
+                    )
+                    .padding(16.dp)
+            ) {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    item {
+                        Text(
+                            modifier = Modifier.fillMaxWidth(),
+                            text = "Периоды отвлечения: ",
+                            style = styleData
+                        )
+                    }
+                    releasePeriodListState?.let { releaseDayList ->
+                        releaseDayList.sortBy { period ->
+                            period.start.timeInMillis
+                        }
+                        items(releasePeriodListState, key = { period ->
+                            period.id
+                        }) { period ->
+                            HorizontalDivider()
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .animateItemPlacement()
+                                    .padding(top = 8.dp, start = 16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = DateAndTimeConverter.getDateFromDateLong(period.start.timeInMillis),
+                                        style = styleData
+                                    )
+                                    period.end?.let {
+                                        Text(text = " - ", style = styleData)
+                                        Text(
+                                            text = DateAndTimeConverter.getDateFromDateLong(it.timeInMillis),
+                                            style = styleData
+                                        )
+                                    }
+                                }
+                                Icon(
+                                    modifier = Modifier.clickable {
+                                        removingReleasePeriod(period)
+                                    },
+                                    imageVector = Icons.Outlined.Clear,
+                                    contentDescription = null
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Button(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            shape = Shapes.medium,
+            onClick = {
+                showBottomSheet = true
+            }) {
+            Text("Добавить отвлечение")
+        }
+    }
+}
+
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)

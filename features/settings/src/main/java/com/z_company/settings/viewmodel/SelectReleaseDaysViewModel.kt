@@ -9,8 +9,11 @@ import com.z_company.domain.entities.Day
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ReleasePeriod
 import com.z_company.domain.use_cases.CalendarUseCase
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
@@ -23,6 +26,8 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
 
     private val _uiState = MutableStateFlow(SelectReleaseDaysUIState())
     val uiState = _uiState.asStateFlow()
+
+    var saveCurrentMonthJob: Job? = null
 
     private var releasePeriodListState: SnapshotStateList<ReleasePeriod>
         get() {
@@ -111,6 +116,18 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
     fun deleteReleasePeriod(period: ReleasePeriod) {
         releasePeriodListState.remove(period)
         changeReleasePeriod()
+    }
+
+    fun saveNormaHours() {
+        currentMonthOfYear?.let { monthOfYar ->
+            saveCurrentMonthJob?.cancel()
+            saveCurrentMonthJob =
+                calendarUseCase.updateMonthOfYear(monthOfYar).onEach { resultState ->
+                    _uiState.update {
+                        it.copy(saveReleaseDaysState = resultState)
+                    }
+                }.launchIn(viewModelScope)
+        }
     }
 
     init {

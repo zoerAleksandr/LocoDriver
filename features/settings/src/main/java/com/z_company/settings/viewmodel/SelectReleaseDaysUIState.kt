@@ -7,6 +7,7 @@ import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ReleasePeriod
 
 data class SelectReleaseDaysUIState(
-    val releaseDaysPeriodState : SnapshotStateList<ReleasePeriod>? = mutableStateListOf(),
+    val releaseDaysPeriodState: SnapshotStateList<ReleasePeriod>? = mutableStateListOf(),
+    val saveReleaseDaysState: ResultState<Unit>? = null,
     val calendarState: ResultState<MonthOfYear?> = ResultState.Loading,
-    )
+)

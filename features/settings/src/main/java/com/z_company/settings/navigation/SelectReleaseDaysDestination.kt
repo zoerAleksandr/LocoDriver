@@ -14,10 +14,12 @@ fun SelectReleaseDaysDestination(router: Router) {
     val uiState by viewModel.uiState.collectAsState()
     SelectReleaseDaysScreen(
         onBack = router::back,
-        onSaveClick = {},
+        onSaveClick = viewModel::saveNormaHours,
         monthOfYear = viewModel.currentMonthOfYear,
         releasePeriodListState = uiState.releaseDaysPeriodState,
         addingReleasePeriod = viewModel::addReleasePeriod,
-        removingReleasePeriod = viewModel::deleteReleasePeriod
+        removingReleasePeriod = viewModel::deleteReleasePeriod,
+        onReleaseDaysSaved = router::back,
+        saveReleaseDaysState = uiState.saveReleaseDaysState
     )
 }

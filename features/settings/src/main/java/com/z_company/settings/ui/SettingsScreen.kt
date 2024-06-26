@@ -75,7 +75,7 @@ fun SettingsScreen(
             Text(text = stringResource(id = CoreR.string.settings))
         }, actions = {
             TextButton(onClick = onSaveClick) {
-                Text(text = "Готово", style = AppTypography.getType().bodyMedium)
+                Text(text = "Готово", style = AppTypography.getType().bodyMedium, color = MaterialTheme.colorScheme.tertiary)
             }
         },
             colors = TopAppBarDefaults.topAppBarColors().copy(
