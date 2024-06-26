@@ -12,7 +12,7 @@ import com.z_company.domain.entities.Day
 @Entity
 data class MonthOfYear(
     @PrimaryKey
-    val id: Int,
+    val id: String,
     val year: Int,
     val month: Int,
     val days: List<Day>

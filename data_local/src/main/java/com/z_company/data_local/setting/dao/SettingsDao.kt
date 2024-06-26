@@ -5,10 +5,12 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.TypeConverters
+import androidx.room.Update
 import com.z_company.data_local.setting.entity.MonthOfYear
 import com.z_company.data_local.setting.entity.NightTime
 import com.z_company.data_local.setting.entity.UserSettings
 import com.z_company.data_local.setting.type_converter.NightTimeToPrimitiveConverter
+import com.z_company.domain.entities.Day
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -22,6 +24,9 @@ internal interface SettingsDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     @JvmSuppressWildcards
     suspend fun saveMonthOfYearList(monthList: List<MonthOfYear>)
+
+    @Update
+    fun updateMonthOfYear(monthOfYear: MonthOfYear)
 
     @Query("SELECT * FROM MonthOfYear")
     fun getMonthOfYearList(): Flow<List<MonthOfYear>>

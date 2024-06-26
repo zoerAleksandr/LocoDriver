@@ -4,11 +4,11 @@ import java.util.Calendar
 import java.util.UUID
 
 enum class TagForDay {
-    WORKING_DAY, NON_WORKING_DAY, RELEASE_FROM_WORK, SHORTENED_DAY
+    WORKING_DAY, NON_WORKING_DAY, SHORTENED_DAY
 }
 
 data class MonthOfYear(
-    var id: Int = 0,
+    var id: String = UUID.randomUUID().toString(),
     var year: Int = Calendar.getInstance().get(Calendar.YEAR),
     var month: Int = Calendar.getInstance().get(Calendar.MONTH),
     val days: List<Day> = listOf()
@@ -16,7 +16,8 @@ data class MonthOfYear(
 
 data class Day(
     val dayOfMonth: Int,
-    val tag: TagForDay
+    val tag: TagForDay,
+    val isReleaseDay: Boolean = false
 )
 
 data class ReleasePeriod(

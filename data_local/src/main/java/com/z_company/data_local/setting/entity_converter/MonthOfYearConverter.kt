@@ -4,7 +4,7 @@ import com.z_company.domain.entities.MonthOfYear
 import com.z_company.data_local.setting.entity.MonthOfYear as MonthOfYearEntity
 
 object MonthOfYearConverter {
-    private fun fromData(monthOfYear: MonthOfYear) = MonthOfYearEntity(
+    fun fromData(monthOfYear: MonthOfYear) = MonthOfYearEntity(
         id = monthOfYear.id,
         year = monthOfYear.year,
         month = monthOfYear.month,
