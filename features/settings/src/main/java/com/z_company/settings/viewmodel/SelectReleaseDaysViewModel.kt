@@ -9,6 +9,7 @@ import com.z_company.domain.entities.Day
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ReleasePeriod
 import com.z_company.domain.use_cases.CalendarUseCase
+import com.z_company.domain.use_cases.SettingsUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,11 +24,15 @@ import java.util.Calendar.DAY_OF_MONTH
 
 class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
     private val calendarUseCase: CalendarUseCase by inject()
+    private val settingsUseCase: SettingsUseCase by inject()
+
 
     private val _uiState = MutableStateFlow(SelectReleaseDaysUIState())
     val uiState = _uiState.asStateFlow()
 
-    var saveCurrentMonthJob: Job? = null
+    private var saveCurrentMonthJob: Job? = null
+    private var setCalendarJob: Job? = null
+    private var loadCalendarJob: Job? = null
 
     private var releasePeriodListState: SnapshotStateList<ReleasePeriod>
         get() {
@@ -52,12 +57,49 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
                 it.copy(calendarState = ResultState.Success(value))
             }
         }
+    fun setCurrentMonth(yearAndMonth: Pair<Int, Int>) {
+        setCalendarJob?.cancel()
+        setCalendarJob = calendarUseCase.loadMonthOfYearList().onEach { result ->
+            if (result is ResultState.Success) {
+                result.data.find {
+                    it.year == yearAndMonth.first && it.month == yearAndMonth.second
+                }?.let { selectMonthOfYear ->
+                    currentMonthOfYear = selectMonthOfYear
+                    saveCurrentMonthInLocal(selectMonthOfYear)
+                }
+            }
+        }
+            .launchIn(viewModelScope)
+    }
+
+    private fun saveCurrentMonthInLocal(monthOfYear: MonthOfYear) {
+        saveCurrentMonthJob?.cancel()
+        saveCurrentMonthJob =
+            settingsUseCase.setCurrentMonthOfYear(monthOfYear).launchIn(viewModelScope)
+    }
 
     fun addReleasePeriod(period: ReleasePeriod) {
         releasePeriodListState.add(period)
         changeReleasePeriod()
     }
 
+    private fun loadMonthList() {
+        loadCalendarJob?.cancel()
+        loadCalendarJob = calendarUseCase.loadMonthOfYearList().onEach { result ->
+            if (result is ResultState.Success) {
+                _uiState.update { state ->
+                    state.copy(
+                        monthList = result.data.map { it.month }.distinct().sorted(),
+                        yearList = result.data.map { it.year }.distinct().sorted()
+                    )
+
+                }
+            }
+        }
+            .launchIn(viewModelScope)
+    }
+
+    // TODO переходящие на следующий месяц отвлечения !!!
     private fun changeReleasePeriod() {
         currentMonthOfYear?.let { monthOfYear ->
             val newDays: MutableList<Day> = monthOfYear.days.toMutableList()
@@ -131,23 +173,34 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
     }
 
     init {
+        loadMonthList()
+
         viewModelScope.launch {
-            calendarUseCase.loadMonthOfYearList().collect { result ->
+            settingsUseCase.getCurrentSettings().collect{ result ->
                 if (result is ResultState.Success) {
-                    val currentDate = Calendar.getInstance()
-                    val currentMonth = currentDate.get(Calendar.MONTH)
-                    val currentYear = currentDate.get(Calendar.YEAR)
-                    val monthList = result.data
-                    val monthOfYear = monthList.find {
-                        it.month == currentMonth && it.year == currentYear
-                    }
                     _uiState.update {
                         it.copy(
-                            calendarState = ResultState.Success(monthOfYear)
+                            calendarState = ResultState.Success(result.data?.selectMonthOfYear)
                         )
                     }
                 }
             }
+//            calendarUseCase.loadMonthOfYearList().collect { result ->
+//                if (result is ResultState.Success) {
+//                    val currentDate = Calendar.getInstance()
+//                    val currentMonth = currentDate.get(Calendar.MONTH)
+//                    val currentYear = currentDate.get(Calendar.YEAR)
+//                    val monthList = result.data
+//                    val monthOfYear = monthList.find {
+//                        it.month == currentMonth && it.year == currentYear
+//                    }
+//                    _uiState.update {
+//                        it.copy(
+//                            calendarState = ResultState.Success(monthOfYear)
+//                        )
+//                    }
+//                }
+//            }
         }
     }
 }

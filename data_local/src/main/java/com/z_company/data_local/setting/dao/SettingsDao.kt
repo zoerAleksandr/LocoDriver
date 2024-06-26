@@ -9,8 +9,8 @@ import androidx.room.Update
 import com.z_company.data_local.setting.entity.MonthOfYear
 import com.z_company.data_local.setting.entity.NightTime
 import com.z_company.data_local.setting.entity.UserSettings
+import com.z_company.data_local.setting.type_converter.MonthOfYearToPrimitiveConverter
 import com.z_company.data_local.setting.type_converter.NightTimeToPrimitiveConverter
-import com.z_company.domain.entities.Day
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -40,4 +40,7 @@ internal interface SettingsDao {
 
     @Query("UPDATE UserSettings SET defaultWorkTime =:timeInMillis WHERE settingsKey =:key")
     fun setWorkTimeDefault(timeInMillis: Long, key: String)
+    @TypeConverters(MonthOfYearToPrimitiveConverter::class)
+    @Query("UPDATE UserSettings SET monthOfYear =:monthOfYear WHERE settingsKey =:key")
+    fun setCurrentMonthOfYear(monthOfYear: MonthOfYear, key: String)
 }

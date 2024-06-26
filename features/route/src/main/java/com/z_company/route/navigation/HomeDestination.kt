@@ -28,7 +28,7 @@ fun HomeDestination(
         onSettingsClick = { router.showSettings() },
         onSearchClick = { router.showSearch() },
         totalTime = homeViewModel.totalTime,
-        currentMonthOfYear = homeUiState.monthSelected,
+        currentMonthOfYear = homeViewModel.currentMonthOfYear,
         yearList = homeUiState.yearList,
         monthList = homeUiState.monthList,
         selectYearAndMonth = homeViewModel::setCurrentMonth,

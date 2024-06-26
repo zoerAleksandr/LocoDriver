@@ -18,7 +18,6 @@ fun SettingDestination(
         settingsUiState = uiState,
         currentSettings = settingsViewModel.currentSettings,
         currentUser = settingsViewModel.currentUser,
-        currentMonthOfYear = settingsViewModel.currentMonthOfYear,
         resetSaveState = settingsViewModel::resetSaveState,
         onSaveClick = settingsViewModel::saveSettings,
         onBack = router::back,
@@ -29,6 +28,9 @@ fun SettingDestination(
         locoTypeChanged = settingsViewModel::changeDefaultLocoType,
         restTimeChanged = settingsViewModel::changeMinTimeRest,
         homeRestTimeChanged = settingsViewModel::changeMinTimeHomeRest,
-        showReleaseDaySelectScreen = router::showSelectReleaseDayScreen
+        showReleaseDaySelectScreen = router::showSelectReleaseDayScreen,
+        yearList = uiState.yearList,
+        monthList = uiState.monthList,
+        selectMonthOfYear = settingsViewModel::setCurrentMonth
     )
 }

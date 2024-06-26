@@ -12,7 +12,8 @@ internal object UserSettingsConverter {
         nightTime = NightTimeConverter.fromData(userSettings.nightTime),
         updateAt = userSettings.updateAt,
         defaultWorkTime = userSettings.defaultWorkTime,
-        defaultLocoType = userSettings.defaultLocoType
+        defaultLocoType = userSettings.defaultLocoType,
+        monthOfYear = MonthOfYearConverter.fromData(userSettings.selectMonthOfYear),
     )
 
     fun toData(userSettingsEntity: UserSettingsEntity) = UserSettings(
@@ -23,6 +24,7 @@ internal object UserSettingsConverter {
         nightTime = NightTimeConverter.toData(userSettingsEntity.nightTime),
         updateAt = userSettingsEntity.updateAt,
         defaultWorkTime = userSettingsEntity.defaultWorkTime,
-        defaultLocoType = userSettingsEntity.defaultLocoType
+        defaultLocoType = userSettingsEntity.defaultLocoType,
+        selectMonthOfYear = MonthOfYearConverter.toData(userSettingsEntity.monthOfYear)
     )
 }

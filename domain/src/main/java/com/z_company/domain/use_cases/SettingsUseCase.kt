@@ -1,6 +1,7 @@
 package com.z_company.domain.use_cases
 
 import com.z_company.core.ResultState
+import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.NightTime
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.repositories.SettingsRepository
@@ -29,5 +30,9 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
 
     fun saveSetting(settings: UserSettings): Flow<ResultState<Unit>> {
         return settingsRepository.setSettings(settings)
+    }
+
+    fun setCurrentMonthOfYear(monthOfYear: MonthOfYear): Flow<ResultState<Unit>> {
+        return settingsRepository.setCurrentMonthOfYear(monthOfYear)
     }
 }

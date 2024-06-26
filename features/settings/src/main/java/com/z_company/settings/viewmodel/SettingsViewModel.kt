@@ -38,6 +38,9 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private var saveSettingsJob: Job? = null
 
     private var loadLoginJob: Job? = null
+    private var setCalendarJob: Job? = null
+    private var loadCalendarJob: Job? = null
+    private var saveCurrentMonthJob: Job? = null
 
 
     var currentSettings: UserSettings?
@@ -64,27 +67,56 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             }
         }
 
-    var currentMonthOfYear: MonthOfYear?
-        get() {
-            return _uiState.value.calendarState.let {
-                if (it is ResultState.Success) it.data else null
-            }
-        }
-        private set(value) {
-            _uiState.update {
-                it.copy(calendarState = ResultState.Success(value))
-            }
-        }
-
     init {
         loadSettings()
         loadLogin()
+        loadMonthList()
     }
 
     fun resetSaveState() {
         _uiState.update {
             it.copy(saveSettingsState = null)
         }
+    }
+
+    fun setCurrentMonth(yearAndMonth: Pair<Int, Int>) {
+        setCalendarJob?.cancel()
+        setCalendarJob = calendarUseCase.loadMonthOfYearList().onEach { result ->
+            if (result is ResultState.Success) {
+                result.data.find {
+                    it.year == yearAndMonth.first && it.month == yearAndMonth.second
+                }?.let { selectMonthOfYear ->
+                    currentSettings = currentSettings?.copy(
+                        selectMonthOfYear = selectMonthOfYear
+                    )
+                    saveCurrentMonthInLocal(selectMonthOfYear)
+                }
+            }
+        }
+            .launchIn(viewModelScope)
+    }
+
+    private fun saveCurrentMonthInLocal(monthOfYear: MonthOfYear) {
+        saveCurrentMonthJob?.cancel()
+        saveCurrentMonthJob =
+            settingsUseCase.setCurrentMonthOfYear(monthOfYear).launchIn(viewModelScope)
+    }
+
+
+    private fun loadMonthList() {
+        loadCalendarJob?.cancel()
+        loadCalendarJob = calendarUseCase.loadMonthOfYearList().onEach { result ->
+            if (result is ResultState.Success) {
+                _uiState.update { state ->
+                    state.copy(
+                        monthList = result.data.map { it.month }.distinct().sorted(),
+                        yearList = result.data.map { it.year }.distinct().sorted()
+                    )
+
+                }
+            }
+        }
+            .launchIn(viewModelScope)
     }
 
     private fun loadSettings() {
@@ -106,22 +138,16 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                     }
                 }
             }
-
         }
         viewModelScope.launch {
             calendarUseCase.loadMonthOfYearList().collect { result ->
                 if (result is ResultState.Success) {
-                    val currentDate = Calendar.getInstance()
-                    val currentMonth = currentDate.get(MONTH)
-                    val currentYear = currentDate.get(YEAR)
-                    val monthList = result.data
-                    val monthOfYear = monthList.find {
-                        it.month == currentMonth && it.year == currentYear
-                    }
-                    _uiState.update {
-                        it.copy(
-                            calendarState = ResultState.Success(monthOfYear)
-                        )
+                    currentSettings?.let { setting ->
+                        _uiState.update {
+                            it.copy(
+                                calendarState = ResultState.Success(setting.selectMonthOfYear)
+                            )
+                        }
                     }
                 }
             }

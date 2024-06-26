@@ -41,6 +41,7 @@ import com.z_company.domain.entities.User
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHours
 import com.z_company.domain.entities.route.LocoType
+import com.z_company.route.component.DialogSelectMonthOfYear
 import com.z_company.settings.viewmodel.SettingsUiState
 import com.z_company.core.R as CoreR
 
@@ -50,7 +51,6 @@ fun SettingsScreen(
     settingsUiState: SettingsUiState,
     currentSettings: UserSettings?,
     currentUser: User?,
-    currentMonthOfYear: MonthOfYear?,
     resetSaveState: () -> Unit,
     onSaveClick: () -> Unit,
     onBack: () -> Unit,
@@ -61,7 +61,10 @@ fun SettingsScreen(
     homeRestTimeChanged: (Long) -> Unit,
     onLogOut: () -> Unit,
     onSync: () -> Unit,
-    showReleaseDaySelectScreen: () -> Unit
+    showReleaseDaySelectScreen: () -> Unit,
+    yearList: List<Int>,
+    monthList: List<Int>,
+    selectMonthOfYear: (Pair<Int, Int>) -> Unit,
 ) {
     Scaffold(topBar = {
         TopAppBar(navigationIcon = {
@@ -75,7 +78,11 @@ fun SettingsScreen(
             Text(text = stringResource(id = CoreR.string.settings))
         }, actions = {
             TextButton(onClick = onSaveClick) {
-                Text(text = "Готово", style = AppTypography.getType().bodyMedium, color = MaterialTheme.colorScheme.tertiary)
+                Text(
+                    text = "Готово",
+                    style = AppTypography.getType().bodyMedium,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
             }
         },
             colors = TopAppBarDefaults.topAppBarColors().copy(
@@ -100,7 +107,6 @@ fun SettingsScreen(
                         } else {
                             SettingScreenContent(
                                 currentSettings = setting,
-                                currentMonthOfYear = currentMonthOfYear,
                                 onLogOut = onLogOut,
                                 onSync = onSync,
                                 updateRepoState = settingsUiState.updateRepositoryState,
@@ -110,7 +116,10 @@ fun SettingsScreen(
                                 locoTypeChanged = locoTypeChanged,
                                 restTimeChanged = restTimeChanged,
                                 homeRestTimeChanged = homeRestTimeChanged,
-                                showReleaseDaySelectScreen = showReleaseDaySelectScreen
+                                showReleaseDaySelectScreen = showReleaseDaySelectScreen,
+                                yearList = yearList,
+                                monthList = monthList,
+                                selectMonthOfYear = selectMonthOfYear
                             )
                         }
                     }
@@ -123,7 +132,6 @@ fun SettingsScreen(
 @Composable
 fun SettingScreenContent(
     currentSettings: UserSettings,
-    currentMonthOfYear: MonthOfYear?,
     workTimeChanged: (Long) -> Unit,
     locoTypeChanged: (LocoType) -> Unit,
     restTimeChanged: (Long) -> Unit,
@@ -133,7 +141,10 @@ fun SettingScreenContent(
     updateRepoState: ResultState<Unit>,
     currentUser: User?,
     updateAtState: ResultState<Long>,
-    showReleaseDaySelectScreen: () -> Unit
+    showReleaseDaySelectScreen: () -> Unit,
+    yearList: List<Int>,
+    monthList: List<Int>,
+    selectMonthOfYear: (Pair<Int, Int>) -> Unit,
 ) {
     val styleTitle = AppTypography.getType().bodySmall
     val styleData = AppTypography.getType().bodyMedium
@@ -157,6 +168,21 @@ fun SettingScreenContent(
 
     var visibleCalendar by remember {
         mutableStateOf(false)
+    }
+
+    val showMonthSelectorDialog = remember {
+        mutableStateOf(false)
+    }
+
+    if (showMonthSelectorDialog.value) {
+        DialogSelectMonthOfYear(
+            showMonthSelectorDialog,
+            currentSettings.selectMonthOfYear,
+            monthList = monthList,
+            yearList = yearList,
+            selectMonthOfYear = selectMonthOfYear
+        )
+
     }
 
     if (showRestDialog) {
@@ -236,12 +262,16 @@ fun SettingScreenContent(
                             },
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        val currentMonth = currentMonthOfYear?.month?.getMonthFullText() ?: ""
-                        Text(text = currentMonth, style = styleData)
+                        val currentMonth =
+                            currentSettings.selectMonthOfYear.month.getMonthFullText()
+                        Text(modifier = Modifier.clickable {
+                            showMonthSelectorDialog.value = true
+                        }, text = currentMonth, style = styleData)
+
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
                                 text = ConverterLongToTime.getTimeInStringFormat(
-                                    currentMonthOfYear?.getNormaHours()?.toLong()?.times(3_600_000)
+                                    currentSettings.selectMonthOfYear.getNormaHours().toLong().times(3_600_000)
                                 ),
                                 style = styleHint
                             )

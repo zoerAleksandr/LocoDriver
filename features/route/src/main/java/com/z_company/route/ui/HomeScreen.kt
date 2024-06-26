@@ -113,7 +113,7 @@ fun HomeScreen(
     onSettingsClick: () -> Unit,
     onSearchClick: () -> Unit,
     totalTime: Long,
-    currentMonthOfYear: MonthOfYear,
+    currentMonthOfYear: MonthOfYear?,
     monthList: List<Int>,
     yearList: List<Int>,
     selectYearAndMonth: (Pair<Int, Int>) -> Unit,
@@ -271,13 +271,15 @@ fun HomeScreen(
     }
 
     if (showMonthSelectorDialog.value) {
-        DialogSelectMonthOfYear(
-            showMonthSelectorDialog,
-            currentMonthOfYear,
-            monthList = monthList,
-            yearList = yearList,
-            selectMonthOfYear = selectYearAndMonth
-        )
+        currentMonthOfYear?.let {
+            DialogSelectMonthOfYear(
+                showMonthSelectorDialog,
+                currentMonthOfYear,
+                monthList = monthList,
+                yearList = yearList,
+                selectMonthOfYear = selectYearAndMonth
+            )
+        }
     }
 
     BottomSheetScaffold(
@@ -350,8 +352,8 @@ fun HomeScreen(
                     }) {
                     AutoSizeText(
                         text = "${
-                            currentMonthOfYear.month.getMonthFullText()
-                        } ${currentMonthOfYear.year}",
+                            currentMonthOfYear?.month?.getMonthFullText()
+                        } ${currentMonthOfYear?.year}",
                         style = AppTypography.getType().headlineSmall,
                         maxTextSize = 24.sp,
                         color = MaterialTheme.colorScheme.primary
@@ -377,12 +379,14 @@ fun HomeScreen(
                     .fillMaxWidth()
                     .height(heightScreen.times(0.14f).dp)
             )
-            TotalTime(
-                modifier = Modifier
-                    .height(heightScreen.times(0.13f).dp),
-                valueTime = totalTime,
-                normaHours = currentMonthOfYear.getNormaHours(),
-            )
+            currentMonthOfYear?.let { monthOfYear ->
+                TotalTime(
+                    modifier = Modifier
+                        .height(heightScreen.times(0.13f).dp),
+                    valueTime = totalTime,
+                    normaHours = monthOfYear.getNormaHours(),
+                )
+            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

@@ -59,4 +59,5 @@ dependencies {
     implementation(Libs.koin_androidx_compose)
 
     implementation(Libs.accompanist_navigation_animation)
+    implementation(project(":features:route"))
 }

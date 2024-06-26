@@ -12,4 +12,6 @@ data class SettingsUiState(
     val saveSettingsState: ResultState<Unit>? = null,
     val updateRepositoryState: ResultState<Unit> = ResultState.Success(Unit),
     val updateAt: ResultState<Long> = ResultState.Loading,
+    val monthList: List<Int> = listOf(),
+    val yearList: List<Int> = listOf(),
 )

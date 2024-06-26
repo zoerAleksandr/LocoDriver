@@ -57,6 +57,7 @@ import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ReleasePeriod
 import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHours
+import com.z_company.route.component.DialogSelectMonthOfYear
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -70,6 +71,9 @@ fun SelectReleaseDaysScreen(
     releasePeriodListState: SnapshotStateList<ReleasePeriod>?,
     addingReleasePeriod: (ReleasePeriod) -> Unit,
     removingReleasePeriod: (ReleasePeriod) -> Unit,
+    yearList: List<Int>,
+    monthList: List<Int>,
+    selectMonthOfYear: (Pair<Int, Int>) -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -109,7 +113,10 @@ fun SelectReleaseDaysScreen(
                     monthOfYear = monthOfYear,
                     releasePeriodListState = releasePeriodListState,
                     addingReleasePeriod = addingReleasePeriod,
-                    removingReleasePeriod = removingReleasePeriod
+                    removingReleasePeriod = removingReleasePeriod,
+                    yearList = yearList,
+                    monthList = monthList,
+                    selectMonthOfYear = selectMonthOfYear
                 )
             }
         }
@@ -123,6 +130,9 @@ fun SelectReleaseDaysContent(
     releasePeriodListState: SnapshotStateList<ReleasePeriod>?,
     addingReleasePeriod: (ReleasePeriod) -> Unit,
     removingReleasePeriod: (ReleasePeriod) -> Unit,
+    yearList: List<Int>,
+    monthList: List<Int>,
+    selectMonthOfYear: (Pair<Int, Int>) -> Unit,
 ) {
     val dateRangePickerState = rememberDateRangePickerState()
     val scope = rememberCoroutineScope()
@@ -149,15 +159,26 @@ fun SelectReleaseDaysContent(
             dateRangePickerState = dateRangePickerState
         )
     }
+
+    val showMonthSelectorDialog = remember {
+        mutableStateOf(false)
+    }
+
+    if (showMonthSelectorDialog.value) {
+        monthOfYear?.let {
+            DialogSelectMonthOfYear(
+                showMonthSelectorDialog,
+                monthOfYear,
+                monthList = monthList,
+                yearList = yearList,
+                selectMonthOfYear = selectMonthOfYear
+            )
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize(),
-//            .padding(
-//                top = it.calculateTopPadding(),
-//                bottom = it.calculateBottomPadding(),
-//                start = 16.dp,
-//                end = 16.dp
-//            ),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Column(
@@ -177,6 +198,9 @@ fun SelectReleaseDaysContent(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
+                        modifier = Modifier.clickable {
+                            showMonthSelectorDialog.value = true
+                        },
                         text = monthOfYear?.month?.getMonthFullText() ?: "",
                         style = styleData
                     )

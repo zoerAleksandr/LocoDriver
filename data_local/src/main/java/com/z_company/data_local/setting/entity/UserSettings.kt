@@ -3,12 +3,14 @@ package com.z_company.data_local.setting.entity
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.TypeConverters
+import com.z_company.data_local.setting.type_converter.MonthOfYearToPrimitiveConverter
 import com.z_company.data_local.setting.type_converter.NightTimeToPrimitiveConverter
 import com.z_company.domain.entities.route.LocoType
 
 @Entity
 @TypeConverters(
-    NightTimeToPrimitiveConverter::class
+    NightTimeToPrimitiveConverter::class,
+    MonthOfYearToPrimitiveConverter::class
 )
 internal data class UserSettings(
     @PrimaryKey
@@ -20,6 +22,7 @@ internal data class UserSettings(
     var updateAt: Long,
     var defaultLocoType: LocoType,
     var defaultWorkTime: Long,
+    var monthOfYear: MonthOfYear
 )
 
 data class NightTime(

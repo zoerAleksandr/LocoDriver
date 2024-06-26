@@ -13,7 +13,8 @@ data class UserSettings(
     var nightTime: NightTime = NightTime(),
     var defaultLocoType: LocoType = LocoType.ELECTRIC,
     var defaultWorkTime: Long = 43_200_000L,
-    var updateAt: Long = timestamp
+    var updateAt: Long = timestamp,
+    var selectMonthOfYear: MonthOfYear = MonthOfYear()
 )
 
 data class NightTime(
