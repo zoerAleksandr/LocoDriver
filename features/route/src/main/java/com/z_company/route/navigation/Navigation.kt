@@ -83,5 +83,10 @@ fun NavGraphBuilder.homeGraph(
             navBackStackEntry ->
             ViewingImageDestination(router = router, navBackStackEntry = navBackStackEntry)
         }
+        composableScreen(
+            route = SearchRoute.route
+        ){
+            SearchDestination(router = router)
+        }
     }
 }

@@ -12,6 +12,7 @@ import com.z_company.route.viewmodel.HomeViewModel
 import com.z_company.route.viewmodel.LocoFormViewModel
 import com.z_company.route.viewmodel.PassengerFormViewModel
 import com.z_company.route.viewmodel.PreviewPhotoViewModel
+import com.z_company.route.viewmodel.SearchViewModel
 import com.z_company.route.viewmodel.TrainFormViewModel
 import com.z_company.route.viewmodel.ViewingImageViewModel
 import com.z_company.settings.viewmodel.SelectReleaseDaysViewModel
@@ -49,4 +50,5 @@ val viewModelModule = module {
         ViewingImageViewModel(imageId = imageId)
     }
     viewModel { SelectReleaseDaysViewModel() }
+    viewModel { SearchViewModel() }
 }
