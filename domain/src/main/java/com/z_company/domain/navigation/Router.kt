@@ -28,4 +28,5 @@ interface Router {
     fun showCameraScreen(basicId: String)
     fun showPreviewPhotoScreen(photo: String, basicId: String)
     fun showViewingImageScreen(imageId: String)
+    fun showSelectReleaseDayScreen()
 }

@@ -18,6 +18,7 @@ val useCaseModule = module {
     single { TrainUseCase(repository = get()) }
     single { PassengerUseCase(repository = get()) }
     single { PhotoUseCase(repository = get()) }
+    single { SettingsUseCase(settingsRepository = get()) }
 
     single { RemoteRouteUseCase(repository = get()) }
 }

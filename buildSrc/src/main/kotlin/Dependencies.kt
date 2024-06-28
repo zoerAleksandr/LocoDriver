@@ -1,6 +1,7 @@
 import Versions.accompanist_navigation_animation_version
 import Versions.accompanist_pager_version
 import Versions.accompanist_swiperefresh_version
+import Versions.accompanist_ui_controller_version
 import Versions.activity_compose_version
 import Versions.app_compat_version
 import Versions.appwrite_ver
@@ -12,14 +13,16 @@ import Versions.core_ktx_version
 import Versions.core_testing_version
 import Versions.coroutines_version
 import Versions.datastore_pref_ver
+import Versions.desugaring_ver
 import Versions.gson_version
 import Versions.koin_version
 import Versions.lifecycle_runtime_version
 import Versions.lifecycle_viewmodel_version
-import Versions.material_compose
+import Versions.material_compose3
 import Versions.maxkeppeler_sheets_ver
 import Versions.parse_sdk_android_ver
 import Versions.permission_accompanist_ver
+import Versions.rebugger_ver
 import Versions.reveal_swipe_version
 import Versions.room_version
 import Versions.splash_screen_ver
@@ -58,7 +61,7 @@ object Versions {
     const val android_plugin_id = "8.1.1"
     const val accompanist_navigation_animation_version = "0.31.3-beta"
     const val accompanist_swiperefresh_version = "0.31.3-beta"
-    const val activity_compose_version = "1.7.2"
+    const val activity_compose_version = "1.9.0"
     const val app_compat_version = "1.7.0-alpha02"
     const val coil_version = "2.4.0"
     const val compose_ui_version = "1.5.1"
@@ -69,7 +72,7 @@ object Versions {
     const val kotlin_compiler_ext_version = "1.4.7"
     const val lifecycle_runtime_version = "2.6.1"
     const val lifecycle_viewmodel_version = "2.6.1"
-    const val material_compose = "1.2.0-beta01"
+    const val material_compose3 = "1.2.1"
     const val reveal_swipe_version = "1.2.0"
     const val room_version = "2.6.0"
     const val test_ext_version = "1.1.5"
@@ -89,6 +92,9 @@ object Versions {
     const val vkid_ver = "1.3.2"
     const val parse_sdk_android_ver = "4.3.0"
     const val work_manager_version = "2.9.0"
+    const val accompanist_ui_controller_version = "0.35.0-alpha"
+    const val rebugger_ver = "1.0.0-rc03"
+    const val desugaring_ver = "2.0.4"
 }
 
 object Libs {
@@ -103,6 +109,8 @@ object Libs {
     const val project_feature_settings = ":features:settings"
 
     // Libs
+    const val desugaring = "com.android.tools:desugar_jdk_libs:$desugaring_ver"
+    const val rebugger = "io.github.theapache64:rebugger:$rebugger_ver"
     const val datastore_pref = "androidx.datastore:datastore-preferences:$datastore_pref_ver"
     const val constraint_layout =
         "androidx.constraintlayout:constraintlayout-compose:$constraint_layout_ver"
@@ -118,8 +126,8 @@ object Libs {
         "io.coil-kt:coil-compose:$coil_version"
     const val compose_ui =
         "androidx.compose.ui:ui:$compose_ui_version"
-    const val compose_material =
-        "androidx.compose.material3:material3:$material_compose"
+    const val compose_material3 =
+        "androidx.compose.material3:material3:$material_compose3"
     const val core_ktx =
         "androidx.core:core-ktx:$core_ktx_version"
     const val kotlinx_coroutines_core =
@@ -128,8 +136,6 @@ object Libs {
         "androidx.lifecycle:lifecycle-runtime-ktx:$lifecycle_runtime_version"
     const val lifecycle_viewmodel_ktx =
         "androidx.lifecycle:lifecycle-viewmodel-ktx:$lifecycle_viewmodel_version"
-    const val material =
-        "androidx.compose.material3:material3:$material_compose"
     const val reveal_swipe =
         "de.charlex.compose:revealswipe:$reveal_swipe_version"
     const val room_compiler =
@@ -150,6 +156,8 @@ object Libs {
         "com.google.accompanist:accompanist-pager:$accompanist_pager_version"
     const val accompanist_pager_indicator =
         "com.google.accompanist:accompanist-pager-indicators:$accompanist_pager_version"
+    const val accompanist_ui_controller =
+        "com.google.accompanist:accompanist-systemuicontroller:$accompanist_ui_controller_version"
     const val gson =
         "com.google.code.gson:gson:$gson_version"
     const val maxkeppeler_sheets =

@@ -1,36 +1,38 @@
 package com.z_company.route.component
 
+import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.MarqueeAnimationMode
-import androidx.compose.foundation.basicMarquee
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material.IconButton
+import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
-import androidx.constraintlayout.compose.ConstraintLayout
+import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.entities.route.Route
 import de.charlex.compose.RevealDirection
@@ -38,24 +40,56 @@ import de.charlex.compose.RevealSwipe
 import de.charlex.compose.RevealValue
 import de.charlex.compose.rememberRevealState
 import kotlinx.coroutines.launch
-import androidx.constraintlayout.compose.Dimension.Companion.fillToConstraints
-import com.z_company.core.ui.component.CustomDivider
+import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.ui.theme.custom.AppTypography
+import com.z_company.core.util.DateAndTimeFormat
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import java.text.SimpleDateFormat
+import java.util.Locale
 
-@OptIn(ExperimentalMaterialApi::class)
+@OptIn(ExperimentalMaterialApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun ItemHomeScreen(
+    modifier: Modifier = Modifier,
     route: Route,
-    alpha: Float,
     isExpand: Boolean,
     onDelete: (Route) -> Unit,
+    requiredSizeText: TextUnit,
+    changingTextSize: (TextUnit) -> Unit,
+    onLongClick: () -> Unit,
     onClick: () -> Unit
 ) {
-    val containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha)
+    val containerColor = MaterialTheme.colorScheme.secondaryContainer
     val revealState = rememberRevealState()
     val scope = rememberCoroutineScope()
+
+    val interactionSource = remember { MutableInteractionSource() }
+
+    val viewConfiguration = LocalViewConfiguration.current
+
+    LaunchedEffect(interactionSource) {
+        var isLongClick = false
+
+        interactionSource.interactions.collectLatest { interaction ->
+            when (interaction) {
+                is PressInteraction.Press -> {
+                    isLongClick = false
+                    delay(viewConfiguration.longPressTimeoutMillis)
+                    isLongClick = true
+                }
+
+                is PressInteraction.Release -> {
+                    if (isLongClick.not()) {
+                        Log.d("ZZZ", "click")
+                    }
+
+                }
+            }
+        }
+    }
 
     LaunchedEffect(isExpand) {
         if (!isExpand) {
@@ -66,191 +100,149 @@ fun ItemHomeScreen(
     }
 
     RevealSwipe(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .padding(top = 12.dp, start = 8.dp, end = 8.dp, bottom = 6.dp)
             .height(80.dp),
         enableSwipe = isExpand,
         state = revealState,
-        maxRevealDp = 75.dp,
         directions = setOf(
             RevealDirection.EndToStart
         ),
         hiddenContentEnd = {
-            IconButton(onClick = {
-                onDelete(route)
-                scope.launch {
-                    revealState.animateTo(RevealValue.Default)
+            Box(
+                modifier = Modifier
+                    .width(75.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                IconButton(onClick = {
+                    onDelete(route)
+                    scope.launch {
+                        revealState.animateTo(RevealValue.Default)
+                    }
+                }) {
+                    Icon(
+                        imageVector = Icons.Outlined.Delete,
+                        tint = MaterialTheme.colorScheme.onError,
+                        contentDescription = null
+                    )
                 }
-            }) {
-                Icon(
-                    modifier = Modifier.padding(horizontal = 25.dp),
-                    imageVector = Icons.Outlined.Delete,
-                    tint = Color.White,
-                    contentDescription = null
-                )
             }
         },
-        backgroundCardEndColor = MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
+        backgroundCardEndColor = MaterialTheme.colorScheme.error.copy(alpha = 0.2f),
         shape = Shapes.medium
     ) {
         Card(
             modifier = Modifier
-                .padding(top = 8.dp)
                 .fillMaxWidth()
+                .wrapContentHeight()
                 .height(80.dp)
-                .clickable { onClick() },
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = onLongClick
+                ),
             shape = Shapes.medium,
             colors = CardDefaults.cardColors(
                 containerColor = containerColor,
-                contentColor = MaterialTheme.colorScheme.contentColorFor(containerColor)
-                    .copy(alpha = alpha)
+                contentColor = MaterialTheme.colorScheme.primary
             )
         ) {
-            ConstraintLayout(
-                modifier = Modifier.fillMaxWidth()
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                val (date, verticalDividerFirst, station, verticalDividerSecond, workTime) = createRefs()
-                DateElementItem(
+                Box(
                     modifier = Modifier
-                        .padding(horizontal = 14.dp)
-                        .constrainAs(date) {
-                            top.linkTo(parent.top)
-                            bottom.linkTo(parent.bottom)
-                            start.linkTo(parent.start)
-                        },
-                    date = route.basicData.timeStartWork
-                )
-                CustomDivider(
-                    modifier = Modifier
-                    .constrainAs(verticalDividerFirst) {
-                        start.linkTo(date.end)
-                        top.linkTo(parent.top)
-                        bottom.linkTo(parent.bottom)
+                        .fillMaxWidth()
+                        .weight(0.175f)
+                ) {
+                    route.basicData.timeStartWork?.let { timeStartWork ->
+                        AutoSizeText(
+                            modifier = Modifier.padding(end = 8.dp),
+                            text = SimpleDateFormat(
+                                DateAndTimeFormat.MINI_DATE_FORMAT, Locale.getDefault()
+                            ).format(
+                                timeStartWork
+                            ),
+                            maxTextSize = requiredSizeText,
+                            maxLines = 1,
+                            style = AppTypography.getType().headlineSmall,
+                            fontWeight = FontWeight.Light,
+                            onTextLayout = { textLayoutResult ->
+                                val size = textLayoutResult.layoutInput.style.fontSize
+                                changingTextSize(size)
+                            }
+                        )
                     }
-                    .padding(vertical = 10.dp),
-                    thickness = 0.5.dp,
-                    orientation = Orientation.Vertical,
+                }
 
-                    )
-                DetailsElementItem(
+                Box(
                     modifier = Modifier
-                        .constrainAs(station) {
-                            top.linkTo(parent.top)
-                            start.linkTo(verticalDividerFirst.end)
-                            end.linkTo(verticalDividerSecond.start)
-                            bottom.linkTo(parent.bottom)
-                            width = fillToConstraints
-                            height = fillToConstraints
-                        }
-                        .padding(horizontal = 16.dp),
-                    route = route
-                )
-                CustomDivider(
+                        .fillMaxWidth()
+                        .weight(0.175f)
+                ) {
+                    route.basicData.timeStartWork?.let { timeStartWork ->
+                        AutoSizeText(
+                            modifier = Modifier.padding(end = 8.dp),
+                            text = SimpleDateFormat(
+                                DateAndTimeFormat.TIME_FORMAT, Locale.getDefault()
+                            ).format(
+                                timeStartWork
+                            ),
+                            maxTextSize = requiredSizeText,
+                            maxLines = 1,
+                            style = AppTypography.getType().headlineSmall,
+                            fontWeight = FontWeight.Light,
+                            onTextLayout = { textLayoutResult ->
+                                val size = textLayoutResult.layoutInput.style.fontSize
+                                changingTextSize(size)
+                            }
+                        )
+                    }
+                }
+                Box(
                     modifier = Modifier
-                        .constrainAs(verticalDividerSecond) {
-                            end.linkTo(anchor = workTime.start)
-                            top.linkTo(parent.top)
-                            bottom.linkTo(parent.bottom)
-                        }
-                        .padding(vertical = 10.dp, horizontal = 2.dp),
-                    thickness = 0.5.dp,
-                    orientation = Orientation.Vertical)
-
+                        .padding(start = 4.dp)
+                        .fillMaxWidth()
+                        .weight(0.45f),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    route.trains.firstOrNull()?.stations?.firstOrNull()?.stationName?.let { station ->
+                        AutoSizeText(
+                            text = station,
+                            style = AppTypography.getType().headlineSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            fontWeight = FontWeight.Light,
+                            maxTextSize = requiredSizeText,
+                            minTextSize = 22.sp,
+                            onTextLayout = { textLayoutResult ->
+                                val size = textLayoutResult.layoutInput.style.fontSize
+                                changingTextSize(size)
+                            }
+                        )
+                    }
+                }
                 val workTimeValue = route.getWorkTime()
-
-                WorkTimeElementItem(modifier = Modifier
-                    .constrainAs(workTime) {
-                        end.linkTo(parent.end)
-                        top.linkTo(parent.top)
-                        bottom.linkTo(parent.bottom)
-                    }
-                    .padding(horizontal = 12.dp),
-                    workTime = workTimeValue)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .weight(0.2f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AutoSizeText(
+                        text = DateAndTimeConverter.getTimeInStringFormat(workTimeValue),
+                        style = AppTypography.getType().headlineSmall,
+                        fontWeight = FontWeight.Light,
+                        maxTextSize = requiredSizeText,
+                        onTextLayout = { textLayoutResult ->
+                            val size = textLayoutResult.layoutInput.style.fontSize
+                            changingTextSize(size)
+                        }
+                    )
+                }
             }
         }
     }
-}
-
-@Composable
-fun DateElementItem(
-    modifier: Modifier = Modifier, date: Long?
-) {
-    val day = DateAndTimeConverter.getDayOfMonth(date)
-    val month = DateAndTimeConverter.getMonthShorthand(date)
-
-    Column(
-        modifier = modifier
-            .fillMaxHeight()
-            .wrapContentWidth(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(text = day, style = AppTypography.getType().bodyLarge)
-        Text(text = month, style = AppTypography.getType().bodyLarge)
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun DetailsElementItem(
-    modifier: Modifier = Modifier, route: Route
-) {
-    val textFirstStation = route.trains.firstOrNull()?.stations?.firstOrNull()?.stationName ?: ""
-    var textLastStation = route.trains.lastOrNull()?.stations?.lastOrNull()?.stationName ?: ""
-    if (textFirstStation == textLastStation) {
-        textLastStation = ""
-    }
-    val divider = if (textLastStation.isBlank()) "" else " - "
-
-    val textStation = "$textFirstStation $divider $textLastStation"
-
-    val textLocoSeries = if (route.locomotives.isNotEmpty()) {
-        route.locomotives.first().series ?: ""
-    } else {
-        ""
-    }
-    val textLocoNumber = if (route.locomotives.isNotEmpty()) {
-        route.locomotives.first().number?.let { number ->
-            "№ $number"
-        } ?: ""
-    } else {
-        ""
-    }
-    val dots = if (route.locomotives.size > 1) {
-        "..."
-    } else {
-        ""
-    }
-
-    val textLoco = "$textLocoSeries $textLocoNumber $dots"
-
-
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.SpaceEvenly,
-        horizontalAlignment = Alignment.Start
-    ) {
-        Text(
-            modifier = Modifier.basicMarquee(animationMode = MarqueeAnimationMode.WhileFocused),
-            text = textStation,
-            overflow = TextOverflow.Ellipsis,
-            style = AppTypography.getType().bodyLarge
-        )
-        Text(
-            modifier = Modifier.basicMarquee(animationMode = MarqueeAnimationMode.WhileFocused),
-            text = textLoco,
-            overflow = TextOverflow.Ellipsis,
-            style = AppTypography.getType().bodyLarge
-        )
-    }
-}
-
-@Composable
-fun WorkTimeElementItem(
-    modifier: Modifier = Modifier,
-    workTime: Long?
-) {
-    val textTime = DateAndTimeConverter.getTimeInStringFormat(workTime)
-    Text(modifier = modifier, text = textTime, style = AppTypography.getType().bodyLarge)
 }

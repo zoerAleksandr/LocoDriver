@@ -85,9 +85,10 @@ dependencies {
     implementation(Libs.activity_compose)
     implementation(Libs.compose_ui)
     implementation(Libs.ui_tooling_preview)
-    implementation(Libs.material)
+    implementation(Libs.compose_material3)
 
     implementation(Libs.accompanist_navigation_animation)
+    implementation(Libs.accompanist_ui_controller)
 
     implementation(Libs.koin_core)
     implementation(Libs.koin_android)

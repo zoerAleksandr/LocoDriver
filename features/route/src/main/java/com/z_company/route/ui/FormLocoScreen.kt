@@ -1,6 +1,5 @@
 package com.z_company.route.ui
 
-import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -53,20 +52,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.dimensionResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import com.z_company.route.R
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.GenericError
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.DateAndTimeFormat
+import com.z_company.core.util.LocoTypeHelper.converterLocoTypeToString
+import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.util.CalculationEnergy
@@ -94,6 +93,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun FormLocoScreen(
     currentLoco: Locomotive?,
+    currentSetting: UserSettings?,
     dieselSectionListState: SnapshotStateList<DieselSectionFormState>?,
     electricSectionListState: SnapshotStateList<ElectricSectionFormState>?,
     onBackPressed: () -> Unit,
@@ -114,10 +114,10 @@ fun FormLocoScreen(
     onDeleteSectionDiesel: (DieselSectionFormState) -> Unit,
     addingSectionDiesel: () -> Unit,
     focusChangedDieselSection: (Int, DieselSectionType) -> Unit,
-    onEnergyAcceptedChanged: (Int, String?) -> Unit,
-    onEnergyDeliveryChanged: (Int, String?) -> Unit,
-    onRecoveryAcceptedChanged: (Int, String?) -> Unit,
-    onRecoveryDeliveryChanged: (Int, String?) -> Unit,
+    onEnergyAcceptedChanged: (Int, Int?) -> Unit,
+    onEnergyDeliveryChanged: (Int, Int?) -> Unit,
+    onRecoveryAcceptedChanged: (Int, Int?) -> Unit,
+    onRecoveryDeliveryChanged: (Int, Int?) -> Unit,
     onDeleteSectionElectric: (ElectricSectionFormState) -> Unit,
     addingSectionElectric: () -> Unit,
     focusChangedElectricSection: (Int, ElectricSectionType) -> Unit,
@@ -208,6 +208,7 @@ fun FormLocoScreen(
                         } else {
                             LocoFormScreenContent(
                                 locomotive = locomotive,
+                                setting = currentSetting,
                                 dieselSectionListState = dieselSectionListState,
                                 electricSectionListState = electricSectionListState,
                                 onNumberChanged = onNumberChanged,
@@ -249,6 +250,7 @@ fun FormLocoScreen(
 @Composable
 private fun LocoFormScreenContent(
     locomotive: Locomotive,
+    setting: UserSettings?,
     dieselSectionListState: SnapshotStateList<DieselSectionFormState>?,
     electricSectionListState: SnapshotStateList<ElectricSectionFormState>?,
     onNumberChanged: (String) -> Unit,
@@ -263,10 +265,10 @@ private fun LocoFormScreenContent(
     onDeleteSectionDiesel: (DieselSectionFormState) -> Unit,
     addingSectionDiesel: () -> Unit,
     focusChangedDieselSection: (Int, DieselSectionType) -> Unit,
-    onEnergyAcceptedChanged: (Int, String?) -> Unit,
-    onEnergyDeliveryChanged: (Int, String?) -> Unit,
-    onRecoveryAcceptedChanged: (Int, String?) -> Unit,
-    onRecoveryDeliveryChanged: (Int, String?) -> Unit,
+    onEnergyAcceptedChanged: (Int, Int?) -> Unit,
+    onEnergyDeliveryChanged: (Int, Int?) -> Unit,
+    onRecoveryAcceptedChanged: (Int, Int?) -> Unit,
+    onRecoveryDeliveryChanged: (Int, Int?) -> Unit,
     onDeleteSectionElectric: (ElectricSectionFormState) -> Unit,
     addingSectionElectric: () -> Unit,
     focusChangedElectricSection: (Int, ElectricSectionType) -> Unit,
@@ -281,8 +283,6 @@ private fun LocoFormScreenContent(
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
-
-
 
     AnimatedVisibility(
         modifier = Modifier
@@ -352,10 +352,9 @@ private fun LocoFormScreenContent(
             }
         }
         item {
-            val types = listOf(
-                stringResource(id = R.string.electricType),
-                stringResource(id = R.string.dieselType),
-            )
+            val types = LocoType.values().map {
+                converterLocoTypeToString(it)
+            }
 
             SingleChoiceSegmentedButtonRow(
                 modifier = Modifier
@@ -869,23 +868,19 @@ private fun LocoFormScreenContent(
                         )
 
                         if (index == electricSectionListState.lastIndex && index > 0) {
-                            var overResult: Double? = null
-                            var overRecovery: Double? = null
+                            var overResult: Int? = null
+                            var overRecovery: Int? = null
 
                             electricSectionListState.forEach {
-                                val accepted = it.accepted.data?.toDoubleOrNull()
-                                val delivery = it.delivery.data?.toDoubleOrNull()
+                                val accepted = it.accepted.data
+                                val delivery = it.delivery.data
                                 val acceptedRecovery =
-                                    it.recoveryAccepted.data?.toDoubleOrNull()
+                                    it.recoveryAccepted.data
                                 val deliveryRecovery =
-                                    it.recoveryDelivery.data?.toDoubleOrNull()
+                                    it.recoveryDelivery.data
 
-                                val result = CalculationEnergy.getTotalEnergyConsumption(
-                                    accepted, delivery
-                                )
-                                val resultRecovery = CalculationEnergy.getTotalEnergyConsumption(
-                                    acceptedRecovery, deliveryRecovery
-                                )
+                                val result = delivery - accepted
+                                val resultRecovery = deliveryRecovery - acceptedRecovery
                                 overResult += result
                                 overRecovery += resultRecovery
                             }

@@ -49,7 +49,7 @@ fun EnteredCoefficientDialog(
                     .padding(end = 4.dp),
                 value = temporaryValue ?: "",
                 onValueChange = {
-                    temporaryValue = it
+                    temporaryValue = it.take(6)
                 },
                 textStyle = AppTypography.getType().bodyLarge,
                 keyboardOptions = KeyboardOptions(

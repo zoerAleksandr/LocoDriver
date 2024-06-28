@@ -6,7 +6,8 @@ internal object UserConverter {
     fun toData(parseUser: ParseUser): User {
         return User(
             name = parseUser.username,
-            email = parseUser.email
+            email = parseUser.email,
+            updateAt = parseUser.updatedAt.time
         )
     }
 }

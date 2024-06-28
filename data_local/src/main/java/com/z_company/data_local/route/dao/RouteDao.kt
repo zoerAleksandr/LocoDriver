@@ -66,8 +66,8 @@ internal interface RouteDao {
     @Query("SELECT * FROM BasicData")
     fun getAllRouteWithDeleting(): List<Route>
     @Transaction
-    @Query("SELECT * FROM BasicData")
-    fun getListItineraryByMonth(): Flow<List<Route>>
+    @Query("SELECT * FROM BasicData WHERE :startPeriod <= timeStartWork AND timeStartWork <= :endPeriod AND isDeleted = 0 ORDER BY timeStartWork")
+    fun getAllRouteByPeriod(startPeriod: Long, endPeriod: Long): Flow<List<Route>>
     @Query("SELECT * FROM Locomotive WHERE locoId = :locoId")
     fun getLocoById(locoId: String): Flow<Locomotive?>
     @Query("SELECT * FROM Train WHERE trainId = :trainId")

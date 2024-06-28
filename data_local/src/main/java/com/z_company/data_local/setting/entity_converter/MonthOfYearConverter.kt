@@ -4,18 +4,18 @@ import com.z_company.domain.entities.MonthOfYear
 import com.z_company.data_local.setting.entity.MonthOfYear as MonthOfYearEntity
 
 object MonthOfYearConverter {
-    private fun fromData(monthOfYear: MonthOfYear) = MonthOfYearEntity(
+    fun fromData(monthOfYear: MonthOfYear) = MonthOfYearEntity(
         id = monthOfYear.id,
         year = monthOfYear.year,
         month = monthOfYear.month,
-        normaHours = monthOfYear.normaHours
+        days = monthOfYear.days
     )
 
     fun toData(entity: MonthOfYearEntity) = MonthOfYear(
         id = entity.id,
         year = entity.year,
         month = entity.month,
-        normaHours = entity.normaHours
+        days = entity.days
     )
 
     fun fromDataList(list: List<MonthOfYear>): MutableList<MonthOfYearEntity> {

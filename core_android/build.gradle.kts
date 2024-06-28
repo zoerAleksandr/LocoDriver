@@ -24,6 +24,7 @@ android {
         }
     }
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = Apps.java_compatibility_version
         targetCompatibility = Apps.java_compatibility_version
     }
@@ -45,8 +46,10 @@ dependencies {
     implementation(Libs.ui_tooling_preview)
     implementation(Libs.core_ktx)
     implementation(Libs.app_compat)
-    implementation(Libs.compose_material)
+    implementation(Libs.compose_material3)
     implementation(Libs.koin_core)
     implementation(Libs.koin_android)
     implementation(Libs.koin_androidx_compose)
+    implementation(project(":domain"))
+    coreLibraryDesugaring(Libs.desugaring)
 }

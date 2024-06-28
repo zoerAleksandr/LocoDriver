@@ -1,5 +1,3 @@
-import org.jetbrains.kotlin.ir.backend.js.compile
-
 plugins {
     id(Plugins.android_lib)
     id(Plugins.kotlin_android)
@@ -57,7 +55,7 @@ dependencies {
 
     implementation(Libs.compose_ui)
     implementation(Libs.ui_tooling_preview)
-    implementation(Libs.compose_material)
+    implementation(Libs.compose_material3)
 
     implementation(Libs.accompanist_navigation_animation)
 }

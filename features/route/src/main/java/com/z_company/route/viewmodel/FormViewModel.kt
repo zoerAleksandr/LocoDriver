@@ -19,7 +19,6 @@ import kotlin.properties.Delegates
 
 class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
-    private val remoteRouteUseCase: RemoteRouteUseCase by inject()
     private val locoUseCase: LocomotiveUseCase by inject()
     private val trainUseCase: TrainUseCase by inject()
     private val passengerUseCase: PassengerUseCase by inject()
@@ -206,7 +205,7 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
     fun setNumber(value: String) {
         currentRoute = currentRoute?.copy(
             basicData = currentRoute!!.basicData.copy(
-                number = value
+                number = value.ifBlank { null }
             )
         )
         changesHave()
@@ -216,7 +215,7 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
     fun setNotes(text: String) {
         currentRoute = currentRoute?.copy(
             basicData = currentRoute!!.basicData.copy(
-                notes = text
+                notes = text.ifBlank { null }
             )
         )
         changesHave()
@@ -256,16 +255,20 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
     }
 
     private fun getMinTimeRest(route: Route) {
-        val timeRest = routeUseCase.getMinRest(route, minTimeRest)
-        _uiState.update {
-            it.copy(minTimeRest = timeRest)
+        minTimeRest?.let { minTimeRest ->
+            val timeRest = routeUseCase.getMinRest(route, minTimeRest)
+            _uiState.update {
+                it.copy(minTimeRest = timeRest)
+            }
         }
     }
 
     private fun getFullRest(route: Route) {
-        val fullTimeRest = routeUseCase.fullRest(route)
-        _uiState.update {
-            it.copy(fullTimeRest = fullTimeRest)
+        minTimeRest?.let { minTimeRest ->
+            val fullTimeRest = routeUseCase.fullRest(route, minTimeRest)
+            _uiState.update {
+                it.copy(fullTimeRest = fullTimeRest)
+            }
         }
     }
 

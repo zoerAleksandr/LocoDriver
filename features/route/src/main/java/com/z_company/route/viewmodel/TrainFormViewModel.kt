@@ -20,9 +20,9 @@ import kotlinx.coroutines.flow.update
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
-class TrainFormViewModel constructor(
-    private val trainId: String?,
-    private val basicId: String
+class TrainFormViewModel(
+    trainId: String?,
+    basicId: String
 ) : ViewModel(), KoinComponent {
     private val trainUseCase: TrainUseCase by inject()
 
@@ -121,25 +121,25 @@ class TrainFormViewModel constructor(
 
     fun setNumber(number: String) {
         currentTrain = currentTrain?.copy(
-            number = number
+            number = number.ifBlank { null }
         )
     }
 
     fun setWeight(weight: String) {
         currentTrain = currentTrain?.copy(
-            weight = weight
+            weight = weight.ifBlank { null }
         )
     }
 
     fun setAxle(axle: String) {
         currentTrain = currentTrain?.copy(
-            axle = axle
+            axle = axle.ifBlank { null }
         )
     }
 
     fun setConditionalLength(length: String) {
         currentTrain = currentTrain?.copy(
-            conditionalLength = length
+            conditionalLength = length.ifBlank { null }
         )
     }
 

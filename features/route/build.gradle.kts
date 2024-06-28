@@ -49,8 +49,8 @@ dependencies {
     implementation(Libs.lifecycle_viewmodel_ktx)
 
     implementation(Libs.compose_ui)
+    implementation(Libs.compose_material3)
     implementation(Libs.ui_tooling_preview)
-    implementation(Libs.compose_material)
 
     implementation(Libs.koin_core)
     implementation(Libs.koin_android)
@@ -68,11 +68,13 @@ dependencies {
     implementation(Libs.coil_compose)
     implementation(Libs.reveal_swipe)
     implementation(Libs.maxkeppeler_sheets)
+    implementation(Libs.rebugger)
 
     implementation(Libs.camera_camera2)
     implementation(Libs.camera_lifecycle)
     implementation(Libs.camera_view)
     implementation(Libs.permission_accompanist)
     implementation(project(mapOf("path" to ":data_local")))
+    debugImplementation("androidx.compose.ui:ui-tooling:1.6.6")
 
 }

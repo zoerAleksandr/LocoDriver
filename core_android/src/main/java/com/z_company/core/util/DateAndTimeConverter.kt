@@ -149,7 +149,7 @@ object DateAndTimeConverter {
 
     fun getTimeInStringFormat(date: Long?): String {
         return if (date == null) {
-            "--/--"
+            ""
         } else {
             val hour = getHourInDate(date)
             val hourText = if (hour < 10) {
@@ -167,6 +167,24 @@ object DateAndTimeConverter {
         }
     }
 
+    fun getDateMiniAndTime(value: Long): String {
+        val time = value.let { millis ->
+            SimpleDateFormat(
+                DateAndTimeFormat.TIME_FORMAT,
+                Locale.getDefault()
+            ).format(
+                millis
+            )
+        }
+        val date = value.let { millis ->
+            SimpleDateFormat(
+                DateAndTimeFormat.MINI_DATE_FORMAT, Locale.getDefault()
+            ).format(
+                millis
+            )
+        }
+        return "$date $time"
+    }
     fun getDateAndTime(value: Long): String {
         val time = value.let { millis ->
             SimpleDateFormat(
@@ -184,5 +202,26 @@ object DateAndTimeConverter {
             )
         }
         return "$date $time"
+    }
+
+    fun getTimeFromDateLong(value: Long?): String {
+        return value?.let { millis ->
+            SimpleDateFormat(
+                DateAndTimeFormat.TIME_FORMAT,
+                Locale.getDefault()
+            ).format(
+                millis
+            )
+        } ?: ""
+    }
+
+    fun getDateFromDateLong(value: Long?): String {
+        return value?.let { millis ->
+            SimpleDateFormat(
+                DateAndTimeFormat.DATE_FORMAT, Locale.getDefault()
+            ).format(
+                millis
+            )
+        } ?: ""
     }
 }

@@ -65,7 +65,7 @@ fun ViewingPhotoContent(
             TopAppBar(
                 title = {
                     Text(
-                        text = DateAndTimeConverter.getDateAndTime(photo.dateOfCreate),
+                        text = DateAndTimeConverter.getDateMiniAndTime(photo.dateOfCreate),
                     )
                 },
                 navigationIcon = {

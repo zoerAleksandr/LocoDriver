@@ -2,17 +2,114 @@ package com.z_company.domain.use_cases
 
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
+import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.route.Photo
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.UtilsForEntities.fullRest
+import com.z_company.domain.entities.route.UtilsForEntities.isTimeWorkValid
+import com.z_company.domain.entities.route.UtilsForEntities.shortRest
 import com.z_company.domain.repositories.RouteRepository
-import com.z_company.domain.util.moreThan
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
-import com.z_company.domain.util.minus
-import com.z_company.domain.util.div
-import com.z_company.domain.util.plus
+import kotlinx.coroutines.launch
+import java.util.Calendar
+import java.util.Calendar.*
 
 class RouteUseCase(private val repository: RouteRepository) {
+    suspend fun listRoutesByMonth(monthOfYear: MonthOfYear): Flow<ResultState<List<Route>>> =
+        flow {
+            emit(ResultState.Loading)
+
+            val startMonth: Calendar = getInstance().also {
+                it.set(YEAR, monthOfYear.year)
+                it.set(MONTH, monthOfYear.month)
+                it.set(DAY_OF_MONTH, 1)
+                it.set(HOUR_OF_DAY, 0)
+                it.set(MINUTE, 0)
+                it.set(SECOND, 0)
+                it.set(MILLISECOND, 0)
+            }
+            val startMonthInLong: Long = startMonth.timeInMillis
+            val maxDayOfMonth = startMonth.getActualMaximum(DAY_OF_MONTH)
+
+            val endMonthInLong: Long = getInstance().also {
+                it.set(YEAR, monthOfYear.year)
+                it.set(MONTH, monthOfYear.month)
+                it.set(DAY_OF_MONTH, maxDayOfMonth)
+                it.set(HOUR_OF_DAY, 23)
+                it.set(MINUTE, 59)
+                it.set(SECOND, 0)
+                it.set(MILLISECOND, 0)
+            }.timeInMillis
+
+            val routeListByPeriod = mutableListOf<Route>()
+            CoroutineScope(Dispatchers.IO).launch {
+                repository.loadRoutesByPeriod(startMonthInLong, endMonthInLong).collect { result ->
+                    if (result is ResultState.Success) {
+                        routeListByPeriod.addAll(result.data)
+                        this.cancel()
+                    }
+                    if (result is ResultState.Error) {
+                        emit(ResultState.Error(ErrorEntity(result.entity.throwable)))
+                        this.cancel()
+                    }
+                }
+            }.join()
+
+            val startMonthBefore: Calendar = getInstance().also {
+                it.set(YEAR, monthOfYear.year)
+                it.set(MONTH, monthOfYear.month - 1)
+                it.set(DAY_OF_MONTH, 1)
+                it.set(HOUR_OF_DAY, 0)
+                it.set(MINUTE, 0)
+                it.set(SECOND, 0)
+                it.set(MILLISECOND, 0)
+            }
+            val startMonthBeforeInLong = startMonthBefore.timeInMillis
+            val maxDayOfMonthBefore = startMonthBefore.getActualMaximum(DAY_OF_MONTH)
+            val endMonthBeforeInLong: Long = getInstance().also {
+                it.set(YEAR, monthOfYear.year)
+                it.set(MONTH, monthOfYear.month - 1)
+                it.set(DAY_OF_MONTH, maxDayOfMonthBefore)
+                it.set(HOUR_OF_DAY, 23)
+                it.set(MINUTE, 59)
+                it.set(SECOND, 0)
+                it.set(MILLISECOND, 0)
+            }.timeInMillis
+
+            val beforeRouteList = mutableListOf<Route>()
+
+            CoroutineScope(Dispatchers.IO).launch {
+                repository.loadRoutesByPeriod(startMonthBeforeInLong, endMonthBeforeInLong)
+                    .collect { result ->
+                        if (result is ResultState.Success) {
+                            result.data.forEach { route ->
+                                route.basicData.timeEndWork?.let { endTime ->
+                                    if (endTime > startMonthInLong) {
+                                        beforeRouteList.add(route)
+                                    }
+                                }
+                            }
+                            this.cancel()
+                        }
+                        if (result is ResultState.Error) {
+                            emit(ResultState.Error(ErrorEntity(result.entity.throwable)))
+                            this.cancel()
+                        }
+                    }
+            }.join()
+
+            val listRoute = mutableListOf<Route>()
+            listRoute.addAll(beforeRouteList)
+            listRoute.addAll(routeListByPeriod)
+
+            emit(ResultState.Success(listRoute))
+        }
+
     fun listRoutes(): Flow<ResultState<List<Route>>> {
         return repository.loadRoutes()
     }
@@ -80,43 +177,18 @@ class RouteUseCase(private val repository: RouteRepository) {
     }
 
     private fun isRouteValid(route: Route): Boolean {
-        // TODO("Not yet implemented")
-        return true
+        return route.basicData.timeStartWork != null
     }
 
     fun isTimeWorkValid(route: Route): Boolean {
-        val startTime = route.basicData.timeStartWork
-        val endTime = route.basicData.timeEndWork
-
-        return !startTime.moreThan(endTime)
+        return route.isTimeWorkValid()
     }
 
-    fun getMinRest(route: Route, minTimeRest: Long?): Long? {
-        return if (isTimeWorkValid(route)) {
-            val startTime = route.basicData.timeStartWork
-            val endTime = route.basicData.timeEndWork
-            val timeResult = endTime - startTime
-            val halfRest = timeResult / 2
-            halfRest?.let { half ->
-                if (half.moreThan(minTimeRest)) {
-                    endTime + half
-                } else {
-                    endTime + minTimeRest
-                }
-            }
-        } else {
-            null
-        }
+    fun getMinRest(route: Route, minTimeRest: Long): Long? {
+        return route.shortRest(minTimeRest)
     }
 
-    fun fullRest(route: Route): Long? {
-        val startTime = route.basicData.timeStartWork
-        val endTime = route.basicData.timeEndWork
-        val timeResult = endTime - startTime
-        return if (isTimeWorkValid(route)) {
-            endTime + timeResult
-        } else {
-            null
-        }
+    fun fullRest(route: Route, minTimeRest: Long): Long? {
+        return route.fullRest(minTimeRest)
     }
 }

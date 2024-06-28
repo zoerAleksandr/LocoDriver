@@ -19,15 +19,22 @@ fun HomeDestination(
         removeRouteState = homeUiState.removeRouteState,
         onRouteClick = router::showRouteDetails,
         onNewRouteClick = { router.showRouteForm() },
+        onChangeRoute = {
+            router.showRouteForm(it)
+        },
         onDeleteRoute = homeViewModel::remove,
         onDeleteRouteConfirmed = homeViewModel::resetRemoveRouteState,
         reloadRoute = homeViewModel::loadRoutes,
         onSettingsClick = { router.showSettings() },
         onSearchClick = { router.showSearch() },
         totalTime = homeViewModel.totalTime,
-        currentMonthOfYear = homeUiState.monthSelected,
+        currentMonthOfYear = homeViewModel.currentMonthOfYear,
         yearList = homeUiState.yearList,
         monthList = homeUiState.monthList,
         selectYearAndMonth = homeViewModel::setCurrentMonth,
+        minTimeRest = homeUiState.minTimeRest,
+        nightTime = homeUiState.nightTimeInRouteList,
+        passengerTime = homeUiState.passengerTimeInRouteList,
+        calculationHomeRest = homeViewModel::calculationHomeRest
     )
 }

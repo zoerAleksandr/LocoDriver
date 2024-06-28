@@ -52,11 +52,12 @@ dependencies {
 
     implementation(Libs.compose_ui)
     implementation(Libs.ui_tooling_preview)
-    implementation(Libs.compose_material)
+    implementation(Libs.compose_material3)
 
     implementation(Libs.koin_core)
     implementation(Libs.koin_android)
     implementation(Libs.koin_androidx_compose)
 
     implementation(Libs.accompanist_navigation_animation)
+    implementation(project(":features:route"))
 }

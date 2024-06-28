@@ -1,15 +1,16 @@
 package com.z_company.settings.viewmodel
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.parse.ParseUser
 import com.z_company.core.ResultState
-import com.z_company.data_local.setting.DataStoreRepository
+import com.z_company.domain.entities.MonthOfYear
 import com.z_company.use_case.LoginUseCase
 import com.z_company.domain.entities.User
 import com.z_company.domain.entities.UserSettings
+import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.use_cases.CalendarUseCase
+import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.use_case.RemoteRouteUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,13 +21,15 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import java.util.Calendar
+import java.util.Calendar.MONTH
+import java.util.Calendar.YEAR
 
 class SettingsViewModel : ViewModel(), KoinComponent {
-    private val calendarUseCase: CalendarUseCase by inject()
     private val loginUseCase: LoginUseCase by inject()
     private val remoteRouteUseCase: RemoteRouteUseCase by inject()
-    private val dataStoreRepository: DataStoreRepository by inject()
-
+    private val settingsUseCase: SettingsUseCase by inject()
+    private val calendarUseCase: CalendarUseCase by inject()
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState = _uiState.asStateFlow()
@@ -35,7 +38,9 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private var saveSettingsJob: Job? = null
 
     private var loadLoginJob: Job? = null
-    private var saveLoginJob: Job? = null
+    private var setCalendarJob: Job? = null
+    private var loadCalendarJob: Job? = null
+    private var saveCurrentMonthJob: Job? = null
 
 
     var currentSettings: UserSettings?
@@ -65,23 +70,88 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     init {
         loadSettings()
         loadLogin()
+        loadMonthList()
     }
 
     fun resetSaveState() {
         _uiState.update {
-            it.copy(saveSettings = null)
+            it.copy(saveSettingsState = null)
         }
+    }
+
+    fun setCurrentMonth(yearAndMonth: Pair<Int, Int>) {
+        setCalendarJob?.cancel()
+        setCalendarJob = calendarUseCase.loadMonthOfYearList().onEach { result ->
+            if (result is ResultState.Success) {
+                result.data.find {
+                    it.year == yearAndMonth.first && it.month == yearAndMonth.second
+                }?.let { selectMonthOfYear ->
+                    currentSettings = currentSettings?.copy(
+                        selectMonthOfYear = selectMonthOfYear
+                    )
+                    saveCurrentMonthInLocal(selectMonthOfYear)
+                }
+            }
+        }
+            .launchIn(viewModelScope)
+    }
+
+    private fun saveCurrentMonthInLocal(monthOfYear: MonthOfYear) {
+        saveCurrentMonthJob?.cancel()
+        saveCurrentMonthJob =
+            settingsUseCase.setCurrentMonthOfYear(monthOfYear).launchIn(viewModelScope)
+    }
+
+
+    private fun loadMonthList() {
+        loadCalendarJob?.cancel()
+        loadCalendarJob = calendarUseCase.loadMonthOfYearList().onEach { result ->
+            if (result is ResultState.Success) {
+                _uiState.update { state ->
+                    state.copy(
+                        monthList = result.data.map { it.month }.distinct().sorted(),
+                        yearList = result.data.map { it.year }.distinct().sorted()
+                    )
+
+                }
+            }
+        }
+            .launchIn(viewModelScope)
     }
 
     private fun loadSettings() {
         loadSettingsJob?.cancel()
-        loadSettingsJob = dataStoreRepository.getMinTimeRest().onEach { time ->
-            time?.let {
-                currentSettings = currentSettings?.copy(
-                    minTimeRest = it
-                ) ?: UserSettings(minTimeRest = time)
+        loadSettingsJob = viewModelScope.launch {
+            settingsUseCase.getCurrentSettings().collect { result ->
+                _uiState.update {
+                    it.copy(
+                        settingDetails = result,
+                    )
+                }
+                if (result is ResultState.Success) {
+                    result.data?.let { userSettings ->
+                        _uiState.update {
+                            it.copy(
+                                updateAt = ResultState.Success(userSettings.updateAt),
+                            )
+                        }
+                    }
+                }
             }
-        }.launchIn(viewModelScope)
+        }
+        viewModelScope.launch {
+            calendarUseCase.loadMonthOfYearList().collect { result ->
+                if (result is ResultState.Success) {
+                    currentSettings?.let { setting ->
+                        _uiState.update {
+                            it.copy(
+                                calendarState = ResultState.Success(setting.selectMonthOfYear)
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private fun loadLogin() {
@@ -94,38 +164,46 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                 currentUser = resultState.data
             }
         }.launchIn(viewModelScope)
-
     }
 
     fun saveSettings() {
-        currentSettings?.let { setting ->
-            Log.d("ZZZ", "setting.minTimeRest = ${setting.minTimeRest}")
-            saveSettingsJob?.cancel()
-            saveSettingsJob = dataStoreRepository.setMinTimeRest(
-                setting.minTimeRest
-            ).onEach { resultState ->
-                if (resultState is ResultState.Success) {
-                    _uiState.update {
-                        it.copy(saveSettings = resultState)
+        val state = uiState.value.settingDetails
+        if (state is ResultState.Success) {
+            state.data?.let { settings ->
+                saveSettingsJob?.cancel()
+                saveSettingsJob = viewModelScope.launch {
+                    settingsUseCase.saveSetting(settings).collect { result ->
+                        _uiState.update {
+                            it.copy(
+                                saveSettingsState = result
+                            )
+                        }
                     }
                 }
-            }.launchIn(viewModelScope)
+            }
         }
     }
 
-    fun changedMinTimeRest(time: String) {
+    fun changeMinTimeRest(time: Long) {
         currentSettings = currentSettings?.copy(
-            minTimeRest = time.toLongOrNull()
+            minTimeRest = time
         )
     }
 
     fun logOut() {
+        // TODO сделать выход из аккаунта
         ParseUser.logOutInBackground()
     }
 
     fun onSync() {
         viewModelScope.launch {
-            remoteRouteUseCase.syncBasicData()
+            remoteRouteUseCase.syncBasicData().collect { result ->
+                _uiState.update {
+                    it.copy(
+                        updateRepositoryState = result
+                    )
+                }
+            }
         }
     }
 
@@ -133,5 +211,23 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         viewModelScope.launch {
             remoteRouteUseCase.loadingRoutesFromRemote()
         }
+    }
+
+    fun changeDefaultWorkTime(timeInMillis: Long) {
+        currentSettings = currentSettings?.copy(
+            defaultWorkTime = timeInMillis
+        )
+    }
+
+    fun changeDefaultLocoType(locoType: LocoType) {
+        currentSettings = currentSettings?.copy(
+            defaultLocoType = locoType
+        )
+    }
+
+    fun changeMinTimeHomeRest(time: Long) {
+        currentSettings = currentSettings?.copy(
+            minTimeHomeRest = time
+        )
     }
 }
