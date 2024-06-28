@@ -10,7 +10,7 @@ import com.z_company.domain.entities.UserSettings
 data class SelectReleaseDaysUIState(
     val releaseDaysPeriodState: SnapshotStateList<ReleasePeriod>? = mutableStateListOf(),
     val saveReleaseDaysState: ResultState<Unit>? = null,
-    val calendarState: ResultState<MonthOfYear?> = ResultState.Loading,
+    val currentMonthOfYearState: ResultState<MonthOfYear?> = ResultState.Loading,
     val userSettingsState: ResultState<UserSettings?> = ResultState.Loading,
     val monthList: List<Int> = listOf(),
     val yearList: List<Int> = listOf(),

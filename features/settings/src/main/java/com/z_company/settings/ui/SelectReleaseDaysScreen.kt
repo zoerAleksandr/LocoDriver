@@ -1,5 +1,6 @@
 package com.z_company.settings.ui
 
+import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -232,42 +233,57 @@ fun SelectReleaseDaysContent(
                         )
                     }
                     releasePeriodListState?.let { releaseDayList ->
-                        releaseDayList.sortBy { period ->
-                            period.start.timeInMillis
-                        }
-                        items(releasePeriodListState, key = { period ->
-                            period.id
-                        }) { period ->
-                            HorizontalDivider()
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .animateItemPlacement()
-                                    .padding(top = 8.dp, start = 16.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Text(
-                                        text = DateAndTimeConverter.getDateFromDateLong(period.start.timeInMillis),
-                                        style = styleData
-                                    )
-                                    period.end?.let {
-                                        Text(text = " - ", style = styleData)
-                                        Text(
-                                            text = DateAndTimeConverter.getDateFromDateLong(it.timeInMillis),
-                                            style = styleData
+                        if (releaseDayList.isNotEmpty()) {
+                            releaseDayList.forEach { period ->
+                                if (period.days.isNotEmpty()) {
+                                    releaseDayList.sortBy { period ->
+                                        period.days.first().timeInMillis
+                                    }
+                                }
+                            }
+                            items(releaseDayList, key = { period ->
+                                period.id
+                            }) { period ->
+                                Log.d("ZZZ", "period = $period")
+                                if (period.days.isNotEmpty()) {
+                                    HorizontalDivider()
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .animateItemPlacement()
+                                            .padding(top = 8.dp, start = 16.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Text(
+                                                text = DateAndTimeConverter.getDateFromDateLong(
+                                                    period.days.first().timeInMillis
+                                                ),
+                                                style = styleData
+                                            )
+                                            if (period.days.size > 1) {
+                                                period.days.last().let {
+                                                    Text(text = " - ", style = styleData)
+                                                    Text(
+                                                        text = DateAndTimeConverter.getDateFromDateLong(
+                                                            it.timeInMillis
+                                                        ),
+                                                        style = styleData
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        Icon(
+                                            modifier = Modifier.clickable {
+                                                removingReleasePeriod(period)
+                                            },
+                                            imageVector = Icons.Outlined.Clear,
+                                            contentDescription = null
                                         )
                                     }
                                 }
-                                Icon(
-                                    modifier = Modifier.clickable {
-                                        removingReleasePeriod(period)
-                                    },
-                                    imageVector = Icons.Outlined.Clear,
-                                    contentDescription = null
-                                )
                             }
                         }
                     }
@@ -334,11 +350,22 @@ private fun SelectRangeDateBottomSheet(
                             calendar.timeInMillis = it
                         }
                     }
-                    startRangeCalendar?.let {
+                    val list = mutableListOf<Calendar>()
+                    startRangeCalendar?.let { start ->
+                        list.add(start)
+                        endRangeCalendar?.let { end ->
+                            val nextDay = Calendar.getInstance().also {
+                                it.timeInMillis = start.timeInMillis
+                            }
+                            while (nextDay.before(end)) {
+                                list.add(nextDay)
+                                nextDay.add(Calendar.DATE, 1)
+                            }
+                        }
+
                         onConfirmRequest(
                             ReleasePeriod(
-                                start = it,
-                                end = endRangeCalendar
+                                days = list
                             )
                         )
                     }

@@ -22,6 +22,5 @@ data class Day(
 
 data class ReleasePeriod(
     val id: String = UUID.randomUUID().toString(),
-    val start: Calendar,
-    val end: Calendar? = null
+    val days: List<Calendar> = listOf(),
 )
