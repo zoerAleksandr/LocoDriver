@@ -23,6 +23,7 @@ import org.koin.core.component.inject
 import java.util.Calendar
 import java.util.Calendar.DAY_OF_MONTH
 import java.util.Calendar.MONTH
+import java.util.Calendar.YEAR
 import java.util.Calendar.getInstance
 
 class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
@@ -34,6 +35,7 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
     val uiState = _uiState.asStateFlow()
 
     private var saveCurrentMonthJob: Job? = null
+    private var saveOtherMonthJob: Job? = null
     private var setCalendarJob: Job? = null
     private var loadCalendarJob: Job? = null
 
@@ -61,6 +63,9 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
             }
         }
 
+    private var otherMonthOfYear: MutableList<MonthOfYear> = mutableListOf()
+    private var allMonthOfYear: List<MonthOfYear> = listOf()
+
     fun setCurrentMonth(yearAndMonth: Pair<Int, Int>) {
         setCalendarJob?.cancel()
         setCalendarJob = calendarUseCase.loadMonthOfYearList().onEach { result ->
@@ -87,23 +92,27 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
         changeReleasePeriod()
     }
 
+    fun deleteReleasePeriod(period: ReleasePeriod) {
+        releasePeriodListState.remove(period)
+        changeReleasePeriod()
+    }
+
     private fun loadMonthList() {
         loadCalendarJob?.cancel()
         loadCalendarJob = calendarUseCase.loadMonthOfYearList().onEach { result ->
             if (result is ResultState.Success) {
+                allMonthOfYear = result.data
                 _uiState.update { state ->
                     state.copy(
                         monthList = result.data.map { it.month }.distinct().sorted(),
                         yearList = result.data.map { it.year }.distinct().sorted()
                     )
-
                 }
             }
         }
             .launchIn(viewModelScope)
     }
 
-    // TODO переходящие на следующий месяц отвлечения !!!
     private fun changeReleasePeriod() {
         currentMonthOfYear?.let { monthOfYear ->
             val newDays: MutableList<Day> = monthOfYear.days.toMutableList()
@@ -117,7 +126,7 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
                 } else {
                     periodList.forEach { releasePeriod ->
                         val releaseCalendarList: MutableList<Calendar> = mutableListOf()
-                        val firsDay = Calendar.getInstance().also {
+                        val firsDay = getInstance().also {
                             it.timeInMillis = releasePeriod.days.first().timeInMillis
                         }
                         if (releasePeriod.days.size > 1) {
@@ -144,9 +153,19 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
                                     val newDay = day.copy(isReleaseDay = false)
                                     newDays[index] = newDay
                                 } else {
-                                    val newDay = day.copy(isReleaseDay = true)
-                                    newDays[index] = newDay
-                                    changingDateList.add(newDay)
+                                    if (foundDay.get(MONTH) == monthOfYear.month) {
+                                        val newDay = day.copy(isReleaseDay = true)
+                                        newDays[index] = newDay
+                                        changingDateList.add(newDay)
+                                    } else {
+                                        Log.d(
+                                            "ZZZ",
+                                            "foundDay = ${foundDay.get(DAY_OF_MONTH)} ${
+                                                foundDay.get(MONTH)
+                                            }"
+                                        )
+                                        setOtherMonthOfYear(foundDay)
+                                    }
                                 }
                             }
                         }
@@ -159,9 +178,59 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun deleteReleasePeriod(period: ReleasePeriod) {
-        releasePeriodListState.remove(period)
-        changeReleasePeriod()
+    private fun setOtherMonthOfYear(date: Calendar) {
+        val foundMonthOfYear = otherMonthOfYear.find {
+            it.year == date.get(YEAR) && it.month == date.get(MONTH)
+        }
+        if (foundMonthOfYear == null) {
+            val monthOfYear = allMonthOfYear.find {
+                it.year == date.get(YEAR) && it.month == date.get(MONTH)
+            }
+            monthOfYear?.let { month ->
+                val days: MutableList<Day> = month.days.toMutableList()
+                val foundDay = days.find {
+                    it.dayOfMonth == date.get(DAY_OF_MONTH)
+                }
+                foundDay?.let {
+                    val newDay = it.copy(
+                        isReleaseDay = true
+                    )
+                    days[date.get(DAY_OF_MONTH) - 1] = newDay
+                }
+                val newMonthOfYear = month.copy(
+                    days = days
+                )
+                otherMonthOfYear.add(newMonthOfYear)
+            }
+        } else {
+            val days: MutableList<Day> = foundMonthOfYear.days.toMutableList()
+            val foundDay = days.find {
+                it.dayOfMonth == date.get(DAY_OF_MONTH)
+            }
+            foundDay?.let {
+                val newDay = it.copy(
+                    isReleaseDay = true
+                )
+                days[date.get(DAY_OF_MONTH) - 1] = newDay
+            }
+            val newMonthOfYear = foundMonthOfYear.copy(
+                days = days
+            )
+            val index = otherMonthOfYear.indexOf(foundMonthOfYear)
+            otherMonthOfYear[index] = newMonthOfYear
+        }
+    }
+
+    private suspend fun saveNormaOtherMonth() {
+        otherMonthOfYear.forEach { monthOfYear ->
+            saveOtherMonthJob?.cancel()
+            saveOtherMonthJob = calendarUseCase.updateMonthOfYear(monthOfYear).onEach {
+                if (it is ResultState.Success) {
+                    saveOtherMonthJob?.cancel()
+                }
+            }.launchIn(viewModelScope)
+            saveOtherMonthJob?.join()
+        }
     }
 
     fun saveNormaHours() {
@@ -173,6 +242,9 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
                         it.copy(saveReleaseDaysState = resultState)
                     }
                 }.launchIn(viewModelScope)
+        }
+        viewModelScope.launch {
+            saveNormaOtherMonth()
         }
     }
 
@@ -209,7 +281,7 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
                         it.set(MONTH, monthOfYear.month)
                     }
                 )
-                if ((index + 1 == monthOfYear.days.size)){
+                if ((index + 1 == monthOfYear.days.size)) {
                     isBegunCounting = false
                     val copyList = mutableListOf<Calendar>()
                     copyList.addAll(listReleasePeriod)

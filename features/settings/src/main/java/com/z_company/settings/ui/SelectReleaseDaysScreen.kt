@@ -1,6 +1,5 @@
 package com.z_company.settings.ui
 
-import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -137,7 +136,6 @@ fun SelectReleaseDaysContent(
 ) {
     val dateRangePickerState = rememberDateRangePickerState()
     val scope = rememberCoroutineScope()
-    val styleTitle = AppTypography.getType().bodySmall
     val styleData = AppTypography.getType().bodyMedium
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
@@ -236,15 +234,14 @@ fun SelectReleaseDaysContent(
                         if (releaseDayList.isNotEmpty()) {
                             releaseDayList.forEach { period ->
                                 if (period.days.isNotEmpty()) {
-                                    releaseDayList.sortBy { period ->
-                                        period.days.first().timeInMillis
+                                    releaseDayList.sortBy { periodDays ->
+                                        periodDays.days.first().timeInMillis
                                     }
                                 }
                             }
                             items(releaseDayList, key = { period ->
                                 period.id
                             }) { period ->
-                                Log.d("ZZZ", "period = $period")
                                 if (period.days.isNotEmpty()) {
                                     HorizontalDivider()
                                     Row(
