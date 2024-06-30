@@ -6,9 +6,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.z_company.route.ui.FilterNames
+import com.z_company.route.ui.FilterSearch
 import com.z_company.route.ui.TimePeriod
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class SearchViewModel: ViewModel() {
@@ -47,43 +50,71 @@ class SearchViewModel: ViewModel() {
     }
 
     fun clearFilter(){
-
+        _uiState.update {
+            it.copy(
+                searchFilter = FilterSearch()
+            )
+        }
     }
 
     fun setSearchFilter(pair: Pair<String, Boolean>) {
         when (pair.first) {
-//            FilterNames.GENERAL_DATA.value -> {
-//                searchFilter = searchFilter.copy(
-//                    generalData = pair
-//                )
-//            }
-//            FilterNames.LOCO_DATA.value -> {
-//                searchFilter = searchFilter.copy(
-//                    locoData = pair
-//                )
-//            }
-//            FilterNames.TRAIN_DATA.value -> {
-//                searchFilter = searchFilter.copy(
-//                    trainData = pair
-//                )
-//            }
-//            FilterNames.PASSENGER_DATA.value -> {
-//                searchFilter = searchFilter.copy(
-//                    passengerData = pair
-//                )
-//            }
-//            FilterNames.NOTES_DATA.value -> {
-//                searchFilter = searchFilter.copy(
-//                    notesData = pair
-//                )
-//            }
+            FilterNames.GENERAL_DATA.value -> {
+                _uiState.update {
+                    it.copy(
+                        searchFilter = it.searchFilter.copy(
+                            generalData = pair
+                        )
+                    )
+                }
+            }
+            FilterNames.LOCO_DATA.value -> {
+                _uiState.update {
+                    it.copy(
+                        searchFilter = it.searchFilter.copy(
+                            locoData = pair
+                        )
+                    )
+                }
+            }
+            FilterNames.TRAIN_DATA.value -> {
+                _uiState.update {
+                    it.copy(
+                        searchFilter = it.searchFilter.copy(
+                            trainData = pair
+                        )
+                    )
+                }
+            }
+            FilterNames.PASSENGER_DATA.value -> {
+                _uiState.update {
+                    it.copy(
+                        searchFilter = it.searchFilter.copy(
+                            passengerData = pair
+                        )
+                    )
+                }
+            }
+            FilterNames.NOTES_DATA.value -> {
+                _uiState.update {
+                    it.copy(
+                        searchFilter = it.searchFilter.copy(
+                            notesData = pair
+                        )
+                    )
+                }
+            }
         }
     }
 
     fun setPeriodFilter(timePeriod: TimePeriod) {
-//        searchFilter = searchFilter.copy(
-//            timePeriod = timePeriod
-//        )
+        _uiState.update {
+            it.copy(
+                searchFilter = it.searchFilter.copy(
+                    timePeriod = timePeriod
+                )
+            )
+        }
     }
     fun addResponse(response: String) {
         if (response.isNotEmpty()) {

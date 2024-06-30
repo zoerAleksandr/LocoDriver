@@ -31,11 +31,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.Typography
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -45,15 +42,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import androidx.constraintlayout.compose.ConstraintLayout
-import androidx.constraintlayout.compose.Dimension
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.DateAndTimeFormat
@@ -62,7 +55,7 @@ import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Route
 import com.z_company.route.R
 import com.z_company.route.component.BottomShadow
-import com.z_company.route.component.BottomSheetSearch
+import com.z_company.route.component.SearchSettingBottomSheet
 import kotlinx.coroutines.launch
 import com.z_company.route.component.SearchBar
 import com.z_company.route.extention.isScrollInInitialState
@@ -90,7 +83,7 @@ fun SearchScreen(
     isVisibleHistory: Boolean,
     isVisibleResult: Boolean,
     hints: List<String>,
-    searchResultList: List<Route>,
+    searchResultList: List<Pair<Route, SearchTag>>,
     onRouteClick: (BasicData) -> Unit,
     searchHistoryList: List<String>,
     removeHistoryResponse: (String) -> Unit
@@ -101,6 +94,8 @@ fun SearchScreen(
         skipPartiallyExpanded = true
     )
 
+    val hintStyle = AppTypography.getType().bodyMedium
+
     val closeSheet: () -> Unit = {
         scope.launch {
             bottomSheetState.hide()
@@ -110,73 +105,28 @@ fun SearchScreen(
     }
 
     if (openBottomSheet) {
-        ModalBottomSheet(
-            sheetState = bottomSheetState,
-            onDismissRequest = closeSheet,
-            containerColor = MaterialTheme.colorScheme.background,
-            dragHandle = {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 10.dp, vertical = 20.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        IconButton(
-                            onClick = closeSheet
-                        ) {
-                            Icon(imageVector = Icons.Default.Close, contentDescription = null)
-                        }
-                        TextButton(
-                            onClick = {
-                                clearFilter()
-                            }
-                        ) {
-                            Text(
-                                text = "Сбросить",
-                                style = AppTypography.getType().bodyMedium,
-                                color = MaterialTheme.colorScheme.tertiary
-                            )
-                        }
-                    }
-                    Text(
-                        modifier = Modifier
-                            .padding(top = 6.dp)
-                            .align(Alignment.TopCenter),
-                        text = "Параметры",
-                        style = AppTypography.getType().titleMedium
-                    )
-                }
-            }
-        ) {
-            BottomSheetSearch(
-                searchFilter,
-                setSearchFilter,
-                setPeriodFilter
-            )
-        }
+        SearchSettingBottomSheet(
+            bottomSheetState = bottomSheetState,
+            closeSheet = closeSheet,
+            clearFilter = clearFilter,
+            filter = searchFilter,
+            setFilter = setSearchFilter,
+            setPeriodFilter = setPeriodFilter
+        )
     }
 
     Scaffold { paddingValues ->
-        ConstraintLayout(
+        Column(
             modifier = Modifier
-                .fillMaxSize()
                 .padding(paddingValues)
+                .fillMaxSize()
+                .padding(12.dp)
         ) {
-            val (searchBar, shadow, hintsChips, historyList, list) = createRefs()
             val scrollState = rememberLazyListState()
 
             SearchBar(
                 modifier = Modifier
-                    .padding(start = 8.dp, end = 8.dp, top = 16.dp)
-                    .constrainAs(searchBar) {
-                        start.linkTo(parent.start)
-                        end.linkTo(parent.end)
-                        top.linkTo(parent.top)
-                        width = Dimension.fillToConstraints
-                    },
+                    .fillMaxWidth(),
                 query = query,
                 onQueryChange = {
                     setQueryValue(it)
@@ -200,9 +150,6 @@ fun SearchScreen(
             AnimatedVisibility(
                 modifier = Modifier
                     .zIndex(1f)
-                    .constrainAs(shadow) {
-                        top.linkTo(searchBar.bottom)
-                    }
                     .padding(top = 8.dp),
                 visible = !scrollState.isScrollInInitialState(),
                 enter = fadeIn(animationSpec = tween(durationMillis = 300)),
@@ -211,135 +158,116 @@ fun SearchScreen(
                 BottomShadow()
             }
 
-            Box(modifier = Modifier
-                .constrainAs(hintsChips) {
-                    start.linkTo(parent.start)
-                    end.linkTo(parent.end)
-                    top.linkTo(searchBar.bottom)
-                    width = Dimension.fillToConstraints
-                }
-                .padding(top = 16.dp)) {
-                AnimatedVisibility(
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                    visible = isVisibleHints,
-                    enter = fadeIn(
-                        animationSpec = tween(
-                            durationMillis = 500,
-                            delayMillis = 100
-                        )
-                    ) + slideInVertically(
-                        animationSpec = tween(
-                            durationMillis = animationSlideTime, delayMillis = 100
-                        )
-                    ),
-                    exit = fadeOut(animationSpec = tween(durationMillis = 150)) + slideOutVertically(
-                        animationSpec = tween(durationMillis = animationSlideTime)
+
+            AnimatedVisibility(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                visible = isVisibleHints,
+                enter = fadeIn(
+                    animationSpec = tween(
+                        durationMillis = 500,
+                        delayMillis = 100
                     )
+                ) + slideInVertically(
+                    animationSpec = tween(
+                        durationMillis = animationSlideTime, delayMillis = 100
+                    )
+                ),
+                exit = fadeOut(animationSpec = tween(durationMillis = 150)) + slideOutVertically(
+                    animationSpec = tween(durationMillis = animationSlideTime)
+                )
+            ) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        hints.forEach { s ->
-                            AssistChip(onClick = {
-                                if (s.contains(query.text)) {
-                                    setQueryValue(TextFieldValue(s))
-                                } else {
-                                    setQueryValue(TextFieldValue("${query.text} $s"))
-                                }
-                            }, label = {
-                                Box(
-                                    modifier = Modifier.wrapContentSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(text = s.trim())
-                                }
-                            })
-                        }
+                    hints.forEach { s ->
+                        AssistChip(onClick = {
+                            if (s.contains(query.text)) {
+                                setQueryValue(TextFieldValue(s))
+                            } else {
+                                setQueryValue(TextFieldValue("${query.text} $s"))
+                            }
+                        }, label = {
+                            Box(
+                                modifier = Modifier.wrapContentSize().padding(4.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(text = s.trim(), style = hintStyle)
+                            }
+                        })
                     }
                 }
+
             }
-            Box(modifier = Modifier.constrainAs(historyList) {
-                start.linkTo(parent.start)
-                end.linkTo(parent.end)
-                top.linkTo(anchor = hintsChips.bottom)
-                bottom.linkTo(parent.bottom)
-                height = Dimension.fillToConstraints
-            }) {
-                AnimatedVisibility(
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                    visible = isVisibleHistory,
-                    enter = fadeIn(
-                        animationSpec = tween(
-                            durationMillis = 500,
-                            delayMillis = 300
-                        )
-                    ) + slideInVertically(
-                        animationSpec = tween(
-                            durationMillis = animationSlideTime, delayMillis = 300
-                        )
-                    ),
-                    exit = fadeOut(animationSpec = tween(durationMillis = 150)) + slideOutVertically(
-                        animationSpec = tween(durationMillis = animationSlideTime)
+            AnimatedVisibility(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                visible = isVisibleHistory,
+                enter = fadeIn(
+                    animationSpec = tween(
+                        durationMillis = 500,
+                        delayMillis = 300
                     )
-                ) {
-                    HistoryResponse(
-                        searchHistoryList,
-                        scrollState,
-                        removeHistoryResponse,
-                        setQueryValue
+                ) + slideInVertically(
+                    animationSpec = tween(
+                        durationMillis = animationSlideTime, delayMillis = 300
                     )
-                }
+                ),
+                exit = fadeOut(animationSpec = tween(durationMillis = 150)) + slideOutVertically(
+                    animationSpec = tween(durationMillis = animationSlideTime)
+                )
+            ) {
+                HistoryResponse(
+                    searchHistoryList,
+                    scrollState,
+                    removeHistoryResponse,
+                    setQueryValue
+                )
             }
 
-            Box(modifier = Modifier
-                .constrainAs(list) {
-                    start.linkTo(parent.start)
-                    end.linkTo(parent.end)
-                    top.linkTo(searchBar.bottom)
-                    bottom.linkTo(parent.bottom)
-                    height = Dimension.fillToConstraints
-                }
-                .padding(top = 8.dp)) {
-                AnimatedVisibility(
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                    visible = isVisibleResult,
-                    enter = fadeIn(
-                        animationSpec = tween(
-                            durationMillis = 200,
-                            delayMillis = 200
-                        )
-                    ) + slideInVertically(
-                        initialOffsetY = { it / 2 }, animationSpec = tween(
-                            durationMillis = animationSlideTime, delayMillis = 200
-                        )
-                    ),
-                    exit = fadeOut(
-                        animationSpec = tween(
-                            durationMillis = 200,
-                            delayMillis = 100
-                        )
-                    ) + slideOutVertically(
-                        targetOffsetY = { it / 2 }, animationSpec = tween(
-                            durationMillis = animationSlideTime, delayMillis = 100
-                        )
+
+
+            AnimatedVisibility(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                visible = isVisibleResult,
+                enter = fadeIn(
+                    animationSpec = tween(
+                        durationMillis = 200,
+                        delayMillis = 200
                     )
+                ) + slideInVertically(
+                    initialOffsetY = { it / 2 }, animationSpec = tween(
+                        durationMillis = animationSlideTime, delayMillis = 200
+                    )
+                ),
+                exit = fadeOut(
+                    animationSpec = tween(
+                        durationMillis = 200,
+                        delayMillis = 100
+                    )
+                ) + slideOutVertically(
+                    targetOffsetY = { it / 2 }, animationSpec = tween(
+                        durationMillis = animationSlideTime, delayMillis = 100
+                    )
+                )
+            ) {
+                LazyColumn(
+                    verticalArrangement = Arrangement.Top, state = scrollState
                 ) {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.Top, state = scrollState
-                    ) {
-                        if (searchResultList.isEmpty()) {
-                            item {
-                                ItemEmptyList()
-                            }
-                        } else {
-                            items(searchResultList) { route ->
-                                SearchListItem(
-                                    route = route,
-                                    searchTag = SearchTag.BASIC_DATA, // TODO,
-                                    searchValue = query.text
-                                ) {
-                                    onRouteClick(route.basicData)
-                                }
+                    if (searchResultList.isEmpty()) {
+                        item {
+                            ItemEmptyList()
+                        }
+                    } else {
+                        items(searchResultList) { route ->
+                            SearchListItem(
+                                route = route.first,
+                                searchTag = route.second,
+                                searchValue = query.text
+                            ) {
+                                onRouteClick(route.first.basicData)
                             }
                         }
                     }
@@ -373,11 +301,11 @@ fun HistoryItem(request: String, removeOnClick: () -> Unit, itemOnClick: () -> U
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 8.dp, top = 8.dp)
+                .padding(top = 8.dp)
                 .clickable { itemOnClick.invoke() }, verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                painterResource(id = com.z_company.core.R.drawable.ic_star_border),
+                painterResource(id = R.drawable.outline_history_24),
                 contentDescription = null
             )
             Text(
@@ -406,7 +334,7 @@ private fun SearchListItem(
 
     Column(modifier = Modifier
         .fillMaxWidth()
-        .padding(start = 32.dp, end = 32.dp, top = 16.dp)
+        .padding(start = 24.dp, end = 12.dp, top = 16.dp)
         .clickable {
             onClick.invoke()
         }) {
@@ -472,14 +400,14 @@ private fun SearchListItem(
                 val values = searchValue.trim().splitBySpaceAndComma()
                 values.forEach { value ->
                     var firstIndex = shownText.indexOf(value, 0, true)
-                    while (firstIndex != -1) {
-                        addStyle(
-                            style = SpanStyle(background = Color.Yellow),
-                            start = firstIndex,
-                            end = firstIndex + value.length
-                        )
-                        firstIndex = shownText.indexOf(value, firstIndex + 1)
-                    }
+//                    while (firstIndex != -1) {
+//                        addStyle(
+//                            style = SpanStyle(background = Color.Yellow),
+//                            start = firstIndex,
+//                            end = firstIndex + value.length
+//                        )
+//                        firstIndex = shownText.indexOf(value, firstIndex + 1)
+//                    }
                 }
             }
 

@@ -14,12 +14,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
+import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
+import com.z_company.core.ui.theme.transparentColorForTextField
 import com.z_company.route.R
 
 @Composable
@@ -38,7 +41,7 @@ fun SearchTextField(
 
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    TextField(
+    OutlinedTextField(
         value = query,
         onValueChange = onQueryChange,
         modifier = modifier
@@ -54,7 +57,7 @@ fun SearchTextField(
             )
         },
         textStyle = AppTypography.getType().bodyLarge.copy(color = MaterialTheme.colorScheme.primary),
-//            colors = transparentColorForTextField(),
+        colors = transparentColorForTextField(),
         leadingIcon = {
             IconButton(onClick = {
                 focusManager.clearFocus()
@@ -95,6 +98,7 @@ fun SearchTextField(
                 onSearch.invoke()
                 focusManager.clearFocus()
             }
-        )
+        ),
+        shape = Shapes.medium
     )
 }

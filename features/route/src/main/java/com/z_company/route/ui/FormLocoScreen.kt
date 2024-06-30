@@ -72,7 +72,7 @@ import com.z_company.domain.util.CalculationEnergy
 import com.z_company.domain.util.str
 import com.z_company.core.R as CoreR
 import com.z_company.route.component.BottomShadow
-import com.z_company.route.component.DatePickerDialog
+import com.z_company.route.component.CustomDatePickerDialog
 import com.z_company.route.component.DieselSectionItem
 import com.z_company.route.component.TimePickerDialog
 import com.z_company.route.extention.isScrollInInitialState
@@ -409,7 +409,7 @@ private fun LocoFormScreenContent(
             }
 
             if (showStartAcceptedDatePicker) {
-                DatePickerDialog(
+                CustomDatePickerDialog(
                     datePickerState = startAcceptedDatePickerState,
                     onDismissRequest = {
                         showStartAcceptedDatePicker = false
@@ -419,10 +419,6 @@ private fun LocoFormScreenContent(
                         showStartAcceptedTimePicker = true
                         startAcceptedCalendar.timeInMillis =
                             startAcceptedDatePickerState.selectedDateMillis!!
-                    },
-                    onClearRequest = {
-                        showStartAcceptedDatePicker = false
-                        onStartAcceptedTimeChanged(null)
                     }
                 )
             }
@@ -474,7 +470,7 @@ private fun LocoFormScreenContent(
             }
 
             if (showEndAcceptedDatePicker) {
-                DatePickerDialog(
+                CustomDatePickerDialog(
                     datePickerState = endAcceptedDatePickerState,
                     onDismissRequest = {
                         showEndAcceptedDatePicker = false
@@ -484,10 +480,6 @@ private fun LocoFormScreenContent(
                         showEndAcceptedTimePicker = true
                         endAcceptedCalendar.timeInMillis =
                             endAcceptedDatePickerState.selectedDateMillis!!
-                    },
-                    onClearRequest = {
-                        showEndAcceptedDatePicker = false
-                        onEndAcceptedTimeChanged(null)
                     }
                 )
             }
@@ -618,7 +610,7 @@ private fun LocoFormScreenContent(
             }
 
             if (showStartDeliveryDatePicker) {
-                DatePickerDialog(
+                CustomDatePickerDialog(
                     datePickerState = startDeliveryDatePickerState,
                     onDismissRequest = {
                         showStartDeliveryDatePicker = false
@@ -628,10 +620,6 @@ private fun LocoFormScreenContent(
                         showStartDeliveryTimePicker = true
                         startDeliveryCalendar.timeInMillis =
                             startDeliveryDatePickerState.selectedDateMillis!!
-                    },
-                    onClearRequest = {
-                        showStartDeliveryDatePicker = false
-                        onStartDeliveryTimeChanged(null)
                     }
                 )
             }
@@ -683,7 +671,7 @@ private fun LocoFormScreenContent(
             }
 
             if (showEndDeliveryDatePicker) {
-                DatePickerDialog(
+                CustomDatePickerDialog(
                     datePickerState = endDeliveryDatePickerState,
                     onDismissRequest = {
                         showEndDeliveryDatePicker = false
@@ -693,10 +681,6 @@ private fun LocoFormScreenContent(
                         showEndDeliveryTimePicker = true
                         endDeliveryCalendar.timeInMillis =
                             endDeliveryDatePickerState.selectedDateMillis!!
-                    },
-                    onClearRequest = {
-                        showEndDeliveryDatePicker = false
-                        onEndDeliveryTimeChanged(null)
                     }
                 )
             }
