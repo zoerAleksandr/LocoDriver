@@ -1,10 +1,15 @@
 package com.z_company.domain.entities.route
 
+import com.z_company.domain.entities.TimePeriod
 import com.z_company.domain.util.div
 import com.z_company.domain.util.lessThan
 import com.z_company.domain.util.minus
 import com.z_company.domain.util.moreThan
 import com.z_company.domain.util.plus
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
 
 object UtilsForEntities {
     fun Route.getWorkTime(): Long? {
@@ -103,9 +108,49 @@ object UtilsForEntities {
             }
         }
         var homeRest = (totalWorkTime * 2.6 - totalRestTime).toLong()
-        if (homeRest.lessThan(minTimeHomeRest)){
+        if (homeRest.lessThan(minTimeHomeRest)) {
             homeRest = minTimeHomeRest ?: 0L
         }
         return routeChain.last().basicData.timeEndWork + homeRest
+    }
+
+    fun Route.inTimePeriod(period: TimePeriod): Boolean {
+//        val startLocalDateTime: LocalDateTime? =
+//            this.basicData.timeStartWork?.let {
+//                LocalDateTime.ofInstant(Instant.ofEpochMilli(it), ZoneId.systemDefault())
+//            }
+//
+//        val startLocalDate: LocalDate? =
+//            startLocalDateTime?.let { dateTime ->
+//                LocalDate.of(dateTime.year, dateTime.month, dateTime.dayOfMonth)
+//            }
+//
+//        val endLocalDateTime: LocalDateTime? =
+//            this.basicData.timeEndWork?.let {
+//                LocalDateTime.ofInstant(Instant.ofEpochMilli(it), ZoneId.systemDefault())
+//            }
+//
+//        val endLocalDate: LocalDate? =
+//            endLocalDateTime?.let { dateTime ->
+//                LocalDate.of(dateTime.year, dateTime.month, dateTime.dayOfMonth)
+//            }
+
+
+        period.startDate?.let { startDateInFilter ->
+            this.basicData.timeStartWork?.let { currentDate ->
+                if (currentDate < startDateInFilter) {
+                    return false
+                }
+            }
+        }
+
+        period.endDate?.let { endDateInFilter ->
+            this.basicData.timeEndWork?.let { currentDate ->
+                if (currentDate > endDateInFilter) {
+                    return false
+                }
+            }
+        }
+        return true
     }
 }

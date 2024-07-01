@@ -1,4 +1,7 @@
-package com.z_company.route.ui
+package com.z_company.domain.entities
+
+import com.z_company.core.ErrorEntity
+import com.z_company.domain.entities.route.Route
 
 data class FilterSearch(
     val generalData: Pair<String, Boolean> = Pair(FilterNames.GENERAL_DATA.value, true),
@@ -24,4 +27,13 @@ data class TimePeriod(
 
 enum class SearchTag {
     BASIC_DATA, LOCO, TRAIN, PASSENGER, NOTES
+}
+
+data class RouteWithTag(val tag: SearchTag, val route: Route)
+
+sealed class SearchStateScreen<out T> {
+    data class Input(val hints: List<String>): SearchStateScreen<Nothing>()
+    data class Loading(val msg: String? = null) : SearchStateScreen<Nothing>()
+    data class Success<out R>(val data: R?) : SearchStateScreen<R>()
+    data class Failure(val entity: ErrorEntity) : SearchStateScreen<Nothing>()
 }

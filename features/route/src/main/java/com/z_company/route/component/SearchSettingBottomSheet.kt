@@ -15,9 +15,9 @@ import androidx.compose.ui.unit.dp
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.DateAndTimeConverter
-import com.z_company.route.ui.FilterNames
-import com.z_company.route.ui.FilterSearch
-import com.z_company.route.ui.TimePeriod
+import com.z_company.domain.entities.FilterNames
+import com.z_company.domain.entities.FilterSearch
+import com.z_company.domain.entities.TimePeriod
 
 @OptIn(
     ExperimentalLayoutApi::class,

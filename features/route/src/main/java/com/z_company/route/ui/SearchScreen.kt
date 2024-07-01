@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.tween
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
@@ -42,17 +44,25 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import com.z_company.core.ui.component.SearchAsyncData
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.DateAndTimeFormat
-import com.z_company.core.util.splitBySpaceAndComma
+import com.z_company.domain.entities.FilterSearch
+import com.z_company.domain.entities.RouteWithTag
+import com.z_company.domain.entities.SearchStateScreen
+import com.z_company.domain.entities.SearchTag
+import com.z_company.domain.entities.TimePeriod
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.util.splitBySpaceAndComma
 import com.z_company.route.R
 import com.z_company.route.component.BottomShadow
 import com.z_company.route.component.SearchSettingBottomSheet
@@ -83,10 +93,11 @@ fun SearchScreen(
     isVisibleHistory: Boolean,
     isVisibleResult: Boolean,
     hints: List<String>,
-    searchResultList: List<Pair<Route, SearchTag>>,
+    searchState: SearchStateScreen<List<RouteWithTag>?>,
     onRouteClick: (BasicData) -> Unit,
     searchHistoryList: List<String>,
-    removeHistoryResponse: (String) -> Unit
+    removeHistoryResponse: (String) -> Unit,
+    setPreliminarySearch: (Boolean) -> Unit
 ) {
     val scope = rememberCoroutineScope()
     var openBottomSheet by rememberSaveable { mutableStateOf(false) }
@@ -141,12 +152,12 @@ fun SearchScreen(
                 },
                 onBack = onBack,
                 onSearch = {
+                    setPreliminarySearch(false)
                     sendRequest(query.text)
                     addResponse(query.text)
                 },
                 openSetting = { openBottomSheet = true }
             )
-
             AnimatedVisibility(
                 modifier = Modifier
                     .zIndex(1f)
@@ -157,49 +168,57 @@ fun SearchScreen(
             ) {
                 BottomShadow()
             }
-
-
-            AnimatedVisibility(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                visible = isVisibleHints,
-                enter = fadeIn(
-                    animationSpec = tween(
-                        durationMillis = 500,
-                        delayMillis = 100
-                    )
-                ) + slideInVertically(
-                    animationSpec = tween(
-                        durationMillis = animationSlideTime, delayMillis = 100
-                    )
-                ),
-                exit = fadeOut(animationSpec = tween(durationMillis = 150)) + slideOutVertically(
-                    animationSpec = tween(durationMillis = animationSlideTime)
-                )
-            ) {
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    hints.forEach { s ->
-                        AssistChip(onClick = {
-                            if (s.contains(query.text)) {
-                                setQueryValue(TextFieldValue(s))
-                            } else {
-                                setQueryValue(TextFieldValue("${query.text} $s"))
+            SearchAsyncData(
+                resultState = searchState,
+                inputContent = {
+                    FlowRow(
+                        modifier = Modifier
+                            .height(50.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        hints.forEach { s ->
+                            AssistChip(onClick = {
+                                if (s.contains(query.text)) {
+                                    setQueryValue(TextFieldValue(s))
+                                } else {
+                                    setQueryValue(TextFieldValue("${query.text} $s"))
+                                }
+                            }, label = {
+                                Box(
+                                    modifier = Modifier
+                                        .wrapContentSize()
+                                        .padding(4.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(text = s.trim(), style = hintStyle)
+                                }
+                            })
+                        }
+                    }
+                }) { resultList ->
+                resultList?.let { list ->
+                    LazyColumn(
+                        verticalArrangement = Arrangement.Top, state = scrollState
+                    ) {
+                        if (list.isEmpty()) {
+                            item {
+                                ItemEmptyList()
                             }
-                        }, label = {
-                            Box(
-                                modifier = Modifier.wrapContentSize().padding(4.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(text = s.trim(), style = hintStyle)
+                        } else {
+                            items(list) { route ->
+                                SearchListItem(
+                                    route = route.route,
+                                    searchTag = route.tag,
+                                    searchValue = query.text
+                                ) {
+                                    onRouteClick(route.route.basicData)
+                                }
                             }
-                        })
+                        }
                     }
                 }
-
             }
+
             AnimatedVisibility(
                 modifier = Modifier
                     .fillMaxWidth(),
@@ -224,54 +243,6 @@ fun SearchScreen(
                     removeHistoryResponse,
                     setQueryValue
                 )
-            }
-
-
-
-            AnimatedVisibility(
-                modifier = Modifier
-                    .fillMaxWidth(),
-                visible = isVisibleResult,
-                enter = fadeIn(
-                    animationSpec = tween(
-                        durationMillis = 200,
-                        delayMillis = 200
-                    )
-                ) + slideInVertically(
-                    initialOffsetY = { it / 2 }, animationSpec = tween(
-                        durationMillis = animationSlideTime, delayMillis = 200
-                    )
-                ),
-                exit = fadeOut(
-                    animationSpec = tween(
-                        durationMillis = 200,
-                        delayMillis = 100
-                    )
-                ) + slideOutVertically(
-                    targetOffsetY = { it / 2 }, animationSpec = tween(
-                        durationMillis = animationSlideTime, delayMillis = 100
-                    )
-                )
-            ) {
-                LazyColumn(
-                    verticalArrangement = Arrangement.Top, state = scrollState
-                ) {
-                    if (searchResultList.isEmpty()) {
-                        item {
-                            ItemEmptyList()
-                        }
-                    } else {
-                        items(searchResultList) { route ->
-                            SearchListItem(
-                                route = route.first,
-                                searchTag = route.second,
-                                searchValue = query.text
-                            ) {
-                                onRouteClick(route.first.basicData)
-                            }
-                        }
-                    }
-                }
             }
         }
     }
@@ -399,15 +370,17 @@ private fun SearchListItem(
 
                 val values = searchValue.trim().splitBySpaceAndComma()
                 values.forEach { value ->
-                    var firstIndex = shownText.indexOf(value, 0, true)
-//                    while (firstIndex != -1) {
-//                        addStyle(
-//                            style = SpanStyle(background = Color.Yellow),
-//                            start = firstIndex,
-//                            end = firstIndex + value.length
-//                        )
-//                        firstIndex = shownText.indexOf(value, firstIndex + 1)
-//                    }
+                    if (value.isNotEmpty()) {
+                        var firstIndex = shownText.indexOf(value, 0, true)
+                        while (firstIndex != -1) {
+                            addStyle(
+                                style = SpanStyle(background = Color.Yellow),
+                                start = firstIndex,
+                                end = firstIndex + value.length
+                            )
+                            firstIndex = shownText.indexOf(value, firstIndex + 1)
+                        }
+                    }
                 }
             }
 

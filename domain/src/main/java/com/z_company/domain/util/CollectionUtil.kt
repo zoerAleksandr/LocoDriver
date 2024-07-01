@@ -50,3 +50,17 @@ fun <T> MutableList<T>.addAllOrSkip(collection: MutableCollection<T>) {
         }
     }
 }
+
+fun <T> List<T>.safetySubList(fromIndex: Int, toIndex: Int): List<T>{
+    if (this.isEmpty()){
+        return this
+    }
+
+    val lastIndex = if (this.size > toIndex){
+        toIndex
+    } else {
+        this.size
+    }
+
+    return this.subList(fromIndex, lastIndex)
+}

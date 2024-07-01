@@ -26,9 +26,10 @@ fun SearchDestination(router: Router) {
         isVisibleHistory = uiState.isVisibleHistory,
         isVisibleResult = uiState.isVisibleResult,
         hints = uiState.hints,
-        searchResultList = uiState.searchResultList,
+        searchState = uiState.searchState,
         onRouteClick = router::showRouteDetails,
         searchHistoryList = uiState.searchHistoryList,
-        removeHistoryResponse = viewModel::removeHistoryResponse
+        removeHistoryResponse = viewModel::removeHistoryResponse,
+        setPreliminarySearch = viewModel::setPreliminarySearch
     )
 }

@@ -1,62 +1,90 @@
 package com.z_company.route.viewmodel
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.z_company.route.ui.FilterNames
-import com.z_company.route.ui.FilterSearch
-import com.z_company.route.ui.TimePeriod
+import com.z_company.core.ResultState
+import com.z_company.domain.entities.FilterNames
+import com.z_company.domain.entities.FilterSearch
+import com.z_company.domain.entities.SearchStateScreen
+import com.z_company.domain.entities.TimePeriod
+import com.z_company.domain.use_cases.SearchRouteUseCase
+import com.z_company.domain.util.safetySubList
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
-class SearchViewModel: ViewModel() {
+private const val COUNT_HINTS = 5
+
+class SearchViewModel : ViewModel(), KoinComponent {
+    private val searchRouteUseCase: SearchRouteUseCase by inject()
     private val _uiState = MutableStateFlow(SearchUIState())
     val uiState = _uiState.asStateFlow()
     var query by mutableStateOf(TextFieldValue(""))
         private set
 
+    fun setPreliminarySearch(value: Boolean){
+        _uiState.update {
+            it.copy(
+                preliminarySearch = value
+            )
+        }
+    }
     fun sendRequest(value: String) {
         val correctValue = value.trim()
         if (correctValue.isNotEmpty()) {
             viewModelScope.launch {
-//                searchRouteUseCase.execute(correctValue, searchFilter, preliminarySearch)
-//                    .collect { result ->
-//                        searchState.value = result
-//                        if (result is SearchStateScreen.Input) {
-//                            hintsList.clear()
-//                            val resultList: MutableList<String> = result.hints
-//                                .toMutableList()
-//                            resultList.removeAll { it.isBlank() }
-//                            val newList = resultList.safetySubList(0, COUNT_HINTS)
-//
-//                            hintsList.addAll(newList)
-//                        }
-//                        if (result is SearchStateScreen.Success) {
-//                            resultList.clear()
-//                            result.data?.let {
-//                                resultList.addAll(it)
-//                            }
-//                        }
-//                    }
+                searchRouteUseCase.searchRoute(
+                    correctValue,
+                    uiState.value.searchFilter,
+                    uiState.value.preliminarySearch
+                ).collect { result ->
+                    if (result is SearchStateScreen.Input) {
+                        val resultList: MutableList<String> = result.hints
+                            .toMutableList()
+                        resultList.removeAll { it.isBlank() }
+                        val newList = resultList.safetySubList(0, COUNT_HINTS)
+                        _uiState.update {
+                            it.copy(
+                                isVisibleHints = true,
+                                searchState = result,
+                                hints = newList
+                            )
+                        }
+                    }
+                    if (result is SearchStateScreen.Success) {
+                        _uiState.update {
+                            it.copy(
+                                isVisibleHints = false,
+                                isVisibleResult = true,
+                                searchState = result
+                            )
+                        }
+                    }
+                }
             }
         } else {
-//            searchState.value = SearchStateScreen.Success(null)
+            _uiState.update {
+                it.copy(
+                    searchState = SearchStateScreen.Success(null)
+                )
+            }
         }
     }
-
-    fun clearFilter(){
+    fun clearFilter() {
         _uiState.update {
             it.copy(
                 searchFilter = FilterSearch()
             )
         }
     }
-
     fun setSearchFilter(pair: Pair<String, Boolean>) {
         when (pair.first) {
             FilterNames.GENERAL_DATA.value -> {
@@ -68,6 +96,7 @@ class SearchViewModel: ViewModel() {
                     )
                 }
             }
+
             FilterNames.LOCO_DATA.value -> {
                 _uiState.update {
                     it.copy(
@@ -77,6 +106,7 @@ class SearchViewModel: ViewModel() {
                     )
                 }
             }
+
             FilterNames.TRAIN_DATA.value -> {
                 _uiState.update {
                     it.copy(
@@ -86,6 +116,7 @@ class SearchViewModel: ViewModel() {
                     )
                 }
             }
+
             FilterNames.PASSENGER_DATA.value -> {
                 _uiState.update {
                     it.copy(
@@ -95,6 +126,7 @@ class SearchViewModel: ViewModel() {
                     )
                 }
             }
+
             FilterNames.NOTES_DATA.value -> {
                 _uiState.update {
                     it.copy(
@@ -106,7 +138,6 @@ class SearchViewModel: ViewModel() {
             }
         }
     }
-
     fun setPeriodFilter(timePeriod: TimePeriod) {
         _uiState.update {
             it.copy(
@@ -135,13 +166,16 @@ class SearchViewModel: ViewModel() {
 //                if (result == ResultState.Success(true)) {
 //                    historyList.remove(response)
 //                }
-//
 //            }
         }
     }
 
     fun setQueryValue(newValue: TextFieldValue) {
-//        preliminarySearch = true
+        _uiState.update {
+            it.copy(
+                preliminarySearch = true
+            )
+        }
         query = newValue
         sendRequest(query.text)
     }

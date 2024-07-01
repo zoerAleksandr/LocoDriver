@@ -21,4 +21,6 @@ val useCaseModule = module {
     single { SettingsUseCase(settingsRepository = get()) }
 
     single { RemoteRouteUseCase(repository = get()) }
+
+    single { SearchRouteUseCase(repository = get()) }
 }
