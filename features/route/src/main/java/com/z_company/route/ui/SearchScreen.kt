@@ -1,6 +1,5 @@
 package com.z_company.route.ui
 
-import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.tween
@@ -8,6 +7,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
@@ -62,6 +61,7 @@ import com.z_company.domain.entities.SearchTag
 import com.z_company.domain.entities.TimePeriod
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.SearchResponse
 import com.z_company.domain.util.splitBySpaceAndComma
 import com.z_company.route.R
 import com.z_company.route.component.BottomShadow
@@ -84,20 +84,17 @@ fun SearchScreen(
     query: TextFieldValue,
     onBack: () -> Unit,
     sendRequest: (String) -> Unit,
-    addResponse: (String) -> Unit,
     clearFilter: () -> Unit,
     setSearchFilter: (Pair<String, Boolean>) -> Unit,
     setPeriodFilter: (TimePeriod) -> Unit,
     searchFilter: FilterSearch,
-    isVisibleHints: Boolean,
     isVisibleHistory: Boolean,
-    isVisibleResult: Boolean,
     hints: List<String>,
     searchState: SearchStateScreen<List<RouteWithTag>?>,
     onRouteClick: (BasicData) -> Unit,
-    searchHistoryList: List<String>,
+    searchHistoryList: List<SearchResponse>,
     removeHistoryResponse: (String) -> Unit,
-    setPreliminarySearch: (Boolean) -> Unit
+    onSearch: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     var openBottomSheet by rememberSaveable { mutableStateOf(false) }
@@ -151,11 +148,7 @@ fun SearchScreen(
                     }
                 },
                 onBack = onBack,
-                onSearch = {
-                    setPreliminarySearch(false)
-                    sendRequest(query.text)
-                    addResponse(query.text)
-                },
+                onSearch = onSearch,
                 openSetting = { openBottomSheet = true }
             )
             AnimatedVisibility(
@@ -172,8 +165,7 @@ fun SearchScreen(
                 resultState = searchState,
                 inputContent = {
                     FlowRow(
-                        modifier = Modifier
-                            .height(50.dp),
+                        modifier = Modifier.padding(top = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         hints.forEach { s ->
@@ -241,16 +233,20 @@ fun SearchScreen(
                     searchHistoryList,
                     scrollState,
                     removeHistoryResponse,
-                    setQueryValue
+                    itemOnClick = {
+                        setQueryValue(it)
+                        onSearch()
+                    }
                 )
             }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HistoryResponse(
-    historyList: List<String>,
+    historyList: List<SearchResponse>,
     scrollState: LazyListState,
     removeFromList: (String) -> Unit,
     itemOnClick: (TextFieldValue) -> Unit
@@ -259,16 +255,18 @@ fun HistoryResponse(
         modifier = Modifier.fillMaxWidth(), state = scrollState
     ) {
         items(historyList) { request ->
-            HistoryItem(request = request,
-                removeOnClick = { removeFromList.invoke(request) },
-                itemOnClick = { itemOnClick.invoke(TextFieldValue(request)) })
+            HistoryItem(
+                modifier = Modifier.animateItemPlacement(),
+                request = request.responseText,
+                removeOnClick = { removeFromList.invoke(request.responseText) },
+                itemOnClick = { itemOnClick.invoke(TextFieldValue(request.responseText)) })
         }
     }
 }
 
 @Composable
-fun HistoryItem(request: String, removeOnClick: () -> Unit, itemOnClick: () -> Unit) {
-    Column {
+fun HistoryItem(modifier: Modifier, request: String, removeOnClick: () -> Unit, itemOnClick: () -> Unit) {
+    Column(modifier = modifier) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()

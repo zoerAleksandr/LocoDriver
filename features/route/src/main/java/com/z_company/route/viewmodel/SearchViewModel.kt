@@ -1,9 +1,9 @@
 package com.z_company.route.viewmodel
 
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -12,6 +12,8 @@ import com.z_company.domain.entities.FilterNames
 import com.z_company.domain.entities.FilterSearch
 import com.z_company.domain.entities.SearchStateScreen
 import com.z_company.domain.entities.TimePeriod
+import com.z_company.domain.entities.route.SearchResponse
+import com.z_company.domain.repositories.HistoryResponseRepository
 import com.z_company.domain.use_cases.SearchRouteUseCase
 import com.z_company.domain.util.safetySubList
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,18 +27,22 @@ private const val COUNT_HINTS = 5
 
 class SearchViewModel : ViewModel(), KoinComponent {
     private val searchRouteUseCase: SearchRouteUseCase by inject()
+    private val historyRepository: HistoryResponseRepository by inject()
+
     private val _uiState = MutableStateFlow(SearchUIState())
     val uiState = _uiState.asStateFlow()
+
     var query by mutableStateOf(TextFieldValue(""))
         private set
 
-    fun setPreliminarySearch(value: Boolean){
+    private fun setPreliminarySearch(value: Boolean) {
         _uiState.update {
             it.copy(
                 preliminarySearch = value
             )
         }
     }
+
     fun sendRequest(value: String) {
         val correctValue = value.trim()
         if (correctValue.isNotEmpty()) {
@@ -53,6 +59,7 @@ class SearchViewModel : ViewModel(), KoinComponent {
                         val newList = resultList.safetySubList(0, COUNT_HINTS)
                         _uiState.update {
                             it.copy(
+                                isVisibleHistory = true,
                                 isVisibleHints = true,
                                 searchState = result,
                                 hints = newList
@@ -62,6 +69,7 @@ class SearchViewModel : ViewModel(), KoinComponent {
                     if (result is SearchStateScreen.Success) {
                         _uiState.update {
                             it.copy(
+                                isVisibleHistory = false,
                                 isVisibleHints = false,
                                 isVisibleResult = true,
                                 searchState = result
@@ -73,11 +81,13 @@ class SearchViewModel : ViewModel(), KoinComponent {
         } else {
             _uiState.update {
                 it.copy(
-                    searchState = SearchStateScreen.Success(null)
+                    searchState = SearchStateScreen.Success(null),
+                    isVisibleHistory = true
                 )
             }
         }
     }
+
     fun clearFilter() {
         _uiState.update {
             it.copy(
@@ -85,6 +95,7 @@ class SearchViewModel : ViewModel(), KoinComponent {
             )
         }
     }
+
     fun setSearchFilter(pair: Pair<String, Boolean>) {
         when (pair.first) {
             FilterNames.GENERAL_DATA.value -> {
@@ -138,6 +149,7 @@ class SearchViewModel : ViewModel(), KoinComponent {
             }
         }
     }
+
     fun setPeriodFilter(timePeriod: TimePeriod) {
         _uiState.update {
             it.copy(
@@ -147,26 +159,30 @@ class SearchViewModel : ViewModel(), KoinComponent {
             )
         }
     }
+
+    fun onSearch(){
+        setPreliminarySearch(false)
+        sendRequest(query.text)
+        addResponse(query.text)
+    }
+
     fun addResponse(response: String) {
         if (response.isNotEmpty()) {
             val correctResponse = response.trim()
+            val searchResponse = SearchResponse(responseText = correctResponse)
+
             viewModelScope.launch {
-//                historyRepository.addResponse(correctResponse).collect { result ->
-//                    if (result == ResultState.Success(true)) {
-//                        historyList.add(0, correctResponse)
-//                    }
-//                }
+                historyRepository.addResponse(searchResponse).collect { }
             }
         }
     }
 
+
     fun removeHistoryResponse(response: String) {
         viewModelScope.launch {
-//            historyRepository.removeResponse(response).collect { result ->
-//                if (result == ResultState.Success(true)) {
-//                    historyList.remove(response)
-//                }
-//            }
+            historyRepository.removeResponse(SearchResponse(response)).collect { result ->
+
+            }
         }
     }
 
@@ -176,7 +192,21 @@ class SearchViewModel : ViewModel(), KoinComponent {
                 preliminarySearch = true
             )
         }
-        query = newValue
+        query = newValue.copy(selection = TextRange(newValue.text.length))
         sendRequest(query.text)
+    }
+
+    init {
+        viewModelScope.launch {
+            historyRepository.getAllResponse().collect { result ->
+                if (result is ResultState.Success) {
+                    _uiState.update {
+                        it.copy(
+                            searchHistoryList = result.data.asReversed()
+                        )
+                    }
+                }
+            }
+        }
     }
 }

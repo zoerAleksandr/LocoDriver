@@ -11,6 +11,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.*
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -40,7 +41,6 @@ fun SearchTextField(
     val focusManager = LocalFocusManager.current
 
     val keyboardController = LocalSoftwareKeyboardController.current
-
     OutlinedTextField(
         value = query,
         onValueChange = onQueryChange,
@@ -74,7 +74,11 @@ fun SearchTextField(
             Row {
                 when {
                     query.text.isNotEmpty() -> {
-                        IconButton(onClick = onSearch) {
+                        IconButton(onClick = {
+                            onSearch()
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
+                        }) {
                             Icon(
                                 imageVector = Icons.Outlined.Search,
                                 contentDescription = null,

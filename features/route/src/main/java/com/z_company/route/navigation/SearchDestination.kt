@@ -17,19 +17,16 @@ fun SearchDestination(router: Router) {
         query = viewModel.query,
         onBack = router::back,
         sendRequest = viewModel::sendRequest,
-        addResponse = viewModel::addResponse,
         clearFilter = viewModel::clearFilter,
         setSearchFilter = viewModel::setSearchFilter,
         setPeriodFilter = viewModel::setPeriodFilter,
         searchFilter = uiState.searchFilter,
-        isVisibleHints = uiState.isVisibleHints,
         isVisibleHistory = uiState.isVisibleHistory,
-        isVisibleResult = uiState.isVisibleResult,
         hints = uiState.hints,
         searchState = uiState.searchState,
         onRouteClick = router::showRouteDetails,
         searchHistoryList = uiState.searchHistoryList,
         removeHistoryResponse = viewModel::removeHistoryResponse,
-        setPreliminarySearch = viewModel::setPreliminarySearch
+        onSearch = viewModel::onSearch
     )
 }

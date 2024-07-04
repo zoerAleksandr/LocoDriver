@@ -7,15 +7,16 @@ import com.z_company.domain.entities.FilterSearch
 import com.z_company.domain.entities.RouteWithTag
 import com.z_company.domain.entities.SearchStateScreen
 import com.z_company.domain.entities.SearchTag
+import com.z_company.domain.entities.route.SearchResponse
 
 data class SearchUIState(
     val searchState: SearchStateScreen<List<RouteWithTag>?> = SearchStateScreen.Success(null),
     val preliminarySearch: Boolean = false,
     val searchFilter: FilterSearch = FilterSearch(),
-    val isVisibleHistory: Boolean = false,
+    val isVisibleHistory: Boolean = true,
     val isVisibleHints: Boolean = false,
     val isVisibleResult: Boolean = false,
-    val hints: List<String> = mutableListOf("Подсказка1", "Подсказка", "Текст", "Подсказка4"),
+    val hints: List<String> = mutableListOf(),
     val searchResultList: List<RouteWithTag> = mutableListOf(),
-    val searchHistoryList: List<String> = mutableListOf("История1", "История2"),
+    val searchHistoryList: List<SearchResponse> = mutableListOf(),
 )
