@@ -10,6 +10,6 @@ java {
 
 dependencies {
     api(project(Libs.project_core))
-
+//    implementation(project(Libs.project_core_android))
     implementation(Libs.kotlinx_coroutines_core)
 }

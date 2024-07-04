@@ -1,5 +1,6 @@
 package com.z_company.domain.entities.route
 
+import com.z_company.domain.entities.TimePeriod
 import com.z_company.domain.util.div
 import com.z_company.domain.util.lessThan
 import com.z_company.domain.util.minus
@@ -103,9 +104,28 @@ object UtilsForEntities {
             }
         }
         var homeRest = (totalWorkTime * 2.6 - totalRestTime).toLong()
-        if (homeRest.lessThan(minTimeHomeRest)){
+        if (homeRest.lessThan(minTimeHomeRest)) {
             homeRest = minTimeHomeRest ?: 0L
         }
         return routeChain.last().basicData.timeEndWork + homeRest
+    }
+
+    fun Route.inTimePeriod(period: TimePeriod): Boolean {
+        period.startDate?.let { startDateInFilter ->
+            this.basicData.timeStartWork?.let { currentDate ->
+                if (currentDate < startDateInFilter) {
+                    return false
+                }
+            }
+        }
+
+        period.endDate?.let { endDateInFilter ->
+            this.basicData.timeEndWork?.let { currentDate ->
+                if (currentDate > endDateInFilter) {
+                    return false
+                }
+            }
+        }
+        return true
     }
 }

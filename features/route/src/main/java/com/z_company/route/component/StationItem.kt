@@ -261,7 +261,7 @@ fun StationItem(
     }
 
     if (showArrivalDatePicker) {
-        DatePickerDialog(
+        CustomDatePickerDialog(
             datePickerState = arrivalDatePickerState,
             onDismissRequest = {
                 showArrivalDatePicker = false
@@ -270,12 +270,7 @@ fun StationItem(
                 showArrivalDatePicker = false
                 showArrivalTimePicker = true
                 arrivalCalendar.timeInMillis = arrivalDatePickerState.selectedDateMillis!!
-            },
-            onClearRequest = {
-                showArrivalDatePicker = false
-                onArrivalTimeChanged(index, null)
-            }
-        )
+            })
     }
 
     if (showArrivalTimePicker) {
@@ -292,17 +287,13 @@ fun StationItem(
     }
 
     if (showDepartureDatePicker) {
-        DatePickerDialog(
+        CustomDatePickerDialog(
             datePickerState = departureDatePickerState,
             onDismissRequest = { showDepartureDatePicker = false },
             onConfirmRequest = {
                 showDepartureDatePicker = false
                 showDepartureTimePicker = true
                 departureCalendar.timeInMillis = departureDatePickerState.selectedDateMillis!!
-            },
-            onClearRequest = {
-                showDepartureDatePicker = false
-                onDepartureTimeChanged(index, null)
             }
         )
     }

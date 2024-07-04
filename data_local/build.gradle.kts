@@ -35,6 +35,7 @@ android {
 
 dependencies {
     implementation(project(Libs.project_domain))
+    implementation(project(Libs.project_core_android))
 
     implementation(Libs.koin_core)
     implementation(Libs.koin_android)

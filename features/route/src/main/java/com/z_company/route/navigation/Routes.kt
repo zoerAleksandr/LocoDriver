@@ -158,3 +158,4 @@ object ViewingImageRoute: AppRoutes("ViewingImage") {
     fun buildRoute(imageId: String) =
         "$basicRoute/$imageId"
 }
+object SearchRoute: AppRoutes("SearchRoute")

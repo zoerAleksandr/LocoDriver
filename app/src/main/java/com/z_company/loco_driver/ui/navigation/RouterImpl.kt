@@ -18,6 +18,7 @@ import com.z_company.route.navigation.FormRoute
 import com.z_company.route.navigation.FormTrain
 import com.z_company.route.navigation.HomeRoute
 import com.z_company.route.navigation.PreviewPhotoRoute
+import com.z_company.route.navigation.SearchRoute
 import com.z_company.route.navigation.ViewingImageRoute
 import com.z_company.settings.navigation.SelectReleaseDaysScreenRoute
 import com.z_company.settings.navigation.SettingsFeature
@@ -65,7 +66,9 @@ class RouterImpl(
     }
 
     override fun showSearch() {
-        TODO("Not yet implemented")
+        navController.navigate(
+            SearchRoute.route
+        )
     }
 
     override fun back() {

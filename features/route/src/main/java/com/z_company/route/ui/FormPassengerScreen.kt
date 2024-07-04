@@ -73,7 +73,7 @@ import com.z_company.domain.entities.route.Passenger
 import com.z_company.route.component.BottomShadow
 import com.z_company.route.extention.isScrollInInitialState
 import kotlinx.coroutines.launch
-import com.z_company.route.component.DatePickerDialog
+import com.z_company.route.component.CustomDatePickerDialog
 import com.z_company.route.component.TimePickerDialog
 import com.z_company.route.component.rememberDatePickerStateInLocale
 import java.text.SimpleDateFormat
@@ -340,7 +340,7 @@ fun PassengerFormScreenContent(
             }
 
             if (showDepartureDatePicker) {
-                DatePickerDialog(
+                CustomDatePickerDialog(
                     datePickerState = departureDatePickerState,
                     onDismissRequest = { showDepartureDatePicker = false },
                     onConfirmRequest = {
@@ -348,10 +348,6 @@ fun PassengerFormScreenContent(
                         showDepartureTimePicker = true
                         departureCalendar.timeInMillis =
                             departureDatePickerState.selectedDateMillis!!
-                    },
-                    onClearRequest = {
-                        showDepartureDatePicker = false
-                        onTimeDepartureChanged(null)
                     })
             }
 
@@ -480,7 +476,7 @@ fun PassengerFormScreenContent(
             }
 
             if (showArrivalDatePicker) {
-                DatePickerDialog(
+                CustomDatePickerDialog(
                     datePickerState = arrivalDatePickerState,
                     onDismissRequest = { showArrivalDatePicker = false },
                     onConfirmRequest = {
@@ -488,10 +484,6 @@ fun PassengerFormScreenContent(
                         showArrivalTimePicker = true
                         arrivalCalendar.timeInMillis =
                             arrivalDatePickerState.selectedDateMillis!!
-                    },
-                    onClearRequest = {
-                        showArrivalDatePicker = false
-                        onTimeArrivalChanged(null)
                     }
                 )
             }

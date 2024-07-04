@@ -9,7 +9,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import com.z_company.route.component.TimePickerDialog
-import com.z_company.route.component.DatePickerDialog
+import com.z_company.route.component.CustomDatePickerDialog
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -277,15 +277,12 @@ private fun RouteFormScreenContent(
     }
 
     if (showStartDatePicker) {
-        DatePickerDialog(datePickerState = startDatePickerState, onDismissRequest = {
+        CustomDatePickerDialog(datePickerState = startDatePickerState, onDismissRequest = {
             showStartDatePicker = false
         }, onConfirmRequest = {
             showStartDatePicker = false
             showStartTimePicker = true
             startCalendar.timeInMillis = startDatePickerState.selectedDateMillis!!
-        }, onClearRequest = {
-            showStartDatePicker = false
-            onTimeStartWorkChanged(null)
         })
     }
 
@@ -320,15 +317,12 @@ private fun RouteFormScreenContent(
     }
 
     if (showEndDatePicker) {
-        DatePickerDialog(datePickerState = endDatePickerState, onDismissRequest = {
+        CustomDatePickerDialog(datePickerState = endDatePickerState, onDismissRequest = {
             showEndDatePicker = false
         }, onConfirmRequest = {
             showEndDatePicker = false
             showEndTimePicker = true
             endCalendar.timeInMillis = endDatePickerState.selectedDateMillis!!
-        }, onClearRequest = {
-            showEndDatePicker = false
-            onTimeEndWorkChanged(null)
         })
     }
 
