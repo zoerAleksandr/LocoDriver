@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.tween
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,7 +45,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -54,6 +55,7 @@ import com.z_company.core.ui.component.SearchAsyncData
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.DateAndTimeFormat
+import com.z_company.core.util.str
 import com.z_company.domain.entities.FilterSearch
 import com.z_company.domain.entities.RouteWithTag
 import com.z_company.domain.entities.SearchStateScreen
@@ -142,11 +144,6 @@ fun SearchScreen(
                         scrollState.scrollToItem(0)
                     }
                 },
-                onSearchFocusChange = { isFocus ->
-                    if (isFocus) {
-//                        viewModel.searchState.value = SearchStateScreen.Input(hints)
-                    }
-                },
                 onBack = onBack,
                 onSearch = onSearch,
                 openSetting = { openBottomSheet = true }
@@ -169,6 +166,7 @@ fun SearchScreen(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         hints.forEach { s ->
+                            Log.d("ZZZ", "s = $s")
                             AssistChip(onClick = {
                                 if (s.contains(query.text)) {
                                     setQueryValue(TextFieldValue(s))
@@ -286,7 +284,7 @@ fun HistoryItem(modifier: Modifier, request: String, removeOnClick: () -> Unit, 
                 Icon(imageVector = Icons.Default.Close, contentDescription = null)
             }
         }
-        Divider(modifier = Modifier.padding(start = 48.dp, end = 12.dp))
+        HorizontalDivider(modifier = Modifier.padding(start = 48.dp, end = 12.dp))
     }
 }
 
@@ -319,16 +317,16 @@ private fun SearchListItem(
         ) {
             val shownText = when (searchTag) {
                 SearchTag.BASIC_DATA -> {
-                    StringBuilder(route.basicData.toString())
+                    StringBuilder(route.basicData.str())
                 }
 
                 SearchTag.LOCO -> {
                     val text = StringBuilder()
                     route.locomotives.forEachIndexed { index, loco ->
                         if (index == 0) {
-                            text.append("$loco")
+                            text.append(loco.str())
                         } else {
-                            text.append("\n\n$loco")
+                            text.append("\n\n${loco.str()}")
                         }
                     }
                     text
@@ -338,9 +336,9 @@ private fun SearchListItem(
                     val text = StringBuilder()
                     route.trains.forEachIndexed { index, train ->
                         if (index == 0) {
-                            text.append("$train")
+                            text.append(train.str())
                         } else {
-                            text.append("\n\n$train")
+                            text.append("\n\n${train.str()}")
                         }
                     }
                     text
@@ -350,9 +348,9 @@ private fun SearchListItem(
                     val text = StringBuilder()
                     route.passengers.forEachIndexed { index, passenger ->
                         if (index == 0) {
-                            text.append("$passenger")
+                            text.append(passenger.str())
                         } else {
-                            text.append("\n\n$passenger")
+                            text.append("\n\n${passenger.str()}")
                         }
                     }
                     text
@@ -372,7 +370,7 @@ private fun SearchListItem(
                         var firstIndex = shownText.indexOf(value, 0, true)
                         while (firstIndex != -1) {
                             addStyle(
-                                style = SpanStyle(background = Color.Yellow),
+                                style = SpanStyle(background = MaterialTheme.colorScheme.inversePrimary),
                                 start = firstIndex,
                                 end = firstIndex + value.length
                             )
@@ -382,7 +380,7 @@ private fun SearchListItem(
                 }
             }
 
-            Text(text = textWithSelection)
+            Text(text = textWithSelection, style = AppTypography.getType().bodyMedium)
         }
     }
 }

@@ -6,10 +6,6 @@ import com.z_company.domain.util.lessThan
 import com.z_company.domain.util.minus
 import com.z_company.domain.util.moreThan
 import com.z_company.domain.util.plus
-import java.time.Instant
-import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.ZoneId
 
 object UtilsForEntities {
     fun Route.getWorkTime(): Long? {
@@ -115,27 +111,6 @@ object UtilsForEntities {
     }
 
     fun Route.inTimePeriod(period: TimePeriod): Boolean {
-//        val startLocalDateTime: LocalDateTime? =
-//            this.basicData.timeStartWork?.let {
-//                LocalDateTime.ofInstant(Instant.ofEpochMilli(it), ZoneId.systemDefault())
-//            }
-//
-//        val startLocalDate: LocalDate? =
-//            startLocalDateTime?.let { dateTime ->
-//                LocalDate.of(dateTime.year, dateTime.month, dateTime.dayOfMonth)
-//            }
-//
-//        val endLocalDateTime: LocalDateTime? =
-//            this.basicData.timeEndWork?.let {
-//                LocalDateTime.ofInstant(Instant.ofEpochMilli(it), ZoneId.systemDefault())
-//            }
-//
-//        val endLocalDate: LocalDate? =
-//            endLocalDateTime?.let { dateTime ->
-//                LocalDate.of(dateTime.year, dateTime.month, dateTime.dayOfMonth)
-//            }
-
-
         period.startDate?.let { startDateInFilter ->
             this.basicData.timeStartWork?.let { currentDate ->
                 if (currentDate < startDateInFilter) {

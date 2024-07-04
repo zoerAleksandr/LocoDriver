@@ -1,5 +1,6 @@
 package com.z_company.loco_driver.di
 
+import com.z_company.data_local.route.SearchRouteUseCase
 import com.z_company.use_case.AuthUseCase
 import com.z_company.use_case.LoginUseCase
 import com.z_company.domain.repositories.RouteRepository

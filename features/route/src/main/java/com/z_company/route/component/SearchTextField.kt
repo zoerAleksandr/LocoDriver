@@ -31,7 +31,6 @@ fun SearchTextField(
     modifier: Modifier = Modifier,
     query: TextFieldValue,
     onQueryChange: (TextFieldValue) -> Unit,
-    onSearchFocusChange: (Boolean) -> Unit,
     onBack: () -> Unit,
     onSearch: () -> Unit,
     openSetting: () -> Unit
@@ -45,9 +44,6 @@ fun SearchTextField(
         value = query,
         onValueChange = onQueryChange,
         modifier = modifier
-            .onFocusChanged {
-                onSearchFocusChange(it.isFocused)
-            }
             .focusRequester(focusRequester),
         singleLine = true,
         placeholder = {

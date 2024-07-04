@@ -17,7 +17,6 @@ fun SearchBar(
     modifier: Modifier = Modifier,
     query: TextFieldValue,
     onQueryChange: (TextFieldValue) -> Unit,
-    onSearchFocusChange: (Boolean) -> Unit,
     onBack: () -> Unit,
     onSearch: () -> Unit,
     openSetting: () -> Unit
@@ -30,7 +29,6 @@ fun SearchBar(
                 ).fillMaxWidth(),
             query = query,
             onQueryChange = onQueryChange,
-            onSearchFocusChange = onSearchFocusChange,
             onBack = {
                 onBack()
             },

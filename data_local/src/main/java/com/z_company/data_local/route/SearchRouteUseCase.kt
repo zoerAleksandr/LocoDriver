@@ -1,6 +1,7 @@
-package com.z_company.domain.use_cases
+package com.z_company.data_local.route
 
 import com.z_company.core.ResultState
+import com.z_company.core.util.str
 import com.z_company.domain.entities.FilterSearch
 import com.z_company.domain.entities.RouteWithTag
 import com.z_company.domain.entities.SearchStateScreen
@@ -53,13 +54,13 @@ class SearchRouteUseCase(val repository: RouteRepository) {
                                 sortedList.forEach { routeWithTag: RouteWithTag ->
                                     val text = when (routeWithTag.tag) {
                                         SearchTag.BASIC_DATA -> {
-                                            StringBuilder(routeWithTag.route.toString())
+                                            StringBuilder(routeWithTag.route.basicData.str())
                                         }
 
                                         SearchTag.LOCO -> {
                                             val text = StringBuilder()
                                             routeWithTag.route.locomotives.forEach { loco ->
-                                                text.append("$loco ")
+                                                text.append("${loco.str()} ")
                                             }
                                             text
                                         }
@@ -67,7 +68,7 @@ class SearchRouteUseCase(val repository: RouteRepository) {
                                         SearchTag.TRAIN -> {
                                             val text = StringBuilder()
                                             routeWithTag.route.trains.forEach { train ->
-                                                text.append("$train ")
+                                                text.append("${train.str()} ")
                                             }
                                             text
                                         }
@@ -75,7 +76,7 @@ class SearchRouteUseCase(val repository: RouteRepository) {
                                         SearchTag.PASSENGER -> {
                                             val text = StringBuilder()
                                             routeWithTag.route.passengers.forEach { passenger ->
-                                                text.append("$passenger")
+                                                text.append(passenger.str())
                                             }
                                             text
                                         }
@@ -109,7 +110,6 @@ class SearchRouteUseCase(val repository: RouteRepository) {
                 }
             }
         }
-
 }
 
 private fun searchInRouteData(
@@ -122,7 +122,7 @@ private fun searchInRouteData(
     var respond = true
 
     valueList.forEach { s ->
-        if (!route.toString().contains(s, ignoreCase = true)) {
+        if (!route.basicData.str().contains(s, ignoreCase = true)) {
             respond = false
         }
     }
@@ -144,7 +144,7 @@ private fun searchInLocoList(
         var respond = true
 
         valueList.forEach { s ->
-            if (!loco.toString().contains(s, ignoreCase = true)) {
+            if (!loco.str().contains(s, ignoreCase = true)) {
                 respond = false
             }
         }
@@ -167,7 +167,7 @@ private fun searchInTrainList(
         var respond = true
 
         valueList.forEach { s ->
-            if (!train.toString().contains(s, ignoreCase = true)) {
+            if (!train.str().contains(s, ignoreCase = true)) {
                 respond = false
             }
         }
@@ -191,7 +191,7 @@ private fun searchInPassengerList(
         var respond = true
 
         valueList.forEach { s ->
-            if (!passenger.toString().contains(s, ignoreCase = true)) {
+            if (!passenger.str().contains(s, ignoreCase = true)) {
                 respond = false
             }
         }

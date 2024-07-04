@@ -2,26 +2,18 @@ package com.z_company.work_manager
 
 import android.content.Context
 import android.util.Log
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.work.CoroutineWorker
-import androidx.work.Data
 import androidx.work.WorkerParameters
 import com.z_company.core.ResultState
-import com.z_company.core.util.ConverterLongToTime
-import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.repository.RemoteRouteRepository
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.internal.wait
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.util.Calendar
