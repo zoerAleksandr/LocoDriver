@@ -50,6 +50,7 @@ fun SignInScreen(
     onRegisteredClick: () -> Unit,
     logInUser: (String, String) -> Unit,
     onPasswordRecovery: () -> Unit,
+    showErrorConfirmed: () -> Unit
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -67,6 +68,7 @@ fun SignInScreen(
         LaunchedEffect(Unit) {
             scope.launch {
                 snackbarHostState.showSnackbar("${userState.entity.throwable?.message}")
+                showErrorConfirmed()
             }
         }
     }

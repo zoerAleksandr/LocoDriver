@@ -21,5 +21,6 @@ fun SignInDestination(
         onRegisteredClick = router::showLogIn,
         logInUser = viewModel::signInUser,
         onPasswordRecovery = router::showRecoveryPassword,
+        showErrorConfirmed = viewModel::showErrorConfirmed
     )
 }

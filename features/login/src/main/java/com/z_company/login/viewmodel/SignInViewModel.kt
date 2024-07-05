@@ -2,6 +2,7 @@ package com.z_company.login.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.z_company.core.ResultState
 import com.z_company.use_case.AuthUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,5 +33,13 @@ class SignInViewModel : ViewModel(),
                     )
                 }
             }.launchIn(viewModelScope)
+    }
+
+    fun showErrorConfirmed(){
+        _uiState.update {
+            it.copy(
+                userState = ResultState.Success(null)
+            )
+        }
     }
 }
