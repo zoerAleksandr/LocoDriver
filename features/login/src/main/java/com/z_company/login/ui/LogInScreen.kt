@@ -110,6 +110,8 @@ fun LogInScreen(
                 .padding(24.dp)
         ) {
             Text(
+                modifier = Modifier
+                    .fillMaxWidth(),
                 text = "Регистрация",
                 style = AppTypography.getType().headlineMedium.copy(fontWeight = FontWeight.Light)
             )

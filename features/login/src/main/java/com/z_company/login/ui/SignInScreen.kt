@@ -1,13 +1,15 @@
 package com.z_company.login.ui
 
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -27,8 +29,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -39,7 +41,6 @@ import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.domain.entities.User
 import com.z_company.login.R
-import com.z_company.core.R as CoreR
 import kotlinx.coroutines.launch
 
 @Composable
@@ -77,32 +78,32 @@ fun SignInScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.SpaceBetween,
-            horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-            Image(
-                modifier = Modifier.padding(top = 24.dp),
-                painter = painterResource(id = CoreR.drawable.logo_v2_1),
-                contentDescription = null,
-                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary)
-            )
+                .padding(24.dp)
+        ) {
             Column(
+                modifier = Modifier
+                    .align(Alignment.Center),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .fillMaxWidth()
             ) {
+
+                Text(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    text = "Вход",
+                    style = AppTypography.getType().headlineMedium.copy(fontWeight = FontWeight.Light)
+                )
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
                     label = { Text(text = "email", style = AppTypography.getType().bodyMedium) },
                     modifier = Modifier
-                        .fillMaxWidth(),
+                        .fillMaxWidth()
+                        .padding(top = paddingBetweenView * 5),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
                 )
@@ -132,7 +133,7 @@ fun SignInScreen(
                 Button(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = paddingBetweenView * 2),
+                        .padding(top = paddingBetweenView * 3),
                     onClick = { logInUser(email, password) },
                     shape = Shapes.medium
                 ) {
@@ -145,15 +146,19 @@ fun SignInScreen(
                     Text(text = "Забыли пароль?", style = AppTypography.getType().bodyMedium)
                 }
 
-
             }
-
             Button(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = paddingBetweenView),
+                    .padding(top = paddingBetweenView)
+                    .align(Alignment.BottomCenter),
                 onClick = { onRegisteredClick() },
-                shape = Shapes.medium
+                shape = Shapes.medium,
+                colors = ButtonDefaults.buttonColors().copy(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    contentColor = MaterialTheme.colorScheme.primary
+                ),
+                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary)
             ) {
                 Text(text = "Регистрация", style = AppTypography.getType().bodyLarge)
             }

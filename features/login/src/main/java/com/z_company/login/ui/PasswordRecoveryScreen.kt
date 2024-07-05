@@ -1,5 +1,6 @@
 package com.z_company.login.ui
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,6 +19,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -25,9 +27,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ui.component.GenericLoading
+import com.z_company.core.ui.theme.Shapes
+import com.z_company.core.ui.theme.custom.AppTypography
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,6 +49,7 @@ fun PasswordRecoveryScreen(
     var email by remember {
         mutableStateOf("")
     }
+    val paddingBetweenView = 12.dp
 
     LaunchedEffect(requestHasBeenSend) {
         if (requestHasBeenSend) {
@@ -61,7 +68,9 @@ fun PasswordRecoveryScreen(
                             contentDescription = "Назад"
                         )
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors()
+                    .copy(containerColor = Color.Transparent)
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -73,28 +82,41 @@ fun PasswordRecoveryScreen(
                 modifier = Modifier
                     .padding(paddingValues)
                     .fillMaxSize()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.Center
             ) {
+                Text(
+                    text = "Восстановление пароля",
+                    style = AppTypography.getType().headlineMedium.copy(fontWeight = FontWeight.Light)
+                )
+
                 OutlinedTextField(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(top = paddingBetweenView * 7),
                     value = email,
                     onValueChange = {
                         email = it
                         isEmailValid(it)
                     },
-                    label = { Text("email") },
+                    label = {
+                        Text(
+                            text = "email",
+                            style = AppTypography.getType().bodyMedium
+                        )
+                    },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     singleLine = true
                 )
                 Button(
                     modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 16.dp)
+                        .padding(top = paddingBetweenView * 3)
                         .fillMaxWidth(),
                     onClick = { requestPasswordReset(email) },
-                    enabled = isEnableButton
+                    enabled = isEnableButton,
+                    shape = Shapes.medium
                 ) {
-                    Text(text = "Восстановить пароль")
+                    Text(text = "Отправить код", style = AppTypography.getType().bodyLarge)
                 }
             }
         }
