@@ -20,7 +20,7 @@ fun LogInDestination(
         isEnableButton = uiState.isEnableButton,
         onLogInSuccess = router::showHome,
         onRegisteredClick = viewModel::registeredUser,
-        onSignInClick = router::showSignIn,
+        onBack = router::back,
         email = viewModel.email,
         setEmail = viewModel::setEmailData,
         password = viewModel.password,

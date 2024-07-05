@@ -136,7 +136,7 @@ fun SignInScreen(
                     onClick = { logInUser(email, password) },
                     shape = Shapes.medium
                 ) {
-                    Text(text = "Вход", style = AppTypography.getType().bodyLarge)
+                    Text(text = "Войти", style = AppTypography.getType().bodyLarge)
                 }
                 TextButton(
                     modifier = Modifier
