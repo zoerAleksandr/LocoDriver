@@ -95,7 +95,7 @@ import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.ButtonLocoDriver
 import com.z_company.route.component.DialogSelectMonthOfYear
 import com.z_company.route.component.HomeBottomSheetContent
-import com.z_company.route.component.TopSnackbar
+import com.z_company.core.ui.component.TopSnackbar
 import kotlinx.coroutines.launch
 import com.z_company.core.R as CoreR
 

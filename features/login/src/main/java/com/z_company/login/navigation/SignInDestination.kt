@@ -17,10 +17,15 @@ fun SignInDestination(
 
     SignInScreen(
         userState = uiState.userState,
+        email = viewModel.email,
+        password = viewModel.password,
+        setEmail = viewModel::setEmailValue,
+        setPassword = viewModel::setPasswordValue,
         onSignInSuccess = router::showHome,
         onRegisteredClick = router::showLogIn,
         logInUser = viewModel::signInUser,
         onPasswordRecovery = router::showRecoveryPassword,
-        showErrorConfirmed = viewModel::showErrorConfirmed
+        showErrorConfirmed = viewModel::showErrorConfirmed,
+        isEnableButtonSignIn = uiState.isEnableButton
     )
 }

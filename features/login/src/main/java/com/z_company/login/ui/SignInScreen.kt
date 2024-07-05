@@ -37,6 +37,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.GenericLoading
+import com.z_company.core.ui.component.TopSnackbar
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.domain.entities.User
@@ -46,16 +47,18 @@ import kotlinx.coroutines.launch
 @Composable
 fun SignInScreen(
     userState: ResultState<User?>,
+    email: String,
+    password: String,
+    setEmail: (String) -> Unit,
+    setPassword: (String) -> Unit,
     onSignInSuccess: () -> Unit,
     onRegisteredClick: () -> Unit,
     logInUser: (String, String) -> Unit,
     onPasswordRecovery: () -> Unit,
-    showErrorConfirmed: () -> Unit
+    showErrorConfirmed: () -> Unit,
+    isEnableButtonSignIn: Boolean
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
-
-    var password by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
@@ -78,7 +81,11 @@ fun SignInScreen(
         }
     }
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = {
+            SnackbarHost(snackbarHostState){ snackBarData ->
+                TopSnackbar(snackBarData = snackBarData)
+            }
+        }
     ) { padding ->
         Box(
             modifier = Modifier
@@ -101,7 +108,7 @@ fun SignInScreen(
                 )
                 OutlinedTextField(
                     value = email,
-                    onValueChange = { email = it },
+                    onValueChange = { setEmail(it) },
                     label = { Text(text = "email", style = AppTypography.getType().bodyMedium) },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -111,7 +118,7 @@ fun SignInScreen(
                 )
                 OutlinedTextField(
                     value = password,
-                    onValueChange = { password = it },
+                    onValueChange = { setPassword(it) },
                     label = { Text(text = "пароль", style = AppTypography.getType().bodyMedium) },
                     modifier = Modifier
                         .padding(top = paddingBetweenView)
@@ -137,7 +144,8 @@ fun SignInScreen(
                         .fillMaxWidth()
                         .padding(top = paddingBetweenView * 3),
                     onClick = { logInUser(email, password) },
-                    shape = Shapes.medium
+                    shape = Shapes.medium,
+                    enabled = isEnableButtonSignIn
                 ) {
                     Text(text = "Войти", style = AppTypography.getType().bodyLarge)
                 }
