@@ -11,6 +11,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -73,7 +74,7 @@ fun PasswordRecoveryScreen(
                     .padding(paddingValues)
                     .fillMaxSize()
             ) {
-                TextField(
+                OutlinedTextField(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
@@ -82,7 +83,7 @@ fun PasswordRecoveryScreen(
                         email = it
                         isEmailValid(it)
                     },
-                    label = { Text("Почта") },
+                    label = { Text("email") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     singleLine = true
                 )

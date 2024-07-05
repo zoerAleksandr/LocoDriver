@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -69,7 +70,7 @@ fun LogInScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            TextField(
+            OutlinedTextField(
                 value = email,
                 onValueChange = {
                     setEmail(it)
@@ -80,23 +81,23 @@ fun LogInScreen(
                     .padding(16.dp),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
             )
-            TextField(
+            OutlinedTextField(
                 value = password,
                 onValueChange = {
                     setPassword(it)
                 },
-                label = { Text("password") },
+                label = { Text("пароль") },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
             )
-            TextField(
+            OutlinedTextField(
                 value = confirm,
                 onValueChange = {
                     setConfirm(it)
                 },
-                label = { Text("confirm password") },
+                label = { Text("подтвердите пароль") },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
