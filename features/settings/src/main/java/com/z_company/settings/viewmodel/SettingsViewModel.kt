@@ -1,5 +1,6 @@
 package com.z_company.settings.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.parse.ParseUser
@@ -11,6 +12,7 @@ import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.use_case.AuthUseCase
 import com.z_company.use_case.RemoteRouteUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +28,7 @@ import java.util.Calendar.MONTH
 import java.util.Calendar.YEAR
 
 class SettingsViewModel : ViewModel(), KoinComponent {
+    private val authUseCase: AuthUseCase by inject()
     private val loginUseCase: LoginUseCase by inject()
     private val remoteRouteUseCase: RemoteRouteUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
@@ -191,8 +194,15 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     }
 
     fun logOut() {
-        // TODO сделать выход из аккаунта
-        ParseUser.logOutInBackground()
+        viewModelScope.launch {
+            authUseCase.logout().collect { result ->
+                _uiState.update {
+                    it.copy(
+                        logOutState = result
+                    )
+                }
+            }
+        }
     }
 
     fun onSync() {

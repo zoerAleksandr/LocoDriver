@@ -31,6 +31,7 @@ fun SettingDestination(
         showReleaseDaySelectScreen = router::showSelectReleaseDayScreen,
         yearList = uiState.yearList,
         monthList = uiState.monthList,
-        selectMonthOfYear = settingsViewModel::setCurrentMonth
+        selectMonthOfYear = settingsViewModel::setCurrentMonth,
+        logOut = router::showSignIn
     )
 }

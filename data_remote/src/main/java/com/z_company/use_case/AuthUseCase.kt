@@ -10,7 +10,6 @@ import com.z_company.domain.entities.User
 import kotlinx.coroutines.flow.Flow
 
 class AuthUseCase {
-
     fun loginWithEmail(email: String, password: String): Flow<ResultState<User>> {
         return flowRequest {
             UserConverter.toData(parseLogIn(email, password))
@@ -34,7 +33,9 @@ class AuthUseCase {
         }
     }
 
-    suspend fun logout() {
-
+    fun logout(): Flow<ResultState<Unit>> {
+        return flowRequest {
+            ParseUser.logOutInBackground()
+        }
     }
 }

@@ -1,7 +1,5 @@
 package com.z_company.login.viewmodel
 
-import android.content.res.Resources
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -10,7 +8,6 @@ import androidx.lifecycle.viewModelScope
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.util.isEmailValid
-import com.z_company.login.R
 import com.z_company.login.ui.getMessageThrowable
 import com.z_company.use_case.AuthUseCase
 import kotlinx.coroutines.Job
@@ -51,7 +48,6 @@ class SignInViewModel : ViewModel(), KoinComponent {
     private var loginWithEmailJob: Job? = null
 
     // TODO LIST
-    // 3 сделать выход из аккаунта
     // 4 включить синхронизацию
 
     fun signInUser(username: String, password: String) {

@@ -11,8 +11,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.outlined.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -59,6 +59,7 @@ fun SettingsScreen(
     restTimeChanged: (Long) -> Unit,
     homeRestTimeChanged: (Long) -> Unit,
     onLogOut: () -> Unit,
+    logOut: () -> Unit,
     onSync: () -> Unit,
     showReleaseDaySelectScreen: () -> Unit,
     yearList: List<Int>,
@@ -103,7 +104,13 @@ fun SettingsScreen(
                             LaunchedEffect(settingsUiState.saveSettingsState) {
                                 onSettingSaved()
                             }
-                        } else {
+                        }
+                        if (settingsUiState.logOutState is ResultState.Success){
+                            LaunchedEffect(settingsUiState.logOutState) {
+                                logOut()
+                            }
+                        }
+                        else {
                             SettingScreenContent(
                                 currentSettings = setting,
                                 onLogOut = onLogOut,
@@ -278,7 +285,7 @@ fun SettingScreenContent(
                                 modifier = Modifier.clickable {
                                     showReleaseDaySelectScreen()
                                 },
-                                imageVector = Icons.Outlined.KeyboardArrowRight,
+                                imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                                 contentDescription = null
                             )
                         }
