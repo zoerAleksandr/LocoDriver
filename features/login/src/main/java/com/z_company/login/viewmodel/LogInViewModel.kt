@@ -5,9 +5,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.z_company.core.ErrorEntity
+import com.z_company.core.ResultState
 import com.z_company.core.util.isEmailValid
+import com.z_company.login.R
+import com.z_company.login.ui.getMessageThrowable
 import com.z_company.use_case.AuthUseCase
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
@@ -21,18 +26,50 @@ class LogInViewModel : ViewModel(), KoinComponent {
     private val authUseCase: AuthUseCase by inject()
     private val _uiState = MutableStateFlow(LogInUiState())
     val uiState = _uiState.asStateFlow()
-    private var registeredJob: Job? = null
+    private var parentRegisteredJob: Job? = null
+    private var registeredUserByEmailJob: Job? = null
     fun registeredUser(name: String, password: String, email: String) {
-        viewModelScope.launch {
-            registeredJob?.cancel()
-            registeredJob =
+        parentRegisteredJob = viewModelScope.launch {
+            registeredUserByEmailJob?.cancel()
+            registeredUserByEmailJob =
                 authUseCase.registeredUserByEmail(name, password, email).onEach { resultState ->
-                    _uiState.update {
-                        it.copy(
-                            userState = resultState
-                        )
+                    if (resultState is ResultState.Error) {
+                        val messageThrowable = getMessageThrowable(resultState.entity.throwable)
+                        _uiState.update {
+                            it.copy(
+                                userState = resultState.copy(
+                                    entity = ErrorEntity(
+                                        Throwable(
+                                            message = messageThrowable
+                                        ),
+                                    )
+                                )
+                            )
+                        }
+                    } else {
+                        _uiState.update {
+                            it.copy(
+                                userState = resultState
+                            )
+                        }
                     }
                 }.launchIn(viewModelScope)
+            delay(TIME_OUT)
+            _uiState.update {
+                it.copy(
+                    userState = ResultState.Error(entity = ErrorEntity(Throwable(message = "Слабый сигнал! Проверьте интернет соединение.")))
+                )
+            }
+            registeredUserByEmailJob?.cancel()
+        }
+    }
+
+    fun cancelRegistered() {
+        viewModelScope.launch {
+            _uiState.update { state ->
+                state.copy(ResultState.Success(null))
+            }
+            parentRegisteredJob?.cancel()
         }
     }
 
@@ -61,7 +98,7 @@ class LogInViewModel : ViewModel(), KoinComponent {
 
     private fun checkingCorrectPassword() {
         if (email.isEmailValid()) {
-            if (password.length >= 3 && password == confirm) {
+            if (password.length >= MIN_LENGTH_PASSWORD && password == confirm) {
                 _uiState.update {
                     it.copy(
                         isEnableButton = true

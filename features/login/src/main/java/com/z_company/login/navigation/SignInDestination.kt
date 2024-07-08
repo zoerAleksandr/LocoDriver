@@ -26,6 +26,7 @@ fun SignInDestination(
         logInUser = viewModel::signInUser,
         onPasswordRecovery = router::showRecoveryPassword,
         showErrorConfirmed = viewModel::showErrorConfirmed,
-        isEnableButtonSignIn = uiState.isEnableButton
+        isEnableButtonSignIn = uiState.isEnableButton,
+        cancelSignIn = viewModel::cancelRegistered
     )
 }

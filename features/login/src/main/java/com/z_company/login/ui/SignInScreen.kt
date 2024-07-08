@@ -56,7 +56,8 @@ fun SignInScreen(
     logInUser: (String, String) -> Unit,
     onPasswordRecovery: () -> Unit,
     showErrorConfirmed: () -> Unit,
-    isEnableButtonSignIn: Boolean
+    isEnableButtonSignIn: Boolean,
+    cancelSignIn: () -> Unit
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
@@ -65,7 +66,7 @@ fun SignInScreen(
     val paddingBetweenView = 12.dp
 
     if (userState is ResultState.Loading) {
-        GenericLoading()
+        GenericLoading(onCloseClick = cancelSignIn)
     }
     if (userState is ResultState.Error) {
         LaunchedEffect(Unit) {

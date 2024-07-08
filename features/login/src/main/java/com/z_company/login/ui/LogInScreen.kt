@@ -38,6 +38,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.GenericLoading
+import com.z_company.core.ui.component.TopSnackbar
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.domain.entities.User
@@ -57,7 +58,8 @@ fun LogInScreen(
     password: String,
     setPassword: (String) -> Unit,
     confirm: String,
-    setConfirm: (String) -> Unit
+    setConfirm: (String) -> Unit,
+    cancelRegistered: () -> Unit
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
@@ -66,7 +68,7 @@ fun LogInScreen(
     val scope = rememberCoroutineScope()
 
     if (userState is ResultState.Loading) {
-        GenericLoading()
+        GenericLoading(onCloseClick = cancelRegistered)
     }
 
     val paddingBetweenView = 12.dp
@@ -99,7 +101,11 @@ fun LogInScreen(
                     .copy(containerColor = Color.Transparent)
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { snackBarData ->
+                TopSnackbar(snackBarData = snackBarData)
+            }
+        }
     ) { padding ->
         Column(
             verticalArrangement = Arrangement.Center,

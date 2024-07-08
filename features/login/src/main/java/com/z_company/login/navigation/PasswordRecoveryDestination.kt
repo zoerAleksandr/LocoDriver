@@ -16,11 +16,12 @@ fun PasswordRecoveryDestination(
     val viewModel: PasswordRecoveryViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
     PasswordRecoveryScreen(
+        resultState = uiState.resultState,
         onBack = router::back,
         requestPasswordReset = viewModel::requestPasswordReset,
-        isLoading = uiState.isLoading,
         isEnableButton = uiState.isEnableButton,
         requestHasBeenSend = uiState.requestHasBeenSend,
-        isEmailValid = viewModel::isEmailValid
+        isEmailValid = viewModel::isEmailValid,
+        cancelRequest = viewModel::cancelRequest
     )
 }

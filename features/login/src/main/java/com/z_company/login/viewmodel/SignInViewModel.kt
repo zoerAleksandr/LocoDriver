@@ -1,25 +1,33 @@
 package com.z_company.login.viewmodel
 
+import android.content.res.Resources
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.util.isEmailValid
+import com.z_company.login.R
+import com.z_company.login.ui.getMessageThrowable
 import com.z_company.use_case.AuthUseCase
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
-private const val MIN_LENGTH_PASSWORD = 4
-class SignInViewModel : ViewModel(),
-    KoinComponent {
+const val MIN_LENGTH_PASSWORD = 4
+const val TIME_OUT: Long = 15_000L
+
+class SignInViewModel : ViewModel(), KoinComponent {
     private val authUseCase: AuthUseCase by inject()
     private val _uiState = MutableStateFlow(SignInUiState())
     val uiState = _uiState.asStateFlow()
@@ -39,20 +47,59 @@ class SignInViewModel : ViewModel(),
         checkField()
     }
 
-    private var loginJob: Job? = null
+    private var parentLoginJob: Job? = null
+    private var loginWithEmailJob: Job? = null
+
+    // TODO LIST
+    // 3 сделать выход из аккаунта
+    // 4 включить синхронизацию
 
     fun signInUser(username: String, password: String) {
-        val usernameWithoutWhitespace = username.filterNot { it.isWhitespace() }
-        val passwordWithoutWhitespace = password.filterNot { it.isWhitespace() }
-        loginJob?.cancel()
-        loginJob = authUseCase.loginWithEmail(usernameWithoutWhitespace, passwordWithoutWhitespace)
-            .onEach { result ->
-                _uiState.update {
-                    it.copy(
-                        userState = result
-                    )
-                }
-            }.launchIn(viewModelScope)
+        parentLoginJob = viewModelScope.launch {
+            val usernameWithoutWhitespace = username.filterNot { it.isWhitespace() }
+            val passwordWithoutWhitespace = password.filterNot { it.isWhitespace() }
+            loginWithEmailJob?.cancel()
+            loginWithEmailJob =
+                authUseCase.loginWithEmail(usernameWithoutWhitespace, passwordWithoutWhitespace)
+                    .onEach { result ->
+                        if (result is ResultState.Error) {
+                            val messageThrowable = getMessageThrowable(result.entity.throwable)
+                            _uiState.update {
+                                it.copy(
+                                    userState = result.copy(
+                                        entity = ErrorEntity(
+                                            Throwable(
+                                                message = messageThrowable
+                                            ),
+                                        )
+                                    )
+                                )
+                            }
+                        } else {
+                            _uiState.update {
+                                it.copy(
+                                    userState = result
+                                )
+                            }
+                        }
+                    }.launchIn(viewModelScope)
+            delay(TIME_OUT)
+            _uiState.update {
+                it.copy(
+                    userState = ResultState.Error(entity = ErrorEntity(Throwable(message = "Слабый сигнал! Проверьте интернет соединение.")))
+                )
+            }
+            loginWithEmailJob?.cancel()
+        }
+    }
+
+    fun cancelRegistered() {
+        viewModelScope.launch {
+            _uiState.update { state ->
+                state.copy(ResultState.Success(null))
+            }
+            parentLoginJob?.cancel()
+        }
     }
 
     fun showErrorConfirmed() {

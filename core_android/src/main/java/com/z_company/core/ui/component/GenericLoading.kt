@@ -2,7 +2,11 @@ package com.z_company.core.ui.component
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -17,7 +21,8 @@ import com.z_company.core.R
 
 @Composable
 fun GenericLoading(
-    message: String? = null
+    message: String? = null,
+    onCloseClick: () -> Unit = {}
 ) {
     Column(
         Modifier
@@ -27,7 +32,17 @@ fun GenericLoading(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        CircularProgressIndicator()
+        Box(contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(
+                Modifier.size(48.dp)
+            )
+            IconButton(
+                modifier = Modifier
+                    .zIndex(1f),
+                onClick = onCloseClick) {
+                Icon(imageVector = Icons.Outlined.Close, tint = MaterialTheme.colorScheme.primary, contentDescription = null)
+            }
+        }
         Spacer(modifier = Modifier.size(16.dp))
         Text(text = message ?: stringResource(id = R.string.msg_loading))
     }
