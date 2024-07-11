@@ -1,7 +1,6 @@
 package com.z_company.repository
 
 import android.content.Context
-import android.util.Log
 import androidx.work.Constraints
 import androidx.work.Data
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -12,7 +11,6 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.z_company.type_converter.BasicDataJSONConverter
 import com.z_company.core.ResultState
-import com.z_company.core.ResultState.Companion.flowMap
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.entity.BasicData
@@ -73,7 +71,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
@@ -121,11 +118,13 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
         WorkManager.getInstance(context).enqueue(worker)
         return flow {
             WorkManagerState.state(context, worker.id).collect { result ->
-                Log.d("ZZZ", "loadBasicDataFromRemote = $result")
                 when (result) {
                     is ResultState.Success -> {
                         val data = result.data.getString(LOAD_BASIC_DATA_ID_OUTPUT_KEY)
-                        Log.d("ZZZ", "data = $data")
+                        data?.let {
+                            val basicData = BasicDataJSONConverter.fromString(data)
+                            emit(ResultState.Success(basicData))
+                        }
                     }
 
                     is ResultState.Loading -> {
@@ -248,7 +247,7 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
         return WorkManagerState.state(context, basicDataWorker.id)
     }
 
-    override suspend fun getAllBasicData(): Flow<ResultState<List<BasicData>?>> {
+    override suspend fun getAllBasicDataId(): Flow<ResultState<List<String>?>> {
 
         val worker = OneTimeWorkRequestBuilder<LoadBasicDataListWorker>()
             .addTag(GET_ALL_DATA_WORKER_TAG)
@@ -260,15 +259,12 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
                 .collect { result ->
                     when (result) {
                         is ResultState.Success -> {
-                            val stringList = result.data
+                            val idList = result.data
                                 .getStringArray(GET_BASIC_DATA_WORKER_OUTPUT_KEY)
-                            val basicDataList = stringList?.map {
-                                BasicDataJSONConverter.fromString(it)
-                            }
-                            basicDataList?.first()?.id?.let {
+                            idList?.first()?.let {
                                 loadBasicDataFromRemote(it).launchIn(CoroutineScope(Dispatchers.IO))
                             }
-                            emit(ResultState.Success(basicDataList))
+                            emit(ResultState.Success(idList?.toList()))
                         }
 
                         is ResultState.Loading -> {

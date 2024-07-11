@@ -26,7 +26,6 @@ class LoadBasicDataWorker(val context: Context, params: WorkerParameters) :
                 ParseQuery(BasicDataFieldName.BASIC_DATA_CLASS_NAME_REMOTE)
             parseQuery.whereEqualTo(BASIC_DATA_UID_FIELD_NAME, basicId)
             val parseObject = parseQuery.find().first()
-            Log.d("ZZZ", "parseObject = $parseObject")
 
             if (parseObject != null) {
                 var basicData = BasicData()
@@ -55,7 +54,6 @@ class LoadBasicDataWorker(val context: Context, params: WorkerParameters) :
                     }
 
                 }
-                Log.d("ZZZ", "basicData = $basicData")
                 val basicDataAsString = BasicDataJSONConverter.toString(basicData)
                 val data =
                     Data.Builder().putString(LOAD_BASIC_DATA_ID_OUTPUT_KEY, basicDataAsString)
