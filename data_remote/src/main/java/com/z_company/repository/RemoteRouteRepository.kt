@@ -11,6 +11,7 @@ import com.z_company.entity.Photo as PhotoRemote
 import kotlinx.coroutines.flow.Flow
 
 interface RemoteRouteRepository {
+    suspend fun loadBasicDataFromRemote(id: String): Flow<ResultState<BasicDataRemote?>>
     suspend fun saveRoute(route: Route): Flow<ResultState<Data>>
     suspend fun getAllBasicData(): Flow<ResultState<List<BasicDataRemote>?>>
     suspend fun removeBasicData(remoteObjectId: String): Flow<ResultState<Data>>

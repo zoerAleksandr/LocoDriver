@@ -28,7 +28,7 @@ import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
 
 const val GET_BASIC_DATA_WORKER_OUTPUT_KEY = "GET_BASIC_DATA_WORKER_OUTPUT_KEY"
-
+// TODO загрузка большого пакета данных. загружать по одному маршруту
 class LoadBasicDataListWorker(val context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params), KoinComponent {
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {

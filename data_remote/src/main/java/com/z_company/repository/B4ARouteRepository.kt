@@ -1,6 +1,7 @@
 package com.z_company.repository
 
 import android.content.Context
+import android.util.Log
 import androidx.work.Constraints
 import androidx.work.Data
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -11,6 +12,7 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.z_company.type_converter.BasicDataJSONConverter
 import com.z_company.core.ResultState
+import com.z_company.core.ResultState.Companion.flowMap
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.entity.BasicData
@@ -28,6 +30,8 @@ import com.z_company.type_converter.PassengerJSONConverter
 import com.z_company.type_converter.PhotoJSONConverter
 import com.z_company.work_manager.BASIC_DATA_INPUT_KEY
 import com.z_company.work_manager.GET_BASIC_DATA_WORKER_OUTPUT_KEY
+import com.z_company.work_manager.LOAD_BASIC_DATA_ID_INPUT_KEY
+import com.z_company.work_manager.LOAD_BASIC_DATA_ID_OUTPUT_KEY
 import com.z_company.work_manager.SaveBasicDataWorker
 import com.z_company.work_manager.LoadBasicDataListWorker
 import com.z_company.work_manager.LOAD_LOCOMOTIVE_WORKER_INPUT_KEY
@@ -39,6 +43,7 @@ import com.z_company.work_manager.LOAD_PHOTO_WORKER_OUTPUT_KEY
 import com.z_company.work_manager.LOAD_TRAIN_WORKER_INPUT_KEY
 import com.z_company.work_manager.LOAD_TRAIN_WORKER_OUTPUT_KEY
 import com.z_company.work_manager.LOCOMOTIVE_INPUT_KEY
+import com.z_company.work_manager.LoadBasicDataWorker
 import com.z_company.work_manager.LoadLocomotiveFromRemoteWorker
 import com.z_company.work_manager.LoadPassengerRemoteWorker
 import com.z_company.work_manager.LoadPhotoRemoteWorker
@@ -68,6 +73,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
@@ -90,6 +96,7 @@ private const val REMOVE_TRAIN_WORKER_TAG = "REMOVE_TRAIN_WORKER_TAG"
 private const val REMOVE_PASSENGER_WORKER_TAG = "REMOVE_PASSENGER_WORKER_TAG"
 private const val REMOVE_PHOTO_WORKER_TAG = "REMOVE_PHOTO_WORKER_TAG"
 
+private const val LOAD_BASIC_DATA_FROM_REMOTE_WORKER_TAG = "LOAD_BASIC_DATA_FROM_REMOTE_WORKER_TAG"
 private const val LOAD_LOCOMOTIVE_FROM_REMOTE_WORKER_TAG = "LOAD_DATA_FROM_REMOTE_WORKER_TAG"
 private const val LOAD_TRAIN_FROM_REMOTE_WORKER_TAG = "LOAD_TRAIN_FROM_REMOTE_WORKER_TAG"
 private const val LOAD_PASSENGER_FROM_REMOTE_WORKER_TAG = "LOAD_PASSENGER_FROM_REMOTE_WORKER_TAG"
@@ -97,6 +104,42 @@ private const val LOAD_PHOTO_FROM_REMOTE_WORKER_TAG = "LOAD_PHOTO_FROM_REMOTE_WO
 
 class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
+    private val constraints = Constraints.Builder()
+        .setRequiredNetworkType(NetworkType.CONNECTED)
+        .build()
+
+    override suspend fun loadBasicDataFromRemote(id: String): Flow<ResultState<BasicData?>> {
+        val inputData = Data.Builder()
+            .putString(LOAD_BASIC_DATA_ID_INPUT_KEY, id)
+            .build()
+
+        val worker = OneTimeWorkRequestBuilder<LoadBasicDataWorker>()
+            .addTag(LOAD_BASIC_DATA_FROM_REMOTE_WORKER_TAG)
+            .setInputData(inputData)
+            .setConstraints(constraints)
+            .build()
+        WorkManager.getInstance(context).enqueue(worker)
+        return flow {
+            WorkManagerState.state(context, worker.id).collect { result ->
+                Log.d("ZZZ", "loadBasicDataFromRemote = $result")
+                when (result) {
+                    is ResultState.Success -> {
+                        val data = result.data.getString(LOAD_BASIC_DATA_ID_OUTPUT_KEY)
+                        Log.d("ZZZ", "data = $data")
+                    }
+
+                    is ResultState.Loading -> {
+                        emit(result)
+                    }
+
+                    is ResultState.Error -> {
+                        emit(result)
+                    }
+                }
+            }
+        }
+    }
+
     override suspend fun saveRoute(route: Route): Flow<ResultState<Data>> {
         val basicDataJSON = BasicDataJSONConverter.toString(
             BasicDataConverter.fromData(route.basicData)
@@ -146,10 +189,6 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
 
         val photoInput = Data.Builder()
             .putStringArray(PHOTOS_INPUT_KEY, photoJSONList)
-            .build()
-
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
         val basicDataWorker = OneTimeWorkRequestBuilder<SaveBasicDataWorker>()
@@ -210,9 +249,6 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
     }
 
     override suspend fun getAllBasicData(): Flow<ResultState<List<BasicData>?>> {
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
 
         val worker = OneTimeWorkRequestBuilder<LoadBasicDataListWorker>()
             .addTag(GET_ALL_DATA_WORKER_TAG)
@@ -228,6 +264,9 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
                                 .getStringArray(GET_BASIC_DATA_WORKER_OUTPUT_KEY)
                             val basicDataList = stringList?.map {
                                 BasicDataJSONConverter.fromString(it)
+                            }
+                            basicDataList?.first()?.id?.let {
+                                loadBasicDataFromRemote(it).launchIn(CoroutineScope(Dispatchers.IO))
                             }
                             emit(ResultState.Success(basicDataList))
                         }
@@ -249,11 +288,6 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
             .putString(REMOVE_BASIC_DATA_OBJECT_ID_KEY, remoteObjectId)
             .build()
 
-        val constraints = Constraints.Builder()
-            .setRequiresBatteryNotLow(true)
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-
         val worker = OneTimeWorkRequestBuilder<RemoveBasicDataWorker>()
             .setInputData(inputData)
             .addTag(REMOVE_BASIC_DATA_WORKER_TAG)
@@ -264,10 +298,6 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
     }
 
     override suspend fun synchronizedRoutePeriodic(): Flow<ResultState<Unit>> {
-        val constraints = Constraints.Builder()
-            .setRequiresBatteryNotLow(true)
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
         val worker = PeriodicWorkRequestBuilder<SynchronizedWorker>(
             12,
             TimeUnit.HOURS,
@@ -321,9 +351,6 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
     }
 
     override suspend fun synchronizedRouteOneTime(): Flow<ResultState<Unit>> {
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
         val worker = OneTimeWorkRequestBuilder<SynchronizedOneTimeWorker>()
             .setConstraints(constraints)
             .addTag(SYNC_DATA_ONE_TIME_WORKER_TAG)
@@ -336,7 +363,8 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
             if (listInfo.isNotEmpty()) {
                 if (listInfo.last().state != WorkInfo.State.RUNNING) {
                     WorkManager.getInstance(context).enqueue(worker)
-                } else {}
+                } else {
+                }
             } else {
                 WorkManager.getInstance(context).enqueue(worker)
             }
@@ -362,11 +390,6 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
     }
 
     override suspend fun saveLocomotive(locomotive: Locomotive): Flow<ResultState<Data>> {
-        val constraints = Constraints.Builder()
-            .setRequiresBatteryNotLow(true)
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-
         val workerSaveLoco = OneTimeWorkRequestBuilder<SaveLocomotiveListWorker>()
             .setConstraints(constraints)
             .addTag(SAVE_LOCO_WORKER_TAG)
@@ -378,11 +401,6 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
     override suspend fun removeLocomotive(remoteObjectId: String): Flow<ResultState<Data>> {
         val inputData = Data.Builder()
             .putString(REMOVE_LOCOMOTIVE_OBJECT_ID_KEY, remoteObjectId)
-            .build()
-
-        val constraints = Constraints.Builder()
-            .setRequiresBatteryNotLow(true)
-            .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
         val worker = OneTimeWorkRequestBuilder<RemoveLocomotiveWorker>()
@@ -399,11 +417,6 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
             .putString(REMOVE_TRAIN_OBJECT_ID_KEY, remoteObjectId)
             .build()
 
-        val constraints = Constraints.Builder()
-            .setRequiresBatteryNotLow(true)
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-
         val worker = OneTimeWorkRequestBuilder<RemoveTrainWorker>()
             .setInputData(inputData)
             .addTag(REMOVE_TRAIN_WORKER_TAG)
@@ -417,10 +430,7 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
         val inputData = Data.Builder()
             .putString(REMOVE_PASSENGER_OBJECT_ID_KEY, remoteId)
             .build()
-        val constraints = Constraints.Builder()
-            .setRequiresBatteryNotLow(true)
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
+
         val worker = OneTimeWorkRequestBuilder<RemovePassengerWorker>()
             .setInputData(inputData)
             .addTag(REMOVE_PASSENGER_WORKER_TAG)
@@ -434,10 +444,6 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
         val inputData = Data.Builder()
             .putString(REMOVE_PHOTO_OBJECT_ID_KEY, remoteId)
             .build()
-        val constraints = Constraints.Builder()
-            .setRequiresBatteryNotLow(true)
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
         val worker = OneTimeWorkRequestBuilder<RemovePhotoWorker>()
             .setInputData(inputData)
             .addTag(REMOVE_PHOTO_WORKER_TAG)
@@ -450,11 +456,6 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
     override suspend fun loadLocomotiveFromRemote(basicId: String): Flow<ResultState<List<Locomotive>?>> {
         val inputData = Data.Builder()
             .putString(LOAD_LOCOMOTIVE_WORKER_INPUT_KEY, basicId)
-            .build()
-
-        val constraints = Constraints.Builder()
-//            .setRequiresBatteryNotLow(true)
-            .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
         val worker = OneTimeWorkRequestBuilder<LoadLocomotiveFromRemoteWorker>()
@@ -493,11 +494,6 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
             .putString(LOAD_TRAIN_WORKER_INPUT_KEY, basicId)
             .build()
 
-        val constraints = Constraints.Builder()
-//            .setRequiresBatteryNotLow(true)
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-
         val worker = OneTimeWorkRequestBuilder<LoadTrainFromRemoteWorker>()
             .setInputData(inputData)
             .setConstraints(constraints)
@@ -534,11 +530,6 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
             .putString(LOAD_PASSENGER_WORKER_INPUT_KEY, basicId)
             .build()
 
-        val constraints = Constraints.Builder()
-//            .setRequiresBatteryNotLow(true)
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-
         val worker = OneTimeWorkRequestBuilder<LoadPassengerRemoteWorker>()
             .setInputData(inputData)
             .setConstraints(constraints)
@@ -573,11 +564,6 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
     override suspend fun loadPhotoFromRemote(basicId: String): Flow<ResultState<List<Photo>?>> {
         val inputData = Data.Builder()
             .putString(LOAD_PHOTO_WORKER_INPUT_KEY, basicId)
-            .build()
-
-        val constraints = Constraints.Builder()
-//            .setRequiresBatteryNotLow(true)
-            .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
         val worker = OneTimeWorkRequestBuilder<LoadPhotoRemoteWorker>()
