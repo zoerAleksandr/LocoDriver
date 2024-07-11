@@ -56,7 +56,6 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
             enableSynchronisedRoute()
             sharedpref.edit().putString("token", "true").apply()
         }
-
         viewModelScope.launch {
             getSession()
         }

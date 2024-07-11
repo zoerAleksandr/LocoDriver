@@ -70,10 +70,9 @@ class LoadBasicDataListWorker(val context: Context, params: WorkerParameters) :
             }.toTypedArray()
 
             val data = Data.Builder().putStringArray(GET_BASIC_DATA_WORKER_OUTPUT_KEY, stringList)
-
             return@withContext Result.success(data.build())
         } catch (e: Exception) {
-            Log.d("ZZZ", "ex sync = ${e.message}")
+            Log.d("ZZZ", "ex sync load basic data = ${e.message}")
             return@withContext Result.retry()
         }
     }

@@ -177,7 +177,8 @@ fun SelectReleaseDaysContent(
 
     Column(
         modifier = Modifier
-            .fillMaxSize(),
+            .fillMaxSize()
+            .padding(horizontal = 12.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Column(

@@ -10,6 +10,7 @@ import com.z_company.core.ResultState
 import com.z_company.core.util.isEmailValid
 import com.z_company.login.ui.getMessageThrowable
 import com.z_company.use_case.AuthUseCase
+import com.z_company.use_case.RemoteRouteUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +26,7 @@ const val MIN_LENGTH_PASSWORD = 4
 const val TIME_OUT: Long = 15_000L
 
 class SignInViewModel : ViewModel(), KoinComponent {
+    private val remoteRouteUseCase: RemoteRouteUseCase by inject()
     private val authUseCase: AuthUseCase by inject()
     private val _uiState = MutableStateFlow(SignInUiState())
     val uiState = _uiState.asStateFlow()
@@ -46,9 +48,6 @@ class SignInViewModel : ViewModel(), KoinComponent {
 
     private var parentLoginJob: Job? = null
     private var loginWithEmailJob: Job? = null
-
-    // TODO LIST
-    // 4 включить синхронизацию
 
     fun signInUser(username: String, password: String) {
         parentLoginJob = viewModelScope.launch {
@@ -72,6 +71,9 @@ class SignInViewModel : ViewModel(), KoinComponent {
                                 )
                             }
                         } else {
+                            if (result is ResultState.Success) {
+                                loadDataFromRemote()
+                            }
                             _uiState.update {
                                 it.copy(
                                     userState = result
@@ -86,6 +88,12 @@ class SignInViewModel : ViewModel(), KoinComponent {
                 )
             }
             loginWithEmailJob?.cancel()
+        }
+    }
+
+    private fun loadDataFromRemote() {
+        viewModelScope.launch {
+            remoteRouteUseCase.loadingRoutesFromRemote()
         }
     }
 

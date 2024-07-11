@@ -1,5 +1,6 @@
 package com.z_company.route.viewmodel
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -35,6 +36,9 @@ import java.util.Calendar.MONTH
 import java.util.Calendar.YEAR
 import java.util.Calendar.getInstance
 import com.z_company.domain.util.minus
+import com.z_company.use_case.RemoteRouteUseCase
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.flowOn
 
 class HomeViewModel : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
@@ -85,20 +89,17 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     settingState = result
                 )
             }
-            if (result is ResultState.Success){
+            if (result is ResultState.Success) {
                 currentMonthOfYear = result.data?.selectMonthOfYear
             }
         }.launchIn(viewModelScope)
-
     }
-
 
     fun loadRoutes() {
         currentMonthOfYear?.let { monthOfYear ->
             loadRouteJob?.cancel()
-            viewModelScope.launch {
-                loadRouteJob =
-                    routeUseCase.listRoutesByMonth(monthOfYear).onEach { result ->
+            viewModelScope.launch(Dispatchers.IO) {
+                loadRouteJob = routeUseCase.listRoutesByMonth(monthOfYear).onEach { result ->
                         _uiState.update {
                             it.copy(routeListState = result)
                         }

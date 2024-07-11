@@ -15,12 +15,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
 class RemoteRouteUseCase(private val repository: RemoteRouteRepository) : KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
-    suspend fun loadingRoutesFromRemote() {
+    suspend fun loadingRoutesFromRemote() = withContext(Dispatchers.IO){
         repository.getAllBasicData().collect { result ->
             if (result is ResultState.Success) {
                 val basicDataList = result.data

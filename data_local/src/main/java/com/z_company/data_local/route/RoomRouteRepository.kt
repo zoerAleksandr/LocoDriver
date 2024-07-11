@@ -276,4 +276,10 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
             dao.isSynchronizedRoute(basicId)
         }
     }
+
+    override fun clearRepository(): Flow<ResultState<Unit>> {
+        return flowRequest {
+            dao.clearRepository()
+        }
+    }
 }

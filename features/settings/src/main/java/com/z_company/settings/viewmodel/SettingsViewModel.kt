@@ -1,9 +1,7 @@
 package com.z_company.settings.viewmodel
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.parse.ParseUser
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.use_case.LoginUseCase
@@ -11,6 +9,7 @@ import com.z_company.domain.entities.User
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.use_cases.CalendarUseCase
+import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.use_case.AuthUseCase
 import com.z_company.use_case.RemoteRouteUseCase
@@ -23,9 +22,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import java.util.Calendar
-import java.util.Calendar.MONTH
-import java.util.Calendar.YEAR
 
 class SettingsViewModel : ViewModel(), KoinComponent {
     private val authUseCase: AuthUseCase by inject()
@@ -33,6 +29,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private val remoteRouteUseCase: RemoteRouteUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
+    private val routeUseCase: RouteUseCase by inject()
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState = _uiState.asStateFlow()
@@ -196,6 +193,9 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     fun logOut() {
         viewModelScope.launch {
             authUseCase.logout().collect { result ->
+                if (result is ResultState.Success) {
+                    routeUseCase.clearLocalRouteRepository().launchIn(viewModelScope)
+                }
                 _uiState.update {
                     it.copy(
                         logOutState = result
@@ -215,9 +215,6 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                 }
             }
         }
-    }
-
-    fun loadDataFromRemote() {
         viewModelScope.launch {
             remoteRouteUseCase.loadingRoutesFromRemote()
         }

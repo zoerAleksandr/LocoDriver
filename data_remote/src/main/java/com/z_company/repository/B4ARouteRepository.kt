@@ -1,7 +1,6 @@
 package com.z_company.repository
 
 import android.content.Context
-import android.util.Log
 import androidx.work.Constraints
 import androidx.work.Data
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -67,8 +66,6 @@ import com.z_company.work_manager.WorkManagerState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.launch
@@ -84,7 +81,7 @@ private const val SAVE_PASSENGER_WORKER_TAG = "SAVE_PASSENGER_WORKER_TAG"
 private const val SAVE_PHOTO_WORKER_TAG = "SAVE_PHOTO_WORKER_TAG"
 
 private const val UNIQUE_SYNC_WORK_NAME = "periodicSynchronized"
-private const val GET_ALL_DATA_WORKER_TAG = "SYNC_DATA_WORKER_TAG"
+private const val GET_ALL_DATA_WORKER_TAG = "GET_ALL_DATA_WORKER_TAG"
 private const val SYNC_DATA_ONE_TIME_WORKER_TAG = "SYNC_DATA_ONE_TIME_WORKER_TAG"
 private const val SYNC_DATA_PERIODIC_WORKER_TAG = "SYNC_DATA_PERIODIC_WORKER_TAG"
 private const val REMOVE_BASIC_DATA_WORKER_TAG = "REMOVE_BASIC_DATA_WORKER_TAG"
@@ -152,7 +149,6 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
             .build()
 
         val constraints = Constraints.Builder()
-            .setRequiresBatteryNotLow(true)
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
@@ -215,7 +211,6 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
 
     override suspend fun getAllBasicData(): Flow<ResultState<List<BasicData>?>> {
         val constraints = Constraints.Builder()
-            .setRequiresBatteryNotLow(true)
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
@@ -327,7 +322,6 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
 
     override suspend fun synchronizedRouteOneTime(): Flow<ResultState<Unit>> {
         val constraints = Constraints.Builder()
-            .setRequiresBatteryNotLow(true)
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
         val worker = OneTimeWorkRequestBuilder<SynchronizedOneTimeWorker>()
@@ -459,7 +453,7 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
             .build()
 
         val constraints = Constraints.Builder()
-            .setRequiresBatteryNotLow(true)
+//            .setRequiresBatteryNotLow(true)
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
@@ -500,7 +494,7 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
             .build()
 
         val constraints = Constraints.Builder()
-            .setRequiresBatteryNotLow(true)
+//            .setRequiresBatteryNotLow(true)
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
@@ -541,7 +535,7 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
             .build()
 
         val constraints = Constraints.Builder()
-            .setRequiresBatteryNotLow(true)
+//            .setRequiresBatteryNotLow(true)
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
@@ -582,7 +576,7 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
             .build()
 
         val constraints = Constraints.Builder()
-            .setRequiresBatteryNotLow(true)
+//            .setRequiresBatteryNotLow(true)
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
