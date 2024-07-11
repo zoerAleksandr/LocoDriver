@@ -155,15 +155,17 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     }
 
     private fun loadLogin() {
-        loadLoginJob?.cancel()
-        loadLoginJob = loginUseCase.getUser().onEach { resultState ->
-            _uiState.update {
-                it.copy(userDetailsState = resultState)
-            }
-            if (resultState is ResultState.Success) {
-                currentUser = resultState.data
-            }
-        }.launchIn(viewModelScope)
+        viewModelScope.launch {
+            loadLoginJob?.cancel()
+            loadLoginJob = loginUseCase.getUser().onEach { resultState ->
+                _uiState.update {
+                    it.copy(userDetailsState = resultState)
+                }
+                if (resultState is ResultState.Success) {
+                    currentUser = resultState.data
+                }
+            }.launchIn(viewModelScope)
+        }
     }
 
     fun saveSettings() {

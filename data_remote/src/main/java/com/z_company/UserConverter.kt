@@ -7,7 +7,8 @@ internal object UserConverter {
         return User(
             name = parseUser.username,
             email = parseUser.email,
-            updateAt = parseUser.updatedAt.time
+            updateAt = parseUser.updatedAt.time,
+            isAuthenticated = parseUser.isAuthenticated
         )
     }
 }

@@ -60,3 +60,9 @@ object PhotoFieldName {
     const val DATE_OF_CREATE = "dateOfCreate"
     const val BASIC_DATA_FIELD_NAME = "basicData"
 }
+
+object UserFieldName {
+    const val USER_CLASS_NAME_REMOTE = "_User"
+    const val EMAIL_VERIFIED_FIELD_NAME_REMOTE = "emailVerified"
+    const val USERNAME_FIELD_NAME_REMOTE = "username"
+}

@@ -49,7 +49,7 @@ import com.z_company.core.R as CoreR
 fun SettingsScreen(
     settingsUiState: SettingsUiState,
     currentSettings: UserSettings?,
-    currentUser: User?,
+    currentUserState: ResultState<User?>,
     resetSaveState: () -> Unit,
     onSaveClick: () -> Unit,
     onBack: () -> Unit,
@@ -105,18 +105,17 @@ fun SettingsScreen(
                                 onSettingSaved()
                             }
                         }
-                        if (settingsUiState.logOutState is ResultState.Success){
+                        if (settingsUiState.logOutState is ResultState.Success) {
                             LaunchedEffect(settingsUiState.logOutState) {
                                 logOut()
                             }
-                        }
-                        else {
+                        } else {
                             SettingScreenContent(
                                 currentSettings = setting,
                                 onLogOut = onLogOut,
                                 onSync = onSync,
                                 updateRepoState = settingsUiState.updateRepositoryState,
-                                currentUser = currentUser,
+                                currentUserState = currentUserState,
                                 updateAtState = settingsUiState.updateAt,
                                 workTimeChanged = workTimeChanged,
                                 locoTypeChanged = locoTypeChanged,
@@ -145,7 +144,7 @@ fun SettingScreenContent(
     onLogOut: () -> Unit,
     onSync: () -> Unit,
     updateRepoState: ResultState<Unit>,
-    currentUser: User?,
+    currentUserState: ResultState<User?>,
     updateAtState: ResultState<Long>,
     showReleaseDaySelectScreen: () -> Unit,
     yearList: List<Int>,
@@ -278,7 +277,8 @@ fun SettingScreenContent(
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
                                 text = ConverterLongToTime.getTimeInStringFormat(
-                                    currentSettings.selectMonthOfYear.getNormaHours().toLong().times(3_600_000)
+                                    currentSettings.selectMonthOfYear.getNormaHours().toLong()
+                                        .times(3_600_000)
                                 ),
                                 style = styleHint
                             )
@@ -437,10 +437,50 @@ fun SettingScreenContent(
                     ) {
 
                         Text(text = "E-mail", style = styleData)
-                        Text(
-                            text = currentUser?.email ?: "",
-                            style = styleHint
-                        )
+                        AsyncData(
+                            resultState = currentUserState,
+                            loadingContent = {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            }) { user ->
+                            user?.let {
+                                Text(
+                                    text = user.email,
+                                    style = styleHint
+                                )
+                            }
+                        }
+                    }
+
+                    HorizontalDivider()
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(text = "Статус", style = styleData)
+                        AsyncData(
+                            resultState = currentUserState,
+                            loadingContent = {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            }) { user ->
+                            user?.let {
+                                val dataText = if (user.isAuthenticated) {
+                                    "Подтвержден"
+                                } else {
+                                    "Не подтвержден"
+                                }
+                                Text(
+                                    text = dataText,
+                                    style = styleHint
+                                )
+                            }
+                        }
                     }
 
                     HorizontalDivider()

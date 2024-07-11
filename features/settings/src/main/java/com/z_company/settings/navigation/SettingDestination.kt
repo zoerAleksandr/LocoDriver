@@ -17,7 +17,7 @@ fun SettingDestination(
     SettingsScreen(
         settingsUiState = uiState,
         currentSettings = settingsViewModel.currentSettings,
-        currentUser = settingsViewModel.currentUser,
+        currentUserState = uiState.userDetailsState,
         resetSaveState = settingsViewModel::resetSaveState,
         onSaveClick = settingsViewModel::saveSettings,
         onBack = router::back,
