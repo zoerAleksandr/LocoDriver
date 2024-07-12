@@ -1,8 +1,13 @@
 package com.z_company.settings.viewmodel
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.parse.ParseUser
 import com.z_company.core.ResultState
+import com.z_company.core.util.isEmailValid
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.use_case.LoginUseCase
 import com.z_company.domain.entities.User
@@ -55,7 +60,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             }
         }
 
-    var currentUser: User?
+    private var currentUser: User?
         get() {
             return _uiState.value.userDetailsState.let {
                 if (it is ResultState.Success) it.data else null
@@ -66,6 +71,21 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                 it.copy(userDetailsState = ResultState.Success(value))
             }
         }
+
+    var currentEmail by mutableStateOf("")
+
+    fun setEmail(value: String) {
+        currentEmail = value
+        if (value.isEmailValid()) {
+            _uiState.update {
+                it.copy(resentVerificationEmailButton = true)
+            }
+        } else {
+            _uiState.update {
+                it.copy(resentVerificationEmailButton = false)
+            }
+        }
+    }
 
     init {
         loadSettings()
@@ -163,8 +183,18 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                 }
                 if (resultState is ResultState.Success) {
                     currentUser = resultState.data
+                    currentEmail = currentUser?.email ?: ""
                 }
             }.launchIn(viewModelScope)
+        }
+    }
+
+    fun emailConfirmation() {
+        viewModelScope.launch {
+            val parseUser = ParseUser.getCurrentUser()
+            parseUser.email = currentEmail
+            parseUser.username = currentEmail
+            parseUser.saveInBackground()
         }
     }
 

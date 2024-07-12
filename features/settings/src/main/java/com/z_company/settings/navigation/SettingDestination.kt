@@ -32,6 +32,10 @@ fun SettingDestination(
         yearList = uiState.yearList,
         monthList = uiState.monthList,
         selectMonthOfYear = settingsViewModel::setCurrentMonth,
-        logOut = router::showSignIn
+        logOut = router::showSignIn,
+        onResentVerificationEmail = settingsViewModel::emailConfirmation,
+        emailForConfirm = settingsViewModel.currentEmail,
+        onChangeEmail = settingsViewModel::setEmail,
+        enableButtonConfirmVerification = uiState.resentVerificationEmailButton
     )
 }

@@ -14,5 +14,6 @@ data class SettingsUiState(
     val updateAt: ResultState<Long> = ResultState.Loading,
     val monthList: List<Int> = listOf(),
     val yearList: List<Int> = listOf(),
-    val logOutState: ResultState<Unit>? = null
+    val logOutState: ResultState<Unit>? = null,
+    val resentVerificationEmailButton: Boolean = true
 )

@@ -41,6 +41,7 @@ import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHours
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.route.component.DialogSelectMonthOfYear
+import com.z_company.settings.component.ConfirmEmailDialog
 import com.z_company.settings.viewmodel.SettingsUiState
 import com.z_company.core.R as CoreR
 
@@ -65,6 +66,10 @@ fun SettingsScreen(
     yearList: List<Int>,
     monthList: List<Int>,
     selectMonthOfYear: (Pair<Int, Int>) -> Unit,
+    onResentVerificationEmail: () -> Unit,
+    emailForConfirm: String,
+    onChangeEmail: (String) -> Unit,
+    enableButtonConfirmVerification: Boolean
 ) {
     Scaffold(topBar = {
         TopAppBar(navigationIcon = {
@@ -124,7 +129,11 @@ fun SettingsScreen(
                                 showReleaseDaySelectScreen = showReleaseDaySelectScreen,
                                 yearList = yearList,
                                 monthList = monthList,
-                                selectMonthOfYear = selectMonthOfYear
+                                selectMonthOfYear = selectMonthOfYear,
+                                onResentVerificationEmail = onResentVerificationEmail,
+                                emailForConfirm = emailForConfirm,
+                                onChangeEmail = onChangeEmail,
+                                enableButtonConfirmVerification = enableButtonConfirmVerification
                             )
                         }
                     }
@@ -150,6 +159,10 @@ fun SettingScreenContent(
     yearList: List<Int>,
     monthList: List<Int>,
     selectMonthOfYear: (Pair<Int, Int>) -> Unit,
+    onResentVerificationEmail: () -> Unit,
+    emailForConfirm: String,
+    onChangeEmail: (String) -> Unit,
+    enableButtonConfirmVerification: Boolean
 ) {
     val styleTitle = AppTypography.getType().bodySmall
     val styleData = AppTypography.getType().bodyMedium
@@ -177,6 +190,23 @@ fun SettingScreenContent(
 
     val showMonthSelectorDialog = remember {
         mutableStateOf(false)
+    }
+
+    var showConfirmEmailDialog by remember {
+        mutableStateOf(false)
+    }
+
+    if (showConfirmEmailDialog) {
+        ConfirmEmailDialog(
+            onDismissRequest = { showConfirmEmailDialog = false },
+            onConfirmButton = {
+                onResentVerificationEmail()
+                showConfirmEmailDialog = false
+            },
+            emailForConfirm = emailForConfirm,
+            onChangeEmail = onChangeEmail,
+            enableButtonConfirmVerification = enableButtonConfirmVerification
+        )
     }
 
     if (showMonthSelectorDialog.value) {
@@ -475,55 +505,74 @@ fun SettingScreenContent(
                                 } else {
                                     "Не подтвержден"
                                 }
+
                                 Text(
+                                    modifier = Modifier.clickable {
+                                        showConfirmEmailDialog = true
+                                    },
                                     text = dataText,
-                                    style = styleHint
+                                    style = styleHint,
+                                    color = if (!user.isAuthenticated) MaterialTheme.colorScheme.tertiary else Color.Unspecified
                                 )
+
                             }
                         }
                     }
+                    AsyncData(
+                        resultState = currentUserState,
+                        loadingContent = {}
+                    ) { user ->
+                        user?.let {
+                            if (user.isAuthenticated) {
+                                HorizontalDivider()
 
-                    HorizontalDivider()
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(text = "Синхронизация", style = styleData)
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    ) {
+                                        AsyncData(resultState = updateAtState) { updateAt ->
+                                            updateAt?.let { timeInMillis ->
+                                                val textSyncDate =
+                                                    DateAndTimeConverter.getDateAndTime(timeInMillis)
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(text = "Синхронизация", style = styleData)
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            AsyncData(resultState = updateAtState) { updateAt ->
-                                updateAt?.let { timeInMillis ->
-                                    val textSyncDate =
-                                        DateAndTimeConverter.getDateAndTime(timeInMillis)
-
-                                    Text(
-                                        text = textSyncDate,
-                                        style = styleHint
-                                    )
+                                                Text(
+                                                    text = textSyncDate,
+                                                    style = styleHint
+                                                )
+                                            }
+                                        }
+                                        AsyncData(
+                                            resultState = updateRepoState,
+                                            loadingContent = {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(24.dp),
+                                                    strokeWidth = 2.dp
+                                                )
+                                            }
+                                        ) {
+                                            Icon(
+                                                modifier = Modifier.clickable { onSync() },
+                                                imageVector = Icons.Default.Refresh,
+                                                contentDescription = null
+                                            )
+                                        }
+                                    }
                                 }
-                            }
-                            AsyncData(
-                                resultState = updateRepoState,
-                                loadingContent = {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(24.dp),
-                                        strokeWidth = 2.dp
-                                    )
-                                }
-                            ) {
-                                Icon(
-                                    modifier = Modifier.clickable { onSync() },
-                                    imageVector = Icons.Default.Refresh,
-                                    contentDescription = null
-                                )
+
                             }
                         }
                     }
                 }
-
             }
+            Text(
+                modifier = Modifier.padding(start = 16.dp, top = 8.dp),
+                text = "Подтверждение e-mail нужно для синхронизации с облачным хранилище.",
+                style = AppTypography.getType().labelMedium
+            )
         }
 
         item {

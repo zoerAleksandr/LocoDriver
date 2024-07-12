@@ -261,9 +261,6 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
                         is ResultState.Success -> {
                             val idList = result.data
                                 .getStringArray(GET_BASIC_DATA_WORKER_OUTPUT_KEY)
-                            idList?.first()?.let {
-                                loadBasicDataFromRemote(it).launchIn(CoroutineScope(Dispatchers.IO))
-                            }
                             emit(ResultState.Success(idList?.toList()))
                         }
 
