@@ -58,4 +58,5 @@ dependencies {
     implementation(Libs.compose_material3)
 
     implementation(Libs.accompanist_navigation_animation)
+    implementation(project(":data_local"))
 }

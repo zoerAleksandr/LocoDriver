@@ -8,8 +8,10 @@ import androidx.lifecycle.viewModelScope
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.util.isEmailValid
+import com.z_company.data_local.SharedPreferenceStorage
 import com.z_company.login.ui.getMessageThrowable
 import com.z_company.use_case.AuthUseCase
+import com.z_company.use_case.LoginUseCase
 import com.z_company.use_case.RemoteRouteUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -28,6 +30,8 @@ const val TIME_OUT: Long = 15_000L
 class SignInViewModel : ViewModel(), KoinComponent {
     private val remoteRouteUseCase: RemoteRouteUseCase by inject()
     private val authUseCase: AuthUseCase by inject()
+    private val loginUseCase: LoginUseCase by inject()
+
     private val _uiState = MutableStateFlow(SignInUiState())
     val uiState = _uiState.asStateFlow()
 
@@ -72,7 +76,15 @@ class SignInViewModel : ViewModel(), KoinComponent {
                             }
                         } else {
                             if (result is ResultState.Success) {
-                                loadDataFromRemote()
+                                viewModelScope.launch {
+                                    loginUseCase.getUser().collect { result ->
+                                        if (result is ResultState.Success) {
+                                            if (result.data.isVerification) {
+                                                loadDataFromRemote()
+                                            }
+                                        }
+                                    }
+                                }
                             }
                             _uiState.update {
                                 it.copy(

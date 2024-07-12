@@ -248,7 +248,6 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
     }
 
     override suspend fun getAllBasicDataId(): Flow<ResultState<List<String>?>> {
-
         val worker = OneTimeWorkRequestBuilder<LoadBasicDataListWorker>()
             .addTag(GET_ALL_DATA_WORKER_TAG)
             .setConstraints(constraints)
@@ -341,6 +340,10 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
                 }
             }
         }
+    }
+
+    override suspend fun cancelingSync() {
+        WorkManager.getInstance(context).cancelUniqueWork(UNIQUE_SYNC_WORK_NAME)
     }
 
     override suspend fun synchronizedRouteOneTime(): Flow<ResultState<Unit>> {

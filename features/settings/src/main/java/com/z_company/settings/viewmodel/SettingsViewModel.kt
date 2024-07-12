@@ -122,7 +122,6 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             settingsUseCase.setCurrentMonthOfYear(monthOfYear).launchIn(viewModelScope)
     }
 
-
     private fun loadMonthList() {
         loadCalendarJob?.cancel()
         loadCalendarJob = calendarUseCase.loadMonthOfYearList().onEach { result ->
@@ -227,6 +226,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             authUseCase.logout().collect { result ->
                 if (result is ResultState.Success) {
                     routeUseCase.clearLocalRouteRepository().launchIn(viewModelScope)
+                    remoteRouteUseCase.cancelingSync()
                 }
                 _uiState.update {
                     it.copy(

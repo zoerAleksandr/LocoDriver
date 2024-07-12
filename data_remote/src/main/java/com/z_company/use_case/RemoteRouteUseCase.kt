@@ -126,4 +126,8 @@ class RemoteRouteUseCase(private val repository: RemoteRouteRepository) : KoinCo
     suspend fun saveLocomotive(locomotive: Locomotive) {
         repository.saveLocomotive(locomotive)
     }
+
+    suspend fun cancelingSync(){
+        repository.cancelingSync()
+    }
 }

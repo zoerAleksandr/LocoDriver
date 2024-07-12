@@ -500,7 +500,7 @@ fun SettingScreenContent(
                                 )
                             }) { user ->
                             user?.let {
-                                val dataText = if (user.isAuthenticated) {
+                                val dataText = if (user.isVerification) {
                                     "Подтвержден"
                                 } else {
                                     "Не подтвержден"
@@ -512,7 +512,7 @@ fun SettingScreenContent(
                                     },
                                     text = dataText,
                                     style = styleHint,
-                                    color = if (!user.isAuthenticated) MaterialTheme.colorScheme.tertiary else Color.Unspecified
+                                    color = if (!user.isVerification) MaterialTheme.colorScheme.tertiary else Color.Unspecified
                                 )
 
                             }
@@ -523,7 +523,7 @@ fun SettingScreenContent(
                         loadingContent = {}
                     ) { user ->
                         user?.let {
-                            if (user.isAuthenticated) {
+                            if (user.isVerification) {
                                 HorizontalDivider()
 
                                 Row(
