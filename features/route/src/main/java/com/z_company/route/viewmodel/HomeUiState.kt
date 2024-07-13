@@ -15,5 +15,6 @@ data class HomeUiState(
     val minTimeRest: Long? = null,
     val minTimeHomeRest: Long? = null,
     val nightTimeInRouteList: Long? = null,
-    val passengerTimeInRouteList: Long? = null
+    val passengerTimeInRouteList: Long? = null,
+    val showFirstEntryToAccountDialog: Boolean = false
 )

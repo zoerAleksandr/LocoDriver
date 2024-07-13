@@ -43,10 +43,9 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     val isRegistered: MutableLiveData<Boolean> get() = _isRegistered
 
     init {
-        if (sharedPreferenceStorage.tokenIsFirstEntry) {
+        if (sharedPreferenceStorage.tokenIsFirstAppEntry) {
             setDefaultSettings()
             loadCalendar()
-            sharedPreferenceStorage.setTokenIsFirstEntry(false)
         }
         viewModelScope.launch {
             getSession()

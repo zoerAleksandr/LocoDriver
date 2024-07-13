@@ -8,7 +8,6 @@ import androidx.lifecycle.viewModelScope
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.util.isEmailValid
-import com.z_company.data_local.SharedPreferenceStorage
 import com.z_company.login.ui.getMessageThrowable
 import com.z_company.use_case.AuthUseCase
 import com.z_company.use_case.LoginUseCase

@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -59,6 +60,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -120,7 +122,9 @@ fun HomeScreen(
     minTimeRest: Long?,
     nightTime: Long?,
     passengerTime: Long?,
-    calculationHomeRest: (Route) -> Long?
+    calculationHomeRest: (Route) -> Long?,
+    firstEntryDialogState: Boolean,
+    resetStateFirstEntryDialog: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -154,6 +158,57 @@ fun HomeScreen(
 
     var showContextDialog by remember {
         mutableStateOf(false)
+    }
+    AnimationDialog(
+        showDialog = firstEntryDialogState,
+        onDismissRequest = resetStateFirstEntryDialog
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(horizontal = 16.dp)
+                .fillMaxWidth()
+                .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 12.dp, top = 30.dp, bottom = 12.dp),
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Start, text = "ДОБРО ПОЖАЛОВАТЬ!\n",
+                    style = AppTypography.getType().titleLarge
+                )
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = "Подтвердите вашу электронную почту.\n",
+                    style = AppTypography.getType().titleMedium
+                )
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = "На ваш адрес электронной почты было отправлено письмо со ссылкой для подтверждения. Пожалуйста, проверьте вашу почту и нажмите на ссылку для завершения регистрации.\n\n",
+                    style = AppTypography.getType().bodyMedium
+                )
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = "Если вы не получили письмо, проверьте папку \"Спам\" или повторите попытку позже.\n",
+                    style = AppTypography.getType().bodyMedium
+                )
+
+                Button(
+                    modifier = Modifier.padding(top = 16.dp),
+                    shape = Shapes.medium,
+                    onClick = resetStateFirstEntryDialog
+                ) {
+                    Text(
+                        text = "Понял",
+                        style = AppTypography.getType().titleMedium
+                    )
+                }
+            }
+        }
     }
 
     AnimationDialog(

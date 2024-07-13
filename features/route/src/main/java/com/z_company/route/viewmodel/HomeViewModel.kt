@@ -1,6 +1,5 @@
 package com.z_company.route.viewmodel
 
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -10,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.core.util.CalculateNightTime
+import com.z_company.data_local.SharedPreferenceStorage
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.route.Route
@@ -36,14 +36,13 @@ import java.util.Calendar.MONTH
 import java.util.Calendar.YEAR
 import java.util.Calendar.getInstance
 import com.z_company.domain.util.minus
-import com.z_company.use_case.RemoteRouteUseCase
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.flowOn
 
 class HomeViewModel : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
+    private val sharedPreferenceStorage: SharedPreferenceStorage by inject()
     var totalTime by mutableLongStateOf(0L)
         private set
 
@@ -357,6 +356,25 @@ class HomeViewModel : ViewModel(), KoinComponent {
         return null
     }
 
+    private fun checkLoginToAccount(){
+        if(sharedPreferenceStorage.tokenIsFirstAppEntry){
+            _uiState.update {
+                it.copy(
+                    showFirstEntryToAccountDialog = true
+                )
+            }
+            sharedPreferenceStorage.setTokenIsFirstAppEntry(false)
+        }
+    }
+
+    fun disableFirstEntryToAccountDialog(){
+        _uiState.update {
+            it.copy(
+                showFirstEntryToAccountDialog = false
+            )
+        }
+    }
+
     init {
         val calendar = getInstance()
         loadSetting()
@@ -368,5 +386,6 @@ class HomeViewModel : ViewModel(), KoinComponent {
             )
         )
         loadMinTimeRestInRoute()
+        checkLoginToAccount()
     }
 }

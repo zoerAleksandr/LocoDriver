@@ -19,7 +19,7 @@ data class AppTypography(
     val titleMedium: TextStyle
         get() = materialTypography.titleMedium
     val titleSmall: TextStyle
-        get() = materialTypography.titleSmall
+        get() = materialTypography.titleSmall.copy(fontWeight = FontWeight.Bold)
 
     val displayLarge: TextStyle
         get() = materialTypography.displayLarge
