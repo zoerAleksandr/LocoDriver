@@ -1,20 +1,19 @@
 package com.z_company.loco_driver.viewmodel
 
-import android.content.Context.MODE_PRIVATE
-import android.content.SharedPreferences
 import android.util.Log
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.parse.Parse.getApplicationContext
 import com.parse.ParseUser
 import com.z_company.core.ResultState
+import com.z_company.data_local.SharedPreferenceStorage
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.use_cases.LoadCalendarFromStorage
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.use_case.RemoteRouteUseCase
+import com.z_company.work_manager.UserFieldName
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.launchIn
@@ -30,6 +29,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private val calendarUseCase: CalendarUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val remoteRouteUseCase: RemoteRouteUseCase by inject()
+    private val sharedPreferenceStorage: SharedPreferenceStorage by inject()
 
     private var loadCalendarJob: Job? = null
     private var saveCalendarInLocalJob: Job? = null
@@ -43,20 +43,10 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     val isRegistered: MutableLiveData<Boolean> get() = _isRegistered
 
     init {
-        val sharedpref: SharedPreferences =
-            getApplicationContext().getSharedPreferences(
-                getApplicationContext().packageName,
-                MODE_PRIVATE
-            )
-
-        val token: String? = sharedpref.getString("token", null)
-        if (token == "False" || token == null) {
+        if (sharedPreferenceStorage.tokenIsFirstAppEntry) {
             setDefaultSettings()
             loadCalendar()
-            enableSynchronisedRoute()
-            sharedpref.edit().putString("token", "true").apply()
         }
-
         viewModelScope.launch {
             getSession()
         }
@@ -96,6 +86,12 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
             val session = ParseUser.getCurrentUser()
             if (session != null) {
                 _isRegistered.postValue(true)
+                if (session.getBoolean(UserFieldName.EMAIL_VERIFIED_FIELD_NAME_REMOTE) && !sharedPreferenceStorage.tokesIsSyncDBEnable
+                ) {
+                    enableSynchronisedRoute()
+                    sharedPreferenceStorage.setTokenIsSyncEnable(true)
+                }
+
             } else {
                 _isRegistered.postValue(false)
             }

@@ -90,4 +90,6 @@ internal interface RouteDao {
     fun setRemoteObjectIdPhoto(photoId: String, objectId: String)
     @Query("UPDATE BasicData SET isSynchronized = 1 WHERE remoteObjectId =:id")
     fun isSynchronizedRoute(id: String)
+    @Query("DELETE FROM BasicData")
+    suspend fun clearRepository()
 }

@@ -15,7 +15,9 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Calendar
 import java.util.Calendar.*
 
@@ -46,19 +48,15 @@ class RouteUseCase(private val repository: RouteRepository) {
                 it.set(MILLISECOND, 0)
             }.timeInMillis
 
-            val routeListByPeriod = mutableListOf<Route>()
-            CoroutineScope(Dispatchers.IO).launch {
-                repository.loadRoutesByPeriod(startMonthInLong, endMonthInLong).collect { result ->
+            repository.loadRoutesByPeriod(startMonthInLong, endMonthInLong)
+                .collect { result ->
                     if (result is ResultState.Success) {
-                        routeListByPeriod.addAll(result.data)
-                        this.cancel()
+                        emit(ResultState.Success(result.data))
                     }
                     if (result is ResultState.Error) {
                         emit(ResultState.Error(ErrorEntity(result.entity.throwable)))
-                        this.cancel()
                     }
                 }
-            }.join()
 
             val startMonthBefore: Calendar = getInstance().also {
                 it.set(YEAR, monthOfYear.year)
@@ -81,33 +79,21 @@ class RouteUseCase(private val repository: RouteRepository) {
                 it.set(MILLISECOND, 0)
             }.timeInMillis
 
-            val beforeRouteList = mutableListOf<Route>()
-
-            CoroutineScope(Dispatchers.IO).launch {
-                repository.loadRoutesByPeriod(startMonthBeforeInLong, endMonthBeforeInLong)
-                    .collect { result ->
-                        if (result is ResultState.Success) {
-                            result.data.forEach { route ->
-                                route.basicData.timeEndWork?.let { endTime ->
-                                    if (endTime > startMonthInLong) {
-                                        beforeRouteList.add(route)
-                                    }
+            repository.loadRoutesByPeriod(startMonthBeforeInLong, endMonthBeforeInLong)
+                .collect { result ->
+                    if (result is ResultState.Success) {
+                        result.data.forEach { route ->
+                            route.basicData.timeEndWork?.let { endTime ->
+                                if (endTime > startMonthInLong) {
+                                    emit(ResultState.Success(result.data))
                                 }
                             }
-                            this.cancel()
-                        }
-                        if (result is ResultState.Error) {
-                            emit(ResultState.Error(ErrorEntity(result.entity.throwable)))
-                            this.cancel()
                         }
                     }
-            }.join()
-
-            val listRoute = mutableListOf<Route>()
-            listRoute.addAll(beforeRouteList)
-            listRoute.addAll(routeListByPeriod)
-
-            emit(ResultState.Success(listRoute))
+                    if (result is ResultState.Error) {
+                        emit(ResultState.Error(ErrorEntity(result.entity.throwable)))
+                    }
+                }
         }
 
     fun listRoutes(): Flow<ResultState<List<Route>>> {
@@ -190,5 +176,9 @@ class RouteUseCase(private val repository: RouteRepository) {
 
     fun fullRest(route: Route, minTimeRest: Long): Long? {
         return route.fullRest(minTimeRest)
+    }
+
+    fun clearLocalRouteRepository(): Flow<ResultState<Unit>>{
+        return repository.clearRepository()
     }
 }

@@ -35,4 +35,5 @@ interface RouteRepository {
     fun savePhoto(photo: Photo): Flow<ResultState<Unit>>
     fun markAsRemoved(route: Route): Flow<ResultState<Unit>>
     fun isSynchronizedBasicData(basicId: String): Flow<ResultState<Unit>>
+    fun clearRepository(): Flow<ResultState<Unit>>
 }

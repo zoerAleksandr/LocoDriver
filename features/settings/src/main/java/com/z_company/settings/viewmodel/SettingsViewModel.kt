@@ -1,16 +1,22 @@
 package com.z_company.settings.viewmodel
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.parse.ParseUser
 import com.z_company.core.ResultState
+import com.z_company.core.util.isEmailValid
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.use_case.LoginUseCase
 import com.z_company.domain.entities.User
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.use_cases.CalendarUseCase
+import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.use_case.AuthUseCase
 import com.z_company.use_case.RemoteRouteUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,15 +27,14 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import java.util.Calendar
-import java.util.Calendar.MONTH
-import java.util.Calendar.YEAR
 
 class SettingsViewModel : ViewModel(), KoinComponent {
+    private val authUseCase: AuthUseCase by inject()
     private val loginUseCase: LoginUseCase by inject()
     private val remoteRouteUseCase: RemoteRouteUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
+    private val routeUseCase: RouteUseCase by inject()
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState = _uiState.asStateFlow()
@@ -55,7 +60,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             }
         }
 
-    var currentUser: User?
+    private var currentUser: User?
         get() {
             return _uiState.value.userDetailsState.let {
                 if (it is ResultState.Success) it.data else null
@@ -66,6 +71,21 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                 it.copy(userDetailsState = ResultState.Success(value))
             }
         }
+
+    var currentEmail by mutableStateOf("")
+
+    fun setEmail(value: String) {
+        currentEmail = value
+        if (value.isEmailValid()) {
+            _uiState.update {
+                it.copy(resentVerificationEmailButton = true)
+            }
+        } else {
+            _uiState.update {
+                it.copy(resentVerificationEmailButton = false)
+            }
+        }
+    }
 
     init {
         loadSettings()
@@ -101,7 +121,6 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         saveCurrentMonthJob =
             settingsUseCase.setCurrentMonthOfYear(monthOfYear).launchIn(viewModelScope)
     }
-
 
     private fun loadMonthList() {
         loadCalendarJob?.cancel()
@@ -155,15 +174,27 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     }
 
     private fun loadLogin() {
-        loadLoginJob?.cancel()
-        loadLoginJob = loginUseCase.getUser().onEach { resultState ->
-            _uiState.update {
-                it.copy(userDetailsState = resultState)
-            }
-            if (resultState is ResultState.Success) {
-                currentUser = resultState.data
-            }
-        }.launchIn(viewModelScope)
+        viewModelScope.launch {
+            loadLoginJob?.cancel()
+            loadLoginJob = loginUseCase.getUser().onEach { resultState ->
+                _uiState.update {
+                    it.copy(userDetailsState = resultState)
+                }
+                if (resultState is ResultState.Success) {
+                    currentUser = resultState.data
+                    currentEmail = currentUser?.email ?: ""
+                }
+            }.launchIn(viewModelScope)
+        }
+    }
+
+    fun emailConfirmation() {
+        viewModelScope.launch {
+            val parseUser = ParseUser.getCurrentUser()
+            parseUser.email = currentEmail
+            parseUser.username = currentEmail
+            parseUser.saveInBackground()
+        }
     }
 
     fun saveSettings() {
@@ -191,8 +222,19 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     }
 
     fun logOut() {
-        // TODO сделать выход из аккаунта
-        ParseUser.logOutInBackground()
+        viewModelScope.launch {
+            authUseCase.logout().collect { result ->
+                if (result is ResultState.Success) {
+                    routeUseCase.clearLocalRouteRepository().launchIn(viewModelScope)
+                    remoteRouteUseCase.cancelingSync()
+                }
+                _uiState.update {
+                    it.copy(
+                        logOutState = result
+                    )
+                }
+            }
+        }
     }
 
     fun onSync() {
@@ -205,9 +247,6 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                 }
             }
         }
-    }
-
-    fun loadDataFromRemote() {
         viewModelScope.launch {
             remoteRouteUseCase.loadingRoutesFromRemote()
         }

@@ -1,5 +1,6 @@
-package com.z_company.route.component
+package com.z_company.core.ui.component
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -20,7 +21,7 @@ fun TopSnackbar(snackBarData: SnackbarData) {
             snackBarData.dismiss()
         }
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.fillMaxSize().clickable { snackBarData.dismiss() }) {
             Snackbar(
                 modifier = Modifier
                     .padding(top = 8.dp)

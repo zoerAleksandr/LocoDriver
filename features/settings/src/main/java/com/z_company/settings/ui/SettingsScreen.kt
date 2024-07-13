@@ -11,8 +11,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.outlined.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,6 +41,7 @@ import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHours
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.route.component.DialogSelectMonthOfYear
+import com.z_company.settings.component.ConfirmEmailDialog
 import com.z_company.settings.viewmodel.SettingsUiState
 import com.z_company.core.R as CoreR
 
@@ -49,7 +50,7 @@ import com.z_company.core.R as CoreR
 fun SettingsScreen(
     settingsUiState: SettingsUiState,
     currentSettings: UserSettings?,
-    currentUser: User?,
+    currentUserState: ResultState<User?>,
     resetSaveState: () -> Unit,
     onSaveClick: () -> Unit,
     onBack: () -> Unit,
@@ -59,11 +60,16 @@ fun SettingsScreen(
     restTimeChanged: (Long) -> Unit,
     homeRestTimeChanged: (Long) -> Unit,
     onLogOut: () -> Unit,
+    logOut: () -> Unit,
     onSync: () -> Unit,
     showReleaseDaySelectScreen: () -> Unit,
     yearList: List<Int>,
     monthList: List<Int>,
     selectMonthOfYear: (Pair<Int, Int>) -> Unit,
+    onResentVerificationEmail: () -> Unit,
+    emailForConfirm: String,
+    onChangeEmail: (String) -> Unit,
+    enableButtonConfirmVerification: Boolean
 ) {
     Scaffold(topBar = {
         TopAppBar(navigationIcon = {
@@ -103,13 +109,18 @@ fun SettingsScreen(
                             LaunchedEffect(settingsUiState.saveSettingsState) {
                                 onSettingSaved()
                             }
+                        }
+                        if (settingsUiState.logOutState is ResultState.Success) {
+                            LaunchedEffect(settingsUiState.logOutState) {
+                                logOut()
+                            }
                         } else {
                             SettingScreenContent(
                                 currentSettings = setting,
                                 onLogOut = onLogOut,
                                 onSync = onSync,
                                 updateRepoState = settingsUiState.updateRepositoryState,
-                                currentUser = currentUser,
+                                currentUserState = currentUserState,
                                 updateAtState = settingsUiState.updateAt,
                                 workTimeChanged = workTimeChanged,
                                 locoTypeChanged = locoTypeChanged,
@@ -118,7 +129,11 @@ fun SettingsScreen(
                                 showReleaseDaySelectScreen = showReleaseDaySelectScreen,
                                 yearList = yearList,
                                 monthList = monthList,
-                                selectMonthOfYear = selectMonthOfYear
+                                selectMonthOfYear = selectMonthOfYear,
+                                onResentVerificationEmail = onResentVerificationEmail,
+                                emailForConfirm = emailForConfirm,
+                                onChangeEmail = onChangeEmail,
+                                enableButtonConfirmVerification = enableButtonConfirmVerification
                             )
                         }
                     }
@@ -138,12 +153,16 @@ fun SettingScreenContent(
     onLogOut: () -> Unit,
     onSync: () -> Unit,
     updateRepoState: ResultState<Unit>,
-    currentUser: User?,
+    currentUserState: ResultState<User?>,
     updateAtState: ResultState<Long>,
     showReleaseDaySelectScreen: () -> Unit,
     yearList: List<Int>,
     monthList: List<Int>,
     selectMonthOfYear: (Pair<Int, Int>) -> Unit,
+    onResentVerificationEmail: () -> Unit,
+    emailForConfirm: String,
+    onChangeEmail: (String) -> Unit,
+    enableButtonConfirmVerification: Boolean
 ) {
     val styleTitle = AppTypography.getType().bodySmall
     val styleData = AppTypography.getType().bodyMedium
@@ -171,6 +190,23 @@ fun SettingScreenContent(
 
     val showMonthSelectorDialog = remember {
         mutableStateOf(false)
+    }
+
+    var showConfirmEmailDialog by remember {
+        mutableStateOf(false)
+    }
+
+    if (showConfirmEmailDialog) {
+        ConfirmEmailDialog(
+            onDismissRequest = { showConfirmEmailDialog = false },
+            onConfirmButton = {
+                onResentVerificationEmail()
+                showConfirmEmailDialog = false
+            },
+            emailForConfirm = emailForConfirm,
+            onChangeEmail = onChangeEmail,
+            enableButtonConfirmVerification = enableButtonConfirmVerification
+        )
     }
 
     if (showMonthSelectorDialog.value) {
@@ -231,7 +267,8 @@ fun SettingScreenContent(
 
     LazyColumn(
         modifier = Modifier
-            .fillMaxWidth(),
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
@@ -270,7 +307,8 @@ fun SettingScreenContent(
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
                                 text = ConverterLongToTime.getTimeInStringFormat(
-                                    currentSettings.selectMonthOfYear.getNormaHours().toLong().times(3_600_000)
+                                    currentSettings.selectMonthOfYear.getNormaHours().toLong()
+                                        .times(3_600_000)
                                 ),
                                 style = styleHint
                             )
@@ -278,7 +316,7 @@ fun SettingScreenContent(
                                 modifier = Modifier.clickable {
                                     showReleaseDaySelectScreen()
                                 },
-                                imageVector = Icons.Outlined.KeyboardArrowRight,
+                                imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                                 contentDescription = null
                             )
                         }
@@ -429,10 +467,21 @@ fun SettingScreenContent(
                     ) {
 
                         Text(text = "E-mail", style = styleData)
-                        Text(
-                            text = currentUser?.email ?: "",
-                            style = styleHint
-                        )
+                        AsyncData(
+                            resultState = currentUserState,
+                            loadingContent = {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            }) { user ->
+                            user?.let {
+                                Text(
+                                    text = user.email,
+                                    style = styleHint
+                                )
+                            }
+                        }
                     }
 
                     HorizontalDivider()
@@ -441,41 +490,89 @@ fun SettingScreenContent(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(text = "Синхронизация", style = styleData)
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            AsyncData(resultState = updateAtState) { updateAt ->
-                                updateAt?.let { timeInMillis ->
-                                    val textSyncDate =
-                                        DateAndTimeConverter.getDateAndTime(timeInMillis)
-
-                                    Text(
-                                        text = textSyncDate,
-                                        style = styleHint
-                                    )
-                                }
-                            }
-                            AsyncData(
-                                resultState = updateRepoState,
-                                loadingContent = {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(24.dp),
-                                        strokeWidth = 2.dp
-                                    )
-                                }
-                            ) {
-                                Icon(
-                                    modifier = Modifier.clickable { onSync() },
-                                    imageVector = Icons.Default.Refresh,
-                                    contentDescription = null
+                        Text(text = "Статус", style = styleData)
+                        AsyncData(
+                            resultState = currentUserState,
+                            loadingContent = {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp
                                 )
+                            }) { user ->
+                            user?.let {
+                                val dataText = if (user.isVerification) {
+                                    "Подтвержден"
+                                } else {
+                                    "Не подтвержден"
+                                }
+
+                                Text(
+                                    modifier = Modifier.clickable {
+                                        showConfirmEmailDialog = true
+                                    },
+                                    text = dataText,
+                                    style = styleHint,
+                                    color = if (!user.isVerification) MaterialTheme.colorScheme.tertiary else Color.Unspecified
+                                )
+
+                            }
+                        }
+                    }
+                    AsyncData(
+                        resultState = currentUserState,
+                        loadingContent = {}
+                    ) { user ->
+                        user?.let {
+                            if (user.isVerification) {
+                                HorizontalDivider()
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(text = "Синхронизация", style = styleData)
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    ) {
+                                        AsyncData(resultState = updateAtState) { updateAt ->
+                                            updateAt?.let { timeInMillis ->
+                                                val textSyncDate =
+                                                    DateAndTimeConverter.getDateAndTime(timeInMillis)
+
+                                                Text(
+                                                    text = textSyncDate,
+                                                    style = styleHint
+                                                )
+                                            }
+                                        }
+                                        AsyncData(
+                                            resultState = updateRepoState,
+                                            loadingContent = {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(24.dp),
+                                                    strokeWidth = 2.dp
+                                                )
+                                            }
+                                        ) {
+                                            Icon(
+                                                modifier = Modifier.clickable { onSync() },
+                                                imageVector = Icons.Default.Refresh,
+                                                contentDescription = null
+                                            )
+                                        }
+                                    }
+                                }
+
                             }
                         }
                     }
                 }
-
             }
+            Text(
+                modifier = Modifier.padding(start = 16.dp, top = 8.dp),
+                text = "Подтверждение e-mail нужно для синхронизации с облачным хранилище.",
+                style = AppTypography.getType().labelMedium
+            )
         }
 
         item {

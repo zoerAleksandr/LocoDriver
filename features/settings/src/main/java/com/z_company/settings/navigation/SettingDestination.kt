@@ -17,7 +17,7 @@ fun SettingDestination(
     SettingsScreen(
         settingsUiState = uiState,
         currentSettings = settingsViewModel.currentSettings,
-        currentUser = settingsViewModel.currentUser,
+        currentUserState = uiState.userDetailsState,
         resetSaveState = settingsViewModel::resetSaveState,
         onSaveClick = settingsViewModel::saveSettings,
         onBack = router::back,
@@ -31,6 +31,11 @@ fun SettingDestination(
         showReleaseDaySelectScreen = router::showSelectReleaseDayScreen,
         yearList = uiState.yearList,
         monthList = uiState.monthList,
-        selectMonthOfYear = settingsViewModel::setCurrentMonth
+        selectMonthOfYear = settingsViewModel::setCurrentMonth,
+        logOut = router::showSignIn,
+        onResentVerificationEmail = settingsViewModel::emailConfirmation,
+        emailForConfirm = settingsViewModel.currentEmail,
+        onChangeEmail = settingsViewModel::setEmail,
+        enableButtonConfirmVerification = uiState.resentVerificationEmailButton
     )
 }

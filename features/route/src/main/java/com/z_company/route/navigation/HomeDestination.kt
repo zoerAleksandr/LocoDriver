@@ -13,10 +13,10 @@ fun HomeDestination(
     router: Router
 ) {
     val homeViewModel: HomeViewModel = viewModel()
-    val homeUiState by homeViewModel.uiState.collectAsState()
+    val uiState by homeViewModel.uiState.collectAsState()
     HomeScreen(
-        routeListState = homeUiState.routeListState,
-        removeRouteState = homeUiState.removeRouteState,
+        routeListState = uiState.routeListState,
+        removeRouteState = uiState.removeRouteState,
         onRouteClick = router::showRouteDetails,
         onNewRouteClick = { router.showRouteForm() },
         onChangeRoute = {
@@ -29,12 +29,14 @@ fun HomeDestination(
         onSearchClick = { router.showSearch() },
         totalTime = homeViewModel.totalTime,
         currentMonthOfYear = homeViewModel.currentMonthOfYear,
-        yearList = homeUiState.yearList,
-        monthList = homeUiState.monthList,
+        yearList = uiState.yearList,
+        monthList = uiState.monthList,
         selectYearAndMonth = homeViewModel::setCurrentMonth,
-        minTimeRest = homeUiState.minTimeRest,
-        nightTime = homeUiState.nightTimeInRouteList,
-        passengerTime = homeUiState.passengerTimeInRouteList,
-        calculationHomeRest = homeViewModel::calculationHomeRest
+        minTimeRest = uiState.minTimeRest,
+        nightTime = uiState.nightTimeInRouteList,
+        passengerTime = uiState.passengerTimeInRouteList,
+        calculationHomeRest = homeViewModel::calculationHomeRest,
+        firstEntryDialogState = uiState.showFirstEntryToAccountDialog,
+        resetStateFirstEntryDialog = homeViewModel::disableFirstEntryToAccountDialog
     )
 }

@@ -11,10 +11,12 @@ import com.z_company.entity.Photo as PhotoRemote
 import kotlinx.coroutines.flow.Flow
 
 interface RemoteRouteRepository {
+    suspend fun loadBasicDataFromRemote(id: String): Flow<ResultState<BasicDataRemote?>>
     suspend fun saveRoute(route: Route): Flow<ResultState<Data>>
-    suspend fun getAllBasicData(): Flow<ResultState<List<BasicDataRemote>?>>
+    suspend fun getAllBasicDataId(): Flow<ResultState<List<String>?>>
     suspend fun removeBasicData(remoteObjectId: String): Flow<ResultState<Data>>
     suspend fun synchronizedRoutePeriodic(): Flow<ResultState<Unit>>
+    suspend fun cancelingSync()
     suspend fun synchronizedRouteOneTime(): Flow<ResultState<Unit>>
     suspend fun saveLocomotive(locomotive: LocomotiveRemote): Flow<ResultState<Data>>
     suspend fun removeLocomotive(remoteObjectId: String): Flow<ResultState<Data>>

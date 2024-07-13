@@ -15,22 +15,34 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
 class RemoteRouteUseCase(private val repository: RemoteRouteRepository) : KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
-    suspend fun loadingRoutesFromRemote() {
-        repository.getAllBasicData().collect { result ->
+    suspend fun loadingRoutesFromRemote() = withContext(Dispatchers.IO) {
+        repository.getAllBasicDataId().collect { result ->
             if (result is ResultState.Success) {
-                val basicDataList = result.data
+                val basicDataIdList = result.data
 
-                basicDataList?.forEach { basicData ->
+                basicDataIdList?.forEach { id ->
                     var route = Route()
                     CoroutineScope(Dispatchers.IO).launch {
-                        route = route.copy(basicData = BasicDataConverter.toData(basicData))
                         this.launch {
-                            repository.loadLocomotiveFromRemote(basicData.id).collect { result ->
+                            repository.loadBasicDataFromRemote(id).collect { result ->
+                                if (result is ResultState.Success) {
+                                    result.data?.let {
+                                        route =
+                                            route.copy(basicData = BasicDataConverter.toData(it))
+                                    }
+                                    this.cancel()
+                                }
+                            }
+                        }.join()
+
+                        this.launch {
+                            repository.loadLocomotiveFromRemote(id).collect { result ->
                                 if (result is ResultState.Success) {
                                     result.data?.let { locomotives ->
                                         route = route.copy(
@@ -43,7 +55,7 @@ class RemoteRouteUseCase(private val repository: RemoteRouteRepository) : KoinCo
                         }.join()
 
                         this.launch {
-                            repository.loadTrainFromRemote(basicData.id).collect { result ->
+                            repository.loadTrainFromRemote(id).collect { result ->
                                 if (result is ResultState.Success) {
                                     result.data?.let { trains ->
                                         route = route.copy(
@@ -56,7 +68,7 @@ class RemoteRouteUseCase(private val repository: RemoteRouteRepository) : KoinCo
                         }.join()
 
                         this.launch {
-                            repository.loadPassengerFromRemote(basicData.id).collect { result ->
+                            repository.loadPassengerFromRemote(id).collect { result ->
                                 if (result is ResultState.Success) {
                                     result.data?.let { passengers ->
                                         route = route.copy(
@@ -79,7 +91,7 @@ class RemoteRouteUseCase(private val repository: RemoteRouteRepository) : KoinCo
                         }.join()
 
                         this.launch {
-                            repository.loadPhotoFromRemote(basicData.id).collect { result ->
+                            repository.loadPhotoFromRemote(id).collect { result ->
                                 if (result is ResultState.Success) {
                                     result.data?.let { photos ->
                                         route =
@@ -113,5 +125,9 @@ class RemoteRouteUseCase(private val repository: RemoteRouteRepository) : KoinCo
 
     suspend fun saveLocomotive(locomotive: Locomotive) {
         repository.saveLocomotive(locomotive)
+    }
+
+    suspend fun cancelingSync(){
+        repository.cancelingSync()
     }
 }
