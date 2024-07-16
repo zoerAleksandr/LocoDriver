@@ -23,6 +23,7 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
     private val trainUseCase: TrainUseCase by inject()
     private val passengerUseCase: PassengerUseCase by inject()
     private val photoUseCase: PhotoUseCase by inject()
+    private val settingsUseCase: SettingsUseCase by inject()
 
     private val dataStoreRepository: DataStoreRepository by inject()
 
@@ -52,7 +53,7 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
             }
         }
 
-    private var minTimeRest by mutableStateOf<Long?>(null)
+    var minTimeRest by mutableStateOf<Long?>(null)
 
     init {
         if (routeId == NULLABLE_ID) {
@@ -78,6 +79,7 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
             _uiState.update {
                 if (routeState is ResultState.Success) {
                     currentRoute = routeState.data
+                    calculateRestTime(currentRoute!!)
                 }
                 it.copy(routeDetailState = routeState)
             }
@@ -86,8 +88,13 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
 
     private fun loadSettings() {
         loadSettingsJob?.cancel()
-        loadSettingsJob = dataStoreRepository.getMinTimeRest().onEach {
-            minTimeRest = it
+        loadSettingsJob = settingsUseCase.getCurrentSettings().onEach { result ->
+            if (result is ResultState.Success) {
+                minTimeRest = result.data?.minTimeRest
+                currentRoute?.let { route ->
+                    calculateRestTime(route)
+                }
+            }
         }.launchIn(viewModelScope)
     }
 
@@ -95,11 +102,6 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
         val state = _uiState.value.routeDetailState
         if (state is ResultState.Success) {
             state.data?.let { route ->
-
-//                viewModelScope.launch {
-//                    remoteRouteUseCase.saveBasicData(route)
-//                }
-
                 saveRouteJob?.cancel()
                 saveRouteJob = routeUseCase.saveRoute(route).onEach { saveRouteState ->
                     _uiState.update {
@@ -227,6 +229,7 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
                 timeStartWork = timeInLong
             )
         )
+        calculateRestTime(currentRoute!!)
         isValidTime()
         changesHave()
     }
@@ -237,6 +240,7 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
                 timeEndWork = timeInLong
             )
         )
+        calculateRestTime(currentRoute!!)
         isValidTime()
         changesHave()
     }
@@ -248,10 +252,14 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
             )
         )
         if (value) {
-            getMinTimeRest(currentRoute!!)
-            getFullRest(currentRoute!!)
+            calculateRestTime(currentRoute!!)
         }
         changesHave()
+    }
+
+    fun calculateRestTime(route: Route){
+        getMinTimeRest(route)
+        getFullRest(route)
     }
 
     private fun getMinTimeRest(route: Route) {

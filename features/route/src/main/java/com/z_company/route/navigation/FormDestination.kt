@@ -26,6 +26,7 @@ fun FormDestination(
         currentRoute = viewModel.currentRoute,
         onRouteSaved = router::showHome,
         onSaveClick = viewModel::saveRoute,
+        onBack = router::showHome,
         onNumberChanged = viewModel::setNumber,
         onNotesChanged = viewModel::setNotes,
         onSettingClick = router::showSettings,
@@ -57,6 +58,7 @@ fun FormDestination(
             viewModel.preSaveRoute()
         },
         onDeletePhoto = viewModel::onDeletePhoto,
-        onPhotoClick = router::showViewingImageScreen
+        onPhotoClick = router::showViewingImageScreen,
+        minTimeRest = viewModel.minTimeRest
     )
 }

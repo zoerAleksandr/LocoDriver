@@ -172,29 +172,29 @@ fun HomeScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 12.dp, end = 12.dp, top = 30.dp, bottom = 12.dp),
+                    .padding(16.dp),
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Start, text = "ДОБРО ПОЖАЛОВАТЬ!\n",
-                    style = AppTypography.getType().titleLarge
+                    style = AppTypography.getType().titleLarge.copy(color = MaterialTheme.colorScheme.primary)
                 )
                 Text(
                     modifier = Modifier.fillMaxWidth(),
                     text = "Подтвердите вашу электронную почту.\n",
-                    style = AppTypography.getType().titleMedium
+                    style = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.primary)
                 )
                 Text(
                     modifier = Modifier.fillMaxWidth(),
                     text = "На ваш адрес электронной почты было отправлено письмо со ссылкой для подтверждения. Пожалуйста, проверьте вашу почту и нажмите на ссылку для завершения регистрации.\n\n",
-                    style = AppTypography.getType().bodyMedium
+                    style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
                 )
                 Text(
                     modifier = Modifier.fillMaxWidth(),
                     text = "Если вы не получили письмо, проверьте папку \"Спам\" или повторите попытку позже.\n",
-                    style = AppTypography.getType().bodyMedium
+                    style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
                 )
 
                 Button(

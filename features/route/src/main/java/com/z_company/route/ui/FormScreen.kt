@@ -6,12 +6,14 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import com.z_company.route.component.TimePickerDialog
 import com.z_company.route.component.CustomDatePickerDialog
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +30,7 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -39,6 +42,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -47,10 +51,13 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MediumTopAppBar
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -61,6 +68,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
@@ -72,6 +80,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -87,9 +96,6 @@ import com.z_company.core.util.ConverterUrlBase64
 import com.z_company.domain.entities.route.Route
 import com.z_company.route.viewmodel.RouteFormUiState
 import com.z_company.domain.util.minus
-import java.text.SimpleDateFormat
-import java.util.Locale
-import com.z_company.core.util.DateAndTimeFormat
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Photo
@@ -100,6 +106,9 @@ import com.z_company.route.component.rememberDatePickerStateInLocale
 import java.util.Calendar
 import com.z_company.route.extention.isScrollInInitialState
 import com.maxkeppeker.sheets.core.views.Grid
+import com.z_company.core.util.DateAndTimeConverter
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
+import com.z_company.route.component.SelectedRestDialog
 
 const val LINK_TO_SETTING = "LINK_TO_SETTING"
 
@@ -112,6 +121,7 @@ fun FormScreen(
     onSaveClick: () -> Unit,
     onSettingClick: () -> Unit,
     onClearAllField: () -> Unit,
+    onBack: () -> Unit,
     resetSaveState: () -> Unit,
     onNumberChanged: (String) -> Unit,
     onNotesChanged: (String) -> Unit,
@@ -130,25 +140,35 @@ fun FormScreen(
     onNewPhotoClick: (basicId: String) -> Unit,
     onDeletePhoto: (photo: Photo) -> Unit,
     onPhotoClick: (photoId: String) -> Unit,
+    minTimeRest: Long?
 ) {
     Scaffold(
         topBar = {
-            MediumTopAppBar(title = {
-                Text(
-                    text = "Маршрут",
-                )
-            }, navigationIcon = {
-                IconButton(onClick = onSaveClick) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Назад"
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "Маршрут",
                     )
-                }
-            }, actions = {
-                ClickableText(modifier = Modifier.padding(horizontal = 16.dp),
-                    text = AnnotatedString(text = "Очистить"),
-                    onClick = { onClearAllField() })
-            })
+                }, navigationIcon = {
+                    IconButton(onClick = {
+                        onClearAllField()
+                        onBack()
+                    }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Назад"
+                        )
+                    }
+                }, actions = {
+                    ClickableText(
+                        modifier = Modifier.padding(end = 16.dp),
+                        text = AnnotatedString("Готово"),
+                        style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.tertiary),
+                    ) {
+                        onSaveClick()
+                    }
+                }, colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+            )
         },
     ) {
         Box(Modifier.padding(it)) {
@@ -173,8 +193,8 @@ fun FormScreen(
                                 onTimeEndWorkChanged = onTimeEndWorkChanged,
                                 onRestChanged = onRestChanged,
                                 onSettingClick = onSettingClick,
-                                minTimeRest = formUiState.minTimeRest,
-                                fullTimeRest = formUiState.fullTimeRest,
+                                minUntilTimeRest = formUiState.minTimeRest,
+                                fullUntilTimeRest = formUiState.fullTimeRest,
                                 locoListState = route.locomotives,
                                 onChangeLocoClick = onChangedLocoClick,
                                 onNewLocoClick = onNewLocoClick,
@@ -189,7 +209,8 @@ fun FormScreen(
                                 onDeletePassenger = onDeletePassenger,
                                 onNewPhotoClick = onNewPhotoClick,
                                 onDeletePhoto = onDeletePhoto,
-                                onPhotoClick = onPhotoClick
+                                onPhotoClick = onPhotoClick,
+                                minTimeRest = minTimeRest
                             )
                         }
                     }
@@ -210,8 +231,8 @@ private fun RouteFormScreenContent(
     onTimeEndWorkChanged: (Long?) -> Unit,
     onRestChanged: (Boolean) -> Unit,
     onSettingClick: () -> Unit,
-    minTimeRest: Long?,
-    fullTimeRest: Long?,
+    minUntilTimeRest: Long?,
+    fullUntilTimeRest: Long?,
     locoListState: List<Locomotive>?,
     onChangeLocoClick: (loco: Locomotive) -> Unit,
     onNewLocoClick: (basicId: String) -> Unit,
@@ -227,9 +248,16 @@ private fun RouteFormScreenContent(
     onNewPhotoClick: (basicId: String) -> Unit,
     onDeletePhoto: (photo: Photo) -> Unit,
     onPhotoClick: (photoId: String) -> Unit,
+    minTimeRest: Long?,
 ) {
+    val dataTextStyle = AppTypography.getType().bodyMedium
+    val subtitleTextStyle = AppTypography.getType().bodyLarge
+
     val scrollState = rememberLazyListState()
 
+    var showSelectRestDialog by remember {
+        mutableStateOf(false)
+    }
     var showStartTimePicker by remember {
         mutableStateOf(false)
     }
@@ -243,6 +271,10 @@ private fun RouteFormScreenContent(
     }
 
     var showEndDatePicker by remember {
+        mutableStateOf(false)
+    }
+
+    var moreInfoRestVisible by remember {
         mutableStateOf(false)
     }
 
@@ -264,6 +296,17 @@ private fun RouteFormScreenContent(
 
     val startDatePickerState =
         rememberDatePickerStateInLocale(initialSelectedDateMillis = startCalendar.timeInMillis)
+
+    if (showSelectRestDialog) {
+        SelectedRestDialog(
+            onDismissRequest = { showSelectRestDialog = false },
+            onConfirmRequest = {
+                showSelectRestDialog = false
+                onRestChanged(it)
+            },
+            selectedItem = if (route.basicData.restPointOfTurnover) 0 else 1
+        )
+    }
 
     if (showStartTimePicker) {
         TimePickerDialog(timePickerState = startTimePickerState,
@@ -336,7 +379,9 @@ private fun RouteFormScreenContent(
     }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         state = scrollState,
     ) {
@@ -347,7 +392,9 @@ private fun RouteFormScreenContent(
 
         item {
             Row(
-                modifier = Modifier.padding(24.dp), verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 24.dp), verticalAlignment = Alignment.Top
             ) {
                 errorMessage?.let { message ->
                     Icon(
@@ -358,6 +405,7 @@ private fun RouteFormScreenContent(
                     Text(
                         modifier = Modifier.padding(start = 8.dp),
                         text = message,
+                        style = dataTextStyle
                     )
                 } ?: Text(text = workTimeInFormatted, style = AppTypography.getType().headlineLarge)
 
@@ -366,102 +414,149 @@ private fun RouteFormScreenContent(
 
         item {
             Row(
-                modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Column(modifier = Modifier
-                    .clickable {
-                        showStartDatePicker = true
-                    }
-                    .border(
-                        width = 1.dp,
-                        shape = Shapes.small,
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                    .padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    val dateStartText = startTimeInLong?.let { millis ->
-                        SimpleDateFormat(
-                            DateAndTimeFormat.DATE_FORMAT, Locale.getDefault()
-                        ).format(
-                            millis
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable {
+                            showStartDatePicker = true
+                        }
+                        .border(
+                            width = 1.dp,
+                            shape = Shapes.small,
+                            color = MaterialTheme.colorScheme.outline
                         )
-                    } ?: DateAndTimeFormat.DEFAULT_DATE_TEXT
+                        .padding(12.dp),
+                ) {
+                    val dateStartText = startTimeInLong?.let {
+                        DateAndTimeConverter.getDateFromDateLong(startTimeInLong)
+                    } ?: "Начало"
+                    val timeStartText = startTimeInLong?.let {
+                        DateAndTimeConverter.getTimeFromDateLong(startTimeInLong)
+                    } ?: ""
+                    val dateAndTimeEndText = "$dateStartText $timeStartText"
 
                     Text(
-                        text = dateStartText,
-                        style = AppTypography.getType().bodyLarge,
+                        text = dateAndTimeEndText,
+                        style = dataTextStyle
                     )
-                    startTimeInLong?.let { millis ->
-                        val time = SimpleDateFormat(
-                            DateAndTimeFormat.TIME_FORMAT, Locale.getDefault()
-                        ).format(millis)
-                        Text(
-                            text = time,
-                            style = AppTypography.getType().bodyLarge,
-                        )
-                    }
                 }
 
-                Column(modifier = Modifier
-                    .clickable {
-                        showEndDatePicker = true
-                    }
-                    .border(
-                        width = 1.dp,
-                        shape = Shapes.small,
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                    .padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    val dateStartText = endTimeInLong?.let { millis ->
-                        SimpleDateFormat(
-                            DateAndTimeFormat.DATE_FORMAT, Locale.getDefault()
-                        ).format(
-                            millis
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable {
+                            showEndDatePicker = true
+                        }
+                        .border(
+                            width = 1.dp,
+                            shape = Shapes.small,
+                            color = MaterialTheme.colorScheme.outline
                         )
-                    } ?: DateAndTimeFormat.DEFAULT_DATE_TEXT
-
+                        .padding(12.dp),
+                ) {
+                    val dateEndText = endTimeInLong?.let {
+                        DateAndTimeConverter.getDateFromDateLong(endTimeInLong)
+                    } ?: "Окончание"
+                    val timeEndText = endTimeInLong?.let {
+                        DateAndTimeConverter.getTimeFromDateLong(endTimeInLong)
+                    } ?: ""
+                    val dateAndTimeEndText = "$dateEndText $timeEndText"
                     Text(
-                        text = dateStartText,
-                        style = AppTypography.getType().bodyLarge,
+                        text = dateAndTimeEndText,
+                        style = dataTextStyle,
                     )
-                    endTimeInLong?.let { millis ->
-                        val time = SimpleDateFormat(
-                            DateAndTimeFormat.TIME_FORMAT, Locale.getDefault()
-                        ).format(millis)
-                        Text(
-                            text = time,
-                            style = AppTypography.getType().bodyLarge,
-                        )
-                    }
+
                 }
             }
+        }
+
+        item {
+            val keyboardController = LocalSoftwareKeyboardController.current
+            val focusManager = LocalFocusManager.current
+            val interactionSource = remember { MutableInteractionSource() }
+            BasicTextField(
+                modifier = Modifier
+                    .padding(vertical = 16.dp)
+                    .fillMaxWidth(),
+                value = route.basicData.number ?: "",
+                onValueChange = onNumberChanged,
+                interactionSource = interactionSource,
+                textStyle = dataTextStyle.copy(
+                    color = MaterialTheme.colorScheme.primary,
+                ),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                keyboardOptions = KeyboardOptions.Default.copy(capitalization = KeyboardCapitalization.Words),
+                decorationBox = { innerTextField ->
+                    OutlinedTextFieldDefaults.DecorationBox(
+                        value = route.basicData.number ?: "",
+                        visualTransformation = VisualTransformation.None,
+                        innerTextField = innerTextField,
+                        enabled = true,
+                        interactionSource = interactionSource,
+                        singleLine = true,
+                        contentPadding = TextFieldDefaults.contentPaddingWithoutLabel(
+                            start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp
+                        ),
+                        placeholder = {
+                            Text(text = "маршрута", style = dataTextStyle)
+                        },
+                        prefix = {
+                            Text(text = "№", style = dataTextStyle)
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedBorderColor = MaterialTheme.colorScheme.outline,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        ),
+                    )
+                }
+            )
         }
 
         item {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(end = 16.dp, top = 24.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.End
+                    .clickable {
+                        showSelectRestDialog = true
+                    }
+                    .border(
+                        width = 1.dp,
+                        shape = Shapes.small,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Text(
-                    modifier = Modifier.padding(end = 8.dp),
-                    text = stringResource(id = R.string.text_switсh_onRest)
-                )
-
-                Switch(
-                    checked = route.basicData.restPointOfTurnover,
-                    onCheckedChange = {
-                        onRestChanged(it)
-                    },
-                )
+                val text =
+                    if (route.basicData.restPointOfTurnover) "Отдых в ПО" else "Домашний отдых"
+                Text(text = text, style = dataTextStyle)
+                AnimatedVisibility(
+                    visible = (route.basicData.restPointOfTurnover) && (route.getWorkTime() != null)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        tint = MaterialTheme.colorScheme.tertiary,
+                        contentDescription = null,
+                        modifier = Modifier.clickable {
+                            moreInfoRestVisible = !moreInfoRestVisible
+                        }
+                    )
+                }
             }
         }
 
-        val minTimeRestText = ConverterLongToTime.getDateAndTimeStringFormat(minTimeRest)
-        val fullTimeRestText = ConverterLongToTime.getDateAndTimeStringFormat(fullTimeRest)
-
         item {
+            val minUntilTimeRestText =
+                ConverterLongToTime.getDateAndTimeStringFormat(minUntilTimeRest)
+            val fullUntilTimeRestText =
+                ConverterLongToTime.getDateAndTimeStringFormat(fullUntilTimeRest)
+            val minTimeRestText = ConverterLongToTime.getTimeInStringFormat(minTimeRest)
+
             val link = buildAnnotatedString {
                 val text = stringResource(id = R.string.info_text_min_time_rest, minTimeRestText)
 
@@ -484,7 +579,7 @@ private fun RouteFormScreenContent(
                 )
             }
             AnimatedVisibility(
-                visible = route.basicData.restPointOfTurnover,
+                visible = moreInfoRestVisible && (route.basicData.restPointOfTurnover) && (route.getWorkTime() != null),
                 enter = slideInHorizontally(animationSpec = tween(durationMillis = 300)) + fadeIn(
                     animationSpec = tween(durationMillis = 300)
                 ),
@@ -495,28 +590,21 @@ private fun RouteFormScreenContent(
             ) {
                 Column(
                     modifier = Modifier
+                        .padding(top = 16.dp)
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f)),
+                        .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f))
+                        .padding(top = 16.dp),
                     horizontalAlignment = Alignment.Start
                 ) {
-                    Icon(
-                        modifier = Modifier.padding(
-                            top = 16.dp, start = 16.dp, bottom = 8.dp
-                        ),
-                        imageVector = Icons.Default.Info,
-                        tint = MaterialTheme.colorScheme.tertiary,
-                        contentDescription = null
-                    )
-
                     Text(
                         modifier = Modifier.padding(horizontal = 16.dp), text = stringResource(
-                            id = R.string.min_time_rest_text, minTimeRestText
+                            id = R.string.min_time_rest_text, minUntilTimeRestText
                         ), style = AppTypography.getType().bodyMedium, textAlign = TextAlign.End
                     )
 
                     Text(
                         modifier = Modifier.padding(horizontal = 16.dp), text = stringResource(
-                            id = R.string.complete_time_rest_text, fullTimeRestText
+                            id = R.string.complete_time_rest_text, fullUntilTimeRestText
                         ), style = AppTypography.getType().bodyMedium, textAlign = TextAlign.End
                     )
 
@@ -526,41 +614,18 @@ private fun RouteFormScreenContent(
                         ),
                         text = link,
                         style = AppTypography.getType().bodySmall.copy(
-                                fontStyle = FontStyle.Italic,
-                                color = MaterialTheme.colorScheme.onBackground
-                            ),
+                            fontStyle = FontStyle.Italic,
+                            color = MaterialTheme.colorScheme.onBackground
+                        ),
                     ) {
                         link.getStringAnnotations(LINK_TO_SETTING, it, it).firstOrNull()?.let {
-                                onSettingClick()
-                            }
+                            onSettingClick()
+                        }
                     }
                 }
             }
         }
-        item {
-            val keyboardController = LocalSoftwareKeyboardController.current
-            val focusManager = LocalFocusManager.current
 
-            OutlinedTextField(
-                value = route.basicData.number ?: "",
-                onValueChange = onNumberChanged,
-                singleLine = true,
-                placeholder = {
-                    Text(text = "маршрута")
-                },
-                prefix = {
-                    Text(text = "№")
-                },
-                keyboardActions = KeyboardActions(onDone = {
-                    keyboardController?.hide()
-                    focusManager.clearFocus()
-                }),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp, horizontal = 16.dp),
-                keyboardOptions = KeyboardOptions.Default.copy(capitalization = KeyboardCapitalization.Words),
-            )
-        }
         item {
             Column(
                 modifier = Modifier.padding(bottom = 32.dp, end = 16.dp, start = 16.dp),
