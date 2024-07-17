@@ -24,9 +24,9 @@ fun FormDestination(
     FormScreen(
         formUiState = formUiState,
         currentRoute = viewModel.currentRoute,
-        onRouteSaved = router::showHome,
+        exitScreen = router::showHome,
         onSaveClick = viewModel::saveRoute,
-        onBack = router::showHome,
+        onBack = viewModel::checkBeforeExitTheScreen,
         onNumberChanged = viewModel::setNumber,
         onNotesChanged = viewModel::setNotes,
         onSettingClick = router::showSettings,
@@ -61,5 +61,7 @@ fun FormDestination(
         onPhotoClick = router::showViewingImageScreen,
         minTimeRest = viewModel.minTimeRest,
         nightTime = formUiState.nightTime,
+        changeShowConfirmExitDialog = viewModel::changeShowConfirmDialog,
+        exitWithoutSave = viewModel::exitWithoutSaving
     )
 }

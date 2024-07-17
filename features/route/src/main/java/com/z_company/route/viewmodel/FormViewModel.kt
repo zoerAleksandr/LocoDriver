@@ -14,7 +14,6 @@ import com.z_company.domain.use_cases.*
 import com.z_company.domain.util.minus
 import com.z_company.route.Const.NULLABLE_ID
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -183,7 +182,7 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
         }
     }
 
-    fun showConfirmDialog(isShow: Boolean) {
+    fun changeShowConfirmDialog(isShow: Boolean) {
         _uiState.update {
             it.copy(confirmExitDialogShow = isShow)
         }

@@ -43,6 +43,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -52,6 +54,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -74,7 +77,6 @@ import androidx.compose.ui.zIndex
 import coil.compose.rememberAsyncImagePainter
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
-import com.z_company.core.ui.component.GenericError
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
@@ -92,9 +94,12 @@ import com.z_company.route.component.rememberDatePickerStateInLocale
 import java.util.Calendar
 import com.z_company.route.extention.isScrollInInitialState
 import com.maxkeppeker.sheets.core.views.Grid
+import com.z_company.core.ui.component.TopSnackbar
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
+import com.z_company.route.component.ConfirmExitDialog
+import kotlinx.coroutines.launch
 import com.z_company.core.R as CoreR
 
 const val LINK_TO_SETTING = "LINK_TO_SETTING"
@@ -104,7 +109,7 @@ const val LINK_TO_SETTING = "LINK_TO_SETTING"
 fun FormScreen(
     formUiState: RouteFormUiState,
     currentRoute: Route?,
-    onRouteSaved: () -> Unit,
+    exitScreen: () -> Unit,
     onSaveClick: () -> Unit,
     onSettingClick: () -> Unit,
     onClearAllField: () -> Unit,
@@ -129,7 +134,12 @@ fun FormScreen(
     onPhotoClick: (photoId: String) -> Unit,
     minTimeRest: Long?,
     nightTime: Long?,
+    changeShowConfirmExitDialog: (Boolean) -> Unit,
+    exitWithoutSave: () -> Unit
 ) {
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -139,7 +149,7 @@ fun FormScreen(
                     )
                 }, navigationIcon = {
                     IconButton(onClick = {
-                        onClearAllField()
+//                        onClearAllField()
                         onBack()
                     }) {
                         Icon(
@@ -169,45 +179,66 @@ fun FormScreen(
                 }, colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         },
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { snackBarData ->
+                TopSnackbar(snackBarData = snackBarData)
+            }
+        }
     ) {
+        if (formUiState.saveRouteState is ResultState.Error) {
+            LaunchedEffect(Unit) {
+                scope.launch {
+                    snackbarHostState.showSnackbar("Ошибка: ${formUiState.saveRouteState.entity.message}")
+                }
+                resetSaveState()
+            }
+        }
+        if(formUiState.exitFromScreen){
+            exitScreen()
+        }
+
         Box(Modifier.padding(it)) {
             AsyncData(resultState = formUiState.routeDetailState) {
                 currentRoute?.let { route ->
-                    if (formUiState.saveRouteState is ResultState.Success) {
-                        LaunchedEffect(formUiState.saveRouteState) {
-                            onRouteSaved()
+                        if (formUiState.saveRouteState is ResultState.Success) {
+                            LaunchedEffect(formUiState.saveRouteState) {
+                                exitScreen()
+                            }
+                        } else {
+                            RouteFormScreenContent(
+                                route = route,
+                                onNumberChanged = onNumberChanged,
+                                onNotesChanged = onNotesChanged,
+                                errorMessage = formUiState.errorMessage,
+                                onTimeStartWorkChanged = onTimeStartWorkChanged,
+                                onTimeEndWorkChanged = onTimeEndWorkChanged,
+                                onRestChanged = onRestChanged,
+                                onSettingClick = onSettingClick,
+                                minUntilTimeRest = formUiState.minTimeRest,
+                                fullUntilTimeRest = formUiState.fullTimeRest,
+                                locoListState = route.locomotives,
+                                onChangeLocoClick = onChangedLocoClick,
+                                onNewLocoClick = onNewLocoClick,
+                                onDeleteLoco = onDeleteLoco,
+                                trainListState = route.trains,
+                                onChangeTrainClick = onChangeTrainClick,
+                                onNewTrainClick = onNewTrainClick,
+                                onDeleteTrain = onDeleteTrain,
+                                passengerListState = route.passengers,
+                                onChangePassengerClick = onChangePassengerClick,
+                                onNewPassengerClick = onNewPassengerClick,
+                                onDeletePassenger = onDeletePassenger,
+                                onNewPhotoClick = onNewPhotoClick,
+                                onDeletePhoto = onDeletePhoto,
+                                onPhotoClick = onPhotoClick,
+                                minTimeRest = minTimeRest,
+                                nightTime = nightTime,
+                                showConfirmExitDialog = formUiState.confirmExitDialogShow,
+                                changeShowConfirmExitDialog = changeShowConfirmExitDialog,
+                                onSaveClick = onSaveClick,
+                                exitWithoutSave = exitWithoutSave
+                            )
                         }
-                    } else {
-                        RouteFormScreenContent(
-                            route = route,
-                            onNumberChanged = onNumberChanged,
-                            onNotesChanged = onNotesChanged,
-                            errorMessage = formUiState.errorMessage,
-                            onTimeStartWorkChanged = onTimeStartWorkChanged,
-                            onTimeEndWorkChanged = onTimeEndWorkChanged,
-                            onRestChanged = onRestChanged,
-                            onSettingClick = onSettingClick,
-                            minUntilTimeRest = formUiState.minTimeRest,
-                            fullUntilTimeRest = formUiState.fullTimeRest,
-                            locoListState = route.locomotives,
-                            onChangeLocoClick = onChangedLocoClick,
-                            onNewLocoClick = onNewLocoClick,
-                            onDeleteLoco = onDeleteLoco,
-                            trainListState = route.trains,
-                            onChangeTrainClick = onChangeTrainClick,
-                            onNewTrainClick = onNewTrainClick,
-                            onDeleteTrain = onDeleteTrain,
-                            passengerListState = route.passengers,
-                            onChangePassengerClick = onChangePassengerClick,
-                            onNewPassengerClick = onNewPassengerClick,
-                            onDeletePassenger = onDeletePassenger,
-                            onNewPhotoClick = onNewPhotoClick,
-                            onDeletePhoto = onDeletePhoto,
-                            onPhotoClick = onPhotoClick,
-                            minTimeRest = minTimeRest,
-                            nightTime = nightTime,
-                        )
-                    }
                 }
             }
         }
@@ -244,6 +275,10 @@ private fun RouteFormScreenContent(
     onPhotoClick: (photoId: String) -> Unit,
     minTimeRest: Long?,
     nightTime: Long?,
+    showConfirmExitDialog: Boolean,
+    changeShowConfirmExitDialog: (Boolean) -> Unit,
+    onSaveClick: () -> Unit,
+    exitWithoutSave: () -> Unit
 ) {
     val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
 
@@ -268,6 +303,16 @@ private fun RouteFormScreenContent(
     var moreInfoRestVisible by remember {
         mutableStateOf(false)
     }
+
+    if (showConfirmExitDialog){
+        ConfirmExitDialog(
+            showExitConfirmDialog = changeShowConfirmExitDialog,
+            onSaveClick =  onSaveClick,
+            exitWithoutSave = exitWithoutSave
+        )
+    }
+
+
 
     val startOfWorkTime = Calendar.getInstance().also { calendar ->
         route.basicData.timeStartWork?.let {
