@@ -149,7 +149,6 @@ fun FormScreen(
                     )
                 }, navigationIcon = {
                     IconButton(onClick = {
-//                        onClearAllField()
                         onBack()
                     }) {
                         Icon(
