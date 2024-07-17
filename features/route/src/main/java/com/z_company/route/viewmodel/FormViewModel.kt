@@ -105,15 +105,17 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
     }
 
     fun saveRoute() {
-        val state = _uiState.value.routeDetailState
-        if (state is ResultState.Success) {
-            state.data?.let { route ->
-                saveRouteJob?.cancel()
-                saveRouteJob = routeUseCase.saveRoute(route).onEach { saveRouteState ->
-                    _uiState.update {
-                        it.copy(saveRouteState = saveRouteState)
-                    }
-                }.launchIn(viewModelScope)
+        if (uiState.value.errorMessage == null) {
+            val state = _uiState.value.routeDetailState
+            if (state is ResultState.Success) {
+                state.data?.let { route ->
+                    saveRouteJob?.cancel()
+                    saveRouteJob = routeUseCase.saveRoute(route).onEach { saveRouteState ->
+                        _uiState.update {
+                            it.copy(saveRouteState = saveRouteState)
+                        }
+                    }.launchIn(viewModelScope)
+                }
             }
         }
     }
