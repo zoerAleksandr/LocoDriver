@@ -5,7 +5,7 @@ import androidx.compose.ui.graphics.Color
 
 val DarkPrimary = Color(0xFFDDDBDB)
 val DarkOnPrimary = Color(0xFF1A1A1A)
-val DarkSurface = Color(0xFF292929)
+val DarkSurface = Color(0xFF383838)
 val DarkSecondary = Color(0xFF696969)
 val DarkSecondaryContainer = Color(0xFF363636)
 val DarkBackground = Color(0xFF141414)

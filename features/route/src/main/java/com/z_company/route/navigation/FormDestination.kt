@@ -59,6 +59,7 @@ fun FormDestination(
         },
         onDeletePhoto = viewModel::onDeletePhoto,
         onPhotoClick = router::showViewingImageScreen,
-        minTimeRest = viewModel.minTimeRest
+        minTimeRest = viewModel.minTimeRest,
+        nightTime = formUiState.nightTime,
     )
 }
