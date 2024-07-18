@@ -74,7 +74,7 @@ import com.z_company.route.component.BottomShadow
 import com.z_company.route.extention.isScrollInInitialState
 import kotlinx.coroutines.launch
 import com.z_company.route.component.CustomDatePickerDialog
-import com.z_company.route.component.TimePickerDialog
+import com.z_company.core.ui.component.TimePickerDialog
 import com.z_company.route.component.rememberDatePickerStateInLocale
 import java.text.SimpleDateFormat
 import java.util.Calendar

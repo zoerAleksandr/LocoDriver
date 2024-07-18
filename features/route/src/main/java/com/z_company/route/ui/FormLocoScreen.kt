@@ -4,6 +4,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,11 +34,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MediumTopAppBar
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
@@ -50,19 +55,23 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.GenericError
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
+import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.DateAndTimeFormat
 import com.z_company.core.util.LocoTypeHelper.converterLocoTypeToString
 import com.z_company.domain.entities.UserSettings
@@ -74,7 +83,7 @@ import com.z_company.core.R as CoreR
 import com.z_company.route.component.BottomShadow
 import com.z_company.route.component.CustomDatePickerDialog
 import com.z_company.route.component.DieselSectionItem
-import com.z_company.route.component.TimePickerDialog
+import com.z_company.core.ui.component.TimePickerDialog
 import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.route.viewmodel.LocoFormUiState
 import java.text.SimpleDateFormat
@@ -133,7 +142,7 @@ fun FormLocoScreen(
         modifier = Modifier
             .fillMaxWidth(),
         topBar = {
-            MediumTopAppBar(
+            TopAppBar(
                 title = {
                     Text(
                         text = "Локомотив",
@@ -151,45 +160,45 @@ fun FormLocoScreen(
                 },
                 actions = {
                     ClickableText(
-                        text = AnnotatedString(text = "Сохранить"),
-                        style = AppTypography.getType().titleMedium,
-                        onClick = { onSaveClick() }
-                    )
+                        modifier = Modifier.padding(end = 16.dp),
+                        text = AnnotatedString("Готово"),
+                        style = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.tertiary),
+                    ) {
+                        onSaveClick()
+                    }
                     var dropDownExpanded by remember { mutableStateOf(false) }
 
-                    IconButton(
-                        onClick = {
-                            dropDownExpanded = true
-                        }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.MoreVert,
-                            contentDescription = "Меню"
-                        )
-                        DropdownMenu(
-                            expanded = dropDownExpanded,
-                            onDismissRequest = { dropDownExpanded = false },
-                            offset = DpOffset(x = 4.dp, y = 8.dp)
-                        ) {
-                            DropdownMenuItem(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                onClick = {
-                                    onClearAllField()
-                                    dropDownExpanded = false
-                                },
-                                text = {
-                                    Text(
-                                        text = "Очистить",
-                                        style = AppTypography.getType().bodyLarge
-                                    )
-                                }
-                            )
-                        }
-                    }
+//                    IconButton(
+//                        onClick = {
+//                            dropDownExpanded = true
+//                        }
+//                    ) {
+//                        Icon(
+//                            imageVector = Icons.Default.MoreVert,
+//                            contentDescription = "Меню"
+//                        )
+//                        DropdownMenu(
+//                            expanded = dropDownExpanded,
+//                            onDismissRequest = { dropDownExpanded = false },
+//                            offset = DpOffset(x = 4.dp, y = 8.dp)
+//                        ) {
+//                            DropdownMenuItem(
+//                                modifier = Modifier.padding(horizontal = 16.dp),
+//                                onClick = {
+//                                    onClearAllField()
+//                                    dropDownExpanded = false
+//                                },
+//                                text = {
+//                                    Text(
+//                                        text = "Очистить",
+//                                        style = AppTypography.getType().bodyLarge
+//                                    )
+//                                }
+//                            )
+//                        }
+//                    }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    navigationIconContentColor = MaterialTheme.colorScheme.primary
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         }
     ) { paddingValues ->
@@ -283,6 +292,12 @@ private fun LocoFormScreenContent(
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
+    val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
+    val subTitleTextStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Normal
+        )
 
     AnimatedVisibility(
         modifier = Modifier
@@ -296,22 +311,21 @@ private fun LocoFormScreenContent(
     LazyColumn(
         state = scrollState,
         horizontalAlignment = Alignment.End,
-        contentPadding = PaddingValues(horizontal = 24.dp)
+        contentPadding = PaddingValues(16.dp)
     ) {
         item {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 24.dp)
             ) {
                 OutlinedTextField(
                     modifier = Modifier
                         .padding(end = 8.dp)
                         .weight(1f),
                     value = locomotive.series ?: "",
-                    textStyle = AppTypography.getType().bodyLarge,
+                    textStyle = dataTextStyle,
                     placeholder = {
-                        Text(text = "Серия")
+                        Text(text = "Серия", style = dataTextStyle)
                     },
                     onValueChange = {
                         onSeriesChanged(it)
@@ -324,17 +338,25 @@ private fun LocoFormScreenContent(
                             focusManager.moveFocus(FocusDirection.Right)
                         }
                     ),
-                    singleLine = true
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent
+                    ),
+                    shape = Shapes.medium,
                 )
                 OutlinedTextField(
                     modifier = Modifier
                         .padding(start = 8.dp)
                         .weight(1f),
                     value = locomotive.number ?: "",
-                    textStyle = AppTypography.getType().bodyLarge,
+                    textStyle = dataTextStyle,
                     placeholder = {
                         Text(
-                            text = "Номер"
+                            text = "Номер",
+                            style = dataTextStyle
                         )
                     },
                     onValueChange = { onNumberChanged(it) },
@@ -347,7 +369,14 @@ private fun LocoFormScreenContent(
                             focusManager.clearFocus()
                         }
                     ),
-                    singleLine = true
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent
+                    ),
+                    shape = Shapes.medium,
                 )
             }
         }
@@ -359,19 +388,31 @@ private fun LocoFormScreenContent(
             SingleChoiceSegmentedButtonRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 12.dp)
+                    .padding(top = 16.dp)
+                    .background(MaterialTheme.colorScheme.surface, shape = Shapes.medium)
             ) {
                 types.forEachIndexed { index, type ->
                     SegmentedButton(
+                        modifier = Modifier.padding(4.dp),
                         selected = index == locomotive.type.ordinal,
                         onClick = { onTypeLocoChanged(index) },
                         shape = SegmentedButtonDefaults.itemShape(
                             index = index,
                             count = types.size,
-                            baseShape = Shapes.small
-                        )
+                            baseShape = Shapes.medium
+                        ),
+                        border = BorderStroke(color = Color.Transparent, width = 0.dp)
                     ) {
-                        Text(text = type)
+                        Text(
+                            text = type,
+                            style = dataTextStyle.copy(
+                                color = if (index == locomotive.type.ordinal) {
+                                    Color.Unspecified
+                                } else {
+                                    Color.Unspecified.copy(alpha = 0.9f)
+                                }
+                            ),
+                        )
                     }
                 }
             }
@@ -505,75 +546,75 @@ private fun LocoFormScreenContent(
 
             Column(
                 modifier = Modifier
-                    .padding(top = 12.dp)
-                    .border(
-                        width = 1.dp,
-                        shape = Shapes.small,
-                        color = MaterialTheme.colorScheme.outline
-                    ),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .padding(top = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                Text(
+                    text = "Приемка",
+                    style = subTitleTextStyle
+                )
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        modifier = Modifier.padding(start = 16.dp),
-                        text = "Приемка",
-                        style = AppTypography.getType().bodyLarge
-                    )
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(
+                                color = MaterialTheme.colorScheme.surface,
+                                shape = Shapes.medium
+                            )
+                            .clickable {
+                                showStartAcceptedDatePicker = true
+                            }
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        val dateStartText = startAcceptedTime?.let {
+                            DateAndTimeConverter.getDateFromDateLong(startAcceptedTime)
+                        } ?: "Начало"
+                        val timeStartText = startAcceptedTime?.let {
+                            DateAndTimeConverter.getTimeFromDateLong(startAcceptedTime)
+                        } ?: ""
+                        Text(
+                            text = dateStartText,
+                            style = dataTextStyle,
+                        )
+
+                        Text(
+                            text = " $timeStartText",
+                            style = dataTextStyle,
+                        )
+                    }
 
                     Row(
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.SpaceAround,
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(
+                                color = MaterialTheme.colorScheme.surface,
+                                shape = Shapes.medium
+                            )
+                            .clickable {
+                                showEndAcceptedDatePicker = true
+                            }
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .clickable {
-                                    showStartAcceptedDatePicker = true
-                                }
-                                .padding(horizontal = 18.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            val timeStartText = startAcceptedTime?.let { millis ->
-                                SimpleDateFormat(
-                                    DateAndTimeFormat.TIME_FORMAT,
-                                    Locale.getDefault()
-                                ).format(
-                                    millis
-                                )
-                            } ?: DateAndTimeFormat.DEFAULT_TIME_TEXT
+                        val dateEndText = endAcceptedTime?.let {
+                            DateAndTimeConverter.getDateFromDateLong(endAcceptedTime)
+                        } ?: "Окончание"
+                        val timeEndText = endAcceptedTime?.let {
+                            DateAndTimeConverter.getTimeFromDateLong(endAcceptedTime)
+                        } ?: ""
+                        Text(
+                            text = dateEndText,
+                            style = dataTextStyle,
+                        )
 
-                            Text(
-                                text = timeStartText,
-                                style = AppTypography.getType().bodyLarge,
-                            )
-                        }
-                        Text(" - ")
-                        Box(
-                            modifier = Modifier
-                                .padding(18.dp)
-                                .clickable {
-                                    showEndAcceptedDatePicker = true
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            val timeStartText = endAcceptedTime?.let { millis ->
-                                SimpleDateFormat(
-                                    DateAndTimeFormat.TIME_FORMAT,
-                                    Locale.getDefault()
-                                ).format(
-                                    millis
-                                )
-                            } ?: DateAndTimeFormat.DEFAULT_TIME_TEXT
-
-                            Text(
-                                text = timeStartText,
-                                style = AppTypography.getType().bodyLarge,
-                            )
-                        }
+                        Text(
+                            text = " $timeEndText",
+                            style = dataTextStyle,
+                        )
                     }
                 }
             }
@@ -706,75 +747,75 @@ private fun LocoFormScreenContent(
 
             Column(
                 modifier = Modifier
-                    .padding(top = 12.dp)
-                    .border(
-                        width = 1.dp,
-                        shape = Shapes.small,
-                        color = MaterialTheme.colorScheme.outline
-                    ),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .padding(top = 16.dp),
             ) {
+                Text(
+                    text = "Сдача",
+                    style = subTitleTextStyle
+                )
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        modifier = Modifier.padding(start = 16.dp),
-                        text = "Сдача",
-                        style = AppTypography.getType().bodyLarge
-                    )
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(
+                                color = MaterialTheme.colorScheme.surface,
+                                shape = Shapes.medium
+                            )
+                            .clickable {
+                                showStartDeliveryDatePicker = true
+                            }
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        val dateStartText = startDeliveryTime?.let {
+                            DateAndTimeConverter.getDateFromDateLong(startDeliveryTime)
+                        } ?: "Начало"
+                        val timeStartText = startDeliveryTime?.let {
+                            DateAndTimeConverter.getTimeFromDateLong(startDeliveryTime)
+                        } ?: ""
+
+                        Text(
+                            text = dateStartText,
+                            style = dataTextStyle,
+                        )
+
+                        Text(
+                            text = " $timeStartText",
+                            style = dataTextStyle,
+                        )
+                    }
 
                     Row(
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.SpaceAround,
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(
+                                color = MaterialTheme.colorScheme.surface,
+                                shape = Shapes.medium
+                            )
+                            .clickable {
+                                showEndDeliveryDatePicker = true
+                            }
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .clickable {
-                                    showStartDeliveryDatePicker = true
-                                }
-                                .padding(horizontal = 18.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            val timeStartText = startDeliveryTime?.let { millis ->
-                                SimpleDateFormat(
-                                    DateAndTimeFormat.TIME_FORMAT,
-                                    Locale.getDefault()
-                                ).format(
-                                    millis
-                                )
-                            } ?: DateAndTimeFormat.DEFAULT_TIME_TEXT
+                        val dateEndText = endDeliveryTime?.let {
+                            DateAndTimeConverter.getDateFromDateLong(endDeliveryTime)
+                        } ?: "Окончание"
+                        val timeEndText = endDeliveryTime?.let {
+                            DateAndTimeConverter.getTimeFromDateLong(endDeliveryTime)
+                        } ?: ""
+                        Text(
+                            text = dateEndText,
+                            style = dataTextStyle,
+                        )
 
-                            Text(
-                                text = timeStartText,
-                                style = AppTypography.getType().bodyLarge,
-                            )
-                        }
-                        Text(" - ")
-                        Box(
-                            modifier = Modifier
-                                .padding(18.dp)
-                                .clickable {
-                                    showEndDeliveryDatePicker = true
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            val timeEndText = endDeliveryTime?.let { millis ->
-                                SimpleDateFormat(
-                                    DateAndTimeFormat.TIME_FORMAT,
-                                    Locale.getDefault()
-                                ).format(
-                                    millis
-                                )
-                            } ?: DateAndTimeFormat.DEFAULT_TIME_TEXT
-
-                            Text(
-                                text = timeEndText,
-                                style = AppTypography.getType().bodyLarge,
-                            )
-                        }
+                        Text(
+                            text = " $timeEndText",
+                            style = dataTextStyle,
+                        )
                     }
                 }
             }
@@ -888,19 +929,24 @@ private fun LocoFormScreenContent(
             }
         }
         item {
-            ClickableText(
+            TextButton(
                 modifier = Modifier.padding(top = 24.dp),
-                text = AnnotatedString("Добавить секцию"),
-                style = AppTypography.getType().titleMedium
+                onClick = {
+                    when (locomotive.type.name) {
+                        LocoType.DIESEL.name -> addingSectionDiesel()
+                        LocoType.ELECTRIC.name -> addingSectionElectric()
+                    }
+                    scope.launch {
+                        val countItems = scrollState.layoutInfo.totalItemsCount
+                        scrollState.animateScrollToItem(countItems)
+                    }
+                }
             ) {
-                when (locomotive.type.name) {
-                    LocoType.DIESEL.name -> addingSectionDiesel()
-                    LocoType.ELECTRIC.name -> addingSectionElectric()
-                }
-                scope.launch {
-                    val countItems = scrollState.layoutInfo.totalItemsCount
-                    scrollState.animateScrollToItem(countItems)
-                }
+                Text(
+                    text = AnnotatedString("Добавить секцию"),
+                    style = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.tertiary)
+                )
+
             }
         }
         item { Spacer(modifier = Modifier.height(40.dp)) }

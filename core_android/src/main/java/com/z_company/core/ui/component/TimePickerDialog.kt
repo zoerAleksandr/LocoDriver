@@ -93,8 +93,10 @@ fun TimePickerDialog(
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    val textStyle = AppTypography.getType().titleMedium
+
                     TextButton(onClick = onDismissRequest) {
-                        Text(text = stringResource(id = R.string.text_btn_dismiss))
+                        Text(text = stringResource(id = R.string.text_btn_dismiss), style = textStyle, color = MaterialTheme.colorScheme.error)
                     }
 
                     TextButton(
@@ -102,7 +104,7 @@ fun TimePickerDialog(
                         shape = Shapes.medium,
                         border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary)
                     ) {
-                        Text(text = stringResource(id = R.string.text_btn_confirm), style = AppTypography.getType().bodyMedium)
+                        Text(text = stringResource(id = R.string.text_btn_confirm), style = textStyle)
                     }
                 }
             }

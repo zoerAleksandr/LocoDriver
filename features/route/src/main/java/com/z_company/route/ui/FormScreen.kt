@@ -8,7 +8,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import com.z_company.route.component.TimePickerDialog
+import com.z_company.core.ui.component.TimePickerDialog
 import com.z_company.route.component.CustomDatePickerDialog
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -806,13 +806,12 @@ fun <T> ItemAddingScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clickable { onChangeElementClick(element) }
                             .background(
                                 color = MaterialTheme.colorScheme.surface,
                                 shape = Shapes.medium
                             )
-                            .padding(horizontal = 16.dp, vertical = 16.dp)
-                            .clickable { onChangeElementClick(element) },
-
+                            .padding(horizontal = 16.dp, vertical = 16.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {

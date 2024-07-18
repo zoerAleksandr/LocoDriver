@@ -1,6 +1,11 @@
 package com.z_company.route.component
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerColors
+import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DatePickerState
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -9,6 +14,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import com.z_company.core.R
+import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import java.util.Calendar
 
@@ -19,19 +29,29 @@ fun CustomDatePickerDialog(
     onDismissRequest: () -> Unit,
     onConfirmRequest: () -> Unit,
 ) {
-    val textStyle = AppTypography.getType().bodyMedium
+    val textStyle = AppTypography.getType().titleMedium
     DatePickerDialog(
         onDismissRequest = { onDismissRequest() },
         confirmButton = {
-            TextButton(onClick = { onConfirmRequest() }) {
-                Text(text = "Выбрать", style = textStyle)
+            TextButton(
+                modifier = Modifier.padding(end = 24.dp),
+                onClick = onConfirmRequest,
+                shape = Shapes.medium,
+                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary)
+            ) {
+                Text(text = stringResource(id = R.string.text_btn_confirm), style = textStyle)
             }
         },
         dismissButton = {
-            TextButton(onClick = { onDismissRequest() }) {
-                Text(text = "Отмена", style = textStyle, color = MaterialTheme.colorScheme.error)
+            TextButton(
+                modifier = Modifier.padding(end = 12.dp),
+                onClick =  onDismissRequest
+            ) {
+                Text(text = stringResource(id = R.string.text_btn_dismiss), style = textStyle, color = MaterialTheme.colorScheme.error)
             }
-        }
+        },
+        colors = DatePickerDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = Shapes.medium
     ) {
         DatePicker(state = datePickerState)
     }

@@ -22,7 +22,10 @@ fun ConfirmExitDialog(
         },
         shape = Shapes.medium,
         text = {
-            Text(text = "При выходе все несохранённые данные будут утеряны.\n\nВы уверены, что хотите выйти?", style = AppTypography.getType().bodyLarge)
+            Text(
+                text = "При выходе все несохранённые данные будут утеряны.\n\nВы уверены, что хотите выйти?",
+                style = AppTypography.getType().bodyLarge
+            )
         },
         confirmButton = {
             Button(
@@ -32,12 +35,16 @@ fun ConfirmExitDialog(
                     onSaveClick()
                 }
             ) {
-                Text(text = "Сохранить и выйти", style = AppTypography.getType().bodyMedium)
+                Text(text = "Сохранить и выйти", style = AppTypography.getType().titleMedium)
             }
         },
         dismissButton = {
             TextButton(onClick = exitWithoutSave) {
-                Text(text = "Выйти", style = AppTypography.getType().bodyMedium, color = MaterialTheme.colorScheme.error)
+                Text(
+                    text = "Выйти",
+                    style = AppTypography.getType().titleMedium,
+                    color = MaterialTheme.colorScheme.error
+                )
             }
         }
     )
