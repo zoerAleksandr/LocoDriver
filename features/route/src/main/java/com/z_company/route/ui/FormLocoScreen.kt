@@ -5,8 +5,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,14 +25,11 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MediumTopAppBar
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -62,7 +59,6 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -72,7 +68,6 @@ import com.z_company.core.ui.component.GenericError
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.DateAndTimeConverter
-import com.z_company.core.util.DateAndTimeFormat
 import com.z_company.core.util.LocoTypeHelper.converterLocoTypeToString
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.route.LocoType
@@ -86,9 +81,7 @@ import com.z_company.route.component.DieselSectionItem
 import com.z_company.core.ui.component.TimePickerDialog
 import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.route.viewmodel.LocoFormUiState
-import java.text.SimpleDateFormat
 import java.util.Calendar
-import java.util.Locale
 import com.z_company.domain.util.*
 import com.z_company.route.component.ElectricSectionItem
 import com.z_company.route.component.rememberDatePickerStateInLocale
@@ -255,7 +248,7 @@ fun FormLocoScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 private fun LocoFormScreenContent(
     locomotive: Locomotive,
@@ -297,6 +290,11 @@ private fun LocoFormScreenContent(
         .copy(
             fontSize = 18.sp,
             fontWeight = FontWeight.Normal
+        )
+    val hintStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Light
         )
 
     AnimatedVisibility(
@@ -748,6 +746,7 @@ private fun LocoFormScreenContent(
             Column(
                 modifier = Modifier
                     .padding(top = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
                     text = "Сдача",
@@ -827,42 +826,41 @@ private fun LocoFormScreenContent(
                         items = dieselSectionListState,
                         key = { _, item -> item.sectionId }
                     ) { index, item ->
-                        if (index == 0) {
+                        Column(horizontalAlignment = Alignment.End) {
                             Spacer(modifier = Modifier.height(dimensionResource(id = CoreR.dimen.secondary_spacing)))
-                        } else {
-                            Spacer(modifier = Modifier.height(dimensionResource(id = CoreR.dimen.secondary_spacing) / 2))
-                        }
-                        DieselSectionItem(
-                            item = item,
-                            index = index,
-                            isShowRefuelDialog = isShowRefuelDialog,
-                            isShowCoefficientDialog = isShowCoefficientDialog,
-                            onFuelAcceptedChanged = onFuelAcceptedChanged,
-                            onFuelDeliveredChanged = onFuelDeliveredChanged,
-                            onDeleteItem = onDeleteSectionDiesel,
-                            focusChangedDieselSection = focusChangedDieselSection,
-                            showRefuelDialog = showRefuelDialog,
-                            onRefuelValueChanged = onRefuelValueChanged,
-                            showCoefficientDialog = showCoefficientDialog,
-                            onCoefficientValueChanged = onCoefficientValueChanged
-                        )
+                            DieselSectionItem(
+                                item = item,
+                                index = index,
+                                isShowRefuelDialog = isShowRefuelDialog,
+                                isShowCoefficientDialog = isShowCoefficientDialog,
+                                onFuelAcceptedChanged = onFuelAcceptedChanged,
+                                onFuelDeliveredChanged = onFuelDeliveredChanged,
+                                onDeleteItem = onDeleteSectionDiesel,
+                                focusChangedDieselSection = focusChangedDieselSection,
+                                showRefuelDialog = showRefuelDialog,
+                                onRefuelValueChanged = onRefuelValueChanged,
+                                showCoefficientDialog = showCoefficientDialog,
+                                onCoefficientValueChanged = onCoefficientValueChanged
+                            )
 
-                        if (index == dieselSectionListState.lastIndex && index > 0) {
-                            var overResult: Double? = null
-                            dieselSectionListState.forEach {
-                                val accepted = it.accepted.data?.toDoubleOrNull()
-                                val delivery = it.delivery.data?.toDoubleOrNull()
-                                val refuel = it.refuel.data?.toDoubleOrNull()
-                                val result = CalculationEnergy.getTotalFuelConsumption(
-                                    accepted, delivery, refuel
-                                )
-                                overResult += result
-                            }
-                            overResult?.let {
-                                Text(
-                                    text = "Всего расход = ${maskInLiter(it.str())}",
-                                    style = AppTypography.getType().bodyMedium
-                                )
+                            if (index == dieselSectionListState.lastIndex && index > 0) {
+                                var overResult: Double? = null
+                                dieselSectionListState.forEach {
+                                    val accepted = it.accepted.data?.toDoubleOrNull()
+                                    val delivery = it.delivery.data?.toDoubleOrNull()
+                                    val refuel = it.refuel.data?.toDoubleOrNull()
+                                    val result = CalculationEnergy.getTotalFuelConsumption(
+                                        accepted, delivery, refuel
+                                    )
+                                    overResult += result
+                                }
+                                overResult?.let {
+                                    Text(
+                                        modifier = Modifier.padding(top = 8.dp),
+                                        text = "Всего расход = ${maskInLiter(it.str())}",
+                                        style = hintStyle
+                                    )
+                                }
                             }
                         }
                     }
@@ -875,52 +873,51 @@ private fun LocoFormScreenContent(
                         items = electricSectionListState,
                         key = { _, item -> item.sectionId }
                     ) { index, item ->
-                        if (index == 0) {
+                        Column(horizontalAlignment = Alignment.End) {
                             Spacer(modifier = Modifier.height(dimensionResource(id = CoreR.dimen.secondary_spacing)))
-                        } else {
-                            Spacer(modifier = Modifier.height(dimensionResource(id = CoreR.dimen.secondary_spacing) / 2))
-                        }
-                        ElectricSectionItem(
-                            index = index,
-                            item = item,
-                            onDeleteItem = onDeleteSectionElectric,
-                            onEnergyAcceptedChanged = onEnergyAcceptedChanged,
-                            onEnergyDeliveryChanged = onEnergyDeliveryChanged,
-                            onRecoveryAcceptedChanged = onRecoveryAcceptedChanged,
-                            onRecoveryDeliveryChanged = onRecoveryDeliveryChanged,
-                            focusChangedElectricSection = focusChangedElectricSection,
-                            onExpandStateChanged = onExpandStateElectricSection
-                        )
+                            ElectricSectionItem(
+                                index = index,
+                                item = item,
+                                onDeleteItem = onDeleteSectionElectric,
+                                onEnergyAcceptedChanged = onEnergyAcceptedChanged,
+                                onEnergyDeliveryChanged = onEnergyDeliveryChanged,
+                                onRecoveryAcceptedChanged = onRecoveryAcceptedChanged,
+                                onRecoveryDeliveryChanged = onRecoveryDeliveryChanged,
+                                focusChangedElectricSection = focusChangedElectricSection,
+                                onExpandStateChanged = onExpandStateElectricSection
+                            )
 
-                        if (index == electricSectionListState.lastIndex && index > 0) {
-                            var overResult: Int? = null
-                            var overRecovery: Int? = null
+                            if (index == electricSectionListState.lastIndex && index > 0) {
+                                var overResult: Int? = null
+                                var overRecovery: Int? = null
 
-                            electricSectionListState.forEach {
-                                val accepted = it.accepted.data
-                                val delivery = it.delivery.data
-                                val acceptedRecovery =
-                                    it.recoveryAccepted.data
-                                val deliveryRecovery =
-                                    it.recoveryDelivery.data
+                                electricSectionListState.forEach {
+                                    val accepted = it.accepted.data
+                                    val delivery = it.delivery.data
+                                    val acceptedRecovery =
+                                        it.recoveryAccepted.data
+                                    val deliveryRecovery =
+                                        it.recoveryDelivery.data
 
-                                val result = delivery - accepted
-                                val resultRecovery = deliveryRecovery - acceptedRecovery
-                                overResult += result
-                                overRecovery += resultRecovery
-                            }
-                            Column(horizontalAlignment = Alignment.End) {
-                                overResult?.let {
-                                    Text(
-                                        text = "Всего расход = ${it.str()}",
-                                        style = AppTypography.getType().bodyMedium,
-                                    )
+                                    val result = delivery - accepted
+                                    val resultRecovery = deliveryRecovery - acceptedRecovery
+                                    overResult += result
+                                    overRecovery += resultRecovery
                                 }
-                                overRecovery?.let {
-                                    Text(
-                                        text = "Всего рекуперация = ${it.str()}",
-                                        style = AppTypography.getType().bodyMedium,
-                                    )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    overResult?.let {
+                                        Text(
+                                            text = "Всего расход = ${it.str()}",
+                                            style = hintStyle,
+                                        )
+                                    }
+                                    overRecovery?.let {
+                                        Text(
+                                            text = "Всего рекуперация = ${it.str()}",
+                                            style = hintStyle,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -928,9 +925,13 @@ private fun LocoFormScreenContent(
                 }
             }
         }
+
         item {
-            TextButton(
-                modifier = Modifier.padding(top = 24.dp),
+            Button(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 24.dp),
+                shape = Shapes.medium,
                 onClick = {
                     when (locomotive.type.name) {
                         LocoType.DIESEL.name -> addingSectionDiesel()
@@ -943,12 +944,12 @@ private fun LocoFormScreenContent(
                 }
             ) {
                 Text(
-                    text = AnnotatedString("Добавить секцию"),
-                    style = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.tertiary)
+                    text = "Добавить секцию",
+                    style = subTitleTextStyle
                 )
 
             }
         }
-        item { Spacer(modifier = Modifier.height(40.dp)) }
+        item { Spacer(modifier = Modifier.height(20.dp)) }
     }
 }

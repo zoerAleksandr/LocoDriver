@@ -25,7 +25,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.R
 import com.z_company.core.ui.theme.custom.AppTypography
@@ -93,10 +95,13 @@ fun TimePickerDialog(
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    val textStyle = AppTypography.getType().titleMedium
-
+                    val subTitleTextStyle = AppTypography.getType().titleLarge
+                        .copy(
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Normal
+                        )
                     TextButton(onClick = onDismissRequest) {
-                        Text(text = stringResource(id = R.string.text_btn_dismiss), style = textStyle, color = MaterialTheme.colorScheme.error)
+                        Text(text = stringResource(id = R.string.text_btn_dismiss), style = subTitleTextStyle, color = MaterialTheme.colorScheme.error)
                     }
 
                     TextButton(
@@ -104,7 +109,7 @@ fun TimePickerDialog(
                         shape = Shapes.medium,
                         border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary)
                     ) {
-                        Text(text = stringResource(id = R.string.text_btn_confirm), style = textStyle)
+                        Text(text = stringResource(id = R.string.text_btn_confirm), style = subTitleTextStyle)
                     }
                 }
             }

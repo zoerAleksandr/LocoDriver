@@ -16,7 +16,9 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.z_company.core.R
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
@@ -29,7 +31,11 @@ fun CustomDatePickerDialog(
     onDismissRequest: () -> Unit,
     onConfirmRequest: () -> Unit,
 ) {
-    val textStyle = AppTypography.getType().titleMedium
+    val subTitleTextStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Normal
+        )
     DatePickerDialog(
         onDismissRequest = { onDismissRequest() },
         confirmButton = {
@@ -39,7 +45,7 @@ fun CustomDatePickerDialog(
                 shape = Shapes.medium,
                 border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary)
             ) {
-                Text(text = stringResource(id = R.string.text_btn_confirm), style = textStyle)
+                Text(text = stringResource(id = R.string.text_btn_confirm), style = subTitleTextStyle)
             }
         },
         dismissButton = {
@@ -47,7 +53,7 @@ fun CustomDatePickerDialog(
                 modifier = Modifier.padding(end = 12.dp),
                 onClick =  onDismissRequest
             ) {
-                Text(text = stringResource(id = R.string.text_btn_dismiss), style = textStyle, color = MaterialTheme.colorScheme.error)
+                Text(text = stringResource(id = R.string.text_btn_dismiss), style = subTitleTextStyle, color = MaterialTheme.colorScheme.error)
             }
         },
         colors = DatePickerDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
