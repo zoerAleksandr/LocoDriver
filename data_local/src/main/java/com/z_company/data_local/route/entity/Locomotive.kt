@@ -55,10 +55,10 @@ internal data class SectionElectric(
     @ColumnInfo(index = true)
     var locoId: String,
     val type: LocoType = LocoType.ELECTRIC,
-    var acceptedEnergy: Int? = null,
-    var deliveryEnergy: Int? = null,
-    var acceptedRecovery: Int? = null,
-    var deliveryRecovery: Int? = null
+    var acceptedEnergy: Double? = null,
+    var deliveryEnergy: Double? = null,
+    var acceptedRecovery: Double? = null,
+    var deliveryRecovery: Double? = null
 )
 
 

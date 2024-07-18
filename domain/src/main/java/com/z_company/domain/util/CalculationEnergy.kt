@@ -54,9 +54,9 @@ object CalculationEnergy {
     }
 
     fun getTotalEnergyConsumption(
-        accepted: Int?,
-        delivery: Int?
-    ): Int? {
-        return delivery - accepted
+        accepted: Double?,
+        delivery: Double?
+    ): Double? {
+        return reverseDifferenceBetweenDouble(accepted, delivery)
     }
 }

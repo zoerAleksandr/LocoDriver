@@ -5,7 +5,7 @@ enum class ElectricSectionType {
 }
 
 data class ElectricSectionFieldState(
-    val data: Int? = null,
+    val data: String? = null,
     val type: ElectricSectionType
 )
 

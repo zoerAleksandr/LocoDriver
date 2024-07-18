@@ -37,7 +37,6 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTimePickerState
@@ -116,10 +115,10 @@ fun FormLocoScreen(
     onDeleteSectionDiesel: (DieselSectionFormState) -> Unit,
     addingSectionDiesel: () -> Unit,
     focusChangedDieselSection: (Int, DieselSectionType) -> Unit,
-    onEnergyAcceptedChanged: (Int, Int?) -> Unit,
-    onEnergyDeliveryChanged: (Int, Int?) -> Unit,
-    onRecoveryAcceptedChanged: (Int, Int?) -> Unit,
-    onRecoveryDeliveryChanged: (Int, Int?) -> Unit,
+    onEnergyAcceptedChanged: (Int, String?) -> Unit,
+    onEnergyDeliveryChanged: (Int, String?) -> Unit,
+    onRecoveryAcceptedChanged: (Int, String?) -> Unit,
+    onRecoveryDeliveryChanged: (Int, String?) -> Unit,
     onDeleteSectionElectric: (ElectricSectionFormState) -> Unit,
     addingSectionElectric: () -> Unit,
     focusChangedElectricSection: (Int, ElectricSectionType) -> Unit,
@@ -159,37 +158,6 @@ fun FormLocoScreen(
                     ) {
                         onSaveClick()
                     }
-                    var dropDownExpanded by remember { mutableStateOf(false) }
-
-//                    IconButton(
-//                        onClick = {
-//                            dropDownExpanded = true
-//                        }
-//                    ) {
-//                        Icon(
-//                            imageVector = Icons.Default.MoreVert,
-//                            contentDescription = "Меню"
-//                        )
-//                        DropdownMenu(
-//                            expanded = dropDownExpanded,
-//                            onDismissRequest = { dropDownExpanded = false },
-//                            offset = DpOffset(x = 4.dp, y = 8.dp)
-//                        ) {
-//                            DropdownMenuItem(
-//                                modifier = Modifier.padding(horizontal = 16.dp),
-//                                onClick = {
-//                                    onClearAllField()
-//                                    dropDownExpanded = false
-//                                },
-//                                text = {
-//                                    Text(
-//                                        text = "Очистить",
-//                                        style = AppTypography.getType().bodyLarge
-//                                    )
-//                                }
-//                            )
-//                        }
-//                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
@@ -248,7 +216,7 @@ fun FormLocoScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LocoFormScreenContent(
     locomotive: Locomotive,
@@ -267,10 +235,10 @@ private fun LocoFormScreenContent(
     onDeleteSectionDiesel: (DieselSectionFormState) -> Unit,
     addingSectionDiesel: () -> Unit,
     focusChangedDieselSection: (Int, DieselSectionType) -> Unit,
-    onEnergyAcceptedChanged: (Int, Int?) -> Unit,
-    onEnergyDeliveryChanged: (Int, Int?) -> Unit,
-    onRecoveryAcceptedChanged: (Int, Int?) -> Unit,
-    onRecoveryDeliveryChanged: (Int, Int?) -> Unit,
+    onEnergyAcceptedChanged: (Int, String?) -> Unit,
+    onEnergyDeliveryChanged: (Int, String?) -> Unit,
+    onRecoveryAcceptedChanged: (Int, String?) -> Unit,
+    onRecoveryDeliveryChanged: (Int, String?) -> Unit,
     onDeleteSectionElectric: (ElectricSectionFormState) -> Unit,
     addingSectionElectric: () -> Unit,
     focusChangedElectricSection: (Int, ElectricSectionType) -> Unit,
@@ -888,16 +856,16 @@ private fun LocoFormScreenContent(
                             )
 
                             if (index == electricSectionListState.lastIndex && index > 0) {
-                                var overResult: Int? = null
-                                var overRecovery: Int? = null
+                                var overResult: Double? = null
+                                var overRecovery: Double? = null
 
                                 electricSectionListState.forEach {
-                                    val accepted = it.accepted.data
-                                    val delivery = it.delivery.data
+                                    val accepted = it.accepted.data?.toDoubleOrNull()
+                                    val delivery = it.delivery.data?.toDoubleOrNull()
                                     val acceptedRecovery =
-                                        it.recoveryAccepted.data
+                                        it.recoveryAccepted.data?.toDoubleOrNull()
                                     val deliveryRecovery =
-                                        it.recoveryDelivery.data
+                                        it.recoveryDelivery.data?.toDoubleOrNull()
 
                                     val result = delivery - accepted
                                     val resultRecovery = deliveryRecovery - acceptedRecovery

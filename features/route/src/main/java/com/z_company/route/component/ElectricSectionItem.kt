@@ -7,7 +7,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -36,12 +35,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
-import com.z_company.domain.util.CalculationEnergy
+import com.z_company.domain.util.CalculationEnergy.getTotalEnergyConsumption
 import com.z_company.domain.util.str
 import com.z_company.route.R
 import com.z_company.route.viewmodel.ElectricSectionFormState
@@ -51,8 +49,6 @@ import de.charlex.compose.RevealSwipe
 import de.charlex.compose.RevealValue
 import de.charlex.compose.rememberRevealState
 import kotlinx.coroutines.launch
-import com.z_company.domain.util.minus
-import java.math.BigInteger
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
@@ -60,10 +56,10 @@ fun ElectricSectionItem(
     index: Int,
     item: ElectricSectionFormState,
     onDeleteItem: (ElectricSectionFormState) -> Unit,
-    onEnergyAcceptedChanged: (Int, Int?) -> Unit,
-    onEnergyDeliveryChanged: (Int, Int?) -> Unit,
-    onRecoveryAcceptedChanged: (Int, Int?) -> Unit,
-    onRecoveryDeliveryChanged: (Int, Int?) -> Unit,
+    onEnergyAcceptedChanged: (Int, String?) -> Unit,
+    onEnergyDeliveryChanged: (Int, String?) -> Unit,
+    onRecoveryAcceptedChanged: (Int, String?) -> Unit,
+    onRecoveryDeliveryChanged: (Int, String?) -> Unit,
     focusChangedElectricSection: (Int, ElectricSectionType) -> Unit,
     onExpandStateChanged: (Int, Boolean) -> Unit
 ) {
@@ -71,12 +67,18 @@ fun ElectricSectionItem(
     val focusManager = LocalFocusManager.current
     val revealState = rememberRevealState()
 
-    val acceptedText = item.accepted.data.str()
-    val deliveryText = item.delivery.data.str()
-    val recoveryAcceptedText = item.recoveryAccepted.data.str()
-    val recoveryDeliveryText = item.recoveryDelivery.data.str()
-    val result = item.delivery.data - item.accepted.data
-    val resultRecovery = item.recoveryDelivery.data - item.recoveryAccepted.data
+    val acceptedText = item.accepted.data ?: ""
+    val deliveryText = item.delivery.data ?: ""
+    val recoveryAcceptedText = item.recoveryAccepted.data ?: ""
+    val recoveryDeliveryText = item.recoveryDelivery.data ?: ""
+    val result = getTotalEnergyConsumption(
+        item.accepted.data?.toDoubleOrNull(),
+        item.delivery.data?.toDoubleOrNull()
+    )
+    val resultRecovery = getTotalEnergyConsumption(
+        item.recoveryAccepted.data?.toDoubleOrNull(),
+        item.recoveryDelivery.data?.toDoubleOrNull()
+    )
 
     val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
     val subTitleTextStyle = AppTypography.getType().titleLarge
@@ -160,7 +162,7 @@ fun ElectricSectionItem(
                         .weight(1f),
                     value = acceptedText,
                     onValueChange = {
-                        onEnergyAcceptedChanged(index, it.take(10).toIntOrNull())
+                        onEnergyAcceptedChanged(index, it.take(10))
                         focusChangedElectricSection(index, ElectricSectionType.ACCEPTED)
                     },
                     textStyle = dataTextStyle,
@@ -168,7 +170,7 @@ fun ElectricSectionItem(
                         Text(text = "Принято", style = dataTextStyle)
                     },
                     keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Number, imeAction = ImeAction.Next
+                        keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next
                     ),
                     keyboardActions = KeyboardActions(onNext = {
                         scope.launch {
@@ -191,7 +193,7 @@ fun ElectricSectionItem(
                     value = deliveryText,
                     textStyle = dataTextStyle,
                     onValueChange = {
-                        onEnergyDeliveryChanged(index, it.take(10).toIntOrNull())
+                        onEnergyDeliveryChanged(index, it.take(10))
                         focusChangedElectricSection(index, ElectricSectionType.DELIVERY)
                     },
                     placeholder = {
@@ -230,7 +232,7 @@ fun ElectricSectionItem(
                                 .weight(0.5f),
                             value = recoveryAcceptedText,
                             onValueChange = {
-                                onRecoveryAcceptedChanged(index, it.take(10).toIntOrNull())
+                                onRecoveryAcceptedChanged(index, it.take(10))
                                 focusChangedElectricSection(
                                     index,
                                     ElectricSectionType.RECOVERY_ACCEPTED
@@ -266,7 +268,7 @@ fun ElectricSectionItem(
                                 .weight(0.5f),
                             value = recoveryDeliveryText,
                             onValueChange = {
-                                onRecoveryDeliveryChanged(index, it.take(10).toIntOrNull())
+                                onRecoveryDeliveryChanged(index, it.take(10))
                                 focusChangedElectricSection(
                                     index,
                                     ElectricSectionType.RECOVERY_DELIVERY

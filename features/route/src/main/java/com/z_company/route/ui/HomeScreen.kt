@@ -858,13 +858,13 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, calculationHomeRest: (Route)
                                 Column {
                                     locomotive.electricSectionList.forEachIndexed { index, sectionElectric ->
                                         val acceptedEnergyText =
-                                            sectionElectric.acceptedEnergy.str()
+                                            sectionElectric.acceptedEnergy
                                         val deliveryEnergyText =
-                                            sectionElectric.deliveryEnergy.str()
+                                            sectionElectric.deliveryEnergy
                                         val acceptedRecoveryText =
-                                            sectionElectric.acceptedRecovery.str()
+                                            sectionElectric.acceptedRecovery
                                         val deliveryRecoveryText =
-                                            sectionElectric.deliveryRecovery.str()
+                                            sectionElectric.deliveryRecovery
                                         val consumptionEnergy =
                                             CalculationEnergy.getTotalEnergyConsumption(
                                                 accepted = sectionElectric.acceptedEnergy,
