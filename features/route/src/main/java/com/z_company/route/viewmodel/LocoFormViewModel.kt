@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import kotlin.properties.Delegates
 
 class LocoFormViewModel(
     private val locoId: String?,
@@ -46,6 +47,8 @@ class LocoFormViewModel(
     private var loadCoefficientJob: Job? = null
     private var saveCoefficientJob: Job? = null
     private var getSettingJob: Job? = null
+
+    private var isNewLoco by Delegates.notNull<Boolean>()
 
     var currentLoco: Locomotive?
         get() {
@@ -117,6 +120,62 @@ class LocoFormViewModel(
         )
         electricSectionListState.clear()
         dieselSectionListState.clear()
+        changesHave()
+    }
+
+    private fun changesHave() {
+        if (!_uiState.value.changesHaveState) {
+            _uiState.update {
+                it.copy(
+                    changesHaveState = true
+                )
+            }
+        }
+    }
+
+    fun exitWithoutSaving() {
+        if (isNewLoco) {
+            val state = _uiState.value.locoDetailState
+            if (state is ResultState.Success) {
+                state.data?.let { loco ->
+                    locomotiveUseCase.removeLoco(loco).onEach { result ->
+                        if (result is ResultState.Success) {
+                            _uiState.update {
+                                it.copy(
+                                    confirmExitDialogShow = false,
+                                    exitFromScreen = true
+                                )
+                            }
+                        }
+                    }.launchIn(viewModelScope)
+                }
+            }
+        } else {
+            _uiState.update {
+                it.copy(
+                    confirmExitDialogShow = false,
+                    exitFromScreen = true
+                )
+            }
+        }
+    }
+
+    fun checkBeforeExitTheScreen() {
+        if (_uiState.value.changesHaveState) {
+            _uiState.update {
+                it.copy(confirmExitDialogShow = true)
+            }
+        } else {
+            _uiState.update {
+                it.copy(exitFromScreen = true)
+            }
+        }
+    }
+
+    fun changeShowConfirmDialog(isShow: Boolean) {
+        _uiState.update {
+            it.copy(confirmExitDialogShow = isShow)
+        }
     }
 
     private fun setSectionData(locomotive: Locomotive) {
@@ -182,11 +241,13 @@ class LocoFormViewModel(
         loadSetting()
 
         if (locoId == NULLABLE_ID) {
+            isNewLoco = true
             currentLoco = Locomotive(
                 basicId = basicId,
                 type = currentSetting?.defaultLocoType ?: LocoType.ELECTRIC
             )
         } else {
+            isNewLoco = false
             loadLoco(locoId!!)
         }
     }
@@ -280,12 +341,14 @@ class LocoFormViewModel(
         currentLoco = currentLoco?.copy(
             number = number.ifBlank { null }
         )
+        changesHave()
     }
 
     fun setSeries(series: String) {
         currentLoco = currentLoco?.copy(
             series = series.ifBlank { null }
         )
+        changesHave()
     }
 
     fun changeLocoType(index: Int) {
@@ -305,6 +368,7 @@ class LocoFormViewModel(
         currentLoco = currentLoco?.copy(
             type = type
         )
+        changesHave()
     }
 
     fun setStartAcceptedTime(timeInLong: Long?) {
@@ -312,6 +376,7 @@ class LocoFormViewModel(
             timeStartOfAcceptance = timeInLong
         )
         isValidAcceptedTime()
+        changesHave()
     }
 
     fun setEndAcceptedTime(timeInLong: Long?) {
@@ -319,6 +384,7 @@ class LocoFormViewModel(
             timeEndOfAcceptance = timeInLong
         )
         isValidAcceptedTime()
+        changesHave()
     }
 
     private fun isValidAcceptedTime() {
@@ -343,6 +409,7 @@ class LocoFormViewModel(
             timeEndOfDelivery = timeInLong
         )
         isValidDeliveryTime()
+        changesHave()
     }
 
     fun setStartDeliveryTime(timeInLong: Long?) {
@@ -350,6 +417,7 @@ class LocoFormViewModel(
             timeStartOfDelivery = timeInLong
         )
         isValidDeliveryTime()
+        changesHave()
     }
 
     private fun isValidDeliveryTime() {
@@ -416,10 +484,12 @@ class LocoFormViewModel(
                 index, coefficient?.toDoubleOrNull()
             )
         )
+        changesHave()
     }
 
     fun deleteSectionDiesel(dieselSectionFormState: DieselSectionFormState) {
         dieselSectionListState.remove(dieselSectionFormState)
+        changesHave()
     }
 
     fun setEnergyAccepted(index: Int, data: String?) {
@@ -472,6 +542,7 @@ class LocoFormViewModel(
 
     fun deleteSectionElectric(sectionElectricForm: ElectricSectionFormState) {
         electricSectionListState.remove(sectionElectricForm)
+        changesHave()
     }
 
     fun addingSectionDiesel() {
@@ -485,6 +556,7 @@ class LocoFormViewModel(
             )
         )
         electricSectionListState.clear()
+        changesHave()
     }
 
     fun addingSectionElectric() {
@@ -494,6 +566,7 @@ class LocoFormViewModel(
             )
         )
         dieselSectionListState.clear()
+        changesHave()
     }
 
     private fun isExpandElectricItem(
@@ -510,6 +583,7 @@ class LocoFormViewModel(
     }
 
     private fun onElectricSectionEvent(event: ElectricSectionEvent) {
+        changesHave()
         when (event) {
             is ElectricSectionEvent.EnteredAccepted -> {
                 electricSectionListState[event.index] = electricSectionListState[event.index].copy(
@@ -703,6 +777,7 @@ class LocoFormViewModel(
     }
 
     private fun onDieselSectionEvent(event: DieselSectionEvent) {
+        changesHave()
         when (event) {
             is DieselSectionEvent.EnteredAccepted -> {
                 dieselSectionListState[event.index] = dieselSectionListState[event.index].copy(

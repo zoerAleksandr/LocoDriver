@@ -192,52 +192,54 @@ fun FormScreen(
                 resetSaveState()
             }
         }
-        if(formUiState.exitFromScreen){
-            exitScreen()
+        if (formUiState.exitFromScreen) {
+            LaunchedEffect(Unit) {
+                exitScreen()
+            }
         }
 
         Box(Modifier.padding(it)) {
             AsyncData(resultState = formUiState.routeDetailState) {
                 currentRoute?.let { route ->
-                        if (formUiState.saveRouteState is ResultState.Success) {
-                            LaunchedEffect(formUiState.saveRouteState) {
-                                exitScreen()
-                            }
-                        } else {
-                            RouteFormScreenContent(
-                                route = route,
-                                onNumberChanged = onNumberChanged,
-                                onNotesChanged = onNotesChanged,
-                                errorMessage = formUiState.errorMessage,
-                                onTimeStartWorkChanged = onTimeStartWorkChanged,
-                                onTimeEndWorkChanged = onTimeEndWorkChanged,
-                                onRestChanged = onRestChanged,
-                                onSettingClick = onSettingClick,
-                                minUntilTimeRest = formUiState.minTimeRest,
-                                fullUntilTimeRest = formUiState.fullTimeRest,
-                                locoListState = route.locomotives,
-                                onChangeLocoClick = onChangedLocoClick,
-                                onNewLocoClick = onNewLocoClick,
-                                onDeleteLoco = onDeleteLoco,
-                                trainListState = route.trains,
-                                onChangeTrainClick = onChangeTrainClick,
-                                onNewTrainClick = onNewTrainClick,
-                                onDeleteTrain = onDeleteTrain,
-                                passengerListState = route.passengers,
-                                onChangePassengerClick = onChangePassengerClick,
-                                onNewPassengerClick = onNewPassengerClick,
-                                onDeletePassenger = onDeletePassenger,
-                                onNewPhotoClick = onNewPhotoClick,
-                                onDeletePhoto = onDeletePhoto,
-                                onPhotoClick = onPhotoClick,
-                                minTimeRest = minTimeRest,
-                                nightTime = nightTime,
-                                showConfirmExitDialog = formUiState.confirmExitDialogShow,
-                                changeShowConfirmExitDialog = changeShowConfirmExitDialog,
-                                onSaveClick = onSaveClick,
-                                exitWithoutSave = exitWithoutSave
-                            )
+                    if (formUiState.saveRouteState is ResultState.Success) {
+                        LaunchedEffect(formUiState.saveRouteState) {
+                            exitScreen()
                         }
+                    } else {
+                        RouteFormScreenContent(
+                            route = route,
+                            onNumberChanged = onNumberChanged,
+                            onNotesChanged = onNotesChanged,
+                            errorMessage = formUiState.errorMessage,
+                            onTimeStartWorkChanged = onTimeStartWorkChanged,
+                            onTimeEndWorkChanged = onTimeEndWorkChanged,
+                            onRestChanged = onRestChanged,
+                            onSettingClick = onSettingClick,
+                            minUntilTimeRest = formUiState.minTimeRest,
+                            fullUntilTimeRest = formUiState.fullTimeRest,
+                            locoListState = route.locomotives,
+                            onChangeLocoClick = onChangedLocoClick,
+                            onNewLocoClick = onNewLocoClick,
+                            onDeleteLoco = onDeleteLoco,
+                            trainListState = route.trains,
+                            onChangeTrainClick = onChangeTrainClick,
+                            onNewTrainClick = onNewTrainClick,
+                            onDeleteTrain = onDeleteTrain,
+                            passengerListState = route.passengers,
+                            onChangePassengerClick = onChangePassengerClick,
+                            onNewPassengerClick = onNewPassengerClick,
+                            onDeletePassenger = onDeletePassenger,
+                            onNewPhotoClick = onNewPhotoClick,
+                            onDeletePhoto = onDeletePhoto,
+                            onPhotoClick = onPhotoClick,
+                            minTimeRest = minTimeRest,
+                            nightTime = nightTime,
+                            showConfirmExitDialog = formUiState.confirmExitDialogShow,
+                            changeShowConfirmExitDialog = changeShowConfirmExitDialog,
+                            onSaveClick = onSaveClick,
+                            exitWithoutSave = exitWithoutSave
+                        )
+                    }
                 }
             }
         }
@@ -303,15 +305,13 @@ private fun RouteFormScreenContent(
         mutableStateOf(false)
     }
 
-    if (showConfirmExitDialog){
+    if (showConfirmExitDialog) {
         ConfirmExitDialog(
             showExitConfirmDialog = changeShowConfirmExitDialog,
-            onSaveClick =  onSaveClick,
+            onSaveClick = onSaveClick,
             exitWithoutSave = exitWithoutSave
         )
     }
-
-
 
     val startOfWorkTime = Calendar.getInstance().also { calendar ->
         route.basicData.timeStartWork?.let {
@@ -829,14 +829,18 @@ fun <T> ItemAddingScreen(
 
 @Composable
 private fun LocomotiveSubItem(locomotive: Locomotive, index: Int) {
+    val series = locomotive.series ?: locomotive.type.text
+    val number = locomotive.number ?: ""
+    val numberText = if (locomotive.number != null){"№$number"}else{""}
+    val type = locomotive.type.text
     if (locomotive.series.isNullOrBlank() && locomotive.number.isNullOrBlank()) {
         Text(
-            text = "Локомотив № ${index + 1}",
+            text = "$type № ${index + 1}",
             style = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
         )
     } else {
         Text(
-            text = "${locomotive.series} №${locomotive.number}",
+            text = "$series $numberText",
             style = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
         )
     }

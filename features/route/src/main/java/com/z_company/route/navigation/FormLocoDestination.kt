@@ -28,7 +28,7 @@ fun FormLocoDestination(
         currentSetting = viewModel.currentSetting,
         dieselSectionListState = formUiState.dieselSectionList,
         electricSectionListState = formUiState.electricSectionList,
-        onBackPressed = router::back,
+        onBackPressed = viewModel::checkBeforeExitTheScreen,
         onSaveClick = viewModel::saveLoco,
         onLocoSaved = router::back,
         onClearAllField = viewModel::clearAllField,
@@ -59,6 +59,9 @@ fun FormLocoDestination(
         onRefuelValueChanged = viewModel::setRefuel,
         isShowCoefficientDialog = formUiState.coefficientDialogShow,
         showCoefficientDialog = viewModel::showCoefficientDialog,
-        onCoefficientValueChanged = viewModel::setCoefficient
+        onCoefficientValueChanged = viewModel::setCoefficient,
+        exitScreen = router::back,
+        changeShowConfirmExitDialog = viewModel::changeShowConfirmDialog,
+        exitWithoutSave = viewModel::exitWithoutSaving
     )
 }

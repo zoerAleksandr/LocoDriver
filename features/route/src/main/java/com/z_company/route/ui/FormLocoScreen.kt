@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -26,6 +27,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,6 +38,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -78,10 +82,12 @@ import com.z_company.route.component.BottomShadow
 import com.z_company.route.component.CustomDatePickerDialog
 import com.z_company.route.component.DieselSectionItem
 import com.z_company.core.ui.component.TimePickerDialog
+import com.z_company.core.ui.component.TopSnackbar
 import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.route.viewmodel.LocoFormUiState
 import java.util.Calendar
 import com.z_company.domain.util.*
+import com.z_company.route.component.ConfirmExitDialog
 import com.z_company.route.component.ElectricSectionItem
 import com.z_company.route.component.rememberDatePickerStateInLocale
 import com.z_company.route.viewmodel.DieselSectionFormState
@@ -129,7 +135,13 @@ fun FormLocoScreen(
     onCoefficientValueChanged: (Int, String?) -> Unit,
     isShowRefuelDialog: Pair<Boolean, Int>,
     isShowCoefficientDialog: Pair<Boolean, Int>,
+    exitScreen: () -> Unit,
+    changeShowConfirmExitDialog: (Boolean) -> Unit,
+    exitWithoutSave: () -> Unit
 ) {
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
     Scaffold(
         modifier = Modifier
             .fillMaxWidth(),
@@ -151,65 +163,93 @@ fun FormLocoScreen(
                     }
                 },
                 actions = {
-                    ClickableText(
-                        modifier = Modifier.padding(end = 16.dp),
-                        text = AnnotatedString("Готово"),
-                        style = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.tertiary),
+                    AsyncData(
+                        resultState = formUiState.saveLocoState,
+                        loadingContent = {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        },
+                        errorContent = {}
                     ) {
-                        onSaveClick()
+                        ClickableText(
+                            modifier = Modifier.padding(end = 16.dp),
+                            text = AnnotatedString("Готово"),
+                            style = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.tertiary),
+                        ) {
+                            onSaveClick()
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
+        },
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { snackBarData ->
+                TopSnackbar(snackBarData = snackBarData)
+            }
         }
     ) { paddingValues ->
+        if (formUiState.saveLocoState is ResultState.Error) {
+            LaunchedEffect(Unit) {
+                scope.launch {
+                    snackbarHostState.showSnackbar("Ошибка: ${formUiState.saveLocoState.entity.message}")
+                }
+                resetSaveState()
+            }
+        }
+        if (formUiState.exitFromScreen) {
+            LaunchedEffect(Unit) {
+                exitScreen()
+            }
+        }
         Box(modifier = Modifier.padding(paddingValues)) {
             AsyncData(resultState = formUiState.locoDetailState) {
                 currentLoco?.let { locomotive ->
-                    AsyncData(resultState = formUiState.saveLocoState, errorContent = {
-                        GenericError(
-                            onDismissAction = resetSaveState
-                        )
-                    }) {
-                        if (formUiState.saveLocoState is ResultState.Success) {
-                            LaunchedEffect(formUiState.saveLocoState) {
-                                onLocoSaved()
-                            }
-                        } else {
-                            LocoFormScreenContent(
-                                locomotive = locomotive,
-                                setting = currentSetting,
-                                dieselSectionListState = dieselSectionListState,
-                                electricSectionListState = electricSectionListState,
-                                onNumberChanged = onNumberChanged,
-                                onSeriesChanged = onSeriesChanged,
-                                onTypeLocoChanged = onChangedTypeLoco,
-                                onStartAcceptedTimeChanged = onStartAcceptedTimeChanged,
-                                onEndAcceptedTimeChanged = onEndAcceptedTimeChanged,
-                                onStartDeliveryTimeChanged = onStartDeliveryTimeChanged,
-                                onEndDeliveryTimeChanged = onEndDeliveryTimeChanged,
-                                onFuelAcceptedChanged = onFuelAcceptedChanged,
-                                onFuelDeliveredChanged = onFuelDeliveredChanged,
-                                onDeleteSectionDiesel = onDeleteSectionDiesel,
-                                addingSectionDiesel = addingSectionDiesel,
-                                focusChangedDieselSection = focusChangedDieselSection,
-                                onEnergyAcceptedChanged = onEnergyAcceptedChanged,
-                                onEnergyDeliveryChanged = onEnergyDeliveryChanged,
-                                onRecoveryAcceptedChanged = onRecoveryAcceptedChanged,
-                                onRecoveryDeliveryChanged = onRecoveryDeliveryChanged,
-                                onDeleteSectionElectric = onDeleteSectionElectric,
-                                addingSectionElectric = addingSectionElectric,
-                                focusChangedElectricSection = focusChangedElectricSection,
-                                onExpandStateElectricSection = onExpandStateElectricSection,
-                                isShowRefuelDialog = isShowRefuelDialog,
-                                showRefuelDialog = showRefuelDialog,
-                                onRefuelValueChanged = onRefuelValueChanged,
-                                isShowCoefficientDialog = isShowCoefficientDialog,
-                                showCoefficientDialog = showCoefficientDialog,
-                                onCoefficientValueChanged = onCoefficientValueChanged
-                            )
+                    if (formUiState.saveLocoState is ResultState.Success) {
+                        LaunchedEffect(formUiState.saveLocoState) {
+                            onLocoSaved()
                         }
+                    } else {
+                        LocoFormScreenContent(
+                            locomotive = locomotive,
+                            setting = currentSetting,
+                            dieselSectionListState = dieselSectionListState,
+                            electricSectionListState = electricSectionListState,
+                            onNumberChanged = onNumberChanged,
+                            onSeriesChanged = onSeriesChanged,
+                            onTypeLocoChanged = onChangedTypeLoco,
+                            onStartAcceptedTimeChanged = onStartAcceptedTimeChanged,
+                            onEndAcceptedTimeChanged = onEndAcceptedTimeChanged,
+                            onStartDeliveryTimeChanged = onStartDeliveryTimeChanged,
+                            onEndDeliveryTimeChanged = onEndDeliveryTimeChanged,
+                            onFuelAcceptedChanged = onFuelAcceptedChanged,
+                            onFuelDeliveredChanged = onFuelDeliveredChanged,
+                            onDeleteSectionDiesel = onDeleteSectionDiesel,
+                            addingSectionDiesel = addingSectionDiesel,
+                            focusChangedDieselSection = focusChangedDieselSection,
+                            onEnergyAcceptedChanged = onEnergyAcceptedChanged,
+                            onEnergyDeliveryChanged = onEnergyDeliveryChanged,
+                            onRecoveryAcceptedChanged = onRecoveryAcceptedChanged,
+                            onRecoveryDeliveryChanged = onRecoveryDeliveryChanged,
+                            onDeleteSectionElectric = onDeleteSectionElectric,
+                            addingSectionElectric = addingSectionElectric,
+                            focusChangedElectricSection = focusChangedElectricSection,
+                            onExpandStateElectricSection = onExpandStateElectricSection,
+                            isShowRefuelDialog = isShowRefuelDialog,
+                            showRefuelDialog = showRefuelDialog,
+                            onRefuelValueChanged = onRefuelValueChanged,
+                            isShowCoefficientDialog = isShowCoefficientDialog,
+                            showCoefficientDialog = showCoefficientDialog,
+                            onCoefficientValueChanged = onCoefficientValueChanged,
+                            showConfirmExitDialog = formUiState.confirmExitDialogShow,
+                            changeShowConfirmExitDialog = changeShowConfirmExitDialog,
+                            exitWithoutSave = exitWithoutSave,
+                            onSaveClick = onSaveClick
+                        )
                     }
+
                 }
             }
         }
@@ -248,7 +288,11 @@ private fun LocoFormScreenContent(
     onRefuelValueChanged: (Int, String?) -> Unit,
     isShowCoefficientDialog: Pair<Boolean, Int>,
     showCoefficientDialog: (Pair<Boolean, Int>) -> Unit,
-    onCoefficientValueChanged: (Int, String?) -> Unit
+    onCoefficientValueChanged: (Int, String?) -> Unit,
+    showConfirmExitDialog: Boolean,
+    changeShowConfirmExitDialog: (Boolean) -> Unit,
+    exitWithoutSave: () -> Unit,
+    onSaveClick: () -> Unit,
 ) {
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
@@ -264,6 +308,14 @@ private fun LocoFormScreenContent(
             fontSize = 18.sp,
             fontWeight = FontWeight.Light
         )
+
+    if (showConfirmExitDialog) {
+        ConfirmExitDialog(
+            showExitConfirmDialog = changeShowConfirmExitDialog,
+            onSaveClick = onSaveClick,
+            exitWithoutSave = exitWithoutSave
+        )
+    }
 
     AnimatedVisibility(
         modifier = Modifier
@@ -873,7 +925,10 @@ private fun LocoFormScreenContent(
                                     overRecovery += resultRecovery
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Column(
+                                    horizontalAlignment = Alignment.End,
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
                                     overResult?.let {
                                         Text(
                                             text = "Всего расход = ${it.str()}",
