@@ -29,10 +29,8 @@ import org.jetbrains.annotations.NotNull
     SectionDieselToPrimitiveConverters::class
 )
 internal data class Locomotive(
-    @NotNull
     @PrimaryKey
     val locoId: String,
-    @NotNull
     @ColumnInfo(index = true)
     var basicId: String,
     var removeObjectId: String,

@@ -18,4 +18,4 @@ data class LocoFormUiState(
     val exitFromScreen: Boolean = false,
     val changesHaveState: Boolean = false,
     val confirmExitDialogShow: Boolean = false
-    )
+)

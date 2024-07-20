@@ -71,6 +71,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -855,19 +856,21 @@ private fun TrainSubItem(index: Int, train: Train) {
         )
     } else {
         val stationStart = if (train.stations.isNotEmpty()) {
-            train.stations.first().stationName
+            train.stations.first().stationName ?: ""
         } else {
             ""
         }
 
-        val stationEnd = if (train.stations.isNotEmpty()) {
-            train.stations.last().stationName
+        val stationEnd = if (train.stations.isNotEmpty() && train.stations.size > 1) {
+            " ${ train.stations.last().stationName ?: ""}"
         } else {
             ""
         }
 
         Text(
-            text = "№ ${train.number} $stationStart - $stationEnd",
+            text = "№ ${train.number} $stationStart$stationEnd",
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             style = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
         )
     }
