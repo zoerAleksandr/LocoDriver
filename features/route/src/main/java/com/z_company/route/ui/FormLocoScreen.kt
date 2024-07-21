@@ -70,7 +70,6 @@ import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.LocoTypeHelper.converterLocoTypeToString
-import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.util.CalculationEnergy
@@ -80,7 +79,7 @@ import com.z_company.route.component.BottomShadow
 import com.z_company.route.component.CustomDatePickerDialog
 import com.z_company.route.component.DieselSectionItem
 import com.z_company.core.ui.component.TimePickerDialog
-import com.z_company.core.ui.component.TopSnackbar
+import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.route.viewmodel.LocoFormUiState
 import java.util.Calendar
@@ -98,7 +97,6 @@ import kotlinx.coroutines.launch
 @Composable
 fun FormLocoScreen(
     currentLoco: Locomotive?,
-    currentSetting: UserSettings?,
     dieselSectionListState: SnapshotStateList<DieselSectionFormState>?,
     electricSectionListState: SnapshotStateList<ElectricSectionFormState>?,
     onBackPressed: () -> Unit,
@@ -185,7 +183,7 @@ fun FormLocoScreen(
         },
         snackbarHost = {
             SnackbarHost(snackbarHostState) { snackBarData ->
-                TopSnackbar(snackBarData = snackBarData)
+                CustomSnackBar(snackBarData = snackBarData)
             }
         }
     ) { paddingValues ->
@@ -212,7 +210,6 @@ fun FormLocoScreen(
                     } else {
                         LocoFormScreenContent(
                             locomotive = locomotive,
-                            setting = currentSetting,
                             dieselSectionListState = dieselSectionListState,
                             electricSectionListState = electricSectionListState,
                             onNumberChanged = onNumberChanged,
@@ -258,7 +255,6 @@ fun FormLocoScreen(
 @Composable
 private fun LocoFormScreenContent(
     locomotive: Locomotive,
-    setting: UserSettings?,
     dieselSectionListState: SnapshotStateList<DieselSectionFormState>?,
     electricSectionListState: SnapshotStateList<ElectricSectionFormState>?,
     onNumberChanged: (String) -> Unit,

@@ -9,10 +9,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 
 @Composable
-fun TopSnackbar(snackBarData: SnackbarData) {
+fun CustomSnackBar(snackBarData: SnackbarData) {
     Box(
         modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.BottomCenter //Change to your desired position
+        contentAlignment = Alignment.BottomCenter
     ) {
         Snackbar(
             snackbarData = snackBarData,

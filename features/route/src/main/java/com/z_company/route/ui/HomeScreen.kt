@@ -97,7 +97,7 @@ import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.ButtonLocoDriver
 import com.z_company.route.component.DialogSelectMonthOfYear
 import com.z_company.route.component.HomeBottomSheetContent
-import com.z_company.core.ui.component.TopSnackbar
+import com.z_company.core.ui.component.CustomSnackBar
 import kotlinx.coroutines.launch
 import com.z_company.core.R as CoreR
 
@@ -137,7 +137,7 @@ fun HomeScreen(
     )
     val heightScreen = LocalConfiguration.current.screenHeightDp
     val sheetPeekHeight = remember {
-        heightScreen.times(0.3)
+        heightScreen.times(0.25)
     }
 
     val isExpand = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded
@@ -341,7 +341,7 @@ fun HomeScreen(
         scaffoldState = scaffoldState,
         snackbarHost = {
             SnackbarHost(hostState = scaffoldState.snackbarHostState) { snackBarData ->
-                TopSnackbar(snackBarData = snackBarData)
+                CustomSnackBar(snackBarData = snackBarData)
             }
         },
         sheetPeekHeight = sheetPeekHeight.dp,

@@ -59,7 +59,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
@@ -71,7 +70,7 @@ import com.z_company.route.extention.isScrollInInitialState
 import kotlinx.coroutines.launch
 import com.z_company.route.component.CustomDatePickerDialog
 import com.z_company.core.ui.component.TimePickerDialog
-import com.z_company.core.ui.component.TopSnackbar
+import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.route.component.ConfirmExitDialog
 import com.z_company.route.component.rememberDatePickerStateInLocale
@@ -131,7 +130,7 @@ fun FormPassengerScreen(
             .fillMaxWidth(),
         snackbarHost = {
             SnackbarHost(snackbarHostState) { snackBarData ->
-                TopSnackbar(snackBarData = snackBarData)
+                CustomSnackBar(snackBarData = snackBarData)
             }
         },
         topBar = {
@@ -213,7 +212,6 @@ fun FormPassengerScreen(
                             onTimeArrivalChanged = onTimeArrivalChanged,
                             onNotesChanged = onNotesChanged,
                             resultTime = resultTime,
-                            formValid = formValid
                         )
                     }
 
@@ -234,28 +232,11 @@ fun PassengerFormScreenContent(
     onTimeArrivalChanged: (Long?) -> Unit,
     onNotesChanged: (String) -> Unit,
     resultTime: Long?,
-    formValid: Boolean,
 ) {
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
-
-    val backgroundColor = if (!formValid) {
-        MaterialTheme.colorScheme.errorContainer
-    } else {
-        Color.Transparent
-    }
     val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
-    val subTitleTextStyle = AppTypography.getType().titleLarge
-        .copy(
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Normal
-        )
-    val hintStyle = AppTypography.getType().titleLarge
-        .copy(
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Light
-        )
 
     AnimatedVisibility(
         modifier = Modifier

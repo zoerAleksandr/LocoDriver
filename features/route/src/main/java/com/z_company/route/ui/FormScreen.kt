@@ -95,7 +95,7 @@ import com.z_company.route.component.rememberDatePickerStateInLocale
 import java.util.Calendar
 import com.z_company.route.extention.isScrollInInitialState
 import com.maxkeppeker.sheets.core.views.Grid
-import com.z_company.core.ui.component.TopSnackbar
+import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
@@ -181,7 +181,7 @@ fun FormScreen(
         },
         snackbarHost = {
             SnackbarHost(snackbarHostState) { snackBarData ->
-                TopSnackbar(snackBarData = snackBarData)
+                CustomSnackBar(snackBarData = snackBarData)
             }
         }
     ) {
