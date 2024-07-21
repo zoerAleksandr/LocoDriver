@@ -9,5 +9,8 @@ data class TrainFormUiState(
     val trainDetailState: ResultState<Train?> = ResultState.Loading,
     val saveTrainState: ResultState<Unit>? = null,
     val stationsListState: SnapshotStateList<StationFormState>? = mutableStateListOf(),
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val exitFromScreen: Boolean = false,
+    val changesHaveState: Boolean = false,
+    val confirmExitDialogShow: Boolean = false
 )

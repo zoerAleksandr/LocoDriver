@@ -1,15 +1,17 @@
 package com.z_company.route.viewmodel
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
-import com.z_company.data_local.setting.DataStoreRepository
-import com.z_company.use_case.RemoteRouteUseCase
+import com.z_company.core.util.CalculateNightTime
+import com.z_company.domain.entities.NightTime
 import com.z_company.domain.entities.route.*
 import com.z_company.domain.use_cases.*
+import com.z_company.domain.util.minus
 import com.z_company.route.Const.NULLABLE_ID
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
@@ -23,8 +25,7 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
     private val trainUseCase: TrainUseCase by inject()
     private val passengerUseCase: PassengerUseCase by inject()
     private val photoUseCase: PhotoUseCase by inject()
-
-    private val dataStoreRepository: DataStoreRepository by inject()
+    private val settingsUseCase: SettingsUseCase by inject()
 
     private val _uiState = MutableStateFlow(RouteFormUiState())
     val uiState = _uiState.asStateFlow()
@@ -52,7 +53,9 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
             }
         }
 
-    private var minTimeRest by mutableStateOf<Long?>(null)
+    var minTimeRest by mutableStateOf<Long?>(null)
+    var nightTime: NightTime? = null
+
 
     init {
         if (routeId == NULLABLE_ID) {
@@ -78,6 +81,11 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
             _uiState.update {
                 if (routeState is ResultState.Success) {
                     currentRoute = routeState.data
+                    currentRoute?.let { route ->
+                        calculateRestTime(route)
+                        getNightTimeInRoute(route)
+                        calculationPassengerTime(route)
+                    }
                 }
                 it.copy(routeDetailState = routeState)
             }
@@ -86,26 +94,30 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
 
     private fun loadSettings() {
         loadSettingsJob?.cancel()
-        loadSettingsJob = dataStoreRepository.getMinTimeRest().onEach {
-            minTimeRest = it
+        loadSettingsJob = settingsUseCase.getCurrentSettings().onEach { result ->
+            if (result is ResultState.Success) {
+                minTimeRest = result.data?.minTimeRest
+                nightTime = result.data?.nightTime
+                currentRoute?.let { route ->
+                    calculateRestTime(route)
+                    getNightTimeInRoute(route)
+                }
+            }
         }.launchIn(viewModelScope)
     }
 
     fun saveRoute() {
-        val state = _uiState.value.routeDetailState
-        if (state is ResultState.Success) {
-            state.data?.let { route ->
-
-//                viewModelScope.launch {
-//                    remoteRouteUseCase.saveBasicData(route)
-//                }
-
-                saveRouteJob?.cancel()
-                saveRouteJob = routeUseCase.saveRoute(route).onEach { saveRouteState ->
-                    _uiState.update {
-                        it.copy(saveRouteState = saveRouteState)
-                    }
-                }.launchIn(viewModelScope)
+        if (uiState.value.errorMessage == null) {
+            val state = _uiState.value.routeDetailState
+            if (state is ResultState.Success) {
+                state.data?.let { route ->
+                    saveRouteJob?.cancel()
+                    saveRouteJob = routeUseCase.saveRoute(route).onEach { saveRouteState ->
+                        _uiState.update {
+                            it.copy(saveRouteState = saveRouteState)
+                        }
+                    }.launchIn(viewModelScope)
+                }
             }
         }
     }
@@ -174,7 +186,7 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
         }
     }
 
-    fun showConfirmDialog(isShow: Boolean) {
+    fun changeShowConfirmDialog(isShow: Boolean) {
         _uiState.update {
             it.copy(confirmExitDialogShow = isShow)
         }
@@ -211,7 +223,6 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
         changesHave()
     }
 
-
     fun setNotes(text: String) {
         currentRoute = currentRoute?.copy(
             basicData = currentRoute!!.basicData.copy(
@@ -227,6 +238,8 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
                 timeStartWork = timeInLong
             )
         )
+        calculateRestTime(currentRoute!!)
+        getNightTimeInRoute(currentRoute!!)
         isValidTime()
         changesHave()
     }
@@ -237,6 +250,8 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
                 timeEndWork = timeInLong
             )
         )
+        calculateRestTime(currentRoute!!)
+        getNightTimeInRoute(currentRoute!!)
         isValidTime()
         changesHave()
     }
@@ -248,10 +263,46 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
             )
         )
         if (value) {
-            getMinTimeRest(currentRoute!!)
-            getFullRest(currentRoute!!)
+            calculateRestTime(currentRoute!!)
         }
         changesHave()
+    }
+
+    private fun calculateRestTime(route: Route) {
+        getMinTimeRest(route)
+        getFullRest(route)
+    }
+
+    private fun calculationPassengerTime(route: Route) {
+        var passengerTime by mutableLongStateOf(0L)
+        route.passengers.forEach { passenger ->
+            passengerTime =
+                passengerTime.plus(
+                    (passenger.timeArrival - passenger.timeDeparture) ?: 0L
+                )
+        }
+        _uiState.update {
+            it.copy(
+                passengerTime = passengerTime
+            )
+        }
+    }
+
+    private fun getNightTimeInRoute(route: Route) {
+        nightTime?.let { time ->
+            _uiState.update {
+                it.copy(
+                    nightTime = CalculateNightTime.getNightTime(
+                        startMillis = route.basicData.timeStartWork,
+                        endMillis = route.basicData.timeEndWork,
+                        hourStart = time.startNightHour,
+                        minuteStart = time.startNightMinute,
+                        hourEnd = time.endNightHour,
+                        minuteEnd = time.endNightMinute
+                    )
+                )
+            }
+        }
     }
 
     private fun getMinTimeRest(route: Route) {

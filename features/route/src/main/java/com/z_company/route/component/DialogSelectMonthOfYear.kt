@@ -10,8 +10,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
 import com.z_company.domain.entities.MonthOfYear
@@ -33,10 +36,21 @@ fun DialogSelectMonthOfYear(
         mutableIntStateOf(currentMonthOfYear.year)
     }
 
+    val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
+    val subTitleTextStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Normal
+        )
+
     Dialog(onDismissRequest = { showMonthSelectorDialog.value = false }) {
         var expandedYearMenu by remember { mutableStateOf(false) }
         var expandedMonthMenu by remember { mutableStateOf(false) }
-        Card(Modifier.wrapContentSize()) {
+        Card(
+            modifier = Modifier.wrapContentSize(),
+            shape = Shapes.medium,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
             Icon(
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
@@ -68,14 +82,17 @@ fun DialogSelectMonthOfYear(
                         readOnly = true,
                         value = selectedYear.toString(),
                         onValueChange = { },
-                        label = { Text("Год") },
                         trailingIcon = {
                             ExposedDropdownMenuDefaults.TrailingIcon(
                                 expanded = expandedYearMenu
                             )
                         },
-                        textStyle = MaterialTheme.typography.bodyMedium,
-                        colors = ExposedDropdownMenuDefaults.textFieldColors(),
+                        textStyle = dataTextStyle,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        ),
+                        shape = Shapes.medium,
                         singleLine = true
                     )
                     ExposedDropdownMenu(
@@ -87,7 +104,7 @@ fun DialogSelectMonthOfYear(
                     ) {
                         yearList.forEach { year ->
                             DropdownMenuItem(
-                                text = { Text(text = year.toString()) },
+                                text = { Text(text = year.toString(), style = dataTextStyle) },
                                 onClick = {
                                     selectedYear = year
                                     expandedYearMenu = false
@@ -112,15 +129,18 @@ fun DialogSelectMonthOfYear(
                         readOnly = true,
                         value = selectedMonth.getMonthFullText(),
                         onValueChange = { },
-                        label = { Text("Месяц") },
                         trailingIcon = {
                             ExposedDropdownMenuDefaults.TrailingIcon(
                                 expanded = expandedMonthMenu
                             )
                         },
-                        textStyle = MaterialTheme.typography.bodyMedium,
-                        colors = ExposedDropdownMenuDefaults.textFieldColors(),
-                        singleLine = true
+                        textStyle = dataTextStyle,
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        ),
+                        shape = Shapes.medium,
                     )
                     DropdownMenu(
                         expanded = expandedMonthMenu,
@@ -130,7 +150,7 @@ fun DialogSelectMonthOfYear(
                     ) {
                         monthList.forEach { month ->
                             DropdownMenuItem(
-                                text = { Text(text = month.getMonthFullText()) },
+                                text = { Text(text = month.getMonthFullText(), style = dataTextStyle) },
                                 onClick = {
                                     selectedMonth = month
                                     expandedMonthMenu = false
@@ -153,7 +173,7 @@ fun DialogSelectMonthOfYear(
             ) {
                 Text(
                     text = "Выбрать",
-                    style = AppTypography.getType().bodyMedium
+                    style = subTitleTextStyle
                 )
             }
         }

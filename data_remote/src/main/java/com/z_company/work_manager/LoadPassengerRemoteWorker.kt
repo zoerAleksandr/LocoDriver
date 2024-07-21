@@ -73,7 +73,7 @@ class LoadPassengerRemoteWorker(context: Context, parameters: WorkerParameters) 
             val data = Data.Builder().putStringArray(LOAD_PASSENGER_WORKER_OUTPUT_KEY, jsonList)
             return@withContext Result.success(data.build())
         } catch (e: Exception) {
-            Log.d("ZZZ", "ex load loco = ${e.message}")
+            Log.d("ZZZ", "ex load passenger = ${e.message}")
             return@withContext Result.retry()
         }
     }

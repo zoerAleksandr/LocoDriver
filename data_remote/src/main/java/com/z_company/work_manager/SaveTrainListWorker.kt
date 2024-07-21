@@ -81,7 +81,7 @@ class SaveTrainListWorker(context: Context, parameters: WorkerParameters) :
             return@withContext Result.success()
         } catch (e: Exception) {
             Log.d("ZZZ", "ex train save = $e")
-            return@withContext Result.retry()
+            return@withContext Result.failure()
         }
     }
 }

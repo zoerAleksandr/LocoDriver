@@ -21,10 +21,10 @@ data class SectionElectric(
     var sectionId: String = UUID.randomUUID().toString(),
     var locoId: String = "",
     var type: LocoType = LocoType.ELECTRIC,
-    var acceptedEnergy: Int? = null,
-    var deliveryEnergy: Int? = null,
-    var acceptedRecovery: Int? = null,
-    var deliveryRecovery: Int? = null
+    var acceptedEnergy: Double? = null,
+    var deliveryEnergy: Double? = null,
+    var acceptedRecovery: Double? = null,
+    var deliveryRecovery: Double? = null
 )
 data class SectionDiesel(
     var sectionId: String = UUID.randomUUID().toString(),

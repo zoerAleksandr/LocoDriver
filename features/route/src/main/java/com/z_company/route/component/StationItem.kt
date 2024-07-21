@@ -1,7 +1,6 @@
 package com.z_company.route.component
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +23,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
@@ -36,9 +36,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.z_company.core.ui.component.TimePickerDialog
 import com.z_company.core.ui.theme.Shapes
+import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.DateAndTimeFormat
 import com.z_company.route.viewmodel.StationFormState
 import de.charlex.compose.RevealDirection
@@ -119,12 +122,11 @@ fun StationItem(
     val departureDatePickerState =
         rememberDatePickerStateInLocale(initialSelectedDateMillis = departureCalendar.timeInMillis)
 
-
+    val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
 
     RevealSwipe(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(6.dp)
             .wrapContentHeight(),
         state = revealState,
         directions = setOf(
@@ -149,18 +151,10 @@ fun StationItem(
         shape = Shapes.medium
     ) {
         Card(
-            shape = Shapes.medium,
-            colors = CardDefaults.cardColors(
-                containerColor = if (!stationFormState.formValid.data) {
-                    MaterialTheme.colorScheme.errorContainer
-                } else {
-                    CardDefaults.cardColors().containerColor
-                }
-            )
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background),
         ) {
             Row(
                 modifier = Modifier
-                    .padding(horizontal = 12.dp)
                     .height(IntrinsicSize.Min)
                     .fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -168,18 +162,18 @@ fun StationItem(
             ) {
                 OutlinedTextField(
                     modifier = Modifier
-                        .padding(top = 1.dp, bottom = 9.dp)
                         .weight(0.5f),
                     value = stationFormState.station.data ?: "",
                     onValueChange = {
                         onStationNameChanged(index, it)
                     },
-                    label = {
+                    placeholder = {
                         Text(
                             text = "Станция",
-                            color = MaterialTheme.colorScheme.secondary
+                            style = dataTextStyle
                         )
                     },
+                    textStyle = dataTextStyle,
                     keyboardOptions = KeyboardOptions(
                         imeAction = ImeAction.Done
                     ),
@@ -190,20 +184,21 @@ fun StationItem(
                             }
                         }
                     ),
-                    singleLine = true
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent
+                    ),
+                    shape = Shapes.medium,
                 )
 
                 Box(
                     modifier = Modifier
-                        .padding(vertical = 9.dp)
                         .weight(0.25f)
-                        .border(
-                            width = 1.dp,
-                            color = MaterialTheme.colorScheme.outline,
-                            shape = Shapes.extraSmall
-                        )
                         .fillMaxHeight()
-                        .background(Color.Transparent)
+                        .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
                         .clickable(!isFirst) {
                             showArrivalDatePicker = true
                         },
@@ -221,21 +216,16 @@ fun StationItem(
 
                         Text(
                             text = textTimeArrival,
-                            maxLines = 1
+                            maxLines = 1,
+                            style = dataTextStyle
                         )
                     }
                 }
                 Box(
                     modifier = Modifier
-                        .padding(vertical = 9.dp)
                         .weight(0.25f)
-                        .border(
-                            width = 1.dp,
-                            color = MaterialTheme.colorScheme.outline,
-                            shape = Shapes.extraSmall
-                        )
                         .fillMaxHeight()
-                        .background(Color.Transparent)
+                        .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
                         .clickable {
                             showDepartureDatePicker = true
                         },
@@ -252,7 +242,8 @@ fun StationItem(
 
                     Text(
                         text = textTimeDeparture,
-                        maxLines = 1
+                        maxLines = 1,
+                        style = dataTextStyle
                     )
 
                 }

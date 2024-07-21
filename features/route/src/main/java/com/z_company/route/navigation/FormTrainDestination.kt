@@ -27,7 +27,7 @@ fun FormTrainDestination(
     FormTrainScreen(
         formUiState = formUiState,
         currentTrain = viewModel.currentTrain,
-        onBackPressed = router::back,
+        onBackPressed = viewModel::checkBeforeExitTheScreen,
         onSaveClick = viewModel::saveTrain,
         onTrainSaved = router::back,
         onClearAllField = viewModel::clearAllField,
@@ -42,6 +42,9 @@ fun FormTrainDestination(
         onStationNameChanged = viewModel::setStationName,
         onArrivalTimeChanged = viewModel::setArrivalTime,
         onDepartureTimeChanged = viewModel::setDepartureTime,
-        stationListState = formUiState.stationsListState
+        stationListState = formUiState.stationsListState,
+        exitScreen = router::back,
+        changeShowConfirmExitDialog = viewModel::changeShowConfirmDialog,
+        exitWithoutSave = viewModel::exitWithoutSaving
     )
 }

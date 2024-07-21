@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -20,51 +21,47 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MediumTopAppBar
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SheetValue
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberBottomSheetScaffoldState
-import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.z_company.core.R
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
-import com.z_company.core.ui.component.GenericError
+import com.z_company.core.ui.component.CustomSnackBar
+import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.domain.entities.route.Train
 import com.z_company.route.component.BottomShadow
+import com.z_company.route.component.ConfirmExitDialog
 import com.z_company.route.component.StationItem
 import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.route.viewmodel.StationFormState
@@ -91,21 +88,18 @@ fun FormTrainScreen(
     onStationNameChanged: (index: Int, s: String) -> Unit,
     onDepartureTimeChanged: (index: Int, time: Long?) -> Unit,
     onArrivalTimeChanged: (index: Int, time: Long?) -> Unit,
-    stationListState: SnapshotStateList<StationFormState>?
+    stationListState: SnapshotStateList<StationFormState>?,
+    exitScreen: () -> Unit,
+    changeShowConfirmExitDialog: (Boolean) -> Unit,
+    exitWithoutSave: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
-    val scaffoldState = rememberBottomSheetScaffoldState(
-        bottomSheetState = rememberStandardBottomSheetState(
-            confirmValueChange = {
-                it != SheetValue.Hidden
-            }
-        )
-    )
+    val snackbarHostState = remember { SnackbarHostState() }
 
     if (formUiState.errorMessage != null) {
         LaunchedEffect(Unit) {
             scope.launch {
-                scaffoldState.snackbarHostState.showSnackbar(
+                snackbarHostState.showSnackbar(
                     message = formUiState.errorMessage
                 )
                 resetErrorMessage()
@@ -117,12 +111,12 @@ fun FormTrainScreen(
         modifier = Modifier
             .fillMaxWidth(),
         snackbarHost = {
-            SnackbarHost(hostState = scaffoldState.snackbarHostState) { snackBarData ->
-                Snackbar(snackBarData)
+            SnackbarHost(snackbarHostState) { snackBarData ->
+                CustomSnackBar(snackBarData = snackBarData)
             }
         },
         topBar = {
-            MediumTopAppBar(
+            TopAppBar(
                 title = {
                     Text(
                         text = "Поезд",
@@ -139,77 +133,70 @@ fun FormTrainScreen(
                     }
                 },
                 actions = {
-                    ClickableText(
-                        text = AnnotatedString(text = "Сохранить"),
-                        style = AppTypography.getType().titleMedium,
-                        onClick = { onSaveClick() }
-                    )
-                    var dropDownExpanded by remember { mutableStateOf(false) }
-
-                    IconButton(
-                        onClick = {
-                            dropDownExpanded = true
-                        }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.MoreVert,
-                            contentDescription = "Меню"
-                        )
-                        DropdownMenu(
-                            expanded = dropDownExpanded,
-                            onDismissRequest = { dropDownExpanded = false },
-                            offset = DpOffset(x = 4.dp, y = 8.dp)
-                        ) {
-                            DropdownMenuItem(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                onClick = {
-                                    onClearAllField()
-                                    dropDownExpanded = false
-                                },
-                                text = {
-                                    Text(
-                                        text = "Очистить",
-                                        style = AppTypography.getType().bodyLarge
-                                    )
-                                }
+                    AsyncData(
+                        resultState = formUiState.saveTrainState,
+                        loadingContent = {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
                             )
-                        }
+                        },
+                        errorContent = {}
+                    ) {
+                        ClickableText(
+                            modifier = Modifier.padding(end = 16.dp),
+                            text = AnnotatedString(text = "Готово"),
+                            style = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.tertiary),
+                            onClick = { onSaveClick() }
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    navigationIconContentColor = MaterialTheme.colorScheme.primary
+                    containerColor = Color.Transparent
                 )
             )
         }
     ) { paddingValues ->
+        if (formUiState.saveTrainState is ResultState.Error) {
+            LaunchedEffect(Unit) {
+                scope.launch {
+                    snackbarHostState.showSnackbar("Ошибка: ${formUiState.saveTrainState.entity.message}")
+                }
+                resetSaveState()
+            }
+        }
+        if (formUiState.exitFromScreen) {
+            LaunchedEffect(Unit) {
+                exitScreen()
+            }
+        }
         Box(modifier = Modifier.padding(paddingValues)) {
             AsyncData(resultState = formUiState.trainDetailState) {
                 currentTrain?.let { train ->
-                    AsyncData(resultState = formUiState.saveTrainState, errorContent = {
-                        GenericError(
-                            onDismissAction = resetSaveState
-                        )
-                    }) {
-                        if (formUiState.saveTrainState is ResultState.Success) {
-                            LaunchedEffect(formUiState.saveTrainState) {
-                                onTrainSaved()
-                            }
-                        } else {
-                            TrainFormScreenContent(
-                                train = train,
-                                onNumberChanged = onNumberChanged,
-                                onWeightChanged = onWeightChanged,
-                                onAxleChanged = onAxleChanged,
-                                onLengthChanged = onLengthChanged,
-                                onAddingStation = onAddingStation,
-                                onDeleteStation = onDeleteStation,
-                                onStationNameChanged = onStationNameChanged,
-                                onDepartureTimeChanged = onDepartureTimeChanged,
-                                onArrivalTimeChanged = onArrivalTimeChanged,
-                                stationListState = stationListState
-                            )
+                    if (formUiState.saveTrainState is ResultState.Success) {
+                        LaunchedEffect(formUiState.saveTrainState) {
+                            onTrainSaved()
                         }
+                    } else {
+                        TrainFormScreenContent(
+                            train = train,
+                            onNumberChanged = onNumberChanged,
+                            onWeightChanged = onWeightChanged,
+                            onAxleChanged = onAxleChanged,
+                            onLengthChanged = onLengthChanged,
+                            onAddingStation = onAddingStation,
+                            onDeleteStation = onDeleteStation,
+                            onStationNameChanged = onStationNameChanged,
+                            onDepartureTimeChanged = onDepartureTimeChanged,
+                            onArrivalTimeChanged = onArrivalTimeChanged,
+                            stationListState = stationListState,
+                            changeShowConfirmExitDialog = changeShowConfirmExitDialog,
+                            onSaveClick = onSaveClick,
+                            exitWithoutSave = exitWithoutSave,
+                            showConfirmExitDialog = formUiState.confirmExitDialogShow
+                        )
                     }
+
                 }
             }
         }
@@ -228,13 +215,35 @@ fun TrainFormScreenContent(
     onStationNameChanged: (index: Int, s: String) -> Unit,
     onDepartureTimeChanged: (index: Int, time: Long?) -> Unit,
     onArrivalTimeChanged: (index: Int, time: Long?) -> Unit,
-    stationListState: SnapshotStateList<StationFormState>?
+    stationListState: SnapshotStateList<StationFormState>?,
+    showConfirmExitDialog: Boolean,
+    changeShowConfirmExitDialog: (Boolean) -> Unit,
+    exitWithoutSave: () -> Unit,
+    onSaveClick: () -> Unit,
 ) {
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
 
+    val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
+    val subTitleTextStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Normal
+        )
+    val hintStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Light
+        )
 
+    if (showConfirmExitDialog) {
+        ConfirmExitDialog(
+            showExitConfirmDialog = changeShowConfirmExitDialog,
+            onSaveClick = onSaveClick,
+            exitWithoutSave = exitWithoutSave
+        )
+    }
 
     AnimatedVisibility(
         modifier = Modifier
@@ -247,20 +256,26 @@ fun TrainFormScreenContent(
     }
     LazyColumn(
         state = scrollState,
-        horizontalAlignment = Alignment.Start,
-        contentPadding = PaddingValues(horizontal = 24.dp)
+        horizontalAlignment = Alignment.End,
+        contentPadding = PaddingValues(16.dp)
     ) {
+//        item { Spacer(modifier = Modifier.height(70.dp)) }
+
         item {
             OutlinedTextField(
                 modifier = Modifier
-                    .padding(end = 8.dp)
                     .fillMaxWidth(0.5f),
                 value = train.number ?: "",
                 onValueChange = {
                     onNumberChanged(it)
                 },
-                label = {
-                    Text(text = "Номер", color = MaterialTheme.colorScheme.secondary)
+                placeholder = {
+                    Text(text = "Номер", style = dataTextStyle)
+                },
+                prefix = {
+                    if (!train.number.isNullOrBlank()) {
+                        Text(text = "№ ", style = hintStyle)
+                    }
                 },
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Decimal,
@@ -273,7 +288,15 @@ fun TrainFormScreenContent(
                         }
                     }
                 ),
-                singleLine = true
+                textStyle = dataTextStyle,
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent
+                ),
+                shape = Shapes.medium,
             )
         }
         item {
@@ -290,8 +313,13 @@ fun TrainFormScreenContent(
                     onValueChange = {
                         onWeightChanged(it)
                     },
-                    label = {
-                        Text(text = "Вес", color = MaterialTheme.colorScheme.secondary)
+                    placeholder = {
+                        Text(text = "Вес", style = dataTextStyle)
+                    },
+                    suffix = {
+                        if (!train.weight.isNullOrBlank()) {
+                            Text(text = "т.", style = hintStyle)
+                        }
                     },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Number,
@@ -304,7 +332,15 @@ fun TrainFormScreenContent(
                             }
                         }
                     ),
-                    singleLine = true
+                    textStyle = dataTextStyle,
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent
+                    ),
+                    shape = Shapes.medium,
                 )
 
                 OutlinedTextField(
@@ -314,8 +350,13 @@ fun TrainFormScreenContent(
                     onValueChange = {
                         onAxleChanged(it)
                     },
-                    label = {
-                        Text(text = "Оси", color = MaterialTheme.colorScheme.secondary)
+                    placeholder = {
+                        Text(text = "Оси", style = dataTextStyle)
+                    },
+                    suffix = {
+                        if (!train.axle.isNullOrBlank()) {
+                            Text(text = "осей", style = hintStyle)
+                        }
                     },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Number,
@@ -328,7 +369,15 @@ fun TrainFormScreenContent(
                             }
                         }
                     ),
-                    singleLine = true
+                    textStyle = dataTextStyle,
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent
+                    ),
+                    shape = Shapes.medium,
                 )
 
                 OutlinedTextField(
@@ -338,8 +387,13 @@ fun TrainFormScreenContent(
                     onValueChange = {
                         onLengthChanged(it)
                     },
-                    label = {
-                        Text(text = "у.д.", color = MaterialTheme.colorScheme.secondary)
+                    placeholder = {
+                        Text(text = "у.д.", style = dataTextStyle)
+                    },
+                    suffix = {
+                        if (!train.conditionalLength.isNullOrBlank()) {
+                            Text(text = "у.д.", style = hintStyle)
+                        }
                     },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Number,
@@ -352,7 +406,15 @@ fun TrainFormScreenContent(
                             }
                         }
                     ),
-                    singleLine = true
+                    textStyle = dataTextStyle,
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent
+                    ),
+                    shape = Shapes.medium,
                 )
             }
         }
@@ -361,11 +423,8 @@ fun TrainFormScreenContent(
                 items = stationList,
                 key = { _, item -> item.id }
             ) { index, item ->
-                if (index == 0) {
-                    Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.secondary_spacing)))
-                } else {
-                    Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.secondary_spacing) / 2))
-                }
+                Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.secondary_spacing)))
+
                 StationItem(
                     index = index,
                     stationFormState = item,
@@ -377,18 +436,22 @@ fun TrainFormScreenContent(
             }
         }
         item {
-            ClickableText(
-                modifier = Modifier.padding(top = 24.dp).fillMaxWidth(),
-                text = AnnotatedString("Добавить станцию"),
-                style = TextStyle(textAlign = TextAlign.End)
-            ) {
-                onAddingStation()
-                scope.launch {
-                    val countItems = scrollState.layoutInfo.totalItemsCount
-                    scrollState.animateScrollToItem(countItems)
+            Button(
+                modifier = Modifier
+                    .padding(top = 24.dp)
+                    .fillMaxWidth(),
+                shape = Shapes.medium,
+                onClick = {
+                    onAddingStation()
+                    scope.launch {
+                        val countItems = scrollState.layoutInfo.totalItemsCount
+                        scrollState.animateScrollToItem(countItems)
+                    }
                 }
+            ) {
+                Text(text = "Добавить станцию", style = subTitleTextStyle)
             }
         }
-        item { Spacer(modifier = Modifier.height(70.dp)) }
+        item { Spacer(modifier = Modifier.height(20.dp)) }
     }
 }

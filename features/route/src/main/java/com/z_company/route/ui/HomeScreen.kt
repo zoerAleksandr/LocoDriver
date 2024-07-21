@@ -97,7 +97,7 @@ import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.ButtonLocoDriver
 import com.z_company.route.component.DialogSelectMonthOfYear
 import com.z_company.route.component.HomeBottomSheetContent
-import com.z_company.core.ui.component.TopSnackbar
+import com.z_company.core.ui.component.CustomSnackBar
 import kotlinx.coroutines.launch
 import com.z_company.core.R as CoreR
 
@@ -137,7 +137,7 @@ fun HomeScreen(
     )
     val heightScreen = LocalConfiguration.current.screenHeightDp
     val sheetPeekHeight = remember {
-        heightScreen.times(0.3)
+        heightScreen.times(0.25)
     }
 
     val isExpand = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded
@@ -172,29 +172,29 @@ fun HomeScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 12.dp, end = 12.dp, top = 30.dp, bottom = 12.dp),
+                    .padding(16.dp),
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Start, text = "ДОБРО ПОЖАЛОВАТЬ!\n",
-                    style = AppTypography.getType().titleLarge
+                    style = AppTypography.getType().titleLarge.copy(color = MaterialTheme.colorScheme.primary)
                 )
                 Text(
                     modifier = Modifier.fillMaxWidth(),
                     text = "Подтвердите вашу электронную почту.\n",
-                    style = AppTypography.getType().titleMedium
+                    style = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.primary)
                 )
                 Text(
                     modifier = Modifier.fillMaxWidth(),
                     text = "На ваш адрес электронной почты было отправлено письмо со ссылкой для подтверждения. Пожалуйста, проверьте вашу почту и нажмите на ссылку для завершения регистрации.\n\n",
-                    style = AppTypography.getType().bodyMedium
+                    style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
                 )
                 Text(
                     modifier = Modifier.fillMaxWidth(),
                     text = "Если вы не получили письмо, проверьте папку \"Спам\" или повторите попытку позже.\n",
-                    style = AppTypography.getType().bodyMedium
+                    style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
                 )
 
                 Button(
@@ -341,7 +341,7 @@ fun HomeScreen(
         scaffoldState = scaffoldState,
         snackbarHost = {
             SnackbarHost(hostState = scaffoldState.snackbarHostState) { snackBarData ->
-                TopSnackbar(snackBarData = snackBarData)
+                CustomSnackBar(snackBarData = snackBarData)
             }
         },
         sheetPeekHeight = sheetPeekHeight.dp,
@@ -858,13 +858,13 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, calculationHomeRest: (Route)
                                 Column {
                                     locomotive.electricSectionList.forEachIndexed { index, sectionElectric ->
                                         val acceptedEnergyText =
-                                            sectionElectric.acceptedEnergy.str()
+                                            sectionElectric.acceptedEnergy
                                         val deliveryEnergyText =
-                                            sectionElectric.deliveryEnergy.str()
+                                            sectionElectric.deliveryEnergy
                                         val acceptedRecoveryText =
-                                            sectionElectric.acceptedRecovery.str()
+                                            sectionElectric.acceptedRecovery
                                         val deliveryRecoveryText =
-                                            sectionElectric.deliveryRecovery.str()
+                                            sectionElectric.deliveryRecovery
                                         val consumptionEnergy =
                                             CalculationEnergy.getTotalEnergyConsumption(
                                                 accepted = sectionElectric.acceptedEnergy,

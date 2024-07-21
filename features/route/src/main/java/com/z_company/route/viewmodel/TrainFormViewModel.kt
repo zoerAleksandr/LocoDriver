@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import kotlin.properties.Delegates
 
 class TrainFormViewModel(
     trainId: String?,
@@ -31,6 +32,8 @@ class TrainFormViewModel(
 
     private var loadTrainJob: Job? = null
     private var saveTrainJob: Job? = null
+
+    private var isNewTrain by Delegates.notNull<Boolean>()
 
     var currentTrain: Train?
         get() {
@@ -63,6 +66,61 @@ class TrainFormViewModel(
             currentTrain = Train(basicId = basicId)
         } else {
             loadTrain(trainId!!)
+        }
+    }
+
+    private fun changesHave() {
+        if (!_uiState.value.changesHaveState) {
+            _uiState.update {
+                it.copy(
+                    changesHaveState = true
+                )
+            }
+        }
+    }
+
+    fun exitWithoutSaving() {
+        if (isNewTrain) {
+            val state = _uiState.value.trainDetailState
+            if (state is ResultState.Success) {
+                state.data?.let { train ->
+                    trainUseCase.removeTrain(train).onEach { result ->
+                        if (result is ResultState.Success) {
+                            _uiState.update {
+                                it.copy(
+                                    confirmExitDialogShow = false,
+                                    exitFromScreen = true
+                                )
+                            }
+                        }
+                    }.launchIn(viewModelScope)
+                }
+            }
+        } else {
+            _uiState.update {
+                it.copy(
+                    confirmExitDialogShow = false,
+                    exitFromScreen = true
+                )
+            }
+        }
+    }
+
+    fun checkBeforeExitTheScreen() {
+        if (_uiState.value.changesHaveState) {
+            _uiState.update {
+                it.copy(confirmExitDialogShow = true)
+            }
+        } else {
+            _uiState.update {
+                it.copy(exitFromScreen = true)
+            }
+        }
+    }
+
+    fun changeShowConfirmDialog(isShow: Boolean) {
+        _uiState.update {
+            it.copy(confirmExitDialogShow = isShow)
         }
     }
 

@@ -9,15 +9,8 @@ import com.z_company.domain.entities.route.UtilsForEntities.fullRest
 import com.z_company.domain.entities.route.UtilsForEntities.isTimeWorkValid
 import com.z_company.domain.entities.route.UtilsForEntities.shortRest
 import com.z_company.domain.repositories.RouteRepository
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.util.Calendar
 import java.util.Calendar.*
 
@@ -117,14 +110,11 @@ class RouteUseCase(private val repository: RouteRepository) {
     }
 
     fun saveRoute(route: Route): Flow<ResultState<Unit>> {
-        return if (isRouteValid(route)) {
-            repository.saveRoute(route)
+        return if (route.basicData.timeStartWork == null) {
+            val currentTimeInMillis = getInstance().timeInMillis
+            repository.saveRoute(route.copy(basicData = route.basicData.copy(timeStartWork = currentTimeInMillis)))
         } else {
-            flowOf(
-                ResultState.Error(
-                    ErrorEntity(IllegalStateException(), "-1", "Route is not valid.")
-                )
-            )
+            repository.saveRoute(route)
         }
     }
 
@@ -178,7 +168,7 @@ class RouteUseCase(private val repository: RouteRepository) {
         return route.fullRest(minTimeRest)
     }
 
-    fun clearLocalRouteRepository(): Flow<ResultState<Unit>>{
+    fun clearLocalRouteRepository(): Flow<ResultState<Unit>> {
         return repository.clearRepository()
     }
 }

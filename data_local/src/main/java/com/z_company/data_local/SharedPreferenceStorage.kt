@@ -17,8 +17,12 @@ class SharedPreferenceStorage(application: Application) : KoinComponent {
         )
     private val editor = sharedpref.edit()
 
-    val tokenIsFirstAppEntry: Boolean = sharedpref.getBoolean(TOKEN_IS_FIRST_APP_ENTRY_TAG, true)
-    val tokesIsSyncDBEnable: Boolean = sharedpref.getBoolean(TOKEN_IS_SYNC_TAG, false)
+    fun tokenIsFirstAppEntry(): Boolean =
+        sharedpref.getBoolean(TOKEN_IS_FIRST_APP_ENTRY_TAG, true)
+
+
+    fun tokesIsSyncDBEnable(): Boolean =
+        sharedpref.getBoolean(TOKEN_IS_SYNC_TAG, false)
 
     fun setTokenIsFirstAppEntry(value: Boolean) {
         editor.putBoolean(TOKEN_IS_FIRST_APP_ENTRY_TAG, value).apply()

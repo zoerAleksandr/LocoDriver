@@ -68,18 +68,6 @@ class HomeViewModel : ViewModel(), KoinComponent {
             }
         }
 
-    var currentSettings: UserSettings?
-        get() {
-            return _uiState.value.settingState.let {
-                if (it is ResultState.Success) it.data else null
-            }
-        }
-        private set(value) {
-            _uiState.update {
-                it.copy(settingState = ResultState.Success(value))
-            }
-        }
-
     private fun loadSetting() {
         loadSettingJob?.cancel()
         loadSettingJob = settingsUseCase.getCurrentSettings().onEach { result ->
@@ -99,15 +87,15 @@ class HomeViewModel : ViewModel(), KoinComponent {
             loadRouteJob?.cancel()
             viewModelScope.launch(Dispatchers.IO) {
                 loadRouteJob = routeUseCase.listRoutesByMonth(monthOfYear).onEach { result ->
-                        _uiState.update {
-                            it.copy(routeListState = result)
-                        }
-                        if (result is ResultState.Success) {
-                            calculationOfTotalTime(result.data)
-                            calculationOfNightTime(result.data)
-                            calculationPassengerTime(result.data)
-                        }
-                    }.launchIn(this)
+                    _uiState.update {
+                        it.copy(routeListState = result)
+                    }
+                    if (result is ResultState.Success) {
+                        calculationOfTotalTime(result.data)
+                        calculationOfNightTime(result.data)
+                        calculationPassengerTime(result.data)
+                    }
+                }.launchIn(this)
             }
         }
     }
@@ -356,8 +344,8 @@ class HomeViewModel : ViewModel(), KoinComponent {
         return null
     }
 
-    private fun checkLoginToAccount(){
-        if(sharedPreferenceStorage.tokenIsFirstAppEntry){
+    private fun checkLoginToAccount() {
+        if (sharedPreferenceStorage.tokenIsFirstAppEntry()) {
             _uiState.update {
                 it.copy(
                     showFirstEntryToAccountDialog = true

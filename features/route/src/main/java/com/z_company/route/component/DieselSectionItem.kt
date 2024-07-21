@@ -1,11 +1,13 @@
 package com.z_company.route.component
 
-import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -14,9 +16,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
@@ -27,9 +31,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.domain.util.CalculationEnergy
@@ -102,6 +109,17 @@ fun DieselSectionItem(
             focusChangedDieselSection = focusChangedDieselSection
         )
     }
+    val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
+    val subTitleTextStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Normal
+        )
+    val hintStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Light
+        )
 
     RevealSwipe(
         modifier = Modifier
@@ -132,22 +150,19 @@ fun DieselSectionItem(
         shape = Shapes.medium
     ) {
         Card(
-            modifier = Modifier.border(
-                width = 1.dp,
-                color = MaterialTheme.colorScheme.outline,
-                shape = Shapes.extraSmall
-            ),
-            shape = Shapes.extraSmall
+            border = BorderStroke(width = 0.5.dp, color = MaterialTheme.colorScheme.outline),
+            shape = Shapes.medium,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background)
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp, start = 16.dp, end = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
                     text = "${index + 1} секция",
-                    style = AppTypography.getType().bodyLarge
+                    style = subTitleTextStyle
                 )
 
                 Row(
@@ -156,18 +171,24 @@ fun DieselSectionItem(
                 ) {
                     item.refuel.data?.toDoubleOrNull()?.let {
                         Text(
+                            modifier = Modifier.padding(end = 8.dp),
                             text = maskInLiter(it.str()) ?: "",
-                            style = AppTypography.getType().bodyLarge,
+                            style = dataTextStyle,
                         )
                     }
-                    IconButton(onClick = { showRefuelDialog(Pair(true, index)) }) {
-                        Icon(
-                            modifier = Modifier
-                                .padding(8.dp),
-                            painter = painterResource(id = R.drawable.refuel_icon),
-                            contentDescription = null,
-                        )
-                    }
+
+                    Icon(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clickable {
+                                showRefuelDialog(Pair(true, index))
+                            },
+                        painter = painterResource(id = R.drawable.refuel_icon),
+                        tint = MaterialTheme.colorScheme.primary,
+                        contentDescription = null,
+                    )
+
+
                 }
             }
 
@@ -175,11 +196,10 @@ fun DieselSectionItem(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.SpaceAround
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 OutlinedTextField(
                     modifier = Modifier
-                        .padding(end = 4.dp)
                         .weight(1f),
                     value = acceptedText,
                     onValueChange = {
@@ -187,9 +207,9 @@ fun DieselSectionItem(
                         focusChangedDieselSection(index, DieselSectionType.ACCEPTED)
                     },
                     placeholder = {
-                        Text(text = "Принято")
+                        Text(text = "Принято", style = dataTextStyle)
                     },
-                    textStyle = AppTypography.getType().bodyLarge,
+                    textStyle = dataTextStyle,
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Number, imeAction = ImeAction.Next
                     ),
@@ -197,22 +217,29 @@ fun DieselSectionItem(
                         scope.launch {
                             focusManager.moveFocus(FocusDirection.Right)
                         }
-                    })
+                    }),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent
+                    ),
+                    shape = Shapes.medium,
                 )
 
                 OutlinedTextField(
                     modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 4.dp),
+                        .weight(1f),
                     value = deliveryText,
                     onValueChange = {
                         onFuelDeliveredChanged(index, it.take(5))
                         focusChangedDieselSection(index, DieselSectionType.DELIVERY)
                     },
                     placeholder = {
-                        Text(text = "Сдано", color = MaterialTheme.colorScheme.secondary)
+                        Text(text = "Сдано", style = dataTextStyle)
                     },
-                    textStyle = AppTypography.getType().bodyLarge,
+                    textStyle = dataTextStyle,
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Number, imeAction = ImeAction.Done
                     ),
@@ -220,7 +247,15 @@ fun DieselSectionItem(
                         scope.launch {
                             focusManager.clearFocus()
                         }
-                    })
+                    }),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent
+                    ),
+                    shape = Shapes.medium,
                 )
             }
 
@@ -228,30 +263,28 @@ fun DieselSectionItem(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Box(
                     modifier = Modifier
-                        .weight(1f)
-                        .padding(end = 8.dp),
+                        .weight(1f),
                     contentAlignment = Alignment.TopStart
                 ) {
                     val acceptedInKiloText = rounding(acceptedInKilo, 2)?.str()
                     Text(
                         text = maskInKilo(acceptedInKiloText) ?: "",
-                        style = AppTypography.getType().bodyMedium
+                        style = hintStyle
                     )
                 }
                 Box(
                     modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 8.dp),
+                        .weight(1f),
                     contentAlignment = Alignment.TopStart
                 ) {
                     val deliveryInKiloText = rounding(deliveryInKilo, 2)?.str()
                     Text(
                         text = maskInKilo(deliveryInKiloText) ?: "",
-                        style = AppTypography.getType().bodyMedium
+                        style = hintStyle
                     )
                 }
             }
@@ -263,7 +296,15 @@ fun DieselSectionItem(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 ClickableText(
-                    text = AnnotatedString("k = ${item.coefficient.data ?: 0.0}"),
+                    text = AnnotatedString(
+                        text = "k = ${item.coefficient.data ?: 0.0}",
+                        spanStyle = SpanStyle(
+                            color = MaterialTheme.colorScheme.primary,
+                            fontFamily = hintStyle.fontFamily,
+                            fontSize = hintStyle.fontSize,
+                            fontWeight = hintStyle.fontWeight
+                        )
+                    ),
                     style = AppTypography.getType().bodyLarge,
                     onClick = {
                         showCoefficientDialog(Pair(true, index))
@@ -273,7 +314,7 @@ fun DieselSectionItem(
                     val resultInKiloText = maskInKilo(rounding(resultInKilo, 2)?.str())
                     Text(
                         text = "${resultInLiterText ?: ""} / ${resultInKiloText ?: ""}",
-                        style = AppTypography.getType().bodyMedium
+                        style = hintStyle
                     )
                 }
             }

@@ -17,9 +17,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.route.viewmodel.DieselSectionType
 import kotlinx.coroutines.launch
@@ -37,23 +40,31 @@ fun EnteredRefuelDialog(
     var temporaryValue by remember {
         mutableStateOf(refuelValue)
     }
+    val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
+    val subTitleTextStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Normal
+        )
     AlertDialog(
         onDismissRequest = { showDialog(Pair(false, index)) },
         title = {
-            Text(text = "Экипировка")
+            Text(text = "Экипировка", style = AppTypography.getType().headlineSmall)
         },
+        shape = Shapes.medium,
         text = {
             OutlinedTextField(
                 modifier = Modifier
-                    .padding(end = 4.dp),
+                    .padding(end = 4.dp, top = 24.dp),
                 value = temporaryValue ?: "",
                 onValueChange = {
                     temporaryValue = it.take(6)
                 },
+
                 suffix = {
-                    Text(text = "л.")
+                    Text(text = "л.", style = dataTextStyle)
                 },
-                textStyle = AppTypography.getType().bodyLarge,
+                textStyle = dataTextStyle,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done
                 ),
@@ -70,14 +81,15 @@ fun EnteredRefuelDialog(
                     showDialog(Pair(false, index))
                     onSaveClick(index, temporaryValue)
                     focusChangedDieselSection(index, DieselSectionType.REFUEL)
-                }
+                },
+                shape = Shapes.medium
             ) {
-                Text(text = "Сохранить")
+                Text(text = "Сохранить", style = subTitleTextStyle)
             }
         },
         dismissButton = {
             TextButton(onClick = { showDialog(Pair(false, index)) }) {
-                Text(text = "Отмена", color = MaterialTheme.colorScheme.error)
+                Text(text = "Отмена", style = subTitleTextStyle, color = MaterialTheme.colorScheme.error)
             }
         }
     )

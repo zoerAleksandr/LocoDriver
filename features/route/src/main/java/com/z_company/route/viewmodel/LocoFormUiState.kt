@@ -14,5 +14,8 @@ data class LocoFormUiState(
     val errorMessage: String? = null,
     val refuelDialogShow: Pair<Boolean, Int> = Pair(false, 0),
     val coefficientDialogShow: Pair<Boolean, Int> = Pair(false, 0),
-    val settingsState: ResultState<UserSettings?> = ResultState.Loading
+    val settingsState: ResultState<UserSettings?> = ResultState.Loading,
+    val exitFromScreen: Boolean = false,
+    val changesHaveState: Boolean = false,
+    val confirmExitDialogShow: Boolean = false
 )

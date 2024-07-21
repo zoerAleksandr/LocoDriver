@@ -37,7 +37,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.GenericLoading
-import com.z_company.core.ui.component.TopSnackbar
+import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.domain.entities.User
@@ -84,7 +84,7 @@ fun SignInScreen(
     Scaffold(
         snackbarHost = {
             SnackbarHost(snackbarHostState){ snackBarData ->
-                TopSnackbar(snackBarData = snackBarData)
+                CustomSnackBar(snackBarData = snackBarData)
             }
         }
     ) { padding ->

@@ -32,9 +32,8 @@ object UtilsForEntities {
             val timeResult = endTime - startTime
             var halfRest = timeResult / 2
             halfRest?.let { half ->
-                val minute = half / 60_000L
-                if (minute % 2L != 0L) {
-                    halfRest += minute
+                if (half % 60_000L != 0L) {
+                    halfRest += 60_000L
                 }
                 if (halfRest.moreThan(minTime)) {
                     endTime + halfRest
@@ -127,5 +126,13 @@ object UtilsForEntities {
             }
         }
         return true
+    }
+
+    fun Route.getPassengerTime(): Long? {
+        var totalTime: Long? = 0L
+        this.passengers.forEach { passenger ->
+            totalTime += passenger.getFollowingTime()
+        }
+        return totalTime
     }
 }
