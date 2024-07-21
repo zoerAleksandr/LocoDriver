@@ -10,7 +10,6 @@ import com.z_company.data_local.route.type_converters.SectionDieselToPrimitiveCo
 import com.z_company.data_local.route.type_converters.SectionElectricToPrimitiveConverter
 import com.z_company.data_local.route.type_converters.TypeLocoConverter
 import com.z_company.domain.entities.route.LocoType
-import org.jetbrains.annotations.NotNull
 
 @Entity(
     foreignKeys = [

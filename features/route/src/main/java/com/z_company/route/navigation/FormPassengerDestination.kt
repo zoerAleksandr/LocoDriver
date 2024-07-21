@@ -28,7 +28,7 @@ fun FormPassengerDestination(
         currentPassenger = viewModel.currentPassenger,
         passengerDetailState = formUiState.passengerDetailState,
         savePassengerState = formUiState.savePassengerState,
-        onBackPressed = router::back,
+        onBackPressed = viewModel::checkBeforeExitTheScreen,
         onSaveClick =  viewModel::savePassenger,
         onPassengerSaved = router::back,
         onClearAllField = viewModel::clearAllField,
@@ -42,6 +42,11 @@ fun FormPassengerDestination(
         resultTime = formUiState.resultTime,
         errorState = formUiState.errorTimeState,
         resetError = viewModel::resetErrorState,
-        formValid = formUiState.formValid
+        formValid = formUiState.formValid,
+        changeShowConfirmExitDialog = viewModel::changeShowConfirmDialog,
+        exitFromScreenState = formUiState.exitFromScreen,
+        exitScreen = router::back,
+        exitWithoutSave = viewModel::exitWithoutSaving,
+        showConfirmExitDialogState = formUiState.confirmExitDialogShow
     )
 }

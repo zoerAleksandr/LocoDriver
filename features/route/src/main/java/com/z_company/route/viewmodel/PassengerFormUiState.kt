@@ -8,5 +8,8 @@ data class PassengerFormUiState(
     val savePassengerState: ResultState<Unit>? = null,
     val errorTimeState: ResultState<Unit>? = null,
     val resultTime: Long? = null,
-    val formValid: Boolean = true
+    val formValid: Boolean = true,
+    val exitFromScreen: Boolean = false,
+    val changesHaveState: Boolean = false,
+    val confirmExitDialogShow: Boolean = false
 )

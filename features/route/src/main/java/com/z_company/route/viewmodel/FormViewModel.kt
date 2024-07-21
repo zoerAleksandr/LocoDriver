@@ -81,9 +81,11 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
             _uiState.update {
                 if (routeState is ResultState.Success) {
                     currentRoute = routeState.data
-                    calculateRestTime(currentRoute!!)
-                    getNightTimeInRoute(currentRoute!!)
-                    calculationPassengerTime(currentRoute!!)
+                    currentRoute?.let { route ->
+                        calculateRestTime(route)
+                        getNightTimeInRoute(route)
+                        calculationPassengerTime(route)
+                    }
                 }
                 it.copy(routeDetailState = routeState)
             }

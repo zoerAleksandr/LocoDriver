@@ -730,6 +730,7 @@ private fun RouteFormScreenContent(
                     PassengerSubItem(index, passenger)
                 }
                 ItemNotes(
+                    modifier = Modifier.padding(top = 8.dp),
                     notes = route.basicData.notes,
                     onNotesChanged = onNotesChanged,
                     photosList = route.photos,
@@ -799,7 +800,7 @@ fun <T> ItemAddingScreen(
         contentList?.let { elements ->
             Column(
                 modifier = Modifier
-                    .padding(top = 12.dp)
+                    .padding(top = 8.dp)
                     .fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
@@ -816,9 +817,17 @@ fun <T> ItemAddingScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        subItem(index, element)
+                        Row(
+                            modifier = Modifier
+                                .weight(0.95f)
+                                .padding(end = 8.dp)
+                        ) {
+                            subItem(index, element)
+                        }
                         Icon(
-                            modifier = Modifier.clickable { onDeleteClick(element) },
+                            modifier = Modifier
+                                .weight(0.05f)
+                                .clickable { onDeleteClick(element) },
                             imageVector = Icons.Outlined.Clear, contentDescription = null
                         )
                     }
@@ -832,7 +841,11 @@ fun <T> ItemAddingScreen(
 private fun LocomotiveSubItem(locomotive: Locomotive, index: Int) {
     val series = locomotive.series ?: locomotive.type.text
     val number = locomotive.number ?: ""
-    val numberText = if (locomotive.number != null){"№$number"}else{""}
+    val numberText = if (locomotive.number != null) {
+        "№$number"
+    } else {
+        ""
+    }
     val type = locomotive.type.text
     if (locomotive.series.isNullOrBlank() && locomotive.number.isNullOrBlank()) {
         Text(
@@ -862,7 +875,7 @@ private fun TrainSubItem(index: Int, train: Train) {
         }
 
         val stationEnd = if (train.stations.isNotEmpty() && train.stations.size > 1) {
-            " ${ train.stations.last().stationName ?: ""}"
+            " ${train.stations.last().stationName ?: ""}"
         } else {
             ""
         }
@@ -893,15 +906,14 @@ private fun PassengerSubItem(index: Int, passenger: Passenger) {
 
 @Composable
 fun ItemNotes(
+    modifier: Modifier = Modifier,
     notes: String?,
     onNotesChanged: (String) -> Unit,
     photosList: List<Photo>,
     onDeletePhoto: (photo: Photo) -> Unit,
     onPhotoClick: (photoId: String) -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-
-
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
             modifier = Modifier
                 .heightIn(max = 105.dp)

@@ -16,8 +16,9 @@ import kotlinx.coroutines.flow.update
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import com.z_company.domain.util.minus
+import kotlin.properties.Delegates
 
-class PassengerFormViewModel constructor(
+class PassengerFormViewModel(
     passengerId: String?,
     basicId: String
 ) : ViewModel(), KoinComponent {
@@ -27,6 +28,9 @@ class PassengerFormViewModel constructor(
 
     private var loadPassengerJob: Job? = null
     private var savePassengerJob: Job? = null
+
+    private var isNewPassenger by Delegates.notNull<Boolean>()
+
     var currentPassenger: Passenger?
         get() {
             return _uiState.value.passengerDetailState.let {
@@ -43,8 +47,10 @@ class PassengerFormViewModel constructor(
 
     init {
         if (passengerId == NULLABLE_ID) {
+            isNewPassenger = true
             currentPassenger = Passenger(basicId = basicId)
         } else {
+            isNewPassenger = false
             loadPassenger(passengerId!!)
         }
     }
@@ -62,6 +68,61 @@ class PassengerFormViewModel constructor(
                 formValidTime()
             }
         }.launchIn(viewModelScope)
+    }
+
+    private fun changesHave() {
+        if (!_uiState.value.changesHaveState) {
+            _uiState.update {
+                it.copy(
+                    changesHaveState = true
+                )
+            }
+        }
+    }
+
+    fun exitWithoutSaving() {
+        if (isNewPassenger) {
+            val state = _uiState.value.passengerDetailState
+            if (state is ResultState.Success) {
+                state.data?.let { passenger ->
+                    passengerUseCase.removePassenger(passenger).onEach { result ->
+                        if (result is ResultState.Success) {
+                            _uiState.update {
+                                it.copy(
+                                    confirmExitDialogShow = false,
+                                    exitFromScreen = true
+                                )
+                            }
+                        }
+                    }.launchIn(viewModelScope)
+                }
+            }
+        } else {
+            _uiState.update {
+                it.copy(
+                    confirmExitDialogShow = false,
+                    exitFromScreen = true
+                )
+            }
+        }
+    }
+
+    fun checkBeforeExitTheScreen() {
+        if (_uiState.value.changesHaveState) {
+            _uiState.update {
+                it.copy(confirmExitDialogShow = true)
+            }
+        } else {
+            _uiState.update {
+                it.copy(exitFromScreen = true)
+            }
+        }
+    }
+
+    fun changeShowConfirmDialog(isShow: Boolean) {
+        _uiState.update {
+            it.copy(confirmExitDialogShow = isShow)
+        }
     }
 
     fun savePassenger() {
@@ -103,24 +164,28 @@ class PassengerFormViewModel constructor(
             notes = null
         )
         formValidTime()
+        changesHave()
     }
 
     fun setNumberTrain(number: String) {
         currentPassenger = currentPassenger?.copy(
             trainNumber = number.ifBlank { null }
         )
+        changesHave()
     }
 
     fun setStationDeparture(station: String) {
         currentPassenger = currentPassenger?.copy(
             stationDeparture = station.ifBlank { null }
         )
+        changesHave()
     }
 
     fun setStationArrival(station: String) {
         currentPassenger = currentPassenger?.copy(
             stationArrival = station.ifBlank { null }
         )
+        changesHave()
     }
 
     fun setTimeDeparture(time: Long?) {
@@ -128,6 +193,7 @@ class PassengerFormViewModel constructor(
             timeDeparture = time
         )
         formValidTime()
+        changesHave()
     }
 
     fun setTimeArrival(time: Long?) {
@@ -135,12 +201,14 @@ class PassengerFormViewModel constructor(
             timeArrival = time
         )
         formValidTime()
+        changesHave()
     }
 
     fun setNotes(notes: String) {
         currentPassenger = currentPassenger?.copy(
             notes = notes.ifBlank { null }
         )
+        changesHave()
     }
 
     private fun formValidTime() {
