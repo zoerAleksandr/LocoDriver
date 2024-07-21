@@ -65,7 +65,7 @@ class SaveBasicDataWorker(context: Context, params: WorkerParameters) :
             val data = workDataOf(BASIC_DATA_OBJECT_ID_KEY to basicDataObject.objectId)
             return@coroutineScope Result.success(data)
         } catch (e: Exception) {
-            return@coroutineScope Result.retry()
+            return@coroutineScope Result.failure()
         }
     }
 }

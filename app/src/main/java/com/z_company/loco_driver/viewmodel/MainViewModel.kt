@@ -43,7 +43,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     val isRegistered: MutableLiveData<Boolean> get() = _isRegistered
 
     init {
-        if (sharedPreferenceStorage.tokenIsFirstAppEntry) {
+        if (sharedPreferenceStorage.tokenIsFirstAppEntry()) {
             setDefaultSettings()
             loadCalendar()
         }
@@ -86,7 +86,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
             val session = ParseUser.getCurrentUser()
             if (session != null) {
                 _isRegistered.postValue(true)
-                if (session.getBoolean(UserFieldName.EMAIL_VERIFIED_FIELD_NAME_REMOTE) && !sharedPreferenceStorage.tokesIsSyncDBEnable
+                if (session.getBoolean(UserFieldName.EMAIL_VERIFIED_FIELD_NAME_REMOTE) && !sharedPreferenceStorage.tokesIsSyncDBEnable()
                 ) {
                     enableSynchronisedRoute()
                     sharedPreferenceStorage.setTokenIsSyncEnable(true)

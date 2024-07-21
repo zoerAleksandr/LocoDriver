@@ -77,7 +77,7 @@ class SavePassengerListWorker(context: Context, parameters: WorkerParameters) :
             return@withContext Result.success()
         } catch (e: Exception) {
             Log.d("ZZZ", "ex passenger save = $e")
-            return@withContext Result.retry()
+            return@withContext Result.failure()
         }
     }
 

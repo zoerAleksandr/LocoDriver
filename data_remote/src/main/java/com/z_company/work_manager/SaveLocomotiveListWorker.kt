@@ -108,7 +108,7 @@ class SaveLocomotiveListWorker(context: Context, params: WorkerParameters) :
             return@withContext Result.success()
         } catch (e: Exception) {
             Log.d("ZZZ", "e = ${e}")
-            return@withContext Result.retry()
+            return@withContext Result.failure()
         }
     }
 }

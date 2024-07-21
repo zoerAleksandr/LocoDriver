@@ -9,7 +9,6 @@ import com.parse.ParseRelation
 import com.parse.coroutines.suspendSave
 import com.z_company.core.ResultState
 import com.z_company.domain.use_cases.RouteUseCase
-import com.z_company.type_converter.PhotoJSONConverter
 import com.z_company.work_manager.PhotoFieldName.BASE_64_FIELD_NAME
 import com.z_company.work_manager.PhotoFieldName.BASIC_DATA_FIELD_NAME
 import com.z_company.work_manager.PhotoFieldName.DATE_OF_CREATE
@@ -18,10 +17,7 @@ import com.z_company.work_manager.PhotoFieldName.PHOTO_CLASS_NAME_REMOTE
 import com.z_company.work_manager.PhotoFieldName.PHOTO_ID_FIELD_NAME
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.cancelChildren
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
@@ -79,7 +75,7 @@ class SavePhotoListWorker(context: Context, parameters: WorkerParameters) :
             return@withContext Result.success()
         } catch (e: Exception) {
             Log.d("ZZZ", "ex photo save = $e")
-            return@withContext Result.retry()
+            return@withContext Result.failure()
         }
     }
 }
