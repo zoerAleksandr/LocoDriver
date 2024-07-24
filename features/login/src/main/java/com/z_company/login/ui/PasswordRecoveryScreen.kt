@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.GenericLoading
 import com.z_company.core.ui.component.CustomSnackBar
@@ -55,7 +56,12 @@ fun PasswordRecoveryScreen(
     }
     val paddingBetweenView = 12.dp
     val scope = rememberCoroutineScope()
-
+    val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
+    val subTitleTextStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Normal
+        )
 
     LaunchedEffect(requestHasBeenSend) {
         if (requestHasBeenSend) {
@@ -119,14 +125,15 @@ fun PasswordRecoveryScreen(
                     email = it
                     isEmailValid(it)
                 },
-                label = {
+                placeholder = {
                     Text(
                         text = "email",
-                        style = AppTypography.getType().bodyMedium
+                        style = dataTextStyle
                     )
                 },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                singleLine = true
+                singleLine = true,
+                textStyle = dataTextStyle
             )
             Button(
                 modifier = Modifier
@@ -136,7 +143,7 @@ fun PasswordRecoveryScreen(
                 enabled = isEnableButton,
                 shape = Shapes.medium
             ) {
-                Text(text = "Отправить код", style = AppTypography.getType().bodyLarge)
+                Text(text = "Отправить код", style = subTitleTextStyle)
             }
         }
     }

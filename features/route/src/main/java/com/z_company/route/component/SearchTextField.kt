@@ -19,8 +19,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.ui.theme.transparentColorForTextField
@@ -39,6 +41,8 @@ fun SearchTextField(
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
 
+    val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
+
     val keyboardController = LocalSoftwareKeyboardController.current
     OutlinedTextField(
         value = query,
@@ -50,9 +54,10 @@ fun SearchTextField(
             Text(
                 color = MaterialTheme.colorScheme.secondary,
                 text = "Я хочу найти...",
+                style = dataTextStyle
             )
         },
-        textStyle = AppTypography.getType().bodyLarge.copy(color = MaterialTheme.colorScheme.primary),
+        textStyle = dataTextStyle.copy(color = MaterialTheme.colorScheme.primary),
         colors = transparentColorForTextField(),
         leadingIcon = {
             IconButton(onClick = {

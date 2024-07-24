@@ -48,8 +48,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.z_company.core.ui.component.SearchAsyncData
 import com.z_company.core.ui.theme.Shapes
@@ -104,7 +106,17 @@ fun SearchScreen(
         skipPartiallyExpanded = true
     )
 
-    val hintStyle = AppTypography.getType().bodyMedium
+    val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
+    val subTitleTextStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Normal
+        )
+    val hintStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Light
+        )
 
     val closeSheet: () -> Unit = {
         scope.launch {
@@ -166,7 +178,6 @@ fun SearchScreen(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         hints.forEach { s ->
-                            Log.d("ZZZ", "s = $s")
                             AssistChip(onClick = {
                                 if (s.contains(query.text)) {
                                     setQueryValue(TextFieldValue(s))
@@ -264,6 +275,11 @@ fun HistoryResponse(
 
 @Composable
 fun HistoryItem(modifier: Modifier, request: String, removeOnClick: () -> Unit, itemOnClick: () -> Unit) {
+    val hintStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Light
+        )
     Column(modifier = modifier) {
         Row(
             modifier = Modifier
@@ -278,7 +294,9 @@ fun HistoryItem(modifier: Modifier, request: String, removeOnClick: () -> Unit, 
             Text(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 8.dp), text = request
+                    .padding(start = 8.dp),
+                text = request,
+                style = hintStyle
             )
             IconButton(onClick = { removeOnClick.invoke() }) {
                 Icon(imageVector = Icons.Default.Close, contentDescription = null)
@@ -299,13 +317,19 @@ private fun SearchListItem(
         DateAndTimeFormat.DATE_FORMAT, Locale.getDefault()
     ).format(route.basicData.timeStartWork)
 
+    val hintStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Light
+        )
     Column(modifier = Modifier
         .fillMaxWidth()
         .padding(start = 24.dp, end = 12.dp, top = 16.dp)
         .clickable {
             onClick.invoke()
         }) {
-        Text(text = date, style = AppTypography.getType().labelSmall)
+        Text(text = date,
+            style = hintStyle)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -380,18 +404,23 @@ private fun SearchListItem(
                 }
             }
 
-            Text(text = textWithSelection, style = AppTypography.getType().bodyMedium)
+            Text(text = textWithSelection, style = hintStyle)
         }
     }
 }
 
 @Composable
 private fun ItemEmptyList() {
+    val hintStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Light
+        )
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(24.dp), contentAlignment = Alignment.Center
     ) {
-        Text(text = "Ничего не найдено")
+        Text(text = "Ничего не найдено", style = hintStyle)
     }
 }

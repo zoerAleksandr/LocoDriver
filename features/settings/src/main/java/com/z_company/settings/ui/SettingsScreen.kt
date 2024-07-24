@@ -25,7 +25,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.GenericError
@@ -85,8 +87,7 @@ fun SettingsScreen(
             TextButton(onClick = onSaveClick) {
                 Text(
                     text = "Готово",
-                    style = AppTypography.getType().bodyMedium,
-                    color = MaterialTheme.colorScheme.tertiary
+                    style = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.tertiary),
                 )
             }
         },
@@ -164,9 +165,17 @@ fun SettingScreenContent(
     onChangeEmail: (String) -> Unit,
     enableButtonConfirmVerification: Boolean
 ) {
-    val styleTitle = AppTypography.getType().bodySmall
-    val styleData = AppTypography.getType().bodyMedium
-    val styleHint = AppTypography.getType().bodyMedium
+    val styleTitle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Normal
+        )
+    val styleData = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
+    val styleHint = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Light
+        )
 
     var showRestDialog by remember {
         mutableStateOf(false)
@@ -292,10 +301,7 @@ fun SettingScreenContent(
                 ) {
                     Row(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                visibleCalendar = !visibleCalendar
-                            },
+                            .fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         val currentMonth =
@@ -310,7 +316,7 @@ fun SettingScreenContent(
                                     currentSettings.selectMonthOfYear.getNormaHours().toLong()
                                         .times(3_600_000)
                                 ),
-                                style = styleHint
+                                style = styleData
                             )
                             Icon(
                                 modifier = Modifier.clickable {
@@ -352,7 +358,7 @@ fun SettingScreenContent(
                                 ConverterLongToTime.getTimeInStringFormat(currentSettings.minTimeRest)
                             Text(
                                 text = text,
-                                style = styleHint
+                                style = styleData
                             )
                         }
                         HorizontalDivider()
@@ -368,7 +374,7 @@ fun SettingScreenContent(
                                 ConverterLongToTime.getTimeInStringFormat(currentSettings.minTimeHomeRest)
                             Text(
                                 text = text,
-                                style = styleHint
+                                style = styleData
                             )
                         }
                     }
@@ -376,7 +382,7 @@ fun SettingScreenContent(
                 Text(
                     modifier = Modifier.padding(start = 16.dp, top = 8.dp),
                     text = "Установите время минимального отдыха. Это значение будет использовано при расчете отдыха после поездки.",
-                    style = AppTypography.getType().labelMedium
+                    style = styleHint
                 )
             }
         }
@@ -411,7 +417,7 @@ fun SettingScreenContent(
                                     showLocoTypeSelectedDialog = true
                                 },
                                 text = textLocoType,
-                                style = styleHint
+                                style = styleData
                             )
                         }
                         HorizontalDivider()
@@ -428,7 +434,7 @@ fun SettingScreenContent(
                                 ConverterLongToTime.getTimeInStringFormat(currentSettings.defaultWorkTime)
                             Text(
                                 text = text,
-                                style = styleHint
+                                style = styleData
                             )
                         }
                     }
@@ -436,7 +442,7 @@ fun SettingScreenContent(
                 Text(
                     modifier = Modifier.padding(start = 16.dp, top = 8.dp),
                     text = "Эти значения будут установлены по умолчанию при создании нового маршрута.",
-                    style = AppTypography.getType().labelMedium
+                    style = styleHint
                 )
             }
         }
@@ -478,7 +484,7 @@ fun SettingScreenContent(
                             user?.let {
                                 Text(
                                     text = user.email,
-                                    style = styleHint
+                                    style = styleData
                                 )
                             }
                         }
@@ -511,7 +517,7 @@ fun SettingScreenContent(
                                         showConfirmEmailDialog = true
                                     },
                                     text = dataText,
-                                    style = styleHint,
+                                    style = styleData,
                                     color = if (!user.isVerification) MaterialTheme.colorScheme.tertiary else Color.Unspecified
                                 )
 
@@ -541,7 +547,7 @@ fun SettingScreenContent(
 
                                                 Text(
                                                     text = textSyncDate,
-                                                    style = styleHint
+                                                    style = styleData
                                                 )
                                             }
                                         }
@@ -571,7 +577,7 @@ fun SettingScreenContent(
             Text(
                 modifier = Modifier.padding(start = 16.dp, top = 8.dp),
                 text = "Подтверждение e-mail нужно для синхронизации с облачным хранилище.",
-                style = AppTypography.getType().labelMedium
+                style = styleHint
             )
         }
 
@@ -585,7 +591,7 @@ fun SettingScreenContent(
                     ),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface),
                 onClick = { onLogOut() }) {
-                Text(text = "Выйти", color = MaterialTheme.colorScheme.error)
+                Text(text = "Выйти", color = MaterialTheme.colorScheme.error, style = styleTitle)
             }
         }
     }

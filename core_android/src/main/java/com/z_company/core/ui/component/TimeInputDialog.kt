@@ -2,6 +2,7 @@ package com.z_company.core.ui.component
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,6 +43,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.z_company.core.R
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
@@ -80,6 +82,15 @@ fun TimeInputDialog(
             val hourInitValue = ConverterLongToTime.getHour(initValue).toString()
             val minuteInitValue =
                 ConverterLongToTime.getRemainingMinuteFromHour(initValue).toString()
+            val styleTitle = AppTypography.getType().titleLarge
+                .copy(
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Normal
+                )
+                .copy(
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Light
+                )
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -113,7 +124,7 @@ fun TimeInputDialog(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     TextButton(onClick = onDismissRequest) {
-                        Text(text = stringResource(id = R.string.text_btn_dismiss))
+                        Text(text = stringResource(id = R.string.text_btn_dismiss), style = styleTitle)
                     }
 
                     TextButton(
@@ -126,7 +137,7 @@ fun TimeInputDialog(
                     ) {
                         Text(
                             text = stringResource(id = R.string.text_btn_confirm),
-                            style = AppTypography.getType().bodyMedium
+                            style = styleTitle
                         )
                     }
                 }
@@ -144,6 +155,11 @@ fun InputTimeField(
     helperText: String,
     selectValue: (Int) -> Unit
 ) {
+    val styleHint = AppTypography.getType().titleLarge.copy(
+        fontSize = 18.sp,
+        fontWeight = FontWeight.Light
+    )
+
     val valueString = if (initValue.length < maxLength) {
         "0$initValue"
     } else {
@@ -237,8 +253,8 @@ fun InputTimeField(
             modifier = Modifier
                 .width(IntrinsicSize.Min)
                 .background(
-                    shape = Shapes.large,
-                    color = MaterialTheme.colorScheme.surfaceVariant
+                    shape = Shapes.medium,
+                    color = MaterialTheme.colorScheme.surface
                 )
         ) {
             OutlinedTextFieldDefaults.DecorationBox(
@@ -252,16 +268,19 @@ fun InputTimeField(
                     start = 16.dp, end = 16.dp, top = 10.dp, bottom = 10.dp
                 ),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    unfocusedBorderColor = Color.Transparent,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    focusedContainerColor = MaterialTheme.colorScheme.surface
                 ),
+                container = {
+                    Box(modifier = Modifier
+                        .border(width = 0.5.dp, shape = Shapes.medium, color = MaterialTheme.colorScheme.outline))
+                }
             )
         }
 
         Text(
             text = helperText,
-            style = AppTypography.getType().bodySmall.copy(fontWeight = FontWeight.W300)
+            style = styleHint
         )
     }
 }
