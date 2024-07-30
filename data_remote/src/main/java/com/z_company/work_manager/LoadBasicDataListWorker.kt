@@ -39,7 +39,7 @@ class LoadBasicDataListWorker(val context: Context, params: WorkerParameters) :
             return@withContext Result.success(data.build())
         } catch (e: Exception) {
             Log.d("ZZZ", "ex sync load basic data = ${e.message}")
-            return@withContext Result.retry()
+            return@withContext Result.failure()
         }
     }
 }

@@ -25,7 +25,6 @@ import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.GenericError
 import com.z_company.core.ui.theme.custom.AppTypography
-import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Route
 import com.z_company.route.R
 
@@ -35,7 +34,7 @@ fun HomeBottomSheetContent(
     routeListState: ResultState<List<Route>>,
     reloadRoute: () -> Unit,
     onDeleteRoute: (Route) -> Unit,
-    onRouteClick: (BasicData) -> Unit,
+    onRouteClick: (String) -> Unit,
     onRouteLongClick: (Route) -> Unit,
     isExpand: Boolean,
 ) {
@@ -72,7 +71,7 @@ fun HomeBottomSheetContent(
                             requiredSizeText = requiredSize,
                             changingTextSize = ::changingTextSize,
                             onLongClick = { onRouteLongClick(route) },
-                            onClick = { onRouteClick(route.basicData) }
+                            onClick = { onRouteClick(route.basicData.id) }
                         )
                     }
                     item { Spacer(modifier = Modifier.height(24.dp)) }

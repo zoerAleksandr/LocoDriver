@@ -24,7 +24,7 @@ fun SearchDestination(router: Router) {
         isVisibleHistory = uiState.isVisibleHistory,
         hints = uiState.hints,
         searchState = uiState.searchState,
-        onRouteClick = router::showRouteDetails,
+        onRouteClick = router::showRouteForm,
         searchHistoryList = uiState.searchHistoryList,
         removeHistoryResponse = viewModel::removeHistoryResponse,
         onSearch = viewModel::onSearch

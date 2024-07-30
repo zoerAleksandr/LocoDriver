@@ -19,6 +19,7 @@ import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.use_case.AuthUseCase
 import com.z_company.use_case.RemoteRouteUseCase
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
@@ -239,16 +240,21 @@ class SettingsViewModel : ViewModel(), KoinComponent {
 
     fun onSync() {
         viewModelScope.launch {
-            remoteRouteUseCase.syncBasicData().collect { result ->
-                _uiState.update {
-                    it.copy(
-                        updateRepositoryState = result
-                    )
+            viewModelScope.launch {
+                remoteRouteUseCase.syncBasicData().collect { result ->
+                    _uiState.update {
+                        it.copy(
+                            updateRepositoryState = result
+                        )
+                    }
+                    if (result is ResultState.Success){
+                        this.cancel()
+                    }
                 }
+            }.join()
+            viewModelScope.launch {
+                remoteRouteUseCase.loadingRoutesFromRemote()
             }
-        }
-        viewModelScope.launch {
-            remoteRouteUseCase.loadingRoutesFromRemote()
         }
     }
 

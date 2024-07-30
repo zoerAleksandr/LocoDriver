@@ -175,30 +175,35 @@ class TrainFormViewModel(
             conditionalLength = null
         )
         stationsListState.clear()
+        changesHave()
     }
 
     fun setNumber(number: String) {
         currentTrain = currentTrain?.copy(
             number = number.ifBlank { null }
         )
+        changesHave()
     }
 
     fun setWeight(weight: String) {
         currentTrain = currentTrain?.copy(
             weight = weight.ifBlank { null }
         )
+        changesHave()
     }
 
     fun setAxle(axle: String) {
         currentTrain = currentTrain?.copy(
             axle = axle.ifBlank { null }
         )
+        changesHave()
     }
 
     fun setConditionalLength(length: String) {
         currentTrain = currentTrain?.copy(
             conditionalLength = length.ifBlank { null }
         )
+        changesHave()
     }
 
     private fun setStations(stations: MutableList<Station>) {
@@ -233,10 +238,12 @@ class TrainFormViewModel(
                 id = Station().stationId
             )
         )
+        changesHave()
     }
 
     fun deleteStation(stationFormState: StationFormState) {
         stationsListState.remove(stationFormState)
+        changesHave()
     }
 
     private fun onStationEvent(event: StationEvent) {
@@ -312,6 +319,7 @@ class TrainFormViewModel(
                 index, s
             )
         )
+        changesHave()
     }
 
     fun setDepartureTime(index: Int, time: Long?) {
@@ -321,6 +329,7 @@ class TrainFormViewModel(
             )
         )
         focusChangedStation(index, StationDataType.DEPARTURE)
+        changesHave()
     }
 
     fun setArrivalTime(index: Int, time: Long?) {
@@ -330,9 +339,10 @@ class TrainFormViewModel(
             )
         )
         focusChangedStation(index, StationDataType.ARRIVAL)
+        changesHave()
     }
 
-    fun focusChangedStation(index: Int, field: StationDataType) {
+    private fun focusChangedStation(index: Int, field: StationDataType) {
         onStationEvent(
             StationEvent.FocusChange(
                 index, field

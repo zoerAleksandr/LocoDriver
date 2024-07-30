@@ -20,7 +20,7 @@ class RemoveLocomotiveWorker(context: Context, parameters: WorkerParameters) :
             locomotiveObject.deleteInBackground()
             return@withContext Result.success()
         } catch (e: Exception) {
-            Log.d("ZZZ", "ex sync = ${e.message}")
+            Log.d("ZZZ", "EX REMOVE_LOCOMOTIVE = ${e.message}")
             return@withContext Result.retry()
         }
 

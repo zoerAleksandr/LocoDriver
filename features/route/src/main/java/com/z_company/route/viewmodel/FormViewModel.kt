@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.core.util.CalculateNightTime
+import com.z_company.data_local.SharedPreferenceStorage
 import com.z_company.domain.entities.NightTime
 import com.z_company.domain.entities.route.*
 import com.z_company.domain.use_cases.*
@@ -15,6 +16,7 @@ import com.z_company.domain.util.minus
 import com.z_company.route.Const.NULLABLE_ID
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlin.properties.Delegates
@@ -26,6 +28,7 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
     private val passengerUseCase: PassengerUseCase by inject()
     private val photoUseCase: PhotoUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
+    private val sharedPreferenceStorage: SharedPreferenceStorage by inject()
 
     private val _uiState = MutableStateFlow(RouteFormUiState())
     val uiState = _uiState.asStateFlow()
@@ -37,6 +40,11 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
     private var deleteTrainJob: Job? = null
     private var deletePassengerJob: Job? = null
     private var deletePhotoJob: Job? = null
+
+    private val deletedLocoList = mutableListOf<Locomotive>()
+    private val deletedTrainList = mutableListOf<Train>()
+    private val deletedPassengerList = mutableListOf<Passenger>()
+    private val deletedPhotoList = mutableListOf<Photo>()
 
     private var isNewRoute by Delegates.notNull<Boolean>()
     var currentRoute: Route?
@@ -58,6 +66,13 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
 
 
     init {
+        val changeHave = sharedPreferenceStorage.tokenIsChangesHave()
+        _uiState.update {
+            it.copy(
+                changesHaveState = changeHave
+            )
+        }
+
         if (routeId == NULLABLE_ID) {
             currentRoute = Route()
             isNewRoute = true
@@ -113,11 +128,35 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
                 state.data?.let { route ->
                     saveRouteJob?.cancel()
                     saveRouteJob = routeUseCase.saveRoute(route).onEach { saveRouteState ->
+                        if (saveRouteState is ResultState.Success) {
+                            deletedLocoList.forEach { locomotive ->
+                                deleteLocoJob?.cancel()
+                                deleteLocoJob =
+                                    locoUseCase.removeLoco(locomotive).launchIn(viewModelScope)
+                            }
+                            deletedTrainList.forEach { train ->
+                                deleteTrainJob?.cancel()
+                                deleteTrainJob =
+                                    trainUseCase.removeTrain(train).launchIn(viewModelScope)
+                            }
+                            deletedPassengerList.forEach { passenger ->
+                                deletePassengerJob?.cancel()
+                                deletePassengerJob = passengerUseCase.removePassenger(passenger)
+                                    .launchIn(viewModelScope)
+                            }
+                            deletedPhotoList.forEach { photo ->
+                                viewModelScope.launch {
+                                    deletePhotoJob?.cancel()
+                                    deletePhotoJob = photoUseCase.removePhoto(photo).launchIn(viewModelScope)
+                                }.join()
+                            }
+                        }
                         _uiState.update {
                             it.copy(saveRouteState = saveRouteState)
                         }
                     }.launchIn(viewModelScope)
                 }
+                sharedPreferenceStorage.setTokenIsChangeHave(false)
             }
         }
     }
@@ -138,6 +177,7 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
     }
 
     private fun changesHave() {
+        sharedPreferenceStorage.setTokenIsChangeHave(true)
         if (!_uiState.value.changesHaveState) {
             _uiState.update {
                 it.copy(
@@ -172,6 +212,7 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
                 )
             }
         }
+        sharedPreferenceStorage.setTokenIsChangeHave(false)
     }
 
     fun checkBeforeExitTheScreen() {
@@ -341,22 +382,54 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
     }
 
     fun onDeleteLoco(locomotive: Locomotive) {
-        deleteLocoJob?.cancel()
-        deleteLocoJob = locoUseCase.removeLoco(locomotive).launchIn(viewModelScope)
+        deletedLocoList.add(locomotive)
+        val locomotiveList = currentRoute?.locomotives.apply {
+            this?.remove(locomotive)
+        }
+        locomotiveList?.let {
+            currentRoute = currentRoute?.copy(
+                locomotives = locomotiveList
+            )
+        }
+        changesHave()
     }
 
     fun onDeleteTrain(train: Train) {
-        deleteTrainJob?.cancel()
-        deleteTrainJob = trainUseCase.removeTrain(train).launchIn(viewModelScope)
+        deletedTrainList.add(train)
+        val trainsList = currentRoute?.trains.apply {
+            this?.remove(train)
+        }
+        trainsList?.let {
+            currentRoute = currentRoute?.copy(
+                trains = trainsList
+            )
+        }
+        changesHave()
     }
 
     fun onDeletePassenger(passenger: Passenger) {
-        deletePassengerJob?.cancel()
-        deletePassengerJob = passengerUseCase.removePassenger(passenger).launchIn(viewModelScope)
+        deletedPassengerList.add(passenger)
+        val passengerList = currentRoute?.passengers.apply {
+            this?.remove(passenger)
+        }
+        passengerList?.let {
+            currentRoute = currentRoute?.copy(
+                passengers = passengerList
+            )
+        }
+        changesHave()
     }
 
     fun onDeletePhoto(photo: Photo) {
-        deletePhotoJob?.cancel()
-        deletePhotoJob = photoUseCase.removePhoto(photo).launchIn(viewModelScope)
+        deletedPhotoList.add(photo)
+        val photoList = currentRoute?.photos.apply {
+            this?.remove(photo)
+        }
+        photoList?.let {
+            currentRoute = currentRoute?.copy(
+                photos = photoList
+            )
+        }
+        changesHave()
     }
 }

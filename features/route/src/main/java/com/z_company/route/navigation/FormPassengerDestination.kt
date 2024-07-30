@@ -27,6 +27,7 @@ fun FormPassengerDestination(
     FormPassengerScreen(
         currentPassenger = viewModel.currentPassenger,
         passengerDetailState = formUiState.passengerDetailState,
+        changeHaveState = formUiState.changesHaveState,
         savePassengerState = formUiState.savePassengerState,
         onBackPressed = viewModel::checkBeforeExitTheScreen,
         onSaveClick =  viewModel::savePassenger,

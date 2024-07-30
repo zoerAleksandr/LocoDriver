@@ -24,7 +24,7 @@ fun FormDestination(
     FormScreen(
         formUiState = formUiState,
         currentRoute = viewModel.currentRoute,
-        exitScreen = router::showHome,
+        exitScreen = router::back,
         onSaveClick = viewModel::saveRoute,
         onBack = viewModel::checkBeforeExitTheScreen,
         onNumberChanged = viewModel::setNumber,

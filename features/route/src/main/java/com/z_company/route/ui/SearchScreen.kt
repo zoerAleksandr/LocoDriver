@@ -1,6 +1,5 @@
 package com.z_company.route.ui
 
-import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.tween
@@ -28,7 +27,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -63,7 +61,6 @@ import com.z_company.domain.entities.RouteWithTag
 import com.z_company.domain.entities.SearchStateScreen
 import com.z_company.domain.entities.SearchTag
 import com.z_company.domain.entities.TimePeriod
-import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.SearchResponse
 import com.z_company.domain.util.splitBySpaceAndComma
@@ -95,7 +92,7 @@ fun SearchScreen(
     isVisibleHistory: Boolean,
     hints: List<String>,
     searchState: SearchStateScreen<List<RouteWithTag>?>,
-    onRouteClick: (BasicData) -> Unit,
+    onRouteClick: (String) -> Unit,
     searchHistoryList: List<SearchResponse>,
     removeHistoryResponse: (String) -> Unit,
     onSearch: () -> Unit
@@ -212,7 +209,7 @@ fun SearchScreen(
                                     searchTag = route.tag,
                                     searchValue = query.text
                                 ) {
-                                    onRouteClick(route.route.basicData)
+                                    onRouteClick(route.route.basicData.id)
                                 }
                             }
                         }

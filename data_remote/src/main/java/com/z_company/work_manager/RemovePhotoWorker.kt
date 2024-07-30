@@ -14,10 +14,10 @@ class RemovePhotoWorker(context: Context, parameters: WorkerParameters):
     CoroutineWorker(context, parameters) {
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         try {
-            val photoPbject = ParseObject(PHOTO_CLASS_NAME_REMOTE)
+            val parseObject = ParseObject(PHOTO_CLASS_NAME_REMOTE)
             val data = inputData.getString(REMOVE_PHOTO_OBJECT_ID_KEY)
-            photoPbject.objectId = data
-            photoPbject.deleteInBackground()
+            parseObject.objectId = data
+            parseObject.deleteInBackground()
             return@withContext Result.success()
         } catch (e: Exception) {
             return@withContext Result.retry()

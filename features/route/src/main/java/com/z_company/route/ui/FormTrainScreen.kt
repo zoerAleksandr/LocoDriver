@@ -16,12 +16,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -33,6 +33,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -46,7 +47,6 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.dimensionResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -95,7 +95,12 @@ fun FormTrainScreen(
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
-
+    val titleStyle = AppTypography.getType().headlineMedium.copy(fontWeight = FontWeight.Light)
+    val hintStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Light
+        )
     if (formUiState.errorMessage != null) {
         LaunchedEffect(Unit) {
             scope.launch {
@@ -120,8 +125,7 @@ fun FormTrainScreen(
                 title = {
                     Text(
                         text = "Поезд",
-                        style = AppTypography.getType().headlineSmall
-                            .copy(color = MaterialTheme.colorScheme.primary)
+                        style = titleStyle
                     )
                 },
                 navigationIcon = {
@@ -143,12 +147,19 @@ fun FormTrainScreen(
                         },
                         errorContent = {}
                     ) {
-                        ClickableText(
-                            modifier = Modifier.padding(end = 16.dp),
-                            text = AnnotatedString(text = "Готово"),
-                            style = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.tertiary),
+                        TextButton(
+                            modifier = Modifier
+                                .padding(end = 16.dp),
+                            enabled = formUiState.changesHaveState,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Transparent,
+                                disabledContainerColor = Color.Transparent,
+                                contentColor = MaterialTheme.colorScheme.tertiary
+                            ),
                             onClick = { onSaveClick() }
-                        )
+                        ) {
+                            Text(text = "Сохранить", style = hintStyle)
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

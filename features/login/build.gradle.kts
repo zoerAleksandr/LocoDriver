@@ -59,4 +59,5 @@ dependencies {
 
     implementation(Libs.accompanist_navigation_animation)
     implementation(project(":data_local"))
+    debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
 }

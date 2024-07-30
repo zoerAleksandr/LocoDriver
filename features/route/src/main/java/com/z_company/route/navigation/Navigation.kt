@@ -26,14 +26,6 @@ fun NavGraphBuilder.homeGraph(
             HomeDestination(router = router)
         }
 
-        composableScreen(
-            route = DetailsRoute.route,
-            arguments = DetailsRoute.navArguments,
-            targetIsPopup = popupScreen
-        ) { backStackEntry ->
-            DetailsDestination(router = router, backStackEntry = backStackEntry)
-        }
-
         composablePopup(
             route = FormRoute.route,
             arguments = FormRoute.navArguments
@@ -65,7 +57,7 @@ fun NavGraphBuilder.homeGraph(
         composablePopup(
             route = CreatePhotoRoute.route,
             arguments = CreatePhotoRoute.navArguments
-        ) {backStackEntry ->
+        ) { backStackEntry ->
             CreatePhotoDestination(router = router, backStackEntry = backStackEntry)
         }
 
@@ -79,13 +71,12 @@ fun NavGraphBuilder.homeGraph(
         composablePopup(
             route = ViewingImageRoute.route,
             arguments = ViewingImageRoute.navArguments
-        ) {
-            navBackStackEntry ->
+        ) { navBackStackEntry ->
             ViewingImageDestination(router = router, navBackStackEntry = navBackStackEntry)
         }
         composableScreen(
             route = SearchRoute.route
-        ){
+        ) {
             SearchDestination(router = router)
         }
     }

@@ -21,7 +21,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -80,7 +79,6 @@ import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
 import com.z_company.core.util.DateAndTimeConverter.getTimeFromDateLong
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHours
-import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.fullRest
@@ -106,8 +104,7 @@ import com.z_company.core.R as CoreR
 fun HomeScreen(
     routeListState: ResultState<List<Route>>,
     removeRouteState: ResultState<Unit>?,
-    onRouteClick: (BasicData) -> Unit,
-    onChangeRoute: (String) -> Unit,
+    onRouteClick: (String) -> Unit,
     onNewRouteClick: () -> Unit,
     onDeleteRoute: (Route) -> Unit,
     onDeleteRouteConfirmed: () -> Unit,
@@ -252,7 +249,7 @@ fun HomeScreen(
                         .clickable {
                             showContextDialog = false
                             routeForPreview?.basicData?.let { basicData ->
-                                onRouteClick(basicData)
+                                onRouteClick(basicData.id)
                             }
                         },
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -264,30 +261,6 @@ fun HomeScreen(
                     )
                     Icon(
                         painter = painterResource(id = R.drawable.rounded_visibility_24),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-                HorizontalDivider()
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .clickable {
-                            showContextDialog = false
-                            routeForPreview?.basicData?.let { basicData ->
-                                onChangeRoute(basicData.id)
-                            }
-                        },
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Редактировать",
-                        style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
-                    )
-                    Icon(
-                        imageVector = Icons.Default.Create,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary
                     )

@@ -1,5 +1,6 @@
 package com.z_company.settings.ui
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,11 +24,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.LifecycleEventObserver
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.GenericError
@@ -73,6 +76,14 @@ fun SettingsScreen(
     onChangeEmail: (String) -> Unit,
     enableButtonConfirmVerification: Boolean
 ) {
+    val lifecycle = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycle) {
+        lifecycle.lifecycle.addObserver(
+            LifecycleEventObserver { source, event ->
+                Log.d("ZZZ", "SettingsScreen event = $event")
+            }
+        )
+    }
     Scaffold(topBar = {
         TopAppBar(navigationIcon = {
             IconButton(onClick = onBack) {

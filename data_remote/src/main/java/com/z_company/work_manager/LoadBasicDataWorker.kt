@@ -63,7 +63,7 @@ class LoadBasicDataWorker(val context: Context, params: WorkerParameters) :
             }
         } catch (e: Exception) {
             Log.d("ZZZ", "LoadBasicDataWorker ex = ${e.message}")
-            return@withContext Result.retry()
+            return@withContext Result.failure()
         }
     }
 }

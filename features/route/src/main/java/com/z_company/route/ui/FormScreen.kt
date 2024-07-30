@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -35,6 +36,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,6 +48,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTimePickerState
@@ -61,9 +64,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
@@ -75,6 +78,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.lifecycle.LifecycleEventObserver
 import coil.compose.rememberAsyncImagePainter
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
@@ -138,15 +142,29 @@ fun FormScreen(
     changeShowConfirmExitDialog: (Boolean) -> Unit,
     exitWithoutSave: () -> Unit
 ) {
+    val lifecycle = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycle) {
+        lifecycle.lifecycle.addObserver(
+            LifecycleEventObserver { source, event ->
+                Log.d("ZZZ", "FormScreen event = $event")
+            }
+        )
+    }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
-
+    val hintStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Light
+        )
+    val titleStyle = AppTypography.getType().headlineMedium.copy(fontWeight = FontWeight.Light)
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
                         text = "Маршрут",
+                        style = titleStyle
                     )
                 }, navigationIcon = {
                     IconButton(onClick = {
@@ -168,12 +186,18 @@ fun FormScreen(
                         },
                         errorContent = {}
                     ) {
-                        ClickableText(
-                            modifier = Modifier.padding(end = 16.dp),
-                            text = AnnotatedString("Готово"),
-                            style = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.tertiary),
+                        TextButton(
+                            modifier = Modifier
+                                .padding(end = 16.dp),
+                            enabled = formUiState.changesHaveState,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Transparent,
+                                disabledContainerColor = Color.Transparent,
+                                contentColor = MaterialTheme.colorScheme.tertiary
+                            ),
+                            onClick = { onSaveClick() }
                         ) {
-                            onSaveClick()
+                            Text(text = "Сохранить", style = hintStyle)
                         }
                     }
                 }, colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -283,7 +307,11 @@ private fun RouteFormScreenContent(
     exitWithoutSave: () -> Unit
 ) {
     val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
-
+    val hintStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Light
+        )
     val scrollState = rememberLazyListState()
 
     var showStartTimePicker by remember {
@@ -314,10 +342,13 @@ private fun RouteFormScreenContent(
         )
     }
 
-    val startOfWorkTime = Calendar.getInstance().also { calendar ->
-        route.basicData.timeStartWork?.let {
-            calendar.timeInMillis = it
-        }
+    val startOfWorkTime by remember {
+        mutableStateOf(
+            Calendar.getInstance().also { calendar ->
+                route.basicData.timeStartWork?.let {
+                    calendar.timeInMillis = it
+                }
+            })
     }
 
     val startCalendar by remember {
@@ -356,10 +387,13 @@ private fun RouteFormScreenContent(
         })
     }
 
-    val endOfWorkTime = Calendar.getInstance().also { calendar ->
-        route.basicData.timeEndWork?.let {
-            calendar.timeInMillis = it
-        }
+    val endOfWorkTime by remember {
+        mutableStateOf(
+            Calendar.getInstance().also { calendar ->
+                route.basicData.timeEndWork?.let {
+                    calendar.timeInMillis = it
+                }
+            })
     }
 
     val endCalendar by remember {
@@ -463,7 +497,7 @@ private fun RouteFormScreenContent(
                             )
                             Text(
                                 text = ConverterLongToTime.getTimeInStringFormat(nightTime),
-                                style = AppTypography.getType().titleMedium,
+                                style = hintStyle,
                                 fontWeight = FontWeight.Light,
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -479,7 +513,7 @@ private fun RouteFormScreenContent(
                                 text = ConverterLongToTime.getTimeInStringFormat(
                                     route.getPassengerTime() ?: 0L
                                 ),
-                                style = AppTypography.getType().titleMedium,
+                                style = hintStyle,
                                 fontWeight = FontWeight.Light,
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -491,7 +525,9 @@ private fun RouteFormScreenContent(
 
         item {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Row(
@@ -771,6 +807,12 @@ fun <T> ItemAddingScreen(
     onDeleteClick: (element: T) -> Unit,
     subItem: @Composable RowScope.(index: Int, element: T) -> Unit
 ) {
+    val hintStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Light
+        )
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -785,16 +827,12 @@ fun <T> ItemAddingScreen(
                 text = title,
                 style = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Normal)
             )
-            ClickableText(
-                text = AnnotatedString(
+            TextButton(onClick = { onNewElementClick(basicId) }) {
+                Text(
                     text = "Добавить",
-                    spanStyle = SpanStyle(
-                        color = MaterialTheme.colorScheme.tertiary,
-                        fontSize = AppTypography.getType().titleMedium.fontSize,
-                    )
+                    style = hintStyle,
+                    color = MaterialTheme.colorScheme.tertiary
                 )
-            ) {
-                onNewElementClick(basicId)
             }
         }
         contentList?.let { elements ->
