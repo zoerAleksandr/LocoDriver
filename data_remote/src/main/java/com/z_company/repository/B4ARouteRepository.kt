@@ -62,7 +62,6 @@ import com.z_company.work_manager.SaveLocomotiveListWorker
 import com.z_company.work_manager.SavePassengerListWorker
 import com.z_company.work_manager.SavePhotoListWorker
 import com.z_company.work_manager.SaveTrainListWorker
-import com.z_company.work_manager.SynchronizedOneTimeWorker
 import com.z_company.work_manager.SynchronizedWorker
 import com.z_company.work_manager.TRAINS_INPUT_KEY
 import com.z_company.work_manager.WorkManagerState
@@ -101,6 +100,7 @@ private const val LOAD_PHOTO_FROM_REMOTE_WORKER_TAG = "LOAD_PHOTO_FROM_REMOTE_WO
 
 class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
+
     private val constraints = Constraints.Builder()
         .setRequiredNetworkType(NetworkType.CONNECTED)
         .build()
@@ -344,45 +344,6 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
 
     override suspend fun cancelingSync() {
         WorkManager.getInstance(context).cancelUniqueWork(UNIQUE_SYNC_WORK_NAME)
-    }
-
-    override suspend fun synchronizedRouteOneTime(): Flow<ResultState<Unit>> {
-        val worker = OneTimeWorkRequestBuilder<SynchronizedOneTimeWorker>()
-            .setConstraints(constraints)
-            .addTag(SYNC_DATA_ONE_TIME_WORKER_TAG)
-            .build()
-
-        withContext(Dispatchers.IO) {
-            val listInfo = WorkManager.getInstance(context)
-                .getWorkInfosForUniqueWork(UNIQUE_SYNC_WORK_NAME)
-                .get()
-            if (listInfo.isNotEmpty()) {
-                if (listInfo.last().state != WorkInfo.State.RUNNING) {
-                    WorkManager.getInstance(context).enqueue(worker)
-                } else {
-                }
-            } else {
-                WorkManager.getInstance(context).enqueue(worker)
-            }
-
-        }
-        return flow {
-            WorkManagerState.state(context, worker.id).collect { result ->
-                when (result) {
-                    is ResultState.Loading -> {
-                        emit(result)
-                    }
-
-                    is ResultState.Success -> {
-                        emit(ResultState.Success(Unit))
-                    }
-
-                    is ResultState.Error -> {
-                        emit(result)
-                    }
-                }
-            }
-        }
     }
 
     override suspend fun saveLocomotive(locomotive: Locomotive): Flow<ResultState<Data>> {

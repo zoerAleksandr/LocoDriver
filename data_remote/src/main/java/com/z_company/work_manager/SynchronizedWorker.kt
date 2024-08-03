@@ -5,91 +5,34 @@ import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.z_company.core.ResultState
-import com.z_company.repository.RemoteRouteRepository
-import com.z_company.domain.use_cases.RouteUseCase
-import com.z_company.domain.use_cases.SettingsUseCase
-import kotlinx.coroutines.CoroutineScope
+import com.z_company.repository.Back4AppManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import java.util.Calendar
-
-const val SYNC_WORKER_OUTPUT_KEY = "SYNC_WORKER_OUTPUT_KEY"
 
 class SynchronizedWorker(context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params),
     KoinComponent {
-    private val routeUseCase: RouteUseCase by inject()
-    private val remoteRepository: RemoteRouteRepository by inject()
-    private val settingsUseCase: SettingsUseCase by inject()
+    private val back4AppManager: Back4AppManager by inject()
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         try {
-            val list = routeUseCase.listRouteWithDeleting()
-
-            val isDeletedList = list.filter { route ->
-                route.basicData.isDeleted
-            }
-            isDeletedList.forEach { route ->
-                routeUseCase.removeRoute(route).launchIn(this)
-                route.basicData.remoteObjectId?.let { remoteId ->
-                    remoteRepository.removeBasicData(remoteId)
-                }
-                route.locomotives.forEach { locomotive ->
-                    locomotive.remoteObjectId?.let { remoteId ->
-                        remoteRepository.removeLocomotive(remoteId)
+            var result: Result = Result.failure()
+            this.launch {
+                back4AppManager.synchronizedStorage().collect { resultSync ->
+                    if (resultSync is ResultState.Success){
+                        result = Result.success()
+                        this.cancel()
+                    }
+                    if (resultSync is ResultState.Error){
+                        this.cancel()
                     }
                 }
-                route.trains.forEach { train ->
-                    train.remoteObjectId?.let { remoteId ->
-                        remoteRepository.removeTrain(remoteId)
-                    }
-                }
-                route.passengers.forEach { passenger ->
-                    passenger.remoteObjectId?.let { remoteId ->
-                        remoteRepository.removePassenger(remoteId)
-                    }
-                }
-                route.photos.forEach { photo ->
-                    photo.remoteObjectId?.let { remoteId ->
-                        remoteRepository.removePhoto(remoteId)
-                    }
-                }
-            }
-            val notSynchronizedList = list.filter { route ->
-                !route.basicData.isSynchronized
-            }
-            var timestamp: Long = 0
-            var syncRouteCount = 0
-
-            if (notSynchronizedList.isEmpty()) {
-                timestamp = Calendar.getInstance().timeInMillis
-                CoroutineScope(Dispatchers.IO).launch {
-                    settingsUseCase.setUpdateAt(timestamp).launchIn(this)
-                }
-            } else {
-                notSynchronizedList.forEach { route ->
-                    CoroutineScope(Dispatchers.IO).launch {
-                        remoteRepository.saveRoute(route).collect { result ->
-                            if (result is ResultState.Success) {
-                                syncRouteCount += 1
-                                this.cancel()
-                            }
-                            if (syncRouteCount == notSynchronizedList.size) {
-                                CoroutineScope(Dispatchers.IO).launch {
-                                    timestamp = Calendar.getInstance().timeInMillis
-                                    settingsUseCase.setUpdateAt(timestamp).launchIn(this)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            return@withContext Result.success()
+            }.join()
+            return@withContext result
         } catch (e: Exception) {
             Log.d("ZZZ", "ex sync = ${e.message}")
             return@withContext Result.retry()

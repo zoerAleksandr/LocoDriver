@@ -330,14 +330,16 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun calculationHomeRest(route: Route): Long? {
+    fun calculationHomeRest(route: Route?): Long? {
         val minTimeHomeRest = uiState.value.minTimeHomeRest
-        uiState.value.routeListState.let {
-            if (it is ResultState.Success) {
-                return route.getHomeRest(
-                    parentList = it.data,
-                    minTimeHomeRest = minTimeHomeRest
-                )
+        uiState.value.routeListState.let { listState ->
+            if (listState is ResultState.Success) {
+                route?.let {
+                    return route.getHomeRest(
+                        parentList = listState.data,
+                        minTimeHomeRest = minTimeHomeRest
+                    )
+                }
             }
         }
         return null
@@ -354,7 +356,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun disableFirstEntryToAccountDialog(){
+    fun disableFirstEntryToAccountDialog() {
         _uiState.update {
             it.copy(
                 showFirstEntryToAccountDialog = false

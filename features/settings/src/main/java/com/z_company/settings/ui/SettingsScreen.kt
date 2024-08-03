@@ -1,6 +1,5 @@
 package com.z_company.settings.ui
 
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,19 +19,19 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.LifecycleEventObserver
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
+import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.component.GenericError
 import com.z_company.core.ui.component.TimeInputDialog
 import com.z_company.settings.component.SelectedDialog
@@ -45,9 +44,11 @@ import com.z_company.domain.entities.User
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHours
 import com.z_company.domain.entities.route.LocoType
+import com.z_company.route.R
 import com.z_company.route.component.DialogSelectMonthOfYear
 import com.z_company.settings.component.ConfirmEmailDialog
 import com.z_company.settings.viewmodel.SettingsUiState
+import kotlinx.coroutines.launch
 import com.z_company.core.R as CoreR
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -74,39 +75,50 @@ fun SettingsScreen(
     onResentVerificationEmail: () -> Unit,
     emailForConfirm: String,
     onChangeEmail: (String) -> Unit,
-    enableButtonConfirmVerification: Boolean
+    enableButtonConfirmVerification: Boolean,
+    resetRepositoryState: () -> Unit
 ) {
-    val lifecycle = LocalLifecycleOwner.current
-    LaunchedEffect(lifecycle) {
-        lifecycle.lifecycle.addObserver(
-            LifecycleEventObserver { source, event ->
-                Log.d("ZZZ", "SettingsScreen event = $event")
-            }
-        )
-    }
-    Scaffold(topBar = {
-        TopAppBar(navigationIcon = {
-            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = ImageVector.vectorResource(id = CoreR.drawable.ic_arrow_back),
-                    contentDescription = stringResource(id = CoreR.string.cd_back)
-                )
-            }
-        }, title = {
-            Text(text = stringResource(id = CoreR.string.settings))
-        }, actions = {
-            TextButton(onClick = onSaveClick) {
-                Text(
-                    text = "Готово",
-                    style = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.tertiary),
-                )
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    Scaffold(
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { snackBarData ->
+                CustomSnackBar(snackBarData = snackBarData)
             }
         },
-            colors = TopAppBarDefaults.topAppBarColors().copy(
-                containerColor = Color.Transparent,
+        topBar = {
+            TopAppBar(navigationIcon = {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = ImageVector.vectorResource(id = CoreR.drawable.ic_arrow_back),
+                        contentDescription = stringResource(id = CoreR.string.cd_back)
+                    )
+                }
+            }, title = {
+                Text(text = stringResource(id = CoreR.string.settings))
+            }, actions = {
+                TextButton(onClick = onSaveClick) {
+                    Text(
+                        text = "Готово",
+                        style = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.tertiary),
+                    )
+                }
+            },
+                colors = TopAppBarDefaults.topAppBarColors().copy(
+                    containerColor = Color.Transparent,
+                )
             )
-        )
-    }) {
+        }) {
+        LaunchedEffect(settingsUiState.updateRepositoryState) {
+            if (settingsUiState.updateRepositoryState is ResultState.Error) {
+                scope.launch {
+                    snackbarHostState.showSnackbar("Ошибка синхронизации. \nПроверьте интернет соединение и повторите попытку.")
+                }
+                resetRepositoryState()
+            }
+        }
+
         Box(Modifier.padding(it)) {
             AsyncData(
                 resultState = settingsUiState.settingDetails,
@@ -554,7 +566,9 @@ fun SettingScreenContent(
                                         AsyncData(resultState = updateAtState) { updateAt ->
                                             updateAt?.let { timeInMillis ->
                                                 val textSyncDate =
-                                                    DateAndTimeConverter.getDateAndTime(timeInMillis)
+                                                    DateAndTimeConverter.getDateAndTime(
+                                                        timeInMillis
+                                                    )
 
                                                 Text(
                                                     text = textSyncDate,
@@ -569,7 +583,8 @@ fun SettingScreenContent(
                                                     modifier = Modifier.size(24.dp),
                                                     strokeWidth = 2.dp
                                                 )
-                                            }
+                                            },
+                                            errorContent = {}
                                         ) {
                                             Icon(
                                                 modifier = Modifier.clickable { onSync() },
@@ -582,6 +597,7 @@ fun SettingScreenContent(
 
                             }
                         }
+
                     }
                 }
             }

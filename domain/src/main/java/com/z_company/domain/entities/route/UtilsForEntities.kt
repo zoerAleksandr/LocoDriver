@@ -75,38 +75,43 @@ object UtilsForEntities {
         val routeChain = mutableListOf<Route>()
 
         var indexRoute = parentList.indexOf(this)
-        routeChain.add(parentList[indexRoute])
-        if (indexRoute > 0) {
-            indexRoute -= 1
-            while (parentList[indexRoute].basicData.restPointOfTurnover) {
-                routeChain.add(parentList[indexRoute])
-                if (indexRoute == 0) {
-                    break
-                } else {
-                    indexRoute -= 1
+        if (parentList.isNotEmpty()) {
+            routeChain.add(parentList[indexRoute])
+            if (indexRoute > 0) {
+                indexRoute -= 1
+                while (parentList[indexRoute].basicData.restPointOfTurnover) {
+                    routeChain.add(parentList[indexRoute])
+                    if (indexRoute == 0) {
+                        break
+                    } else {
+                        indexRoute -= 1
+                    }
                 }
             }
-        }
 
-        routeChain.sortBy {
-            it.basicData.timeStartWork
-        }
-        var totalWorkTime = 0L
-        var totalRestTime = 0L
-        routeChain.forEachIndexed { index, routeInChain ->
-            totalWorkTime += routeInChain.getWorkTime() ?: 0L
-            if (index != routeChain.lastIndex) {
-                val startRest = routeInChain.basicData.timeEndWork
-                val endRest = routeChain[index + 1].basicData.timeStartWork
-                val restTime = endRest - startRest
-                totalRestTime += restTime ?: 0L
+
+            routeChain.sortBy {
+                it.basicData.timeStartWork
             }
+            var totalWorkTime = 0L
+            var totalRestTime = 0L
+            routeChain.forEachIndexed { index, routeInChain ->
+                totalWorkTime += routeInChain.getWorkTime() ?: 0L
+                if (index != routeChain.lastIndex) {
+                    val startRest = routeInChain.basicData.timeEndWork
+                    val endRest = routeChain[index + 1].basicData.timeStartWork
+                    val restTime = endRest - startRest
+                    totalRestTime += restTime ?: 0L
+                }
+            }
+            var homeRest = (totalWorkTime * 2.6 - totalRestTime).toLong()
+            if (homeRest.lessThan(minTimeHomeRest)) {
+                homeRest = minTimeHomeRest ?: 0L
+            }
+            return routeChain.last().basicData.timeEndWork + homeRest
+        } else {
+            return null
         }
-        var homeRest = (totalWorkTime * 2.6 - totalRestTime).toLong()
-        if (homeRest.lessThan(minTimeHomeRest)) {
-            homeRest = minTimeHomeRest ?: 0L
-        }
-        return routeChain.last().basicData.timeEndWork + homeRest
     }
 
     fun Route.inTimePeriod(period: TimePeriod): Boolean {

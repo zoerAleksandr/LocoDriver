@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 const val REMOVE_LOCOMOTIVE_OBJECT_ID_KEY = "REMOVE_LOCOMOTIVE_OBJECT_ID_KEY"
+
 class RemoveLocomotiveWorker(context: Context, parameters: WorkerParameters) :
     CoroutineWorker(context, parameters) {
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {

@@ -119,7 +119,7 @@ fun HomeScreen(
     minTimeRest: Long?,
     nightTime: Long?,
     passengerTime: Long?,
-    calculationHomeRest: (Route) -> Long?,
+    calculationHomeRest: (Route?) -> Long?,
     firstEntryDialogState: Boolean,
     resetStateFirstEntryDialog: () -> Unit
 ) {
@@ -233,7 +233,8 @@ fun HomeScreen(
                     .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
                     .clickable {}
             ) {
-                PreviewRoute(routeForPreview, minTimeRest, calculationHomeRest)
+                val homeRest = calculationHomeRest(routeForPreview)
+                PreviewRoute(routeForPreview, minTimeRest, homeRest)
             }
 
             Column(
@@ -271,10 +272,10 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                         .clickable {
+                            showContextDialog = false
                             routeForPreview?.let { route ->
                                 onDeleteRoute(route)
                             }
-                            showContextDialog = false
                         },
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
@@ -512,7 +513,7 @@ fun TotalTime(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun PreviewRoute(route: Route?, minTimeRest: Long?, calculationHomeRest: (Route) -> Long?) {
+fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: Long?) {
     val styleTitle = AppTypography.getType().titleSmall.copy(
         fontWeight = FontWeight.W600,
         color = MaterialTheme.colorScheme.primary
@@ -677,9 +678,8 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, calculationHomeRest: (Route)
                                     )
                                 }
                             } else {
-                                val homeRestInLong = calculationHomeRest(route)
-                                homeRestInLong?.let {
-                                    val homeRestInLongText = getDateMiniAndTime(homeRestInLong)
+                                homeRest?.let {
+                                    val homeRestInLongText = getDateMiniAndTime(homeRest)
                                     Text(
                                         text = "до $homeRestInLongText",
                                         style = styleHint,
