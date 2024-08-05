@@ -39,6 +39,7 @@ fun SettingDestination(
         enableButtonConfirmVerification = uiState.resentVerificationEmailButton,
         resetRepositoryState = settingsViewModel::resetRepositoryState,
         changeStartNightTime = settingsViewModel::changeStartNightTime,
-        changeEndNightTime = settingsViewModel::changeEndNightTime
+        changeEndNightTime = settingsViewModel::changeEndNightTime,
+        changeUsingDefaultWorkTime = settingsViewModel::changeUsingDefaultWorkTime
     )
 }

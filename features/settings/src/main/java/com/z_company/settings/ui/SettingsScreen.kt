@@ -1,5 +1,6 @@
 package com.z_company.settings.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -21,6 +23,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -79,7 +82,8 @@ fun SettingsScreen(
     enableButtonConfirmVerification: Boolean,
     resetRepositoryState: () -> Unit,
     changeStartNightTime: (Int, Int) -> Unit,
-    changeEndNightTime: (Int, Int) -> Unit
+    changeEndNightTime: (Int, Int) -> Unit,
+    changeUsingDefaultWorkTime: (Boolean) -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -167,7 +171,8 @@ fun SettingsScreen(
                                 onChangeEmail = onChangeEmail,
                                 enableButtonConfirmVerification = enableButtonConfirmVerification,
                                 changeStartNightTime = changeStartNightTime,
-                                changeEndNightTime = changeEndNightTime
+                                changeEndNightTime = changeEndNightTime,
+                                changeUsingDefaultWorkTime = changeUsingDefaultWorkTime
                             )
                         }
                     }
@@ -199,7 +204,8 @@ fun SettingScreenContent(
     onChangeEmail: (String) -> Unit,
     enableButtonConfirmVerification: Boolean,
     changeStartNightTime: (Int, Int) -> Unit,
-    changeEndNightTime: (Int, Int) -> Unit
+    changeEndNightTime: (Int, Int) -> Unit,
+    changeUsingDefaultWorkTime: (Boolean) -> Unit
 ) {
     val styleTitle = AppTypography.getType().titleLarge
         .copy(
@@ -520,18 +526,45 @@ fun SettingScreenContent(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(text = "Время работы", style = styleData)
-
-                            val text =
-                                ConverterLongToTime.getTimeInStringFormat(currentSettings.defaultWorkTime)
                             Text(
-                                modifier = Modifier
-                                    .clickable { showWorkTimeDialog = true },
-                                text = text,
+                                modifier = Modifier.padding(end = 16.dp).weight(0.8f),
+                                text = "Использовать cтандартное время работы",
                                 style = styleData
                             )
+                            Switch(
+                                checked = currentSettings.usingDefaultWorkTime,
+                                onCheckedChange = {
+                                    changeUsingDefaultWorkTime(it)
+                                })
+
+                        }
+                        AnimatedVisibility(visible = currentSettings.usingDefaultWorkTime) {
+                            HorizontalDivider()
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Время работы",
+                                    style = styleData
+                                )
+                                val text =
+                                    ConverterLongToTime.getTimeInStringFormat(currentSettings.defaultWorkTime)
+                                Text(
+                                    modifier = Modifier
+                                        .padding(end = 12.dp)
+                                        .clickable { showWorkTimeDialog = true },
+                                    text = text,
+                                    style = styleData
+                                )
+                            }
                         }
                     }
                 }

@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlin.properties.Delegates
+import com.z_company.domain.util.plus
 
 class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
@@ -63,6 +64,7 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
 
     var minTimeRest by mutableStateOf<Long?>(null)
     var nightTime: NightTime? = null
+    var defaultWorkTime: Long? = null
 
 
     init {
@@ -113,6 +115,7 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
             if (result is ResultState.Success) {
                 minTimeRest = result.data?.minTimeRest
                 nightTime = result.data?.nightTime
+                defaultWorkTime = result.data?.defaultWorkTime
                 currentRoute?.let { route ->
                     calculateRestTime(route)
                     getNightTimeInRoute(route)
@@ -279,6 +282,14 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
                 timeStartWork = timeInLong
             )
         )
+        if (currentRoute?.basicData?.timeEndWork == null && defaultWorkTime != null){
+            val endNightTime = timeInLong + defaultWorkTime
+            currentRoute = currentRoute?.copy(
+                basicData = currentRoute!!.basicData.copy(
+                    timeEndWork = endNightTime
+                )
+            )
+        }
         calculateRestTime(currentRoute!!)
         getNightTimeInRoute(currentRoute!!)
         isValidTime()

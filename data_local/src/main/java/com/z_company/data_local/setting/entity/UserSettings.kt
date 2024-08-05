@@ -22,6 +22,7 @@ internal data class UserSettings(
     var updateAt: Long,
     var defaultLocoType: LocoType,
     var defaultWorkTime: Long,
+    var usingDefaultWorkTime: Boolean,
     var monthOfYear: MonthOfYear
 )
 
