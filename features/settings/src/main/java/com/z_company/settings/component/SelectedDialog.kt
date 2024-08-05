@@ -58,8 +58,6 @@ fun SelectedDialog(
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Normal
             )
-        val styleData = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
-        val styleHint = AppTypography.getType().titleLarge
             .copy(
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Light
@@ -107,13 +105,15 @@ private fun SelectedItem(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
+    val styleData = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .selectable(selected = isSelected, onClick = onClick),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(text = text, style = AppTypography.getType().titleMedium)
+        Text(text = text, style = styleData)
         if (isSelected) {
             Icon(imageVector = Icons.Outlined.Check, contentDescription = "Выбрать")
         }

@@ -1,5 +1,6 @@
 package com.z_company.route.viewmodel
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -334,11 +335,13 @@ class HomeViewModel : ViewModel(), KoinComponent {
         val minTimeHomeRest = uiState.value.minTimeHomeRest
         uiState.value.routeListState.let { listState ->
             if (listState is ResultState.Success) {
-                route?.let {
-                    return route.getHomeRest(
-                        parentList = listState.data,
-                        minTimeHomeRest = minTimeHomeRest
-                    )
+                if (listState.data.contains(route)) {
+                    route?.let {
+                        return route.getHomeRest(
+                            parentList = listState.data,
+                            minTimeHomeRest = minTimeHomeRest
+                        )
+                    }
                 }
             }
         }

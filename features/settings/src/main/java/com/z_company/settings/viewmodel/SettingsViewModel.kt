@@ -278,4 +278,22 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             minTimeHomeRest = time
         )
     }
+
+    fun changeStartNightTime(hour: Int, minute: Int) {
+        currentSettings = currentSettings?.copy(
+            nightTime = currentSettings!!.nightTime.copy(
+                startNightHour = hour,
+                startNightMinute = minute
+            )
+        )
+    }
+
+    fun changeEndNightTime(hour: Int, minute: Int) {
+        currentSettings = currentSettings?.copy(
+            nightTime = currentSettings!!.nightTime.copy(
+                endNightHour = hour,
+                endNightMinute = minute
+            )
+        )
+    }
 }

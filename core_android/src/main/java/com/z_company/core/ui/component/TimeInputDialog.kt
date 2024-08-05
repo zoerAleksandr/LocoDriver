@@ -42,6 +42,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.R
@@ -55,6 +56,7 @@ import kotlinx.coroutines.launch
 fun TimeInputDialog(
     initValue: Long,
     onDismissRequest: () -> Unit,
+    header: String = "",
     onConfirmRequest: (Long) -> Unit,
 ) {
     BasicAlertDialog(
@@ -87,10 +89,16 @@ fun TimeInputDialog(
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Normal
                 )
-                .copy(
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Light
+            if (header.isNotEmpty()) {
+                Text(
+                    modifier = Modifier.padding(bottom = 16.dp),
+                    text = header,
+                    style = AppTypography.getType().titleLarge
+                        .copy(
+                            fontWeight = FontWeight.Normal
+                        ),
                 )
+            }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -124,12 +132,16 @@ fun TimeInputDialog(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     TextButton(onClick = onDismissRequest) {
-                        Text(text = stringResource(id = R.string.text_btn_dismiss), style = styleTitle)
+                        Text(
+                            text = stringResource(id = R.string.text_btn_dismiss),
+                            style = styleTitle
+                        )
                     }
 
                     TextButton(
                         onClick = {
-                            val resultLong = (selectHourToLong * 3_600_000L + selectMinuteToLong * 60_000L)
+                            val resultLong =
+                                (selectHourToLong * 3_600_000L + selectMinuteToLong * 60_000L)
                             onConfirmRequest(resultLong)
                         },
                         shape = Shapes.medium,
@@ -272,8 +284,14 @@ fun InputTimeField(
                     focusedContainerColor = MaterialTheme.colorScheme.surface
                 ),
                 container = {
-                    Box(modifier = Modifier
-                        .border(width = 0.5.dp, shape = Shapes.medium, color = MaterialTheme.colorScheme.outline))
+                    Box(
+                        modifier = Modifier
+                            .border(
+                                width = 0.5.dp,
+                                shape = Shapes.medium,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                    )
                 }
             )
         }

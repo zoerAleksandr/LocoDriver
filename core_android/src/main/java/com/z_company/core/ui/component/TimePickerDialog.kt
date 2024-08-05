@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.Shapes
@@ -38,7 +39,8 @@ fun TimePickerDialog(
     timePickerState: TimePickerState,
     onDismissRequest: () -> Unit,
     onConfirmRequest: () -> Unit,
-    isPicker: Boolean = true
+    isPicker: Boolean = true,
+    header: String? = null
 ) {
     val configuration = LocalConfiguration.current
     val showingPicker = remember { mutableStateOf(isPicker) }
@@ -58,6 +60,18 @@ fun TimePickerDialog(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            val styleTitle = AppTypography.getType().headlineMedium
+                .copy(
+                    fontWeight = FontWeight.Light
+                )
+            header?.let {
+                Text(
+                    modifier = Modifier
+                        .padding(bottom = 16.dp),
+                    text = header,
+                    style = styleTitle,
+                )
+            }
 
             if (showingPicker.value && configuration.screenHeightDp > 400) {
                 TimePicker(state = timePickerState)
@@ -101,7 +115,11 @@ fun TimePickerDialog(
                             fontWeight = FontWeight.Normal
                         )
                     TextButton(onClick = onDismissRequest) {
-                        Text(text = stringResource(id = R.string.text_btn_dismiss), style = subTitleTextStyle, color = MaterialTheme.colorScheme.error)
+                        Text(
+                            text = stringResource(id = R.string.text_btn_dismiss),
+                            style = subTitleTextStyle,
+                            color = MaterialTheme.colorScheme.error
+                        )
                     }
 
                     TextButton(
@@ -109,7 +127,10 @@ fun TimePickerDialog(
                         shape = Shapes.medium,
                         border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary)
                     ) {
-                        Text(text = stringResource(id = R.string.text_btn_confirm), style = subTitleTextStyle)
+                        Text(
+                            text = stringResource(id = R.string.text_btn_confirm),
+                            style = subTitleTextStyle
+                        )
                     }
                 }
             }

@@ -62,7 +62,7 @@ import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHours
 import com.z_company.route.component.DialogSelectMonthOfYear
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SelectReleaseDaysScreen(
     onBack: () -> Unit,
@@ -94,9 +94,13 @@ fun SelectReleaseDaysScreen(
                 actions = {
                     TextButton(onClick = onSaveClick) {
                         Text(
-                            text = "Готово",
-                            style = AppTypography.getType().bodyMedium,
-                            color = MaterialTheme.colorScheme.tertiary
+                            text = "Сохранить",
+                            style = AppTypography.getType().titleLarge
+                                .copy(
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Light,
+                                    color = MaterialTheme.colorScheme.tertiary
+                                ),
                         )
                     }
                 },
@@ -145,11 +149,6 @@ fun SelectReleaseDaysContent(
             fontWeight = FontWeight.Normal
         )
     val styleData = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
-    val styleHint = AppTypography.getType().titleLarge
-        .copy(
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Light
-        )
 
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
@@ -325,6 +324,8 @@ private fun SelectRangeDateBottomSheet(
     sheetState: SheetState,
     dateRangePickerState: DateRangePickerState
 ) {
+    val styleData = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.tertiary)
+
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         dragHandle = {
@@ -340,7 +341,7 @@ private fun SelectRangeDateBottomSheet(
                 }) {
                     Text(
                         text = "Сбросить",
-                        style = AppTypography.getType().bodyMedium,
+                        style = styleData,
                         color = MaterialTheme.colorScheme.tertiary
                     )
                 }
@@ -385,7 +386,7 @@ private fun SelectRangeDateBottomSheet(
                 }) {
                     Text(
                         text = "Выбрать",
-                        style = AppTypography.getType().bodyMedium,
+                        style = styleData,
                         color = MaterialTheme.colorScheme.tertiary
                     )
                 }

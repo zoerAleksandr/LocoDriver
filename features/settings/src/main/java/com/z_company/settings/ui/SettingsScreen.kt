@@ -34,6 +34,7 @@ import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.component.GenericError
 import com.z_company.core.ui.component.TimeInputDialog
+import com.z_company.core.ui.component.TimePickerDialog
 import com.z_company.settings.component.SelectedDialog
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
@@ -44,11 +45,11 @@ import com.z_company.domain.entities.User
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHours
 import com.z_company.domain.entities.route.LocoType
-import com.z_company.route.R
 import com.z_company.route.component.DialogSelectMonthOfYear
 import com.z_company.settings.component.ConfirmEmailDialog
 import com.z_company.settings.viewmodel.SettingsUiState
 import kotlinx.coroutines.launch
+import java.util.Calendar
 import com.z_company.core.R as CoreR
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -76,7 +77,9 @@ fun SettingsScreen(
     emailForConfirm: String,
     onChangeEmail: (String) -> Unit,
     enableButtonConfirmVerification: Boolean,
-    resetRepositoryState: () -> Unit
+    resetRepositoryState: () -> Unit,
+    changeStartNightTime: (Int, Int) -> Unit,
+    changeEndNightTime: (Int, Int) -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -100,8 +103,13 @@ fun SettingsScreen(
             }, actions = {
                 TextButton(onClick = onSaveClick) {
                     Text(
-                        text = "Готово",
-                        style = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.tertiary),
+                        text = "Сохранить",
+                        style = AppTypography.getType().titleLarge
+                            .copy(
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Light,
+                                color = MaterialTheme.colorScheme.tertiary
+                            ),
                     )
                 }
             },
@@ -157,7 +165,9 @@ fun SettingsScreen(
                                 onResentVerificationEmail = onResentVerificationEmail,
                                 emailForConfirm = emailForConfirm,
                                 onChangeEmail = onChangeEmail,
-                                enableButtonConfirmVerification = enableButtonConfirmVerification
+                                enableButtonConfirmVerification = enableButtonConfirmVerification,
+                                changeStartNightTime = changeStartNightTime,
+                                changeEndNightTime = changeEndNightTime
                             )
                         }
                     }
@@ -167,6 +177,7 @@ fun SettingsScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingScreenContent(
     currentSettings: UserSettings,
@@ -186,7 +197,9 @@ fun SettingScreenContent(
     onResentVerificationEmail: () -> Unit,
     emailForConfirm: String,
     onChangeEmail: (String) -> Unit,
-    enableButtonConfirmVerification: Boolean
+    enableButtonConfirmVerification: Boolean,
+    changeStartNightTime: (Int, Int) -> Unit,
+    changeEndNightTime: (Int, Int) -> Unit
 ) {
     val styleTitle = AppTypography.getType().titleLarge
         .copy(
@@ -199,6 +212,14 @@ fun SettingScreenContent(
             fontSize = 18.sp,
             fontWeight = FontWeight.Light
         )
+
+    var showNightTimeStartDialog by remember {
+        mutableStateOf(false)
+    }
+
+    var showNightTimeEndDialog by remember {
+        mutableStateOf(false)
+    }
 
     var showRestDialog by remember {
         mutableStateOf(false)
@@ -216,16 +237,47 @@ fun SettingScreenContent(
         mutableStateOf(false)
     }
 
-    var visibleCalendar by remember {
-        mutableStateOf(false)
-    }
-
     val showMonthSelectorDialog = remember {
         mutableStateOf(false)
     }
 
     var showConfirmEmailDialog by remember {
         mutableStateOf(false)
+    }
+
+    if (showNightTimeStartDialog) {
+        val startNightPickerDialog = rememberTimePickerState(
+            initialHour = currentSettings.nightTime.startNightHour,
+            initialMinute = currentSettings.nightTime.startNightMinute,
+            is24Hour = true
+        )
+        TimePickerDialog(
+            timePickerState = startNightPickerDialog,
+            onDismissRequest = { showNightTimeStartDialog = false },
+            onConfirmRequest = {
+                changeStartNightTime(startNightPickerDialog.hour, startNightPickerDialog.minute)
+                showNightTimeStartDialog = false
+                showNightTimeEndDialog = true
+            },
+            header = "Начало ночи"
+        )
+    }
+
+    if (showNightTimeEndDialog) {
+        val endNightPickerDialog = rememberTimePickerState(
+            initialHour = currentSettings.nightTime.endNightHour,
+            initialMinute = currentSettings.nightTime.endNightMinute,
+            is24Hour = true
+        )
+        TimePickerDialog(
+            timePickerState = endNightPickerDialog,
+            onDismissRequest = { showNightTimeEndDialog = false },
+            onConfirmRequest = {
+                changeEndNightTime(endNightPickerDialog.hour, endNightPickerDialog.minute)
+                showNightTimeEndDialog = false
+            },
+            header = "Окончание ночи"
+        )
     }
 
     if (showConfirmEmailDialog) {
@@ -369,17 +421,36 @@ fun SettingScreenContent(
                             .fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(text = "Ночь", style = styleData)
+                            val text = currentSettings.nightTime.toString()
+                            Text(
+                                modifier = Modifier
+                                    .clickable {
+                                        showNightTimeStartDialog = true
+                                    },
+                                text = text,
+                                style = styleData
+                            )
+                        }
+                        HorizontalDivider()
+
 
                         Row(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { showRestDialog = true },
+                                .fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(text = "Отдых в ПО", style = styleData)
                             val text =
                                 ConverterLongToTime.getTimeInStringFormat(currentSettings.minTimeRest)
                             Text(
+                                modifier = Modifier
+                                    .clickable { showRestDialog = true },
                                 text = text,
                                 style = styleData
                             )
@@ -388,14 +459,15 @@ fun SettingScreenContent(
 
                         Row(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { showHomeRestDialog = true },
+                                .fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(text = "Домашний отдых", style = styleData)
                             val text =
                                 ConverterLongToTime.getTimeInStringFormat(currentSettings.minTimeHomeRest)
                             Text(
+                                modifier = Modifier
+                                    .clickable { showHomeRestDialog = true },
                                 text = text,
                                 style = styleData
                             )
@@ -447,8 +519,7 @@ fun SettingScreenContent(
 
                         Row(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { showWorkTimeDialog = true },
+                                .fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(text = "Время работы", style = styleData)
@@ -456,6 +527,8 @@ fun SettingScreenContent(
                             val text =
                                 ConverterLongToTime.getTimeInStringFormat(currentSettings.defaultWorkTime)
                             Text(
+                                modifier = Modifier
+                                    .clickable { showWorkTimeDialog = true },
                                 text = text,
                                 style = styleData
                             )
@@ -536,7 +609,7 @@ fun SettingScreenContent(
                                 }
 
                                 Text(
-                                    modifier = Modifier.clickable {
+                                    modifier = Modifier.clickable(enabled = !user.isVerification) {
                                         showConfirmEmailDialog = true
                                     },
                                     text = dataText,
