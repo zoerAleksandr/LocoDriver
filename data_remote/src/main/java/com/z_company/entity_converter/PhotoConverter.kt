@@ -8,7 +8,7 @@ object PhotoConverter {
         photoId = photo.photoId,
         basicId = photo.basicId,
         remoteObjectId = photo.remoteObjectId,
-        base64 = photo.base64,
+        url = photo.url,
         dateOfCreate = photo.dateOfCreate
     )
 
@@ -16,7 +16,7 @@ object PhotoConverter {
         photoId = photoRemote.photoId,
         basicId = photoRemote.basicId,
         remoteObjectId = photoRemote.remoteObjectId,
-        base64 = photoRemote.base64,
+        url = photoRemote.url,
         dateOfCreate = photoRemote.dateOfCreate
     )
 

@@ -63,8 +63,8 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
         }
 
     var minTimeRest by mutableStateOf<Long?>(null)
-    var nightTime: NightTime? = null
-    var defaultWorkTime: Long? = null
+    private var nightTime: NightTime? = null
+    private var defaultWorkTime: Long? = null
 
 
     init {
@@ -234,15 +234,6 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
         _uiState.update {
             it.copy(confirmExitDialogShow = isShow)
         }
-    }
-
-    fun clearRoute() {
-        currentRoute = if (routeId == null) {
-            Route()
-        } else {
-            Route(BasicData(id = routeId))
-        }
-        changesHave()
     }
 
     private fun subscribeToChanges(routeId: String) {
@@ -426,19 +417,6 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
         passengerList?.let {
             currentRoute = currentRoute?.copy(
                 passengers = passengerList
-            )
-        }
-        changesHave()
-    }
-
-    fun onDeletePhoto(photo: Photo) {
-        deletedPhotoList.add(photo)
-        val photoList = currentRoute?.photos.apply {
-            this?.remove(photo)
-        }
-        photoList?.let {
-            currentRoute = currentRoute?.copy(
-                photos = photoList
             )
         }
         changesHave()

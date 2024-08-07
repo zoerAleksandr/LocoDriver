@@ -94,7 +94,7 @@ fun ViewingPhotoContent(
             )
         },
     ) { padding ->
-        val decodedImage = ConverterUrlBase64.base64toBitmap(photo.base64)
+        val decodedImage = ConverterUrlBase64.base64toBitmap(photo.url)
         Box(
             modifier = Modifier
                 .fillMaxSize()

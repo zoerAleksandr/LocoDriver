@@ -3,7 +3,6 @@ package com.z_company.route.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -15,7 +14,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeightIn
 import androidx.compose.foundation.layout.size
@@ -30,7 +28,6 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -54,7 +51,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -67,14 +63,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.rememberAsyncImagePainter
-import com.maxkeppeker.sheets.core.views.Grid
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
-import com.z_company.core.util.ConverterUrlBase64
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.DateAndTimeConverter.getDateMiniAndTime
 import com.z_company.core.util.DateAndTimeConverter.getDateFromDateLong
@@ -1460,7 +1453,6 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: Long?) {
             }
             item {
                 val notesText = route.basicData.notes.ifNullOrBlank { "" }
-                val imageSize = (widthScreen - 24 - 24) / 3
                 Column(
                     modifier = Modifier
                         .padding(top = paddingInsideBlock)
@@ -1489,32 +1481,6 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: Long?) {
                                 style = styleData,
                                 modifier = Modifier.padding(start = paddingIcon)
                             )
-                        }
-                    }
-                    Grid(
-                        modifier = Modifier.padding(top = paddingInsideBlock),
-                        items = route.photos,
-                        columns = 3,
-                        rowSpacing = paddingInsideBlock,
-                        columnSpacing = paddingInsideBlock
-                    ) { photo ->
-                        Card(
-                            modifier = Modifier
-                                .size(imageSize.dp),
-                            shape = Shapes.extraSmall,
-                        ) {
-                            Box(modifier = Modifier.fillMaxSize()) {
-                                photo.base64.let { base64String ->
-                                    val decodedImage =
-                                        ConverterUrlBase64.base64toBitmap(base64String)
-                                    Image(
-                                        modifier = Modifier.fillMaxSize(),
-                                        painter = rememberAsyncImagePainter(model = decodedImage),
-                                        contentScale = ContentScale.Crop,
-                                        contentDescription = null
-                                    )
-                                }
-                            }
                         }
                     }
                 }

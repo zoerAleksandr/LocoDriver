@@ -36,15 +36,12 @@ import com.z_company.work_manager.LOAD_LOCOMOTIVE_WORKER_INPUT_KEY
 import com.z_company.work_manager.LOAD_LOCOMOTIVE_WORKER_OUTPUT_KEY
 import com.z_company.work_manager.LOAD_PASSENGER_WORKER_INPUT_KEY
 import com.z_company.work_manager.LOAD_PASSENGER_WORKER_OUTPUT_KEY
-import com.z_company.work_manager.LOAD_PHOTO_WORKER_INPUT_KEY
-import com.z_company.work_manager.LOAD_PHOTO_WORKER_OUTPUT_KEY
 import com.z_company.work_manager.LOAD_TRAIN_WORKER_INPUT_KEY
 import com.z_company.work_manager.LOAD_TRAIN_WORKER_OUTPUT_KEY
 import com.z_company.work_manager.LOCOMOTIVE_INPUT_KEY
 import com.z_company.work_manager.LoadBasicDataWorker
 import com.z_company.work_manager.LoadLocomotiveFromRemoteWorker
 import com.z_company.work_manager.LoadPassengerRemoteWorker
-import com.z_company.work_manager.LoadPhotoRemoteWorker
 import com.z_company.work_manager.LoadTrainFromRemoteWorker
 import com.z_company.work_manager.PASSENGERS_INPUT_KEY
 import com.z_company.work_manager.PHOTOS_INPUT_KEY
@@ -504,42 +501,6 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
                                 PassengerJSONConverter.fromString(it)
                             }
                             emit(ResultState.Success(passengerList))
-                        }
-
-                        is ResultState.Loading -> {
-                            emit(result)
-                        }
-
-                        is ResultState.Error -> {
-                            emit(result)
-                        }
-                    }
-                }
-        }
-    }
-
-    override suspend fun loadPhotoFromRemote(basicId: String): Flow<ResultState<List<Photo>?>> {
-        val inputData = Data.Builder()
-            .putString(LOAD_PHOTO_WORKER_INPUT_KEY, basicId)
-            .build()
-
-        val worker = OneTimeWorkRequestBuilder<LoadPhotoRemoteWorker>()
-            .setInputData(inputData)
-            .setConstraints(constraints)
-            .addTag(LOAD_PHOTO_FROM_REMOTE_WORKER_TAG)
-            .build()
-        WorkManager.getInstance(context).enqueue(worker)
-        return flow {
-            WorkManagerState.state(context, worker.id)
-                .collect { result ->
-                    when (result) {
-                        is ResultState.Success -> {
-                            val stringList = result.data
-                                .getStringArray(LOAD_PHOTO_WORKER_OUTPUT_KEY)
-                            val photoList = stringList?.map {
-                                PhotoJSONConverter.fromString(it)
-                            }
-                            emit(ResultState.Success(photoList))
                         }
 
                         is ResultState.Loading -> {

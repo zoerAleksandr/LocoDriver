@@ -30,7 +30,7 @@ class PreviewPhotoViewModel(
         val currentDate = Calendar.getInstance().timeInMillis
         val photo = Photo(
             basicId = basicId,
-            base64 = base64,
+            url = base64,
             dateOfCreate = currentDate
         )
         savePhotoJob?.cancel()

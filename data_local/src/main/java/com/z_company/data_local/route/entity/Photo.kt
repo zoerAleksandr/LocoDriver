@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
+import java.net.URL
 import java.util.UUID
 
 @Entity(
@@ -23,6 +24,6 @@ internal data class Photo(
     @ColumnInfo(index = true)
     var basicId: String,
     var remoteObjectId: String?,
-    var base64: String = "",
+    var url: String,
     var dateOfCreate: Long
 )

@@ -9,7 +9,6 @@ import com.parse.ParseRelation
 import com.parse.coroutines.suspendSave
 import com.z_company.core.ResultState
 import com.z_company.domain.use_cases.RouteUseCase
-import com.z_company.work_manager.PhotoFieldName.BASE_64_FIELD_NAME
 import com.z_company.work_manager.PhotoFieldName.BASIC_DATA_FIELD_NAME
 import com.z_company.work_manager.PhotoFieldName.DATE_OF_CREATE
 import com.z_company.work_manager.PhotoFieldName.PHOTO_BASIC_ID_FIELD_NAME
@@ -47,7 +46,6 @@ class SavePhotoListWorker(context: Context, parameters: WorkerParameters) :
                                 }
                                 photoObject.put(PHOTO_ID_FIELD_NAME, photo.photoId)
                                 photoObject.put(PHOTO_BASIC_ID_FIELD_NAME, photo.basicId)
-                                photoObject.put(BASE_64_FIELD_NAME, photo.base64)
                                 photoObject.put(DATE_OF_CREATE, photo.dateOfCreate)
                                 val basicDataRelation: ParseRelation<ParseObject> =
                                     photoObject.getRelation(BASIC_DATA_FIELD_NAME)

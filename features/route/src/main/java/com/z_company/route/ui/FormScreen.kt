@@ -6,7 +6,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import com.z_company.core.ui.component.TimePickerDialog
 import com.z_company.route.component.CustomDatePickerDialog
@@ -21,22 +20,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Clear
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -61,8 +55,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
@@ -76,26 +68,22 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import coil.compose.rememberAsyncImagePainter
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
-import com.z_company.core.util.ConverterUrlBase64
 import com.z_company.domain.entities.route.Route
 import com.z_company.route.viewmodel.RouteFormUiState
 import com.z_company.domain.util.minus
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.Passenger
-import com.z_company.domain.entities.route.Photo
 import com.z_company.domain.entities.route.Train
 import com.z_company.route.R
 import com.z_company.route.component.BottomShadow
 import com.z_company.route.component.rememberDatePickerStateInLocale
 import java.util.Calendar
 import com.z_company.route.extention.isScrollInInitialState
-import com.maxkeppeker.sheets.core.views.Grid
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
@@ -114,7 +102,6 @@ fun FormScreen(
     exitScreen: () -> Unit,
     onSaveClick: () -> Unit,
     onSettingClick: () -> Unit,
-    onClearAllField: () -> Unit,
     onBack: () -> Unit,
     resetSaveState: () -> Unit,
     onNumberChanged: (String) -> Unit,
@@ -131,9 +118,6 @@ fun FormScreen(
     onChangePassengerClick: (passenger: Passenger) -> Unit,
     onNewPassengerClick: (basicId: String) -> Unit,
     onDeletePassenger: (passenger: Passenger) -> Unit,
-    onNewPhotoClick: (basicId: String) -> Unit,
-    onDeletePhoto: (photo: Photo) -> Unit,
-    onPhotoClick: (photoId: String) -> Unit,
     minTimeRest: Long?,
     nightTime: Long?,
     changeShowConfirmExitDialog: (Boolean) -> Unit,
@@ -243,9 +227,6 @@ fun FormScreen(
                             onChangePassengerClick = onChangePassengerClick,
                             onNewPassengerClick = onNewPassengerClick,
                             onDeletePassenger = onDeletePassenger,
-                            onNewPhotoClick = onNewPhotoClick,
-                            onDeletePhoto = onDeletePhoto,
-                            onPhotoClick = onPhotoClick,
                             minTimeRest = minTimeRest,
                             nightTime = nightTime,
                             showConfirmExitDialog = formUiState.confirmExitDialogShow,
@@ -285,9 +266,6 @@ private fun RouteFormScreenContent(
     onChangePassengerClick: (passenger: Passenger) -> Unit,
     onNewPassengerClick: (basicId: String) -> Unit,
     onDeletePassenger: (passenger: Passenger) -> Unit,
-    onNewPhotoClick: (basicId: String) -> Unit,
-    onDeletePhoto: (photo: Photo) -> Unit,
-    onPhotoClick: (photoId: String) -> Unit,
     minTimeRest: Long?,
     nightTime: Long?,
     showConfirmExitDialog: Boolean,
@@ -758,29 +736,7 @@ private fun RouteFormScreenContent(
                     modifier = Modifier.padding(top = 8.dp),
                     notes = route.basicData.notes,
                     onNotesChanged = onNotesChanged,
-                    photosList = route.photos,
-                    onDeletePhoto = onDeletePhoto,
-                    onPhotoClick = onPhotoClick
                 )
-                Button(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = Shapes.medium,
-                    onClick = { onNewPhotoClick(basicId) }
-                ) {
-                    Icon(
-                        modifier = Modifier.padding(end = 6.dp),
-                        painter = painterResource(id = R.drawable.add_a_photo_24px),
-                        contentDescription = null
-                    )
-                    Text(
-                        "Добавить фото",
-                        style = AppTypography.getType().titleLarge
-                            .copy(
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Normal
-                            )
-                    )
-                }
             }
         }
     }
@@ -936,9 +892,6 @@ fun ItemNotes(
     modifier: Modifier = Modifier,
     notes: String?,
     onNotesChanged: (String) -> Unit,
-    photosList: List<Photo>,
-    onDeletePhoto: (photo: Photo) -> Unit,
-    onPhotoClick: (photoId: String) -> Unit,
 ) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
@@ -965,48 +918,6 @@ fun ItemNotes(
             shape = Shapes.medium
         )
 
-        val widthScreen = LocalConfiguration.current.screenWidthDp
-        val imageSize = (widthScreen - 12 - 24) / 3
 
-        Grid(
-            modifier = Modifier.padding(top = 4.dp),
-            items = photosList,
-            columns = 3,
-            rowSpacing = 6.dp,
-            columnSpacing = 6.dp
-        ) { photo ->
-            Card(
-                modifier = Modifier
-                    .size(height = imageSize.dp, width = imageSize.dp)
-                    .clickable {
-                        onPhotoClick(photo.photoId)
-                    },
-                shape = Shapes.extraSmall,
-
-                ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    photo.base64.let { base64String ->
-                        val decodedImage = ConverterUrlBase64.base64toBitmap(base64String)
-                        Image(
-                            modifier = Modifier.fillMaxSize(),
-                            painter = rememberAsyncImagePainter(model = decodedImage),
-                            contentScale = ContentScale.Crop,
-                            contentDescription = null
-                        )
-                    }
-                    IconButton(modifier = Modifier
-                        .padding(4.dp)
-                        .align(Alignment.TopEnd)
-                        .background(
-                            color = Color.White.copy(alpha = 0.3f), shape = CircleShape
-                        )
-                        .wrapContentSize(), onClick = { onDeletePhoto(photo) }) {
-                        Icon(
-                            imageVector = Icons.Default.Clear, contentDescription = null
-                        )
-                    }
-                }
-            }
-        }
     }
 }

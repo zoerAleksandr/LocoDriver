@@ -349,18 +349,6 @@ class Back4AppManager : KoinComponent {
                     }
                 }
             }.join()
-
-            this.launch {
-                remoteRepository.loadPhotoFromRemote(id).collect { result ->
-                    if (result is ResultState.Success) {
-                        result.data?.let { photos ->
-                            route =
-                                route.copy(photos = PhotoConverter.fromRemoteList(photos))
-                        }
-                        this.cancel()
-                    }
-                }
-            }.join()
         }
     }
 }

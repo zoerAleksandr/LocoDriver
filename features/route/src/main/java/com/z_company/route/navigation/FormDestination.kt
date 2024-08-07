@@ -8,7 +8,7 @@ import com.z_company.domain.navigation.Router
 import com.z_company.route.Const.NULLABLE_ID
 import com.z_company.route.ui.FormScreen
 import com.z_company.route.viewmodel.FormViewModel
-import org.koin.androidx.compose.getViewModel
+import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 
 @Composable
@@ -17,7 +17,7 @@ fun FormDestination(
     backStackEntry: NavBackStackEntry
 ) {
     val routeId = FormRoute.getRouteId(backStackEntry) ?: NULLABLE_ID
-    val viewModel = getViewModel<FormViewModel>(
+    val viewModel = koinViewModel<FormViewModel>(
         parameters = { parametersOf(routeId) }
     )
     val formUiState by viewModel.uiState.collectAsState()
@@ -31,7 +31,6 @@ fun FormDestination(
         onNotesChanged = viewModel::setNotes,
         onSettingClick = router::showSettings,
         resetSaveState = viewModel::resetSaveState,
-        onClearAllField = viewModel::clearRoute,
         onTimeStartWorkChanged = viewModel::setTimeStartWork,
         onTimeEndWorkChanged = viewModel::setTimeEndWork,
         onRestChanged = viewModel::setRestValue,
@@ -53,12 +52,6 @@ fun FormDestination(
             viewModel.preSaveRoute()
         },
         onDeletePassenger = viewModel::onDeletePassenger,
-        onNewPhotoClick = {
-            router.showCameraScreen(it)
-            viewModel.preSaveRoute()
-        },
-        onDeletePhoto = viewModel::onDeletePhoto,
-        onPhotoClick = router::showViewingImageScreen,
         minTimeRest = viewModel.minTimeRest,
         nightTime = formUiState.nightTime,
         changeShowConfirmExitDialog = viewModel::changeShowConfirmDialog,
