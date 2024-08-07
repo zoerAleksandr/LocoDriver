@@ -183,7 +183,7 @@ fun DieselSectionItem(
                             .clickable {
                                 showRefuelDialog(Pair(true, index))
                             },
-                        painter = painterResource(id = R.drawable.refuel_icon),
+                        painter = painterResource(id = R.drawable.fuel_pump),
                         tint = MaterialTheme.colorScheme.primary,
                         contentDescription = null,
                     )

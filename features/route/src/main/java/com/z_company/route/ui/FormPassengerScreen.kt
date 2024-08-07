@@ -533,7 +533,7 @@ fun PassengerFormScreenContent(
                         .weight(0.5f)
                         .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
                         .clickable {
-                            showArrivalDatePicker = true
+                            showDepartureDatePicker = true
                         }.padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -553,7 +553,7 @@ fun PassengerFormScreenContent(
                         .weight(0.5f)
                         .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
                         .clickable {
-                            showDepartureDatePicker = true
+                            showArrivalDatePicker = true
                         }.padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {

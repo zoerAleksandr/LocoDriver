@@ -232,7 +232,10 @@ fun HomeScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .requiredHeightIn(min = heightScreen.times(0.3f).dp, max = heightScreen.times(0.7f).dp)
+                    .requiredHeightIn(
+                        min = heightScreen.times(0.3f).dp,
+                        max = heightScreen.times(0.8f).dp
+                    )
                     .padding(start = 12.dp, end = 12.dp, top = 30.dp, bottom = 12.dp)
                     .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
                     .clickable {}
@@ -433,7 +436,7 @@ fun HomeScreen(
                 ) {
                     Icon(
                         modifier = Modifier.padding(end = 4.dp),
-                        painter = painterResource(id = CoreR.drawable.ic_star_border),
+                        painter = painterResource(id = R.drawable.dark_mode_24px),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary
                     )
@@ -448,7 +451,7 @@ fun HomeScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         modifier = Modifier.padding(end = 4.dp),
-                        painter = painterResource(id = CoreR.drawable.ic_star_border),
+                        painter = painterResource(id = R.drawable.passenger_24px),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary
                     )
@@ -612,8 +615,16 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: Long?) {
                                 .background(
                                     color = MaterialTheme.colorScheme.secondary,
                                     shape = Shapes.medium
-                                )
-                        )
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                modifier = Modifier.fillMaxSize(0.7f),
+                                tint = MaterialTheme.colorScheme.primary,
+                                painter = painterResource(id = R.drawable.schedule_24px),
+                                contentDescription = null
+                            )
+                        }
                         Column(modifier = Modifier.padding(start = paddingIcon)) {
                             Box {
                                 Text(
@@ -659,8 +670,25 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: Long?) {
                                 .background(
                                     color = MaterialTheme.colorScheme.secondary,
                                     shape = Shapes.medium
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (route.basicData.restPointOfTurnover) {
+                                Icon(
+                                    modifier = Modifier.fillMaxSize(0.7f),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    painter = painterResource(id = R.drawable.hotel_24px),
+                                    contentDescription = null
                                 )
-                        )
+                            } else {
+                                Icon(
+                                    modifier = Modifier.fillMaxSize(0.7f),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    painter = painterResource(id = R.drawable.gite_24px),
+                                    contentDescription = null
+                                )
+                            }
+                        }
 
                         Column(modifier = Modifier.padding(start = paddingIcon)) {
                             Text(
@@ -755,8 +783,29 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: Long?) {
                                     .background(
                                         color = MaterialTheme.colorScheme.secondary,
                                         shape = Shapes.medium
-                                    )
-                            )
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                when (locomotive.type) {
+                                    LocoType.ELECTRIC -> {
+                                        Icon(
+                                            modifier = Modifier.fillMaxSize(0.7f),
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            painter = painterResource(id = R.drawable.electric_loco),
+                                            contentDescription = null
+                                        )
+                                    }
+
+                                    LocoType.DIESEL -> {
+                                        Icon(
+                                            modifier = Modifier.fillMaxSize(0.7f),
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            painter = painterResource(id = R.drawable.diesel_loco),
+                                            contentDescription = null
+                                        )
+                                    }
+                                }
+                            }
                             Column(
                                 modifier = Modifier
                                     .padding(start = paddingIcon)
@@ -836,23 +885,23 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: Long?) {
                                 Column {
                                     locomotive.electricSectionList.forEachIndexed { index, sectionElectric ->
                                         val acceptedEnergyText =
-                                            sectionElectric.acceptedEnergy
+                                            sectionElectric.acceptedEnergy.str()
                                         val deliveryEnergyText =
-                                            sectionElectric.deliveryEnergy
+                                            sectionElectric.deliveryEnergy.str()
                                         val acceptedRecoveryText =
-                                            sectionElectric.acceptedRecovery
+                                            sectionElectric.acceptedRecovery.str()
                                         val deliveryRecoveryText =
-                                            sectionElectric.deliveryRecovery
+                                            sectionElectric.deliveryRecovery.str()
                                         val consumptionEnergy =
                                             CalculationEnergy.getTotalEnergyConsumption(
                                                 accepted = sectionElectric.acceptedEnergy,
                                                 delivery = sectionElectric.deliveryEnergy
-                                            )
+                                            ).str()
                                         val consumptionRecovery =
                                             CalculationEnergy.getTotalEnergyConsumption(
                                                 accepted = sectionElectric.acceptedRecovery,
                                                 delivery = sectionElectric.deliveryRecovery
-                                            )
+                                            ).str()
 
                                         Row(
                                             modifier = Modifier
@@ -870,75 +919,129 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: Long?) {
                                                     .background(
                                                         color = MaterialTheme.colorScheme.secondary,
                                                         shape = Shapes.medium
-                                                    )
-                                            )
+                                                    ),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                val image: Int = when (index) {
+                                                    0 -> R.drawable.one
+                                                    1 -> R.drawable.two
+                                                    2 -> R.drawable.three
+                                                    3 -> R.drawable.four
+                                                    4 -> R.drawable.five
+                                                    5 -> R.drawable.sex
+                                                    6 -> R.drawable.seven
+                                                    7 -> R.drawable.eight
+                                                    8 -> R.drawable.nine
+                                                    else -> R.drawable.one
+                                                }
+                                                Icon(
+                                                    modifier = Modifier.fillMaxSize(0.7f),
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    painter = painterResource(id = image),
+                                                    contentDescription = null
+                                                )
+                                            }
                                             Column(modifier = Modifier.padding(start = paddingIcon)) {
                                                 if (sectionElectric.acceptedEnergy != null ||
-                                                    sectionElectric.deliveryEnergy != null
-                                                ) {
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(
-                                                            paddingIcon / 2
-                                                        )
-                                                    ) {
-                                                        // Icon energy symbol
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .size(iconMiniSize)
-                                                                .background(
-                                                                    color = MaterialTheme.colorScheme.secondary,
-                                                                    shape = Shapes.medium
-                                                                )
-                                                        )
-                                                        Text(
-                                                            text = "$acceptedEnergyText - $deliveryEnergyText",
-                                                            style = styleHint,
-                                                        )
-                                                    }
-                                                }
-                                                if (sectionElectric.acceptedRecovery != null ||
+                                                    sectionElectric.deliveryEnergy != null ||
+                                                    sectionElectric.acceptedRecovery != null ||
                                                     sectionElectric.deliveryRecovery != null
                                                 ) {
+
+                                                    if (sectionElectric.acceptedEnergy != null ||
+                                                        sectionElectric.deliveryEnergy != null
+                                                    ) {
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(
+                                                                paddingIcon / 2
+                                                            )
+                                                        ) {
+                                                            // Icon energy symbol
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .size(iconMiniSize),
+                                                                contentAlignment = Alignment.Center
+                                                            ) {
+                                                                Icon(
+                                                                    modifier = Modifier.fillMaxSize(
+                                                                        0.7f
+                                                                    ),
+                                                                    tint = MaterialTheme.colorScheme.primary,
+                                                                    painter = painterResource(id = R.drawable.electric_bolt_24px),
+                                                                    contentDescription = null
+                                                                )
+                                                            }
+                                                            Text(
+                                                                text = "$acceptedEnergyText - $deliveryEnergyText",
+                                                                style = styleHint,
+                                                            )
+                                                        }
+                                                    }
+
+                                                    if (sectionElectric.acceptedRecovery != null ||
+                                                        sectionElectric.deliveryRecovery != null
+                                                    ) {
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(
+                                                                paddingIcon / 2
+                                                            )
+                                                        ) {
+                                                            // Icon recovery symbol
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .size(iconMiniSize),
+                                                                contentAlignment = Alignment.Center
+                                                            ) {
+                                                                Icon(
+                                                                    modifier = Modifier.fillMaxSize(
+                                                                        0.7f
+                                                                    ),
+                                                                    tint = MaterialTheme.colorScheme.primary,
+                                                                    painter = painterResource(id = R.drawable.cycle_24px),
+                                                                    contentDescription = null
+                                                                )
+                                                            }
+                                                            Text(
+                                                                text = "$acceptedRecoveryText - $deliveryRecoveryText",
+                                                                style = styleHint,
+                                                            )
+                                                        }
+                                                    }
+
                                                     Row(
                                                         verticalAlignment = Alignment.CenterVertically,
                                                         horizontalArrangement = Arrangement.spacedBy(
                                                             paddingIcon / 2
                                                         )
                                                     ) {
-                                                        // Icon recovery symbol
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .size(iconMiniSize)
-                                                                .background(
-                                                                    color = MaterialTheme.colorScheme.secondary,
-                                                                    shape = Shapes.medium
+                                                        if (sectionElectric.acceptedEnergy != null &&
+                                                            sectionElectric.deliveryEnergy != null
+                                                        ) {
+                                                            consumptionEnergy.let {
+                                                                Text(
+                                                                    text = "Расход: $consumptionEnergy",
+                                                                    style = styleHint,
                                                                 )
-                                                        )
-                                                        Text(
-                                                            text = "$acceptedRecoveryText - $deliveryRecoveryText",
-                                                            style = styleHint,
-                                                        )
+                                                            }
+                                                        }
+                                                        if (sectionElectric.acceptedRecovery != null &&
+                                                            sectionElectric.deliveryRecovery != null
+                                                        ) {
+                                                            consumptionRecovery.let {
+                                                                Text(
+                                                                    text = "Рекуперация: $consumptionRecovery",
+                                                                    style = styleHint,
+                                                                )
+                                                            }
+                                                        }
                                                     }
-                                                }
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(
-                                                        paddingIcon / 2
+                                                } else {
+                                                    Text(
+                                                        text = "Нет данных",
+                                                        style = styleHint
                                                     )
-                                                ) {
-                                                    consumptionEnergy?.let {
-                                                        Text(
-                                                            text = "Расход: $consumptionEnergy",
-                                                            style = styleHint,
-                                                        )
-                                                    }
-                                                    consumptionRecovery?.let {
-                                                        Text(
-                                                            text = "Рекуперация: $consumptionRecovery",
-                                                            style = styleHint,
-                                                        )
-                                                    }
                                                 }
                                             }
                                         }
@@ -949,93 +1052,121 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: Long?) {
 
                         LocoType.DIESEL -> {
                             AnimatedVisibility(visible = locomotiveExpandItemState[index]!!) {
-                                locomotive.dieselSectionList.forEachIndexed { index, sectionDiesel ->
-                                    val consumption = CalculationEnergy.getTotalFuelConsumption(
-                                        accepted = sectionDiesel.acceptedFuel,
-                                        delivery = sectionDiesel.deliveryFuel,
-                                        refuel = sectionDiesel.fuelSupply
-                                    )
-                                    val consumptionInKilo =
-                                        CalculationEnergy.getTotalFuelInKiloConsumption(
-                                            consumption = consumption,
-                                            coefficient = sectionDiesel.coefficient
+                                Column {
+                                    locomotive.dieselSectionList.forEachIndexed { index, sectionDiesel ->
+                                        val consumption = CalculationEnergy.getTotalFuelConsumption(
+                                            accepted = sectionDiesel.acceptedFuel,
+                                            delivery = sectionDiesel.deliveryFuel,
+                                            refuel = sectionDiesel.fuelSupply
                                         )
-                                    val consumptionText = consumption.str()
-                                    val consumptionInKiloText = consumptionInKilo.str()
-                                    val acceptedText = sectionDiesel.acceptedFuel.str()
-                                    val deliveryText = sectionDiesel.deliveryFuel.str()
-                                    val acceptedInKilo =
-                                        sectionDiesel.acceptedFuel.times(sectionDiesel.coefficient)
-                                    val acceptedInKiloText = rounding(acceptedInKilo, 2).str()
-                                    val deliveryInKilo =
-                                        sectionDiesel.deliveryFuel.times(sectionDiesel.coefficient)
-                                    val deliveryInKiloText = rounding(deliveryInKilo, 2).str()
-                                    val fuelSupplyText = sectionDiesel.fuelSupply.str()
-                                    val coefficientText = sectionDiesel.coefficient.str()
+                                        val consumptionInKilo =
+                                            CalculationEnergy.getTotalFuelInKiloConsumption(
+                                                consumption = consumption,
+                                                coefficient = sectionDiesel.coefficient
+                                            )
+                                        val consumptionText = consumption.str()
+                                        val consumptionInKiloText = consumptionInKilo.str()
+                                        val acceptedText = sectionDiesel.acceptedFuel.str()
+                                        val deliveryText = sectionDiesel.deliveryFuel.str()
+                                        val acceptedInKilo =
+                                            sectionDiesel.acceptedFuel.times(sectionDiesel.coefficient)
+                                        val acceptedInKiloText = rounding(acceptedInKilo, 2).str()
+                                        val deliveryInKilo =
+                                            sectionDiesel.deliveryFuel.times(sectionDiesel.coefficient)
+                                        val deliveryInKiloText = rounding(deliveryInKilo, 2).str()
+                                        val fuelSupplyText = sectionDiesel.fuelSupply.str()
+                                        val coefficientText = sectionDiesel.coefficient.str()
 
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(
-                                                top = paddingInsideBlock,
-                                                start = horizontalPaddingSecondItem
-                                            ),
-                                        verticalAlignment = Alignment.Top
-                                    ) {
-                                        // Icon
-                                        Box(
+                                        Row(
                                             modifier = Modifier
-                                                .size(iconSizeSecond)
-                                                .background(
-                                                    color = MaterialTheme.colorScheme.secondary,
-                                                    shape = Shapes.medium
-                                                )
-                                        )
-
-                                        Column(modifier = Modifier.padding(start = paddingIcon)) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(
-                                                    paddingIcon / 2
-                                                )
+                                                .fillMaxWidth()
+                                                .padding(
+                                                    top = paddingInsideBlock,
+                                                    start = horizontalPaddingSecondItem
+                                                ),
+                                            verticalAlignment = Alignment.Top
+                                        ) {
+                                            // Icon
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(iconSizeSecond)
+                                                    .background(
+                                                        color = MaterialTheme.colorScheme.secondary,
+                                                        shape = Shapes.medium
+                                                    ),
+                                                contentAlignment = Alignment.Center
                                             ) {
-                                                Text(
-                                                    text = "$acceptedText - $deliveryText",
-                                                    style = styleHint
-                                                )
-                                                Text(
-                                                    text = "$consumptionText л.",
-                                                    style = styleHint
+                                                val image: Int = when (index) {
+                                                    0 -> R.drawable.one
+                                                    1 -> R.drawable.two
+                                                    2 -> R.drawable.three
+                                                    3 -> R.drawable.four
+                                                    4 -> R.drawable.five
+                                                    5 -> R.drawable.sex
+                                                    6 -> R.drawable.seven
+                                                    7 -> R.drawable.eight
+                                                    8 -> R.drawable.nine
+                                                    else -> R.drawable.one
+                                                }
+                                                Icon(
+                                                    modifier = Modifier.fillMaxSize(0.7f),
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    painter = painterResource(id = image),
+                                                    contentDescription = null
                                                 )
                                             }
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(
-                                                    paddingIcon / 2
-                                                )
-                                            ) {
-                                                Text(
-                                                    text = "$acceptedInKiloText - $deliveryInKiloText",
-                                                    style = styleHint
-                                                )
-                                                Text(
-                                                    text = "$consumptionInKiloText кг.",
-                                                    style = styleHint
-                                                )
-                                            }
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(
-                                                    paddingIcon / 2
-                                                )
-                                            ) {
-                                                Text(
-                                                    text = "k: $coefficientText",
-                                                    style = styleHint
-                                                )
-                                                sectionDiesel.fuelSupply?.let {
+                                            Column(modifier = Modifier.padding(start = paddingIcon)) {
+                                                if (acceptedText.isNotEmpty() || deliveryText.isNotEmpty()) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(
+                                                            paddingIcon / 2
+                                                        )
+                                                    ) {
+                                                        Text(
+                                                            text = "$acceptedText - $deliveryText",
+                                                            style = styleHint
+                                                        )
+                                                        Text(
+                                                            text = "$consumptionText л.",
+                                                            style = styleHint
+                                                        )
+                                                    }
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(
+                                                            paddingIcon / 2
+                                                        )
+                                                    ) {
+                                                        Text(
+                                                            text = "$acceptedInKiloText - $deliveryInKiloText",
+                                                            style = styleHint
+                                                        )
+                                                        Text(
+                                                            text = "$consumptionInKiloText кг.",
+                                                            style = styleHint
+                                                        )
+                                                    }
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(
+                                                            paddingIcon / 2
+                                                        )
+                                                    ) {
+                                                        Text(
+                                                            text = "k: $coefficientText",
+                                                            style = styleHint
+                                                        )
+                                                        sectionDiesel.fuelSupply?.let {
+                                                            Text(
+                                                                text = "Снабжение: $fuelSupplyText л.",
+                                                                style = styleHint
+                                                            )
+                                                        }
+                                                    }
+                                                } else {
                                                     Text(
-                                                        text = "Снабжение: $fuelSupplyText л.",
+                                                        text = "Нет данных",
                                                         style = styleHint
                                                     )
                                                 }
@@ -1094,8 +1225,16 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: Long?) {
                                     .background(
                                         color = MaterialTheme.colorScheme.secondary,
                                         shape = Shapes.medium
-                                    )
-                            )
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    modifier = Modifier.fillMaxSize(0.7f),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    painter = painterResource(id = R.drawable.description_24px),
+                                    contentDescription = null
+                                )
+                            }
                             Column(modifier = Modifier.padding(start = paddingIcon)) {
                                 Box {
                                     Text(
@@ -1173,8 +1312,16 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: Long?) {
                                             .background(
                                                 color = MaterialTheme.colorScheme.secondary,
                                                 shape = Shapes.medium
-                                            )
-                                    )
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            modifier = Modifier.fillMaxSize(0.7f),
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            painter = painterResource(id = R.drawable.location_on_24px),
+                                            contentDescription = null
+                                        )
+                                    }
                                     Column(modifier = Modifier.padding(start = paddingIcon)) {
                                         Text(text = stationNameText, style = styleHint)
 
@@ -1232,8 +1379,16 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: Long?) {
                                 .background(
                                     color = MaterialTheme.colorScheme.secondary,
                                     shape = Shapes.medium
-                                )
-                        )
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                modifier = Modifier.fillMaxSize(0.7f),
+                                tint = MaterialTheme.colorScheme.primary,
+                                painter = painterResource(id = R.drawable.passenger_24px),
+                                contentDescription = null
+                            )
+                        }
                         Column(modifier = Modifier.padding(start = paddingIcon)) {
                             Text(text = timeFollowing, style = styleData)
                             if (passenger.timeDeparture != null || passenger.timeArrival != null) {
@@ -1247,17 +1402,28 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: Long?) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = paddingInsideBlock)
+                            .padding(
+                                top = paddingInsideBlock,
+                                start = horizontalPaddingSecondItem
+                            )
                     ) {
                         // Icon
                         Box(
                             modifier = Modifier
-                                .size(iconSize)
+                                .size(iconSizeSecond)
                                 .background(
                                     color = MaterialTheme.colorScheme.secondary,
                                     shape = Shapes.medium
-                                )
-                        )
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                modifier = Modifier.fillMaxSize(0.7f),
+                                tint = MaterialTheme.colorScheme.primary,
+                                painter = painterResource(id = R.drawable.number_123_24px),
+                                contentDescription = null
+                            )
+                        }
                         Column(modifier = Modifier.padding(start = paddingIcon)) {
                             Text(text = numberText, style = styleData)
                             if (stationDeparture.isNotBlank() && stationArrival.isNotBlank()) {
@@ -1276,7 +1442,7 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: Long?) {
                     }
                 }
             }
-            if (!route.basicData.notes.isNullOrBlank() && route.photos.isNotEmpty()) {
+            if (!route.basicData.notes.isNullOrBlank() || route.photos.isNotEmpty()) {
                 item {
                     Box(
                         modifier = Modifier
@@ -1308,8 +1474,16 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: Long?) {
                                     .background(
                                         color = MaterialTheme.colorScheme.secondary,
                                         shape = Shapes.medium
-                                    )
-                            )
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    modifier = Modifier.fillMaxSize(0.7f),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    painter = painterResource(id = R.drawable.notes_24px),
+                                    contentDescription = null
+                                )
+                            }
                             Text(
                                 text = notesText,
                                 style = styleData,
