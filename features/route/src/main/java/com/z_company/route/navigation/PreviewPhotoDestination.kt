@@ -7,7 +7,7 @@ import com.z_company.domain.navigation.Router
 import com.z_company.route.Const.NULLABLE_ID
 import com.z_company.route.ui.PreviewPhotoScreen
 import com.z_company.route.viewmodel.PreviewPhotoViewModel
-import org.koin.androidx.compose.getViewModel
+import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 
 @Composable
@@ -18,7 +18,7 @@ fun PreviewPhotoDestination(
     val photoUrl = PreviewPhotoRoute.getPhotoUrl(backStackEntry) ?: NULLABLE_ID
     val basicId = PreviewPhotoRoute.getBasicId(backStackEntry) ?: NULLABLE_ID
 
-    val viewModel = getViewModel<PreviewPhotoViewModel>(
+    val viewModel = koinViewModel<PreviewPhotoViewModel>(
         parameters = { parametersOf(basicId) }
     )
     val uiState = viewModel.uiState.collectAsState()

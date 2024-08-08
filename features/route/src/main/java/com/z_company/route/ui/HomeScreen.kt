@@ -3,7 +3,6 @@ package com.z_company.route.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -16,19 +15,19 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeightIn
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -52,7 +51,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -65,14 +63,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.rememberAsyncImagePainter
-import com.maxkeppeker.sheets.core.views.Grid
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
-import com.z_company.core.util.ConverterUrlBase64
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.DateAndTimeConverter.getDateMiniAndTime
 import com.z_company.core.util.DateAndTimeConverter.getDateFromDateLong
@@ -80,7 +75,6 @@ import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
 import com.z_company.core.util.DateAndTimeConverter.getTimeFromDateLong
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHours
-import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.fullRest
@@ -106,8 +100,7 @@ import com.z_company.core.R as CoreR
 fun HomeScreen(
     routeListState: ResultState<List<Route>>,
     removeRouteState: ResultState<Unit>?,
-    onRouteClick: (BasicData) -> Unit,
-    onChangeRoute: (String) -> Unit,
+    onRouteClick: (String) -> Unit,
     onNewRouteClick: () -> Unit,
     onDeleteRoute: (Route) -> Unit,
     onDeleteRouteConfirmed: () -> Unit,
@@ -122,7 +115,7 @@ fun HomeScreen(
     minTimeRest: Long?,
     nightTime: Long?,
     passengerTime: Long?,
-    calculationHomeRest: (Route) -> Long?,
+    calculationHomeRest: (Route?) -> Long?,
     firstEntryDialogState: Boolean,
     resetStateFirstEntryDialog: () -> Unit
 ) {
@@ -218,6 +211,7 @@ fun HomeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(bottom = 48.dp)
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onPress = {
@@ -226,17 +220,21 @@ fun HomeScreen(
                     )
                 },
             horizontalAlignment = Alignment.End,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.Bottom
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(heightScreen.times(0.7f).dp)
+                    .requiredHeightIn(
+                        min = heightScreen.times(0.3f).dp,
+                        max = heightScreen.times(0.8f).dp
+                    )
                     .padding(start = 12.dp, end = 12.dp, top = 30.dp, bottom = 12.dp)
                     .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
                     .clickable {}
             ) {
-                PreviewRoute(routeForPreview, minTimeRest, calculationHomeRest)
+                val homeRest = calculationHomeRest(routeForPreview)
+                PreviewRoute(routeForPreview, minTimeRest, homeRest)
             }
 
             Column(
@@ -252,7 +250,7 @@ fun HomeScreen(
                         .clickable {
                             showContextDialog = false
                             routeForPreview?.basicData?.let { basicData ->
-                                onRouteClick(basicData)
+                                onRouteClick(basicData.id)
                             }
                         },
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -275,33 +273,9 @@ fun HomeScreen(
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                         .clickable {
                             showContextDialog = false
-                            routeForPreview?.basicData?.let { basicData ->
-                                onChangeRoute(basicData.id)
-                            }
-                        },
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Редактировать",
-                        style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
-                    )
-                    Icon(
-                        imageVector = Icons.Default.Create,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-                HorizontalDivider()
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .clickable {
                             routeForPreview?.let { route ->
                                 onDeleteRoute(route)
                             }
-                            showContextDialog = false
                         },
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
@@ -455,7 +429,7 @@ fun HomeScreen(
                 ) {
                     Icon(
                         modifier = Modifier.padding(end = 4.dp),
-                        painter = painterResource(id = CoreR.drawable.ic_star_border),
+                        painter = painterResource(id = R.drawable.dark_mode_24px),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary
                     )
@@ -470,7 +444,7 @@ fun HomeScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         modifier = Modifier.padding(end = 4.dp),
-                        painter = painterResource(id = CoreR.drawable.ic_star_border),
+                        painter = painterResource(id = R.drawable.passenger_24px),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary
                     )
@@ -539,7 +513,7 @@ fun TotalTime(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun PreviewRoute(route: Route?, minTimeRest: Long?, calculationHomeRest: (Route) -> Long?) {
+fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: Long?) {
     val styleTitle = AppTypography.getType().titleSmall.copy(
         fontWeight = FontWeight.W600,
         color = MaterialTheme.colorScheme.primary
@@ -559,7 +533,6 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, calculationHomeRest: (Route)
     val iconSize = 50.dp
     val iconSizeSecond = iconSize * .8f
     val iconMiniSize = 18.dp
-    val widthScreen = LocalConfiguration.current.screenWidthDp
 
     val locomotiveExpandItemState = remember {
         mutableStateMapOf<Int, Boolean>()
@@ -570,7 +543,8 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, calculationHomeRest: (Route)
     route?.let {
         LazyColumn(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
+                .wrapContentHeight()
                 .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -633,8 +607,16 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, calculationHomeRest: (Route)
                                 .background(
                                     color = MaterialTheme.colorScheme.secondary,
                                     shape = Shapes.medium
-                                )
-                        )
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                modifier = Modifier.fillMaxSize(0.7f),
+                                tint = MaterialTheme.colorScheme.primary,
+                                painter = painterResource(id = R.drawable.schedule_24px),
+                                contentDescription = null
+                            )
+                        }
                         Column(modifier = Modifier.padding(start = paddingIcon)) {
                             Box {
                                 Text(
@@ -680,8 +662,25 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, calculationHomeRest: (Route)
                                 .background(
                                     color = MaterialTheme.colorScheme.secondary,
                                     shape = Shapes.medium
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (route.basicData.restPointOfTurnover) {
+                                Icon(
+                                    modifier = Modifier.fillMaxSize(0.7f),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    painter = painterResource(id = R.drawable.hotel_24px),
+                                    contentDescription = null
                                 )
-                        )
+                            } else {
+                                Icon(
+                                    modifier = Modifier.fillMaxSize(0.7f),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    painter = painterResource(id = R.drawable.gite_24px),
+                                    contentDescription = null
+                                )
+                            }
+                        }
 
                         Column(modifier = Modifier.padding(start = paddingIcon)) {
                             Text(
@@ -704,9 +703,8 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, calculationHomeRest: (Route)
                                     )
                                 }
                             } else {
-                                val homeRestInLong = calculationHomeRest(route)
-                                homeRestInLong?.let {
-                                    val homeRestInLongText = getDateMiniAndTime(homeRestInLong)
+                                homeRest?.let {
+                                    val homeRestInLongText = getDateMiniAndTime(homeRest)
                                     Text(
                                         text = "до $homeRestInLongText",
                                         style = styleHint,
@@ -777,8 +775,29 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, calculationHomeRest: (Route)
                                     .background(
                                         color = MaterialTheme.colorScheme.secondary,
                                         shape = Shapes.medium
-                                    )
-                            )
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                when (locomotive.type) {
+                                    LocoType.ELECTRIC -> {
+                                        Icon(
+                                            modifier = Modifier.fillMaxSize(0.7f),
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            painter = painterResource(id = R.drawable.electric_loco),
+                                            contentDescription = null
+                                        )
+                                    }
+
+                                    LocoType.DIESEL -> {
+                                        Icon(
+                                            modifier = Modifier.fillMaxSize(0.7f),
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            painter = painterResource(id = R.drawable.diesel_loco),
+                                            contentDescription = null
+                                        )
+                                    }
+                                }
+                            }
                             Column(
                                 modifier = Modifier
                                     .padding(start = paddingIcon)
@@ -858,23 +877,23 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, calculationHomeRest: (Route)
                                 Column {
                                     locomotive.electricSectionList.forEachIndexed { index, sectionElectric ->
                                         val acceptedEnergyText =
-                                            sectionElectric.acceptedEnergy
+                                            sectionElectric.acceptedEnergy.str()
                                         val deliveryEnergyText =
-                                            sectionElectric.deliveryEnergy
+                                            sectionElectric.deliveryEnergy.str()
                                         val acceptedRecoveryText =
-                                            sectionElectric.acceptedRecovery
+                                            sectionElectric.acceptedRecovery.str()
                                         val deliveryRecoveryText =
-                                            sectionElectric.deliveryRecovery
+                                            sectionElectric.deliveryRecovery.str()
                                         val consumptionEnergy =
                                             CalculationEnergy.getTotalEnergyConsumption(
                                                 accepted = sectionElectric.acceptedEnergy,
                                                 delivery = sectionElectric.deliveryEnergy
-                                            )
+                                            ).str()
                                         val consumptionRecovery =
                                             CalculationEnergy.getTotalEnergyConsumption(
                                                 accepted = sectionElectric.acceptedRecovery,
                                                 delivery = sectionElectric.deliveryRecovery
-                                            )
+                                            ).str()
 
                                         Row(
                                             modifier = Modifier
@@ -892,75 +911,129 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, calculationHomeRest: (Route)
                                                     .background(
                                                         color = MaterialTheme.colorScheme.secondary,
                                                         shape = Shapes.medium
-                                                    )
-                                            )
+                                                    ),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                val image: Int = when (index) {
+                                                    0 -> R.drawable.one
+                                                    1 -> R.drawable.two
+                                                    2 -> R.drawable.three
+                                                    3 -> R.drawable.four
+                                                    4 -> R.drawable.five
+                                                    5 -> R.drawable.sex
+                                                    6 -> R.drawable.seven
+                                                    7 -> R.drawable.eight
+                                                    8 -> R.drawable.nine
+                                                    else -> R.drawable.one
+                                                }
+                                                Icon(
+                                                    modifier = Modifier.fillMaxSize(0.7f),
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    painter = painterResource(id = image),
+                                                    contentDescription = null
+                                                )
+                                            }
                                             Column(modifier = Modifier.padding(start = paddingIcon)) {
                                                 if (sectionElectric.acceptedEnergy != null ||
-                                                    sectionElectric.deliveryEnergy != null
-                                                ) {
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(
-                                                            paddingIcon / 2
-                                                        )
-                                                    ) {
-                                                        // Icon energy symbol
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .size(iconMiniSize)
-                                                                .background(
-                                                                    color = MaterialTheme.colorScheme.secondary,
-                                                                    shape = Shapes.medium
-                                                                )
-                                                        )
-                                                        Text(
-                                                            text = "$acceptedEnergyText - $deliveryEnergyText",
-                                                            style = styleHint,
-                                                        )
-                                                    }
-                                                }
-                                                if (sectionElectric.acceptedRecovery != null ||
+                                                    sectionElectric.deliveryEnergy != null ||
+                                                    sectionElectric.acceptedRecovery != null ||
                                                     sectionElectric.deliveryRecovery != null
                                                 ) {
+
+                                                    if (sectionElectric.acceptedEnergy != null ||
+                                                        sectionElectric.deliveryEnergy != null
+                                                    ) {
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(
+                                                                paddingIcon / 2
+                                                            )
+                                                        ) {
+                                                            // Icon energy symbol
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .size(iconMiniSize),
+                                                                contentAlignment = Alignment.Center
+                                                            ) {
+                                                                Icon(
+                                                                    modifier = Modifier.fillMaxSize(
+                                                                        0.7f
+                                                                    ),
+                                                                    tint = MaterialTheme.colorScheme.primary,
+                                                                    painter = painterResource(id = R.drawable.electric_bolt_24px),
+                                                                    contentDescription = null
+                                                                )
+                                                            }
+                                                            Text(
+                                                                text = "$acceptedEnergyText - $deliveryEnergyText",
+                                                                style = styleHint,
+                                                            )
+                                                        }
+                                                    }
+
+                                                    if (sectionElectric.acceptedRecovery != null ||
+                                                        sectionElectric.deliveryRecovery != null
+                                                    ) {
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(
+                                                                paddingIcon / 2
+                                                            )
+                                                        ) {
+                                                            // Icon recovery symbol
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .size(iconMiniSize),
+                                                                contentAlignment = Alignment.Center
+                                                            ) {
+                                                                Icon(
+                                                                    modifier = Modifier.fillMaxSize(
+                                                                        0.7f
+                                                                    ),
+                                                                    tint = MaterialTheme.colorScheme.primary,
+                                                                    painter = painterResource(id = R.drawable.cycle_24px),
+                                                                    contentDescription = null
+                                                                )
+                                                            }
+                                                            Text(
+                                                                text = "$acceptedRecoveryText - $deliveryRecoveryText",
+                                                                style = styleHint,
+                                                            )
+                                                        }
+                                                    }
+
                                                     Row(
                                                         verticalAlignment = Alignment.CenterVertically,
                                                         horizontalArrangement = Arrangement.spacedBy(
                                                             paddingIcon / 2
                                                         )
                                                     ) {
-                                                        // Icon recovery symbol
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .size(iconMiniSize)
-                                                                .background(
-                                                                    color = MaterialTheme.colorScheme.secondary,
-                                                                    shape = Shapes.medium
+                                                        if (sectionElectric.acceptedEnergy != null &&
+                                                            sectionElectric.deliveryEnergy != null
+                                                        ) {
+                                                            consumptionEnergy.let {
+                                                                Text(
+                                                                    text = "Расход: $consumptionEnergy",
+                                                                    style = styleHint,
                                                                 )
-                                                        )
-                                                        Text(
-                                                            text = "$acceptedRecoveryText - $deliveryRecoveryText",
-                                                            style = styleHint,
-                                                        )
+                                                            }
+                                                        }
+                                                        if (sectionElectric.acceptedRecovery != null &&
+                                                            sectionElectric.deliveryRecovery != null
+                                                        ) {
+                                                            consumptionRecovery.let {
+                                                                Text(
+                                                                    text = "Рекуперация: $consumptionRecovery",
+                                                                    style = styleHint,
+                                                                )
+                                                            }
+                                                        }
                                                     }
-                                                }
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(
-                                                        paddingIcon / 2
+                                                } else {
+                                                    Text(
+                                                        text = "Нет данных",
+                                                        style = styleHint
                                                     )
-                                                ) {
-                                                    consumptionEnergy?.let {
-                                                        Text(
-                                                            text = "Расход: $consumptionEnergy",
-                                                            style = styleHint,
-                                                        )
-                                                    }
-                                                    consumptionRecovery?.let {
-                                                        Text(
-                                                            text = "Рекуперация: $consumptionRecovery",
-                                                            style = styleHint,
-                                                        )
-                                                    }
                                                 }
                                             }
                                         }
@@ -971,93 +1044,121 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, calculationHomeRest: (Route)
 
                         LocoType.DIESEL -> {
                             AnimatedVisibility(visible = locomotiveExpandItemState[index]!!) {
-                                locomotive.dieselSectionList.forEachIndexed { index, sectionDiesel ->
-                                    val consumption = CalculationEnergy.getTotalFuelConsumption(
-                                        accepted = sectionDiesel.acceptedFuel,
-                                        delivery = sectionDiesel.deliveryFuel,
-                                        refuel = sectionDiesel.fuelSupply
-                                    )
-                                    val consumptionInKilo =
-                                        CalculationEnergy.getTotalFuelInKiloConsumption(
-                                            consumption = consumption,
-                                            coefficient = sectionDiesel.coefficient
+                                Column {
+                                    locomotive.dieselSectionList.forEachIndexed { index, sectionDiesel ->
+                                        val consumption = CalculationEnergy.getTotalFuelConsumption(
+                                            accepted = sectionDiesel.acceptedFuel,
+                                            delivery = sectionDiesel.deliveryFuel,
+                                            refuel = sectionDiesel.fuelSupply
                                         )
-                                    val consumptionText = consumption.str()
-                                    val consumptionInKiloText = consumptionInKilo.str()
-                                    val acceptedText = sectionDiesel.acceptedFuel.str()
-                                    val deliveryText = sectionDiesel.deliveryFuel.str()
-                                    val acceptedInKilo =
-                                        sectionDiesel.acceptedFuel.times(sectionDiesel.coefficient)
-                                    val acceptedInKiloText = rounding(acceptedInKilo, 2).str()
-                                    val deliveryInKilo =
-                                        sectionDiesel.deliveryFuel.times(sectionDiesel.coefficient)
-                                    val deliveryInKiloText = rounding(deliveryInKilo, 2).str()
-                                    val fuelSupplyText = sectionDiesel.fuelSupply.str()
-                                    val coefficientText = sectionDiesel.coefficient.str()
+                                        val consumptionInKilo =
+                                            CalculationEnergy.getTotalFuelInKiloConsumption(
+                                                consumption = consumption,
+                                                coefficient = sectionDiesel.coefficient
+                                            )
+                                        val consumptionText = consumption.str()
+                                        val consumptionInKiloText = consumptionInKilo.str()
+                                        val acceptedText = sectionDiesel.acceptedFuel.str()
+                                        val deliveryText = sectionDiesel.deliveryFuel.str()
+                                        val acceptedInKilo =
+                                            sectionDiesel.acceptedFuel.times(sectionDiesel.coefficient)
+                                        val acceptedInKiloText = rounding(acceptedInKilo, 2).str()
+                                        val deliveryInKilo =
+                                            sectionDiesel.deliveryFuel.times(sectionDiesel.coefficient)
+                                        val deliveryInKiloText = rounding(deliveryInKilo, 2).str()
+                                        val fuelSupplyText = sectionDiesel.fuelSupply.str()
+                                        val coefficientText = sectionDiesel.coefficient.str()
 
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(
-                                                top = paddingInsideBlock,
-                                                start = horizontalPaddingSecondItem
-                                            ),
-                                        verticalAlignment = Alignment.Top
-                                    ) {
-                                        // Icon
-                                        Box(
+                                        Row(
                                             modifier = Modifier
-                                                .size(iconSizeSecond)
-                                                .background(
-                                                    color = MaterialTheme.colorScheme.secondary,
-                                                    shape = Shapes.medium
-                                                )
-                                        )
-
-                                        Column(modifier = Modifier.padding(start = paddingIcon)) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(
-                                                    paddingIcon / 2
-                                                )
+                                                .fillMaxWidth()
+                                                .padding(
+                                                    top = paddingInsideBlock,
+                                                    start = horizontalPaddingSecondItem
+                                                ),
+                                            verticalAlignment = Alignment.Top
+                                        ) {
+                                            // Icon
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(iconSizeSecond)
+                                                    .background(
+                                                        color = MaterialTheme.colorScheme.secondary,
+                                                        shape = Shapes.medium
+                                                    ),
+                                                contentAlignment = Alignment.Center
                                             ) {
-                                                Text(
-                                                    text = "$acceptedText - $deliveryText",
-                                                    style = styleHint
-                                                )
-                                                Text(
-                                                    text = "$consumptionText л.",
-                                                    style = styleHint
+                                                val image: Int = when (index) {
+                                                    0 -> R.drawable.one
+                                                    1 -> R.drawable.two
+                                                    2 -> R.drawable.three
+                                                    3 -> R.drawable.four
+                                                    4 -> R.drawable.five
+                                                    5 -> R.drawable.sex
+                                                    6 -> R.drawable.seven
+                                                    7 -> R.drawable.eight
+                                                    8 -> R.drawable.nine
+                                                    else -> R.drawable.one
+                                                }
+                                                Icon(
+                                                    modifier = Modifier.fillMaxSize(0.7f),
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    painter = painterResource(id = image),
+                                                    contentDescription = null
                                                 )
                                             }
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(
-                                                    paddingIcon / 2
-                                                )
-                                            ) {
-                                                Text(
-                                                    text = "$acceptedInKiloText - $deliveryInKiloText",
-                                                    style = styleHint
-                                                )
-                                                Text(
-                                                    text = "$consumptionInKiloText кг.",
-                                                    style = styleHint
-                                                )
-                                            }
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(
-                                                    paddingIcon / 2
-                                                )
-                                            ) {
-                                                Text(
-                                                    text = "k: $coefficientText",
-                                                    style = styleHint
-                                                )
-                                                sectionDiesel.fuelSupply?.let {
+                                            Column(modifier = Modifier.padding(start = paddingIcon)) {
+                                                if (acceptedText.isNotEmpty() || deliveryText.isNotEmpty()) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(
+                                                            paddingIcon / 2
+                                                        )
+                                                    ) {
+                                                        Text(
+                                                            text = "$acceptedText - $deliveryText",
+                                                            style = styleHint
+                                                        )
+                                                        Text(
+                                                            text = "$consumptionText л.",
+                                                            style = styleHint
+                                                        )
+                                                    }
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(
+                                                            paddingIcon / 2
+                                                        )
+                                                    ) {
+                                                        Text(
+                                                            text = "$acceptedInKiloText - $deliveryInKiloText",
+                                                            style = styleHint
+                                                        )
+                                                        Text(
+                                                            text = "$consumptionInKiloText кг.",
+                                                            style = styleHint
+                                                        )
+                                                    }
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(
+                                                            paddingIcon / 2
+                                                        )
+                                                    ) {
+                                                        Text(
+                                                            text = "k: $coefficientText",
+                                                            style = styleHint
+                                                        )
+                                                        sectionDiesel.fuelSupply?.let {
+                                                            Text(
+                                                                text = "Снабжение: $fuelSupplyText л.",
+                                                                style = styleHint
+                                                            )
+                                                        }
+                                                    }
+                                                } else {
                                                     Text(
-                                                        text = "Снабжение: $fuelSupplyText л.",
+                                                        text = "Нет данных",
                                                         style = styleHint
                                                     )
                                                 }
@@ -1116,8 +1217,16 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, calculationHomeRest: (Route)
                                     .background(
                                         color = MaterialTheme.colorScheme.secondary,
                                         shape = Shapes.medium
-                                    )
-                            )
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    modifier = Modifier.fillMaxSize(0.7f),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    painter = painterResource(id = R.drawable.description_24px),
+                                    contentDescription = null
+                                )
+                            }
                             Column(modifier = Modifier.padding(start = paddingIcon)) {
                                 Box {
                                     Text(
@@ -1195,8 +1304,16 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, calculationHomeRest: (Route)
                                             .background(
                                                 color = MaterialTheme.colorScheme.secondary,
                                                 shape = Shapes.medium
-                                            )
-                                    )
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            modifier = Modifier.fillMaxSize(0.7f),
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            painter = painterResource(id = R.drawable.location_on_24px),
+                                            contentDescription = null
+                                        )
+                                    }
                                     Column(modifier = Modifier.padding(start = paddingIcon)) {
                                         Text(text = stationNameText, style = styleHint)
 
@@ -1254,8 +1371,16 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, calculationHomeRest: (Route)
                                 .background(
                                     color = MaterialTheme.colorScheme.secondary,
                                     shape = Shapes.medium
-                                )
-                        )
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                modifier = Modifier.fillMaxSize(0.7f),
+                                tint = MaterialTheme.colorScheme.primary,
+                                painter = painterResource(id = R.drawable.passenger_24px),
+                                contentDescription = null
+                            )
+                        }
                         Column(modifier = Modifier.padding(start = paddingIcon)) {
                             Text(text = timeFollowing, style = styleData)
                             if (passenger.timeDeparture != null || passenger.timeArrival != null) {
@@ -1269,17 +1394,28 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, calculationHomeRest: (Route)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = paddingInsideBlock)
+                            .padding(
+                                top = paddingInsideBlock,
+                                start = horizontalPaddingSecondItem
+                            )
                     ) {
                         // Icon
                         Box(
                             modifier = Modifier
-                                .size(iconSize)
+                                .size(iconSizeSecond)
                                 .background(
                                     color = MaterialTheme.colorScheme.secondary,
                                     shape = Shapes.medium
-                                )
-                        )
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                modifier = Modifier.fillMaxSize(0.7f),
+                                tint = MaterialTheme.colorScheme.primary,
+                                painter = painterResource(id = R.drawable.number_123_24px),
+                                contentDescription = null
+                            )
+                        }
                         Column(modifier = Modifier.padding(start = paddingIcon)) {
                             Text(text = numberText, style = styleData)
                             if (stationDeparture.isNotBlank() && stationArrival.isNotBlank()) {
@@ -1298,7 +1434,7 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, calculationHomeRest: (Route)
                     }
                 }
             }
-            if (!route.basicData.notes.isNullOrBlank() && route.photos.isNotEmpty()) {
+            if (!route.basicData.notes.isNullOrBlank() || route.photos.isNotEmpty()) {
                 item {
                     Box(
                         modifier = Modifier
@@ -1316,7 +1452,6 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, calculationHomeRest: (Route)
             }
             item {
                 val notesText = route.basicData.notes.ifNullOrBlank { "" }
-                val imageSize = (widthScreen - 24 - 24) / 3
                 Column(
                     modifier = Modifier
                         .padding(top = paddingInsideBlock)
@@ -1330,39 +1465,21 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, calculationHomeRest: (Route)
                                     .background(
                                         color = MaterialTheme.colorScheme.secondary,
                                         shape = Shapes.medium
-                                    )
-                            )
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    modifier = Modifier.fillMaxSize(0.7f),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    painter = painterResource(id = R.drawable.notes_24px),
+                                    contentDescription = null
+                                )
+                            }
                             Text(
                                 text = notesText,
                                 style = styleData,
                                 modifier = Modifier.padding(start = paddingIcon)
                             )
-                        }
-                    }
-                    Grid(
-                        modifier = Modifier.padding(top = paddingInsideBlock),
-                        items = route.photos,
-                        columns = 3,
-                        rowSpacing = paddingInsideBlock,
-                        columnSpacing = paddingInsideBlock
-                    ) { photo ->
-                        Card(
-                            modifier = Modifier
-                                .size(imageSize.dp),
-                            shape = Shapes.extraSmall,
-                        ) {
-                            Box(modifier = Modifier.fillMaxSize()) {
-                                photo.base64.let { base64String ->
-                                    val decodedImage =
-                                        ConverterUrlBase64.base64toBitmap(base64String)
-                                    Image(
-                                        modifier = Modifier.fillMaxSize(),
-                                        painter = rememberAsyncImagePainter(model = decodedImage),
-                                        contentScale = ContentScale.Crop,
-                                        contentDescription = null
-                                    )
-                                }
-                            }
                         }
                     }
                 }

@@ -16,6 +16,7 @@ import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.repository.Back4AppManager
 import com.z_company.use_case.AuthUseCase
 import com.z_company.use_case.RemoteRouteUseCase
 import kotlinx.coroutines.Job
@@ -35,6 +36,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private val settingsUseCase: SettingsUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
+    private val back4AppManager: Back4AppManager by inject()
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState = _uiState.asStateFlow()
@@ -239,7 +241,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
 
     fun onSync() {
         viewModelScope.launch {
-            remoteRouteUseCase.syncBasicData().collect { result ->
+            back4AppManager.synchronizedStorage().collect { result ->
                 _uiState.update {
                     it.copy(
                         updateRepositoryState = result
@@ -247,8 +249,13 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                 }
             }
         }
-        viewModelScope.launch {
-            remoteRouteUseCase.loadingRoutesFromRemote()
+    }
+
+    fun resetRepositoryState(){
+        _uiState.update {
+            it.copy(
+                updateRepositoryState = ResultState.Success(Unit)
+            )
         }
     }
 
@@ -267,6 +274,30 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     fun changeMinTimeHomeRest(time: Long) {
         currentSettings = currentSettings?.copy(
             minTimeHomeRest = time
+        )
+    }
+
+    fun changeStartNightTime(hour: Int, minute: Int) {
+        currentSettings = currentSettings?.copy(
+            nightTime = currentSettings!!.nightTime.copy(
+                startNightHour = hour,
+                startNightMinute = minute
+            )
+        )
+    }
+
+    fun changeEndNightTime(hour: Int, minute: Int) {
+        currentSettings = currentSettings?.copy(
+            nightTime = currentSettings!!.nightTime.copy(
+                endNightHour = hour,
+                endNightMinute = minute
+            )
+        )
+    }
+
+    fun changeUsingDefaultWorkTime(isUsing: Boolean) {
+        currentSettings = currentSettings?.copy(
+            usingDefaultWorkTime = isUsing
         )
     }
 }

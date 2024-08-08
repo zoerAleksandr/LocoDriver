@@ -24,16 +24,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
-import com.z_company.route.viewmodel.DieselSectionType
 import kotlinx.coroutines.launch
 
 @Composable
 fun EnteredRefuelDialog(
-    index: Int,
     refuelValue: String?,
-    showDialog: (Pair<Boolean, Int>) -> Unit,
-    onSaveClick: (Int, String?) -> Unit,
-    focusChangedDieselSection: (Int, DieselSectionType) -> Unit,
+    onSaveClick: (String?) -> Unit,
+    onDismissClick: () -> Unit
     ) {
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
@@ -47,7 +44,7 @@ fun EnteredRefuelDialog(
             fontWeight = FontWeight.Normal
         )
     AlertDialog(
-        onDismissRequest = { showDialog(Pair(false, index)) },
+        onDismissRequest = onDismissClick,
         title = {
             Text(text = "Экипировка", style = AppTypography.getType().headlineSmall)
         },
@@ -78,9 +75,7 @@ fun EnteredRefuelDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    showDialog(Pair(false, index))
-                    onSaveClick(index, temporaryValue)
-                    focusChangedDieselSection(index, DieselSectionType.REFUEL)
+                    onSaveClick(temporaryValue)
                 },
                 shape = Shapes.medium
             ) {
@@ -88,7 +83,7 @@ fun EnteredRefuelDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = { showDialog(Pair(false, index)) }) {
+            TextButton(onClick = onDismissClick) {
                 Text(text = "Отмена", style = subTitleTextStyle, color = MaterialTheme.colorScheme.error)
             }
         }

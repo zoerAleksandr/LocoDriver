@@ -23,6 +23,6 @@ internal data class Photo(
     @ColumnInfo(index = true)
     var basicId: String,
     var remoteObjectId: String?,
-    var base64: String = "",
+    var url: String,
     var dateOfCreate: Long
 )

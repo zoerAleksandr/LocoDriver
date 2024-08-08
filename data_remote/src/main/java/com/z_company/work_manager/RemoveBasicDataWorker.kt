@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 const val REMOVE_BASIC_DATA_OBJECT_ID_KEY = "REMOVE_OBJECT_ID_KEY"
+
 class RemoveBasicDataWorker(val context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params) {
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
@@ -20,8 +21,8 @@ class RemoveBasicDataWorker(val context: Context, params: WorkerParameters) :
             basicDataObject.deleteInBackground()
             return@withContext Result.success()
         } catch (e: Exception) {
-            Log.d("ZZZ", "ex sync = ${e.message}")
-            return@withContext Result.retry()
+            Log.d("ZZZ", "ex remove basic data = ${e.message}")
+            return@withContext Result.failure()
         }
 
     }

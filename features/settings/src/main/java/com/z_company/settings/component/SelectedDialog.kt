@@ -24,7 +24,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.z_company.core.R
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
@@ -51,6 +53,15 @@ fun SelectedDialog(
         var itemIsSelected by remember {
             mutableIntStateOf(selectedItem)
         }
+        val styleTitle = AppTypography.getType().titleLarge
+            .copy(
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Normal
+            )
+            .copy(
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Light
+            )
 
         Column(
             modifier = Modifier
@@ -73,7 +84,7 @@ fun SelectedDialog(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 TextButton(onClick = onDismissRequest) {
-                    Text(text = stringResource(id = R.string.text_btn_dismiss))
+                    Text(text = stringResource(id = R.string.text_btn_dismiss), style = styleTitle)
                 }
 
                 TextButton(
@@ -81,7 +92,7 @@ fun SelectedDialog(
                     shape = Shapes.medium,
                     border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary)
                 ) {
-                    Text(text = stringResource(id = R.string.text_btn_confirm), style = AppTypography.getType().bodyMedium)
+                    Text(text = stringResource(id = R.string.text_btn_confirm), style = styleTitle)
                 }
             }
         }
@@ -94,13 +105,15 @@ private fun SelectedItem(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
+    val styleData = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .selectable(selected = isSelected, onClick = onClick),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(text = text, style = AppTypography.getType().titleMedium)
+        Text(text = text, style = styleData)
         if (isSelected) {
             Icon(imageVector = Icons.Outlined.Check, contentDescription = "Выбрать")
         }

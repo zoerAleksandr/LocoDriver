@@ -7,7 +7,6 @@ import com.z_company.entity.Locomotive as LocomotiveRemote
 import com.z_company.entity.BasicData as BasicDataRemote
 import com.z_company.entity.Train as TrainRemote
 import com.z_company.entity.Passenger as PassengerRemote
-import com.z_company.entity.Photo as PhotoRemote
 import kotlinx.coroutines.flow.Flow
 
 interface RemoteRouteRepository {
@@ -17,7 +16,6 @@ interface RemoteRouteRepository {
     suspend fun removeBasicData(remoteObjectId: String): Flow<ResultState<Data>>
     suspend fun synchronizedRoutePeriodic(): Flow<ResultState<Unit>>
     suspend fun cancelingSync()
-    suspend fun synchronizedRouteOneTime(): Flow<ResultState<Unit>>
     suspend fun saveLocomotive(locomotive: LocomotiveRemote): Flow<ResultState<Data>>
     suspend fun removeLocomotive(remoteObjectId: String): Flow<ResultState<Data>>
     suspend fun removeTrain(remoteObjectId: String): Flow<ResultState<Data>>
@@ -26,5 +24,4 @@ interface RemoteRouteRepository {
     suspend fun loadLocomotiveFromRemote(basicId: String): Flow<ResultState<List<LocomotiveRemote>?>>
     suspend fun loadTrainFromRemote(basicId: String): Flow<ResultState<List<TrainRemote>?>>
     suspend fun loadPassengerFromRemote(basicId: String): Flow<ResultState<List<PassengerRemote>?>>
-    suspend fun loadPhotoFromRemote(basicId: String): Flow<ResultState<List<PhotoRemote>?>>
 }

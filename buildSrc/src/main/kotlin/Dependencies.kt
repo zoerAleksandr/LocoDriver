@@ -77,7 +77,7 @@ object Versions {
     const val room_version = "2.6.0"
     const val test_ext_version = "1.1.5"
     const val test_runner_version = "1.6.0-alpha01"
-    const val koin_version = "3.1.2"
+    const val koin_version = "3.5.6"
     const val accompanist_pager_version = "0.13.0"
     const val gson_version = "2.9.0"
     const val constraint_layout_ver = "1.0.1"

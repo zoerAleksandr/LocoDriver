@@ -28,7 +28,7 @@ fun GenericLoading(
         Modifier
             .zIndex(1f)
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background.copy(alpha = 0.9f)),
+            .background(MaterialTheme.colorScheme.background),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -44,7 +44,7 @@ fun GenericLoading(
             }
         }
         Spacer(modifier = Modifier.size(16.dp))
-        Text(text = message ?: stringResource(id = R.string.msg_loading))
+        Text(text = message ?: stringResource(id = R.string.msg_loading), color = MaterialTheme.colorScheme.primary)
     }
 }
 

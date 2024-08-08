@@ -1,6 +1,5 @@
 package com.z_company.route.ui
 
-import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.tween
@@ -28,7 +27,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -48,8 +46,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.z_company.core.ui.component.SearchAsyncData
 import com.z_company.core.ui.theme.Shapes
@@ -61,7 +61,6 @@ import com.z_company.domain.entities.RouteWithTag
 import com.z_company.domain.entities.SearchStateScreen
 import com.z_company.domain.entities.SearchTag
 import com.z_company.domain.entities.TimePeriod
-import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.SearchResponse
 import com.z_company.domain.util.splitBySpaceAndComma
@@ -93,7 +92,7 @@ fun SearchScreen(
     isVisibleHistory: Boolean,
     hints: List<String>,
     searchState: SearchStateScreen<List<RouteWithTag>?>,
-    onRouteClick: (BasicData) -> Unit,
+    onRouteClick: (String) -> Unit,
     searchHistoryList: List<SearchResponse>,
     removeHistoryResponse: (String) -> Unit,
     onSearch: () -> Unit
@@ -104,7 +103,11 @@ fun SearchScreen(
         skipPartiallyExpanded = true
     )
 
-    val hintStyle = AppTypography.getType().bodyMedium
+    val hintStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Light
+        )
 
     val closeSheet: () -> Unit = {
         scope.launch {
@@ -166,7 +169,6 @@ fun SearchScreen(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         hints.forEach { s ->
-                            Log.d("ZZZ", "s = $s")
                             AssistChip(onClick = {
                                 if (s.contains(query.text)) {
                                     setQueryValue(TextFieldValue(s))
@@ -201,7 +203,7 @@ fun SearchScreen(
                                     searchTag = route.tag,
                                     searchValue = query.text
                                 ) {
-                                    onRouteClick(route.route.basicData)
+                                    onRouteClick(route.route.basicData.id)
                                 }
                             }
                         }
@@ -264,6 +266,11 @@ fun HistoryResponse(
 
 @Composable
 fun HistoryItem(modifier: Modifier, request: String, removeOnClick: () -> Unit, itemOnClick: () -> Unit) {
+    val hintStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Light
+        )
     Column(modifier = modifier) {
         Row(
             modifier = Modifier
@@ -278,7 +285,9 @@ fun HistoryItem(modifier: Modifier, request: String, removeOnClick: () -> Unit, 
             Text(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 8.dp), text = request
+                    .padding(start = 8.dp),
+                text = request,
+                style = hintStyle
             )
             IconButton(onClick = { removeOnClick.invoke() }) {
                 Icon(imageVector = Icons.Default.Close, contentDescription = null)
@@ -299,13 +308,19 @@ private fun SearchListItem(
         DateAndTimeFormat.DATE_FORMAT, Locale.getDefault()
     ).format(route.basicData.timeStartWork)
 
+    val hintStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Light
+        )
     Column(modifier = Modifier
         .fillMaxWidth()
         .padding(start = 24.dp, end = 12.dp, top = 16.dp)
         .clickable {
             onClick.invoke()
         }) {
-        Text(text = date, style = AppTypography.getType().labelSmall)
+        Text(text = date,
+            style = hintStyle)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -380,18 +395,23 @@ private fun SearchListItem(
                 }
             }
 
-            Text(text = textWithSelection, style = AppTypography.getType().bodyMedium)
+            Text(text = textWithSelection, style = hintStyle)
         }
     }
 }
 
 @Composable
 private fun ItemEmptyList() {
+    val hintStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Light
+        )
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(24.dp), contentAlignment = Alignment.Center
     ) {
-        Text(text = "Ничего не найдено")
+        Text(text = "Ничего не найдено", style = hintStyle)
     }
 }

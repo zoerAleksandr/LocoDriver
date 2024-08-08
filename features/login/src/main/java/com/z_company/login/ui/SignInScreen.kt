@@ -35,6 +35,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.GenericLoading
 import com.z_company.core.ui.component.CustomSnackBar
@@ -65,6 +66,17 @@ fun SignInScreen(
     val scope = rememberCoroutineScope()
     val paddingBetweenView = 12.dp
 
+    val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
+    val subTitleTextStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Normal
+        )
+    val styleHint = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Light
+        )
     if (userState is ResultState.Loading) {
         GenericLoading(onCloseClick = cancelSignIn)
     }
@@ -110,21 +122,23 @@ fun SignInScreen(
                 OutlinedTextField(
                     value = email,
                     onValueChange = { setEmail(it) },
-                    label = { Text(text = "email", style = AppTypography.getType().bodyMedium) },
+                    placeholder = { Text(text = "email", style = dataTextStyle) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = paddingBetweenView * 5),
                     singleLine = true,
+                    textStyle = dataTextStyle,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
                 )
                 OutlinedTextField(
                     value = password,
                     onValueChange = { setPassword(it) },
-                    label = { Text(text = "пароль", style = AppTypography.getType().bodyMedium) },
+                    label = { Text(text = "пароль", style = dataTextStyle) },
                     modifier = Modifier
                         .padding(top = paddingBetweenView)
                         .fillMaxWidth(),
                     singleLine = true,
+                    textStyle = dataTextStyle,
                     visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
                         val image = if (passwordVisible)
@@ -148,13 +162,13 @@ fun SignInScreen(
                     shape = Shapes.medium,
                     enabled = isEnableButtonSignIn
                 ) {
-                    Text(text = "Войти", style = AppTypography.getType().bodyLarge)
+                    Text(text = "Войти", style = subTitleTextStyle)
                 }
                 TextButton(
                     modifier = Modifier
                         .padding(top = paddingBetweenView),
                     onClick = { onPasswordRecovery() }) {
-                    Text(text = "Забыли пароль?", style = AppTypography.getType().bodyMedium)
+                    Text(text = "Забыли пароль?", style = styleHint)
                 }
 
             }
@@ -171,7 +185,7 @@ fun SignInScreen(
                 ),
                 border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary)
             ) {
-                Text(text = "Регистрация", style = AppTypography.getType().bodyLarge)
+                Text(text = "Регистрация", style = subTitleTextStyle)
             }
         }
     }

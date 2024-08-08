@@ -3,7 +3,7 @@
     <style name="Theme.LocoDriver.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">#FFFFFF</item>
         <item name="windowSplashScreenAnimationDuration">1000</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/train_driver_logo</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/loco_driver_logo</item>
         <item name="postSplashScreenTheme">@style/Theme.LocoDriver</item>
     </style>
 </resources>

@@ -36,7 +36,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private var setDefaultSetting: Job? = null
 
 
-    var _inProgress = MutableLiveData(true)
+    private var _inProgress = MutableLiveData(true)
     val inProgress: MutableLiveData<Boolean> get() = _inProgress
 
     private var _isRegistered = MutableLiveData<Boolean>()
@@ -45,8 +45,8 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     init {
         if (sharedPreferenceStorage.tokenIsFirstAppEntry()) {
             setDefaultSettings()
-            loadCalendar()
         }
+        loadCalendar()
         viewModelScope.launch {
             getSession()
         }

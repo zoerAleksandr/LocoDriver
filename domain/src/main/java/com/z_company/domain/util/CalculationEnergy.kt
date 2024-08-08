@@ -57,6 +57,6 @@ object CalculationEnergy {
         accepted: Double?,
         delivery: Double?
     ): Double? {
-        return reverseDifferenceBetweenDouble(accepted, delivery)
+        return differenceBetweenDouble(accepted, delivery)
     }
 }

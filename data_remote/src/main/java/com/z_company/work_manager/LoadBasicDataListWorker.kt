@@ -8,7 +8,6 @@ import androidx.work.WorkerParameters
 import com.parse.ParseObject
 import com.parse.ParseQuery
 import com.parse.ParseUser
-import com.parse.coroutines.suspendFind
 import com.z_company.work_manager.BasicDataFieldName.BASIC_DATA_CLASS_NAME_REMOTE
 import com.z_company.work_manager.BasicDataFieldName.BASIC_DATA_UID_FIELD_NAME
 import com.z_company.work_manager.BasicDataFieldName.USER_FIELD_NAME
@@ -24,13 +23,14 @@ class LoadBasicDataListWorker(val context: Context, params: WorkerParameters) :
             val parseQuery: ParseQuery<ParseObject> = ParseQuery(BASIC_DATA_CLASS_NAME_REMOTE)
             parseQuery.whereEqualTo(USER_FIELD_NAME, ParseUser.getCurrentUser())
             parseQuery.orderByDescending(BASIC_DATA_UID_FIELD_NAME)
-            val remoteList = parseQuery.suspendFind()
             val basicDataIdList: MutableList<String> = mutableListOf()
-
-            remoteList.forEach { parseObject ->
-                parseObject.apply {
-                    getString(BASIC_DATA_UID_FIELD_NAME)?.let { id ->
-                        basicDataIdList.add(id)
+            val remoteList = parseQuery.findInBackground { parseObjects, parseException ->
+                parseObjects.forEach { parseObject ->
+                    Log.d("ZZZ", "parseObject = ${parseObject.objectId}")
+                    parseObject.apply {
+                        getString(BASIC_DATA_UID_FIELD_NAME)?.let { id ->
+                            basicDataIdList.add(id)
+                        }
                     }
                 }
             }

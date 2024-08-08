@@ -5,20 +5,17 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.*
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import com.z_company.core.ui.theme.Shapes
@@ -39,6 +36,8 @@ fun SearchTextField(
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
 
+    val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
+
     val keyboardController = LocalSoftwareKeyboardController.current
     OutlinedTextField(
         value = query,
@@ -48,11 +47,12 @@ fun SearchTextField(
         singleLine = true,
         placeholder = {
             Text(
-                color = MaterialTheme.colorScheme.secondary,
+                color = MaterialTheme.colorScheme.primary,
                 text = "Я хочу найти...",
+                style = dataTextStyle
             )
         },
-        textStyle = AppTypography.getType().bodyLarge.copy(color = MaterialTheme.colorScheme.primary),
+        textStyle = dataTextStyle.copy(color = MaterialTheme.colorScheme.primary),
         colors = transparentColorForTextField(),
         leadingIcon = {
             IconButton(onClick = {
@@ -61,7 +61,7 @@ fun SearchTextField(
                 onBack()
             }) {
                 Icon(
-                    imageVector = Icons.Default.ArrowBack,
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = null
                 )
             }

@@ -1,16 +1,12 @@
 package com.z_company.route.viewmodel
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableDoubleStateOf
+import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
-import com.z_company.data_local.setting.DataStoreRepository
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Locomotive
@@ -25,9 +21,8 @@ import com.z_company.route.Const.NULLABLE_ID
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlin.properties.Delegates
@@ -37,14 +32,12 @@ class LocoFormViewModel(
     basicId: String
 ) : ViewModel(), KoinComponent {
     private val locomotiveUseCase: LocomotiveUseCase by inject()
-    private val dataStoreRepository: DataStoreRepository by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val _uiState = MutableStateFlow(LocoFormUiState())
     val uiState = _uiState.asStateFlow()
 
     private var loadLocoJob: Job? = null
     private var saveLocoJob: Job? = null
-    private var loadCoefficientJob: Job? = null
     private var saveCoefficientJob: Job? = null
     private var getSettingJob: Job? = null
 
@@ -87,7 +80,7 @@ class LocoFormViewModel(
                 )
             }
         }
-    var currentSetting: UserSettings?
+    private var currentSetting: UserSettings?
         get() {
             return _uiState.value.settingsState.let {
                 if (it is ResultState.Success) it.data else null
@@ -100,28 +93,6 @@ class LocoFormViewModel(
                 )
             }
         }
-
-    private var lastEnteredCoefficient by mutableDoubleStateOf(
-        currentSetting?.lastEnteredDieselCoefficient ?: 0.83
-    )
-    private var defaultTypeLoco by mutableStateOf(
-        currentSetting?.defaultLocoType ?: LocoType.ELECTRIC
-    )
-
-    fun clearAllField() {
-        currentLoco = currentLoco?.copy(
-            series = null,
-            number = null,
-            type = defaultTypeLoco,
-            timeStartOfAcceptance = null,
-            timeEndOfAcceptance = null,
-            timeStartOfDelivery = null,
-            timeEndOfDelivery = null
-        )
-        electricSectionListState.clear()
-        dieselSectionListState.clear()
-        changesHave()
-    }
 
     private fun changesHave() {
         if (!_uiState.value.changesHaveState) {
@@ -138,16 +109,18 @@ class LocoFormViewModel(
             val state = _uiState.value.locoDetailState
             if (state is ResultState.Success) {
                 state.data?.let { loco ->
-                    locomotiveUseCase.removeLoco(loco).onEach { result ->
-                        if (result is ResultState.Success) {
-                            _uiState.update {
-                                it.copy(
-                                    confirmExitDialogShow = false,
-                                    exitFromScreen = true
-                                )
+                    viewModelScope.launch {
+                        locomotiveUseCase.removeLoco(loco).collect { result ->
+                            if (result is ResultState.Success) {
+                                _uiState.update {
+                                    it.copy(
+                                        confirmExitDialogShow = false,
+                                        exitFromScreen = true
+                                    )
+                                }
                             }
                         }
-                    }.launchIn(viewModelScope)
+                    }
                 }
             }
         } else {
@@ -254,39 +227,48 @@ class LocoFormViewModel(
 
     private fun loadSetting() {
         getSettingJob?.cancel()
-        getSettingJob = settingsUseCase.getCurrentSettings().onEach {
-            if (it is ResultState.Success) {
-                currentSetting = it.data
-                currentSetting?.let { setting ->
-                    currentLoco = currentLoco?.copy(
-                        type = setting.defaultLocoType
-                    )
+        getSettingJob = viewModelScope.launch {
+            settingsUseCase.getCurrentSettings().collect {
+                if (it is ResultState.Success) {
+                    currentSetting = it.data
+                    currentSetting?.let { setting ->
+                        currentSetting = setting
+//                        currentLoco = currentLoco?.copy(
+//                            type = setting.defaultLocoType
+//                        )
+                    }
+//                    getSettingJob?.cancel()
                 }
             }
-        }.launchIn(viewModelScope)
-
+        }
     }
 
     private fun saveCoefficient(data: String?) {
-        saveCoefficientJob?.cancel()
-        saveCoefficientJob = dataStoreRepository
-            .setDieselCoefficient(data?.toDoubleOrNull()).launchIn(viewModelScope)
+        viewModelScope.launch {
+            saveCoefficientJob?.cancel()
+            val double = data?.toDoubleOrNull()
+            double?.let {
+                settingsUseCase.setDieselCoefficient(double).collect{}
+            }
+        }
     }
 
     private fun loadLoco(id: String) {
         if (locoId == currentLoco?.locoId) return
         loadLocoJob?.cancel()
-        loadLocoJob = locomotiveUseCase.getLocoById(id).onEach { routeState ->
-            _uiState.update {
-                if (routeState is ResultState.Success) {
-                    currentLoco = routeState.data
-                    routeState.data?.let { loco ->
-                        setSectionData(loco)
+        loadLocoJob = viewModelScope.launch {
+            locomotiveUseCase.getLocoById(id).collect { routeState ->
+                _uiState.update {
+                    if (routeState is ResultState.Success) {
+                        currentLoco = routeState.data
+                        routeState.data?.let { loco ->
+                            setSectionData(loco)
+                        }
                     }
+                    it.copy(locoDetailState = routeState)
                 }
-                it.copy(locoDetailState = routeState)
             }
-        }.launchIn(viewModelScope)
+        }
     }
 
     fun saveLoco() {
@@ -308,6 +290,7 @@ class LocoFormViewModel(
 
                     LocoType.DIESEL -> {
                         loco.dieselSectionList = dieselSectionListState.map { state ->
+                            Log.d("ZZZ", "${state.refuel.data}")
                             SectionDiesel(
                                 sectionId = state.sectionId,
                                 acceptedFuel = state.accepted.data?.toDoubleOrNull(),
@@ -321,12 +304,13 @@ class LocoFormViewModel(
                 }
 
                 saveLocoJob?.cancel()
-                saveLocoJob =
-                    locomotiveUseCase.saveLocomotive(loco).onEach { saveLocoState ->
+                saveLocoJob = viewModelScope.launch {
+                    locomotiveUseCase.saveLocomotive(loco).collect { saveLocoState ->
                         _uiState.update {
                             it.copy(saveLocoState = saveLocoState)
                         }
-                    }.launchIn(viewModelScope)
+                    }
+                }
             }
         }
     }
@@ -461,23 +445,6 @@ class LocoFormViewModel(
         )
     }
 
-    fun showRefuelDialog(value: Pair<Boolean, Int>) {
-        _uiState.update {
-            it.copy(
-                refuelDialogShow = value
-            )
-        }
-    }
-
-    fun showCoefficientDialog(value: Pair<Boolean, Int>) {
-        _uiState.update {
-            it.copy(
-                coefficientDialogShow = value
-            )
-        }
-    }
-
-
     fun setCoefficient(index: Int, coefficient: String?) {
         onDieselSectionEvent(
             DieselSectionEvent.EnteredCoefficient(
@@ -546,11 +513,12 @@ class LocoFormViewModel(
     }
 
     fun addingSectionDiesel() {
+        val coefficient = currentSetting?.lastEnteredDieselCoefficient
         dieselSectionListState.add(
             DieselSectionFormState(
                 sectionId = SectionDiesel().sectionId,
                 coefficient = DieselSectionFieldState(
-                    lastEnteredCoefficient.str(),
+                    coefficient.str(),
                     DieselSectionType.COEFFICIENT
                 )
             )
@@ -628,7 +596,10 @@ class LocoFormViewModel(
                 val isVisibilityResult = isVisibilityResultElectricSection(
                     accepted, delivery, acceptedRecovery, deliveryRecovery
                 )
-                val isExpand = isExpandElectricItem(acceptedRecovery?.toDoubleOrNull(), deliveryRecovery?.toDoubleOrNull())
+                val isExpand = isExpandElectricItem(
+                    acceptedRecovery?.toDoubleOrNull(),
+                    deliveryRecovery?.toDoubleOrNull()
+                )
                 electricSectionListState[event.index] = electricSectionListState[event.index].copy(
                     resultVisibility = isVisibilityResult,
                     expandItemState = isExpand

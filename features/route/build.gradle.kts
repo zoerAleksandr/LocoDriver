@@ -76,5 +76,5 @@ dependencies {
     implementation(Libs.permission_accompanist)
     implementation(project(mapOf("path" to ":data_local")))
     debugImplementation("androidx.compose.ui:ui-tooling:1.6.6")
-
+    debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
 }

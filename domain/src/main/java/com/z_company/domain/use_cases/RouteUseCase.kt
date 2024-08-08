@@ -89,10 +89,6 @@ class RouteUseCase(private val repository: RouteRepository) {
                 }
         }
 
-    fun listRoutes(): Flow<ResultState<List<Route>>> {
-        return repository.loadRoutes()
-    }
-
     fun listRouteWithDeleting(): List<Route> {
         return repository.loadRoutesWithDeleting()
     }

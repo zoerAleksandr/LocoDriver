@@ -17,11 +17,10 @@ fun HomeDestination(
     HomeScreen(
         routeListState = uiState.routeListState,
         removeRouteState = uiState.removeRouteState,
-        onRouteClick = router::showRouteDetails,
-        onNewRouteClick = { router.showRouteForm() },
-        onChangeRoute = {
+        onRouteClick = {
             router.showRouteForm(it)
         },
+        onNewRouteClick = { router.showRouteForm() },
         onDeleteRoute = homeViewModel::remove,
         onDeleteRouteConfirmed = homeViewModel::resetRemoveRouteState,
         reloadRoute = homeViewModel::loadRoutes,

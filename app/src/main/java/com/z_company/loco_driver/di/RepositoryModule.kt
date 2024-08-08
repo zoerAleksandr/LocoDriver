@@ -14,6 +14,7 @@ import com.z_company.domain.repositories.RouteRepository
 import com.z_company.domain.repositories.CalendarRepositories
 import com.z_company.domain.repositories.HistoryResponseRepository
 import com.z_company.domain.repositories.SettingsRepository
+import com.z_company.repository.Back4AppManager
 import org.koin.android.ext.koin.androidApplication
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
@@ -42,4 +43,6 @@ val repositoryModule = module {
         RoomHistoryResponseRepository()
     }
     single { SharedPreferenceStorage(application = androidApplication()) }
+
+    single { Back4AppManager() }
 }

@@ -49,6 +49,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import com.z_company.core.ResultState
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.ConverterLongToTime
@@ -60,7 +62,7 @@ import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHours
 import com.z_company.route.component.DialogSelectMonthOfYear
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SelectReleaseDaysScreen(
     onBack: () -> Unit,
@@ -92,9 +94,13 @@ fun SelectReleaseDaysScreen(
                 actions = {
                     TextButton(onClick = onSaveClick) {
                         Text(
-                            text = "Готово",
-                            style = AppTypography.getType().bodyMedium,
-                            color = MaterialTheme.colorScheme.tertiary
+                            text = "Сохранить",
+                            style = AppTypography.getType().titleLarge
+                                .copy(
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Light,
+                                    color = MaterialTheme.colorScheme.tertiary
+                                ),
                         )
                     }
                 },
@@ -136,7 +142,14 @@ fun SelectReleaseDaysContent(
 ) {
     val dateRangePickerState = rememberDateRangePickerState()
     val scope = rememberCoroutineScope()
-    val styleData = AppTypography.getType().bodyMedium
+
+    val styleTitle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Normal
+        )
+    val styleData = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
+
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
     )
@@ -297,7 +310,7 @@ fun SelectReleaseDaysContent(
             onClick = {
                 showBottomSheet = true
             }) {
-            Text("Добавить отвлечение")
+            Text("Добавить отвлечение", style = styleTitle)
         }
     }
 }
@@ -311,6 +324,8 @@ private fun SelectRangeDateBottomSheet(
     sheetState: SheetState,
     dateRangePickerState: DateRangePickerState
 ) {
+    val styleData = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.tertiary)
+
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         dragHandle = {
@@ -326,7 +341,7 @@ private fun SelectRangeDateBottomSheet(
                 }) {
                     Text(
                         text = "Сбросить",
-                        style = AppTypography.getType().bodyMedium,
+                        style = styleData,
                         color = MaterialTheme.colorScheme.tertiary
                     )
                 }
@@ -371,7 +386,7 @@ private fun SelectRangeDateBottomSheet(
                 }) {
                     Text(
                         text = "Выбрать",
-                        style = AppTypography.getType().bodyMedium,
+                        style = styleData,
                         color = MaterialTheme.colorScheme.tertiary
                     )
                 }

@@ -52,4 +52,5 @@ dependencies {
     androidTestImplementation(TestLibs.ext_junit)
     androidTestImplementation(TestLibs.arch_core)
     androidTestImplementation(TestLibs.test_runner)
+    debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
 }

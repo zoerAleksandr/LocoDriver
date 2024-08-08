@@ -16,7 +16,6 @@ import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.entity.BasicData
 import com.z_company.entity.Locomotive
 import com.z_company.entity.Passenger
-import com.z_company.entity.Photo
 import com.z_company.entity.Train
 import com.z_company.entity_converter.BasicDataConverter
 import com.z_company.entity_converter.LocomotiveConverter
@@ -25,7 +24,6 @@ import com.z_company.entity_converter.TrainConverter
 import com.z_company.type_converter.TrainJSONConverter
 import com.z_company.type_converter.LocomotiveJSONConverter
 import com.z_company.type_converter.PassengerJSONConverter
-import com.z_company.type_converter.PhotoJSONConverter
 import com.z_company.work_manager.BASIC_DATA_INPUT_KEY
 import com.z_company.work_manager.GET_BASIC_DATA_WORKER_OUTPUT_KEY
 import com.z_company.work_manager.LOAD_BASIC_DATA_ID_INPUT_KEY
@@ -36,15 +34,12 @@ import com.z_company.work_manager.LOAD_LOCOMOTIVE_WORKER_INPUT_KEY
 import com.z_company.work_manager.LOAD_LOCOMOTIVE_WORKER_OUTPUT_KEY
 import com.z_company.work_manager.LOAD_PASSENGER_WORKER_INPUT_KEY
 import com.z_company.work_manager.LOAD_PASSENGER_WORKER_OUTPUT_KEY
-import com.z_company.work_manager.LOAD_PHOTO_WORKER_INPUT_KEY
-import com.z_company.work_manager.LOAD_PHOTO_WORKER_OUTPUT_KEY
 import com.z_company.work_manager.LOAD_TRAIN_WORKER_INPUT_KEY
 import com.z_company.work_manager.LOAD_TRAIN_WORKER_OUTPUT_KEY
 import com.z_company.work_manager.LOCOMOTIVE_INPUT_KEY
 import com.z_company.work_manager.LoadBasicDataWorker
 import com.z_company.work_manager.LoadLocomotiveFromRemoteWorker
 import com.z_company.work_manager.LoadPassengerRemoteWorker
-import com.z_company.work_manager.LoadPhotoRemoteWorker
 import com.z_company.work_manager.LoadTrainFromRemoteWorker
 import com.z_company.work_manager.PASSENGERS_INPUT_KEY
 import com.z_company.work_manager.PHOTOS_INPUT_KEY
@@ -62,7 +57,6 @@ import com.z_company.work_manager.SaveLocomotiveListWorker
 import com.z_company.work_manager.SavePassengerListWorker
 import com.z_company.work_manager.SavePhotoListWorker
 import com.z_company.work_manager.SaveTrainListWorker
-import com.z_company.work_manager.SynchronizedOneTimeWorker
 import com.z_company.work_manager.SynchronizedWorker
 import com.z_company.work_manager.TRAINS_INPUT_KEY
 import com.z_company.work_manager.WorkManagerState
@@ -101,6 +95,7 @@ private const val LOAD_PHOTO_FROM_REMOTE_WORKER_TAG = "LOAD_PHOTO_FROM_REMOTE_WO
 
 class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
+
     private val constraints = Constraints.Builder()
         .setRequiredNetworkType(NetworkType.CONNECTED)
         .build()
@@ -346,45 +341,6 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
         WorkManager.getInstance(context).cancelUniqueWork(UNIQUE_SYNC_WORK_NAME)
     }
 
-    override suspend fun synchronizedRouteOneTime(): Flow<ResultState<Unit>> {
-        val worker = OneTimeWorkRequestBuilder<SynchronizedOneTimeWorker>()
-            .setConstraints(constraints)
-            .addTag(SYNC_DATA_ONE_TIME_WORKER_TAG)
-            .build()
-
-        withContext(Dispatchers.IO) {
-            val listInfo = WorkManager.getInstance(context)
-                .getWorkInfosForUniqueWork(UNIQUE_SYNC_WORK_NAME)
-                .get()
-            if (listInfo.isNotEmpty()) {
-                if (listInfo.last().state != WorkInfo.State.RUNNING) {
-                    WorkManager.getInstance(context).enqueue(worker)
-                } else {
-                }
-            } else {
-                WorkManager.getInstance(context).enqueue(worker)
-            }
-
-        }
-        return flow {
-            WorkManagerState.state(context, worker.id).collect { result ->
-                when (result) {
-                    is ResultState.Loading -> {
-                        emit(result)
-                    }
-
-                    is ResultState.Success -> {
-                        emit(ResultState.Success(Unit))
-                    }
-
-                    is ResultState.Error -> {
-                        emit(result)
-                    }
-                }
-            }
-        }
-    }
-
     override suspend fun saveLocomotive(locomotive: Locomotive): Flow<ResultState<Data>> {
         val workerSaveLoco = OneTimeWorkRequestBuilder<SaveLocomotiveListWorker>()
             .setConstraints(constraints)
@@ -543,42 +499,6 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
                                 PassengerJSONConverter.fromString(it)
                             }
                             emit(ResultState.Success(passengerList))
-                        }
-
-                        is ResultState.Loading -> {
-                            emit(result)
-                        }
-
-                        is ResultState.Error -> {
-                            emit(result)
-                        }
-                    }
-                }
-        }
-    }
-
-    override suspend fun loadPhotoFromRemote(basicId: String): Flow<ResultState<List<Photo>?>> {
-        val inputData = Data.Builder()
-            .putString(LOAD_PHOTO_WORKER_INPUT_KEY, basicId)
-            .build()
-
-        val worker = OneTimeWorkRequestBuilder<LoadPhotoRemoteWorker>()
-            .setInputData(inputData)
-            .setConstraints(constraints)
-            .addTag(LOAD_PHOTO_FROM_REMOTE_WORKER_TAG)
-            .build()
-        WorkManager.getInstance(context).enqueue(worker)
-        return flow {
-            WorkManagerState.state(context, worker.id)
-                .collect { result ->
-                    when (result) {
-                        is ResultState.Success -> {
-                            val stringList = result.data
-                                .getStringArray(LOAD_PHOTO_WORKER_OUTPUT_KEY)
-                            val photoList = stringList?.map {
-                                PhotoJSONConverter.fromString(it)
-                            }
-                            emit(ResultState.Success(photoList))
                         }
 
                         is ResultState.Loading -> {

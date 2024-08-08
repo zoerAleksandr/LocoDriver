@@ -9,9 +9,9 @@ import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.util.isEmailValid
 import com.z_company.login.ui.getMessageThrowable
+import com.z_company.repository.Back4AppManager
 import com.z_company.use_case.AuthUseCase
 import com.z_company.use_case.LoginUseCase
-import com.z_company.use_case.RemoteRouteUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,7 +27,7 @@ const val MIN_LENGTH_PASSWORD = 4
 const val TIME_OUT: Long = 15_000L
 
 class SignInViewModel : ViewModel(), KoinComponent {
-    private val remoteRouteUseCase: RemoteRouteUseCase by inject()
+    private val back4AppManager: Back4AppManager by inject()
     private val authUseCase: AuthUseCase by inject()
     private val loginUseCase: LoginUseCase by inject()
 
@@ -104,7 +104,7 @@ class SignInViewModel : ViewModel(), KoinComponent {
 
     private fun loadDataFromRemote() {
         viewModelScope.launch {
-            remoteRouteUseCase.loadingRoutesFromRemote()
+            back4AppManager.loadRouteListFromRemote().launchIn(viewModelScope)
         }
     }
 

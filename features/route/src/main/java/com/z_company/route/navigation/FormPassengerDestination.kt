@@ -8,7 +8,7 @@ import com.z_company.domain.navigation.Router
 import com.z_company.route.Const
 import com.z_company.route.ui.FormPassengerScreen
 import com.z_company.route.viewmodel.PassengerFormViewModel
-import org.koin.androidx.compose.getViewModel
+import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 
 @Composable
@@ -19,7 +19,7 @@ fun FormPassengerDestination(
     val passengerId = FormPassenger.getPassengerId(backStackEntry) ?: Const.NULLABLE_ID
     val basicId = FormPassenger.getBasicId(backStackEntry) ?: Const.NULLABLE_ID
 
-    val viewModel = getViewModel<PassengerFormViewModel>(
+    val viewModel = koinViewModel<PassengerFormViewModel>(
         parameters = { parametersOf(passengerId, basicId) }
     )
     val formUiState by viewModel.uiState.collectAsState()
@@ -27,6 +27,7 @@ fun FormPassengerDestination(
     FormPassengerScreen(
         currentPassenger = viewModel.currentPassenger,
         passengerDetailState = formUiState.passengerDetailState,
+        changeHaveState = formUiState.changesHaveState,
         savePassengerState = formUiState.savePassengerState,
         onBackPressed = viewModel::checkBeforeExitTheScreen,
         onSaveClick =  viewModel::savePassenger,

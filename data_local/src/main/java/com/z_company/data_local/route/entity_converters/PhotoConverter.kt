@@ -8,7 +8,7 @@ internal object PhotoConverter {
         photoId = photo.photoId,
         basicId = photo.basicId,
         remoteObjectId = photo.remoteObjectId,
-        base64 = photo.base64,
+        url = photo.url,
         dateOfCreate = photo.dateOfCreate
     )
 
@@ -16,7 +16,7 @@ internal object PhotoConverter {
         photoId = entity.photoId,
         basicId = entity.basicId,
         remoteObjectId = entity.remoteObjectId,
-        base64 = entity.base64,
+        url = entity.url,
         dateOfCreate = entity.dateOfCreate
     )
 

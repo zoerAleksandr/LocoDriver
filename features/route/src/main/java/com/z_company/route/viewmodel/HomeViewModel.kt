@@ -11,7 +11,6 @@ import com.z_company.core.ResultState
 import com.z_company.core.util.CalculateNightTime
 import com.z_company.data_local.SharedPreferenceStorage
 import com.z_company.domain.entities.MonthOfYear
-import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.getHomeRest
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
@@ -331,14 +330,18 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun calculationHomeRest(route: Route): Long? {
+    fun calculationHomeRest(route: Route?): Long? {
         val minTimeHomeRest = uiState.value.minTimeHomeRest
-        uiState.value.routeListState.let {
-            if (it is ResultState.Success) {
-                return route.getHomeRest(
-                    parentList = it.data,
-                    minTimeHomeRest = minTimeHomeRest
-                )
+        uiState.value.routeListState.let { listState ->
+            if (listState is ResultState.Success) {
+                if (listState.data.contains(route)) {
+                    route?.let {
+                        return route.getHomeRest(
+                            parentList = listState.data,
+                            minTimeHomeRest = minTimeHomeRest
+                        )
+                    }
+                }
             }
         }
         return null
@@ -355,7 +358,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun disableFirstEntryToAccountDialog(){
+    fun disableFirstEntryToAccountDialog() {
         _uiState.update {
             it.copy(
                 showFirstEntryToAccountDialog = false

@@ -74,7 +74,7 @@ class LoadPassengerRemoteWorker(context: Context, parameters: WorkerParameters) 
             return@withContext Result.success(data.build())
         } catch (e: Exception) {
             Log.d("ZZZ", "ex load passenger = ${e.message}")
-            return@withContext Result.retry()
+            return@withContext Result.failure()
         }
     }
 

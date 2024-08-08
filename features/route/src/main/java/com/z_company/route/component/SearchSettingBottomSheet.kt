@@ -10,8 +10,10 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.DateAndTimeConverter
@@ -32,9 +34,17 @@ fun SearchSettingBottomSheet(
     clearFilter: () -> Unit,
     setPeriodFilter: (TimePeriod) -> Unit
 ) {
-    val hintStyle = AppTypography.getType().bodyMedium
-    val subTitleStyle = AppTypography.getType().titleMedium
-    val titleStyle = AppTypography.getType().titleLarge
+    val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
+    val subTitleTextStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Normal
+        )
+    val hintStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Light
+        )
     var showDatePickerStart by rememberSaveable {
         mutableStateOf(false)
     }
@@ -121,7 +131,7 @@ fun SearchSettingBottomSheet(
                     ) {
                         Text(
                             text = "Сбросить",
-                            style = subTitleStyle,
+                            style = subTitleTextStyle,
                             color = MaterialTheme.colorScheme.tertiary
                         )
                     }
@@ -131,7 +141,7 @@ fun SearchSettingBottomSheet(
                         .padding(top = 6.dp)
                         .align(Alignment.TopCenter),
                     text = "Параметры",
-                    style = titleStyle
+                    style = AppTypography.getType().headlineMedium.copy(fontWeight = FontWeight.Light)
                 )
             }
         }
@@ -143,7 +153,7 @@ fun SearchSettingBottomSheet(
             Text(
                 modifier = Modifier.padding(top = 32.dp),
                 text = "Где искать",
-                style = subTitleStyle,
+                style = subTitleTextStyle,
                 textAlign = TextAlign.Center
             )
             FlowRow(
@@ -161,7 +171,12 @@ fun SearchSettingBottomSheet(
                                 )
                             )
                         },
-                        label = { Text(text = pair.first, style = hintStyle) },
+                        label = {
+                            Text(
+                                modifier = Modifier.padding(4.dp),
+                                text = pair.first,
+                                style = dataTextStyle
+                            ) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)
                         )
@@ -179,7 +194,12 @@ fun SearchSettingBottomSheet(
                                 )
                             )
                         },
-                        label = { Text(text = pair.first, style = hintStyle) },
+                        label = {
+                            Text(
+                                modifier = Modifier.padding(4.dp),
+                                text = pair.first,
+                                style = dataTextStyle
+                            ) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)
                         )
@@ -197,7 +217,12 @@ fun SearchSettingBottomSheet(
                                 )
                             )
                         },
-                        label = { Text(text = pair.first, style = hintStyle) },
+                        label = {
+                            Text(
+                                modifier = Modifier.padding(4.dp),
+                                text = pair.first,
+                                style = dataTextStyle
+                            ) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)
                         )
@@ -215,7 +240,12 @@ fun SearchSettingBottomSheet(
                                 )
                             )
                         },
-                        label = { Text(text = pair.first, style = hintStyle) },
+                        label = {
+                            Text(
+                                modifier = Modifier.padding(4.dp),
+                                text = pair.first,
+                                style = dataTextStyle
+                            ) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)
                         )
@@ -233,7 +263,12 @@ fun SearchSettingBottomSheet(
                                 )
                             )
                         },
-                        label = { Text(text = pair.first, style = hintStyle) },
+                        label = {
+                            Text(
+                                modifier = Modifier.padding(4.dp),
+                                text = pair.first,
+                                style = dataTextStyle
+                            ) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)
                         )
@@ -243,7 +278,7 @@ fun SearchSettingBottomSheet(
             Text(
                 modifier = Modifier.padding(top = 32.dp),
                 text = "Период времени",
-                style = subTitleStyle,
+                style = subTitleTextStyle,
                 textAlign = TextAlign.Center
             )
             Row(
@@ -270,7 +305,7 @@ fun SearchSettingBottomSheet(
 
                     Text(
                         text = startPeriodText,
-                        style = hintStyle,
+                        style = dataTextStyle,
                     )
                 }
 
@@ -292,7 +327,7 @@ fun SearchSettingBottomSheet(
 
                     Text(
                         text = endPeriodText,
-                        style = hintStyle,
+                        style = dataTextStyle,
                     )
                 }
             }

@@ -57,7 +57,7 @@ class LoadLocomotiveFromRemoteWorker(context: Context, parameters: WorkerParamet
                         locomotive = locomotive.copy(series = series)
                     }
                     getString(LOCOMOTIVE_NUMBER_FIELD_NAME)?.let { number ->
-                        locomotive = locomotive.copy(series = number)
+                        locomotive = locomotive.copy(number = number)
                     }
                     getString(TYPE_FIELD_NAME)?.let { typeString ->
                         val type: LocoType = when (typeString) {
@@ -91,7 +91,7 @@ class LoadLocomotiveFromRemoteWorker(context: Context, parameters: WorkerParamet
                         if (size > 0) {
                             for (i in 0 until size) {
                                 val dieselSectionsJSON: String =
-                                    dieselSectionsJSONArray[i] as String
+                                    dieselSectionsJSONArray[i].toString()
                                 dieselSectionList.add(
                                     SectionDieselJSONConverter.fromString(
                                         dieselSectionsJSON
@@ -123,7 +123,7 @@ class LoadLocomotiveFromRemoteWorker(context: Context, parameters: WorkerParamet
             return@withContext Result.success(data.build())
         } catch (e: Exception) {
             Log.d("ZZZ", "ex load loco = ${e.message}")
-            return@withContext Result.retry()
+            return@withContext Result.failure()
         }
     }
 }

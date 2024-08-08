@@ -23,7 +23,11 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
@@ -59,15 +63,11 @@ import de.charlex.compose.rememberRevealState
 fun DieselSectionItem(
     index: Int,
     item: DieselSectionFormState,
-    isShowRefuelDialog: Pair<Boolean, Int>,
-    isShowCoefficientDialog: Pair<Boolean, Int>,
     onFuelAcceptedChanged: (Int, String?) -> Unit,
     onFuelDeliveredChanged: (Int, String?) -> Unit,
     onDeleteItem: (DieselSectionFormState) -> Unit,
     focusChangedDieselSection: (Int, DieselSectionType) -> Unit,
-    showRefuelDialog: (Pair<Boolean, Int>) -> Unit,
     onRefuelValueChanged: (Int, String?) -> Unit,
-    showCoefficientDialog: (Pair<Boolean, Int>) -> Unit,
     onCoefficientValueChanged: (Int, String?) -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -90,25 +90,40 @@ fun DieselSectionItem(
         item.coefficient.data?.toDoubleOrNull()
     )
 
-    if (isShowRefuelDialog.first) {
+    var showCoefficient by remember {
+        mutableStateOf(false)
+    }
+
+    var showRefuel by remember {
+        mutableStateOf(false)
+    }
+
+
+
+    if (showRefuel) {
         EnteredRefuelDialog(
-            index = isShowRefuelDialog.second,
             refuelValue = item.refuel.data,
-            showDialog = showRefuelDialog,
-            onSaveClick = onRefuelValueChanged,
-            focusChangedDieselSection = focusChangedDieselSection
+            onSaveClick = {
+                onRefuelValueChanged(index, it)
+                showRefuel = false
+                focusChangedDieselSection(index, DieselSectionType.REFUEL)
+            },
+            onDismissClick = { showRefuel = false }
         )
     }
 
-    if (isShowCoefficientDialog.first) {
+    if (showCoefficient) {
         EnteredCoefficientDialog(
-            index = isShowCoefficientDialog.second,
             coefficientValue = item.coefficient.data,
-            showDialog = showCoefficientDialog,
-            onSaveClick = onCoefficientValueChanged,
-            focusChangedDieselSection = focusChangedDieselSection
+            onSaveClick = {
+                onCoefficientValueChanged(index, it)
+                showCoefficient = false
+                focusChangedDieselSection(index, DieselSectionType.COEFFICIENT)
+            },
+            onDismissClick = { showCoefficient = false }
         )
     }
+
     val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
     val subTitleTextStyle = AppTypography.getType().titleLarge
         .copy(
@@ -166,6 +181,9 @@ fun DieselSectionItem(
                 )
 
                 Row(
+                    modifier = Modifier.clickable {
+                        showRefuel = true
+                    },
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -179,11 +197,8 @@ fun DieselSectionItem(
 
                     Icon(
                         modifier = Modifier
-                            .size(24.dp)
-                            .clickable {
-                                showRefuelDialog(Pair(true, index))
-                            },
-                        painter = painterResource(id = R.drawable.refuel_icon),
+                            .size(24.dp),
+                        painter = painterResource(id = R.drawable.fuel_pump),
                         tint = MaterialTheme.colorScheme.primary,
                         contentDescription = null,
                     )
@@ -307,7 +322,7 @@ fun DieselSectionItem(
                     ),
                     style = AppTypography.getType().bodyLarge,
                     onClick = {
-                        showCoefficientDialog(Pair(true, index))
+                        showCoefficient = true
                     })
                 result?.let {
                     val resultInLiterText = maskInLiter(it.str())

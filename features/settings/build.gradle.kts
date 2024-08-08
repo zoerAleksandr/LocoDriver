@@ -60,4 +60,5 @@ dependencies {
 
     implementation(Libs.accompanist_navigation_animation)
     implementation(project(":features:route"))
+    debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
 }

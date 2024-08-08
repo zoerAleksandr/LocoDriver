@@ -96,4 +96,5 @@ dependencies {
 
     debugImplementation(Libs.ui_tooling)
     debugImplementation(Libs.ui_test_manifest)
+    debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
 }

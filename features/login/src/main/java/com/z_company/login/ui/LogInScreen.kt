@@ -36,6 +36,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.GenericLoading
 import com.z_company.core.ui.component.CustomSnackBar
@@ -66,7 +67,12 @@ fun LogInScreen(
     var confirmPasswordVisible by rememberSaveable { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
-
+    val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
+    val subTitleTextStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Normal
+        )
     if (userState is ResultState.Loading) {
         GenericLoading(onCloseClick = cancelRegistered)
     }
@@ -126,10 +132,11 @@ fun LogInScreen(
                 onValueChange = {
                     setEmail(it)
                 },
-                label = { Text(text = "email", style = AppTypography.getType().bodyMedium) },
+                label = { Text(text = "email", style = dataTextStyle) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = paddingBetweenView * 5),
+                textStyle = dataTextStyle,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
             )
             OutlinedTextField(
@@ -137,7 +144,7 @@ fun LogInScreen(
                 onValueChange = {
                     setPassword(it)
                 },
-                label = { Text(text = "пароль", style = AppTypography.getType().bodyMedium) },
+                placeholder = { Text(text = "пароль", style = dataTextStyle) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = paddingBetweenView),
@@ -154,6 +161,7 @@ fun LogInScreen(
                         Icon(painter = painterResource(id = image), description)
                     }
                 },
+                textStyle = dataTextStyle,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
             )
             OutlinedTextField(
@@ -161,12 +169,13 @@ fun LogInScreen(
                 onValueChange = {
                     setConfirm(it)
                 },
-                label = {
+                placeholder = {
                     Text(
                         text = "подтвердите пароль",
-                        style = AppTypography.getType().bodyMedium
+                        style = dataTextStyle
                     )
                 },
+                textStyle = dataTextStyle,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = paddingBetweenView),
@@ -194,14 +203,8 @@ fun LogInScreen(
                 shape = Shapes.medium,
                 onClick = { onRegisteredClick(email, password, email) }
             ) {
-                Text(text = "Зарегистрировать", style = AppTypography.getType().bodyLarge)
+                Text(text = "Зарегистрировать", style = subTitleTextStyle)
             }
-//
-//            Text(text = "Если у Вас есть аккаунт выполните вход")
-//
-//            TextButton(onClick = onSignInClick) {
-//                Text(text = "Войти")
-//            }
         }
     }
 }

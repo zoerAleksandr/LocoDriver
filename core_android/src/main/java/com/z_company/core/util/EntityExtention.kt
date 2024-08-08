@@ -19,10 +19,10 @@ fun BasicData.str(): String {
 
     val startWorkText = this.timeStartWork?.let{
         "явка ${DateAndTimeConverter.getDateAndTime(it)},"
-    }
-    val endWorkText = this.timeStartWork?.let{
+    } ?: ""
+    val endWorkText = this.timeEndWork?.let{
         "сдача ${DateAndTimeConverter.getDateAndTime(it)},"
-    }
+    } ?: ""
 
     return "$numberText $startWorkText $endWorkText"
 }

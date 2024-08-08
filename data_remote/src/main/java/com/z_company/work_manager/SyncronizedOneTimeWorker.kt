@@ -90,7 +90,7 @@ class SynchronizedOneTimeWorker(context: Context, params: WorkerParameters) :
             return@withContext Result.success()
         } catch (e: Exception) {
             Log.d("ZZZ", "ex sync = ${e.message}")
-            return@withContext Result.retry()
+            return@withContext Result.failure()
         }
     }
 }

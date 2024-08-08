@@ -91,10 +91,6 @@ class RouterImpl(
         )
     }
 
-    override fun showLocoDetails(locomotive: Locomotive) {
-        TODO("Not yet implemented")
-    }
-
     override fun showChangeTrainForm(train: Train) {
         navController.navigate(
             FormTrain.buildDetailsRoute(train.trainId, train.basicId)
@@ -107,10 +103,6 @@ class RouterImpl(
         )
     }
 
-    override fun showTrainDetails(train: Train) {
-        TODO("Not yet implemented")
-    }
-
     override fun showChangePassengerForm(passenger: Passenger) {
         navController.navigate(
             FormPassenger.buildDetailsRoute(passenger.passengerId, passenger.basicId)
@@ -121,10 +113,6 @@ class RouterImpl(
         navController.navigate(
             FormPassenger.buildDetailsRoute(passengerId = null, basicId = basicId)
         )
-    }
-
-    override fun showPassengerDetails(passenger: Passenger) {
-        TODO("Not yet implemented")
     }
 
     override fun showCameraScreen(basicId: String) {

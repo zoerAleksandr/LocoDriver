@@ -25,7 +25,6 @@ import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.GenericError
 import com.z_company.core.ui.theme.custom.AppTypography
-import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Route
 import com.z_company.route.R
 
@@ -35,7 +34,7 @@ fun HomeBottomSheetContent(
     routeListState: ResultState<List<Route>>,
     reloadRoute: () -> Unit,
     onDeleteRoute: (Route) -> Unit,
-    onRouteClick: (BasicData) -> Unit,
+    onRouteClick: (String) -> Unit,
     onRouteLongClick: (Route) -> Unit,
     isExpand: Boolean,
 ) {
@@ -43,8 +42,8 @@ fun HomeBottomSheetContent(
         mutableStateOf(24.sp)
     }
 
-    fun changingTextSize(value: TextUnit){
-        if (requiredSize > value){
+    fun changingTextSize(value: TextUnit) {
+        if (requiredSize > value) {
             requiredSize = value
         }
     }
@@ -62,7 +61,7 @@ fun HomeBottomSheetContent(
                         .fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    items(routeList, key = {route -> route.basicData.id}) { route ->
+                    items(routeList, key = { route -> route.basicData.id }) { route ->
                         Spacer(modifier = Modifier.height(12.dp))
                         ItemHomeScreen(
                             modifier = Modifier.animateItemPlacement(),
@@ -72,7 +71,7 @@ fun HomeBottomSheetContent(
                             requiredSizeText = requiredSize,
                             changingTextSize = ::changingTextSize,
                             onLongClick = { onRouteLongClick(route) },
-                            onClick = { onRouteClick(route.basicData) }
+                            onClick = { onRouteClick(route.basicData.id) }
                         )
                     }
                     item { Spacer(modifier = Modifier.height(24.dp)) }
@@ -92,7 +91,7 @@ fun EmptyList() {
     ) {
         Text(
             text = stringResource(id = R.string.msg_empty_route_list),
-            style = AppTypography.getType().titleMedium.copy(fontWeight = FontWeight.Light)
-            )
+            style = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
+        )
     }
 }
