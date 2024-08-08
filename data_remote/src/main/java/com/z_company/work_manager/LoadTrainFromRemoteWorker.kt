@@ -80,7 +80,7 @@ class LoadTrainFromRemoteWorker(context: Context, parameters: WorkerParameters) 
             return@withContext Result.success(data.build())
         } catch (e: Exception) {
             Log.d("ZZZ", "ex load train = ${e.message}")
-            return@withContext Result.retry()
+            return@withContext Result.failure()
         }
     }
 }

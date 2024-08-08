@@ -1,5 +1,6 @@
 package com.z_company.route.viewmodel
 
+import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
@@ -292,6 +293,7 @@ class LocoFormViewModel(
 
                     LocoType.DIESEL -> {
                         loco.dieselSectionList = dieselSectionListState.map { state ->
+                            Log.d("ZZZ", "${state.refuel.data}")
                             SectionDiesel(
                                 sectionId = state.sectionId,
                                 acceptedFuel = state.accepted.data?.toDoubleOrNull(),

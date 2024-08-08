@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -52,7 +51,6 @@ import com.z_company.route.component.DialogSelectMonthOfYear
 import com.z_company.settings.component.ConfirmEmailDialog
 import com.z_company.settings.viewmodel.SettingsUiState
 import kotlinx.coroutines.launch
-import java.util.Calendar
 import com.z_company.core.R as CoreR
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -530,7 +528,9 @@ fun SettingScreenContent(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                modifier = Modifier.padding(end = 16.dp).weight(0.8f),
+                                modifier = Modifier
+                                    .padding(end = 16.dp)
+                                    .weight(0.8f),
                                 text = "Использовать cтандартное время работы",
                                 style = styleData
                             )

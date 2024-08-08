@@ -28,7 +28,7 @@ fun GenericLoading(
         Modifier
             .zIndex(1f)
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background.copy(alpha = 0.9f)),
+            .background(MaterialTheme.colorScheme.background),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {

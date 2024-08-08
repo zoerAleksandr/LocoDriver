@@ -5,6 +5,8 @@ import com.parse.ParseQuery
 import com.parse.ParseUser
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
+import com.z_company.core.ResultState.Companion.flowMap
+import com.z_company.core.ResultState.Companion.flowRequest
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -314,18 +316,18 @@ class Back4AppManager : KoinComponent {
                 }
             }.join()
 
-            this.launch {
-                remoteRepository.loadTrainFromRemote(id).collect { result ->
-                    if (result is ResultState.Success) {
-                        result.data?.let { trains ->
-                            route = route.copy(
-                                trains = TrainConverter.fromRemoteList(trains)
-                            )
+                this.launch {
+                    remoteRepository.loadTrainFromRemote(id).collect { result ->
+                        if (result is ResultState.Success) {
+                            result.data?.let { trains ->
+                                route = route.copy(
+                                    trains = TrainConverter.fromRemoteList(trains)
+                                )
+                            }
+                            this.cancel()
                         }
-                        this.cancel()
                     }
-                }
-            }.join()
+                }.join()
 
             this.launch {
                 remoteRepository.loadPassengerFromRemote(id).collect { result ->

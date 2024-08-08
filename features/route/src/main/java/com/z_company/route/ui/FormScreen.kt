@@ -458,7 +458,7 @@ private fun RouteFormScreenContent(
                         ) {
                             Icon(
                                 modifier = Modifier.padding(end = 4.dp),
-                                painter = painterResource(id = CoreR.drawable.ic_star_border),
+                                painter = painterResource(id = R.drawable.dark_mode_24px),
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary
                             )
@@ -472,7 +472,7 @@ private fun RouteFormScreenContent(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 modifier = Modifier.padding(end = 4.dp),
-                                painter = painterResource(id = CoreR.drawable.ic_star_border),
+                                painter = painterResource(id = R.drawable.passenger_24px),
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary
                             )
