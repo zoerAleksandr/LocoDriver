@@ -12,6 +12,10 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
         return settingsRepository.updateNightTime(nightTime)
     }
 
+    fun setDieselCoefficient(coefficient: Double): Flow<ResultState<Unit>> {
+        return settingsRepository.setDieselCoefficient(coefficient)
+    }
+
     fun setDefaultSettings(): Flow<ResultState<Unit>> {
         return settingsRepository.setSettings(UserSettings())
     }

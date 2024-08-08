@@ -43,4 +43,7 @@ internal interface SettingsDao {
     @TypeConverters(MonthOfYearToPrimitiveConverter::class)
     @Query("UPDATE UserSettings SET monthOfYear =:monthOfYear WHERE settingsKey =:key")
     fun setCurrentMonthOfYear(monthOfYear: MonthOfYear, key: String)
+
+    @Query("UPDATE UserSettings SET lastEnteredDieselCoefficient =:coefficient WHERE settingsKey =:key")
+    fun setDieselCoefficient(coefficient: Double, key: String)
 }

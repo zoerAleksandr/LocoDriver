@@ -24,16 +24,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
-import com.z_company.route.viewmodel.DieselSectionType
 import kotlinx.coroutines.launch
 
 @Composable
 fun EnteredCoefficientDialog(
-    index: Int,
     coefficientValue: String?,
-    showDialog: (Pair<Boolean, Int>) -> Unit,
-    onSaveClick: (Int, String?) -> Unit,
-    focusChangedDieselSection: (Int, DieselSectionType) -> Unit,
+    onSaveClick: (String?) -> Unit,
+    onDismissClick: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
@@ -48,7 +45,7 @@ fun EnteredCoefficientDialog(
         )
 
     AlertDialog(
-        onDismissRequest = { showDialog(Pair(false, index)) },
+        onDismissRequest = onDismissClick ,
         title = {
             Text(text = "Коэффициент", style = AppTypography.getType().headlineSmall)
         },
@@ -75,9 +72,7 @@ fun EnteredCoefficientDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    showDialog(Pair(false, index))
-                    onSaveClick(index, temporaryValue)
-                    focusChangedDieselSection(index, DieselSectionType.COEFFICIENT)
+                    onSaveClick(temporaryValue)
                 },
                 shape = Shapes.medium
             ) {
@@ -85,7 +80,7 @@ fun EnteredCoefficientDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = { showDialog(Pair(false, index)) }) {
+            TextButton(onClick =  onDismissClick ) {
                 Text(text = "Отмена", style = subTitleTextStyle, color = MaterialTheme.colorScheme.error)
             }
         }

@@ -24,8 +24,10 @@ class RoomSettingRepository : SettingsRepository, KoinComponent {
         TODO("Not yet implemented")
     }
 
-    override fun setDieselCoefficient(value: Double?): Flow<ResultState<Unit>> {
-        TODO("Not yet implemented")
+    override fun setDieselCoefficient(value: Double): Flow<ResultState<Unit>> {
+        return flowRequest {
+            dao.setDieselCoefficient(coefficient = value, key = SETTINGS_KEY)
+        }
     }
 
     override fun getMinTimeRest(): Flow<Long?> {

@@ -1,11 +1,6 @@
 package com.z_company.route.viewmodel
 
-import android.util.Log
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
 import androidx.lifecycle.ViewModel
@@ -26,7 +21,6 @@ import com.z_company.route.Const.NULLABLE_ID
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
@@ -50,10 +44,6 @@ class LocoFormViewModel(
     private var getSettingJob: Job? = null
 
     private var isNewLoco by Delegates.notNull<Boolean>()
-
-    override fun onCleared() {
-        Log.d("ZZZ", "LocoFormViewModel onCleared")
-    }
 
     var currentLoco: Locomotive?
         get() {
@@ -92,7 +82,7 @@ class LocoFormViewModel(
                 )
             }
         }
-    var currentSetting: UserSettings?
+    private var currentSetting: UserSettings?
         get() {
             return _uiState.value.settingsState.let {
                 if (it is ResultState.Success) it.data else null
@@ -105,28 +95,6 @@ class LocoFormViewModel(
                 )
             }
         }
-
-    private var lastEnteredCoefficient by mutableDoubleStateOf(
-        currentSetting?.lastEnteredDieselCoefficient ?: 0.83
-    )
-    private var defaultTypeLoco by mutableStateOf(
-        currentSetting?.defaultLocoType ?: LocoType.ELECTRIC
-    )
-
-    fun clearAllField() {
-        currentLoco = currentLoco?.copy(
-            series = null,
-            number = null,
-            type = defaultTypeLoco,
-            timeStartOfAcceptance = null,
-            timeEndOfAcceptance = null,
-            timeStartOfDelivery = null,
-            timeEndOfDelivery = null
-        )
-        electricSectionListState.clear()
-        dieselSectionListState.clear()
-        changesHave()
-    }
 
     private fun changesHave() {
         if (!_uiState.value.changesHaveState) {
@@ -266,19 +234,25 @@ class LocoFormViewModel(
                 if (it is ResultState.Success) {
                     currentSetting = it.data
                     currentSetting?.let { setting ->
-                        currentLoco = currentLoco?.copy(
-                            type = setting.defaultLocoType
-                        )
+                        currentSetting = setting
+//                        currentLoco = currentLoco?.copy(
+//                            type = setting.defaultLocoType
+//                        )
                     }
+//                    getSettingJob?.cancel()
                 }
             }
         }
     }
 
     private fun saveCoefficient(data: String?) {
-        saveCoefficientJob?.cancel()
-        saveCoefficientJob = dataStoreRepository
-            .setDieselCoefficient(data?.toDoubleOrNull()).launchIn(viewModelScope)
+        viewModelScope.launch {
+            saveCoefficientJob?.cancel()
+            val double = data?.toDoubleOrNull()
+            double?.let {
+                settingsUseCase.setDieselCoefficient(double).collect{}
+            }
+        }
     }
 
     private fun loadLoco(id: String) {
@@ -472,23 +446,6 @@ class LocoFormViewModel(
         )
     }
 
-    fun showRefuelDialog(value: Pair<Boolean, Int>) {
-        _uiState.update {
-            it.copy(
-                refuelDialogShow = value
-            )
-        }
-    }
-
-    fun showCoefficientDialog(value: Pair<Boolean, Int>) {
-        _uiState.update {
-            it.copy(
-                coefficientDialogShow = value
-            )
-        }
-    }
-
-
     fun setCoefficient(index: Int, coefficient: String?) {
         onDieselSectionEvent(
             DieselSectionEvent.EnteredCoefficient(
@@ -557,11 +514,12 @@ class LocoFormViewModel(
     }
 
     fun addingSectionDiesel() {
+        val coefficient = currentSetting?.lastEnteredDieselCoefficient
         dieselSectionListState.add(
             DieselSectionFormState(
                 sectionId = SectionDiesel().sectionId,
                 coefficient = DieselSectionFieldState(
-                    lastEnteredCoefficient.str(),
+                    coefficient.str(),
                     DieselSectionType.COEFFICIENT
                 )
             )

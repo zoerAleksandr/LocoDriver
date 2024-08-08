@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface SettingsRepository {
     fun getDieselCoefficient(): Flow<Double>
-    fun setDieselCoefficient(value: Double?): Flow<ResultState<Unit>>
+    fun setDieselCoefficient(value: Double): Flow<ResultState<Unit>>
     fun getMinTimeRest(): Flow<Long?>
     fun setMinTimeRest(value: Long?): Flow<ResultState<Unit>>
     fun getStandardDurationOfWork(): Flow<Long>
