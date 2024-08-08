@@ -63,8 +63,10 @@ class TrainFormViewModel(
 
     init {
         if (trainId == NULLABLE_ID) {
+            isNewTrain = true
             currentTrain = Train(basicId = basicId)
         } else {
+            isNewTrain = false
             loadTrain(trainId!!)
         }
     }

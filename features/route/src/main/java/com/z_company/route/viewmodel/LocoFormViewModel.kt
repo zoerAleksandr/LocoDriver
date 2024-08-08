@@ -233,11 +233,7 @@ class LocoFormViewModel(
                     currentSetting = it.data
                     currentSetting?.let { setting ->
                         currentSetting = setting
-//                        currentLoco = currentLoco?.copy(
-//                            type = setting.defaultLocoType
-//                        )
                     }
-//                    getSettingJob?.cancel()
                 }
             }
         }

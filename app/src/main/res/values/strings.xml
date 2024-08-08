@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">LocoDriver</string>
+    <string name="app_name">Машинист</string>
     <string name="back4app_server_url">https://parseapi.back4app.com/</string>
 
     <!-- Paste BOTH strings as required -->

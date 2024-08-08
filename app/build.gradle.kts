@@ -7,6 +7,14 @@ plugins {
 }
 
 android {
+    signingConfigs {
+        create("release") {
+            storeFile = file("/Users/zoer/Documents/key_store")
+            storePassword = "Zoer.1639"
+            keyAlias = "ZCompanyAppKey"
+            keyPassword = "Zoer.1639"
+        }
+    }
     namespace = "com.z_company.loco_driver"
     compileSdk = Apps.compile_sdk_version
     val properties = Properties()
