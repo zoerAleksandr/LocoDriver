@@ -42,8 +42,8 @@ fun HomeBottomSheetContent(
         mutableStateOf(24.sp)
     }
 
-    fun changingTextSize(value: TextUnit){
-        if (requiredSize > value){
+    fun changingTextSize(value: TextUnit) {
+        if (requiredSize > value) {
             requiredSize = value
         }
     }
@@ -61,7 +61,7 @@ fun HomeBottomSheetContent(
                         .fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    items(routeList, key = {route -> route.basicData.id}) { route ->
+                    items(routeList, key = { route -> route.basicData.id }) { route ->
                         Spacer(modifier = Modifier.height(12.dp))
                         ItemHomeScreen(
                             modifier = Modifier.animateItemPlacement(),
@@ -91,7 +91,7 @@ fun EmptyList() {
     ) {
         Text(
             text = stringResource(id = R.string.msg_empty_route_list),
-            style = AppTypography.getType().titleMedium.copy(fontWeight = FontWeight.Light)
-            )
+            style = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
+        )
     }
 }

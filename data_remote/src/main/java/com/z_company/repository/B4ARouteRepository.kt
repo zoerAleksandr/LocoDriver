@@ -16,7 +16,6 @@ import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.entity.BasicData
 import com.z_company.entity.Locomotive
 import com.z_company.entity.Passenger
-import com.z_company.entity.Photo
 import com.z_company.entity.Train
 import com.z_company.entity_converter.BasicDataConverter
 import com.z_company.entity_converter.LocomotiveConverter
@@ -25,7 +24,6 @@ import com.z_company.entity_converter.TrainConverter
 import com.z_company.type_converter.TrainJSONConverter
 import com.z_company.type_converter.LocomotiveJSONConverter
 import com.z_company.type_converter.PassengerJSONConverter
-import com.z_company.type_converter.PhotoJSONConverter
 import com.z_company.work_manager.BASIC_DATA_INPUT_KEY
 import com.z_company.work_manager.GET_BASIC_DATA_WORKER_OUTPUT_KEY
 import com.z_company.work_manager.LOAD_BASIC_DATA_ID_INPUT_KEY

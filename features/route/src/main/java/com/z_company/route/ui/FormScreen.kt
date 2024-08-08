@@ -90,7 +90,6 @@ import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.route.component.ConfirmExitDialog
 import kotlinx.coroutines.launch
-import com.z_company.core.R as CoreR
 
 const val LINK_TO_SETTING = "LINK_TO_SETTING"
 

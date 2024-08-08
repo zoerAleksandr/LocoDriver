@@ -1,8 +1,5 @@
 package com.z_company.entity
 
-import java.net.URL
-
-
 data class Photo(
     var photoId: String = "",
     var basicId: String = "",

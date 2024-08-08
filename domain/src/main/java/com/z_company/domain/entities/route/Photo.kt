@@ -1,6 +1,5 @@
 package com.z_company.domain.entities.route
 
-import java.net.URL
 import java.util.UUID
 
 data class Photo(

@@ -533,7 +533,6 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: Long?) {
     val iconSize = 50.dp
     val iconSizeSecond = iconSize * .8f
     val iconMiniSize = 18.dp
-    val widthScreen = LocalConfiguration.current.screenWidthDp
 
     val locomotiveExpandItemState = remember {
         mutableStateMapOf<Int, Boolean>()

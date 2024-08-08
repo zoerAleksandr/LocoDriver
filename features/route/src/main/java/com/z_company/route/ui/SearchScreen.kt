@@ -103,12 +103,6 @@ fun SearchScreen(
         skipPartiallyExpanded = true
     )
 
-    val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
-    val subTitleTextStyle = AppTypography.getType().titleLarge
-        .copy(
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Normal
-        )
     val hintStyle = AppTypography.getType().titleLarge
         .copy(
             fontSize = 18.sp,

@@ -7,7 +7,6 @@ import androidx.compose.runtime.toMutableStateList
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
-import com.z_company.data_local.setting.DataStoreRepository
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Locomotive
@@ -33,14 +32,12 @@ class LocoFormViewModel(
     basicId: String
 ) : ViewModel(), KoinComponent {
     private val locomotiveUseCase: LocomotiveUseCase by inject()
-    private val dataStoreRepository: DataStoreRepository by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val _uiState = MutableStateFlow(LocoFormUiState())
     val uiState = _uiState.asStateFlow()
 
     private var loadLocoJob: Job? = null
     private var saveLocoJob: Job? = null
-    private var loadCoefficientJob: Job? = null
     private var saveCoefficientJob: Job? = null
     private var getSettingJob: Job? = null
 

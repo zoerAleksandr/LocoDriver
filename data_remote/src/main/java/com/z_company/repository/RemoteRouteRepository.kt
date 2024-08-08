@@ -7,7 +7,6 @@ import com.z_company.entity.Locomotive as LocomotiveRemote
 import com.z_company.entity.BasicData as BasicDataRemote
 import com.z_company.entity.Train as TrainRemote
 import com.z_company.entity.Passenger as PassengerRemote
-import com.z_company.entity.Photo as PhotoRemote
 import kotlinx.coroutines.flow.Flow
 
 interface RemoteRouteRepository {

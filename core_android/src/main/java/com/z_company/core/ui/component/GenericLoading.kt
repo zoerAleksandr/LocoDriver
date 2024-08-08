@@ -44,7 +44,7 @@ fun GenericLoading(
             }
         }
         Spacer(modifier = Modifier.size(16.dp))
-        Text(text = message ?: stringResource(id = R.string.msg_loading))
+        Text(text = message ?: stringResource(id = R.string.msg_loading), color = MaterialTheme.colorScheme.primary)
     }
 }
 

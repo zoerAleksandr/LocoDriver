@@ -11,7 +11,6 @@ import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.NightTime
 import com.z_company.domain.entities.SETTINGS_KEY
 import com.z_company.domain.entities.UserSettings
-import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.repositories.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -20,42 +19,11 @@ import org.koin.core.component.inject
 
 class RoomSettingRepository : SettingsRepository, KoinComponent {
     private val dao: SettingsDao by inject()
-    override fun getDieselCoefficient(): Flow<Double> {
-        TODO("Not yet implemented")
-    }
 
     override fun setDieselCoefficient(value: Double): Flow<ResultState<Unit>> {
         return flowRequest {
             dao.setDieselCoefficient(coefficient = value, key = SETTINGS_KEY)
         }
-    }
-
-    override fun getMinTimeRest(): Flow<Long?> {
-        TODO("Not yet implemented")
-    }
-
-    override fun setMinTimeRest(value: Long?): Flow<ResultState<Unit>> {
-        TODO("Not yet implemented")
-    }
-
-    override fun getStandardDurationOfWork(): Flow<Long> {
-        TODO("Not yet implemented")
-    }
-
-    override fun setStandardDurationOfWork(value: Long): Flow<ResultState<Unit>> {
-        TODO("Not yet implemented")
-    }
-
-    override fun getTypeLoco(): Flow<LocoType> {
-        TODO("Not yet implemented")
-    }
-
-    override fun setTypeLoco(type: LocoType): Flow<ResultState<Unit>> {
-        TODO("Not yet implemented")
-    }
-
-    override fun getNightTime(): Flow<ResultState<Int>> {
-        TODO("Not yet implemented")
     }
 
     override fun updateNightTime(nightTime: NightTime): Flow<ResultState<Unit>> {
