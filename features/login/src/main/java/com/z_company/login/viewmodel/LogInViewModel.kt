@@ -8,7 +8,6 @@ import androidx.lifecycle.viewModelScope
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.util.isEmailValid
-import com.z_company.login.R
 import com.z_company.login.ui.getMessageThrowable
 import com.z_company.use_case.AuthUseCase
 import kotlinx.coroutines.Job

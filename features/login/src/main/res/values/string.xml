@@ -2,4 +2,5 @@
 <resources>
     <string name="button_google_sign_in">Войти</string>
     <string name="msg_login_error">Сбой во время входа в систему.</string>
+    <string name="url_to_license_agreement">https://disk.yandex.ru/i/gTAxov93J0PZRQ</string>
 </resources>

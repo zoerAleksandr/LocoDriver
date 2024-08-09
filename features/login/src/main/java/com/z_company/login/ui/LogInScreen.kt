@@ -1,17 +1,23 @@
 package com.z_company.login.ui
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -30,11 +36,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ResultState
@@ -65,7 +76,9 @@ fun LogInScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
     var confirmPasswordVisible by rememberSaveable { mutableStateOf(false) }
-
+    var isLicenseAgreementAccepted by remember {
+        mutableStateOf(false)
+    }
     val scope = rememberCoroutineScope()
     val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
     val subTitleTextStyle = AppTypography.getType().titleLarge
@@ -73,6 +86,12 @@ fun LogInScreen(
             fontSize = 18.sp,
             fontWeight = FontWeight.Normal
         )
+    val hintStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Light
+        )
+
     if (userState is ResultState.Loading) {
         GenericLoading(onCloseClick = cancelRegistered)
     }
@@ -195,11 +214,45 @@ fun LogInScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
             )
 
-            Button(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = paddingBetweenView * 3),
-                enabled = isEnableButton,
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Start
+            ) {
+                Checkbox(checked = isLicenseAgreementAccepted, onCheckedChange = {
+                    isLicenseAgreementAccepted = !isLicenseAgreementAccepted
+                })
+                val ctx = LocalContext.current
+                val urlIntent = Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse(stringResource(id = R.string.url_to_license_agreement))
+                )
+
+                val text = "Я принимаю условия Лицензионного соглашения"
+                val startIndex = 19
+                val endIndex = text.length
+                val annotationString = buildAnnotatedString {
+                    append(text)
+                    addStyle(
+                        style = SpanStyle(
+                            color = MaterialTheme.colorScheme.tertiary,
+                            textDecoration = TextDecoration.Underline
+                        ),
+                        start = startIndex, end = endIndex
+                    )
+                }
+                ClickableText(text = annotationString, style = hintStyle) {
+                    ctx.startActivity(urlIntent)
+                }
+            }
+
+            Button(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = paddingBetweenView),
+                enabled = isEnableButton && isLicenseAgreementAccepted,
                 shape = Shapes.medium,
                 onClick = { onRegisteredClick(email, password, email) }
             ) {
