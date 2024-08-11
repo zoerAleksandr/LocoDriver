@@ -29,6 +29,7 @@
             <option value="$PROJECT_DIR$/domain" />
             <option value="$PROJECT_DIR$/features" />
             <option value="$PROJECT_DIR$/features/login" />
+            <option value="$PROJECT_DIR$/features/purchses" />
             <option value="$PROJECT_DIR$/features/route" />
             <option value="$PROJECT_DIR$/features/settings" />
           </set>

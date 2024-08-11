@@ -1,5 +1,6 @@
 package com.z_company.route.viewmodel
 
+import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -36,6 +37,11 @@ import java.util.Calendar.YEAR
 import java.util.Calendar.getInstance
 import com.z_company.domain.util.minus
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import ru.rustore.sdk.billingclient.RuStoreBillingClient
+import ru.rustore.sdk.billingclient.utils.pub.checkPurchasesAvailability
 
 class HomeViewModel : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
@@ -54,6 +60,25 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState = _uiState.asStateFlow()
+
+    private val _event = MutableSharedFlow<StartPurchasesEvent>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    val event = _event.asSharedFlow()
+
+    fun checkPurchasesAvailability(context: Context) {
+//        _state.value = _state.value.copy(isLoading = true)
+        RuStoreBillingClient.checkPurchasesAvailability(context)
+            .addOnSuccessListener { result ->
+//                _state.value = _state.value.copy(isLoading = false)
+                _event.tryEmit(StartPurchasesEvent.PurchasesAvailability(result))
+            }
+            .addOnFailureListener { throwable ->
+//                _state.value = _state.value.copy(isLoading = false)
+                _event.tryEmit(StartPurchasesEvent.Error(throwable))
+            }
+    }
 
     var currentMonthOfYear: MonthOfYear?
         get() {

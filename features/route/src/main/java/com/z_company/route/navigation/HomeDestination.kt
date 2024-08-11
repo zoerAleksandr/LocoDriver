@@ -36,6 +36,9 @@ fun HomeDestination(
         passengerTime = uiState.passengerTimeInRouteList,
         calculationHomeRest = homeViewModel::calculationHomeRest,
         firstEntryDialogState = uiState.showFirstEntryToAccountDialog,
-        resetStateFirstEntryDialog = homeViewModel::disableFirstEntryToAccountDialog
+        resetStateFirstEntryDialog = homeViewModel::disableFirstEntryToAccountDialog,
+        checkPurchasesAvailability =  homeViewModel::checkPurchasesAvailability,
+        purchasesEvent = homeViewModel.event,
+        showPurchsesScreen = router::showPurchasesScreen
     )
 }

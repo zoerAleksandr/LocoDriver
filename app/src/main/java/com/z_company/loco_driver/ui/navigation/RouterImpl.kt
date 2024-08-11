@@ -18,6 +18,7 @@ import com.z_company.route.navigation.FormRoute
 import com.z_company.route.navigation.FormTrain
 import com.z_company.route.navigation.HomeRoute
 import com.z_company.route.navigation.PreviewPhotoRoute
+import com.z_company.route.navigation.PurchasesRoute
 import com.z_company.route.navigation.SearchRoute
 import com.z_company.route.navigation.ViewingImageRoute
 import com.z_company.settings.navigation.SelectReleaseDaysScreenRoute
@@ -136,6 +137,12 @@ class RouterImpl(
     override fun showSelectReleaseDayScreen() {
         navController.navigate(
             SelectReleaseDaysScreenRoute.route
+        )
+    }
+
+    override fun showPurchasesScreen() {
+        navController.navigate(
+            PurchasesRoute.route
         )
     }
 }

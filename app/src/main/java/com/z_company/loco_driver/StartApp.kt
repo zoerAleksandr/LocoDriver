@@ -2,9 +2,9 @@ package com.z_company.loco_driver
 
 import android.app.Application
 import com.parse.Parse
-import com.vk.id.VKID
 import com.z_company.data_local.route.di.roomRouteModule
 import com.z_company.data_local.setting.di.roomSettingsModule
+import com.z_company.loco_driver.di.paymentsModule
 import com.z_company.loco_driver.di.repositoryModule
 import com.z_company.loco_driver.di.resourcesModule
 import com.z_company.loco_driver.di.useCaseModule
@@ -23,8 +23,6 @@ class StartApp: Application()  {
                 .server(getString(R.string.back4app_server_url))
                 .build())
 
-        VKID.logsEnabled = true
-
         startKoin {
             androidContext(this@StartApp)
             modules(
@@ -33,7 +31,8 @@ class StartApp: Application()  {
                 roomRouteModule,
                 repositoryModule,
                 useCaseModule,
-                resourcesModule
+                resourcesModule,
+                paymentsModule
             )
         }
     }

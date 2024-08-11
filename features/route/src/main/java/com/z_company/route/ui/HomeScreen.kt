@@ -1,5 +1,7 @@
 package com.z_company.route.ui
 
+import android.content.Context
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -53,6 +55,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
@@ -63,6 +66,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.flowWithLifecycle
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.ui.theme.Shapes
@@ -92,7 +96,11 @@ import com.z_company.route.component.ButtonLocoDriver
 import com.z_company.route.component.DialogSelectMonthOfYear
 import com.z_company.route.component.HomeBottomSheetContent
 import com.z_company.core.ui.component.CustomSnackBar
+import com.z_company.route.viewmodel.StartPurchasesEvent
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
+import ru.rustore.sdk.billingclient.utils.resolveForBilling
+import ru.rustore.sdk.core.feature.model.FeatureAvailabilityResult
 import com.z_company.core.R as CoreR
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -117,10 +125,15 @@ fun HomeScreen(
     passengerTime: Long?,
     calculationHomeRest: (Route?) -> Long?,
     firstEntryDialogState: Boolean,
-    resetStateFirstEntryDialog: () -> Unit
+    resetStateFirstEntryDialog: () -> Unit,
+    checkPurchasesAvailability: (Context) -> Unit,
+    purchasesEvent: SharedFlow<StartPurchasesEvent>,
+    showPurchsesScreen: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+
     val scaffoldState = rememberBottomSheetScaffoldState(
         bottomSheetState = rememberStandardBottomSheetState(
             confirmValueChange = {
@@ -135,6 +148,35 @@ fun HomeScreen(
 
     val isExpand = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded
 
+    LaunchedEffect(purchasesEvent) {
+        scope.launch {
+            purchasesEvent.flowWithLifecycle(lifecycle).collect { event ->
+                when (event) {
+                    is StartPurchasesEvent.PurchasesAvailability -> {
+                        when (event.availability) {
+                            is FeatureAvailabilityResult.Available -> {
+                                Log.d("ZZZ", "Available")
+                                showPurchsesScreen()
+                            }
+
+                            is FeatureAvailabilityResult.Unavailable -> {
+                                event.availability.cause.resolveForBilling(context)
+                                Log.d("ZZZ", "Unavailable")
+//                                event.availability.cause.message?.let(::showToast)
+                            }
+
+                            else -> {}
+                        }
+                    }
+
+                    is StartPurchasesEvent.Error -> {
+                        Log.d("ZZZ", "${event.throwable.message}")
+                    }
+                }
+            }
+        }
+
+    }
     if (removeRouteState is ResultState.Success) {
         LaunchedEffect(removeRouteState) {
             scope.launch {
@@ -466,7 +508,10 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(heightScreen.times(0.08f).dp),
-                onClick = { onNewRouteClick() }
+                onClick = {
+                    checkPurchasesAvailability(context)
+//                    onNewRouteClick()
+                }
             ) {
                 AutoSizeText(
                     text = stringResource(id = CoreR.string.adding),
