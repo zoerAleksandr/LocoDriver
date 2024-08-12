@@ -155,13 +155,12 @@ fun HomeScreen(
                     is StartPurchasesEvent.PurchasesAvailability -> {
                         when (event.availability) {
                             is FeatureAvailabilityResult.Available -> {
-                                Log.d("ZZZ", "Available")
                                 showPurchsesScreen()
                             }
 
                             is FeatureAvailabilityResult.Unavailable -> {
                                 event.availability.cause.resolveForBilling(context)
-                                Log.d("ZZZ", "Unavailable")
+                                Log.d("ZZZ", "event -> ${event.availability.cause}")
 //                                event.availability.cause.message?.let(::showToast)
                             }
 

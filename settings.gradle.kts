@@ -34,5 +34,5 @@ dependencyResolutionManagement {
     include(":data_remote")
     include(":data_remote")
     include(":data_remote")
+    include(":features:purchses")
 }
-include(":features:purchses")

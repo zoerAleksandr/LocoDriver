@@ -16,6 +16,9 @@ fun PurchasesDestination(
     val state by viewModel.state.collectAsState()
 
     PurchasesScreen(
-        billingState = state
+        billingState = state,
+        onProductClick = viewModel::onProductClick,
+        onBack = router::back,
+        eventSharedFlow = viewModel.event
     )
 }
