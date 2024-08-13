@@ -1,7 +1,6 @@
 package com.z_company.route.ui
 
 import android.content.Context
-import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -30,6 +29,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -109,7 +109,7 @@ fun HomeScreen(
     routeListState: ResultState<List<Route>>,
     removeRouteState: ResultState<Unit>?,
     onRouteClick: (String) -> Unit,
-    onNewRouteClick: () -> Unit,
+    onNewRouteClick: (Context) -> Unit,
     onDeleteRoute: (Route) -> Unit,
     onDeleteRouteConfirmed: () -> Unit,
     reloadRoute: () -> Unit,
@@ -126,9 +126,12 @@ fun HomeScreen(
     calculationHomeRest: (Route?) -> Long?,
     firstEntryDialogState: Boolean,
     resetStateFirstEntryDialog: () -> Unit,
-    checkPurchasesAvailability: (Context) -> Unit,
     purchasesEvent: SharedFlow<StartPurchasesEvent>,
-    showPurchsesScreen: () -> Unit
+    showPurchasesScreen: () -> Unit,
+    showFormScreen: () -> Unit,
+    isShowFormScreen: Boolean,
+    showFormScreenReset: () -> Unit,
+    isLoadingStateAddButton: Boolean
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -148,34 +151,11 @@ fun HomeScreen(
 
     val isExpand = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded
 
-    LaunchedEffect(purchasesEvent) {
-        scope.launch {
-            purchasesEvent.flowWithLifecycle(lifecycle).collect { event ->
-                when (event) {
-                    is StartPurchasesEvent.PurchasesAvailability -> {
-                        when (event.availability) {
-                            is FeatureAvailabilityResult.Available -> {
-                                showPurchsesScreen()
-                            }
-
-                            is FeatureAvailabilityResult.Unavailable -> {
-                                event.availability.cause.resolveForBilling(context)
-                                Log.d("ZZZ", "event -> ${event.availability.cause}")
-//                                event.availability.cause.message?.let(::showToast)
-                            }
-
-                            else -> {}
-                        }
-                    }
-
-                    is StartPurchasesEvent.Error -> {
-                        Log.d("ZZZ", "${event.throwable.message}")
-                    }
-                }
-            }
-        }
-
+    if (isShowFormScreen) {
+        showFormScreen()
+        showFormScreenReset()
     }
+
     if (removeRouteState is ResultState.Success) {
         LaunchedEffect(removeRouteState) {
             scope.launch {
@@ -383,6 +363,32 @@ fun HomeScreen(
         containerColor = MaterialTheme.colorScheme.background,
         contentColor = MaterialTheme.colorScheme.primary
     ) {
+        LaunchedEffect(purchasesEvent) {
+            scope.launch {
+                purchasesEvent.flowWithLifecycle(lifecycle).collect { event ->
+                    when (event) {
+                        is StartPurchasesEvent.PurchasesAvailability -> {
+                            when (event.availability) {
+                                is FeatureAvailabilityResult.Available -> {
+                                    showPurchasesScreen()
+                                }
+
+                                is FeatureAvailabilityResult.Unavailable -> {
+//                                    event.availability.cause.resolveForBilling(context)
+                                    scaffoldState.snackbarHostState.showSnackbar("Ошибка: ${event.availability.cause.message}")
+                                }
+
+                                else -> {}
+                            }
+                        }
+
+                        is StartPurchasesEvent.Error -> {
+                            scaffoldState.snackbarHostState.showSnackbar("Ошибка: ${event.throwable.message}")
+                        }
+                    }
+                }
+            }
+        }
         Column(
             Modifier
                 .fillMaxSize()
@@ -508,15 +514,34 @@ fun HomeScreen(
                     .fillMaxWidth()
                     .height(heightScreen.times(0.08f).dp),
                 onClick = {
-                    checkPurchasesAvailability(context)
-//                    onNewRouteClick()
+                    onNewRouteClick(context)
                 }
             ) {
-                AutoSizeText(
-                    text = stringResource(id = CoreR.string.adding),
-                    style = AppTypography.getType().headlineSmall.copy(color = MaterialTheme.colorScheme.onPrimary),
-                    maxTextSize = 24.sp,
-                )
+                if (isLoadingStateAddButton) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(48.dp),
+                            strokeWidth = 3.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                        AutoSizeText(
+                            text = "Загрузка",
+                            style = AppTypography.getType().headlineSmall.copy(color = MaterialTheme.colorScheme.onPrimary),
+                            maxTextSize = 24.sp,
+                        )
+                    }
+                } else {
+                    AutoSizeText(
+                        text = stringResource(id = CoreR.string.adding),
+                        style = AppTypography.getType().headlineSmall.copy(color = MaterialTheme.colorScheme.onPrimary),
+                        maxTextSize = 24.sp,
+                    )
+                }
             }
         }
     }

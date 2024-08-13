@@ -31,7 +31,7 @@ class SharedPreferenceStorage(application: Application) : KoinComponent {
         sharedpref.getBoolean(TOKEN_IS_SYNC_TAG, false)
 
     fun setSubscriptionExpiration(value: Long) {
-        editor.putLong(TOKEN_SUBSCRIPTION_EXPIRATION_TAG, value)
+        editor.putLong(TOKEN_SUBSCRIPTION_EXPIRATION_TAG, value).apply()
     }
     fun setTokenIsChangeHave(value: Boolean) {
         editor.putBoolean(TOKEN_IS_CHANGES_HAVE_TAG, value).apply()

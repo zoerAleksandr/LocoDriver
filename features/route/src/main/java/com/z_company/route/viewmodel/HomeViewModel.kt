@@ -44,6 +44,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import ru.rustore.sdk.billingclient.RuStoreBillingClient
 import ru.rustore.sdk.billingclient.utils.pub.checkPurchasesAvailability
 import ru.rustore.sdk.billingclient.utils.pub.products
+import java.util.Calendar
 
 class HomeViewModel : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
@@ -69,17 +70,53 @@ class HomeViewModel : ViewModel(), KoinComponent {
     )
     val event = _event.asSharedFlow()
 
-    fun checkPurchasesAvailability(context: Context) {
-//        _state.value = _state.value.copy(isLoading = true)
+    private fun checkPurchasesAvailability(context: Context) {
         RuStoreBillingClient.checkPurchasesAvailability(context)
             .addOnSuccessListener { result ->
-//                _state.value = _state.value.copy(isLoading = false)
+                _uiState.update {
+                    it.copy(
+                        isLoadingStateAddButton = false
+                    )
+                }
                 _event.tryEmit(StartPurchasesEvent.PurchasesAvailability(result))
             }
             .addOnFailureListener { throwable ->
-//                _state.value = _state.value.copy(isLoading = false)
+                _uiState.update {
+                    it.copy(
+                        isLoadingStateAddButton = false
+                    )
+                }
                 _event.tryEmit(StartPurchasesEvent.Error(throwable))
             }
+    }
+
+    fun newRouteClick(context: Context) {
+        _uiState.update {
+            it.copy(
+                isLoadingStateAddButton = true
+            )
+        }
+        val currentTime = getInstance().timeInMillis
+        val endTimeSubscription = sharedPreferenceStorage.getSubscriptionExpiration()
+        Log.d("ZZZ", "endTimeSubscription $endTimeSubscription")
+        if (endTimeSubscription > currentTime) {
+            _uiState.update {
+                it.copy(
+                    showNewRouteScreen = true,
+                    isLoadingStateAddButton = false
+                )
+            }
+        } else {
+            checkPurchasesAvailability(context)
+        }
+    }
+
+    fun showFormScreenReset() {
+        _uiState.update {
+            it.copy(
+                showNewRouteScreen = false
+            )
+        }
     }
 
     var currentMonthOfYear: MonthOfYear?

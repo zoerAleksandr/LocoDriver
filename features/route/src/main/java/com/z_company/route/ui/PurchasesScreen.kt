@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -63,6 +64,7 @@ fun PurchasesScreen(
     onBack: () -> Unit,
     eventSharedFlow: SharedFlow<BillingEvent>
 ) {
+    Log.d("ZZZ", "purchases in UI ${billingState.purchases}")
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val scope = rememberCoroutineScope()
 
@@ -121,7 +123,7 @@ fun PurchasesScreen(
                         if (event.error is RuStoreException) {
                             event.error.resolveForBilling(context)
                         }
-                        snackbarHostState.showSnackbar(message = "Ошибка : ${event.error.message.orEmpty()}")
+                        snackbarHostState.showSnackbar(message = "Ошибка: ${event.error.message.orEmpty()}")
                     }
                 }
             }
@@ -166,9 +168,9 @@ fun PurchasesScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             billingState.products
-                .filter { product ->
-                    product.productStatus == ProductStatus.ACTIVE
-                }
+//                .filter { product ->
+//                    product.productStatus == ProductStatus.ACTIVE
+//                }
                 .forEach { activeProduct ->
                     Column(
                         modifier = Modifier

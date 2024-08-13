@@ -28,7 +28,7 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
 
     private val availableProductIds = listOf(
         "LOCO_DRIVER_MONTHLY_SUBSCRIPTION",
-        "LOCO_DRIVER_ANNUAL_SUBSCRIPTION"
+        "LOCO_DRIVER_ANNUAL_SUBSCRIPTION",
     )
 
     private val _state = MutableStateFlow(BillingState())
@@ -58,8 +58,6 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                     ).await()
                     val purchases = billingClient.purchases.getPurchases().await()
                     purchases.forEach { purchase ->
-                        Log.d("ZZZ", "purchase ${purchase.purchaseTime?.time}")
-
                         val purchaseId = purchase.purchaseId
                         if (purchase.developerPayload?.isNotEmpty() == true) {
                             Log.w(
@@ -81,16 +79,12 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                             }
                         }
                     }
-                    val boughtProducts = products.filter { product ->
-                        purchases.none { product.productId != it.productId }
-                    }
 
                     withContext(Dispatchers.Main) {
                         _state.update {
                             it.copy(
                                 products = products,
                                 purchases = purchases,
-                                boughtProductsId = boughtProducts.map { product -> product.productId },
                                 isLoading = false
                             )
                         }
@@ -111,62 +105,95 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
             developerPayload = developerPayload
         )
             .addOnSuccessListener { paymentResult ->
+                Log.d("ZZZ", "PurchasesViewModel ::purchaseProduct addOnSuccessListener")
                 handlePaymentResult(paymentResult)
             }
-            .addOnFailureListener {
-                setErrorStateOnFailure(it)
+            .addOnFailureListener { throwable ->
+                Log.d(
+                    "ZZZ",
+                    "PurchasesViewModel ::purchaseProduct addOnFailureListener ${throwable.cause}"
+                )
+                _event.tryEmit(BillingEvent.ShowError(throwable))
+                setErrorStateOnFailure(throwable)
             }
     }
 
     private fun handlePaymentResult(paymentResult: PaymentResult) {
         when (paymentResult) {
             is PaymentResult.Failure -> {
+                Log.d("ZZZ", "PurchasesViewModel ::handlePaymentResult PaymentResult.Failure")
                 paymentResult.purchaseId?.let { deletePurchase(it) }
             }
 
             is PaymentResult.Success -> {
-                confirmPurchase(paymentResult.purchaseId)
+                Log.d("ZZZ", "PurchasesViewModel ::handlePaymentResult PaymentResult.Success")
+//                confirmPurchase(paymentResult.purchaseId)
+                setSubscriptionExpiration(paymentResult.purchaseId)
             }
 
             else -> Unit
         }
     }
 
-    private fun confirmPurchase(purchaseId: String) {
-        _state.value = _state.value.copy(
-            isLoading = true,
-            snackbarResId = R.string.billing_purchase_confirm_in_progress
-        )
-        billingClient.purchases.confirmPurchase(purchaseId, null)
-            .addOnSuccessListener { response ->
-                setSubscriptionExpiration(purchaseId)
-                _event.tryEmit(
-                    BillingEvent.ShowDialog(
-                        InfoDialogState(
-                            titleRes = R.string.billing_product_confirmed,
-                            message = response.toString(),
-                        )
-                    )
-                )
-                _state.value = _state.value.copy(
-                    isLoading = false,
-                    snackbarResId = null
-                )
-            }
-            .addOnFailureListener {
-                setErrorStateOnFailure(it)
-            }
-    }
+//    private fun confirmPurchase(purchaseId: String) {
+//        Log.d("ZZZ", "PurchasesViewModel ::confirmPurchase")
+//        _state.value = _state.value.copy(
+//            isLoading = true,
+//            snackbarResId = R.string.billing_purchase_confirm_in_progress
+//        )
+//        val developerPayload = "your_developer_payload"
+//        billingClient.purchases.confirmPurchase(purchaseId, developerPayload)
+//            .addOnSuccessListener { response ->
+//                Log.d("ZZZ", "PurchasesViewModel ::confirmPurchase addOnSuccessListener")
+//                setSubscriptionExpiration(purchaseId)
+//                _event.tryEmit(
+//                    BillingEvent.ShowDialog(
+//                        InfoDialogState(
+//                            titleRes = R.string.billing_product_confirmed,
+//                            message = response.toString(),
+//                        )
+//                    )
+//                )
+//                _state.value = _state.value.copy(
+//                    isLoading = false,
+//                    snackbarResId = null
+//                )
+//            }
+//            .addOnFailureListener {
+//                Log.d("ZZZ", "PurchasesViewModel ::confirmPurchase addOnFailureListener ${it}")
+//                setErrorStateOnFailure(it)
+//            }
+//    }
 
     private fun setSubscriptionExpiration(purchaseId: String) {
-        val purchase = billingClient.purchases.getPurchaseInfo(purchaseId).await()
-        val productId = purchase.productId
-        val product = billingClient.products.getProducts(listOf(productId)).await()
-        val periodInDays = product.first().subscription?.subscriptionPeriod?.days
-        if (periodInDays != null) {
-            val endPeriodInLong =
-                Calendar.getInstance().timeInMillis + (86_400_000L * periodInDays.toLong())
-            sharedPreferenceStorage.setSubscriptionExpiration(endPeriodInLong)
+        // TEST THIS METHOD
+        viewModelScope.launch {
+//            runCatching {
+            withContext(Dispatchers.IO) {
+                val purchase = billingClient.purchases.getPurchaseInfo(purchaseId).await()
+                Log.d("ZZZ", "purchase = $purchase")
+                val productId = purchase.productId
+                val product = billingClient.products.getProducts(listOf(productId)).await()
+                Log.d("ZZZ", "products = $product")
+                val periodInDays = product.first().subscription?.subscriptionPeriod?.days
+                Log.d("ZZZ", "periodInDays = $periodInDays")
+                if (periodInDays != null) {
+                    val endPeriodInLong =
+                        Calendar.getInstance().timeInMillis + (86_400_000L * periodInDays.toLong())
+                    Log.d(
+                        "ZZZ",
+                        "endPeriodInLong $endPeriodInLong"
+                    )
+                    withContext(Dispatchers.Main) {
+                        sharedPreferenceStorage.setSubscriptionExpiration(endPeriodInLong)
+                        val savePeriod = sharedPreferenceStorage.getSubscriptionExpiration()
+                        Log.d(
+                            "ZZZ","savePeriod $savePeriod"
+                        )
+                    }
+                }
+            }
+//            }
         }
     }
 
