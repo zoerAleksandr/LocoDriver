@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.flowWithLifecycle
 import com.z_company.core.ResultState
+import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
@@ -96,10 +97,10 @@ import com.z_company.route.component.ButtonLocoDriver
 import com.z_company.route.component.DialogSelectMonthOfYear
 import com.z_company.route.component.HomeBottomSheetContent
 import com.z_company.core.ui.component.CustomSnackBar
+import com.z_company.route.viewmodel.AlertBeforePurchasesEvent
 import com.z_company.route.viewmodel.StartPurchasesEvent
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
-import ru.rustore.sdk.billingclient.utils.resolveForBilling
 import ru.rustore.sdk.core.feature.model.FeatureAvailabilityResult
 import com.z_company.core.R as CoreR
 
@@ -109,7 +110,7 @@ fun HomeScreen(
     routeListState: ResultState<List<Route>>,
     removeRouteState: ResultState<Unit>?,
     onRouteClick: (String) -> Unit,
-    onNewRouteClick: (Context) -> Unit,
+    onNewRouteClick: () -> Unit,
     onDeleteRoute: (Route) -> Unit,
     onDeleteRouteConfirmed: () -> Unit,
     reloadRoute: () -> Unit,
@@ -131,7 +132,12 @@ fun HomeScreen(
     showFormScreen: () -> Unit,
     isShowFormScreen: Boolean,
     showFormScreenReset: () -> Unit,
-    isLoadingStateAddButton: Boolean
+    isLoadingStateAddButton: Boolean,
+    alertBeforePurchasesState: SharedFlow<AlertBeforePurchasesEvent>,
+    checkPurchasesAvailability: (Context) -> Unit,
+    restorePurchases: () -> Unit,
+    restoreResultState: ResultState<String>?,
+    resetSubscriptionState: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -154,6 +160,117 @@ fun HomeScreen(
     if (isShowFormScreen) {
         showFormScreen()
         showFormScreenReset()
+    }
+
+    var showAlertBeforePurchasesDialog by remember {
+        mutableStateOf(false)
+    }
+
+    var alertBeforePurchasesDialogMessage by remember {
+        mutableStateOf("")
+    }
+
+    AsyncData(resultState = restoreResultState, errorContent = {
+        LaunchedEffect(Unit) {
+            scope.launch {
+                scaffoldState.snackbarHostState.showSnackbar("Ошибка синхронизации. Проверьте интернет.")
+            }
+        }
+    }) { message ->
+        message?.let {
+            scope.launch {
+                scaffoldState.snackbarHostState.showSnackbar(message)
+            }
+        }
+        resetSubscriptionState()
+    }
+
+    AnimationDialog(
+        showDialog = showAlertBeforePurchasesDialog,
+        onDismissRequest = { showAlertBeforePurchasesDialog = !showAlertBeforePurchasesDialog }
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(horizontal = 16.dp)
+                .fillMaxWidth()
+                .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = "${stringResource(id = R.string.dialog_title_need_purchases)}\n",
+                    style = AppTypography.getType().titleLarge.copy(color = MaterialTheme.colorScheme.primary)
+                )
+                Text(
+                    text = "$alertBeforePurchasesDialogMessage\n",
+                    style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
+                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    HorizontalDivider()
+                    TextButton(
+                        shape = Shapes.medium,
+                        onClick = {
+                            showAlertBeforePurchasesDialog = !showAlertBeforePurchasesDialog
+                        }
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.billing_common_ok),
+                            style = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.tertiary)
+                        )
+                    }
+                    HorizontalDivider()
+
+                    TextButton(
+                        shape = Shapes.medium,
+                        onClick = {
+                            showAlertBeforePurchasesDialog = !showAlertBeforePurchasesDialog
+                            checkPurchasesAvailability(context)
+                        }
+                    ) {
+                        Text(
+                            text = "Оформить подписку",
+                            style = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.tertiary)
+                        )
+                    }
+                    HorizontalDivider()
+
+                    TextButton(
+                        shape = Shapes.medium,
+                        onClick = {
+                            showAlertBeforePurchasesDialog = !showAlertBeforePurchasesDialog
+                            restorePurchases()
+                        }
+                    ) {
+                        Text(
+                            text = "Восстановить покупки",
+                            style = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.tertiary)
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        scope.launch {
+            alertBeforePurchasesState.flowWithLifecycle(lifecycle).collect { event ->
+                when (event) {
+                    is AlertBeforePurchasesEvent.ShowDialog -> {
+                        alertBeforePurchasesDialogMessage = event.dialogInfo.message
+                        showAlertBeforePurchasesDialog = true
+                    }
+                }
+            }
+        }
     }
 
     if (removeRouteState is ResultState.Success) {
@@ -514,7 +631,7 @@ fun HomeScreen(
                     .fillMaxWidth()
                     .height(heightScreen.times(0.08f).dp),
                 onClick = {
-                    onNewRouteClick(context)
+                    onNewRouteClick()
                 }
             ) {
                 if (isLoadingStateAddButton) {
@@ -525,7 +642,7 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(48.dp),
+                            modifier = Modifier.size(36.dp),
                             strokeWidth = 3.dp,
                             color = MaterialTheme.colorScheme.onPrimary
                         )

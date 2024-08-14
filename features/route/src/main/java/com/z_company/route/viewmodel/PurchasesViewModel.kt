@@ -7,12 +7,14 @@ import com.z_company.data_local.SharedPreferenceStorage
 import com.z_company.route.Const.LOCO_DRIVER_ANNUAL_SUBSCRIPTION
 import com.z_company.route.Const.LOCO_DRIVER_MONTHLY_SUBSCRIPTION
 import com.z_company.route.R
+import com.z_company.route.extention.getEndTimeSubscription
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -59,6 +61,16 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                         productIds = availableProductIds
                     ).await()
                     val purchases = billingClient.purchases.getPurchases().await()
+                    var maxEndTime = 0L
+                    purchases.forEach { purchase ->
+                        val purchaseEndTime =
+                            purchase.getEndTimeSubscription(billingClient).first()
+                        if (purchaseEndTime > maxEndTime) {
+                            maxEndTime = purchaseEndTime
+                        }
+                    }
+                    sharedPreferenceStorage.setSubscriptionExpiration(maxEndTime)
+
                     val productIds: MutableList<String> = mutableListOf()
                     purchases.forEach { purchase ->
                         val purchaseId = purchase.purchaseId

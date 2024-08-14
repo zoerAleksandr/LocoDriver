@@ -726,7 +726,14 @@ fun SettingScreenContent(
                                     modifier = Modifier.size(24.dp),
                                     strokeWidth = 2.dp
                                 )
-                            }) { purchaseInfo ->
+                            },
+                            errorContent = {
+                                Text(
+                                    text = "Ошибка",
+                                    style = styleData
+                                )
+                            }
+                            ) { purchaseInfo ->
                             if (purchaseInfo.isNullOrEmpty()) {
                                 Text(
                                     text = "Отсутствует",

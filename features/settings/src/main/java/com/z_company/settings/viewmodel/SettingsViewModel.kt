@@ -1,14 +1,17 @@
 package com.z_company.settings.viewmodel
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.parse.ParseUser
+import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.isEmailValid
+import com.z_company.data_local.SharedPreferenceStorage
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.use_case.LoginUseCase
 import com.z_company.domain.entities.User
@@ -44,6 +47,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val back4AppManager: Back4AppManager by inject()
     private val billingClient: RuStoreBillingClient by inject()
+    private val sharedPreferenceStorage: SharedPreferenceStorage by inject()
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState = _uiState.asStateFlow()
@@ -99,28 +103,40 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private fun loadPurchasesInfo() {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
-                val purchases = billingClient.purchases.getPurchases().await()
-                var maxEndTime = 0L
-                purchases.forEach { purchase ->
-                    val purchaseEndTime =
-                        purchase.getEndTimeSubscription(billingClient).first()
-                    if (purchaseEndTime > maxEndTime) {
-                        maxEndTime = purchaseEndTime
+                try {
+                    val purchases = billingClient.purchases.getPurchases().await()
+                    var maxEndTime = 0L
+                    purchases.forEach { purchase ->
+                        val purchaseEndTime =
+                            purchase.getEndTimeSubscription(billingClient).first()
+                        if (purchaseEndTime > maxEndTime) {
+                            maxEndTime = purchaseEndTime
+                        }
                     }
-                }
+                    sharedPreferenceStorage.setSubscriptionExpiration(maxEndTime)
+                    val textEndTime = if (maxEndTime == 0L) {
+                        ""
+                    } else {
+                        ConverterLongToTime.getDateAndTimeStringFormat(maxEndTime)
+                    }
 
-                val textEndTime = if (maxEndTime == 0L) {
-                    ""
-                } else {
-                    ConverterLongToTime.getDateAndTimeStringFormat(maxEndTime)
-                }
-
-                viewModelScope.launch {
-                    withContext(Dispatchers.Main) {
-                        _uiState.update {
-                            it.copy(
-                                purchasesEndTime = ResultState.Success(textEndTime)
-                            )
+                    viewModelScope.launch {
+                        withContext(Dispatchers.Main) {
+                            _uiState.update {
+                                it.copy(
+                                    purchasesEndTime = ResultState.Success(textEndTime)
+                                )
+                            }
+                        }
+                    }
+                } catch (e: Exception){
+                    viewModelScope.launch {
+                        withContext(Dispatchers.Main) {
+                            _uiState.update {
+                                it.copy(
+                                    purchasesEndTime = ResultState.Error(ErrorEntity())
+                                )
+                            }
                         }
                     }
                 }

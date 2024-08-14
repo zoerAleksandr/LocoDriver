@@ -37,11 +37,16 @@ fun HomeDestination(
         calculationHomeRest = homeViewModel::calculationHomeRest,
         firstEntryDialogState = uiState.showFirstEntryToAccountDialog,
         resetStateFirstEntryDialog = homeViewModel::disableFirstEntryToAccountDialog,
-        purchasesEvent = homeViewModel.event,
+        purchasesEvent = homeViewModel.checkPurchasesEvent,
         showPurchasesScreen = router::showPurchasesScreen,
         isShowFormScreen = uiState.showNewRouteScreen,
         showFormScreen = { router.showRouteForm() },
         isLoadingStateAddButton = uiState.isLoadingStateAddButton,
-        showFormScreenReset = homeViewModel::showFormScreenReset
+        showFormScreenReset = homeViewModel::showFormScreenReset,
+        alertBeforePurchasesState = homeViewModel.alertBeforePurchasesEvent,
+        checkPurchasesAvailability = homeViewModel::checkPurchasesAvailability,
+        restorePurchases = homeViewModel::restorePurchases,
+        restoreResultState = uiState.restoreSubscriptionState,
+        resetSubscriptionState = homeViewModel::resetSubscriptionState
     )
 }
