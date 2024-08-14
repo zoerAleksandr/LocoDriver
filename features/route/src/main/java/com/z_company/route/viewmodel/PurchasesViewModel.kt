@@ -4,6 +4,8 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.data_local.SharedPreferenceStorage
+import com.z_company.route.Const.LOCO_DRIVER_ANNUAL_SUBSCRIPTION
+import com.z_company.route.Const.LOCO_DRIVER_MONTHLY_SUBSCRIPTION
 import com.z_company.route.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
@@ -27,8 +29,8 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
     private val sharedPreferenceStorage: SharedPreferenceStorage by inject()
 
     private val availableProductIds = listOf(
-        "LOCO_DRIVER_MONTHLY_SUBSCRIPTION",
-        "LOCO_DRIVER_ANNUAL_SUBSCRIPTION",
+        LOCO_DRIVER_MONTHLY_SUBSCRIPTION,
+        LOCO_DRIVER_ANNUAL_SUBSCRIPTION,
     )
 
     private val _state = MutableStateFlow(BillingState())
@@ -57,8 +59,12 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                         productIds = availableProductIds
                     ).await()
                     val purchases = billingClient.purchases.getPurchases().await()
+                    val productIds: MutableList<String> = mutableListOf()
                     purchases.forEach { purchase ->
                         val purchaseId = purchase.purchaseId
+                        productIds.add(purchase.productId)
+
+                        purchase.productId
                         if (purchase.developerPayload?.isNotEmpty() == true) {
                             Log.w(
                                 "RuStoreBillingClient",
@@ -85,7 +91,8 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                             it.copy(
                                 products = products,
                                 purchases = purchases,
-                                isLoading = false
+                                isLoading = false,
+                                boughtProductsId = productIds
                             )
                         }
                     }
@@ -105,14 +112,9 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
             developerPayload = developerPayload
         )
             .addOnSuccessListener { paymentResult ->
-                Log.d("ZZZ", "PurchasesViewModel ::purchaseProduct addOnSuccessListener")
                 handlePaymentResult(paymentResult)
             }
             .addOnFailureListener { throwable ->
-                Log.d(
-                    "ZZZ",
-                    "PurchasesViewModel ::purchaseProduct addOnFailureListener ${throwable.cause}"
-                )
                 _event.tryEmit(BillingEvent.ShowError(throwable))
                 setErrorStateOnFailure(throwable)
             }
@@ -121,13 +123,10 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
     private fun handlePaymentResult(paymentResult: PaymentResult) {
         when (paymentResult) {
             is PaymentResult.Failure -> {
-                Log.d("ZZZ", "PurchasesViewModel ::handlePaymentResult PaymentResult.Failure")
                 paymentResult.purchaseId?.let { deletePurchase(it) }
             }
 
             is PaymentResult.Success -> {
-                Log.d("ZZZ", "PurchasesViewModel ::handlePaymentResult PaymentResult.Success")
-//                confirmPurchase(paymentResult.purchaseId)
                 setSubscriptionExpiration(paymentResult.purchaseId)
             }
 
@@ -135,65 +134,24 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
         }
     }
 
-//    private fun confirmPurchase(purchaseId: String) {
-//        Log.d("ZZZ", "PurchasesViewModel ::confirmPurchase")
-//        _state.value = _state.value.copy(
-//            isLoading = true,
-//            snackbarResId = R.string.billing_purchase_confirm_in_progress
-//        )
-//        val developerPayload = "your_developer_payload"
-//        billingClient.purchases.confirmPurchase(purchaseId, developerPayload)
-//            .addOnSuccessListener { response ->
-//                Log.d("ZZZ", "PurchasesViewModel ::confirmPurchase addOnSuccessListener")
-//                setSubscriptionExpiration(purchaseId)
-//                _event.tryEmit(
-//                    BillingEvent.ShowDialog(
-//                        InfoDialogState(
-//                            titleRes = R.string.billing_product_confirmed,
-//                            message = response.toString(),
-//                        )
-//                    )
-//                )
-//                _state.value = _state.value.copy(
-//                    isLoading = false,
-//                    snackbarResId = null
-//                )
-//            }
-//            .addOnFailureListener {
-//                Log.d("ZZZ", "PurchasesViewModel ::confirmPurchase addOnFailureListener ${it}")
-//                setErrorStateOnFailure(it)
-//            }
-//    }
-
     private fun setSubscriptionExpiration(purchaseId: String) {
-        // TEST THIS METHOD
         viewModelScope.launch {
-//            runCatching {
             withContext(Dispatchers.IO) {
                 val purchase = billingClient.purchases.getPurchaseInfo(purchaseId).await()
-                Log.d("ZZZ", "purchase = $purchase")
                 val productId = purchase.productId
                 val product = billingClient.products.getProducts(listOf(productId)).await()
-                Log.d("ZZZ", "products = $product")
                 val periodInDays = product.first().subscription?.subscriptionPeriod?.days
-                Log.d("ZZZ", "periodInDays = $periodInDays")
                 if (periodInDays != null) {
                     val endPeriodInLong =
                         Calendar.getInstance().timeInMillis + (86_400_000L * periodInDays.toLong())
-                    Log.d(
-                        "ZZZ",
-                        "endPeriodInLong $endPeriodInLong"
-                    )
                     withContext(Dispatchers.Main) {
-                        sharedPreferenceStorage.setSubscriptionExpiration(endPeriodInLong)
-                        val savePeriod = sharedPreferenceStorage.getSubscriptionExpiration()
-                        Log.d(
-                            "ZZZ","savePeriod $savePeriod"
-                        )
+                        val oldEndPeriod = sharedPreferenceStorage.getSubscriptionExpiration()
+                        if (endPeriodInLong > oldEndPeriod) {
+                            sharedPreferenceStorage.setSubscriptionExpiration(endPeriodInLong)
+                        }
                     }
                 }
             }
-//            }
         }
     }
 

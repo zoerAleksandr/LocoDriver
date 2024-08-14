@@ -51,6 +51,7 @@ import com.z_company.route.component.DialogSelectMonthOfYear
 import com.z_company.settings.component.ConfirmEmailDialog
 import com.z_company.settings.viewmodel.SettingsUiState
 import kotlinx.coroutines.launch
+import ru.rustore.sdk.billingclient.model.purchase.Purchase
 import com.z_company.core.R as CoreR
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -81,7 +82,9 @@ fun SettingsScreen(
     resetRepositoryState: () -> Unit,
     changeStartNightTime: (Int, Int) -> Unit,
     changeEndNightTime: (Int, Int) -> Unit,
-    changeUsingDefaultWorkTime: (Boolean) -> Unit
+    changeUsingDefaultWorkTime: (Boolean) -> Unit,
+    purchasesState: ResultState<String>,
+    onBillingClick: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -170,7 +173,9 @@ fun SettingsScreen(
                                 enableButtonConfirmVerification = enableButtonConfirmVerification,
                                 changeStartNightTime = changeStartNightTime,
                                 changeEndNightTime = changeEndNightTime,
-                                changeUsingDefaultWorkTime = changeUsingDefaultWorkTime
+                                changeUsingDefaultWorkTime = changeUsingDefaultWorkTime,
+                                purchasesState = purchasesState,
+                                onBillingClick = onBillingClick
                             )
                         }
                     }
@@ -203,7 +208,9 @@ fun SettingScreenContent(
     enableButtonConfirmVerification: Boolean,
     changeStartNightTime: (Int, Int) -> Unit,
     changeEndNightTime: (Int, Int) -> Unit,
-    changeUsingDefaultWorkTime: (Boolean) -> Unit
+    changeUsingDefaultWorkTime: (Boolean) -> Unit,
+    purchasesState: ResultState<String>,
+    onBillingClick: () -> Unit
 ) {
     val styleTitle = AppTypography.getType().titleLarge
         .copy(
@@ -704,6 +711,34 @@ fun SettingScreenContent(
                             }
                         }
 
+                    }
+
+                    HorizontalDivider()
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { onBillingClick() },
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(text = "Подписка", style = styleData)
+                        AsyncData(
+                            resultState = purchasesState,
+                            loadingContent = {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            }) { purchaseInfo ->
+                            if (purchaseInfo.isNullOrEmpty()) {
+                                Text(
+                                    text = "Отсутствует",
+                                    style = styleData
+                                )
+                            } else {
+                                Text(
+                                    text = "до $purchaseInfo",
+                                    style = styleData
+                                )
+                            }
+                        }
                     }
                 }
             }

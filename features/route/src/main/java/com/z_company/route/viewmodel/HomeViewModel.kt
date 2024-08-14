@@ -98,13 +98,16 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
         val currentTime = getInstance().timeInMillis
         val endTimeSubscription = sharedPreferenceStorage.getSubscriptionExpiration()
-        Log.d("ZZZ", "endTimeSubscription $endTimeSubscription")
-        if (endTimeSubscription > currentTime) {
-            _uiState.update {
-                it.copy(
-                    showNewRouteScreen = true,
-                    isLoadingStateAddButton = false
-                )
+        val listState = uiState.value.routeListState
+        if (listState is ResultState.Success) {
+            val routesSize = listState.data.size
+            if (endTimeSubscription > currentTime || routesSize <= 1) {
+                _uiState.update {
+                    it.copy(
+                        showNewRouteScreen = true,
+                        isLoadingStateAddButton = false
+                    )
+                }
             }
         } else {
             checkPurchasesAvailability(context)
