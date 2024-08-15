@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -751,6 +752,7 @@ fun <T> ItemAddingScreen(
     onDeleteClick: (element: T) -> Unit,
     subItem: @Composable RowScope.(index: Int, element: T) -> Unit
 ) {
+    Log.d("ZZZ", "ItemAddingScreen $contentList")
     val hintStyle = AppTypography.getType().titleLarge
         .copy(
             fontSize = 18.sp,
@@ -787,6 +789,7 @@ fun <T> ItemAddingScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 elements.forEachIndexed { index, element ->
+                    Log.d("ZZZ", "$element")
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
