@@ -1,6 +1,5 @@
 package com.z_company.settings.viewmodel
 
-import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.lifecycle.ViewModel
@@ -158,12 +157,6 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
                                         newDays[index] = newDay
                                         changingDateList.add(newDay)
                                     } else {
-                                        Log.d(
-                                            "ZZZ",
-                                            "foundDay = ${foundDay.get(DAY_OF_MONTH)} ${
-                                                foundDay.get(MONTH)
-                                            }"
-                                        )
                                         setOtherMonthOfYear(foundDay)
                                     }
                                 }
@@ -258,7 +251,6 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
                         )
                     }
                     result.data?.selectMonthOfYear?.let {
-                        Log.d("ZZZ", "month = $it")
                         setReleasePeriodState(it)
                     }
                 }

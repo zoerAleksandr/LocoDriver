@@ -51,7 +51,6 @@ import com.z_company.route.component.DialogSelectMonthOfYear
 import com.z_company.settings.component.ConfirmEmailDialog
 import com.z_company.settings.viewmodel.SettingsUiState
 import kotlinx.coroutines.launch
-import ru.rustore.sdk.billingclient.model.purchase.Purchase
 import com.z_company.core.R as CoreR
 
 @OptIn(ExperimentalMaterial3Api::class)

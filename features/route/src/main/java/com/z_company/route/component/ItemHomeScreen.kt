@@ -1,6 +1,5 @@
 package com.z_company.route.component
 
-import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -83,7 +82,6 @@ fun ItemHomeScreen(
 
                 is PressInteraction.Release -> {
                     if (isLongClick.not()) {
-                        Log.d("ZZZ", "click")
                     }
 
                 }

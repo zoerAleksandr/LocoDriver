@@ -3,7 +3,6 @@ package com.z_company.route.viewmodel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.z_company.core.ErrorEntity
 import com.z_company.data_local.SharedPreferenceStorage
 import com.z_company.route.Const.LOCO_DRIVER_ANNUAL_SUBSCRIPTION
 import com.z_company.route.Const.LOCO_DRIVER_MONTHLY_SUBSCRIPTION

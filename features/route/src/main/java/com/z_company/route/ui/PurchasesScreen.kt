@@ -243,6 +243,13 @@ fun PurchasesScreen(
                         }
                     }
                 }
+
+            Text(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                style = subTitleTextStyle,
+                text = "Управление вашими подписками доступно в личном кабинете RuStore",
+            )
         }
     }
 }

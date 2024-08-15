@@ -1,7 +1,6 @@
 package com.z_company.route.viewmodel
 
 import android.content.Context
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -12,7 +11,6 @@ import androidx.lifecycle.viewModelScope
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.util.CalculateNightTime
-import com.z_company.core.util.ConverterLongToTime
 import com.z_company.data_local.SharedPreferenceStorage
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.route.Route
@@ -168,7 +166,6 @@ class HomeViewModel : ViewModel(), KoinComponent {
         if (listState is ResultState.Success) {
             val routesSize = listState.data.size
             if (endTimeSubscription < currentTime && endTimeSubscription != 0L) {
-                Log.d("ZZZ", "1")
                 _alertBeforePurchasesEvent.tryEmit(
                     AlertBeforePurchasesEvent.ShowDialog(
                         InfoDialogState(
@@ -184,7 +181,6 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 }
             }
             if (routesSize > 1 && endTimeSubscription == 0L) {
-                Log.d("ZZZ", "2")
                 _alertBeforePurchasesEvent.tryEmit(
                     AlertBeforePurchasesEvent.ShowDialog(
                         InfoDialogState(
@@ -199,7 +195,6 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     )
                 }
             } else {
-                Log.d("ZZZ", "3")
                 _uiState.update {
                     it.copy(
                         showNewRouteScreen = true,
