@@ -2,6 +2,7 @@ package com.z_company.route.navigation
 
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.navigation.NavGraphBuilder
+import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import com.z_company.core.ui.navigation.composableScreen
 import com.z_company.domain.navigation.Router
@@ -72,6 +73,11 @@ fun NavGraphBuilder.homeGraph(
             route = SearchRoute.route
         ) {
             SearchDestination(router = router)
+        }
+        composableScreen(
+            route = PurchasesRoute.route
+        ) {
+            PurchasesDestination(router = router)
         }
     }
 }

@@ -40,6 +40,8 @@ fun SettingDestination(
         resetRepositoryState = settingsViewModel::resetRepositoryState,
         changeStartNightTime = settingsViewModel::changeStartNightTime,
         changeEndNightTime = settingsViewModel::changeEndNightTime,
-        changeUsingDefaultWorkTime = settingsViewModel::changeUsingDefaultWorkTime
+        changeUsingDefaultWorkTime = settingsViewModel::changeUsingDefaultWorkTime,
+        purchasesState = uiState.purchasesEndTime,
+        onBillingClick = router::showPurchasesScreen
     )
 }

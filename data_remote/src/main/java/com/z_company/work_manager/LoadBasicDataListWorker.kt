@@ -26,7 +26,6 @@ class LoadBasicDataListWorker(val context: Context, params: WorkerParameters) :
             val basicDataIdList: MutableList<String> = mutableListOf()
             val remoteList = parseQuery.findInBackground { parseObjects, parseException ->
                 parseObjects.forEach { parseObject ->
-                    Log.d("ZZZ", "parseObject = ${parseObject.objectId}")
                     parseObject.apply {
                         getString(BASIC_DATA_UID_FIELD_NAME)?.let { id ->
                             basicDataIdList.add(id)

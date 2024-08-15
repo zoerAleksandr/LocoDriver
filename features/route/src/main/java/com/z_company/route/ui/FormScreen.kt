@@ -698,7 +698,7 @@ private fun RouteFormScreenContent(
                     .fillMaxWidth()
                     .padding(bottom = 32.dp, top = 16.dp),
                 horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 val basicId = route.basicData.id
                 ItemAddingScreen(

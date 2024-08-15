@@ -53,6 +53,7 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+        signingConfig = signingConfigs.getByName("release")
     }
 
     compileOptions {
@@ -77,6 +78,8 @@ android {
 }
 
 dependencies {
+    implementation(platform("ru.rustore.sdk:bom:6.0.0"))
+    implementation("ru.rustore.sdk:billingclient")
     implementation(project(Libs.project_core_android))
     implementation(project(Libs.project_domain))
     implementation(project(Libs.project_data_local))
@@ -85,7 +88,7 @@ dependencies {
     implementation(project(Libs.project_feature_settings))
     implementation(project(Libs.project_data_remote))
     implementation(Libs.parse_sdk_android)
-    implementation(Libs.vkid)
+//    implementation(Libs.vkid)
     implementation(Libs.appwrite)
     implementation(Libs.splash_screen)
     implementation(Libs.core_ktx)

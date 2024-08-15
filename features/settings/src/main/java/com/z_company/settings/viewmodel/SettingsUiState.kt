@@ -15,5 +15,6 @@ data class SettingsUiState(
     val monthList: List<Int> = listOf(),
     val yearList: List<Int> = listOf(),
     val logOutState: ResultState<Unit>? = null,
-    val resentVerificationEmailButton: Boolean = true
+    val resentVerificationEmailButton: Boolean = true,
+    var purchasesEndTime: ResultState<String> = ResultState.Loading
 )

@@ -1,6 +1,5 @@
 package com.z_company.core.util
 
-import android.util.Log
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Locomotive
@@ -240,6 +239,5 @@ fun Passenger.str(): String {
     this.notes?.let { notes ->
         text.append("\n$notes")
     }
-    Log.d("ZZZ", text.toString())
     return text.toString()
 }

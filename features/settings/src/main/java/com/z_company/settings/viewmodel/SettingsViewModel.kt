@@ -6,8 +6,11 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.parse.ParseUser
+import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
+import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.isEmailValid
+import com.z_company.data_local.SharedPreferenceStorage
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.use_case.LoginUseCase
 import com.z_company.domain.entities.User
@@ -17,17 +20,22 @@ import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.repository.Back4AppManager
+import com.z_company.route.extention.getEndTimeSubscription
 import com.z_company.use_case.AuthUseCase
 import com.z_company.use_case.RemoteRouteUseCase
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import ru.rustore.sdk.billingclient.RuStoreBillingClient
 
 class SettingsViewModel : ViewModel(), KoinComponent {
     private val authUseCase: AuthUseCase by inject()
@@ -37,6 +45,8 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private val calendarUseCase: CalendarUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
     private val back4AppManager: Back4AppManager by inject()
+    private val billingClient: RuStoreBillingClient by inject()
+    private val sharedPreferenceStorage: SharedPreferenceStorage by inject()
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState = _uiState.asStateFlow()
@@ -89,10 +99,55 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         }
     }
 
+    private fun loadPurchasesInfo() {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                try {
+                    val purchases = billingClient.purchases.getPurchases().await()
+                    var maxEndTime = 0L
+                    purchases.forEach { purchase ->
+                        val purchaseEndTime =
+                            purchase.getEndTimeSubscription(billingClient).first()
+                        if (purchaseEndTime > maxEndTime) {
+                            maxEndTime = purchaseEndTime
+                        }
+                    }
+                    sharedPreferenceStorage.setSubscriptionExpiration(maxEndTime)
+                    val textEndTime = if (maxEndTime == 0L) {
+                        ""
+                    } else {
+                        ConverterLongToTime.getDateAndTimeStringFormat(maxEndTime)
+                    }
+
+                    viewModelScope.launch {
+                        withContext(Dispatchers.Main) {
+                            _uiState.update {
+                                it.copy(
+                                    purchasesEndTime = ResultState.Success(textEndTime)
+                                )
+                            }
+                        }
+                    }
+                } catch (e: Exception){
+                    viewModelScope.launch {
+                        withContext(Dispatchers.Main) {
+                            _uiState.update {
+                                it.copy(
+                                    purchasesEndTime = ResultState.Error(ErrorEntity())
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     init {
         loadSettings()
         loadLogin()
         loadMonthList()
+        loadPurchasesInfo()
     }
 
     fun resetSaveState() {
@@ -251,7 +306,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun resetRepositoryState(){
+    fun resetRepositoryState() {
         _uiState.update {
             it.copy(
                 updateRepositoryState = ResultState.Success(Unit)

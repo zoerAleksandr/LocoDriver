@@ -150,7 +150,8 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
                             deletedPhotoList.forEach { photo ->
                                 viewModelScope.launch {
                                     deletePhotoJob?.cancel()
-                                    deletePhotoJob = photoUseCase.removePhoto(photo).launchIn(viewModelScope)
+                                    deletePhotoJob =
+                                        photoUseCase.removePhoto(photo).launchIn(viewModelScope)
                                 }.join()
                             }
                         }
@@ -273,7 +274,7 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
                 timeStartWork = timeInLong
             )
         )
-        if (currentRoute?.basicData?.timeEndWork == null && defaultWorkTime != null){
+        if (currentRoute?.basicData?.timeEndWork == null && defaultWorkTime != null) {
             val endNightTime = timeInLong + defaultWorkTime
             currentRoute = currentRoute?.copy(
                 basicData = currentRoute!!.basicData.copy(
@@ -385,40 +386,44 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
 
     fun onDeleteLoco(locomotive: Locomotive) {
         deletedLocoList.add(locomotive)
-        val locomotiveList = currentRoute?.locomotives.apply {
-            this?.remove(locomotive)
+        val locomotiveList = mutableListOf<Locomotive>()
+        currentRoute?.locomotives?.let { collection ->
+            locomotiveList.addAll(collection)
+            locomotiveList.remove(locomotive)
         }
-        locomotiveList?.let {
-            currentRoute = currentRoute?.copy(
-                locomotives = locomotiveList
-            )
-        }
+
+        currentRoute = currentRoute?.copy(
+            locomotives = locomotiveList
+        )
         changesHave()
     }
 
     fun onDeleteTrain(train: Train) {
         deletedTrainList.add(train)
-        val trainsList = currentRoute?.trains.apply {
-            this?.remove(train)
+        val trainsList = mutableListOf<Train>()
+        currentRoute?.trains?.let { collection ->
+            trainsList.addAll(collection)
+            trainsList.remove(train)
         }
-        trainsList?.let {
-            currentRoute = currentRoute?.copy(
-                trains = trainsList
-            )
-        }
+        currentRoute = currentRoute?.copy(
+            trains = trainsList
+        )
+
         changesHave()
     }
 
     fun onDeletePassenger(passenger: Passenger) {
         deletedPassengerList.add(passenger)
-        val passengerList = currentRoute?.passengers.apply {
-            this?.remove(passenger)
+        val passengerList = mutableListOf<Passenger>()
+
+        currentRoute?.passengers?.let { collection ->
+            passengerList.addAll(collection)
+            passengerList.remove(passenger)
         }
-        passengerList?.let {
-            currentRoute = currentRoute?.copy(
-                passengers = passengerList
-            )
-        }
+        currentRoute = currentRoute?.copy(
+            passengers = passengerList
+        )
+
         changesHave()
     }
 }

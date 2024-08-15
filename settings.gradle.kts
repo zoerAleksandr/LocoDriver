@@ -13,6 +13,7 @@ dependencyResolutionManagement {
 
         maven {
             setUrl("https://artifactory-external.vkpartner.ru/artifactory/vkid-sdk-andorid/")
+            setUrl("https://artifactory-external.vkpartner.ru/artifactory/maven")
         }
 
         maven {
@@ -33,4 +34,5 @@ dependencyResolutionManagement {
     include(":data_remote")
     include(":data_remote")
     include(":data_remote")
+    include(":features:purchses")
 }

@@ -159,3 +159,4 @@ object ViewingImageRoute: AppRoutes("ViewingImage") {
         "$basicRoute/$imageId"
 }
 object SearchRoute: AppRoutes("SearchRoute")
+object PurchasesRoute: AppRoutes("PurchasesRoute")

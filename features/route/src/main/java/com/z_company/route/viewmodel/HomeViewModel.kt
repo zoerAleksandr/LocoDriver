@@ -1,5 +1,6 @@
 package com.z_company.route.viewmodel
 
+import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -7,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.util.CalculateNightTime
 import com.z_company.data_local.SharedPreferenceStorage
@@ -35,13 +37,23 @@ import java.util.Calendar.MONTH
 import java.util.Calendar.YEAR
 import java.util.Calendar.getInstance
 import com.z_company.domain.util.minus
+import com.z_company.route.R
+import com.z_company.route.extention.getEndTimeSubscription
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
+import ru.rustore.sdk.billingclient.RuStoreBillingClient
+import ru.rustore.sdk.billingclient.utils.pub.checkPurchasesAvailability
 
 class HomeViewModel : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferenceStorage by inject()
+    private val billingClient: RuStoreBillingClient by inject()
     var totalTime by mutableLongStateOf(0L)
         private set
 
@@ -54,6 +66,153 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState = _uiState.asStateFlow()
+
+    private val _checkPurchasesEvent = MutableSharedFlow<StartPurchasesEvent>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    val checkPurchasesEvent = _checkPurchasesEvent.asSharedFlow()
+
+    private val _alertBeforePurchasesEvent = MutableSharedFlow<AlertBeforePurchasesEvent>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+
+    val alertBeforePurchasesEvent = _alertBeforePurchasesEvent.asSharedFlow()
+
+    fun checkPurchasesAvailability(context: Context) {
+        RuStoreBillingClient.checkPurchasesAvailability(context)
+            .addOnSuccessListener { result ->
+                _uiState.update {
+                    it.copy(
+                        isLoadingStateAddButton = false
+                    )
+                }
+                _checkPurchasesEvent.tryEmit(StartPurchasesEvent.PurchasesAvailability(result))
+            }
+            .addOnFailureListener { throwable ->
+                _uiState.update {
+                    it.copy(
+                        isLoadingStateAddButton = false
+                    )
+                }
+                _checkPurchasesEvent.tryEmit(StartPurchasesEvent.Error(throwable))
+            }
+    }
+
+    fun restorePurchases() {
+        _uiState.update {
+            it.copy(
+                restoreSubscriptionState = ResultState.Loading
+            )
+        }
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                try {
+                    val currentTimeInMillis = getInstance().timeInMillis
+                    val purchases = billingClient.purchases.getPurchases().await()
+                    var maxEndTime = 0L
+                    purchases.forEach { purchase ->
+                        val purchaseEndTime =
+                            purchase.getEndTimeSubscription(billingClient).first()
+                        if (purchaseEndTime > maxEndTime) {
+                            maxEndTime = purchaseEndTime
+                        }
+                    }
+                    if (maxEndTime > currentTimeInMillis) {
+                        sharedPreferenceStorage.setSubscriptionExpiration(maxEndTime)
+                        _uiState.update {
+                            it.copy(
+                                restoreSubscriptionState = ResultState.Success("Покупки восстановлены")
+                            )
+                        }
+                    }
+                    if (maxEndTime < currentTimeInMillis) {
+                        _uiState.update {
+                            it.copy(
+                                restoreSubscriptionState = ResultState.Success("Действующих подписок не ныйдено")
+                            )
+                        }
+                    }
+                } catch (e: Exception) {
+                    _uiState.update {
+                        it.copy(
+                            restoreSubscriptionState = ResultState.Error(ErrorEntity())
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun resetSubscriptionState() {
+        _uiState.update {
+            it.copy(
+                restoreSubscriptionState = null
+            )
+        }
+    }
+
+    fun newRouteClick() {
+        _uiState.update {
+            it.copy(
+                isLoadingStateAddButton = true
+            )
+        }
+        val currentTime = getInstance().timeInMillis
+        val endTimeSubscription = sharedPreferenceStorage.getSubscriptionExpiration()
+        val listState = uiState.value.routeListState
+
+        if (listState is ResultState.Success) {
+            val routesSize = listState.data.size
+            if (endTimeSubscription < currentTime && endTimeSubscription != 0L) {
+                _alertBeforePurchasesEvent.tryEmit(
+                    AlertBeforePurchasesEvent.ShowDialog(
+                        InfoDialogState(
+                            titleRes = R.string.dialog_title_need_purchases,
+                            message = "Срок подписки истек"
+                        )
+                    )
+                )
+                _uiState.update {
+                    it.copy(
+                        isLoadingStateAddButton = false
+                    )
+                }
+            }
+            if (routesSize > 1 && endTimeSubscription == 0L) {
+                _alertBeforePurchasesEvent.tryEmit(
+                    AlertBeforePurchasesEvent.ShowDialog(
+                        InfoDialogState(
+                            titleRes = R.string.dialog_title_need_purchases,
+                            message = "Бесплатно доступен 1 маршрут"
+                        )
+                    )
+                )
+                _uiState.update {
+                    it.copy(
+                        isLoadingStateAddButton = false
+                    )
+                }
+            } else {
+                _uiState.update {
+                    it.copy(
+                        showNewRouteScreen = true,
+                        isLoadingStateAddButton = false
+                    )
+                }
+            }
+        }
+    }
+
+
+    fun showFormScreenReset() {
+        _uiState.update {
+            it.copy(
+                showNewRouteScreen = false
+            )
+        }
+    }
 
     var currentMonthOfYear: MonthOfYear?
         get() {

@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -28,6 +29,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -53,6 +55,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
@@ -63,7 +66,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.flowWithLifecycle
 import com.z_company.core.ResultState
+import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
@@ -92,7 +97,11 @@ import com.z_company.route.component.ButtonLocoDriver
 import com.z_company.route.component.DialogSelectMonthOfYear
 import com.z_company.route.component.HomeBottomSheetContent
 import com.z_company.core.ui.component.CustomSnackBar
+import com.z_company.route.viewmodel.AlertBeforePurchasesEvent
+import com.z_company.route.viewmodel.StartPurchasesEvent
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
+import ru.rustore.sdk.core.feature.model.FeatureAvailabilityResult
 import com.z_company.core.R as CoreR
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -117,10 +126,23 @@ fun HomeScreen(
     passengerTime: Long?,
     calculationHomeRest: (Route?) -> Long?,
     firstEntryDialogState: Boolean,
-    resetStateFirstEntryDialog: () -> Unit
+    resetStateFirstEntryDialog: () -> Unit,
+    purchasesEvent: SharedFlow<StartPurchasesEvent>,
+    showPurchasesScreen: () -> Unit,
+    showFormScreen: () -> Unit,
+    isShowFormScreen: Boolean,
+    showFormScreenReset: () -> Unit,
+    isLoadingStateAddButton: Boolean,
+    alertBeforePurchasesState: SharedFlow<AlertBeforePurchasesEvent>,
+    checkPurchasesAvailability: (Context) -> Unit,
+    restorePurchases: () -> Unit,
+    restoreResultState: ResultState<String>?,
+    resetSubscriptionState: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+
     val scaffoldState = rememberBottomSheetScaffoldState(
         bottomSheetState = rememberStandardBottomSheetState(
             confirmValueChange = {
@@ -134,6 +156,122 @@ fun HomeScreen(
     }
 
     val isExpand = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded
+
+    if (isShowFormScreen) {
+        showFormScreen()
+        showFormScreenReset()
+    }
+
+    var showAlertBeforePurchasesDialog by remember {
+        mutableStateOf(false)
+    }
+
+    var alertBeforePurchasesDialogMessage by remember {
+        mutableStateOf("")
+    }
+
+    AsyncData(resultState = restoreResultState, errorContent = {
+        LaunchedEffect(Unit) {
+            scope.launch {
+                scaffoldState.snackbarHostState.showSnackbar("Ошибка синхронизации. Проверьте интернет.")
+            }
+        }
+    }) { message ->
+        message?.let {
+            scope.launch {
+                scaffoldState.snackbarHostState.showSnackbar(message)
+            }
+        }
+        resetSubscriptionState()
+    }
+
+    AnimationDialog(
+        showDialog = showAlertBeforePurchasesDialog,
+        onDismissRequest = { showAlertBeforePurchasesDialog = !showAlertBeforePurchasesDialog }
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(horizontal = 16.dp)
+                .fillMaxWidth()
+                .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = "${stringResource(id = R.string.dialog_title_need_purchases)}\n",
+                    style = AppTypography.getType().titleLarge.copy(color = MaterialTheme.colorScheme.primary)
+                )
+                Text(
+                    text = "$alertBeforePurchasesDialogMessage\n",
+                    style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
+                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    HorizontalDivider()
+                    TextButton(
+                        shape = Shapes.medium,
+                        onClick = {
+                            showAlertBeforePurchasesDialog = !showAlertBeforePurchasesDialog
+                        }
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.billing_common_ok),
+                            style = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.tertiary)
+                        )
+                    }
+                    HorizontalDivider()
+
+                    TextButton(
+                        shape = Shapes.medium,
+                        onClick = {
+                            showAlertBeforePurchasesDialog = !showAlertBeforePurchasesDialog
+                            checkPurchasesAvailability(context)
+                        }
+                    ) {
+                        Text(
+                            text = "Оформить подписку",
+                            style = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.tertiary)
+                        )
+                    }
+                    HorizontalDivider()
+
+                    TextButton(
+                        shape = Shapes.medium,
+                        onClick = {
+                            showAlertBeforePurchasesDialog = !showAlertBeforePurchasesDialog
+                            restorePurchases()
+                        }
+                    ) {
+                        Text(
+                            text = "Восстановить покупки",
+                            style = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.tertiary)
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        scope.launch {
+            alertBeforePurchasesState.flowWithLifecycle(lifecycle).collect { event ->
+                when (event) {
+                    is AlertBeforePurchasesEvent.ShowDialog -> {
+                        alertBeforePurchasesDialogMessage = event.dialogInfo.message
+                        showAlertBeforePurchasesDialog = true
+                    }
+                }
+            }
+        }
+    }
 
     if (removeRouteState is ResultState.Success) {
         LaunchedEffect(removeRouteState) {
@@ -342,6 +480,32 @@ fun HomeScreen(
         containerColor = MaterialTheme.colorScheme.background,
         contentColor = MaterialTheme.colorScheme.primary
     ) {
+        LaunchedEffect(purchasesEvent) {
+            scope.launch {
+                purchasesEvent.flowWithLifecycle(lifecycle).collect { event ->
+                    when (event) {
+                        is StartPurchasesEvent.PurchasesAvailability -> {
+                            when (event.availability) {
+                                is FeatureAvailabilityResult.Available -> {
+                                    showPurchasesScreen()
+                                }
+
+                                is FeatureAvailabilityResult.Unavailable -> {
+//                                    event.availability.cause.resolveForBilling(context)
+                                    scaffoldState.snackbarHostState.showSnackbar("Ошибка: ${event.availability.cause.message}")
+                                }
+
+                                else -> {}
+                            }
+                        }
+
+                        is StartPurchasesEvent.Error -> {
+                            scaffoldState.snackbarHostState.showSnackbar("Ошибка: ${event.throwable.message}")
+                        }
+                    }
+                }
+            }
+        }
         Column(
             Modifier
                 .fillMaxSize()
@@ -466,13 +630,35 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(heightScreen.times(0.08f).dp),
-                onClick = { onNewRouteClick() }
+                onClick = {
+                    onNewRouteClick()
+                }
             ) {
-                AutoSizeText(
-                    text = stringResource(id = CoreR.string.adding),
-                    style = AppTypography.getType().headlineSmall.copy(color = MaterialTheme.colorScheme.onPrimary),
-                    maxTextSize = 24.sp,
-                )
+                if (isLoadingStateAddButton) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(36.dp),
+                            strokeWidth = 3.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                        AutoSizeText(
+                            text = "Загрузка",
+                            style = AppTypography.getType().headlineSmall.copy(color = MaterialTheme.colorScheme.onPrimary),
+                            maxTextSize = 24.sp,
+                        )
+                    }
+                } else {
+                    AutoSizeText(
+                        text = stringResource(id = CoreR.string.adding),
+                        style = AppTypography.getType().headlineSmall.copy(color = MaterialTheme.colorScheme.onPrimary),
+                        maxTextSize = 24.sp,
+                    )
+                }
             }
         }
     }

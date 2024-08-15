@@ -20,7 +20,7 @@ fun HomeDestination(
         onRouteClick = {
             router.showRouteForm(it)
         },
-        onNewRouteClick = { router.showRouteForm() },
+        onNewRouteClick = homeViewModel::newRouteClick,
         onDeleteRoute = homeViewModel::remove,
         onDeleteRouteConfirmed = homeViewModel::resetRemoveRouteState,
         reloadRoute = homeViewModel::loadRoutes,
@@ -36,6 +36,17 @@ fun HomeDestination(
         passengerTime = uiState.passengerTimeInRouteList,
         calculationHomeRest = homeViewModel::calculationHomeRest,
         firstEntryDialogState = uiState.showFirstEntryToAccountDialog,
-        resetStateFirstEntryDialog = homeViewModel::disableFirstEntryToAccountDialog
+        resetStateFirstEntryDialog = homeViewModel::disableFirstEntryToAccountDialog,
+        purchasesEvent = homeViewModel.checkPurchasesEvent,
+        showPurchasesScreen = router::showPurchasesScreen,
+        isShowFormScreen = uiState.showNewRouteScreen,
+        showFormScreen = { router.showRouteForm() },
+        isLoadingStateAddButton = uiState.isLoadingStateAddButton,
+        showFormScreenReset = homeViewModel::showFormScreenReset,
+        alertBeforePurchasesState = homeViewModel.alertBeforePurchasesEvent,
+        checkPurchasesAvailability = homeViewModel::checkPurchasesAvailability,
+        restorePurchases = homeViewModel::restorePurchases,
+        restoreResultState = uiState.restoreSubscriptionState,
+        resetSubscriptionState = homeViewModel::resetSubscriptionState
     )
 }

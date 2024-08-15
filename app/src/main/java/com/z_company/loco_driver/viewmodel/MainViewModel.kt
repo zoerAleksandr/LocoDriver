@@ -12,15 +12,21 @@ import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.use_cases.LoadCalendarFromStorage
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.route.extention.getEndTimeSubscription
 import com.z_company.use_case.RemoteRouteUseCase
 import com.z_company.work_manager.UserFieldName
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import ru.rustore.sdk.billingclient.RuStoreBillingClient
+import java.util.Calendar
 
 private const val TAG = "MainViewModel_TAG"
 
@@ -30,6 +36,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private val settingsUseCase: SettingsUseCase by inject()
     private val remoteRouteUseCase: RemoteRouteUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferenceStorage by inject()
+    private val billingClient: RuStoreBillingClient by inject()
 
     private var loadCalendarJob: Job? = null
     private var saveCalendarInLocalJob: Job? = null
@@ -46,6 +53,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
         if (sharedPreferenceStorage.tokenIsFirstAppEntry()) {
             setDefaultSettings()
         }
+        syncRuStoreSubscription()
         loadCalendar()
         viewModelScope.launch {
             getSession()
@@ -79,6 +87,31 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
                 Log.i(TAG, "production calendar is loading")
             }
         }.launchIn(viewModelScope)
+    }
+
+    private fun syncRuStoreSubscription(){
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                try {
+                    val currentTimeInMillis = Calendar.getInstance().timeInMillis
+                    val purchases = billingClient.purchases.getPurchases().await()
+                    var maxEndTime = 0L
+                    purchases.forEach { purchase ->
+                        val purchaseEndTime =
+                            purchase.getEndTimeSubscription(billingClient).first()
+                        if (purchaseEndTime > maxEndTime) {
+                            maxEndTime = purchaseEndTime
+                        }
+                    }
+                    if (maxEndTime > currentTimeInMillis) {
+                        sharedPreferenceStorage.setSubscriptionExpiration(maxEndTime)
+                    }
+
+                } catch (e: Exception) {
+                    Log.w(TAG, "${e.message}")
+                }
+            }
+        }
     }
 
     private suspend fun getSession() {

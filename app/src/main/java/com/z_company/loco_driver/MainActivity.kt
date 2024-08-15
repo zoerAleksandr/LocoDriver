@@ -1,6 +1,7 @@
 package com.z_company.loco_driver
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.view.MotionEvent
 import android.view.inputmethod.InputMethodManager
@@ -13,16 +14,22 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.z_company.loco_driver.ui.LocoDriverApp
 import com.z_company.loco_driver.ui.rememberLocoDriverAppState
 import com.z_company.loco_driver.viewmodel.MainViewModel
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
+import ru.rustore.sdk.billingclient.RuStoreBillingClient
 
-class MainActivity : ComponentActivity() {
+class MainActivity : ComponentActivity(), KoinComponent {
 
     private val mainViewModel: MainViewModel by viewModels()
+    private val ruStoreBillingClient: RuStoreBillingClient by inject()
 
     @OptIn(ExperimentalAnimationApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         installSplashScreen().setKeepOnScreenCondition { mainViewModel.inProgress.value ?: false }
-
+        if (savedInstanceState == null) {
+            ruStoreBillingClient.onNewIntent(intent)
+        }
         lifecycle.addObserver(mainViewModel)
         mainViewModel.isRegistered.observe(this) {
             setContent {
@@ -31,6 +38,11 @@ class MainActivity : ComponentActivity() {
                 LocoDriverApp(appState = appState, isLoggedIn = it != false)
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        ruStoreBillingClient.onNewIntent(intent)
     }
 
     override fun onDestroy() {
