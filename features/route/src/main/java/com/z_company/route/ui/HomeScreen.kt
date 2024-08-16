@@ -554,7 +554,6 @@ fun HomeScreen(
                                 }
 
                                 is FeatureAvailabilityResult.Unavailable -> {
-//                                    event.availability.cause.resolveForBilling(context)
                                     scaffoldState.snackbarHostState.showSnackbar("Ошибка: ${event.availability.cause.message}")
                                 }
 

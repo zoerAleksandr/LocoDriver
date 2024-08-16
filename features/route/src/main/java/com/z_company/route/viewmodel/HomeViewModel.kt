@@ -1,6 +1,7 @@
 package com.z_company.route.viewmodel
 
 import android.content.Context
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -174,7 +175,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     )
                 }
             }
-            if (routesSize > 10 && endTimeSubscription == 0L) {
+            else if (routesSize >= 10 && endTimeSubscription == 0L) {
                 _alertBeforePurchasesEvent.tryEmit(
                     AlertBeforePurchasesEvent.ShowDialogNeedSubscribe
                 )
@@ -184,7 +185,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     )
                 }
             }
-            if (routesSize < 10 && endTimeSubscription == 0L) {
+            else if (routesSize < 10 && endTimeSubscription == 0L) {
                 _alertBeforePurchasesEvent.tryEmit(
                     AlertBeforePurchasesEvent.ShowDialogAlertSubscribe
                 )
@@ -193,7 +194,8 @@ class HomeViewModel : ViewModel(), KoinComponent {
                         isLoadingStateAddButton = false
                     )
                 }
-            } else {
+            }
+            else {
                 _uiState.update {
                     it.copy(
                         showNewRouteScreen = true,

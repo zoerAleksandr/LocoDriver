@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -59,9 +60,9 @@ fun ItemHomeScreen(
     requiredSizeText: TextUnit,
     changingTextSize: (TextUnit) -> Unit,
     onLongClick: () -> Unit,
+    containerColor: Color,
     onClick: () -> Unit
 ) {
-    val containerColor = MaterialTheme.colorScheme.secondaryContainer
     val revealState = rememberRevealState()
     val scope = rememberCoroutineScope()
 

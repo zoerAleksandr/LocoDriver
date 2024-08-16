@@ -12,6 +12,7 @@ val DarkBackground = Color(0xFF141414)
 val DarkError = Color(0xFFFA3333)
 
 val Blue = Color(0xFF3576FF)
+val ZZZ = Color(0xFFC9A795)
 
 val LightPrimary = Color(0xFF202020)
 val LightOnPrimary = Color(0xFFDBDBDB)

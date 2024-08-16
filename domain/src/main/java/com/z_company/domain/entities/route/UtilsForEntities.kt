@@ -6,6 +6,7 @@ import com.z_company.domain.util.lessThan
 import com.z_company.domain.util.minus
 import com.z_company.domain.util.moreThan
 import com.z_company.domain.util.plus
+import java.util.Calendar
 
 object UtilsForEntities {
     fun Route.getWorkTime(): Long? {
@@ -139,5 +140,30 @@ object UtilsForEntities {
             totalTime += passenger.getFollowingTime()
         }
         return totalTime
+    }
+
+    fun Route.isTransition(): Boolean {
+        if (this.basicData.timeStartWork == null || this.basicData.timeEndWork == null) {
+            return false
+        } else {
+            val startCalendar = Calendar.getInstance().also {
+                it.timeInMillis = this.basicData.timeStartWork!!
+            }
+            val yearStart = startCalendar.get(Calendar.YEAR)
+            val monthStart = startCalendar.get(Calendar.MONTH)
+
+            val endCalendar = Calendar.getInstance().also {
+                it.timeInMillis = this.basicData.timeEndWork!!
+            }
+            val yearEnd = endCalendar.get(Calendar.YEAR)
+            val monthEnd = endCalendar.get(Calendar.MONTH)
+            return if (monthStart < monthEnd && yearStart == yearEnd) {
+                true
+            } else if (monthStart > monthEnd && yearStart < yearEnd) {
+                true
+            } else {
+                false
+            }
+        }
     }
 }

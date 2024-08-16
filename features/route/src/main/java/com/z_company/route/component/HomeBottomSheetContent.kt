@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -16,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
@@ -26,7 +28,9 @@ import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.GenericError
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.UtilsForEntities.isTransition
 import com.z_company.route.R
+import java.util.Calendar
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -62,6 +66,16 @@ fun HomeBottomSheetContent(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     items(routeList, key = { route -> route.basicData.id }) { route ->
+                        var background = MaterialTheme.colorScheme.secondaryContainer
+
+                        if (route.basicData.timeStartWork!! > Calendar.getInstance().timeInMillis) {
+                            background = MaterialTheme.colorScheme.surfaceBright
+                                .copy(alpha = 0.4f)
+                        } else {
+                            if (route.isTransition()) {
+                                background = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)
+                            }
+                        }
                         Spacer(modifier = Modifier.height(12.dp))
                         ItemHomeScreen(
                             modifier = Modifier.animateItemPlacement(),
@@ -71,6 +85,7 @@ fun HomeBottomSheetContent(
                             requiredSizeText = requiredSize,
                             changingTextSize = ::changingTextSize,
                             onLongClick = { onRouteLongClick(route) },
+                            containerColor = background,
                             onClick = { onRouteClick(route.basicData.id) }
                         )
                     }
