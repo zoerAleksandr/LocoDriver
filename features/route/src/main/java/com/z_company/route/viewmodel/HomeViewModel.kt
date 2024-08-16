@@ -1,6 +1,7 @@
 package com.z_company.route.viewmodel
 
 import android.content.Context
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -180,12 +181,12 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     )
                 }
             }
-            if (routesSize > 1 && endTimeSubscription == 0L) {
+            if (routesSize > 10 && endTimeSubscription == 0L) {
                 _alertBeforePurchasesEvent.tryEmit(
                     AlertBeforePurchasesEvent.ShowDialog(
                         InfoDialogState(
                             titleRes = R.string.dialog_title_need_purchases,
-                            message = "Бесплатно доступен 1 маршрут"
+                            message = "Бесплатно доступно 10 маршрутов"
                         )
                     )
                 )

@@ -750,7 +750,7 @@ fun SettingScreenContent(
             }
             Text(
                 modifier = Modifier.padding(start = 16.dp, top = 8.dp),
-                text = "Подтверждение e-mail нужно для синхронизации с облачным хранилище.",
+                text = "Подтверждение e-mail нужно для синхронизации с облачным хранилищем.",
                 style = styleHint
             )
         }

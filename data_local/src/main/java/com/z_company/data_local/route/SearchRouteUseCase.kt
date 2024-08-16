@@ -101,7 +101,7 @@ class SearchRouteUseCase(val repository: RouteRepository) {
                                     SearchStateScreen.Input(hintsList)
                                 )
                             } else {
-                                trySend(SearchStateScreen.Success(sortedList))
+                                trySend(SearchStateScreen.Success(sortedList.sortedBy { it.route.basicData.timeStartWork }))
                             }
                         }
                     }

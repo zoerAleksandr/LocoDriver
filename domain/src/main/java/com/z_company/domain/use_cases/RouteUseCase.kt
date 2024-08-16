@@ -9,15 +9,21 @@ import com.z_company.domain.entities.route.UtilsForEntities.fullRest
 import com.z_company.domain.entities.route.UtilsForEntities.isTimeWorkValid
 import com.z_company.domain.entities.route.UtilsForEntities.shortRest
 import com.z_company.domain.repositories.RouteRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Calendar
 import java.util.Calendar.*
 
 class RouteUseCase(private val repository: RouteRepository) {
     suspend fun listRoutesByMonth(monthOfYear: MonthOfYear): Flow<ResultState<List<Route>>> =
-        flow {
-            emit(ResultState.Loading)
+        channelFlow {
+            trySend(ResultState.Loading)
+            val routeList = mutableListOf<Route>()
 
             val startMonth: Calendar = getInstance().also {
                 it.set(YEAR, monthOfYear.year)
@@ -41,52 +47,60 @@ class RouteUseCase(private val repository: RouteRepository) {
                 it.set(MILLISECOND, 0)
             }.timeInMillis
 
-            repository.loadRoutesByPeriod(startMonthInLong, endMonthInLong)
-                .collect { result ->
-                    if (result is ResultState.Success) {
-                        emit(ResultState.Success(result.data))
-                    }
-                    if (result is ResultState.Error) {
-                        emit(ResultState.Error(ErrorEntity(result.entity.throwable)))
-                    }
-                }
-
-            val startMonthBefore: Calendar = getInstance().also {
-                it.set(YEAR, monthOfYear.year)
-                it.set(MONTH, monthOfYear.month - 1)
-                it.set(DAY_OF_MONTH, 1)
-                it.set(HOUR_OF_DAY, 0)
-                it.set(MINUTE, 0)
-                it.set(SECOND, 0)
-                it.set(MILLISECOND, 0)
-            }
-            val startMonthBeforeInLong = startMonthBefore.timeInMillis
-            val maxDayOfMonthBefore = startMonthBefore.getActualMaximum(DAY_OF_MONTH)
-            val endMonthBeforeInLong: Long = getInstance().also {
-                it.set(YEAR, monthOfYear.year)
-                it.set(MONTH, monthOfYear.month - 1)
-                it.set(DAY_OF_MONTH, maxDayOfMonthBefore)
-                it.set(HOUR_OF_DAY, 23)
-                it.set(MINUTE, 59)
-                it.set(SECOND, 0)
-                it.set(MILLISECOND, 0)
-            }.timeInMillis
-
-            repository.loadRoutesByPeriod(startMonthBeforeInLong, endMonthBeforeInLong)
-                .collect { result ->
-                    if (result is ResultState.Success) {
-                        result.data.forEach { route ->
-                            route.basicData.timeEndWork?.let { endTime ->
-                                if (endTime > startMonthInLong) {
-                                    emit(ResultState.Success(result.data))
-                                }
+            withContext(Dispatchers.IO) {
+                this.launch {
+                    repository.loadRoutesByPeriod(startMonthInLong, endMonthInLong)
+                        .collect { result ->
+                            if (result is ResultState.Success) {
+                                routeList.addAll(result.data)
+                                trySend(ResultState.Success(result.data))
+                            }
+                            if (result is ResultState.Error) {
+                                trySend(ResultState.Error(ErrorEntity(result.entity.throwable)))
                             }
                         }
-                    }
-                    if (result is ResultState.Error) {
-                        emit(ResultState.Error(ErrorEntity(result.entity.throwable)))
-                    }
                 }
+
+                this.launch {
+                    val startMonthBefore: Calendar = getInstance().also {
+                        it.set(YEAR, monthOfYear.year)
+                        it.set(MONTH, monthOfYear.month - 1)
+                        it.set(DAY_OF_MONTH, 1)
+                        it.set(HOUR_OF_DAY, 0)
+                        it.set(MINUTE, 0)
+                        it.set(SECOND, 0)
+                        it.set(MILLISECOND, 0)
+                    }
+                    val startMonthBeforeInLong = startMonthBefore.timeInMillis
+                    val maxDayOfMonthBefore = startMonthBefore.getActualMaximum(DAY_OF_MONTH)
+                    val endMonthBeforeInLong: Long = getInstance().also {
+                        it.set(YEAR, monthOfYear.year)
+                        it.set(MONTH, monthOfYear.month - 1)
+                        it.set(DAY_OF_MONTH, maxDayOfMonthBefore)
+                        it.set(HOUR_OF_DAY, 23)
+                        it.set(MINUTE, 59)
+                        it.set(SECOND, 0)
+                        it.set(MILLISECOND, 0)
+                    }.timeInMillis
+
+                    repository.loadRoutesByPeriod(startMonthBeforeInLong, endMonthBeforeInLong)
+                        .collect { result ->
+                            if (result is ResultState.Success) {
+                                result.data.forEach { route ->
+                                    route.basicData.timeEndWork?.let { endTime ->
+                                        if (endTime > startMonthInLong) {
+                                            routeList.add(route)
+                                        }
+                                    }
+                                }
+                                trySend(ResultState.Success(routeList))
+                            }
+                            if (result is ResultState.Error) {
+                                trySend(ResultState.Error(ErrorEntity(result.entity.throwable)))
+                            }
+                        }
+                }
+            }
         }
 
     fun listRouteWithDeleting(): List<Route> {

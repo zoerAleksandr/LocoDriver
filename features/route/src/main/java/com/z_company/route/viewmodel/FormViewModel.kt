@@ -65,6 +65,7 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
     var minTimeRest by mutableStateOf<Long?>(null)
     private var nightTime: NightTime? = null
     private var defaultWorkTime: Long? = null
+    private var usingDefaultWorkTime: Boolean = false
 
 
     init {
@@ -116,6 +117,7 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
                 minTimeRest = result.data?.minTimeRest
                 nightTime = result.data?.nightTime
                 defaultWorkTime = result.data?.defaultWorkTime
+                usingDefaultWorkTime = result.data?.usingDefaultWorkTime ?: false
                 currentRoute?.let { route ->
                     calculateRestTime(route)
                     getNightTimeInRoute(route)
@@ -274,7 +276,8 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
                 timeStartWork = timeInLong
             )
         )
-        if (currentRoute?.basicData?.timeEndWork == null && defaultWorkTime != null) {
+        if (currentRoute?.basicData?.timeEndWork == null && usingDefaultWorkTime) {
+
             val endNightTime = timeInLong + defaultWorkTime
             currentRoute = currentRoute?.copy(
                 basicData = currentRoute!!.basicData.copy(
