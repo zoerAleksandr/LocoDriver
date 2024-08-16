@@ -1,7 +1,6 @@
 package com.z_company.route.viewmodel
 
 import android.content.Context
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -38,7 +37,6 @@ import java.util.Calendar.MONTH
 import java.util.Calendar.YEAR
 import java.util.Calendar.getInstance
 import com.z_company.domain.util.minus
-import com.z_company.route.R
 import com.z_company.route.extention.getEndTimeSubscription
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
@@ -168,12 +166,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
             val routesSize = listState.data.size
             if (endTimeSubscription < currentTime && endTimeSubscription != 0L) {
                 _alertBeforePurchasesEvent.tryEmit(
-                    AlertBeforePurchasesEvent.ShowDialog(
-                        InfoDialogState(
-                            titleRes = R.string.dialog_title_need_purchases,
-                            message = "Срок подписки истек"
-                        )
-                    )
+                    AlertBeforePurchasesEvent.ShowDialogNeedSubscribe
                 )
                 _uiState.update {
                     it.copy(
@@ -183,12 +176,17 @@ class HomeViewModel : ViewModel(), KoinComponent {
             }
             if (routesSize > 10 && endTimeSubscription == 0L) {
                 _alertBeforePurchasesEvent.tryEmit(
-                    AlertBeforePurchasesEvent.ShowDialog(
-                        InfoDialogState(
-                            titleRes = R.string.dialog_title_need_purchases,
-                            message = "Бесплатно доступно 10 маршрутов"
-                        )
+                    AlertBeforePurchasesEvent.ShowDialogNeedSubscribe
+                )
+                _uiState.update {
+                    it.copy(
+                        isLoadingStateAddButton = false
                     )
+                }
+            }
+            if (routesSize < 10 && endTimeSubscription == 0L) {
+                _alertBeforePurchasesEvent.tryEmit(
+                    AlertBeforePurchasesEvent.ShowDialogAlertSubscribe
                 )
                 _uiState.update {
                     it.copy(
@@ -313,8 +311,8 @@ class HomeViewModel : ViewModel(), KoinComponent {
                             ) {
                                 val nightTimeInRoute =
                                     CalculateNightTime.getNightTimeTransitionRoute(
-                                        month = monthOfYear.month,
-                                        year = monthOfYear.year,
+                                        month = currentMonthOfYear!!.month,
+                                        year = currentMonthOfYear!!.year,
                                         startMillis = route.basicData.timeStartWork,
                                         endMillis = route.basicData.timeEndWork,
                                         hourStart = startNightHour,
@@ -323,7 +321,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                                         minuteEnd = endNightMinute
                                     )
 
-                                nightTimeState = nightTimeState.plus(nightTimeInRoute ?: 0L)
+                                nightTimeState = nightTimeState.plus(nightTimeInRoute) ?: 0L
                             } else {
                                 val nightTimeInRoute = CalculateNightTime.getNightTime(
                                     startMillis = route.basicData.timeStartWork,
@@ -333,7 +331,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                                     hourEnd = endNightHour,
                                     minuteEnd = endNightMinute
                                 )
-                                nightTimeState = nightTimeState.plus(nightTimeInRoute ?: 0L)
+                                nightTimeState = nightTimeState.plus(nightTimeInRoute) ?: 0L
                             }
                         }
                         _uiState.update {

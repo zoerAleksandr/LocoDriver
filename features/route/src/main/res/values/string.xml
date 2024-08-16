@@ -53,6 +53,7 @@
     <string name="billing_product_status_inactive">Неактивный продукт</string>
     
     <string name="dialog_title_need_purchases">Необходима подписка</string>
-    <string name="available_for_free_one_route">Бесплатно доступен 1 маршрут</string>
+    <string name="test_period">Пробный период</string>
+    <string name="available_for_free_route">Бесплатно доступно 10 маршрут</string>
     <string name="subscription_period_has_expired">Cрок подписки истек</string>
 </resources>

@@ -162,12 +162,12 @@ fun HomeScreen(
         showFormScreenReset()
     }
 
-    var showAlertBeforePurchasesDialog by remember {
+    var showNeedSubscribeDialog by remember {
         mutableStateOf(false)
     }
 
-    var alertBeforePurchasesDialogMessage by remember {
-        mutableStateOf("")
+    var showAlertSubscribeDialog by remember {
+        mutableStateOf(false)
     }
 
     AsyncData(resultState = restoreResultState, errorContent = {
@@ -186,8 +186,69 @@ fun HomeScreen(
     }
 
     AnimationDialog(
-        showDialog = showAlertBeforePurchasesDialog,
-        onDismissRequest = { showAlertBeforePurchasesDialog = !showAlertBeforePurchasesDialog }
+        showDialog = showAlertSubscribeDialog,
+        onDismissRequest = { showAlertSubscribeDialog = !showAlertSubscribeDialog }
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(horizontal = 16.dp)
+                .fillMaxWidth()
+                .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ){
+                Text(
+                    text = "${stringResource(id = R.string.test_period)}\n",
+                    style = AppTypography.getType().titleLarge.copy(color = MaterialTheme.colorScheme.primary)
+                )
+                Text(
+                    text = "${stringResource(id = R.string.available_for_free_route)}\n",
+                    style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
+                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ){
+                    HorizontalDivider()
+                    TextButton(
+                        shape = Shapes.medium,
+                        onClick = {
+                            showAlertSubscribeDialog = !showAlertSubscribeDialog
+                            showFormScreen()
+                        }
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.billing_common_ok),
+                            style = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.tertiary)
+                        )
+                    }
+                    HorizontalDivider()
+                    TextButton(
+                        shape = Shapes.medium,
+                        onClick = {
+                            showAlertSubscribeDialog = !showAlertSubscribeDialog
+                            checkPurchasesAvailability(context)
+                        }
+                    ) {
+                        Text(
+                            text = "Оформить подписку",
+                            style = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.tertiary)
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    AnimationDialog(
+        showDialog = showNeedSubscribeDialog,
+        onDismissRequest = { showNeedSubscribeDialog = !showNeedSubscribeDialog }
     ) {
         Box(
             modifier = Modifier
@@ -206,7 +267,7 @@ fun HomeScreen(
                     style = AppTypography.getType().titleLarge.copy(color = MaterialTheme.colorScheme.primary)
                 )
                 Text(
-                    text = "$alertBeforePurchasesDialogMessage\n",
+                    text = "${stringResource(id = R.string.available_for_free_route)}\n",
                     style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
                 )
                 Column(
@@ -219,7 +280,7 @@ fun HomeScreen(
                     TextButton(
                         shape = Shapes.medium,
                         onClick = {
-                            showAlertBeforePurchasesDialog = !showAlertBeforePurchasesDialog
+                            showNeedSubscribeDialog = !showNeedSubscribeDialog
                         }
                     ) {
                         Text(
@@ -232,7 +293,7 @@ fun HomeScreen(
                     TextButton(
                         shape = Shapes.medium,
                         onClick = {
-                            showAlertBeforePurchasesDialog = !showAlertBeforePurchasesDialog
+                            showNeedSubscribeDialog = !showNeedSubscribeDialog
                             checkPurchasesAvailability(context)
                         }
                     ) {
@@ -246,7 +307,7 @@ fun HomeScreen(
                     TextButton(
                         shape = Shapes.medium,
                         onClick = {
-                            showAlertBeforePurchasesDialog = !showAlertBeforePurchasesDialog
+                            showNeedSubscribeDialog = !showNeedSubscribeDialog
                             restorePurchases()
                         }
                     ) {
@@ -264,9 +325,11 @@ fun HomeScreen(
         scope.launch {
             alertBeforePurchasesState.flowWithLifecycle(lifecycle).collect { event ->
                 when (event) {
-                    is AlertBeforePurchasesEvent.ShowDialog -> {
-                        alertBeforePurchasesDialogMessage = event.dialogInfo.message
-                        showAlertBeforePurchasesDialog = true
+                    is AlertBeforePurchasesEvent.ShowDialogNeedSubscribe -> {
+                        showNeedSubscribeDialog = true
+                    }
+                    is AlertBeforePurchasesEvent.ShowDialogAlertSubscribe -> {
+                        showAlertSubscribeDialog = true
                     }
                 }
             }
