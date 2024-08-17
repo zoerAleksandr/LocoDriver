@@ -314,7 +314,7 @@ fun DieselSectionItem(
                     text = AnnotatedString(
                         text = "k = ${item.coefficient.data ?: 0.0}",
                         spanStyle = SpanStyle(
-                            color = MaterialTheme.colorScheme.primary,
+                            color = MaterialTheme.colorScheme.tertiary,
                             fontFamily = hintStyle.fontFamily,
                             fontSize = hintStyle.fontSize,
                             fontWeight = hintStyle.fontWeight

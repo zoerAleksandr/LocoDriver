@@ -247,10 +247,6 @@ fun SettingScreenContent(
         mutableStateOf(false)
     }
 
-    val showMonthSelectorDialog = remember {
-        mutableStateOf(false)
-    }
-
     var showConfirmEmailDialog by remember {
         mutableStateOf(false)
     }
@@ -301,17 +297,6 @@ fun SettingScreenContent(
             onChangeEmail = onChangeEmail,
             enableButtonConfirmVerification = enableButtonConfirmVerification
         )
-    }
-
-    if (showMonthSelectorDialog.value) {
-        DialogSelectMonthOfYear(
-            showMonthSelectorDialog,
-            currentSettings.selectMonthOfYear,
-            monthList = monthList,
-            yearList = yearList,
-            selectMonthOfYear = selectMonthOfYear
-        )
-
     }
 
     if (showRestDialog) {
@@ -391,9 +376,7 @@ fun SettingScreenContent(
                     ) {
                         val currentMonth =
                             currentSettings.selectMonthOfYear.month.getMonthFullText()
-                        Text(modifier = Modifier.clickable {
-                            showMonthSelectorDialog.value = true
-                        }, text = currentMonth, style = styleData)
+                        Text(text = currentMonth, style = styleData)
 
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
@@ -407,6 +390,7 @@ fun SettingScreenContent(
                                 modifier = Modifier.clickable {
                                     showReleaseDaySelectScreen()
                                 },
+                                tint = MaterialTheme.colorScheme.tertiary,
                                 imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                                 contentDescription = null
                             )

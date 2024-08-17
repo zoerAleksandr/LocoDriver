@@ -17,7 +17,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
@@ -70,10 +69,9 @@ fun HomeBottomSheetContent(
 
                         if (route.basicData.timeStartWork!! > Calendar.getInstance().timeInMillis) {
                             background = MaterialTheme.colorScheme.surfaceBright
-                                .copy(alpha = 0.4f)
                         } else {
                             if (route.isTransition()) {
-                                background = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)
+                                background = MaterialTheme.colorScheme.surfaceDim
                             }
                         }
                         Spacer(modifier = Modifier.height(12.dp))

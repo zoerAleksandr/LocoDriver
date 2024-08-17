@@ -1,7 +1,6 @@
 package com.z_company.route.viewmodel
 
 import android.content.Context
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -514,7 +513,6 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     showFirstEntryToAccountDialog = true
                 )
             }
-            sharedPreferenceStorage.setTokenIsFirstAppEntry(false)
         }
     }
 
@@ -524,6 +522,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 showFirstEntryToAccountDialog = false
             )
         }
+        sharedPreferenceStorage.setTokenIsFirstAppEntry(false)
     }
 
     init {
