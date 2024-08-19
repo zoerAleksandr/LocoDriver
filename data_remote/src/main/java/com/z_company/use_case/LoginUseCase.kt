@@ -11,16 +11,14 @@ class LoginUseCase {
     suspend fun getUser(): Flow<ResultState<User>> {
         return flow {
             emit(ResultState.Loading)
-            val parseUser = ParseUser.getCurrentUser()
-            var user = User(
+            val parseUser = ParseUser.getCurrentUser().fetch()
+            val isVerification = parseUser.getBoolean(UserFieldName.EMAIL_VERIFIED_FIELD_NAME_REMOTE)
+            val user = User(
                 name = parseUser.username,
                 email = parseUser.email,
                 updateAt = parseUser.updatedAt.time,
+                isVerification = isVerification
             )
-            user = user.copy(
-                isVerification = parseUser.getBoolean(UserFieldName.EMAIL_VERIFIED_FIELD_NAME_REMOTE)
-            )
-
             emit(ResultState.Success(user))
         }
     }

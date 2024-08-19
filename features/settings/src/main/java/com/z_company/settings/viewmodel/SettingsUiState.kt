@@ -16,5 +16,6 @@ data class SettingsUiState(
     val yearList: List<Int> = listOf(),
     val logOutState: ResultState<Unit>? = null,
     val resentVerificationEmailButton: Boolean = true,
-    var purchasesEndTime: ResultState<String> = ResultState.Loading
+    var purchasesEndTime: ResultState<String> = ResultState.Loading,
+    val isRefreshing: Boolean = false
 )

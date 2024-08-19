@@ -25,6 +25,7 @@ import com.z_company.use_case.AuthUseCase
 import com.z_company.use_case.RemoteRouteUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
@@ -128,7 +129,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                             }
                         }
                     }
-                } catch (e: Exception){
+                } catch (e: Exception) {
                     viewModelScope.launch {
                         withContext(Dispatchers.Main) {
                             _uiState.update {
@@ -148,6 +149,24 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         loadLogin()
         loadMonthList()
         loadPurchasesInfo()
+    }
+
+    fun refreshingUserData() {
+        _uiState.update {
+            it.copy(isRefreshing = true)
+        }
+        viewModelScope.launch {
+            loginUseCase.getUser().collect { resultState ->
+                if (resultState is ResultState.Success) {
+                    delay(500L)
+                    _uiState.update {
+                        it.copy(isRefreshing = false)
+                    }
+                    currentUser = resultState.data
+                    currentEmail = currentUser?.email ?: ""
+                }
+            }
+        }
     }
 
     fun resetSaveState() {
@@ -231,18 +250,19 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     }
 
     private fun loadLogin() {
-        viewModelScope.launch {
-            loadLoginJob?.cancel()
-            loadLoginJob = loginUseCase.getUser().onEach { resultState ->
-                _uiState.update {
-                    it.copy(userDetailsState = resultState)
+        loadLoginJob?.cancel()
+        loadLoginJob =
+            viewModelScope.launch {
+                loginUseCase.getUser().collect { resultState ->
+                    _uiState.update {
+                        it.copy(userDetailsState = resultState)
+                    }
+                    if (resultState is ResultState.Success) {
+                        currentUser = resultState.data
+                        currentEmail = currentUser?.email ?: ""
+                    }
                 }
-                if (resultState is ResultState.Success) {
-                    currentUser = resultState.data
-                    currentEmail = currentUser?.email ?: ""
-                }
-            }.launchIn(viewModelScope)
-        }
+            }
     }
 
     fun emailConfirmation() {

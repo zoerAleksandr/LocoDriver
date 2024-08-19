@@ -243,7 +243,7 @@ fun LogInScreen(
                         start = startIndex, end = endIndex
                     )
                 }
-                ClickableText(text = annotationString, style = hintStyle) {
+                ClickableText(text = annotationString, style = hintStyle.copy(color = MaterialTheme.colorScheme.primary)) {
                     ctx.startActivity(urlIntent)
                 }
             }

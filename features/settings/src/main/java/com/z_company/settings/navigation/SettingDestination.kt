@@ -29,9 +29,6 @@ fun SettingDestination(
         restTimeChanged = settingsViewModel::changeMinTimeRest,
         homeRestTimeChanged = settingsViewModel::changeMinTimeHomeRest,
         showReleaseDaySelectScreen = router::showSelectReleaseDayScreen,
-        yearList = uiState.yearList,
-        monthList = uiState.monthList,
-        selectMonthOfYear = settingsViewModel::setCurrentMonth,
         logOut = router::showSignIn,
         onResentVerificationEmail = settingsViewModel::emailConfirmation,
         emailForConfirm = settingsViewModel.currentEmail,
@@ -42,6 +39,8 @@ fun SettingDestination(
         changeEndNightTime = settingsViewModel::changeEndNightTime,
         changeUsingDefaultWorkTime = settingsViewModel::changeUsingDefaultWorkTime,
         purchasesState = uiState.purchasesEndTime,
-        onBillingClick = router::showPurchasesScreen
+        onBillingClick = router::showPurchasesScreen,
+        isRefreshing = uiState.isRefreshing,
+        onRefresh = settingsViewModel::refreshingUserData
     )
 }

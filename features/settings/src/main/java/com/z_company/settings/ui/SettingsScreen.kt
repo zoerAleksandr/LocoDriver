@@ -31,6 +31,8 @@ import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.accompanist.swiperefresh.SwipeRefresh
+import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.CustomSnackBar
@@ -47,7 +49,6 @@ import com.z_company.domain.entities.User
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHours
 import com.z_company.domain.entities.route.LocoType
-import com.z_company.route.component.DialogSelectMonthOfYear
 import com.z_company.settings.component.ConfirmEmailDialog
 import com.z_company.settings.viewmodel.SettingsUiState
 import kotlinx.coroutines.launch
@@ -71,9 +72,6 @@ fun SettingsScreen(
     logOut: () -> Unit,
     onSync: () -> Unit,
     showReleaseDaySelectScreen: () -> Unit,
-    yearList: List<Int>,
-    monthList: List<Int>,
-    selectMonthOfYear: (Pair<Int, Int>) -> Unit,
     onResentVerificationEmail: () -> Unit,
     emailForConfirm: String,
     onChangeEmail: (String) -> Unit,
@@ -83,7 +81,9 @@ fun SettingsScreen(
     changeEndNightTime: (Int, Int) -> Unit,
     changeUsingDefaultWorkTime: (Boolean) -> Unit,
     purchasesState: ResultState<String>,
-    onBillingClick: () -> Unit
+    onBillingClick: () -> Unit,
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -163,9 +163,6 @@ fun SettingsScreen(
                                 restTimeChanged = restTimeChanged,
                                 homeRestTimeChanged = homeRestTimeChanged,
                                 showReleaseDaySelectScreen = showReleaseDaySelectScreen,
-                                yearList = yearList,
-                                monthList = monthList,
-                                selectMonthOfYear = selectMonthOfYear,
                                 onResentVerificationEmail = onResentVerificationEmail,
                                 emailForConfirm = emailForConfirm,
                                 onChangeEmail = onChangeEmail,
@@ -174,7 +171,9 @@ fun SettingsScreen(
                                 changeEndNightTime = changeEndNightTime,
                                 changeUsingDefaultWorkTime = changeUsingDefaultWorkTime,
                                 purchasesState = purchasesState,
-                                onBillingClick = onBillingClick
+                                onBillingClick = onBillingClick,
+                                isRefreshing = isRefreshing,
+                                onRefresh = onRefresh
                             )
                         }
                     }
@@ -198,9 +197,6 @@ fun SettingScreenContent(
     currentUserState: ResultState<User?>,
     updateAtState: ResultState<Long>,
     showReleaseDaySelectScreen: () -> Unit,
-    yearList: List<Int>,
-    monthList: List<Int>,
-    selectMonthOfYear: (Pair<Int, Int>) -> Unit,
     onResentVerificationEmail: () -> Unit,
     emailForConfirm: String,
     onChangeEmail: (String) -> Unit,
@@ -209,7 +205,9 @@ fun SettingScreenContent(
     changeEndNightTime: (Int, Int) -> Unit,
     changeUsingDefaultWorkTime: (Boolean) -> Unit,
     purchasesState: ResultState<String>,
-    onBillingClick: () -> Unit
+    onBillingClick: () -> Unit,
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit
 ) {
     val styleTitle = AppTypography.getType().titleLarge
         .copy(
@@ -344,21 +342,237 @@ fun SettingScreenContent(
         }
     }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+    SwipeRefresh(
+        state = rememberSwipeRefreshState(isRefreshing = isRefreshing),
+        onRefresh = onRefresh ,
     ) {
-        item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-            ) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                ) {
+                    Text(
+                        modifier = Modifier
+                            .padding(start = 16.dp, bottom = 6.dp),
+                        text = "НОРМА ЧАСОВ",
+                        style = styleTitle
+                    )
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                color = MaterialTheme.colorScheme.surface,
+                                shape = Shapes.medium
+                            )
+                            .padding(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            val currentMonth =
+                                currentSettings.selectMonthOfYear.month.getMonthFullText()
+                            Text(text = currentMonth, style = styleData)
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(
+                                    text = ConverterLongToTime.getTimeInStringFormat(
+                                        currentSettings.selectMonthOfYear.getNormaHours().toLong()
+                                            .times(3_600_000)
+                                    ),
+                                    style = styleData
+                                )
+                                Icon(
+                                    modifier = Modifier.clickable {
+                                        showReleaseDaySelectScreen()
+                                    },
+                                    tint = MaterialTheme.colorScheme.tertiary,
+                                    imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                                    contentDescription = null
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            item {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.surface,
+                                shape = Shapes.medium
+                            )
+                            .padding(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(text = "Ночь", style = styleData)
+                                val text = currentSettings.nightTime.toString()
+                                Text(
+                                    modifier = Modifier
+                                        .clickable {
+                                            showNightTimeStartDialog = true
+                                        },
+                                    text = text,
+                                    style = styleData
+                                )
+                            }
+                            HorizontalDivider()
+
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(text = "Отдых в ПО", style = styleData)
+                                val text =
+                                    ConverterLongToTime.getTimeInStringFormat(currentSettings.minTimeRest)
+                                Text(
+                                    modifier = Modifier
+                                        .clickable { showRestDialog = true },
+                                    text = text,
+                                    style = styleData
+                                )
+                            }
+                            HorizontalDivider()
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(text = "Домашний отдых", style = styleData)
+                                val text =
+                                    ConverterLongToTime.getTimeInStringFormat(currentSettings.minTimeHomeRest)
+                                Text(
+                                    modifier = Modifier
+                                        .clickable { showHomeRestDialog = true },
+                                    text = text,
+                                    style = styleData
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        modifier = Modifier.padding(start = 16.dp, top = 8.dp),
+                        text = "Установите время минимального отдыха. Это значение будет использовано при расчете отдыха после поездки.",
+                        style = styleHint
+                    )
+                }
+            }
+
+            item {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.surface,
+                                shape = Shapes.medium
+                            )
+                            .padding(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(text = "Локомотив", style = styleData)
+                                val textLocoType = when (currentSettings.defaultLocoType) {
+                                    LocoType.ELECTRIC -> "Электровоз"
+                                    LocoType.DIESEL -> "Тепловоз"
+                                }
+                                Text(
+                                    modifier = Modifier.clickable {
+                                        showLocoTypeSelectedDialog = true
+                                    },
+                                    text = textLocoType,
+                                    style = styleData
+                                )
+                            }
+                            HorizontalDivider()
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    modifier = Modifier
+                                        .padding(end = 16.dp)
+                                        .weight(0.8f),
+                                    text = "Использовать cтандартное время работы",
+                                    style = styleData
+                                )
+                                Switch(
+                                    checked = currentSettings.usingDefaultWorkTime,
+                                    onCheckedChange = {
+                                        changeUsingDefaultWorkTime(it)
+                                    })
+
+                            }
+                            AnimatedVisibility(visible = currentSettings.usingDefaultWorkTime) {
+                                HorizontalDivider()
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Время работы",
+                                        style = styleData
+                                    )
+                                    val text =
+                                        ConverterLongToTime.getTimeInStringFormat(currentSettings.defaultWorkTime)
+                                    Text(
+                                        modifier = Modifier
+                                            .padding(end = 12.dp)
+                                            .clickable { showWorkTimeDialog = true },
+                                        text = text,
+                                        style = styleData
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Text(
+                        modifier = Modifier.padding(start = 16.dp, top = 8.dp),
+                        text = "Эти значения будут установлены по умолчанию при создании нового маршрута.",
+                        style = styleHint
+                    )
+                }
+            }
+
+            item {
                 Text(
                     modifier = Modifier
                         .padding(start = 16.dp, bottom = 6.dp),
-                    text = "НОРМА ЧАСОВ",
+                    text = "АККАУНТ",
                     style = styleTitle
                 )
                 Box(
@@ -369,387 +583,182 @@ fun SettingScreenContent(
                         )
                         .padding(16.dp)
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        val currentMonth =
-                            currentSettings.selectMonthOfYear.month.getMonthFullText()
-                        Text(text = currentMonth, style = styleData)
-
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(
-                                text = ConverterLongToTime.getTimeInStringFormat(
-                                    currentSettings.selectMonthOfYear.getNormaHours().toLong()
-                                        .times(3_600_000)
-                                ),
-                                style = styleData
-                            )
-                            Icon(
-                                modifier = Modifier.clickable {
-                                    showReleaseDaySelectScreen()
-                                },
-                                tint = MaterialTheme.colorScheme.tertiary,
-                                imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                                contentDescription = null
-                            )
-                        }
-                    }
-                }
-            }
-        }
-        item {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Box(
-                    modifier = Modifier
-                        .padding(top = 8.dp)
-                        .background(
-                            color = MaterialTheme.colorScheme.surface,
-                            shape = Shapes.medium
-                        )
-                        .padding(16.dp)
-                ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(text = "Ночь", style = styleData)
-                            val text = currentSettings.nightTime.toString()
-                            Text(
-                                modifier = Modifier
-                                    .clickable {
-                                        showNightTimeStartDialog = true
-                                    },
-                                text = text,
-                                style = styleData
-                            )
-                        }
-                        HorizontalDivider()
-
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(text = "Отдых в ПО", style = styleData)
-                            val text =
-                                ConverterLongToTime.getTimeInStringFormat(currentSettings.minTimeRest)
-                            Text(
-                                modifier = Modifier
-                                    .clickable { showRestDialog = true },
-                                text = text,
-                                style = styleData
-                            )
-                        }
-                        HorizontalDivider()
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(text = "Домашний отдых", style = styleData)
-                            val text =
-                                ConverterLongToTime.getTimeInStringFormat(currentSettings.minTimeHomeRest)
-                            Text(
-                                modifier = Modifier
-                                    .clickable { showHomeRestDialog = true },
-                                text = text,
-                                style = styleData
-                            )
-                        }
-                    }
-                }
-                Text(
-                    modifier = Modifier.padding(start = 16.dp, top = 8.dp),
-                    text = "Установите время минимального отдыха. Это значение будет использовано при расчете отдыха после поездки.",
-                    style = styleHint
-                )
-            }
-        }
-
-        item {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Box(
-                    modifier = Modifier
-                        .padding(top = 8.dp)
-                        .background(
-                            color = MaterialTheme.colorScheme.surface,
-                            shape = Shapes.medium
-                        )
-                        .padding(16.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(text = "Локомотив", style = styleData)
-                            val textLocoType = when (currentSettings.defaultLocoType) {
-                                LocoType.ELECTRIC -> "Электровоз"
-                                LocoType.DIESEL -> "Тепловоз"
+
+                            Text(text = "E-mail", style = styleData)
+                            AsyncData(
+                                resultState = currentUserState,
+                                loadingContent = {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(24.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                }) { user ->
+                                user?.let {
+                                    Text(
+                                        text = user.email,
+                                        style = styleData
+                                    )
+                                }
                             }
-                            Text(
-                                modifier = Modifier.clickable {
-                                    showLocoTypeSelectedDialog = true
-                                },
-                                text = textLocoType,
-                                style = styleData
-                            )
                         }
+
                         HorizontalDivider()
 
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(
-                                modifier = Modifier
-                                    .padding(end = 16.dp)
-                                    .weight(0.8f),
-                                text = "Использовать cтандартное время работы",
-                                style = styleData
-                            )
-                            Switch(
-                                checked = currentSettings.usingDefaultWorkTime,
-                                onCheckedChange = {
-                                    changeUsingDefaultWorkTime(it)
-                                })
+                            Text(text = "Статус", style = styleData)
+                            AsyncData(
+                                resultState = currentUserState,
+                                loadingContent = {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(24.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                }) { user ->
+                                user?.let {
+                                    val dataText = if (user.isVerification) {
+                                        "Подтвержден"
+                                    } else {
+                                        "Не подтвержден"
+                                    }
+
+                                    Text(
+                                        modifier = Modifier.clickable(enabled = !user.isVerification) {
+                                            showConfirmEmailDialog = true
+                                        },
+                                        text = dataText,
+                                        style = styleData,
+                                        color = if (!user.isVerification) MaterialTheme.colorScheme.tertiary else Color.Unspecified
+                                    )
+
+                                }
+                            }
+                        }
+                        AsyncData(
+                            resultState = currentUserState,
+                            loadingContent = {}
+                        ) { user ->
+                            user?.let {
+                                if (user.isVerification) {
+                                    HorizontalDivider()
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(text = "Синхронизация", style = styleData)
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        ) {
+                                            AsyncData(resultState = updateAtState) { updateAt ->
+                                                updateAt?.let { timeInMillis ->
+                                                    val textSyncDate =
+                                                        DateAndTimeConverter.getDateAndTime(
+                                                            timeInMillis
+                                                        )
+
+                                                    Text(
+                                                        text = textSyncDate,
+                                                        style = styleData
+                                                    )
+                                                }
+                                            }
+                                            AsyncData(
+                                                resultState = updateRepoState,
+                                                loadingContent = {
+                                                    CircularProgressIndicator(
+                                                        modifier = Modifier.size(24.dp),
+                                                        strokeWidth = 2.dp
+                                                    )
+                                                },
+                                                errorContent = {}
+                                            ) {
+                                                Icon(
+                                                    modifier = Modifier.clickable { onSync() },
+                                                    imageVector = Icons.Default.Refresh,
+                                                    contentDescription = null
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                }
+                            }
 
                         }
-                        AnimatedVisibility(visible = currentSettings.usingDefaultWorkTime) {
-                            HorizontalDivider()
 
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "Время работы",
-                                    style = styleData
-                                )
-                                val text =
-                                    ConverterLongToTime.getTimeInStringFormat(currentSettings.defaultWorkTime)
-                                Text(
-                                    modifier = Modifier
-                                        .padding(end = 12.dp)
-                                        .clickable { showWorkTimeDialog = true },
-                                    text = text,
-                                    style = styleData
-                                )
+                        HorizontalDivider()
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onBillingClick() },
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(text = "Подписка", style = styleData)
+                            AsyncData(
+                                resultState = purchasesState,
+                                loadingContent = {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(24.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                },
+                                errorContent = {
+                                    Text(
+                                        text = "Ошибка",
+                                        style = styleData
+                                    )
+                                }
+                            ) { purchaseInfo ->
+                                if (purchaseInfo.isNullOrEmpty()) {
+                                    Text(
+                                        text = "Отсутствует",
+                                        style = styleData
+                                    )
+                                } else {
+                                    Text(
+                                        text = "до $purchaseInfo",
+                                        style = styleData
+                                    )
+                                }
                             }
                         }
                     }
                 }
                 Text(
                     modifier = Modifier.padding(start = 16.dp, top = 8.dp),
-                    text = "Эти значения будут установлены по умолчанию при создании нового маршрута.",
+                    text = "Подтверждение e-mail нужно для синхронизации с облачным хранилищем.",
                     style = styleHint
                 )
             }
-        }
 
-        item {
-            Text(
-                modifier = Modifier
-                    .padding(start = 16.dp, bottom = 6.dp),
-                text = "АККАУНТ",
-                style = styleTitle
-            )
-            Box(
-                modifier = Modifier
-                    .background(
-                        color = MaterialTheme.colorScheme.surface,
-                        shape = Shapes.medium
-                    )
-                    .padding(16.dp)
-            ) {
-                Column(
+            item {
+                Button(
                     modifier = Modifier
-                        .fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-
-                        Text(text = "E-mail", style = styleData)
-                        AsyncData(
-                            resultState = currentUserState,
-                            loadingContent = {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(24.dp),
-                                    strokeWidth = 2.dp
-                                )
-                            }) { user ->
-                            user?.let {
-                                Text(
-                                    text = user.email,
-                                    style = styleData
-                                )
-                            }
-                        }
-                    }
-
-                    HorizontalDivider()
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(text = "Статус", style = styleData)
-                        AsyncData(
-                            resultState = currentUserState,
-                            loadingContent = {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(24.dp),
-                                    strokeWidth = 2.dp
-                                )
-                            }) { user ->
-                            user?.let {
-                                val dataText = if (user.isVerification) {
-                                    "Подтвержден"
-                                } else {
-                                    "Не подтвержден"
-                                }
-
-                                Text(
-                                    modifier = Modifier.clickable(enabled = !user.isVerification) {
-                                        showConfirmEmailDialog = true
-                                    },
-                                    text = dataText,
-                                    style = styleData,
-                                    color = if (!user.isVerification) MaterialTheme.colorScheme.tertiary else Color.Unspecified
-                                )
-
-                            }
-                        }
-                    }
-                    AsyncData(
-                        resultState = currentUserState,
-                        loadingContent = {}
-                    ) { user ->
-                        user?.let {
-                            if (user.isVerification) {
-                                HorizontalDivider()
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(text = "Синхронизация", style = styleData)
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    ) {
-                                        AsyncData(resultState = updateAtState) { updateAt ->
-                                            updateAt?.let { timeInMillis ->
-                                                val textSyncDate =
-                                                    DateAndTimeConverter.getDateAndTime(
-                                                        timeInMillis
-                                                    )
-
-                                                Text(
-                                                    text = textSyncDate,
-                                                    style = styleData
-                                                )
-                                            }
-                                        }
-                                        AsyncData(
-                                            resultState = updateRepoState,
-                                            loadingContent = {
-                                                CircularProgressIndicator(
-                                                    modifier = Modifier.size(24.dp),
-                                                    strokeWidth = 2.dp
-                                                )
-                                            },
-                                            errorContent = {}
-                                        ) {
-                                            Icon(
-                                                modifier = Modifier.clickable { onSync() },
-                                                imageVector = Icons.Default.Refresh,
-                                                contentDescription = null
-                                            )
-                                        }
-                                    }
-                                }
-
-                            }
-                        }
-
-                    }
-
-                    HorizontalDivider()
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable { onBillingClick() },
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(text = "Подписка", style = styleData)
-                        AsyncData(
-                            resultState = purchasesState,
-                            loadingContent = {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(24.dp),
-                                    strokeWidth = 2.dp
-                                )
-                            },
-                            errorContent = {
-                                Text(
-                                    text = "Ошибка",
-                                    style = styleData
-                                )
-                            }
-                            ) { purchaseInfo ->
-                            if (purchaseInfo.isNullOrEmpty()) {
-                                Text(
-                                    text = "Отсутствует",
-                                    style = styleData
-                                )
-                            } else {
-                                Text(
-                                    text = "до $purchaseInfo",
-                                    style = styleData
-                                )
-                            }
-                        }
-                    }
+                        .fillMaxWidth()
+                        .background(
+                            color = MaterialTheme.colorScheme.surface,
+                            shape = Shapes.medium
+                        ),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface),
+                    onClick = { onLogOut() }) {
+                    Text(
+                        text = "Выйти",
+                        color = MaterialTheme.colorScheme.error,
+                        style = styleTitle
+                    )
                 }
-            }
-            Text(
-                modifier = Modifier.padding(start = 16.dp, top = 8.dp),
-                text = "Подтверждение e-mail нужно для синхронизации с облачным хранилищем.",
-                style = styleHint
-            )
-        }
-
-        item {
-            Button(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        color = MaterialTheme.colorScheme.surface,
-                        shape = Shapes.medium
-                    ),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface),
-                onClick = { onLogOut() }) {
-                Text(text = "Выйти", color = MaterialTheme.colorScheme.error, style = styleTitle)
             }
         }
     }
