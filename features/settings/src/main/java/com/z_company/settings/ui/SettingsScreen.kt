@@ -601,6 +601,12 @@ fun SettingScreenContent(
                                         modifier = Modifier.size(24.dp),
                                         strokeWidth = 2.dp
                                     )
+                                },
+                                errorContent = {
+                                    Text(
+                                        text = "Ошибка синхронизации",
+                                        style = styleData
+                                    )
                                 }) { user ->
                                 user?.let {
                                     Text(
@@ -625,6 +631,11 @@ fun SettingScreenContent(
                                         modifier = Modifier.size(24.dp),
                                         strokeWidth = 2.dp
                                     )
+                                }, errorContent = {
+                                    Text(
+                                        text = "Ошибка синхронизации",
+                                        style = styleData
+                                    )
                                 }) { user ->
                                 user?.let {
                                     val dataText = if (user.isVerification) {
@@ -647,7 +658,8 @@ fun SettingScreenContent(
                         }
                         AsyncData(
                             resultState = currentUserState,
-                            loadingContent = {}
+                            loadingContent = {},
+                            errorContent = {}
                         ) { user ->
                             user?.let {
                                 if (user.isVerification) {
@@ -716,7 +728,7 @@ fun SettingScreenContent(
                                 },
                                 errorContent = {
                                     Text(
-                                        text = "Ошибка",
+                                        text = "Ошибка синхронизации",
                                         style = styleData
                                     )
                                 }

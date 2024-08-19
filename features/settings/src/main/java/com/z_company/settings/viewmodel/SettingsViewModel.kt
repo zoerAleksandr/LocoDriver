@@ -155,7 +155,8 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         _uiState.update {
             it.copy(isRefreshing = true)
         }
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
+            loadPurchasesInfo()
             loginUseCase.getUser().collect { resultState ->
                 if (resultState is ResultState.Success) {
                     delay(500L)
@@ -164,6 +165,11 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                     }
                     currentUser = resultState.data
                     currentEmail = currentUser?.email ?: ""
+                }
+                if (resultState is ResultState.Error){
+                    _uiState.update {
+                        it.copy(isRefreshing = false)
+                    }
                 }
             }
         }
@@ -252,7 +258,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private fun loadLogin() {
         loadLoginJob?.cancel()
         loadLoginJob =
-            viewModelScope.launch {
+            viewModelScope.launch(Dispatchers.IO) {
                 loginUseCase.getUser().collect { resultState ->
                     _uiState.update {
                         it.copy(userDetailsState = resultState)

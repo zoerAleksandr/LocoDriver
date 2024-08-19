@@ -129,7 +129,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     if (maxEndTime < currentTimeInMillis) {
                         _uiState.update {
                             it.copy(
-                                restoreSubscriptionState = ResultState.Success("Действующих подписок не ныйдено")
+                                restoreSubscriptionState = ResultState.Success("Действующих подписок не найдено")
                             )
                         }
                     }
