@@ -14,4 +14,18 @@ object UtilForMonthOfYear {
         }
         return normaOfMonth
     }
+
+    fun MonthOfYear.getDayOffHours(): Int {
+        var totalRelease = 0
+        this.days.forEach { day ->
+            if (day.isReleaseDay) {
+                totalRelease += when (day.tag) {
+                    TagForDay.WORKING_DAY -> 8
+                    TagForDay.SHORTENED_DAY -> 7
+                    TagForDay.NON_WORKING_DAY -> 0
+                }
+            }
+        }
+        return totalRelease
+    }
 }

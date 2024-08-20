@@ -34,6 +34,7 @@ fun HomeDestination(
         minTimeRest = uiState.minTimeRest,
         nightTime = uiState.nightTimeInRouteList,
         passengerTime = uiState.passengerTimeInRouteList,
+        dayOffHours = uiState.dayOffHours,
         calculationHomeRest = homeViewModel::calculationHomeRest,
         firstEntryDialogState = uiState.showFirstEntryToAccountDialog,
         resetStateFirstEntryDialog = homeViewModel::disableFirstEntryToAccountDialog,

@@ -122,8 +122,9 @@ fun HomeScreen(
     yearList: List<Int>,
     selectYearAndMonth: (Pair<Int, Int>) -> Unit,
     minTimeRest: Long?,
-    nightTime: Long?,
-    passengerTime: Long?,
+    nightTime: ResultState<Long>?,
+    passengerTime: ResultState<Long>?,
+    dayOffHours: ResultState<Int>?,
     calculationHomeRest: (Route?) -> Long?,
     firstEntryDialogState: Boolean,
     resetStateFirstEntryDialog: () -> Unit,
@@ -200,7 +201,7 @@ fun HomeScreen(
                     .fillMaxWidth()
                     .padding(top = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-            ){
+            ) {
                 Text(
                     text = "${stringResource(id = R.string.test_period)}\n",
                     style = AppTypography.getType().titleLarge.copy(color = MaterialTheme.colorScheme.primary)
@@ -214,7 +215,7 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .padding(top = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
-                ){
+                ) {
                     HorizontalDivider()
                     TextButton(
                         shape = Shapes.medium,
@@ -328,6 +329,7 @@ fun HomeScreen(
                     is AlertBeforePurchasesEvent.ShowDialogNeedSubscribe -> {
                         showNeedSubscribeDialog = true
                     }
+
                     is AlertBeforePurchasesEvent.ShowDialogAlertSubscribe -> {
                         showAlertSubscribeDialog = true
                     }
@@ -649,38 +651,94 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.Top
             ) {
+
                 Row(
                     modifier = Modifier.padding(end = 16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+
                     Icon(
                         modifier = Modifier.padding(end = 4.dp),
                         painter = painterResource(id = R.drawable.dark_mode_24px),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary
                     )
-                    AutoSizeText(
-                        text = ConverterLongToTime.getTimeInStringFormat(nightTime),
-                        style = AppTypography.getType().headlineSmall,
-                        maxTextSize = 24.sp,
-                        fontWeight = FontWeight.Light,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    AsyncData(resultState = nightTime,
+                        loadingContent = {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        }
+                    ) {
+                        AutoSizeText(
+                            text = ConverterLongToTime.getTimeInStringFormat(it),
+                            style = AppTypography.getType().headlineSmall,
+                            maxTextSize = 24.sp,
+                            fontWeight = FontWeight.Light,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
+
+
+                Row(
+                    modifier = Modifier.padding(end = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Icon(
                         modifier = Modifier.padding(end = 4.dp),
                         painter = painterResource(id = R.drawable.passenger_24px),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary
                     )
-                    AutoSizeText(
-                        text = ConverterLongToTime.getTimeInStringFormat(passengerTime),
-                        style = AppTypography.getType().headlineSmall,
-                        maxTextSize = 24.sp,
-                        fontWeight = FontWeight.Light,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    AsyncData(resultState = passengerTime,
+                        loadingContent = {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        }
+                    ) {
+                        AutoSizeText(
+                            text = ConverterLongToTime.getTimeInStringFormat(it),
+                            style = AppTypography.getType().headlineSmall,
+                            maxTextSize = 24.sp,
+                            fontWeight = FontWeight.Light,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
+                AsyncData(resultState = dayOffHours,
+                    loadingContent = {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp
+                        )
+                    }
+                ) { hours ->
+                    hours?.let {
+                        if (it != 0) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .padding(end = 4.dp),
+                                    painter = painterResource(id = R.drawable.palma),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                AutoSizeText(
+                                    text = "$it:00",
+                                    style = AppTypography.getType().headlineSmall,
+                                    maxTextSize = 24.sp,
+                                    fontWeight = FontWeight.Light,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
                 }
             }
             Spacer(
