@@ -1,6 +1,10 @@
 package com.z_company.domain.entities.route
 
+import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.TimePeriod
+import com.z_company.domain.entities.UserSettings
+import com.z_company.domain.entities.UtilForMonthOfYear.getTimeInCurrentMonth
+import com.z_company.domain.util.CalculateNightTime
 import com.z_company.domain.util.div
 import com.z_company.domain.util.lessThan
 import com.z_company.domain.util.minus
@@ -165,5 +169,78 @@ object UtilsForEntities {
                 false
             }
         }
+    }
+
+    fun List<Route>.getTotalWorkTime(monthOfYear: MonthOfYear): Long {
+        var totalTime = 0L
+        this.forEach { route ->
+            if (route.isTransition()) {
+                totalTime += monthOfYear.getTimeInCurrentMonth(
+                    route.basicData.timeStartWork!!,
+                    route.basicData.timeEndWork!!
+                )
+            } else {
+                route.getWorkTime().let { time ->
+                    totalTime += time ?: 0
+                }
+            }
+        }
+        return totalTime
+    }
+
+    fun List<Route>.getNightTime(userSettings: UserSettings): Long {
+        var nightTime = 0L
+        val startNightHour = userSettings.nightTime.startNightHour
+        val startNightMinute = userSettings.nightTime.startNightMinute
+        val endNightHour = userSettings.nightTime.endNightHour
+        val endNightMinute = userSettings.nightTime.endNightMinute
+
+        this.forEach { route ->
+            if (route.isTransition()) {
+                val nightTimeInRoute =
+                    CalculateNightTime.getNightTimeTransitionRoute(
+                        month = userSettings.selectMonthOfYear.month,
+                        year = userSettings.selectMonthOfYear.year,
+                        startMillis = route.basicData.timeStartWork,
+                        endMillis = route.basicData.timeEndWork,
+                        hourStart = startNightHour,
+                        minuteStart = startNightMinute,
+                        hourEnd = endNightHour,
+                        minuteEnd = endNightMinute
+                    )
+
+                nightTime = nightTime.plus(nightTimeInRoute) ?: 0L
+            } else {
+                val nightTimeInRoute = CalculateNightTime.getNightTime(
+                    startMillis = route.basicData.timeStartWork,
+                    endMillis = route.basicData.timeEndWork,
+                    hourStart = startNightHour,
+                    minuteStart = startNightMinute,
+                    hourEnd = endNightHour,
+                    minuteEnd = endNightMinute
+                )
+                nightTime = nightTime.plus(nightTimeInRoute) ?: 0L
+            }
+        }
+        return nightTime
+    }
+
+    fun List<Route>.getPassengerTime(monthOfYear: MonthOfYear): Long {
+        var passengerTime = 0L
+        this.forEach { route ->
+            route.passengers.forEach { passenger ->
+                passengerTime = if (route.isTransition()) {
+                    passengerTime.plus(
+                        monthOfYear.getTimeInCurrentMonth(
+                            passenger.timeDeparture!!,
+                            passenger.timeArrival!!,
+                        )
+                    )
+                } else {
+                    passengerTime.plus((passenger.timeArrival - passenger.timeDeparture) ?: 0L)
+                }
+            }
+        }
+        return passengerTime
     }
 }

@@ -7,7 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
-import com.z_company.core.util.CalculateNightTime
+import com.z_company.domain.util.CalculateNightTime
 import com.z_company.data_local.SharedPreferenceStorage
 import com.z_company.domain.entities.NightTime
 import com.z_company.domain.entities.route.*

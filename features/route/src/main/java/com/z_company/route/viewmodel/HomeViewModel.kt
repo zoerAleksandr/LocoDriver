@@ -1,6 +1,7 @@
 package com.z_company.route.viewmodel
 
 import android.content.Context
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -9,18 +10,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
-import com.z_company.core.util.CalculateNightTime
 import com.z_company.data_local.SharedPreferenceStorage
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayOffHours
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.getHomeRest
-import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
-import com.z_company.domain.entities.route.UtilsForEntities.isTransition
+import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
+import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
+import com.z_company.domain.entities.route.UtilsForEntities.getTotalWorkTime
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
-import com.z_company.domain.util.plus
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,14 +30,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import java.util.Calendar.DAY_OF_MONTH
-import java.util.Calendar.HOUR_OF_DAY
-import java.util.Calendar.MILLISECOND
-import java.util.Calendar.MINUTE
 import java.util.Calendar.MONTH
 import java.util.Calendar.YEAR
 import java.util.Calendar.getInstance
-import com.z_company.domain.util.minus
 import com.z_company.route.extention.getEndTimeSubscription
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
@@ -288,25 +283,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
         try {
             currentMonthOfYear?.let { monthOfYear ->
-                var passengerTime by mutableLongStateOf(0L)
-                routes.forEach { route ->
-                    route.passengers.forEach { passenger ->
-                        passengerTime =
-                            if (route.isTransition()) {
-                                passengerTime.plus(
-                                    getTimeInCurrentMonth(
-                                        passenger.timeDeparture!!,
-                                        passenger.timeArrival!!,
-                                        monthOfYear
-                                    )
-                                )
-                            } else {
-                                passengerTime.plus(
-                                    (passenger.timeArrival - passenger.timeDeparture) ?: 0L
-                                )
-                            }
-                    }
-                }
+                val passengerTime = routes.getPassengerTime(monthOfYear)
                 _uiState.update {
                     it.copy(
                         passengerTimeInRouteList = ResultState.Success(passengerTime)
@@ -322,62 +299,21 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    private suspend fun calculationOfNightTime(routes: List<Route>) {
+    private fun calculationOfNightTime(routes: List<Route>) {
         _uiState.update {
             it.copy(
                 nightTimeInRouteList = ResultState.Loading
             )
         }
         try {
-            currentMonthOfYear?.let { monthOfYear ->
-                viewModelScope.launch {
-                    settingsUseCase.getCurrentSettings().collect { result ->
-                        if (result is ResultState.Success) {
-                            var nightTimeState by mutableLongStateOf(0L)
-                            var startNightHour by mutableIntStateOf(0)
-                            var startNightMinute by mutableIntStateOf(0)
-                            var endNightHour by mutableIntStateOf(0)
-                            var endNightMinute by mutableIntStateOf(0)
-
-                            result.data?.let {
-                                startNightHour = it.nightTime.startNightHour
-                                startNightMinute = it.nightTime.startNightMinute
-                                endNightHour = it.nightTime.endNightHour
-                                endNightMinute = it.nightTime.endNightMinute
-                            }
-                            routes.forEach { route ->
-                                if (route.isTransition()) {
-                                    val nightTimeInRoute =
-                                        CalculateNightTime.getNightTimeTransitionRoute(
-                                            month = currentMonthOfYear!!.month,
-                                            year = currentMonthOfYear!!.year,
-                                            startMillis = route.basicData.timeStartWork,
-                                            endMillis = route.basicData.timeEndWork,
-                                            hourStart = startNightHour,
-                                            minuteStart = startNightMinute,
-                                            hourEnd = endNightHour,
-                                            minuteEnd = endNightMinute
-                                        )
-
-                                    nightTimeState = nightTimeState.plus(nightTimeInRoute) ?: 0L
-                                } else {
-                                    val nightTimeInRoute = CalculateNightTime.getNightTime(
-                                        startMillis = route.basicData.timeStartWork,
-                                        endMillis = route.basicData.timeEndWork,
-                                        hourStart = startNightHour,
-                                        minuteStart = startNightMinute,
-                                        hourEnd = endNightHour,
-                                        minuteEnd = endNightMinute
-                                    )
-                                    nightTimeState = nightTimeState.plus(nightTimeInRoute) ?: 0L
-                                }
-                            }
-                            _uiState.update {
-                                it.copy(
-                                    nightTimeInRouteList = ResultState.Success(nightTimeState)
-                                )
-                            }
-                        }
+            val stateSettings = uiState.value.settingState
+            if (stateSettings is ResultState.Success) {
+                stateSettings.data?.let { settings ->
+                    val nightTimeState = routes.getNightTime(settings)
+                    _uiState.update {
+                        it.copy(
+                            nightTimeInRouteList = ResultState.Success(nightTimeState)
+                        )
                     }
                 }
             }
@@ -407,51 +343,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
     private fun calculationOfTotalTime(routes: List<Route>) {
         currentMonthOfYear?.let { monthOfYear ->
-            totalTime = 0
-            routes.forEach { route ->
-                if (route.isTransition()) {
-                    totalTime += getTimeInCurrentMonth(
-                        route.basicData.timeStartWork!!,
-                        route.basicData.timeEndWork!!,
-                        monthOfYear
-                    )
-                } else {
-                    route.getWorkTime().let { time ->
-                        totalTime += time ?: 0
-                    }
-                }
-            }
-        }
-    }
-
-    private fun getTimeInCurrentMonth(
-        startTime: Long,
-        endTime: Long,
-        monthOfYear: MonthOfYear
-    ): Long {
-        val startCalendar = getInstance().also {
-            it.timeInMillis = startTime
-        }
-
-        if (startCalendar.get(MONTH) == monthOfYear.month) {
-            val endCurrentDay = getInstance().also {
-                it.timeInMillis = startTime
-                it.set(DAY_OF_MONTH, it.get(DAY_OF_MONTH) + 1)
-                it.set(HOUR_OF_DAY, 0)
-                it.set(MINUTE, 0)
-                it.set(MILLISECOND, 0)
-            }
-            val endCurrentDayInMillis = endCurrentDay.timeInMillis
-            return endCurrentDayInMillis - startTime
-        } else {
-            val startCurrentDay = getInstance().also {
-                it.timeInMillis = endTime
-                it.set(HOUR_OF_DAY, 0)
-                it.set(MINUTE, 0)
-                it.set(MILLISECOND, 0)
-            }
-            val startCurrentDayInMillis = startCurrentDay.timeInMillis
-            return endTime - startCurrentDayInMillis
+            totalTime = routes.getTotalWorkTime(monthOfYear)
         }
     }
 

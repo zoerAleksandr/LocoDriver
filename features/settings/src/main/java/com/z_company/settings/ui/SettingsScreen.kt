@@ -47,7 +47,7 @@ import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
 import com.z_company.domain.entities.User
 import com.z_company.domain.entities.UserSettings
-import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHours
+import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.settings.component.ConfirmEmailDialog
 import com.z_company.settings.viewmodel.SettingsUiState
@@ -383,7 +383,7 @@ fun SettingScreenContent(
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(
                                     text = ConverterLongToTime.getTimeInStringFormat(
-                                        currentSettings.selectMonthOfYear.getNormaHours().toLong()
+                                        currentSettings.selectMonthOfYear.getPersonalNormaHours().toLong()
                                             .times(3_600_000)
                                     ),
                                     style = styleData

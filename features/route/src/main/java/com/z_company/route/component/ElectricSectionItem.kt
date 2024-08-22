@@ -40,7 +40,6 @@ import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.domain.util.CalculationEnergy.getTotalEnergyConsumption
-import com.z_company.domain.util.str
 import com.z_company.route.R
 import com.z_company.route.viewmodel.ElectricSectionFormState
 import com.z_company.route.viewmodel.ElectricSectionType

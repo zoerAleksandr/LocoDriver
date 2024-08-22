@@ -1,7 +1,5 @@
-package com.z_company.core.util
+package com.z_company.domain.util
 
-import androidx.core.util.rangeTo
-import org.koin.core.component.KoinComponent
 import java.util.Calendar
 import java.util.Calendar.DAY_OF_MONTH
 import java.util.Calendar.HOUR_OF_DAY
@@ -10,7 +8,7 @@ import java.util.Calendar.MINUTE
 import java.util.Calendar.SECOND
 import java.util.Calendar.getInstance
 
-object CalculateNightTime : KoinComponent {
+object CalculateNightTime {
     fun getNightTime(
         startMillis: Long?,
         endMillis: Long?,

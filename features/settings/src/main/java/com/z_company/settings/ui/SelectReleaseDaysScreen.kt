@@ -58,7 +58,7 @@ import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ReleasePeriod
-import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHours
+import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.route.component.DialogSelectMonthOfYear
 import kotlinx.coroutines.launch
 
@@ -219,7 +219,7 @@ fun SelectReleaseDaysContent(
                     )
                     Text(
                         text = ConverterLongToTime.getTimeInStringFormat(
-                            monthOfYear?.getNormaHours()?.toLong()?.times(3_600_000)
+                            monthOfYear?.getPersonalNormaHours()?.toLong()?.times(3_600_000)
                         ),
                         style = styleData
                     )

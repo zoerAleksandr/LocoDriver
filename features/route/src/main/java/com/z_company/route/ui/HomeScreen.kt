@@ -79,7 +79,7 @@ import com.z_company.core.util.DateAndTimeConverter.getDateFromDateLong
 import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
 import com.z_company.core.util.DateAndTimeConverter.getTimeFromDateLong
 import com.z_company.domain.entities.MonthOfYear
-import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHours
+import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.fullRest
@@ -643,7 +643,7 @@ fun HomeScreen(
                         .clickable { onMoreInfoClick(monthOfYear.id) }
                         .height(heightScreen.times(0.13f).dp),
                     valueTime = totalTime,
-                    normaHours = monthOfYear.getNormaHours(),
+                    normaHours = monthOfYear.getPersonalNormaHours(),
                 )
             }
             Row(
