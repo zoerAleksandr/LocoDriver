@@ -79,13 +79,13 @@ object UtilsForEntities {
         if (parentList.isNotEmpty()) {
             routeChain.add(parentList[indexRoute])
             if (indexRoute > 0) {
-                indexRoute -= 1
+                indexRoute += 1
                 while (parentList[indexRoute].basicData.restPointOfTurnover) {
                     routeChain.add(parentList[indexRoute])
                     if (indexRoute == 0) {
                         break
                     } else {
-                        indexRoute -= 1
+                        indexRoute += 1
                     }
                 }
             }
