@@ -31,6 +31,9 @@ internal interface SettingsDao {
     @Query("SELECT * FROM MonthOfYear")
     fun getMonthOfYearList(): Flow<List<MonthOfYear>>
 
+    @Query("SELECT * FROM MonthOfYear WHERE id =:id")
+    fun getMonthOfYearById(id: String): Flow<MonthOfYear?>
+
     @TypeConverters(NightTimeToPrimitiveConverter::class)
     @Query("UPDATE UserSettings SET nightTime =:nightTime WHERE settingsKey =:key")
     fun updateNightTime(nightTime: NightTime, key: String)

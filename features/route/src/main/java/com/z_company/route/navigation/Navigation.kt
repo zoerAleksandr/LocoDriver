@@ -79,5 +79,10 @@ fun NavGraphBuilder.homeGraph(
         ) {
             PurchasesDestination(router = router)
         }
+        composableScreen(
+            route = MoreInfoRoute.route
+        ) {navBackStackEntry ->
+            MoreInfoDestination(router = router, backStackEntry = navBackStackEntry)
+        }
     }
 }

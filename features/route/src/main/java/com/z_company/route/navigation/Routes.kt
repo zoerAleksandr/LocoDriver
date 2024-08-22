@@ -4,6 +4,7 @@ import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.z_company.core.navigation.AppRoutes
+import com.z_company.domain.entities.MonthOfYear
 
 object HomeFeature : AppRoutes("HomeFeature")
 object HomeRoute : AppRoutes("HomeRoute")
@@ -160,3 +161,18 @@ object ViewingImageRoute: AppRoutes("ViewingImage") {
 }
 object SearchRoute: AppRoutes("SearchRoute")
 object PurchasesRoute: AppRoutes("PurchasesRoute")
+
+object MoreInfoRoute: AppRoutes("MoreInfoRoute") {
+    private const val paramMonthOfYearId = "paramMonthOfYearId"
+    override val route: String = "$basicRoute/{$paramMonthOfYearId}"
+    val navArguments = listOf(
+        navArgument(paramMonthOfYearId) {
+            type = NavType.StringType
+            nullable = false
+        }
+    )
+    fun getMonthOfYearId(backStackEntry: NavBackStackEntry): String? =
+        backStackEntry.arguments?.getString(paramMonthOfYearId)
+    fun buildRoute(monthId: String) =
+        "$basicRoute/$monthId"
+}

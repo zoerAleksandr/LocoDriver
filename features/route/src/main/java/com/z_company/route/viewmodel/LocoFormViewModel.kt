@@ -1,5 +1,6 @@
 package com.z_company.route.viewmodel
 
+import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
@@ -175,6 +176,8 @@ class LocoFormViewModel(
             )
         }
         locomotive.electricSectionList.forEach { section ->
+            Log.d("ZZZ", "get ${section.acceptedEnergy}")
+            Log.d("ZZZ", "get srt() ${section.acceptedEnergy.str()}")
             electricSectionListState.addOrReplace(
                 ElectricSectionFormState(
                     sectionId = section.sectionId,
@@ -273,6 +276,9 @@ class LocoFormViewModel(
                 when (loco.type) {
                     LocoType.ELECTRIC -> {
                         loco.electricSectionList = electricSectionListState.map { state ->
+                            Log.d("ZZZ", "accepted ${state.accepted.data}")
+                            Log.d("ZZZ", "accepted toBigDecimalOrNull ${state.accepted.data?.toBigDecimalOrNull()?.toPlainString()}")
+                            Log.d("ZZZ", "accepted toDoubleOrNull ${state.accepted.data?.toDouble()}")
                             SectionElectric(
                                 sectionId = state.sectionId,
                                 acceptedEnergy = state.accepted.data?.toDoubleOrNull(),

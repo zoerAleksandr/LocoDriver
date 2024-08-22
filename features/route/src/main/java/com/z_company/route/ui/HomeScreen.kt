@@ -111,6 +111,7 @@ fun HomeScreen(
     removeRouteState: ResultState<Unit>?,
     onRouteClick: (String) -> Unit,
     onNewRouteClick: () -> Unit,
+    onMoreInfoClick: (String) -> Unit,
     onDeleteRoute: (Route) -> Unit,
     onDeleteRouteConfirmed: () -> Unit,
     reloadRoute: () -> Unit,
@@ -639,6 +640,7 @@ fun HomeScreen(
             currentMonthOfYear?.let { monthOfYear ->
                 TotalTime(
                     modifier = Modifier
+                        .clickable { onMoreInfoClick(monthOfYear.id) }
                         .height(heightScreen.times(0.13f).dp),
                     valueTime = totalTime,
                     normaHours = monthOfYear.getNormaHours(),

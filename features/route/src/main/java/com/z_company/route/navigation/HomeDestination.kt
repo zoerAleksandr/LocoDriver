@@ -20,6 +20,7 @@ fun HomeDestination(
         onRouteClick = {
             router.showRouteForm(it)
         },
+        onMoreInfoClick = { router.showMoreInfo(it) },
         onNewRouteClick = homeViewModel::newRouteClick,
         onDeleteRoute = homeViewModel::remove,
         onDeleteRouteConfirmed = homeViewModel::resetRemoveRouteState,

@@ -18,4 +18,8 @@ class CalendarUseCase(private val repositories: CalendarRepositories) {
     fun updateMonthOfYear(monthOfYear: MonthOfYear): Flow<ResultState<Unit>> {
         return repositories.updateMonthOfYear(monthOfYear)
     }
+
+    fun loadMonthOfYearById(monthOfYearId: String): Flow<ResultState<MonthOfYear?>> {
+        return repositories.getMonthOfYearById(monthOfYearId)
+    }
 }

@@ -17,6 +17,7 @@ import com.z_company.route.navigation.FormPassenger
 import com.z_company.route.navigation.FormRoute
 import com.z_company.route.navigation.FormTrain
 import com.z_company.route.navigation.HomeRoute
+import com.z_company.route.navigation.MoreInfoRoute
 import com.z_company.route.navigation.PreviewPhotoRoute
 import com.z_company.route.navigation.PurchasesRoute
 import com.z_company.route.navigation.SearchRoute
@@ -143,6 +144,12 @@ class RouterImpl(
     override fun showPurchasesScreen() {
         navController.navigate(
             PurchasesRoute.route
+        )
+    }
+
+    override fun showMoreInfo(monthOfYearId: String) {
+        navController.navigate(
+            MoreInfoRoute.buildRoute(monthOfYearId)
         )
     }
 }

@@ -30,7 +30,18 @@ class RoomCalendarRepository : CalendarRepositories, KoinComponent {
     override fun updateMonthOfYear(monthOfYear: MonthOfYear): Flow<ResultState<Unit>> {
         return flowRequest {
             dao.updateMonthOfYear(MonthOfYearConverter.fromData(monthOfYear))
+        }
+    }
 
+    override fun getMonthOfYearById(id: String): Flow<ResultState<MonthOfYear?>> {
+        return flowMap {
+            dao.getMonthOfYearById(id).map { value ->
+                ResultState.Success(
+                    value?.let {
+                        MonthOfYearConverter.toData(it)
+                    }
+                )
+            }
         }
     }
 
