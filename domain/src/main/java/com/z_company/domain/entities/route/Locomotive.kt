@@ -1,5 +1,6 @@
 package com.z_company.domain.entities.route
 
+import java.math.BigDecimal
 import java.util.UUID
 
 data class Locomotive(
@@ -21,10 +22,10 @@ data class SectionElectric(
     var sectionId: String = UUID.randomUUID().toString(),
     var locoId: String = "",
     var type: LocoType = LocoType.ELECTRIC,
-    var acceptedEnergy: Double? = null,
-    var deliveryEnergy: Double? = null,
-    var acceptedRecovery: Double? = null,
-    var deliveryRecovery: Double? = null
+    var acceptedEnergy: BigDecimal? = null,
+    var deliveryEnergy: BigDecimal? = null,
+    var acceptedRecovery: BigDecimal? = null,
+    var deliveryRecovery: BigDecimal? = null
 )
 data class SectionDiesel(
     var sectionId: String = UUID.randomUUID().toString(),

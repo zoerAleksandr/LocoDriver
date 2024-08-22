@@ -1185,23 +1185,23 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: Long?) {
                                 Column {
                                     locomotive.electricSectionList.forEachIndexed { index, sectionElectric ->
                                         val acceptedEnergyText =
-                                            sectionElectric.acceptedEnergy.str()
+                                            sectionElectric.acceptedEnergy?.toPlainString()
                                         val deliveryEnergyText =
-                                            sectionElectric.deliveryEnergy.str()
+                                            sectionElectric.deliveryEnergy?.toPlainString()
                                         val acceptedRecoveryText =
-                                            sectionElectric.acceptedRecovery.str()
+                                            sectionElectric.acceptedRecovery?.toPlainString()
                                         val deliveryRecoveryText =
-                                            sectionElectric.deliveryRecovery.str()
+                                            sectionElectric.deliveryRecovery?.toPlainString()
                                         val consumptionEnergy =
                                             CalculationEnergy.getTotalEnergyConsumption(
                                                 accepted = sectionElectric.acceptedEnergy,
                                                 delivery = sectionElectric.deliveryEnergy
-                                            ).str()
+                                            )?.toPlainString() ?: ""
                                         val consumptionRecovery =
                                             CalculationEnergy.getTotalEnergyConsumption(
                                                 accepted = sectionElectric.acceptedRecovery,
                                                 delivery = sectionElectric.deliveryRecovery
-                                            ).str()
+                                            )?.toPlainString() ?: ""
 
                                         Row(
                                             modifier = Modifier

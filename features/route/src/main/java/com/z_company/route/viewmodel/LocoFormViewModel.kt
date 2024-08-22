@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import java.math.BigDecimal
 import kotlin.properties.Delegates
 
 class LocoFormViewModel(
@@ -176,32 +177,30 @@ class LocoFormViewModel(
             )
         }
         locomotive.electricSectionList.forEach { section ->
-            Log.d("ZZZ", "get ${section.acceptedEnergy}")
-            Log.d("ZZZ", "get srt() ${section.acceptedEnergy.str()}")
             electricSectionListState.addOrReplace(
                 ElectricSectionFormState(
                     sectionId = section.sectionId,
                     accepted = ElectricSectionFieldState(
-                        data = section.acceptedEnergy?.str() ?: "",
+                        data = section.acceptedEnergy?.toPlainString() ?: "",
                         type = ElectricSectionType.ACCEPTED
                     ),
                     delivery = ElectricSectionFieldState(
-                        data = section.deliveryEnergy?.str() ?: "",
+                        data = section.deliveryEnergy?.toPlainString() ?: "",
                         type = ElectricSectionType.DELIVERY
                     ),
                     recoveryAccepted = ElectricSectionFieldState(
-                        data = section.acceptedRecovery?.str() ?: "",
+                        data = section.acceptedRecovery?.toPlainString() ?: "",
                         type = ElectricSectionType.RECOVERY_ACCEPTED
                     ),
                     recoveryDelivery = ElectricSectionFieldState(
-                        data = section.deliveryRecovery?.str() ?: "",
+                        data = section.deliveryRecovery?.toPlainString() ?: "",
                         type = ElectricSectionType.RECOVERY_DELIVERY
                     ),
                     resultVisibility = isVisibilityResultElectricSection(
-                        section.acceptedEnergy?.str() ?: "",
-                        section.deliveryEnergy?.str() ?: "",
-                        section.acceptedRecovery?.str() ?: "",
-                        section.deliveryRecovery?.str() ?: ""
+                        section.acceptedEnergy?.toPlainString() ?: "",
+                        section.deliveryEnergy?.toPlainString() ?: "",
+                        section.acceptedRecovery?.toPlainString() ?: "",
+                        section.deliveryRecovery?.toPlainString() ?: ""
                     ),
                     expandItemState = isExpandElectricItem(
                         section.acceptedRecovery,
@@ -276,15 +275,12 @@ class LocoFormViewModel(
                 when (loco.type) {
                     LocoType.ELECTRIC -> {
                         loco.electricSectionList = electricSectionListState.map { state ->
-                            Log.d("ZZZ", "accepted ${state.accepted.data}")
-                            Log.d("ZZZ", "accepted toBigDecimalOrNull ${state.accepted.data?.toBigDecimalOrNull()?.toPlainString()}")
-                            Log.d("ZZZ", "accepted toDoubleOrNull ${state.accepted.data?.toDouble()}")
                             SectionElectric(
                                 sectionId = state.sectionId,
-                                acceptedEnergy = state.accepted.data?.toDoubleOrNull(),
-                                deliveryEnergy = state.delivery.data?.toDoubleOrNull(),
-                                acceptedRecovery = state.recoveryAccepted.data?.toDoubleOrNull(),
-                                deliveryRecovery = state.recoveryDelivery.data?.toDoubleOrNull()
+                                acceptedEnergy = state.accepted.data?.toBigDecimalOrNull(),
+                                deliveryEnergy = state.delivery.data?.toBigDecimalOrNull(),
+                                acceptedRecovery = state.recoveryAccepted.data?.toBigDecimalOrNull(),
+                                deliveryRecovery = state.recoveryDelivery.data?.toBigDecimalOrNull()
                             )
                         }.toMutableList()
                     }
@@ -538,8 +534,8 @@ class LocoFormViewModel(
     }
 
     private fun isExpandElectricItem(
-        acceptedRecovery: Double?,
-        deliveryRecovery: Double?,
+        acceptedRecovery: BigDecimal?,
+        deliveryRecovery: BigDecimal?,
     ): Boolean {
         return (acceptedRecovery != null || deliveryRecovery != null)
     }
@@ -597,8 +593,8 @@ class LocoFormViewModel(
                     accepted, delivery, acceptedRecovery, deliveryRecovery
                 )
                 val isExpand = isExpandElectricItem(
-                    acceptedRecovery?.toDoubleOrNull(),
-                    deliveryRecovery?.toDoubleOrNull()
+                    acceptedRecovery?.toBigDecimalOrNull(),
+                    deliveryRecovery?.toBigDecimalOrNull()
                 )
                 electricSectionListState[event.index] = electricSectionListState[event.index].copy(
                     resultVisibility = isVisibilityResult,

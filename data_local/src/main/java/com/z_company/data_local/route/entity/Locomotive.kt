@@ -10,6 +10,7 @@ import com.z_company.data_local.route.type_converters.SectionDieselToPrimitiveCo
 import com.z_company.data_local.route.type_converters.SectionElectricToPrimitiveConverter
 import com.z_company.data_local.route.type_converters.TypeLocoConverter
 import com.z_company.domain.entities.route.LocoType
+import java.math.BigDecimal
 
 @Entity(
     foreignKeys = [
@@ -52,10 +53,10 @@ internal data class SectionElectric(
     @ColumnInfo(index = true)
     var locoId: String,
     val type: LocoType = LocoType.ELECTRIC,
-    var acceptedEnergy: Double? = null,
-    var deliveryEnergy: Double? = null,
-    var acceptedRecovery: Double? = null,
-    var deliveryRecovery: Double? = null
+    var acceptedEnergy: BigDecimal? = null,
+    var deliveryEnergy: BigDecimal? = null,
+    var acceptedRecovery: BigDecimal? = null,
+    var deliveryRecovery: BigDecimal? = null
 )
 
 

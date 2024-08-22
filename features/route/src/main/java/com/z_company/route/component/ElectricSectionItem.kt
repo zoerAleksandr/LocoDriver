@@ -72,12 +72,12 @@ fun ElectricSectionItem(
     val recoveryAcceptedText = item.recoveryAccepted.data ?: ""
     val recoveryDeliveryText = item.recoveryDelivery.data ?: ""
     val result = getTotalEnergyConsumption(
-        item.accepted.data?.toDoubleOrNull(),
-        item.delivery.data?.toDoubleOrNull()
+        item.accepted.data?.toBigDecimalOrNull(),
+        item.delivery.data?.toBigDecimalOrNull()
     )
     val resultRecovery = getTotalEnergyConsumption(
-        item.recoveryAccepted.data?.toDoubleOrNull(),
-        item.recoveryDelivery.data?.toDoubleOrNull()
+        item.recoveryAccepted.data?.toBigDecimalOrNull(),
+        item.recoveryDelivery.data?.toBigDecimalOrNull()
     )
 
     val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
@@ -322,10 +322,10 @@ fun ElectricSectionItem(
                     horizontalArrangement = Arrangement.End
                 ) {
                     result?.let {
-                        Text(text = it.str(), style = hintStyle)
+                        Text(text = it.toPlainString(), style = hintStyle)
                     }
                     resultRecovery?.let {
-                        Text(text = " / ${it.str()}", style = hintStyle)
+                        Text(text = " / ${it.toPlainString()}", style = hintStyle)
                     }
 
                 }

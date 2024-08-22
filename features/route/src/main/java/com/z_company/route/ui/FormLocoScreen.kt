@@ -92,6 +92,7 @@ import com.z_company.route.viewmodel.DieselSectionType
 import com.z_company.route.viewmodel.ElectricSectionFormState
 import com.z_company.route.viewmodel.ElectricSectionType
 import kotlinx.coroutines.launch
+import java.math.BigDecimal
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -895,16 +896,16 @@ private fun LocoFormScreenContent(
                             )
 
                             if (index == electricSectionListState.lastIndex && index > 0) {
-                                var overResult: Double? = null
-                                var overRecovery: Double? = null
+                                var overResult: BigDecimal? = null
+                                var overRecovery: BigDecimal? = null
 
                                 electricSectionListState.forEach {
-                                    val accepted = it.accepted.data?.toDoubleOrNull()
-                                    val delivery = it.delivery.data?.toDoubleOrNull()
+                                    val accepted = it.accepted.data?.toBigDecimalOrNull()
+                                    val delivery = it.delivery.data?.toBigDecimalOrNull()
                                     val acceptedRecovery =
-                                        it.recoveryAccepted.data?.toDoubleOrNull()
+                                        it.recoveryAccepted.data?.toBigDecimalOrNull()
                                     val deliveryRecovery =
-                                        it.recoveryDelivery.data?.toDoubleOrNull()
+                                        it.recoveryDelivery.data?.toBigDecimalOrNull()
 
                                     val result = delivery - accepted
                                     val resultRecovery = deliveryRecovery - acceptedRecovery
@@ -918,13 +919,13 @@ private fun LocoFormScreenContent(
                                 ) {
                                     overResult?.let {
                                         Text(
-                                            text = "Всего расход = ${it.str()}",
+                                            text = "Всего расход = ${it.toPlainString()}",
                                             style = hintStyle,
                                         )
                                     }
                                     overRecovery?.let {
                                         Text(
-                                            text = "Всего рекуперация = ${it.str()}",
+                                            text = "Всего рекуперация = ${it.toPlainString()}",
                                             style = hintStyle,
                                         )
                                     }
