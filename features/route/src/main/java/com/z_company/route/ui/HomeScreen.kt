@@ -99,6 +99,7 @@ import com.z_company.route.component.HomeBottomSheetContent
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.route.viewmodel.AlertBeforePurchasesEvent
 import com.z_company.route.viewmodel.StartPurchasesEvent
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import ru.rustore.sdk.core.feature.model.FeatureAvailabilityResult
@@ -126,7 +127,8 @@ fun HomeScreen(
     nightTime: ResultState<Long>?,
     passengerTime: ResultState<Long>?,
     dayOffHours: ResultState<Int>?,
-    calculationHomeRest: (Route?) -> Long?,
+    calculationHomeRest: (Route?) -> Unit,
+    homeRestValue: ResultState<Long?>,
     firstEntryDialogState: Boolean,
     resetStateFirstEntryDialog: () -> Unit,
     purchasesEvent: SharedFlow<StartPurchasesEvent>,
@@ -437,8 +439,9 @@ fun HomeScreen(
                     .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
                     .clickable {}
             ) {
-                val homeRest = calculationHomeRest(routeForPreview)
-                PreviewRoute(routeForPreview, minTimeRest, homeRest)
+
+                calculationHomeRest(routeForPreview)
+                PreviewRoute(routeForPreview, minTimeRest, homeRestValue)
             }
 
             Column(
@@ -821,7 +824,7 @@ fun TotalTime(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: Long?) {
+fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: ResultState<Long?>) {
     val styleTitle = AppTypography.getType().titleSmall.copy(
         fontWeight = FontWeight.W600,
         color = MaterialTheme.colorScheme.primary
@@ -1011,13 +1014,24 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: Long?) {
                                     )
                                 }
                             } else {
-                                homeRest?.let {
-                                    val homeRestInLongText = getDateMiniAndTime(homeRest)
-                                    Text(
-                                        text = "до $homeRestInLongText",
-                                        style = styleHint,
-                                        maxLines = 1,
-                                    )
+                                AsyncData(
+                                    resultState = homeRest,
+                                    loadingContent = {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(24.dp),
+                                            strokeWidth = 2.dp
+                                        )
+                                    },
+                                    errorContent = {}
+                                ) { homeRestInLong ->
+                                    homeRestInLong?.let {
+                                        val homeRestInLongText = getDateMiniAndTime(homeRestInLong)
+                                        Text(
+                                            text = "до $homeRestInLongText",
+                                            style = styleHint,
+                                            maxLines = 1,
+                                        )
+                                    }
                                 }
                             }
                         }

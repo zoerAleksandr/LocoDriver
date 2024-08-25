@@ -27,6 +27,7 @@ fun MoreInfoDestination(
         currentMonthOfYearState = uiState.currentMonthOfYearState,
         totalWorkTimeState = uiState.totalWorkTimeState,
         nightTimeState = uiState.nightTimeState,
-        passengerTimeState = uiState.passengerTimeState
+        passengerTimeState = uiState.passengerTimeState,
+        holidayWorkTimeState = uiState.holidayWorkTimeState
     )
 }

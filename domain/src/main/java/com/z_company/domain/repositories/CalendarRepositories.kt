@@ -10,4 +10,6 @@ interface CalendarRepositories {
     fun getMonthOfYearList(): Flow<ResultState<List<MonthOfYear>>>
     fun updateMonthOfYear(monthOfYear: MonthOfYear): Flow<ResultState<Unit>>
     fun getMonthOfYearById(id: String): Flow<ResultState<MonthOfYear?>>
+
+    fun clearCalendar(): Flow<ResultState<Unit>>
 }

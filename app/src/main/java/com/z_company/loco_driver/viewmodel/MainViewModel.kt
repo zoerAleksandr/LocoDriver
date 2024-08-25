@@ -54,8 +54,9 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
             setDefaultSettings()
         }
         syncRuStoreSubscription()
-        loadCalendar()
         viewModelScope.launch {
+            loadCalendar()
+            delay(1000L)
             getSession()
         }
     }
@@ -73,11 +74,18 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
 
     private fun loadCalendar() {
         loadCalendarJob?.cancel()
-        loadCalendarJob = loadCalendarFromStorage.getMonthOfYearList().onEach { resultState ->
-            if (resultState is ResultState.Success) {
-                saveCalendarInLocal(resultState.data)
+        loadCalendarJob = viewModelScope.launch {
+            calendarUseCase.clearCalendar().collect { result ->
+                if (result is ResultState.Success) {
+                    loadCalendarFromStorage.getMonthOfYearList().collect { resultState ->
+                        if (resultState is ResultState.Success) {
+                            saveCalendarInLocal(resultState.data)
+                        }
+                    }
+
+                }
             }
-        }.launchIn(viewModelScope)
+        }
     }
 
     private fun saveCalendarInLocal(calendar: List<MonthOfYear>) {
@@ -89,7 +97,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
         }.launchIn(viewModelScope)
     }
 
-    private fun syncRuStoreSubscription(){
+    private fun syncRuStoreSubscription() {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
                 try {

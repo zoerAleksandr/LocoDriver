@@ -8,4 +8,5 @@ data class MoreInfoUiState(
     val totalWorkTimeState: ResultState<Long?> = ResultState.Loading,
     val nightTimeState: ResultState<Long?> = ResultState.Loading,
     val passengerTimeState: ResultState<Long?> = ResultState.Loading,
+    val holidayWorkTimeState: ResultState<Long?> = ResultState.Loading
 )

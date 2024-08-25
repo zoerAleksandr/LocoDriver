@@ -41,7 +41,8 @@ fun MoreInfoScreen(
     currentMonthOfYearState: ResultState<MonthOfYear?>,
     totalWorkTimeState: ResultState<Long?>,
     nightTimeState: ResultState<Long?>,
-    passengerTimeState: ResultState<Long?>
+    passengerTimeState: ResultState<Long?>,
+    holidayWorkTimeState: ResultState<Long?>
 ) {
     val subTitleStyle = AppTypography.getType().titleLarge
         .copy(
@@ -229,8 +230,6 @@ fun MoreInfoScreen(
                 Text(
                     text = "Отработано",
                     style = styleData,
-                    overflow = TextOverflow.Ellipsis,
-                    maxLines = 1
                 )
                 AsyncData(
                     resultState = totalWorkTimeState,
@@ -252,7 +251,7 @@ fun MoreInfoScreen(
 
             Text(
                 text = "из них: ",
-                style = hintStyle
+                style = styleData
             )
             Row(
                 modifier = Modifier
@@ -262,8 +261,6 @@ fun MoreInfoScreen(
                 Text(
                     text = "   ночных",
                     style = styleData,
-                    overflow = TextOverflow.Ellipsis,
-                    maxLines = 1
                 )
                 AsyncData(
                     resultState = nightTimeState,
@@ -293,6 +290,22 @@ fun MoreInfoScreen(
                     overflow = TextOverflow.Ellipsis,
                     maxLines = 1
                 )
+                AsyncData(
+                    resultState = holidayWorkTimeState,
+                    errorContent = {},
+                    loadingContent = {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp
+                        )
+                    }) { holidayTime ->
+                    holidayTime?.let {
+                        Text(
+                            text = ConverterLongToTime.getTimeInStringFormat(holidayTime),
+                            style = styleData
+                        )
+                    }
+                }
 
             }
             Row(

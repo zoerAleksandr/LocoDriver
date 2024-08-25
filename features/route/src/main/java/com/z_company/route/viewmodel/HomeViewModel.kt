@@ -1,9 +1,7 @@
 package com.z_company.route.viewmodel
 
 import android.content.Context
-import android.util.Log
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
@@ -35,6 +33,7 @@ import java.util.Calendar.YEAR
 import java.util.Calendar.getInstance
 import com.z_company.route.extention.getEndTimeSubscription
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -61,6 +60,9 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState = _uiState.asStateFlow()
+
+    private val _previewRouteUiState = MutableStateFlow(PreviewRouteUiState())
+    val previewRouteUiState = _previewRouteUiState.asStateFlow()
 
     private val _checkPurchasesEvent = MutableSharedFlow<StartPurchasesEvent>(
         extraBufferCapacity = 1,
@@ -400,21 +402,60 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun calculationHomeRest(route: Route?): Long? {
-        val minTimeHomeRest = uiState.value.minTimeHomeRest
-        uiState.value.routeListState.let { listState ->
-            if (listState is ResultState.Success) {
-                if (listState.data.contains(route)) {
-                    route?.let {
-                        return route.getHomeRest(
-                            parentList = listState.data,
-                            minTimeHomeRest = minTimeHomeRest
+    fun calculationHomeRest(route: Route?) {
+        val routesList = mutableListOf<Route>()
+        viewModelScope.launch(Dispatchers.IO) {
+            currentMonthOfYear?.let { monthOfYear ->
+                this.launch {
+                    routeUseCase.listRoutesByMonth(monthOfYear).collect { resultCurrentMonth ->
+                        if (resultCurrentMonth is ResultState.Success) {
+                            routesList.addAll(resultCurrentMonth.data)
+                            this.cancel()
+                        }
+                    }
+                }.join()
+                this.launch {
+                    val previousMonthOfYear = if (monthOfYear.month != 0) {
+                        monthOfYear.copy(month = monthOfYear.month - 1)
+                    } else {
+                        monthOfYear.copy(
+                            year = monthOfYear.year - 1,
+                            month = 11
+                        )
+                    }
+                    routeUseCase.listRoutesByMonth(previousMonthOfYear)
+                        .collect { resultCurrentMonth ->
+                            if (resultCurrentMonth is ResultState.Success) {
+                                routesList.addAll(resultCurrentMonth.data)
+                                this.cancel()
+                            }
+                        }
+                }.join()
+            }
+            val sortedRouteList = routesList.sortedBy {
+                    it.basicData.timeStartWork
+                }.distinct()
+            val minTimeHomeRest = uiState.value.minTimeHomeRest
+            if (routesList.contains(route)) {
+                route?.let {
+                    val homeRest = route.getHomeRest(
+                        parentList = sortedRouteList,
+                        minTimeHomeRest = minTimeHomeRest
+                    )
+                    _previewRouteUiState.update {
+                        it.copy(
+                            homeRestState = ResultState.Success(homeRest)
                         )
                     }
                 }
+            } else {
+                _previewRouteUiState.update {
+                    it.copy(
+                        homeRestState = ResultState.Success(null)
+                    )
+                }
             }
         }
-        return null
     }
 
     private fun checkLoginToAccount() {

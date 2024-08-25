@@ -22,8 +22,10 @@ internal interface SettingsDao {
     fun getSettings(): Flow<UserSettings?>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    @JvmSuppressWildcards
-    suspend fun saveMonthOfYearList(monthList: List<MonthOfYear>)
+    fun saveMonthOfYearList(monthList: List<MonthOfYear>)
+
+    @Query("DELETE FROM MonthOfYear")
+    fun clearCalendar()
 
     @Update
     fun updateMonthOfYear(monthOfYear: MonthOfYear)

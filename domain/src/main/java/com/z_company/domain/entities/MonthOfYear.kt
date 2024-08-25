@@ -4,7 +4,7 @@ import java.util.Calendar
 import java.util.UUID
 
 enum class TagForDay {
-    WORKING_DAY, NON_WORKING_DAY, SHORTENED_DAY
+    WORKING_DAY, NON_WORKING_DAY, SHORTENED_DAY, HOLIDAY,
 }
 
 data class MonthOfYear(

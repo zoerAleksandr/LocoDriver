@@ -9,6 +9,7 @@ import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getTotalWorkTime
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -70,19 +71,6 @@ class MoreInfoViewModel(private val monthOfYearId: String) : ViewModel(), KoinCo
         }
     }
 
-    private fun getMonthOfYear() {
-        _uiState.update {
-            it.copy(currentMonthOfYearState = ResultState.Loading)
-        }
-        viewModelScope.launch {
-            calendarUseCase.loadMonthOfYearById(monthOfYearId).collect { result ->
-                if (result is ResultState.Success) {
-                    currentMonthOfYear = result.data
-                }
-            }
-        }
-    }
-
     private fun getTotalWorkTime() {
         currentMonthOfYear?.let { monthOfYear ->
             viewModelScope.launch {
@@ -94,12 +82,14 @@ class MoreInfoViewModel(private val monthOfYearId: String) : ViewModel(), KoinCo
                                 userSettings?.let { settings ->
                                     val nightTime = result.data.getNightTime(settings)
                                     val passengerTime = result.data.getPassengerTime(monthOfYear)
+                                    val holidayWorkTime = result.data.getWorkingTimeOnAHoliday(monthOfYear)
                                     withContext(Dispatchers.Main) {
                                         _uiState.update {
                                             it.copy(
                                                 totalWorkTimeState = ResultState.Success(totalWorkTime),
                                                 nightTimeState = ResultState.Success(nightTime),
-                                                passengerTimeState = ResultState.Success(passengerTime)
+                                                passengerTimeState = ResultState.Success(passengerTime),
+                                                holidayWorkTimeState = ResultState.Success(holidayWorkTime)
                                             )
                                         }
                                     }

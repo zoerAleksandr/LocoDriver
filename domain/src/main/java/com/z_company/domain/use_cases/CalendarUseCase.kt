@@ -15,6 +15,10 @@ class CalendarUseCase(private val repositories: CalendarRepositories) {
         return repositories.saveCalendar(calendar)
     }
 
+    fun clearCalendar(): Flow<ResultState<Unit>>{
+        return repositories.clearCalendar()
+    }
+
     fun updateMonthOfYear(monthOfYear: MonthOfYear): Flow<ResultState<Unit>> {
         return repositories.updateMonthOfYear(monthOfYear)
     }

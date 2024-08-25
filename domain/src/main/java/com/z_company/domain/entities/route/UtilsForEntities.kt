@@ -1,6 +1,7 @@
 package com.z_company.domain.entities.route
 
 import com.z_company.domain.entities.MonthOfYear
+import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.TimePeriod
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getTimeInCurrentMonth
@@ -78,22 +79,20 @@ object UtilsForEntities {
 
     fun Route.getHomeRest(parentList: List<Route>, minTimeHomeRest: Long?): Long? {
         val routeChain = mutableListOf<Route>()
-
         var indexRoute = parentList.indexOf(this)
         if (parentList.isNotEmpty()) {
             routeChain.add(parentList[indexRoute])
             if (indexRoute > 0) {
-                indexRoute += 1
+                indexRoute -= 1
                 while (parentList[indexRoute].basicData.restPointOfTurnover) {
                     routeChain.add(parentList[indexRoute])
                     if (indexRoute == 0) {
                         break
                     } else {
-                        indexRoute += 1
+                        indexRoute -= 1
                     }
                 }
             }
-
 
             routeChain.sortBy {
                 it.basicData.timeStartWork
@@ -137,6 +136,28 @@ object UtilsForEntities {
         }
         return true
     }
+
+    private fun Route.timeInLongInPeriod(startDate: Long, endDate: Long): Long? {
+        this.basicData.timeStartWork?.let { startWork ->
+            this.basicData.timeEndWork?.let { endWork ->
+                if (startDate > startWork) {
+                    return if (endDate > endWork) {
+                        endWork - startDate
+                    } else {
+                        endDate - startDate
+                    }
+                } else {
+                    return if (endDate > endWork) {
+                        endWork - startWork
+                    } else {
+                        endDate - startWork
+                    }
+                }
+            }
+        }
+        return null
+    }
+
 
     fun Route.getPassengerTime(): Long? {
         var totalTime: Long? = 0L
@@ -242,5 +263,65 @@ object UtilsForEntities {
             }
         }
         return passengerTime
+    }
+
+    fun Route.includedInPeriod(startPeriod: Long, endPeriod: Long): Boolean {
+        this.basicData.timeStartWork?.let { startWork ->
+            this.basicData.timeEndWork?.let { endWork ->
+                if (startPeriod < startWork && startWork < endPeriod) {
+                    return true
+                }
+                if (startPeriod < endWork && endWork < endPeriod) {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    fun List<Route>.getWorkingTimeOnAHoliday(monthOfYear: MonthOfYear): Long {
+        var holidayTime = 0L
+
+        val holidayList = monthOfYear.days.filter { it.tag == TagForDay.HOLIDAY }
+        if (holidayList.isNotEmpty()) {
+            holidayList.forEach { day ->
+                val startHolidayInLong = Calendar.getInstance().also {
+                    it.set(Calendar.YEAR, monthOfYear.year)
+                    it.set(Calendar.MONTH, monthOfYear.month)
+                    it.set(Calendar.DAY_OF_MONTH, day.dayOfMonth)
+                    it.set(Calendar.HOUR_OF_DAY, 0)
+                    it.set(Calendar.MINUTE, 0)
+                    it.set(Calendar.SECOND, 0)
+                    it.set(Calendar.MILLISECOND, 0)
+                }.timeInMillis
+
+                val endHoliday = Calendar.getInstance().also {
+                    it.set(Calendar.YEAR, monthOfYear.year)
+                    it.set(Calendar.MONTH, monthOfYear.month)
+                    it.set(Calendar.DAY_OF_MONTH, day.dayOfMonth)
+                    it.set(Calendar.HOUR_OF_DAY, 0)
+                    it.set(Calendar.MINUTE, 0)
+                    it.set(Calendar.SECOND, 0)
+                    it.set(Calendar.MILLISECOND, 0)
+                }
+                endHoliday.add(Calendar.DATE, 1)
+
+                val endHolidayInLong = endHoliday.timeInMillis
+
+                this.forEach { route ->
+                    route.timeInLongInPeriod(
+                        startDate = startHolidayInLong,
+                        endDate = endHolidayInLong
+                    )?.let { timeInPeriod ->
+                        if (timeInPeriod > 0) {
+                            holidayTime += timeInPeriod
+                        }
+                    }
+
+                }
+            }
+        }
+
+        return holidayTime
     }
 }

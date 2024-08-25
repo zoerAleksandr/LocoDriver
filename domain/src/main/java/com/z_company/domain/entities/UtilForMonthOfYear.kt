@@ -14,6 +14,7 @@ object UtilForMonthOfYear {
                     TagForDay.WORKING_DAY -> 8
                     TagForDay.SHORTENED_DAY -> 7
                     TagForDay.NON_WORKING_DAY -> 0
+                    TagForDay.HOLIDAY -> 0
                 }
             }
         }
@@ -28,6 +29,7 @@ object UtilForMonthOfYear {
                     TagForDay.WORKING_DAY -> 8
                     TagForDay.SHORTENED_DAY -> 7
                     TagForDay.NON_WORKING_DAY -> 0
+                    TagForDay.HOLIDAY -> 0
                 }
             }
         }
@@ -41,6 +43,7 @@ object UtilForMonthOfYear {
                 TagForDay.WORKING_DAY -> 8
                 TagForDay.SHORTENED_DAY -> 7
                 TagForDay.NON_WORKING_DAY -> 0
+                TagForDay.HOLIDAY -> 0
             }
 
         }

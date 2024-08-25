@@ -3,6 +3,7 @@ package com.z_company.data_local.calendar
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.Day
 import com.z_company.domain.entities.MonthOfYear
+import com.z_company.domain.entities.TagForDay.HOLIDAY
 import com.z_company.domain.entities.TagForDay.NON_WORKING_DAY
 import com.z_company.domain.entities.TagForDay.WORKING_DAY
 import com.z_company.domain.entities.TagForDay.SHORTENED_DAY
@@ -17,14 +18,14 @@ class CalendarStorageLocalImpl : CalendarStorage {
     private val monthOfYearList = listOf(
         MonthOfYear(
             year = 2024, month = 0, days = listOf(
-                Day(1, NON_WORKING_DAY),
-                Day(2, NON_WORKING_DAY),
-                Day(3, NON_WORKING_DAY),
-                Day(4, NON_WORKING_DAY),
-                Day(5, NON_WORKING_DAY),
-                Day(6, NON_WORKING_DAY),
-                Day(7, NON_WORKING_DAY),
-                Day(8, NON_WORKING_DAY),
+                Day(1, HOLIDAY),
+                Day(2, HOLIDAY),
+                Day(3, HOLIDAY),
+                Day(4, HOLIDAY),
+                Day(5, HOLIDAY),
+                Day(6, HOLIDAY),
+                Day(7, HOLIDAY),
+                Day(8, HOLIDAY),
                 Day(9, WORKING_DAY),
                 Day(10, WORKING_DAY),
                 Day(11, WORKING_DAY),
@@ -74,7 +75,7 @@ class CalendarStorageLocalImpl : CalendarStorage {
                 Day(20, WORKING_DAY),
                 Day(21, WORKING_DAY),
                 Day(22, SHORTENED_DAY),
-                Day(23, NON_WORKING_DAY),
+                Day(23, HOLIDAY),
                 Day(24, NON_WORKING_DAY),
                 Day(25, NON_WORKING_DAY),
                 Day(26, WORKING_DAY),
@@ -92,7 +93,7 @@ class CalendarStorageLocalImpl : CalendarStorage {
                 Day(5, WORKING_DAY),
                 Day(6, WORKING_DAY),
                 Day(7, SHORTENED_DAY),
-                Day(8, NON_WORKING_DAY),
+                Day(8, HOLIDAY),
                 Day(9, NON_WORKING_DAY),
                 Day(10, NON_WORKING_DAY),
                 Day(11, WORKING_DAY),
@@ -154,7 +155,7 @@ class CalendarStorageLocalImpl : CalendarStorage {
         ),
         MonthOfYear(
             year = 2024, month = 4, days = listOf(
-                Day(1, NON_WORKING_DAY),
+                Day(1, HOLIDAY),
                 Day(2, WORKING_DAY),
                 Day(3, WORKING_DAY),
                 Day(4, NON_WORKING_DAY),
@@ -162,7 +163,7 @@ class CalendarStorageLocalImpl : CalendarStorage {
                 Day(6, WORKING_DAY),
                 Day(7, WORKING_DAY),
                 Day(8, SHORTENED_DAY),
-                Day(9, NON_WORKING_DAY),
+                Day(9, HOLIDAY),
                 Day(10, NON_WORKING_DAY),
                 Day(11, NON_WORKING_DAY),
                 Day(12, NON_WORKING_DAY),
@@ -201,7 +202,7 @@ class CalendarStorageLocalImpl : CalendarStorage {
                 Day(9, NON_WORKING_DAY),
                 Day(10, WORKING_DAY),
                 Day(11, SHORTENED_DAY),
-                Day(12, NON_WORKING_DAY),
+                Day(12, HOLIDAY),
                 Day(13, WORKING_DAY),
                 Day(14, WORKING_DAY),
                 Day(15, NON_WORKING_DAY),
@@ -254,7 +255,7 @@ class CalendarStorageLocalImpl : CalendarStorage {
                 Day(28, NON_WORKING_DAY),
                 Day(29, WORKING_DAY),
                 Day(30, WORKING_DAY),
-                Day(31, WORKING_DAY)
+                Day(31, HOLIDAY)
             )
         ),
         MonthOfYear(
@@ -366,7 +367,7 @@ class CalendarStorageLocalImpl : CalendarStorage {
                 Day(1, WORKING_DAY),
                 Day(2, SHORTENED_DAY),
                 Day(3, NON_WORKING_DAY),
-                Day(4, NON_WORKING_DAY),
+                Day(4, HOLIDAY),
                 Day(5, WORKING_DAY),
                 Day(6, WORKING_DAY),
                 Day(7, WORKING_DAY),
