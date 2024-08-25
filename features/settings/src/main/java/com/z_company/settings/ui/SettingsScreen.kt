@@ -87,6 +87,7 @@ fun SettingsScreen(
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    val titleStyle = AppTypography.getType().headlineMedium.copy(fontWeight = FontWeight.Light)
 
     Scaffold(
         snackbarHost = {
@@ -103,7 +104,7 @@ fun SettingsScreen(
                     )
                 }
             }, title = {
-                Text(text = stringResource(id = CoreR.string.settings))
+                Text(text = stringResource(id = CoreR.string.settings), style = titleStyle)
             }, actions = {
                 TextButton(onClick = onSaveClick) {
                     Text(

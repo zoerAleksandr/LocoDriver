@@ -16,6 +16,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getHomeRest
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getTotalWorkTime
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeWithHoliday
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -345,7 +346,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
     private fun calculationOfTotalTime(routes: List<Route>) {
         currentMonthOfYear?.let { monthOfYear ->
-            totalTime = routes.getTotalWorkTime(monthOfYear)
+            totalTime = routes.getWorkTimeWithHoliday(monthOfYear)
         }
     }
 

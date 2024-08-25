@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -7,12 +8,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -33,6 +36,7 @@ import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayOffHours
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.UtilForMonthOfYear.getStandardNormaHours
+import kotlin.math.absoluteValue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,31 +46,22 @@ fun MoreInfoScreen(
     totalWorkTimeState: ResultState<Long?>,
     nightTimeState: ResultState<Long?>,
     passengerTimeState: ResultState<Long?>,
-    holidayWorkTimeState: ResultState<Long?>
+    holidayWorkTimeState: ResultState<Long?>,
+    workTimeWithHoliday: ResultState<Long?>,
+    todayNormaHours: ResultState<Int?>,
+    timeBalanceState: ResultState<Long?>,
 ) {
-    val subTitleStyle = AppTypography.getType().titleLarge
-        .copy(
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Normal
-        )
-    val hintStyle = AppTypography.getType().titleLarge
-        .copy(
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Light
-        )
-    val styleData = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
+    val styleDataLight = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
+    val titleStyle = AppTypography.getType().headlineMedium.copy(fontWeight = FontWeight.Light)
 
-    val styleTitle = AppTypography.getType().titleLarge
-        .copy(
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Normal
-        )
+    val styleDataMedium = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.SemiBold)
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
                         text = "Статистика",
+                        style = titleStyle
                     )
                 }, navigationIcon = {
                     IconButton(onClick = {
@@ -82,272 +77,369 @@ fun MoreInfoScreen(
             )
         },
     ) {
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .padding(it)
                 .fillMaxSize()
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            AsyncData(
-                resultState = currentMonthOfYearState,
-                errorContent = {},
-                loadingContent = {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.dp
+            item {
+                AsyncData(
+                    resultState = currentMonthOfYearState,
+                    errorContent = {},
+                    loadingContent = {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp
+                        )
+                    }) { monthOfYear ->
+                    monthOfYear?.let {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(
+                                text = monthOfYear.month.getMonthFullText(),
+                                style = styleDataLight
+                            )
+                            Text(
+                                text = monthOfYear.year.toString(),
+                                style = styleDataLight
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Норма часов",
+                        style = styleDataLight
                     )
-                }) { monthOfYear ->
-                monthOfYear?.let {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(
-                            text = monthOfYear.month.getMonthFullText(),
-                            style = styleData
-                        )
-                        Text(
-                            text = monthOfYear.year.toString(),
-                            style = styleData
-                        )
-
+                    AsyncData(
+                        resultState = currentMonthOfYearState,
+                        errorContent = {},
+                        loadingContent = {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        }) { monthOfYear ->
+                        monthOfYear?.let {
+                            Text(
+                                text = ConverterLongToTime.getTimeInStringFormat(
+                                    monthOfYear.getStandardNormaHours().toLong()
+                                        .times(3_600_000)
+                                ),
+                                style = styleDataLight
+                            )
+                        }
                     }
                 }
             }
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Отвлечения",
+                        style = styleDataLight
+                    )
+                    AsyncData(
+                        resultState = currentMonthOfYearState,
+                        errorContent = {},
+                        loadingContent = {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        }) { monthOfYear ->
+                        monthOfYear?.let {
+                            Text(
+                                text = ConverterLongToTime.getTimeInStringFormat(
+                                    monthOfYear.getDayOffHours().toLong()
+                                        .times(3_600_000)
+                                ),
+                                style = styleDataLight
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Индивидуальная норма",
+                        style = styleDataLight,
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 1
+                    )
+                    AsyncData(
+                        resultState = currentMonthOfYearState,
+                        errorContent = {},
+                        loadingContent = {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        }) { monthOfYear ->
+                        monthOfYear?.let {
+                            Text(
+                                text = ConverterLongToTime.getTimeInStringFormat(
+                                    monthOfYear.getPersonalNormaHours().toLong()
+                                        .times(3_600_000)
+                                ),
+                                style = styleDataLight
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Норма на сегодня",
+                        style = styleDataLight,
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 1
+                    )
+                    AsyncData(
+                        resultState = todayNormaHours,
+                        errorContent = {},
+                        loadingContent = {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        }) { todayNorma ->
+                        todayNorma?.let {
+                            Text(
+                                text =
+                                ConverterLongToTime.getTimeInStringFormat(
+                                    todayNorma.toLong().times(3_600_000)
+                                ),
+                                style = styleDataLight
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Отработано",
+                        style = styleDataLight,
+                    )
+                    AsyncData(
+                        resultState = workTimeWithHoliday,
+                        errorContent = {},
+                        loadingContent = {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        }) { workTime ->
+                        workTime?.let {
+                            Text(
+                                text = ConverterLongToTime.getTimeInStringFormat(workTime),
+                                style = styleDataLight
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Праздничныx",
+                        style = styleDataLight,
+                    )
+                    AsyncData(
+                        resultState = holidayWorkTimeState,
+                        errorContent = {},
+                        loadingContent = {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        }) { holidayTime ->
+                        holidayTime?.let {
+                            Text(
+                                text = ConverterLongToTime.getTimeInStringFormat(holidayTime),
+                                style = styleDataLight
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Всего",
+                        style = styleDataLight,
+                    )
+                    AsyncData(
+                        resultState = totalWorkTimeState,
+                        errorContent = {},
+                        loadingContent = {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        }) { workTime ->
+                        workTime?.let {
+                            Text(
+                                text = ConverterLongToTime.getTimeInStringFormat(workTime),
+                                style = styleDataMedium
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
                 Text(
-                    text = "Норма часов",
-                    style = styleData
+                    text = "из них: ",
+                    style = styleDataLight
                 )
+            }
+
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "   ночных",
+                        style = styleDataLight,
+                    )
+                    AsyncData(
+                        resultState = nightTimeState,
+                        errorContent = {},
+                        loadingContent = {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        }) { nightTime ->
+                        nightTime?.let {
+                            Text(
+                                text = ConverterLongToTime.getTimeInStringFormat(nightTime),
+                                style = styleDataLight
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "   пассажиром",
+                        style = styleDataLight,
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 1
+                    )
+                    AsyncData(
+                        resultState = passengerTimeState,
+                        errorContent = {},
+                        loadingContent = {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        }) { passengerTime ->
+                        passengerTime?.let {
+                            Text(
+                                text = ConverterLongToTime.getTimeInStringFormat(passengerTime),
+                                style = styleDataLight
+                            )
+                        }
+                    }
+                }
+            }
+            item {
+
                 AsyncData(
-                    resultState = currentMonthOfYearState,
+                    resultState = timeBalanceState,
                     errorContent = {},
                     loadingContent = {
                         CircularProgressIndicator(
                             modifier = Modifier.size(24.dp),
                             strokeWidth = 2.dp
                         )
-                    }) { monthOfYear ->
-                    monthOfYear?.let {
-                        Text(
-                            text = ConverterLongToTime.getTimeInStringFormat(
-                                monthOfYear.getStandardNormaHours().toLong()
-                                    .times(3_600_000)
-                            ),
-                            style = styleData
-                        )
+                    }) { timeBalance ->
+                    timeBalance?.let {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            val textBalance = if (timeBalance < 0) {
+                                "Осталось до нормы"
+                            } else {
+                                "Переработка"
+                            }
+                            val colorBalance = if (timeBalance < 0) {
+                                MaterialTheme.colorScheme.scrim
+                            } else if (timeBalance < 72_000_000L) {
+                                Color(0xFF3F920B)
+                            } else {
+                                Color.Red
+                            }
+                            Text(
+                                text = textBalance,
+                                style = styleDataLight,
+                            )
+                            Text(
+                                text = ConverterLongToTime.getTimeInStringFormat(
+                                    timeBalance.absoluteValue
+                                ),
+                                style = styleDataMedium.copy(color = colorBalance)
+                            )
+                        }
                     }
+
                 }
-            }
-
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Отвлечения",
-                    style = styleData
-                )
-                AsyncData(
-                    resultState = currentMonthOfYearState,
-                    errorContent = {},
-                    loadingContent = {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
-                        )
-                    }) { monthOfYear ->
-                    monthOfYear?.let {
-                        Text(
-                            text = ConverterLongToTime.getTimeInStringFormat(
-                                monthOfYear.getDayOffHours().toLong()
-                                    .times(3_600_000)
-                            ),
-                            style = styleData
-                        )
-                    }
-                }
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Индивидуальная норма",
-                    style = styleData,
-                    overflow = TextOverflow.Ellipsis,
-                    maxLines = 1
-                )
-                AsyncData(
-                    resultState = currentMonthOfYearState,
-                    errorContent = {},
-                    loadingContent = {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
-                        )
-                    }) { monthOfYear ->
-                    monthOfYear?.let {
-                        Text(
-                            text = ConverterLongToTime.getTimeInStringFormat(
-                                monthOfYear.getPersonalNormaHours().toLong()
-                                    .times(3_600_000)
-                            ),
-                            style = styleData
-                        )
-                    }
-                }
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Норма на сегодня",
-                    style = styleData,
-                    overflow = TextOverflow.Ellipsis,
-                    maxLines = 1
-                )
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Отработано",
-                    style = styleData,
-                )
-                AsyncData(
-                    resultState = totalWorkTimeState,
-                    errorContent = {},
-                    loadingContent = {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
-                        )
-                    }) { workTime ->
-                    workTime?.let {
-                        Text(
-                            text = ConverterLongToTime.getTimeInStringFormat(workTime),
-                            style = styleData
-                        )
-                    }
-                }
-            }
-
-            Text(
-                text = "из них: ",
-                style = styleData
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "   ночных",
-                    style = styleData,
-                )
-                AsyncData(
-                    resultState = nightTimeState,
-                    errorContent = {},
-                    loadingContent = {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
-                        )
-                    }) { nightTime ->
-                    nightTime?.let {
-                        Text(
-                            text = ConverterLongToTime.getTimeInStringFormat(nightTime),
-                            style = styleData
-                        )
-                    }
-                }
-            }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "   праздничных",
-                    style = styleData,
-                    overflow = TextOverflow.Ellipsis,
-                    maxLines = 1
-                )
-                AsyncData(
-                    resultState = holidayWorkTimeState,
-                    errorContent = {},
-                    loadingContent = {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
-                        )
-                    }) { holidayTime ->
-                    holidayTime?.let {
-                        Text(
-                            text = ConverterLongToTime.getTimeInStringFormat(holidayTime),
-                            style = styleData
-                        )
-                    }
-                }
-
-            }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "   пассажиром",
-                    style = styleData,
-                    overflow = TextOverflow.Ellipsis,
-                    maxLines = 1
-                )
-                AsyncData(
-                    resultState = passengerTimeState,
-                    errorContent = {},
-                    loadingContent = {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
-                        )
-                    }) { passengerTime ->
-                    passengerTime?.let {
-                        Text(
-                            text = ConverterLongToTime.getTimeInStringFormat(passengerTime),
-                            style = styleData
-                        )
-                    }
-                }
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "   ",
-                    style = styleData,
-                    overflow = TextOverflow.Ellipsis,
-                    maxLines = 1
-                )
             }
         }
     }

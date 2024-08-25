@@ -1,8 +1,5 @@
 package com.z_company.domain.entities
 
-import com.z_company.domain.entities.route.Route
-import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
-import com.z_company.domain.entities.route.UtilsForEntities.isTransition
 import java.util.Calendar
 
 object UtilForMonthOfYear {
@@ -50,7 +47,25 @@ object UtilForMonthOfYear {
         return normaOfMonth
     }
 
-     fun MonthOfYear.getTimeInCurrentMonth(
+    fun MonthOfYear.getTodayNormaHours(): Int {
+        val currentDate = Calendar.getInstance()
+        var normaOfMonth = 0
+        if (currentDate.get(Calendar.MONTH) == this.month) {
+            this.days.forEach { day ->
+                if (currentDate.get(Calendar.DAY_OF_MONTH) >= day.dayOfMonth) {
+                    normaOfMonth += when (day.tag) {
+                        TagForDay.WORKING_DAY -> 8
+                        TagForDay.SHORTENED_DAY -> 7
+                        TagForDay.NON_WORKING_DAY -> 0
+                        TagForDay.HOLIDAY -> 0
+                    }
+                }
+            }
+        }
+        return normaOfMonth
+    }
+
+    fun MonthOfYear.getTimeInCurrentMonth(
         startTime: Long,
         endTime: Long,
     ): Long {

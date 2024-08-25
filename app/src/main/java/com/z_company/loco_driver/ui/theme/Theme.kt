@@ -21,7 +21,8 @@ private val DarkColorScheme = darkColorScheme(
     background = DarkBackground,
     error = DarkError,
     surfaceBright = SurfaceBrightDark,
-    surfaceDim = SurfaceDimDark
+    surfaceDim = SurfaceDimDark,
+    scrim = OrangeDark
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -33,7 +34,8 @@ private val LightColorScheme = lightColorScheme(
     surface = LightSurface,
     background = LightBackground,
     surfaceBright = SurfaceBrightLight,
-    surfaceDim = SurfaceDimLight
+    surfaceDim = SurfaceDimLight,
+    scrim = OrangeLight
 )
 
 @Composable

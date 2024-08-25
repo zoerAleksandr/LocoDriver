@@ -265,20 +265,6 @@ object UtilsForEntities {
         return passengerTime
     }
 
-    fun Route.includedInPeriod(startPeriod: Long, endPeriod: Long): Boolean {
-        this.basicData.timeStartWork?.let { startWork ->
-            this.basicData.timeEndWork?.let { endWork ->
-                if (startPeriod < startWork && startWork < endPeriod) {
-                    return true
-                }
-                if (startPeriod < endWork && endWork < endPeriod) {
-                    return true
-                }
-            }
-        }
-        return false
-    }
-
     fun List<Route>.getWorkingTimeOnAHoliday(monthOfYear: MonthOfYear): Long {
         var holidayTime = 0L
 
@@ -323,5 +309,11 @@ object UtilsForEntities {
         }
 
         return holidayTime
+    }
+
+    fun List<Route>.getWorkTimeWithHoliday(monthOfYear: MonthOfYear): Long {
+        val totalWorkTime = this.getTotalWorkTime(monthOfYear)
+        val holidayWorkTime = this.getWorkingTimeOnAHoliday(monthOfYear)
+        return totalWorkTime - holidayWorkTime
     }
 }

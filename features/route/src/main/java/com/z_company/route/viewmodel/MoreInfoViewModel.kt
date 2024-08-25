@@ -1,16 +1,19 @@
 package com.z_company.route.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.UserSettings
+import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
+import com.z_company.domain.entities.UtilForMonthOfYear.getTodayNormaHours
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getTotalWorkTime
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeWithHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
-import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import kotlinx.coroutines.Dispatchers
@@ -24,7 +27,6 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
 class MoreInfoViewModel(private val monthOfYearId: String) : ViewModel(), KoinComponent {
-    private val calendarUseCase: CalendarUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
 
@@ -44,6 +46,7 @@ class MoreInfoViewModel(private val monthOfYearId: String) : ViewModel(), KoinCo
             }
             value?.let {
                 getTotalWorkTime()
+                getTodayNormaHours()
             }
         }
 
@@ -59,13 +62,24 @@ class MoreInfoViewModel(private val monthOfYearId: String) : ViewModel(), KoinCo
         loadSetting()
     }
 
+    private fun getTodayNormaHours() {
+
+        // исправить
+        currentMonthOfYear?.let { monthOfYear ->
+            _uiState.update {
+               it.copy(
+                   todayNormaHours = ResultState.Success(monthOfYear.getTodayNormaHours())
+               )
+            }
+        }
+    }
+
     private fun loadSetting() {
         loadSettingJob?.cancel()
         loadSettingJob = viewModelScope.launch {
             settingsUseCase.getCurrentSettings().collect { result ->
                 if (result is ResultState.Success) {
                     userSettings = result.data
-
                 }
             }
         }
@@ -82,14 +96,30 @@ class MoreInfoViewModel(private val monthOfYearId: String) : ViewModel(), KoinCo
                                 userSettings?.let { settings ->
                                     val nightTime = result.data.getNightTime(settings)
                                     val passengerTime = result.data.getPassengerTime(monthOfYear)
-                                    val holidayWorkTime = result.data.getWorkingTimeOnAHoliday(monthOfYear)
+                                    val holidayWorkTime =
+                                        result.data.getWorkingTimeOnAHoliday(monthOfYear)
+                                    val workTimeWithHoliday =
+                                        result.data.getWorkTimeWithHoliday(monthOfYear)
+                                    val timeBalance = workTimeWithHoliday - monthOfYear.getPersonalNormaHours().times(3_600_000)
                                     withContext(Dispatchers.Main) {
                                         _uiState.update {
                                             it.copy(
-                                                totalWorkTimeState = ResultState.Success(totalWorkTime),
+                                                totalWorkTimeState = ResultState.Success(
+                                                    totalWorkTime
+                                                ),
                                                 nightTimeState = ResultState.Success(nightTime),
-                                                passengerTimeState = ResultState.Success(passengerTime),
-                                                holidayWorkTimeState = ResultState.Success(holidayWorkTime)
+                                                passengerTimeState = ResultState.Success(
+                                                    passengerTime
+                                                ),
+                                                holidayWorkTimeState = ResultState.Success(
+                                                    holidayWorkTime
+                                                ),
+                                                workTimeWithHoliday = ResultState.Success(
+                                                    workTimeWithHoliday
+                                                ),
+                                                timeBalanceState = ResultState.Success(
+                                                    timeBalance
+                                                )
                                             )
                                         }
                                     }

@@ -255,7 +255,7 @@ class CalendarStorageLocalImpl : CalendarStorage {
                 Day(28, NON_WORKING_DAY),
                 Day(29, WORKING_DAY),
                 Day(30, WORKING_DAY),
-                Day(31, HOLIDAY)
+                Day(31, WORKING_DAY)
             )
         ),
         MonthOfYear(
