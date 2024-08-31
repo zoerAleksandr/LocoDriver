@@ -300,7 +300,7 @@ fun SettingScreenContent(
 
     if (showRestDialog) {
         TimeInputDialog(
-            initValue = currentSettings.minTimeRest,
+            initValue = currentSettings.minTimeRestPointOfTurnover,
             onDismissRequest = { showRestDialog = false }
         ) { timeToLong ->
             restTimeChanged(timeToLong)
@@ -444,7 +444,7 @@ fun SettingScreenContent(
                             ) {
                                 Text(text = "Отдых в ПО", style = styleData)
                                 val text =
-                                    ConverterLongToTime.getTimeInStringFormat(currentSettings.minTimeRest)
+                                    ConverterLongToTime.getTimeInStringFormat(currentSettings.minTimeRestPointOfTurnover)
                                 Text(
                                     modifier = Modifier
                                         .clickable { showRestDialog = true },

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.ClickableText
@@ -27,7 +28,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material3.ButtonDefaults
@@ -87,8 +87,8 @@ import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
-import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.route.component.ConfirmExitDialog
+import com.z_company.route.viewmodel.DialogRestUiState
 import kotlinx.coroutines.launch
 
 const val LINK_TO_SETTING = "LINK_TO_SETTING"
@@ -97,6 +97,7 @@ const val LINK_TO_SETTING = "LINK_TO_SETTING"
 @Composable
 fun FormScreen(
     formUiState: RouteFormUiState,
+    dialogRestUiState: DialogRestUiState,
     currentRoute: Route?,
     exitScreen: () -> Unit,
     onSaveClick: () -> Unit,
@@ -117,10 +118,9 @@ fun FormScreen(
     onChangePassengerClick: (passenger: Passenger) -> Unit,
     onNewPassengerClick: (basicId: String) -> Unit,
     onDeletePassenger: (passenger: Passenger) -> Unit,
-    minTimeRest: Long?,
     nightTime: Long?,
     changeShowConfirmExitDialog: (Boolean) -> Unit,
-    exitWithoutSave: () -> Unit
+    exitWithoutSave: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -212,8 +212,6 @@ fun FormScreen(
                             onTimeEndWorkChanged = onTimeEndWorkChanged,
                             onRestChanged = onRestChanged,
                             onSettingClick = onSettingClick,
-                            minUntilTimeRest = formUiState.minTimeRest,
-                            fullUntilTimeRest = formUiState.fullTimeRest,
                             locoListState = route.locomotives,
                             onChangeLocoClick = onChangedLocoClick,
                             onNewLocoClick = onNewLocoClick,
@@ -226,12 +224,12 @@ fun FormScreen(
                             onChangePassengerClick = onChangePassengerClick,
                             onNewPassengerClick = onNewPassengerClick,
                             onDeletePassenger = onDeletePassenger,
-                            minTimeRest = minTimeRest,
                             nightTime = nightTime,
                             showConfirmExitDialog = formUiState.confirmExitDialogShow,
                             changeShowConfirmExitDialog = changeShowConfirmExitDialog,
                             onSaveClick = onSaveClick,
-                            exitWithoutSave = exitWithoutSave
+                            exitWithoutSave = exitWithoutSave,
+                            dialogRestUiState = dialogRestUiState
                         )
                     }
                 }
@@ -251,8 +249,6 @@ private fun RouteFormScreenContent(
     onTimeEndWorkChanged: (Long?) -> Unit,
     onRestChanged: (Boolean) -> Unit,
     onSettingClick: () -> Unit,
-    minUntilTimeRest: Long?,
-    fullUntilTimeRest: Long?,
     locoListState: List<Locomotive>?,
     onChangeLocoClick: (loco: Locomotive) -> Unit,
     onNewLocoClick: (basicId: String) -> Unit,
@@ -265,12 +261,12 @@ private fun RouteFormScreenContent(
     onChangePassengerClick: (passenger: Passenger) -> Unit,
     onNewPassengerClick: (basicId: String) -> Unit,
     onDeletePassenger: (passenger: Passenger) -> Unit,
-    minTimeRest: Long?,
     nightTime: Long?,
     showConfirmExitDialog: Boolean,
     changeShowConfirmExitDialog: (Boolean) -> Unit,
     onSaveClick: () -> Unit,
-    exitWithoutSave: () -> Unit
+    exitWithoutSave: () -> Unit,
+    dialogRestUiState: DialogRestUiState,
 ) {
     val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
     val hintStyle = AppTypography.getType().titleLarge
@@ -596,56 +592,34 @@ private fun RouteFormScreenContent(
                         shape = Shapes.medium
                     )
                     .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom
             ) {
-                val text =
+                val textRest =
                     if (route.basicData.restPointOfTurnover) "Отдых в ПО" else "Домашний отдых"
-                Text(text = text, style = dataTextStyle)
-                AnimatedVisibility(
-                    visible = (route.basicData.restPointOfTurnover) && (route.getWorkTime() != null)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        tint = MaterialTheme.colorScheme.tertiary,
-                        contentDescription = null,
-                        modifier = Modifier.clickable {
+                Text(
+                    modifier = Modifier.wrapContentHeight(),
+                    text = textRest,
+                    style = dataTextStyle
+                )
+
+                val textHint = if (!moreInfoRestVisible) "Подробнее" else "Скрыть"
+                Text(
+                    modifier = Modifier
+                        .background(color = Color.Transparent, shape = Shapes.medium)
+                        .clickable {
                             moreInfoRestVisible = !moreInfoRestVisible
-                        }
-                    )
-                }
+                        },
+                    text = textHint,
+                    style = hintStyle,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
             }
         }
 
         item {
-            val minUntilTimeRestText =
-                ConverterLongToTime.getDateAndTimeStringFormat(minUntilTimeRest)
-            val fullUntilTimeRestText =
-                ConverterLongToTime.getDateAndTimeStringFormat(fullUntilTimeRest)
-            val minTimeRestText = ConverterLongToTime.getTimeInStringFormat(minTimeRest)
-
-            val link = buildAnnotatedString {
-                val text = stringResource(id = R.string.info_text_min_time_rest, minTimeRestText)
-
-                val endIndex = text.length - 1
-                val startIndex = startIndexLastWord(text)
-
-                append(text)
-                addStyle(
-                    style = SpanStyle(
-                        color = MaterialTheme.colorScheme.tertiary,
-                        textDecoration = TextDecoration.Underline
-                    ), start = startIndex, end = endIndex
-                )
-
-                addStringAnnotation(
-                    tag = LINK_TO_SETTING,
-                    annotation = LINK_TO_SETTING,
-                    start = startIndex,
-                    end = endIndex
-                )
-            }
             AnimatedVisibility(
-                visible = moreInfoRestVisible && (route.basicData.restPointOfTurnover) && (route.getWorkTime() != null),
+                visible = moreInfoRestVisible,
                 enter = slideInHorizontally(animationSpec = tween(durationMillis = 300)) + fadeIn(
                     animationSpec = tween(durationMillis = 300)
                 ),
@@ -654,40 +628,19 @@ private fun RouteFormScreenContent(
                 ),
                 label = ""
             ) {
-                Column(
-                    modifier = Modifier
-                        .padding(top = 16.dp)
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f))
-                        .padding(top = 16.dp),
-                    horizontalAlignment = Alignment.Start
-                ) {
-                    Text(
-                        modifier = Modifier.padding(horizontal = 16.dp), text = stringResource(
-                            id = R.string.min_time_rest_text, minUntilTimeRestText
-                        ), style = AppTypography.getType().titleMedium, textAlign = TextAlign.End
+                if (route.basicData.restPointOfTurnover) {
+                    InfoRestPointOfTurnoverTime(
+                        minUntilTimeRest = dialogRestUiState.minUntilTimeRestPointOfTurnover,
+                        fullUntilTimeRest = dialogRestUiState.fullUntilTimeRestPointOfTurnover,
+                        onSettingClick = onSettingClick,
+                        minTimeRest = dialogRestUiState.minTimeRestPointOfTurnover
                     )
-
-                    Text(
-                        modifier = Modifier.padding(horizontal = 16.dp), text = stringResource(
-                            id = R.string.complete_time_rest_text, fullUntilTimeRestText
-                        ), style = AppTypography.getType().titleMedium, textAlign = TextAlign.End
+                } else {
+                    InfoRestOfHmeOfTime(
+                        untilTimeHomeRest = dialogRestUiState.untilTimeHomeRest,
+                        minTimeRest = dialogRestUiState.minTimeHomeRest,
+                        onSettingClick = onSettingClick,
                     )
-
-                    ClickableText(
-                        modifier = Modifier.padding(
-                            start = 16.dp, bottom = 16.dp, end = 16.dp, top = 12.dp
-                        ),
-                        text = link,
-                        style = AppTypography.getType().bodySmall.copy(
-                            fontStyle = FontStyle.Italic,
-                            color = MaterialTheme.colorScheme.onBackground
-                        ),
-                    ) {
-                        link.getStringAnnotations(LINK_TO_SETTING, it, it).firstOrNull()?.let {
-                            onSettingClick()
-                        }
-                    }
                 }
             }
         }
@@ -916,7 +869,204 @@ fun ItemNotes(
             ),
             shape = Shapes.medium
         )
+    }
+}
+
+@Composable
+fun InfoRestOfHmeOfTime(
+    minTimeRest: Long?,
+    untilTimeHomeRest: ResultState<Long?>,
+    onSettingClick: () -> Unit
+) {
+    val hintStyle = AppTypography.getType().titleLarge.copy(
+        fontSize = 18.sp,
+        fontWeight = FontWeight.Light
+    )
+
+    Column(
+        modifier = Modifier
+            .padding(top = 16.dp)
+            .fillMaxWidth()
+            .background(
+                MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f),
+                shape = Shapes.medium
+            )
+            .padding(16.dp),
+        horizontalAlignment = Alignment.Start
+    ) {
+        val minTimeRestText = ConverterLongToTime.getTimeInStringFormat(minTimeRest)
+        val link = buildAnnotatedString {
+            val text = stringResource(id = R.string.info_text_min_time_rest, minTimeRestText)
+
+            val endIndex = text.length - 1
+            val startIndex = startIndexLastWord(text)
+
+            append(text)
+            addStyle(
+                style = SpanStyle(
+                    color = MaterialTheme.colorScheme.tertiary,
+                    textDecoration = TextDecoration.Underline
+                ), start = startIndex, end = endIndex
+            )
+
+            addStringAnnotation(
+                tag = LINK_TO_SETTING,
+                annotation = LINK_TO_SETTING,
+                start = startIndex,
+                end = endIndex
+            )
+        }
+
+        AsyncData(
+            resultState = untilTimeHomeRest,
+            loadingContent = {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    strokeWidth = 2.dp
+                )
+            },
+            errorContent = {
+                Text(text = "Ошибка вычисления", style = hintStyle)
+            }
+        ) {
+            val untilTimeHomeRestText =
+                ConverterLongToTime.getDateAndTimeStringFormat(it)
+            Text(text = "Отдых до $untilTimeHomeRestText", style = hintStyle)
+        }
+
+        ClickableText(
+            modifier = Modifier.padding(top = 12.dp),
+            text = link,
+            style = AppTypography.getType().bodyMedium.copy(
+                fontStyle = FontStyle.Italic,
+                fontWeight = FontWeight.Light,
+                color = MaterialTheme.colorScheme.primary
+            ),
+        ) {
+            link.getStringAnnotations(LINK_TO_SETTING, it, it).firstOrNull()?.let {
+                onSettingClick()
+            }
+        }
+        Text(
+            text = "\nформула расчета\n(время рабочее * 2,6) - время отдыха в ПО",
+            style = AppTypography.getType().bodyMedium.copy(
+                fontStyle = FontStyle.Italic,
+                fontWeight = FontWeight.Light,
+                color = MaterialTheme.colorScheme.primary
+            )
+        )
+
+    }
+}
+
+@Composable
+fun InfoRestPointOfTurnoverTime(
+    minUntilTimeRest: ResultState<Long?>,
+    fullUntilTimeRest: ResultState<Long?>,
+    onSettingClick: () -> Unit,
+    minTimeRest: Long?
+) {
+    val hintStyle = AppTypography.getType().titleLarge
+        .copy(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Light
+        )
+
+    val minTimeRestText = ConverterLongToTime.getTimeInStringFormat(minTimeRest)
+
+    val link = buildAnnotatedString {
+        val text = stringResource(id = R.string.info_text_min_time_rest, minTimeRestText)
+
+        val endIndex = text.length - 1
+        val startIndex = startIndexLastWord(text)
+
+        append(text)
+        addStyle(
+            style = SpanStyle(
+                color = MaterialTheme.colorScheme.tertiary,
+                textDecoration = TextDecoration.Underline
+            ), start = startIndex, end = endIndex
+        )
+
+        addStringAnnotation(
+            tag = LINK_TO_SETTING,
+            annotation = LINK_TO_SETTING,
+            start = startIndex,
+            end = endIndex
+        )
+    }
+
+    Column(
+        modifier = Modifier
+            .padding(top = 16.dp)
+            .fillMaxWidth()
+            .background(
+                MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f),
+                shape = Shapes.medium
+            )
+            .padding(top = 16.dp),
+        horizontalAlignment = Alignment.Start
+    ) {
+        AsyncData(
+            resultState = minUntilTimeRest,
+            loadingContent = {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    strokeWidth = 2.dp
+                )
+            },
+            errorContent = {
+                Text(text = "Ошибка вычисления", style = hintStyle)
+            }
+        ) {
+            val minUntilTimeRestText =
+                ConverterLongToTime.getDateAndTimeStringFormat(it)
+            Text(
+                modifier = Modifier.padding(horizontal = 16.dp), text = stringResource(
+                    id = R.string.min_time_rest_text, minUntilTimeRestText
+                ), style = hintStyle, textAlign = TextAlign.End
+            )
+        }
+
+        AsyncData(
+            resultState = fullUntilTimeRest,
+            loadingContent = {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    strokeWidth = 2.dp
+                )
+            },
+            errorContent = {
+                Text(text = "Ошибка вычисления", style = hintStyle)
+            }
+        ) {
+            val fullUntilTimeRestText =
+                ConverterLongToTime.getDateAndTimeStringFormat(it)
+
+            Text(
+                modifier = Modifier.padding(horizontal = 16.dp), text = stringResource(
+                    id = R.string.complete_time_rest_text, fullUntilTimeRestText
+                ), style = hintStyle, textAlign = TextAlign.End
+            )
+        }
 
 
+
+
+        ClickableText(
+            modifier = Modifier.padding(
+                start = 16.dp, bottom = 16.dp, end = 16.dp, top = 12.dp
+            ),
+            text = link,
+            style = AppTypography.getType().bodyMedium.copy(
+                fontStyle = FontStyle.Italic,
+                fontWeight = FontWeight.Light,
+                color = MaterialTheme.colorScheme.primary
+            ),
+        ) {
+            link.getStringAnnotations(LINK_TO_SETTING, it, it).firstOrNull()?.let {
+                onSettingClick()
+            }
+        }
     }
 }

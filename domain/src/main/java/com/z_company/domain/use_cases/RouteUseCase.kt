@@ -126,11 +126,11 @@ class RouteUseCase(private val repository: RouteRepository) {
         return route.isTimeWorkValid()
     }
 
-    fun getMinRest(route: Route, minTimeRest: Long): Long? {
+    fun getMinRest(route: Route, minTimeRest: Long?): Long? {
         return route.shortRest(minTimeRest)
     }
 
-    fun fullRest(route: Route, minTimeRest: Long): Long? {
+    fun fullRest(route: Route, minTimeRest: Long?): Long? {
         return route.fullRest(minTimeRest)
     }
 

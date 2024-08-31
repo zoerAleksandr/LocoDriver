@@ -6,7 +6,7 @@ import com.z_company.data_local.setting.entity.UserSettings as UserSettingsEntit
 internal object UserSettingsConverter {
     fun fromData(userSettings: UserSettings) = UserSettingsEntity(
         settingsKey = userSettings.key,
-        minTimeRest = userSettings.minTimeRest,
+        minTimeRest = userSettings.minTimeRestPointOfTurnover,
         minTimeHomeRest = userSettings.minTimeHomeRest,
         lastEnteredDieselCoefficient = userSettings.lastEnteredDieselCoefficient,
         nightTime = NightTimeConverter.fromData(userSettings.nightTime),
@@ -19,7 +19,7 @@ internal object UserSettingsConverter {
 
     fun toData(userSettingsEntity: UserSettingsEntity) = UserSettings(
         key = userSettingsEntity.settingsKey,
-        minTimeRest = userSettingsEntity.minTimeRest,
+        minTimeRestPointOfTurnover = userSettingsEntity.minTimeRest,
         minTimeHomeRest = userSettingsEntity.minTimeHomeRest,
         lastEnteredDieselCoefficient = userSettingsEntity.lastEnteredDieselCoefficient,
         nightTime = NightTimeConverter.toData(userSettingsEntity.nightTime),

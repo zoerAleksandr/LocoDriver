@@ -300,7 +300,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
 
     fun changeMinTimeRest(time: Long) {
         currentSettings = currentSettings?.copy(
-            minTimeRest = time
+            minTimeRestPointOfTurnover = time
         )
     }
 

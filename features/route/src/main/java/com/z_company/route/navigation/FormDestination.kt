@@ -21,8 +21,11 @@ fun FormDestination(
         parameters = { parametersOf(routeId) }
     )
     val formUiState by viewModel.uiState.collectAsState()
+    val dialogRestUiState by viewModel.dialogRestUiState.collectAsState()
+
     FormScreen(
         formUiState = formUiState,
+        dialogRestUiState = dialogRestUiState,
         currentRoute = viewModel.currentRoute,
         exitScreen = router::back,
         onSaveClick = viewModel::saveRoute,
@@ -52,9 +55,8 @@ fun FormDestination(
             viewModel.preSaveRoute()
         },
         onDeletePassenger = viewModel::onDeletePassenger,
-        minTimeRest = viewModel.minTimeRest,
         nightTime = formUiState.nightTime,
         changeShowConfirmExitDialog = viewModel::changeShowConfirmDialog,
-        exitWithoutSave = viewModel::exitWithoutSaving
+        exitWithoutSave = viewModel::exitWithoutSaving,
     )
 }

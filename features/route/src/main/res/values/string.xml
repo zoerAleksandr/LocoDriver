@@ -16,8 +16,8 @@
     <string name="info_text_min_time_rest">
         Время минимального отдыха составляет %1$s часа.
         Изменить это время можно в настройках.</string>
-    <string name="min_time_rest_text">MIN отдых до %1$s</string>
-    <string name="complete_time_rest_text">MAX отдых до %1$s</string>
+    <string name="min_time_rest_text">Короткий отдых до %1$s</string>
+    <string name="complete_time_rest_text">Полный отдых до %1$s</string>
 
     <string name="dieselType">Тепловоз</string>
     <string name="electricType">Электоровоз</string>

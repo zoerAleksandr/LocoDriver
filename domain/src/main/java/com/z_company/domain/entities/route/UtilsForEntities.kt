@@ -31,7 +31,7 @@ object UtilsForEntities {
         return !startTime.moreThan(endTime)
     }
 
-    fun Route.shortRest(minTime: Long): Long? {
+    fun Route.shortRest(minTime: Long?): Long? {
         return if (this.isTimeWorkValid()) {
             val startTime = this.basicData.timeStartWork
             val endTime = this.basicData.timeEndWork
@@ -52,7 +52,7 @@ object UtilsForEntities {
         }
     }
 
-    fun Route.fullRest(minTime: Long): Long? {
+    fun Route.fullRest(minTime: Long?): Long? {
         return if (this.isTimeWorkValid()) {
             val startTime = this.basicData.timeStartWork
             val endTime = this.basicData.timeEndWork
@@ -79,7 +79,8 @@ object UtilsForEntities {
 
     fun Route.getHomeRest(parentList: List<Route>, minTimeHomeRest: Long?): Long? {
         val routeChain = mutableListOf<Route>()
-        var indexRoute = parentList.indexOf(this)
+        val thisInRoute = parentList.find { it.basicData.id == this.basicData.id }
+        var indexRoute = parentList.indexOf(thisInRoute)
         if (parentList.isNotEmpty()) {
             routeChain.add(parentList[indexRoute])
             if (indexRoute > 0) {

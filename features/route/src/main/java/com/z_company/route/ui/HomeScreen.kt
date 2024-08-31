@@ -51,6 +51,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
@@ -642,6 +643,7 @@ fun HomeScreen(
             currentMonthOfYear?.let { monthOfYear ->
                 TotalTime(
                     modifier = Modifier
+                        .background(color = Color.Transparent, shape = Shapes.medium)
                         .clickable { onMoreInfoClick(monthOfYear.id) }
                         .height(heightScreen.times(0.13f).dp),
                     valueTime = totalTime,
@@ -1000,10 +1002,10 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: ResultState<Long?>
                             )
                             if (route.basicData.restPointOfTurnover) {
                                 minTimeRest?.let {
-                                    val shortRestText = getTimeFromDateLong(
+                                    val shortRestText = getDateMiniAndTime(
                                         route.shortRest(minTimeRest)
                                     )
-                                    val fullRestText = getTimeFromDateLong(
+                                    val fullRestText = getDateMiniAndTime(
                                         route.fullRest(minTimeRest)
                                     )
                                     Text(

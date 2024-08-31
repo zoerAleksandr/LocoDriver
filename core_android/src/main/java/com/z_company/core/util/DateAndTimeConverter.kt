@@ -167,24 +167,27 @@ object DateAndTimeConverter {
         }
     }
 
-    fun getDateMiniAndTime(value: Long): String {
-        val time = value.let { millis ->
-            SimpleDateFormat(
-                DateAndTimeFormat.TIME_FORMAT,
-                Locale.getDefault()
-            ).format(
-                millis
-            )
-        }
-        val date = value.let { millis ->
-            SimpleDateFormat(
-                DateAndTimeFormat.MINI_DATE_FORMAT, Locale.getDefault()
-            ).format(
-                millis
-            )
-        }
-        return "$date $time"
+    fun getDateMiniAndTime(value: Long?): String {
+        return if (value != null) {
+            val time = value.let { millis ->
+                SimpleDateFormat(
+                    DateAndTimeFormat.TIME_FORMAT,
+                    Locale.getDefault()
+                ).format(
+                    millis
+                )
+            }
+            val date = value.let { millis ->
+                SimpleDateFormat(
+                    DateAndTimeFormat.MINI_DATE_FORMAT, Locale.getDefault()
+                ).format(
+                    millis
+                )
+            }
+            "$date $time" }
+        else { "" }
     }
+
     fun getDateAndTime(value: Long): String {
         val time = value.let { millis ->
             SimpleDateFormat(

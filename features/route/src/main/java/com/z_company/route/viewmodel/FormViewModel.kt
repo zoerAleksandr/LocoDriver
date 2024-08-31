@@ -1,16 +1,18 @@
 package com.z_company.route.viewmodel
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.domain.util.CalculateNightTime
 import com.z_company.data_local.SharedPreferenceStorage
+import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.NightTime
 import com.z_company.domain.entities.route.*
+import com.z_company.domain.entities.route.UtilsForEntities.getHomeRest
 import com.z_company.domain.use_cases.*
 import com.z_company.domain.util.minus
 import com.z_company.route.Const.NULLABLE_ID
@@ -21,6 +23,8 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlin.properties.Delegates
 import com.z_company.domain.util.plus
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 
 class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
@@ -33,6 +37,9 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
 
     private val _uiState = MutableStateFlow(RouteFormUiState())
     val uiState = _uiState.asStateFlow()
+
+    private val _dialogRestUiState = MutableStateFlow(DialogRestUiState())
+    val dialogRestUiState = _dialogRestUiState.asStateFlow()
 
     private var loadRouteJob: Job? = null
     private var saveRouteJob: Job? = null
@@ -62,11 +69,11 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
             }
         }
 
-    var minTimeRest by mutableStateOf<Long?>(null)
+    private var currentMonthOfYear: MonthOfYear? = null
+
     private var nightTime: NightTime? = null
     private var defaultWorkTime: Long? = null
     private var usingDefaultWorkTime: Boolean = false
-
 
     init {
         val changeHave = sharedPreferenceStorage.tokenIsChangesHave()
@@ -114,7 +121,13 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
         loadSettingsJob?.cancel()
         loadSettingsJob = settingsUseCase.getCurrentSettings().onEach { result ->
             if (result is ResultState.Success) {
-                minTimeRest = result.data?.minTimeRest
+                _dialogRestUiState.update {
+                    it.copy(
+                        minTimeRestPointOfTurnover = result.data?.minTimeRestPointOfTurnover,
+                        minTimeHomeRest = result.data?.minTimeHomeRest
+                    )
+                }
+                currentMonthOfYear = result.data?.selectMonthOfYear
                 nightTime = result.data?.nightTime
                 defaultWorkTime = result.data?.defaultWorkTime
                 usingDefaultWorkTime = result.data?.usingDefaultWorkTime ?: false
@@ -304,20 +317,26 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
     }
 
     fun setRestValue(value: Boolean) {
-        currentRoute = currentRoute?.copy(
-            basicData = currentRoute!!.basicData.copy(
-                restPointOfTurnover = value
+        viewModelScope.launch {
+            currentRoute = currentRoute?.copy(
+                basicData = currentRoute!!.basicData.copy(
+                    restPointOfTurnover = value
+                )
             )
-        )
-        if (value) {
-            calculateRestTime(currentRoute!!)
+            currentRoute?.let { route ->
+                calculateRestTime(route)
+            }
+            changesHave()
         }
-        changesHave()
     }
 
     private fun calculateRestTime(route: Route) {
-        getMinTimeRest(route)
-        getFullRest(route)
+        if (route.basicData.restPointOfTurnover) {
+            getMinTimeRest(route)
+            getFullRest(route)
+        } else {
+            calculationHomeRest(route)
+        }
     }
 
     private fun calculationPassengerTime(route: Route) {
@@ -352,21 +371,82 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
         }
     }
 
-    private fun getMinTimeRest(route: Route) {
-        minTimeRest?.let { minTimeRest ->
-            val timeRest = routeUseCase.getMinRest(route, minTimeRest)
-            _uiState.update {
-                it.copy(minTimeRest = timeRest)
+    private fun calculationHomeRest(route: Route) {
+        val routesList = mutableListOf<Route>()
+        viewModelScope.launch(Dispatchers.IO) {
+            currentMonthOfYear?.let { monthOfYear ->
+                this.launch {
+                    routeUseCase.listRoutesByMonth(monthOfYear).collect { resultCurrentMonth ->
+                        if (resultCurrentMonth is ResultState.Success) {
+                            routesList.addAll(resultCurrentMonth.data)
+                            this.cancel()
+                        }
+                    }
+                }.join()
+                this.launch {
+                    val previousMonthOfYear = if (monthOfYear.month != 0) {
+                        monthOfYear.copy(month = monthOfYear.month - 1)
+                    } else {
+                        monthOfYear.copy(
+                            year = monthOfYear.year - 1,
+                            month = 11
+                        )
+                    }
+                    routeUseCase.listRoutesByMonth(previousMonthOfYear)
+                        .collect { resultCurrentMonth ->
+                            if (resultCurrentMonth is ResultState.Success) {
+                                routesList.addAll(resultCurrentMonth.data)
+                                this.cancel()
+                            }
+                        }
+                }.join()
+            }
+            if (isNewRoute){
+                routesList.add(route)
+            }
+
+            val sortedRouteList = routesList.sortedBy {
+                it.basicData.timeStartWork
+            }.distinct()
+
+            if (sortedRouteList.any { it.basicData.id == route.basicData.id }) {
+                val homeRest = route.getHomeRest(
+                    parentList = sortedRouteList,
+                    minTimeHomeRest = dialogRestUiState.value.minTimeHomeRest
+                )
+                _dialogRestUiState.update {
+                    it.copy(
+                        untilTimeHomeRest = ResultState.Success(homeRest)
+                    )
+                }
+
+            } else {
+                _dialogRestUiState.update {
+                    it.copy(
+                        untilTimeHomeRest = ResultState.Success(null)
+                    )
+                }
             }
         }
     }
 
+    private fun getMinTimeRest(route: Route) {
+        val timeRest = routeUseCase.getMinRest(
+            route = route,
+            minTimeRest = dialogRestUiState.value.minTimeRestPointOfTurnover
+        )
+        _dialogRestUiState.update {
+            it.copy(minUntilTimeRestPointOfTurnover = ResultState.Success(timeRest))
+        }
+    }
+
     private fun getFullRest(route: Route) {
-        minTimeRest?.let { minTimeRest ->
-            val fullTimeRest = routeUseCase.fullRest(route, minTimeRest)
-            _uiState.update {
-                it.copy(fullTimeRest = fullTimeRest)
-            }
+        val fullTimeRest = routeUseCase.fullRest(
+            route = route,
+            minTimeRest = dialogRestUiState.value.minTimeRestPointOfTurnover
+        )
+        _dialogRestUiState.update {
+            it.copy(fullUntilTimeRestPointOfTurnover = ResultState.Success(fullTimeRest))
         }
     }
 

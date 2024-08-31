@@ -10,8 +10,6 @@ data class RouteFormUiState(
     val changesHaveState: Boolean = false,
     var confirmExitDialogShow: Boolean = false,
     val errorMessage: String? = null,
-    val minTimeRest: Long? = null,
-    val fullTimeRest: Long? = null,
     val nightTime: Long? = null,
     val passengerTime: Long? = null,
 )

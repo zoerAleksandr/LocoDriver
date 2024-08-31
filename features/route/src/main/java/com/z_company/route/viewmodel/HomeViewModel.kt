@@ -15,7 +15,6 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.getHomeRest
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
-import com.z_company.domain.entities.route.UtilsForEntities.getTotalWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeWithHoliday
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.CalendarUseCase
@@ -394,7 +393,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 if (result is ResultState.Success) {
                     _uiState.update {
                         it.copy(
-                            minTimeRest = result.data?.minTimeRest,
+                            minTimeRest = result.data?.minTimeRestPointOfTurnover,
                             minTimeHomeRest = result.data?.minTimeHomeRest,
                         )
                     }
