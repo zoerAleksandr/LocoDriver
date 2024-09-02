@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
@@ -641,14 +642,22 @@ fun HomeScreen(
                     .height(heightScreen.times(0.14f).dp)
             )
             currentMonthOfYear?.let { monthOfYear ->
-                TotalTime(
+                Row(
                     modifier = Modifier
-                        .background(color = Color.Transparent, shape = Shapes.medium)
-                        .clickable { onMoreInfoClick(monthOfYear.id) }
-                        .height(heightScreen.times(0.13f).dp),
-                    valueTime = totalTime,
-                    normaHours = monthOfYear.getPersonalNormaHours(),
-                )
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    TotalTime(
+                        modifier = Modifier
+                            .background(color = Color.Transparent, shape = Shapes.medium)
+                            .height(heightScreen.times(0.13f).dp),
+                        valueTime = totalTime,
+                        normaHours = monthOfYear.getPersonalNormaHours(),
+                    )
+                    IconButton(onClick = { onMoreInfoClick(monthOfYear.id) }) {
+                        Icon(imageVector = Icons.Outlined.Info, tint = MaterialTheme.colorScheme.primary, contentDescription = null)
+                    }
+                }
             }
             Row(
                 modifier = Modifier
@@ -797,7 +806,7 @@ fun TotalTime(
     normaHours: Int
 ) {
     AutoSizeText(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier,
         alignment = Alignment.BottomStart,
         text = buildAnnotatedString {
             withStyle(
