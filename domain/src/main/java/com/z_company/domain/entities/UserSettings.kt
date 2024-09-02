@@ -14,6 +14,7 @@ data class UserSettings(
     var defaultLocoType: LocoType = LocoType.ELECTRIC,
     var defaultWorkTime: Long = 43_200_000L,
     var usingDefaultWorkTime: Boolean = false,
+    var isConsiderFutureRoute: Boolean = true,
     var updateAt: Long = timestamp,
     var selectMonthOfYear: MonthOfYear = MonthOfYear()
 )

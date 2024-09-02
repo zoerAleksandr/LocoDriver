@@ -13,6 +13,7 @@ internal object UserSettingsConverter {
         updateAt = userSettings.updateAt,
         defaultWorkTime = userSettings.defaultWorkTime,
         usingDefaultWorkTime = userSettings.usingDefaultWorkTime,
+        isConsiderFutureRoute = userSettings.isConsiderFutureRoute,
         defaultLocoType = userSettings.defaultLocoType,
         monthOfYear = MonthOfYearConverter.fromData(userSettings.selectMonthOfYear),
     )
@@ -26,6 +27,7 @@ internal object UserSettingsConverter {
         updateAt = userSettingsEntity.updateAt,
         defaultWorkTime = userSettingsEntity.defaultWorkTime,
         usingDefaultWorkTime = userSettingsEntity.usingDefaultWorkTime,
+        isConsiderFutureRoute = userSettingsEntity.isConsiderFutureRoute,
         defaultLocoType = userSettingsEntity.defaultLocoType,
         selectMonthOfYear = MonthOfYearConverter.toData(userSettingsEntity.monthOfYear)
     )

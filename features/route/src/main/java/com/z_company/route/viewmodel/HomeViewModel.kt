@@ -10,6 +10,7 @@ import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.data_local.SharedPreferenceStorage
 import com.z_company.domain.entities.MonthOfYear
+import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayOffHours
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.getHomeRest
@@ -41,6 +42,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import ru.rustore.sdk.billingclient.RuStoreBillingClient
 import ru.rustore.sdk.billingclient.utils.pub.checkPurchasesAvailability
+import java.util.Calendar
 
 class HomeViewModel : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
@@ -208,6 +210,19 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
+    var currentUserSetting: UserSettings?
+        get() {
+            return _uiState.value.settingState.let {
+                if (it is ResultState.Success) it.data else null
+            }
+        }
+        private set(value) {
+            _uiState.update {
+                it.copy(
+                    settingState = ResultState.Success(value)
+                )
+            }
+        }
     var currentMonthOfYear: MonthOfYear?
         get() {
             return _uiState.value.monthSelected.let {
@@ -225,16 +240,20 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
     private fun loadSetting() {
         loadSettingJob?.cancel()
-        loadSettingJob = settingsUseCase.getCurrentSettings().onEach { result ->
-            _uiState.update {
-                it.copy(
-                    settingState = result
-                )
+        loadSettingJob =
+            viewModelScope.launch {
+                settingsUseCase.getCurrentSettings().collect { result ->
+                    _uiState.update {
+                        it.copy(
+                            settingState = result
+                        )
+                    }
+                    if (result is ResultState.Success) {
+                        currentMonthOfYear = result.data?.selectMonthOfYear
+                        loadRoutes()
+                    }
+                }
             }
-            if (result is ResultState.Success) {
-                currentMonthOfYear = result.data?.selectMonthOfYear
-            }
-        }.launchIn(viewModelScope)
     }
 
     fun loadRoutes() {
@@ -246,9 +265,17 @@ class HomeViewModel : ViewModel(), KoinComponent {
                         it.copy(routeListState = result)
                     }
                     if (result is ResultState.Success) {
-                        calculationOfTotalTime(result.data)
-                        calculationOfNightTime(result.data)
-                        calculationPassengerTime(result.data)
+                        val currentTimeInMillis = getInstance().timeInMillis
+                        currentUserSetting?.let { settings ->
+                            val routeList = if (settings.isConsiderFutureRoute) {
+                                result.data
+                            } else {
+                                result.data.filter { it.basicData.timeStartWork!! < currentTimeInMillis }
+                            }
+                            calculationOfTotalTime(routeList)
+                            calculationOfNightTime(routeList)
+                            calculationPassengerTime(routeList)
+                        }
                     }
                 }.launchIn(this)
             }
@@ -383,8 +410,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
                 }
             }
-        }
-            .launchIn(viewModelScope)
+        }.launchIn(viewModelScope)
     }
 
     private fun loadMinTimeRestInRoute() {
@@ -433,8 +459,8 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 }.join()
             }
             val sortedRouteList = routesList.sortedBy {
-                    it.basicData.timeStartWork
-                }.distinct()
+                it.basicData.timeStartWork
+            }.distinct()
             val minTimeHomeRest = uiState.value.minTimeHomeRest
             if (routesList.contains(route)) {
                 route?.let {
@@ -481,13 +507,13 @@ class HomeViewModel : ViewModel(), KoinComponent {
         val calendar = getInstance()
         loadSetting()
         loadMonthList()
+        loadMinTimeRestInRoute()
         setCurrentMonth(
             Pair(
                 calendar.get(YEAR),
                 calendar.get(MONTH)
             )
         )
-        loadMinTimeRestInRoute()
         checkLoginToAccount()
     }
 }

@@ -1,5 +1,6 @@
 package com.z_company.data_local.setting.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.TypeConverters
@@ -23,6 +24,8 @@ internal data class UserSettings(
     var defaultLocoType: LocoType,
     var defaultWorkTime: Long,
     var usingDefaultWorkTime: Boolean,
+    @ColumnInfo(defaultValue = "1")
+    var isConsiderFutureRoute: Boolean,
     var monthOfYear: MonthOfYear
 )
 

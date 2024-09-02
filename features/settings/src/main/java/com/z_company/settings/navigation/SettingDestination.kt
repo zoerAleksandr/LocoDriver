@@ -38,6 +38,7 @@ fun SettingDestination(
         changeStartNightTime = settingsViewModel::changeStartNightTime,
         changeEndNightTime = settingsViewModel::changeEndNightTime,
         changeUsingDefaultWorkTime = settingsViewModel::changeUsingDefaultWorkTime,
+        changeConsiderFutureRoute = settingsViewModel::changeConsiderFutureRoute,
         purchasesState = uiState.purchasesEndTime,
         onBillingClick = router::showPurchasesScreen,
         isRefreshing = uiState.isRefreshing,

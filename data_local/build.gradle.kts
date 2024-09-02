@@ -23,6 +23,11 @@ android {
                 "proguard-rules.pro"
             )
         }
+        kapt {
+            arguments {
+                arg("room.schemaLocation", "$projectDir/schemas")
+            }
+        }
     }
     compileOptions {
         sourceCompatibility = Apps.java_compatibility_version

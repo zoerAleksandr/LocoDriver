@@ -14,6 +14,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getTotalWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeWithHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
+import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +26,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import java.util.Calendar
 
 class MoreInfoViewModel(private val monthOfYearId: String) : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
@@ -67,9 +69,9 @@ class MoreInfoViewModel(private val monthOfYearId: String) : ViewModel(), KoinCo
         // исправить
         currentMonthOfYear?.let { monthOfYear ->
             _uiState.update {
-               it.copy(
-                   todayNormaHours = ResultState.Success(monthOfYear.getTodayNormaHours())
-               )
+                it.copy(
+                    todayNormaHours = ResultState.Success(monthOfYear.getTodayNormaHours())
+                )
             }
         }
     }
@@ -90,17 +92,25 @@ class MoreInfoViewModel(private val monthOfYearId: String) : ViewModel(), KoinCo
             viewModelScope.launch {
                 runCatching {
                     withContext(Dispatchers.IO) {
+                        val currentTimeInMillis = Calendar.getInstance().timeInMillis
                         routeUseCase.listRoutesByMonth(monthOfYear).collect { result ->
                             if (result is ResultState.Success) {
-                                val totalWorkTime = result.data.getTotalWorkTime(monthOfYear)
                                 userSettings?.let { settings ->
-                                    val nightTime = result.data.getNightTime(settings)
-                                    val passengerTime = result.data.getPassengerTime(monthOfYear)
+                                    val routeList = if (settings.isConsiderFutureRoute) {
+                                        result.data
+                                    } else {
+                                        result.data.filter { it.basicData.timeStartWork!! < currentTimeInMillis }
+                                    }
+                                    val totalWorkTime = routeList.getTotalWorkTime(monthOfYear)
+                                    val nightTime = routeList.getNightTime(settings)
+                                    val passengerTime = routeList.getPassengerTime(monthOfYear)
                                     val holidayWorkTime =
-                                        result.data.getWorkingTimeOnAHoliday(monthOfYear)
+                                        routeList.getWorkingTimeOnAHoliday(monthOfYear)
                                     val workTimeWithHoliday =
-                                        result.data.getWorkTimeWithHoliday(monthOfYear)
-                                    val timeBalance = workTimeWithHoliday - monthOfYear.getPersonalNormaHours().times(3_600_000)
+                                        routeList.getWorkTimeWithHoliday(monthOfYear)
+                                    val timeBalance =
+                                        workTimeWithHoliday - monthOfYear.getPersonalNormaHours()
+                                            .times(3_600_000)
                                     withContext(Dispatchers.Main) {
                                         _uiState.update {
                                             it.copy(

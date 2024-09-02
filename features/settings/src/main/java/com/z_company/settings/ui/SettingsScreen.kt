@@ -80,6 +80,7 @@ fun SettingsScreen(
     changeStartNightTime: (Int, Int) -> Unit,
     changeEndNightTime: (Int, Int) -> Unit,
     changeUsingDefaultWorkTime: (Boolean) -> Unit,
+    changeConsiderFutureRoute: (Boolean) -> Unit,
     purchasesState: ResultState<String>,
     onBillingClick: () -> Unit,
     isRefreshing: Boolean,
@@ -171,6 +172,7 @@ fun SettingsScreen(
                                 changeStartNightTime = changeStartNightTime,
                                 changeEndNightTime = changeEndNightTime,
                                 changeUsingDefaultWorkTime = changeUsingDefaultWorkTime,
+                                changeConsiderFutureRoute = changeConsiderFutureRoute,
                                 purchasesState = purchasesState,
                                 onBillingClick = onBillingClick,
                                 isRefreshing = isRefreshing,
@@ -205,6 +207,7 @@ fun SettingScreenContent(
     changeStartNightTime: (Int, Int) -> Unit,
     changeEndNightTime: (Int, Int) -> Unit,
     changeUsingDefaultWorkTime: (Boolean) -> Unit,
+    changeConsiderFutureRoute: (Boolean) -> Unit,
     purchasesState: ResultState<String>,
     onBillingClick: () -> Unit,
     isRefreshing: Boolean,
@@ -564,6 +567,43 @@ fun SettingScreenContent(
                     Text(
                         modifier = Modifier.padding(start = 16.dp, top = 8.dp),
                         text = "Эти значения будут установлены по умолчанию при создании нового маршрута.",
+                        style = styleHint
+                    )
+                }
+            }
+
+            item {
+                Column(modifier = Modifier.fillMaxWidth()){
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.surface,
+                                shape = Shapes.medium
+                            )
+                            .padding(16.dp)
+                    ){
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ){
+                            Text(
+                                modifier = Modifier
+                                    .padding(end = 16.dp)
+                                    .weight(0.8f),
+                                text = "Учитывать будущие маршруты",
+                                style = styleData
+                            )
+                            Switch(
+                                checked = currentSettings.isConsiderFutureRoute,
+                                onCheckedChange = {
+                                    changeConsiderFutureRoute(it)
+                                })
+                        }
+                    }
+                    Text(
+                        modifier = Modifier.padding(start = 16.dp, top = 8.dp),
+                        text = "Маршруты, время явки которых не наступило, будут учитываться при подсчете отработаного времени",
                         style = styleHint
                     )
                 }

@@ -381,4 +381,10 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             usingDefaultWorkTime = isUsing
         )
     }
+
+    fun changeConsiderFutureRoute(isConsider: Boolean) {
+        currentSettings = currentSettings?.copy(
+            isConsiderFutureRoute = isConsider
+        )
+    }
 }
