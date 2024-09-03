@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.parse.ParseUser
 import com.z_company.core.ResultState
 import com.z_company.data_local.SharedPreferenceStorage
+import com.z_company.domain.entities.Day
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.use_cases.LoadCalendarFromStorage
 import com.z_company.domain.use_cases.CalendarUseCase
@@ -17,6 +18,7 @@ import com.z_company.use_case.RemoteRouteUseCase
 import com.z_company.work_manager.UserFieldName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
@@ -74,18 +76,53 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
 
     private fun loadCalendar() {
         loadCalendarJob?.cancel()
-        loadCalendarJob = viewModelScope.launch {
-            calendarUseCase.clearCalendar().collect { result ->
-                if (result is ResultState.Success) {
-                    loadCalendarFromStorage.getMonthOfYearList().collect { resultState ->
-                        if (resultState is ResultState.Success) {
-                            saveCalendarInLocal(resultState.data)
+        loadCalendarJob =
+            viewModelScope.launch {
+                runCatching {
+                    val monthOfYearList = mutableListOf<MonthOfYear>()
+                    withContext(Dispatchers.IO) {
+                        // загрузил старые и сохранил их в список
+                        calendarUseCase.loadMonthOfYearList().collect { monthListResult ->
+                            if (monthListResult is ResultState.Success) {
+                                monthListResult.data.forEach { monthOfYear ->
+                                    monthOfYearList.add(monthOfYear)
+                                }
+                                this.cancel()
+                            }
                         }
                     }
+                    withContext(Dispatchers.IO) {
+                        // проверил, если этот месяц ранее был сохранен, проверил помечен ли он isRelease
+                        // оставляем это поле без изменений, остальное обновляем, если месяц ранее не сохранялся,
+                        // тогда записываем его в room без изменений
 
+                        loadCalendarFromStorage.getMonthOfYearList().collect { resultState ->
+                            if (resultState is ResultState.Success) {
+                                val newMonthOfYearList = mutableListOf<MonthOfYear>()
+                                resultState.data.forEach { monthOfYear ->
+                                    var month =
+                                        monthOfYearList.find { it.month == monthOfYear.month && it.year == monthOfYear.year }
+                                    val newDays = mutableListOf<Day>()
+                                    if (month != null) {
+                                        month.days.forEachIndexed { index, day ->
+                                            if (!day.isReleaseDay) {
+                                                newDays.add(monthOfYear.days[index])
+                                            } else {
+                                                newDays.add(monthOfYear.days[index].copy(isReleaseDay = true))
+                                            }
+                                        }
+                                        month = month.copy(days = newDays)
+                                        newMonthOfYearList.add(month)
+                                    } else {
+                                        newMonthOfYearList.add(monthOfYear)
+                                    }
+                                }
+                                saveCalendarInLocal(newMonthOfYearList)
+                            }
+                        }
+                    }
                 }
             }
-        }
     }
 
     private fun saveCalendarInLocal(calendar: List<MonthOfYear>) {
