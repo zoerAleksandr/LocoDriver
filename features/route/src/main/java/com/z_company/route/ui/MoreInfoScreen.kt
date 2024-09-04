@@ -420,7 +420,7 @@ fun MoreInfoScreen(
                                 "Переработка"
                             }
                             val colorBalance = if (timeBalance < 0) {
-                                MaterialTheme.colorScheme.scrim
+                                Color(0xFFD38242)
                             } else if (timeBalance < 72_000_000L) {
                                 Color(0xFF3F920B)
                             } else {

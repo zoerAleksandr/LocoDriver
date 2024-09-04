@@ -75,40 +75,41 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     }
 
     private fun loadCalendar() {
-        loadCalendarJob?.cancel()
-        loadCalendarJob =
-            viewModelScope.launch {
-                runCatching {
+        viewModelScope.launch {
                     val monthOfYearList = mutableListOf<MonthOfYear>()
-                    withContext(Dispatchers.IO) {
-                        // загрузил старые и сохранил их в список
-                        calendarUseCase.loadMonthOfYearList().collect { monthListResult ->
-                            if (monthListResult is ResultState.Success) {
-                                monthListResult.data.forEach { monthOfYear ->
-                                    monthOfYearList.add(monthOfYear)
-                                }
-                                this.cancel()
+                withContext(Dispatchers.IO) {
+                    // загрузил старые и сохранил их в список
+                    calendarUseCase.loadMonthOfYearList().collect { monthListResult ->
+                        Log.d("ZZZ", "monthListResult - $monthListResult")
+                        if (monthListResult is ResultState.Success) {
+                            monthListResult.data.forEach { monthOfYear ->
+                                monthOfYearList.add(monthOfYear)
                             }
+                            this@withContext.cancel()
                         }
                     }
-                    withContext(Dispatchers.IO) {
-                        // проверил, если этот месяц ранее был сохранен, проверил помечен ли он isRelease
-                        // оставляем это поле без изменений, остальное обновляем, если месяц ранее не сохранялся,
-                        // тогда записываем его в room без изменений
+                }
 
-                        loadCalendarFromStorage.getMonthOfYearList().collect { resultState ->
+                withContext(Dispatchers.IO) {
+                    loadCalendarFromStorage.getMonthOfYearList()
+                        .collect { resultState ->
                             if (resultState is ResultState.Success) {
                                 val newMonthOfYearList = mutableListOf<MonthOfYear>()
                                 resultState.data.forEach { monthOfYear ->
                                     var month =
                                         monthOfYearList.find { it.month == monthOfYear.month && it.year == monthOfYear.year }
+                                    Log.d("ZZZ", "month - $month")
                                     val newDays = mutableListOf<Day>()
                                     if (month != null) {
                                         month.days.forEachIndexed { index, day ->
                                             if (!day.isReleaseDay) {
                                                 newDays.add(monthOfYear.days[index])
                                             } else {
-                                                newDays.add(monthOfYear.days[index].copy(isReleaseDay = true))
+                                                newDays.add(
+                                                    monthOfYear.days[index].copy(
+                                                        isReleaseDay = true
+                                                    )
+                                                )
                                             }
                                         }
                                         month = month.copy(days = newDays)
@@ -120,9 +121,11 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
                                 saveCalendarInLocal(newMonthOfYearList)
                             }
                         }
-                    }
                 }
-            }
+            // проверил, если этот месяц ранее был сохранен, проверил помечен ли он isRelease
+            // оставляем это поле без изменений, остальное обновляем, если месяц ранее не сохранялся,
+            // тогда записываем его в room без изменений
+        }
     }
 
     private fun saveCalendarInLocal(calendar: List<MonthOfYear>) {
