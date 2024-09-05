@@ -48,8 +48,8 @@ object Apps {
     const val min_sdk_version = 24
     const val target_sdk_version = 34
 
-    const val version_code = 11
-    const val version_name = "1.1.2"
+    const val version_code = 12
+    const val version_name = "1.1.3"
 
     const val jvm_target_version = "17"
     val java_compatibility_version = JavaVersion.VERSION_17

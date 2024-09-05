@@ -40,7 +40,6 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private val sharedPreferenceStorage: SharedPreferenceStorage by inject()
     private val billingClient: RuStoreBillingClient by inject()
 
-    private var loadCalendarJob: Job? = null
     private var saveCalendarInLocalJob: Job? = null
     private var setDefaultSetting: Job? = null
 
@@ -75,66 +74,75 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     }
 
     private fun loadCalendar() {
-        viewModelScope.launch {
-                    val monthOfYearList = mutableListOf<MonthOfYear>()
-                withContext(Dispatchers.IO) {
-                    // загрузил старые и сохранил их в список
-                    calendarUseCase.loadMonthOfYearList().collect { monthListResult ->
-                        Log.d("ZZZ", "monthListResult - $monthListResult")
-                        if (monthListResult is ResultState.Success) {
-                            monthListResult.data.forEach { monthOfYear ->
-                                monthOfYearList.add(monthOfYear)
-                            }
-                            this@withContext.cancel()
+        viewModelScope.launch(Dispatchers.IO) {
+            val monthOfYearList = mutableListOf<MonthOfYear>()
+            this.launch {
+                // загрузил старые и сохранил их в список
+                calendarUseCase.loadMonthOfYearList().collect { monthListResult ->
+                    if (monthListResult is ResultState.Success) {
+                        monthListResult.data.forEach { monthOfYear ->
+                            monthOfYearList.add(monthOfYear)
                         }
+                        this.cancel()
                     }
                 }
-
-                withContext(Dispatchers.IO) {
-                    loadCalendarFromStorage.getMonthOfYearList()
-                        .collect { resultState ->
-                            if (resultState is ResultState.Success) {
-                                val newMonthOfYearList = mutableListOf<MonthOfYear>()
-                                resultState.data.forEach { monthOfYear ->
-                                    var month =
-                                        monthOfYearList.find { it.month == monthOfYear.month && it.year == monthOfYear.year }
-                                    Log.d("ZZZ", "month - $month")
-                                    val newDays = mutableListOf<Day>()
-                                    if (month != null) {
-                                        month.days.forEachIndexed { index, day ->
-                                            if (!day.isReleaseDay) {
-                                                newDays.add(monthOfYear.days[index])
-                                            } else {
-                                                newDays.add(
-                                                    monthOfYear.days[index].copy(
-                                                        isReleaseDay = true
-                                                    )
-                                                )
-                                            }
-                                        }
-                                        month = month.copy(days = newDays)
-                                        newMonthOfYearList.add(month)
-                                    } else {
-                                        newMonthOfYearList.add(monthOfYear)
-                                    }
-                                }
-                                saveCalendarInLocal(newMonthOfYearList)
-                            }
-                        }
-                }
+            }.join()
             // проверил, если этот месяц ранее был сохранен, проверил помечен ли он isRelease
             // оставляем это поле без изменений, остальное обновляем, если месяц ранее не сохранялся,
             // тогда записываем его в room без изменений
+            this.launch {
+                loadCalendarFromStorage.getMonthOfYearList()
+                    .collect { resultState ->
+                        if (resultState is ResultState.Success) {
+                            val newMonthOfYearList = mutableListOf<MonthOfYear>()
+                            resultState.data.forEach { monthOfYear ->
+                                var month =
+                                    monthOfYearList.find { it.month == monthOfYear.month && it.year == monthOfYear.year }
+                                val newDays = mutableListOf<Day>()
+                                if (month != null) {
+                                    month.days.forEachIndexed { index, day ->
+                                        if (!day.isReleaseDay) {
+                                            newDays.add(monthOfYear.days[index])
+                                        } else {
+                                            newDays.add(
+                                                monthOfYear.days[index].copy(
+                                                    isReleaseDay = true
+                                                )
+                                            )
+                                        }
+                                    }
+                                    month = month.copy(days = newDays)
+
+                                    newMonthOfYearList.add(month)
+                                } else {
+                                    newMonthOfYearList.add(monthOfYear)
+                                }
+                            }
+                            saveCalendarInLocal(newMonthOfYearList)
+                            this.cancel()
+                        }
+                    }
+            }
         }
     }
 
     private fun saveCalendarInLocal(calendar: List<MonthOfYear>) {
         saveCalendarInLocalJob?.cancel()
-        saveCalendarInLocalJob = calendarUseCase.saveCalendar(calendar).onEach { resultState ->
-            if (resultState is ResultState.Success) {
-                Log.i(TAG, "production calendar is loading")
+        saveCalendarInLocalJob = viewModelScope.launch {
+            this.launch {
+                calendarUseCase.clearCalendar().collect { clearResult ->
+                    if (clearResult is ResultState.Success) {
+                        this.cancel()
+                    }
+                }
+            }.join()
+
+            calendarUseCase.saveCalendar(calendar).collect { resultState ->
+                if (resultState is ResultState.Success) {
+                    Log.i(TAG, "production calendar is loading")
+                }
             }
-        }.launchIn(viewModelScope)
+        }
     }
 
     private fun syncRuStoreSubscription() {

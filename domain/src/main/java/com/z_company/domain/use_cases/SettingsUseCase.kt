@@ -39,4 +39,8 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
     fun setCurrentMonthOfYear(monthOfYear: MonthOfYear): Flow<ResultState<Unit>> {
         return settingsRepository.setCurrentMonthOfYear(monthOfYear)
     }
+
+    fun clearLocalUserSettingRepository(): Flow<ResultState<Unit>> {
+        return settingsRepository.clearRepository()
+    }
 }

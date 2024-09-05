@@ -1,6 +1,7 @@
 package com.z_company.route.viewmodel
 
 import android.content.Context
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.setValue
@@ -248,10 +249,10 @@ class HomeViewModel : ViewModel(), KoinComponent {
                             settingState = result
                         )
                     }
-                    if (result is ResultState.Success) {
-                        currentMonthOfYear = result.data?.selectMonthOfYear
-                        loadRoutes()
-                    }
+//                    if (result is ResultState.Success) {
+//                        currentMonthOfYear = result.data?.selectMonthOfYear
+//                        loadRoutes()
+//                    }
                 }
             }
     }
@@ -380,6 +381,9 @@ class HomeViewModel : ViewModel(), KoinComponent {
         setCalendarJob?.cancel()
         setCalendarJob = calendarUseCase.loadMonthOfYearList().onEach { result ->
             if (result is ResultState.Success) {
+                result.data.forEach {
+                    Log.d("ZZZ", "in HomeViewModel $it")
+                }
                 result.data.find {
                     it.year == yearAndMonth.first && it.month == yearAndMonth.second
                 }?.let { selectMonthOfYear ->

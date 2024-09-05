@@ -73,4 +73,10 @@ class RoomSettingRepository : SettingsRepository, KoinComponent {
             )
         }
     }
+
+    override fun clearRepository(): Flow<ResultState<Unit>> {
+        return flowRequest {
+            dao.clearCalendar()
+        }
+    }
 }
