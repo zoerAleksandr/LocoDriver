@@ -84,5 +84,10 @@ fun NavGraphBuilder.homeGraph(
         ) {navBackStackEntry ->
             MoreInfoDestination(router = router, backStackEntry = navBackStackEntry)
         }
+        composableScreen(
+            route = SalaryCalculationRoute.route
+        ) {
+            SalaryCalculationDestination(router = router)
+        }
     }
 }

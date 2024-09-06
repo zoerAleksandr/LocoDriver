@@ -28,4 +28,5 @@ interface Router {
     fun showSelectReleaseDayScreen()
     fun showPurchasesScreen()
     fun showMoreInfo(monthOfYearId: String)
+    fun showSalaryCalculation()
 }

@@ -1,18 +1,26 @@
 package com.z_company.route.ui
 
-import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.AppBarDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.BottomAppBarDefaults
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -26,9 +34,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
+import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
@@ -50,6 +58,7 @@ fun MoreInfoScreen(
     workTimeWithHoliday: ResultState<Long?>,
     todayNormaHours: ResultState<Int?>,
     timeBalanceState: ResultState<Long?>,
+    onSalaryCalculationClick: () -> Unit
 ) {
     val styleDataLight = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
     val titleStyle = AppTypography.getType().headlineMedium.copy(fontWeight = FontWeight.Light)
@@ -76,6 +85,25 @@ fun MoreInfoScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         },
+        bottomBar = {
+            BottomAppBar(
+                containerColor = Color.Transparent,
+                contentPadding = PaddingValues(horizontal = 12.dp),
+                actions = {
+                    Button(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                        ),
+                        shape = Shapes.medium,
+                        onClick = onSalaryCalculationClick
+                    ) {
+                        Text("Рассчитать зарплату", style = styleDataLight)
+                    }
+                })
+        }
     ) {
         LazyColumn(
             modifier = Modifier
@@ -397,6 +425,7 @@ fun MoreInfoScreen(
                     }
                 }
             }
+
             item {
 
                 AsyncData(
@@ -441,6 +470,22 @@ fun MoreInfoScreen(
 
                 }
             }
+
+            item {
+//                Button(
+//                    modifier = Modifier
+//                        .fillMaxWidth()
+//                        .padding(top = 24.dp),
+//                    colors = ButtonDefaults.buttonColors(
+//                        containerColor = MaterialTheme.colorScheme.primary,
+//                    ),
+//                    shape = Shapes.medium,
+//                    onClick = onSalaryCalculationClick
+//                ) {
+//                    Text("Рассчитать зарплату", style = styleDataLight)
+//                }
+            }
+
         }
     }
 }

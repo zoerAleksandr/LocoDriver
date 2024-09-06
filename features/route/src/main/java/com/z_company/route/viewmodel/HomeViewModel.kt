@@ -1,7 +1,6 @@
 package com.z_company.route.viewmodel
 
 import android.content.Context
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.setValue
@@ -43,7 +42,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import ru.rustore.sdk.billingclient.RuStoreBillingClient
 import ru.rustore.sdk.billingclient.utils.pub.checkPurchasesAvailability
-import java.util.Calendar
 
 class HomeViewModel : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
@@ -381,9 +379,6 @@ class HomeViewModel : ViewModel(), KoinComponent {
         setCalendarJob?.cancel()
         setCalendarJob = calendarUseCase.loadMonthOfYearList().onEach { result ->
             if (result is ResultState.Success) {
-                result.data.forEach {
-                    Log.d("ZZZ", "in HomeViewModel $it")
-                }
                 result.data.find {
                     it.year == yearAndMonth.first && it.month == yearAndMonth.second
                 }?.let { selectMonthOfYear ->

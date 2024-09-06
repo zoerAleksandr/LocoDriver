@@ -11,8 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -348,7 +349,7 @@ fun SettingScreenContent(
 
     SwipeRefresh(
         state = rememberSwipeRefreshState(isRefreshing = isRefreshing),
-        onRefresh = onRefresh ,
+        onRefresh = onRefresh,
     ) {
         LazyColumn(
             modifier = Modifier
@@ -367,13 +368,14 @@ fun SettingScreenContent(
                         text = "НОРМА ЧАСОВ",
                         style = styleTitle
                     )
-                    Box(
+                    Column(
                         modifier = Modifier
                             .background(
                                 color = MaterialTheme.colorScheme.surface,
                                 shape = Shapes.medium
                             )
-                            .padding(16.dp)
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Row(
                             modifier = Modifier
@@ -387,20 +389,17 @@ fun SettingScreenContent(
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(
                                     text = ConverterLongToTime.getTimeInStringFormat(
-                                        currentSettings.selectMonthOfYear.getPersonalNormaHours().toLong()
+                                        currentSettings.selectMonthOfYear.getPersonalNormaHours()
+                                            .toLong()
                                             .times(3_600_000)
                                     ),
                                     style = styleData
                                 )
-                                Icon(
-                                    modifier = Modifier.clickable {
-                                        showReleaseDaySelectScreen()
-                                    },
-                                    tint = MaterialTheme.colorScheme.tertiary,
-                                    imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                                    contentDescription = null
-                                )
                             }
+                        }
+                        HorizontalDivider()
+                        ClickableText(text = AnnotatedString("Изменить норму"), style = styleHint.copy(color = MaterialTheme.colorScheme.tertiary)) {
+                            showReleaseDaySelectScreen()
                         }
                     }
                 }
@@ -573,7 +572,7 @@ fun SettingScreenContent(
             }
 
             item {
-                Column(modifier = Modifier.fillMaxWidth()){
+                Column(modifier = Modifier.fillMaxWidth()) {
                     Box(
                         modifier = Modifier
                             .padding(top = 8.dp)
@@ -582,11 +581,11 @@ fun SettingScreenContent(
                                 shape = Shapes.medium
                             )
                             .padding(16.dp)
-                    ){
+                    ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
-                        ){
+                        ) {
                             Text(
                                 modifier = Modifier
                                     .padding(end = 16.dp)

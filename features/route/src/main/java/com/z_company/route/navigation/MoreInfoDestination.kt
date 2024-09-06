@@ -31,6 +31,7 @@ fun MoreInfoDestination(
         holidayWorkTimeState = uiState.holidayWorkTimeState,
         workTimeWithHoliday = uiState.workTimeWithHoliday,
         todayNormaHours = uiState.todayNormaHours,
-        timeBalanceState = uiState.timeBalanceState
+        timeBalanceState = uiState.timeBalanceState,
+        onSalaryCalculationClick = router::showSalaryCalculation
     )
 }
