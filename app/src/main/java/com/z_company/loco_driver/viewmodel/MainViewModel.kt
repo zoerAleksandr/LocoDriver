@@ -144,6 +144,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
         }
     }
 
+    // при вызове метода происходит утечка памяти
     private fun syncRuStoreSubscription() {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {

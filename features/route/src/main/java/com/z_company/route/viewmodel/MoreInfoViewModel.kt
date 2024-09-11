@@ -65,8 +65,6 @@ class MoreInfoViewModel(private val monthOfYearId: String) : ViewModel(), KoinCo
     }
 
     private fun getTodayNormaHours() {
-
-        // исправить
         currentMonthOfYear?.let { monthOfYear ->
             _uiState.update {
                 it.copy(

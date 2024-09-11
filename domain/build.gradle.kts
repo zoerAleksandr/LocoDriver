@@ -10,6 +10,12 @@ java {
 
 dependencies {
     api(project(Libs.project_core))
-//    implementation(project(Libs.project_core_android))
     implementation(Libs.kotlinx_coroutines_core)
+    testImplementation("org.jetbrains.kotlin:kotlin-test")
+    testImplementation ("org.mockito:mockito-core:3.10.0")
+    testImplementation ("org.mockito:mockito-inline:2.8.9")
+    testImplementation("com.nhaarman:mockito-kotlin:1.5.0") {
+        exclude("org.jetbrains.kotlin")
+        exclude("org.mockito")
+    }
 }
