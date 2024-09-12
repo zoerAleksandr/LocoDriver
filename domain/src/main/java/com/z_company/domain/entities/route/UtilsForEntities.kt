@@ -402,7 +402,7 @@ object UtilsForEntities {
         }
     }
 
-    fun Train.timeFollowingSingleLocomotive(): Long? {
+    fun Train.timeFollowingSingleLocomotive(): Long {
         return if (
             this.number?.toInt() in 4001..4148 ||
             this.number?.toInt() in 4151..4188 ||
@@ -417,9 +417,9 @@ object UtilsForEntities {
         ) {
             val timeStartFollowing: Long? = this.stations.first().timeDeparture
             val timeEndFollowing: Long? = this.stations.last().timeArrival
-            timeEndFollowing - timeStartFollowing
+            (timeEndFollowing - timeStartFollowing) ?: 0L
         } else {
-            null
+            0L
         }
     }
 }

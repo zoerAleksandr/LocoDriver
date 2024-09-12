@@ -52,4 +52,6 @@ dependencies {
     implementation(Libs.koin_android)
     implementation(Libs.koin_androidx_compose)
     coreLibraryDesugaring(Libs.desugaring)
+
+    testImplementation(TestLibs.kotlin_test)
 }

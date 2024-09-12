@@ -20,6 +20,9 @@ import Versions.lifecycle_runtime_version
 import Versions.lifecycle_viewmodel_version
 import Versions.material_compose3
 import Versions.maxkeppeler_sheets_ver
+import Versions.mockito_core_ver
+import Versions.mockito_inline_ver
+import Versions.mockito_kotlin_ver
 import Versions.parse_sdk_android_ver
 import Versions.permission_accompanist_ver
 import Versions.rebugger_ver
@@ -95,6 +98,9 @@ object Versions {
     const val accompanist_ui_controller_version = "0.35.0-alpha"
     const val rebugger_ver = "1.0.0-rc03"
     const val desugaring_ver = "2.0.4"
+    const val mockito_core_ver= "3.10.0"
+    const val mockito_inline_ver= "2.8.9"
+    const val mockito_kotlin_ver= "1.5.0"
 }
 
 object Libs {
@@ -196,4 +202,16 @@ object TestLibs {
         "androidx.room:room-testing:$room_version"
     const val test_runner =
         "androidx.test:runner:$test_runner_version"
+    const val kotlin_test =
+        "org.jetbrains.kotlin:kotlin-test"
+    const val mockito_core =
+        "org.mockito:mockito-core:$mockito_core_ver"
+    const val mockito_inline =
+        "org.mockito:mockito-inline:$mockito_inline_ver"
+    const val mockito_kotlin=
+        "com.nhaarman:mockito-kotlin:$mockito_kotlin_ver"
+    const val exclude_jetbrains_kotlin =
+        "org.jetbrains.kotlin"
+    const val exclude_mockito =
+        "org.mockito"
 }
