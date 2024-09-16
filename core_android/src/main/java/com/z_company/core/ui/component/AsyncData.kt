@@ -63,3 +63,31 @@ fun <T> SearchAsyncData(
         }
     }
 }
+
+@Composable
+fun <T> AsyncDataValue(
+    resultState: ResultState<T?>?,
+    loadingContent: @Composable () -> Unit = { GenericLoadingValue() },
+    errorContent: @Composable () -> Unit = { GenericErrorValue() },
+    content: @Composable (data: T?) -> Unit
+) {
+    resultState.let { state ->
+        when (state) {
+            is ResultState.Loading -> {
+                loadingContent()
+            }
+
+            is ResultState.Error -> {
+                errorContent()
+            }
+
+            null -> {
+                content(null)
+            }
+
+            is ResultState.Success -> {
+                content(state.data)
+            }
+        }
+    }
+}

@@ -24,4 +24,5 @@ val useCaseModule = module {
     single { RemoteRouteUseCase(repository = get()) }
 
     single { SearchRouteUseCase(repository = get()) }
+    single { SalarySettingUseCase(repository = get()) }
 }

@@ -14,6 +14,7 @@ import com.z_company.route.viewmodel.PreviewPhotoViewModel
 import com.z_company.route.viewmodel.PurchasesViewModel
 import com.z_company.route.viewmodel.SalaryCalculationViewModel
 import com.z_company.route.viewmodel.SearchViewModel
+import com.z_company.route.viewmodel.SettingSalaryViewModel
 import com.z_company.route.viewmodel.TrainFormViewModel
 import com.z_company.route.viewmodel.ViewingImageViewModel
 import com.z_company.settings.viewmodel.SelectReleaseDaysViewModel
@@ -54,4 +55,5 @@ val viewModelModule = module {
         MoreInfoViewModel(monthOfYearId)
     }
     viewModel { SalaryCalculationViewModel() }
+    viewModel { SettingSalaryViewModel() }
 }

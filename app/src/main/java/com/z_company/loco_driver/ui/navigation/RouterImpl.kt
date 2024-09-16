@@ -22,6 +22,7 @@ import com.z_company.route.navigation.PreviewPhotoRoute
 import com.z_company.route.navigation.PurchasesRoute
 import com.z_company.route.navigation.SalaryCalculationRoute
 import com.z_company.route.navigation.SearchRoute
+import com.z_company.route.navigation.SettingSalaryRoute
 import com.z_company.route.navigation.ViewingImageRoute
 import com.z_company.settings.navigation.SelectReleaseDaysScreenRoute
 import com.z_company.settings.navigation.SettingsFeature
@@ -157,6 +158,12 @@ class RouterImpl(
     override fun showSalaryCalculation() {
         navController.navigate(
             SalaryCalculationRoute.route
+        )
+    }
+
+    override fun showSettingSalary() {
+        navController.navigate(
+            SettingSalaryRoute.route
         )
     }
 }

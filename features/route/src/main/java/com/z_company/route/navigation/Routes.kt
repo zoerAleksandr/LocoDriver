@@ -178,3 +178,4 @@ object MoreInfoRoute: AppRoutes("MoreInfoRoute") {
 }
 
 object SalaryCalculationRoute: AppRoutes("SalaryCalculationRoute")
+object SettingSalaryRoute: AppRoutes("SettingSalaryRoute")

@@ -39,13 +39,29 @@ fun GenericLoading(
             IconButton(
                 modifier = Modifier
                     .zIndex(1f),
-                onClick = onCloseClick) {
-                Icon(imageVector = Icons.Outlined.Close, tint = MaterialTheme.colorScheme.primary, contentDescription = null)
+                onClick = onCloseClick
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Close,
+                    tint = MaterialTheme.colorScheme.primary,
+                    contentDescription = null
+                )
             }
         }
         Spacer(modifier = Modifier.size(16.dp))
-        Text(text = message ?: stringResource(id = R.string.msg_loading), color = MaterialTheme.colorScheme.primary)
+        Text(
+            text = message ?: stringResource(id = R.string.msg_loading),
+            color = MaterialTheme.colorScheme.primary
+        )
     }
+}
+
+@Composable
+fun GenericLoadingValue() {
+    CircularProgressIndicator(
+        modifier = Modifier.size(24.dp),
+        strokeWidth = 2.dp
+    )
 }
 
 @Preview(showBackground = true)

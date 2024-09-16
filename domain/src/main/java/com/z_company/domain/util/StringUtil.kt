@@ -6,3 +6,7 @@ inline fun String?.ifNullOrBlank(defaultValue: () -> String) =
 fun String.splitBySpaceAndComma(): List<String> {
     return this.split(" ", ",")
 }
+
+fun String.toDoubleOrZero(): Double {
+    return this.toDoubleOrNull() ?: 0.0
+}
