@@ -37,7 +37,6 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                     otherSurchargeState = ResultState.Success(value?.otherSurcharge.str()),
                     ndfl = ResultState.Success(value?.ndfl.str()),
                     unionistsRetentionState = ResultState.Success(value?.unionistsRetention.str()),
-                    otherRetention = ResultState.Success(value?.otherRetention.str())
                 )
             }
         }
@@ -144,18 +143,6 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
             it.copy(
                 surchargeHeavyLongDistanceTrains = ResultState.Success(value),
                 isErrorInputSurchargeHeavyLongDistanceTrains = isErrorInputDouble(value)
-            )
-        }
-    }
-
-    fun setOtherSurcharge(value: String) {
-        currentSalarySetting = currentSalarySetting?.copy(
-            otherSurcharge = value.toDoubleOrZero()
-        )
-        _uiState.update {
-            it.copy(
-                otherSurchargeState = ResultState.Success(value),
-                isErrorInputOtherSurcharge = isErrorInputDouble(value)
             )
         }
     }

@@ -69,9 +69,6 @@ fun SettingSalaryScreen(
     surchargeHeavyLongDistanceTrainsValueState: ResultState<String>,
     setSurchargeHeavyLongDistanceTrains: (String) -> Unit,
     isErrorInputSurchargeHeavyLongDistanceTrains: Boolean,
-    otherSurchargeState: ResultState<String>,
-    setOtherSurcharge: (String) -> Unit,
-    isErrorInputOtherSurcharge: Boolean,
     ndflValueState: ResultState<String>,
     setNDFL: (String) -> Unit,
     isErrorInputNdfl: Boolean,
@@ -341,45 +338,6 @@ fun SettingSalaryScreen(
                                 isError = isErrorInputSurchargeHeavyLongDistanceTrains,
                                 supportingText = {
                                     if (isErrorInputSurchargeHeavyLongDistanceTrains) {
-                                        Text(text = "Некорректные данные")
-                                    }
-                                },
-                                singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent
-                                ),
-                                shape = Shapes.medium,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Decimal
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        "Прочие доплаты, %",
-                        overflow = TextOverflow.Visible,
-                        style = styleDataMedium
-                    )
-                    AsyncDataValue(resultState = otherSurchargeState) { otherSurcharge ->
-                        otherSurcharge?.let {
-                            OutlinedTextField(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                value = otherSurcharge,
-                                onValueChange = { value ->
-                                    setOtherSurcharge(value)
-                                },
-                                isError = isErrorInputOtherSurcharge,
-                                supportingText = {
-                                    if (isErrorInputOtherSurcharge) {
                                         Text(text = "Некорректные данные")
                                     }
                                 },
