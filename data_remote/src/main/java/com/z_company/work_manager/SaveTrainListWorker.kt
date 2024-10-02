@@ -17,6 +17,7 @@ import com.z_company.work_manager.TrainFieldName.LENGTH_FIELD_NAME
 import com.z_company.work_manager.TrainFieldName.STATIONS_FIELD_NAME
 import com.z_company.work_manager.TrainFieldName.TRAIN_BASIC_ID_FIELD_NAME
 import com.z_company.work_manager.TrainFieldName.TRAIN_CLASS_NAME_REMOTE
+import com.z_company.work_manager.TrainFieldName.TRAIN_DISTANCE_FIELD_NAME
 import com.z_company.work_manager.TrainFieldName.TRAIN_ID_FIELD_NAME
 import com.z_company.work_manager.TrainFieldName.TRAIN_NUMBER_FIELD_NAME
 import com.z_company.work_manager.TrainFieldName.WEIGHT_FIELD_NAME
@@ -52,6 +53,9 @@ class SaveTrainListWorker(context: Context, parameters: WorkerParameters) :
                 trainObject.put(TRAIN_BASIC_ID_FIELD_NAME, train.basicId)
                 train.number?.let { number ->
                     trainObject.put(TRAIN_NUMBER_FIELD_NAME, number)
+                }
+                train.distance?.let { distance ->
+                    trainObject.put(TRAIN_DISTANCE_FIELD_NAME, distance)
                 }
                 train.weight?.let { weight ->
                     trainObject.put(WEIGHT_FIELD_NAME, weight)

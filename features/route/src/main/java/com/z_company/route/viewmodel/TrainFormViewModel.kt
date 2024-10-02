@@ -187,6 +187,13 @@ class TrainFormViewModel(
         changesHave()
     }
 
+    fun setDistance(distance: String) {
+        currentTrain = currentTrain?.copy(
+            distance = distance.ifBlank { null }
+        )
+        changesHave()
+    }
+
     fun setWeight(weight: String) {
         currentTrain = currentTrain?.copy(
             weight = weight.ifBlank { null }

@@ -34,6 +34,7 @@ fun FormTrainDestination(
         resetSaveState = viewModel::resetSaveState,
         resetErrorMessage = viewModel::resetErrorMessage,
         onNumberChanged = viewModel::setNumber,
+        onDistanceChange = viewModel::setDistance,
         onWeightChanged = viewModel::setWeight,
         onAxleChanged = viewModel::setAxle,
         onLengthChanged = viewModel::setConditionalLength,

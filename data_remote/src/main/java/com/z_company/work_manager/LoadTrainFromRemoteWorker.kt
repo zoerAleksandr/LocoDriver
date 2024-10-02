@@ -17,6 +17,7 @@ import com.z_company.work_manager.TrainFieldName.LENGTH_FIELD_NAME
 import com.z_company.work_manager.TrainFieldName.STATIONS_FIELD_NAME
 import com.z_company.work_manager.TrainFieldName.TRAIN_BASIC_ID_FIELD_NAME
 import com.z_company.work_manager.TrainFieldName.TRAIN_CLASS_NAME_REMOTE
+import com.z_company.work_manager.TrainFieldName.TRAIN_DISTANCE_FIELD_NAME
 import com.z_company.work_manager.TrainFieldName.TRAIN_ID_FIELD_NAME
 import com.z_company.work_manager.TrainFieldName.TRAIN_NUMBER_FIELD_NAME
 import com.z_company.work_manager.TrainFieldName.WEIGHT_FIELD_NAME
@@ -48,6 +49,9 @@ class LoadTrainFromRemoteWorker(context: Context, parameters: WorkerParameters) 
                     train = train.copy(remoteObjectId = parseObject.objectId)
                     getString(TRAIN_NUMBER_FIELD_NAME)?.let { number ->
                         train = train.copy(number = number)
+                    }
+                    getString(TRAIN_DISTANCE_FIELD_NAME)?.let { distance ->
+                        train = train.copy(distance = distance)
                     }
                     getString(WEIGHT_FIELD_NAME)?.let { weight ->
                         train = train.copy(weight = weight)

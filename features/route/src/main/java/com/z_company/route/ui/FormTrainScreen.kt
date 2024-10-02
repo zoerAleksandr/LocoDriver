@@ -80,6 +80,7 @@ fun FormTrainScreen(
     resetSaveState: () -> Unit,
     resetErrorMessage: () -> Unit,
     onNumberChanged: (String) -> Unit,
+    onDistanceChange: (String) -> Unit,
     onWeightChanged: (String) -> Unit,
     onAxleChanged: (String) -> Unit,
     onLengthChanged: (String) -> Unit,
@@ -192,6 +193,7 @@ fun FormTrainScreen(
                         TrainFormScreenContent(
                             train = train,
                             onNumberChanged = onNumberChanged,
+                            onDistanceChange = onDistanceChange,
                             onWeightChanged = onWeightChanged,
                             onAxleChanged = onAxleChanged,
                             onLengthChanged = onLengthChanged,
@@ -218,6 +220,7 @@ fun FormTrainScreen(
 fun TrainFormScreenContent(
     train: Train,
     onNumberChanged: (String) -> Unit,
+    onDistanceChange: (String) -> Unit,
     onWeightChanged: (String) -> Unit,
     onAxleChanged: (String) -> Unit,
     onLengthChanged: (String) -> Unit,
@@ -270,45 +273,87 @@ fun TrainFormScreenContent(
         horizontalAlignment = Alignment.End,
         contentPadding = PaddingValues(16.dp)
     ) {
-//        item { Spacer(modifier = Modifier.height(70.dp)) }
 
         item {
-            OutlinedTextField(
+            Row(
                 modifier = Modifier
-                    .fillMaxWidth(0.5f),
-                value = train.number ?: "",
-                onValueChange = {
-                    onNumberChanged(it)
-                },
-                placeholder = {
-                    Text(text = "Номер", style = dataTextStyle)
-                },
-                prefix = {
-                    if (!train.number.isNullOrBlank()) {
-                        Text(text = "№ ", style = hintStyle)
-                    }
-                },
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Decimal,
-                    imeAction = ImeAction.Next
-                ),
-                keyboardActions = KeyboardActions(
-                    onNext = {
-                        scope.launch {
-                            focusManager.moveFocus(FocusDirection.Down)
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    modifier = Modifier
+                        .weight(1f),
+                    value = train.distance ?: "",
+                    onValueChange = {
+                        onDistanceChange(it)
+                    },
+                    placeholder = {
+                        Text(text = "Плечо", style = dataTextStyle)
+                    },
+                    suffix = {
+                        if (!train.distance.isNullOrBlank()) {
+                            Text(text = "км", style = hintStyle)
                         }
-                    }
-                ),
-                textStyle = dataTextStyle,
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    focusedBorderColor = Color.Transparent,
-                    unfocusedBorderColor = Color.Transparent
-                ),
-                shape = Shapes.medium,
-            )
+                    },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = ImeAction.Next
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onNext = {
+                            scope.launch {
+                                focusManager.moveFocus(FocusDirection.Down)
+                            }
+                        }
+                    ),
+                    textStyle = dataTextStyle,
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent
+                    ),
+                    shape = Shapes.medium,
+                )
+
+                OutlinedTextField(
+                    modifier = Modifier
+                        .weight(1f),
+                    value = train.number ?: "",
+                    onValueChange = {
+                        onNumberChanged(it)
+                    },
+                    placeholder = {
+                        Text(text = "Номер", style = dataTextStyle)
+                    },
+                    prefix = {
+                        if (!train.number.isNullOrBlank()) {
+                            Text(text = "№ ", style = hintStyle)
+                        }
+                    },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = ImeAction.Next
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onNext = {
+                            scope.launch {
+                                focusManager.moveFocus(FocusDirection.Down)
+                            }
+                        }
+                    ),
+                    textStyle = dataTextStyle,
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent
+                    ),
+                    shape = Shapes.medium,
+                )
+            }
         }
         item {
             Row(
