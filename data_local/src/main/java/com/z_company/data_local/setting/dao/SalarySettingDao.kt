@@ -9,7 +9,7 @@ import com.z_company.data_local.setting.entity.SalarySetting
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-interface SalarySettingDao {
+internal interface SalarySettingDao {
     @Query("SELECT * FROM SalarySetting")
     fun getSalarySetting(): Flow<SalarySetting?>
 

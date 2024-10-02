@@ -1,10 +1,15 @@
 package com.z_company.route.viewmodel
 
+import android.util.Log
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.SalarySetting
+import com.z_company.domain.entities.SurchargeExtendedServicePhase
 import com.z_company.domain.use_cases.SalarySettingUseCase
+import com.z_company.domain.util.addOrReplace
 import com.z_company.domain.util.str
 import com.z_company.domain.util.toDoubleOrZero
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,11 +37,23 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                     tariffRate = ResultState.Success(value?.tariffRate.str()),
                     zonalSurcharge = ResultState.Success(value?.zonalSurcharge.str()),
                     surchargeQualificationClass = ResultState.Success(value?.surchargeQualificationClass.str()),
-                    surchargeExtendedServicePhase = ResultState.Success(value?.surchargeExtendedServicePhase.str()),
                     surchargeHeavyLongDistanceTrains = ResultState.Success(value?.surchargeHeavyLongDistanceTrains.str()),
                     otherSurchargeState = ResultState.Success(value?.otherSurcharge.str()),
                     ndfl = ResultState.Success(value?.ndfl.str()),
                     unionistsRetentionState = ResultState.Success(value?.unionistsRetention.str()),
+                    otherRetention = ResultState.Success(value?.otherRetention.str())
+                )
+            }
+        }
+
+    private var surchargeExtendedServicePhaseListState: SnapshotStateList<SurchargeExtendedServicePhase>
+        get() {
+            return _uiState.value.surchargeExtendedServicePhaseList
+        }
+        private set(value) {
+            _uiState.update {
+                it.copy(
+                    surchargeExtendedServicePhaseList = value
                 )
             }
         }
@@ -56,6 +73,13 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
             val state = uiState.value.settingSalaryState
             if (state is ResultState.Success) {
                 state.data?.let { salarySetting ->
+                    salarySetting.surchargeExtendedServicePhaseList = surchargeExtendedServicePhaseListState.map { servicePhase ->
+                        SurchargeExtendedServicePhase(
+                            id = servicePhase.id,
+                            distance = servicePhase.distance,
+                            percentSurcharge = servicePhase.percentSurcharge
+                        )
+                    }.toMutableList()
                     salarySettingUseCase.saveSalarySetting(salarySetting).collect { saveResult ->
                         _uiState.update {
                             it.copy(
@@ -77,6 +101,10 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                     } else {
                         SalarySetting()
                     }
+                    currentSalarySetting?.let {
+                        setSurchargeExtendedServicePhaseListState(it.surchargeExtendedServicePhaseList)
+                    }
+
                 }
             }
         }
@@ -123,14 +151,38 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun setSurchargeExtendedServicePhase(value: String) {
-        currentSalarySetting = currentSalarySetting?.copy(
-            surchargeExtendedServicePhase = value.toDoubleOrZero()
-        )
-        _uiState.update {
-            it.copy(
-                surchargeExtendedServicePhase = ResultState.Success(value),
-                isErrorInputSurchargeExtendedServicePhase = isErrorInputDouble(value)
+    fun addSurchargeExtendedServicePhase() {
+        surchargeExtendedServicePhaseListState
+            .add(SurchargeExtendedServicePhase())
+    }
+
+    fun setSurchargeExtendedServicePhasePercent(index: Int, percent: String) {
+        surchargeExtendedServicePhaseListState[index] =
+            surchargeExtendedServicePhaseListState[index].copy(
+                percentSurcharge = percent.toDoubleOrZero()
+            )
+    }
+
+    fun setSurchargeExtendedServicePhaseDistance(index: Int, distance: String) {
+        surchargeExtendedServicePhaseListState[index] =
+            surchargeExtendedServicePhaseListState[index].copy(
+                distance = distance.toIntOrNull() ?: 0
+            )
+    }
+
+    fun deleteSurchargeExtendedServicePhase(index: Int) {
+        surchargeExtendedServicePhaseListState.removeAt(index)
+    }
+
+    private fun setSurchargeExtendedServicePhaseListState(servicePhases: List<SurchargeExtendedServicePhase>) {
+        surchargeExtendedServicePhaseListState.clear()
+        servicePhases.forEach { servicePhase ->
+            surchargeExtendedServicePhaseListState.addOrReplace(
+                SurchargeExtendedServicePhase(
+                    id = servicePhase.id,
+                    distance = servicePhase.distance,
+                    percentSurcharge = servicePhase.percentSurcharge
+                )
             )
         }
     }

@@ -1,17 +1,22 @@
 package com.z_company.route.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -20,14 +25,20 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -37,12 +48,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ResultState
-import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.AsyncDataValue
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
-import com.z_company.domain.entities.SalarySetting
+import com.z_company.domain.entities.SurchargeExtendedServicePhase
 import com.z_company.domain.util.str
 import kotlinx.coroutines.launch
 
@@ -63,9 +73,10 @@ fun SettingSalaryScreen(
     surchargeQualificationClassValueState: ResultState<String>,
     setSurchargeQualificationClass: (String) -> Unit,
     isErrorInputSurchargeQualificationClass: Boolean,
-    surchargeExtendedServicePhaseValueState: ResultState<String>,
-    setSurchargeExtendedServicePhase: (String) -> Unit,
-    isErrorInputSurchargeExtendedServicePhase: Boolean,
+    surchargeExtendedServicePhaseValueState: SnapshotStateList<SurchargeExtendedServicePhase>,
+    addServicePhase: () -> Unit,
+    setSurchargeExtendedServicePhaseDistance: (Int, String) -> Unit,
+    setSurchargeExtendedServicePhasePercent: (Int, String) -> Unit,
     surchargeHeavyLongDistanceTrainsValueState: ResultState<String>,
     setSurchargeHeavyLongDistanceTrains: (String) -> Unit,
     isErrorInputSurchargeHeavyLongDistanceTrains: Boolean,
@@ -77,7 +88,8 @@ fun SettingSalaryScreen(
     isErrorInputUnionistsRetention: Boolean,
     otherRetentionValueState: ResultState<String>,
     setOtherRetention: (String) -> Unit,
-    isErrorInputOtherRetention: Boolean
+    isErrorInputOtherRetention: Boolean,
+    onServicePhaseDismissed: (Int) -> Unit
 ) {
     val styleDataLight = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
     val titleStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Medium)
@@ -89,6 +101,8 @@ fun SettingSalaryScreen(
         )
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val paddingLarge = 12.dp
+    val paddingSmall = 6.dp
 
     if (saveSettingState is ResultState.Success) {
         LaunchedEffect(Unit) {
@@ -155,12 +169,11 @@ fun SettingSalaryScreen(
             modifier = Modifier
                 .padding(paddingValue)
                 .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(16.dp)
         ) {
             item {
                 Text(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(top = paddingLarge),
                     text = "Начисления",
                     overflow = TextOverflow.Visible,
                     style = styleDataLight,
@@ -168,7 +181,10 @@ fun SettingSalaryScreen(
                 )
             }
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(top = paddingLarge),
+                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
+                ) {
                     Text(
                         "Тарифная ставка, руб.",
                         overflow = TextOverflow.Visible,
@@ -206,7 +222,10 @@ fun SettingSalaryScreen(
                 }
             }
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(top = paddingLarge),
+                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
+                ) {
                     Text(
                         "Зональная надбавка, %",
                         overflow = TextOverflow.Visible,
@@ -244,7 +263,10 @@ fun SettingSalaryScreen(
                 }
             }
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(top = paddingLarge),
+                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
+                ) {
                     Text(
                         "Доплаты за класс и права, %",
                         overflow = TextOverflow.Visible,
@@ -282,45 +304,10 @@ fun SettingSalaryScreen(
                 }
             }
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        "Доплата за удлиненное плечо, %",
-                        overflow = TextOverflow.Visible,
-                        style = styleDataMedium
-                    )
-                    AsyncDataValue(resultState = surchargeExtendedServicePhaseValueState) { surchargeExtendedServicePhaseValue ->
-                        surchargeExtendedServicePhaseValue?.let {
-                            OutlinedTextField(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                value = surchargeExtendedServicePhaseValue,
-                                onValueChange = { value ->
-                                    setSurchargeExtendedServicePhase(value)
-                                },
-                                isError = isErrorInputSurchargeExtendedServicePhase,
-                                supportingText = {
-                                    if (isErrorInputSurchargeExtendedServicePhase) {
-                                        Text(text = "Некорректные данные")
-                                    }
-                                },
-                                singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent
-                                ),
-                                shape = Shapes.medium,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Decimal
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(top = paddingLarge),
+                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
+                ) {
                     Text(
                         "Доплата за тяжелые и длинные поезда, %",
                         overflow = TextOverflow.Visible,
@@ -359,17 +346,140 @@ fun SettingSalaryScreen(
             }
 
             item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Доплата за удлиненное плечо",
+                        overflow = TextOverflow.Visible,
+                        style = styleDataMedium
+                    )
+                    TextButton(
+                        onClick = addServicePhase) {
+                        Text(
+                            text = "Добавить",
+                            style = styleDataMedium.copy(color = MaterialTheme.colorScheme.tertiary)
+                        )
+                    }
+                }
+            }
+
+            itemsIndexed(
+                items = surchargeExtendedServicePhaseValueState,
+                key = { _, item -> item.id }
+            ) { index, item ->
+                val dismissState = rememberSwipeToDismissBoxState()
+
+                if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
+                    onServicePhaseDismissed(index)
+                }
+
+                SwipeToDismissBox(
+                    state = dismissState,
+                    enableDismissFromStartToEnd = false,
+                    backgroundContent = {
+                        val color by animateColorAsState(
+                            when (dismissState.targetValue) {
+                                SwipeToDismissBoxValue.Settled -> Color.Transparent
+                                SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.error
+                                else -> Color.Transparent
+                            }, label = ""
+                        )
+                        Box(
+                            Modifier
+                                .fillMaxSize()
+                                .padding(top = 6.dp)
+                                .background(color = color, shape = Shapes.medium),
+                            contentAlignment = Alignment.CenterEnd
+                        ) {
+                            Icon(
+                                modifier = Modifier.padding(end = 16.dp),
+                                imageVector = Icons.Outlined.Delete,
+                                tint = MaterialTheme.colorScheme.background,
+                                contentDescription = null
+                            )
+                        }
+                    }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .padding(top = 6.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.background,
+                                shape = Shapes.medium
+                            )
+                            .fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            modifier = Modifier.weight(1f),
+                            value = item.distance.toString(),
+                            onValueChange = { value ->
+                                setSurchargeExtendedServicePhaseDistance(index, value)
+                            },
+                            singleLine = true,
+                            suffix = {
+                                Text(
+                                    text = "км",
+                                    style = styleDataMedium
+                                )
+                            },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                focusedBorderColor = Color.Transparent,
+                                unfocusedBorderColor = Color.Transparent
+                            ),
+                            shape = Shapes.medium,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal
+                            )
+                        )
+                        OutlinedTextField(
+                            modifier = Modifier.weight(1f),
+                            value = item.percentSurcharge.str(),
+                            onValueChange = { value ->
+                                setSurchargeExtendedServicePhasePercent(index, value)
+                            },
+                            singleLine = true,
+                            suffix = {
+                                Text(
+                                    text = "%",
+                                    style = styleDataMedium
+                                )
+                            },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                focusedBorderColor = Color.Transparent,
+                                unfocusedBorderColor = Color.Transparent
+                            ),
+                            shape = Shapes.medium,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal
+                            )
+                        )
+                    }
+                }
+            }
+
+            item {
                 Text(
                     "Удержания",
                     overflow = TextOverflow.Visible,
                     style = styleDataLight,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(top = paddingLarge),
                     textAlign = TextAlign.End
                 )
             }
 
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(top = paddingLarge),
+                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
+                ) {
                     Text(
                         "Подоходный налог, %",
                         overflow = TextOverflow.Visible,
@@ -408,7 +518,10 @@ fun SettingSalaryScreen(
             }
 
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(top = paddingLarge),
+                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
+                ) {
                     Text(
                         "Профсоюз, %",
                         overflow = TextOverflow.Visible,
@@ -447,7 +560,10 @@ fun SettingSalaryScreen(
             }
 
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(top = paddingLarge),
+                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
+                ) {
                     Text(
                         "Прочие удержания, %",
                         overflow = TextOverflow.Visible,

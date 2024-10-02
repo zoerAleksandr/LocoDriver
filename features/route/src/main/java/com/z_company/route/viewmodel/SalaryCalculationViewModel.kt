@@ -88,7 +88,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                         val overTime =
                             if (totalWorkTime > personalNormaHoursInLong) totalWorkTime - personalNormaHoursInLong else 0L
                         val routeCount = routeList.size
-                        val surchargeAtOvertime05Hour = if (overTime / routeCount < 7_200_000) {
+                        val surchargeAtOvertime05Hour = if (routeCount != 0 && overTime / routeCount < 7_200_000) {
                             overTime
                         } else {
                             routeCount.toLong() * 7_200_000L
@@ -161,7 +161,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
 
             val retentionNdfl = totalChargedMoney?.times(0.13)
             val otherRetentionPercent = setting.otherRetention
-            val otherRetention = totalChargedMoney?.times(otherRetentionPercent)
+            val otherRetention = totalChargedMoney?.times(otherRetentionPercent / 100)
             val unionistsRetention = totalChargedMoney?.times(setting.unionistsRetention / 100)
             val totalRetention = retentionNdfl + unionistsRetention + otherRetention
 

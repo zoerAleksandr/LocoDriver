@@ -30,10 +30,11 @@ fun SettingSalaryDestination(
         surchargeQualificationClassValueState = uiState.surchargeQualificationClass,
         setSurchargeQualificationClass = viewModel::setSurchargeQualificationClass,
         isErrorInputSurchargeQualificationClass = uiState.isErrorInputSurchargeQualificationClass,
-        surchargeExtendedServicePhaseValueState = uiState.surchargeExtendedServicePhase,
-        setSurchargeExtendedServicePhase = viewModel::setSurchargeExtendedServicePhase,
-        isErrorInputSurchargeExtendedServicePhase = uiState.isErrorInputSurchargeExtendedServicePhase,
+        surchargeExtendedServicePhaseValueState = uiState.surchargeExtendedServicePhaseList,
+        setSurchargeExtendedServicePhaseDistance = viewModel::setSurchargeExtendedServicePhaseDistance,
+        setSurchargeExtendedServicePhasePercent = viewModel::setSurchargeExtendedServicePhasePercent,
         surchargeHeavyLongDistanceTrainsValueState = uiState.surchargeHeavyLongDistanceTrains,
+        addServicePhase = viewModel::addSurchargeExtendedServicePhase,
         setSurchargeHeavyLongDistanceTrains = viewModel::setSurchargeHeavyLongDistanceTrains,
         isErrorInputSurchargeHeavyLongDistanceTrains = uiState.isErrorInputSurchargeHeavyLongDistanceTrains,
         ndflValueState = uiState.ndfl,
@@ -45,5 +46,6 @@ fun SettingSalaryDestination(
         otherRetentionValueState = uiState.otherRetention,
         setOtherRetention = viewModel::setOtherRetention,
         isErrorInputOtherRetention = uiState.isErrorInputOtherRetention,
+        onServicePhaseDismissed = viewModel::deleteSurchargeExtendedServicePhase
     )
 }

@@ -1,7 +1,10 @@
 package com.z_company.route.viewmodel
 
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.SalarySetting
+import com.z_company.domain.entities.SurchargeExtendedServicePhase
 
 data class SettingSalaryUIState(
     val saveSettingState: ResultState<Unit>? = null,
@@ -13,7 +16,7 @@ data class SettingSalaryUIState(
     val isErrorInputZonalSurcharge: Boolean = false,
     val surchargeQualificationClass: ResultState<String> = ResultState.Loading,
     val isErrorInputSurchargeQualificationClass: Boolean = false,
-    val surchargeExtendedServicePhase: ResultState<String> = ResultState.Loading,
+    val surchargeExtendedServicePhaseList: SnapshotStateList<SurchargeExtendedServicePhase> = mutableStateListOf(SurchargeExtendedServicePhase()),
     val isErrorInputSurchargeExtendedServicePhase: Boolean = false,
     val surchargeHeavyLongDistanceTrains: ResultState<String> = ResultState.Loading,
     val isErrorInputSurchargeHeavyLongDistanceTrains: Boolean = false,
