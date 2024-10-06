@@ -18,6 +18,6 @@ data class SalarySetting(
 
 data class SurchargeExtendedServicePhase(
     val id: String = UUID.randomUUID().toString(),
-    var distance: Int = 0,
-    var percentSurcharge: Double = 0.0
+    var distance: String = "",
+    var percentSurcharge: String = ""
 )

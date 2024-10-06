@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Settings
@@ -742,8 +743,10 @@ fun SalaryCalculationScreen(
                     }
                 }
             }
-            item {
-                uiState.surchargeExtendedServicePhaseMoney?.let { value ->
+            itemsIndexed(
+                items = uiState.surchargeExtendedServicePhaseMoney,
+            ) { index, item ->
+                item?.let { value ->
                     if (value != 0.0) {
                         Row(
                             modifier = Modifier
@@ -761,23 +764,24 @@ fun SalaryCalculationScreen(
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
                                 textAlign = TextAlign.Center,
-                                text = ConverterLongToTime.getTimeInHourDecimal(uiState.surchargeExtendedServicePhaseHour)
+                                text = ConverterLongToTime.getTimeInHourDecimal(uiState.surchargeExtendedServicePhaseHour[index])
                             )
                             Text(
                                 modifier = Modifier.weight(widthColumn3),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
                                 textAlign = TextAlign.Center,
-                                text = uiState.surchargeExtendedServicePhasePercent.str()
+                                text = uiState.surchargeExtendedServicePhasePercent[index] ?: ""
                             )
                             Text(
                                 modifier = Modifier.weight(widthColumn4),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
                                 textAlign = TextAlign.End,
-                                text = uiState.surchargeExtendedServicePhaseMoney.str2decimalSign()
+                                text = uiState.surchargeExtendedServicePhaseMoney[index].str2decimalSign()
                             )
                         }
+
                     }
                 }
             }

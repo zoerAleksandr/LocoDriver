@@ -415,7 +415,7 @@ fun SettingSalaryScreen(
                     ) {
                         OutlinedTextField(
                             modifier = Modifier.weight(1f),
-                            value = item.distance.toString(),
+                            value = item.distance,
                             onValueChange = { value ->
                                 setSurchargeExtendedServicePhaseDistance(index, value)
                             },
@@ -439,7 +439,7 @@ fun SettingSalaryScreen(
                         )
                         OutlinedTextField(
                             modifier = Modifier.weight(1f),
-                            value = item.percentSurcharge.str(),
+                            value = item.percentSurcharge,
                             onValueChange = { value ->
                                 setSurchargeExtendedServicePhasePercent(index, value)
                             },

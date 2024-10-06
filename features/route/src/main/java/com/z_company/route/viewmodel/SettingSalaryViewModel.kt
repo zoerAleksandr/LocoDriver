@@ -159,14 +159,14 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
     fun setSurchargeExtendedServicePhasePercent(index: Int, percent: String) {
         surchargeExtendedServicePhaseListState[index] =
             surchargeExtendedServicePhaseListState[index].copy(
-                percentSurcharge = percent.toDoubleOrZero()
+                percentSurcharge = percent
             )
     }
 
     fun setSurchargeExtendedServicePhaseDistance(index: Int, distance: String) {
         surchargeExtendedServicePhaseListState[index] =
             surchargeExtendedServicePhaseListState[index].copy(
-                distance = distance.toIntOrNull() ?: 0
+                distance = distance
             )
     }
 

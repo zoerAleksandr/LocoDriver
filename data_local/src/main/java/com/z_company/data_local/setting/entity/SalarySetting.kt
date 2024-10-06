@@ -26,6 +26,6 @@ internal data class SalarySetting(
 internal data class SurchargeExtendedServicePhase(
     @PrimaryKey
     val id: String,
-    val distance: Int = 0,
-    val percentSurcharge: Double = 0.0
+    val distance: String = "",
+    val percentSurcharge: String = ""
 )

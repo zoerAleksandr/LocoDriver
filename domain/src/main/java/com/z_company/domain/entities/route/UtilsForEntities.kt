@@ -1,6 +1,5 @@
 package com.z_company.domain.entities.route
 
-import com.z_company.domain.entities.Day
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.TimePeriod
@@ -424,68 +423,17 @@ object UtilsForEntities {
         }
     }
 
-//    fun MonthOfYear.getOvertime(routes: List<Route>): Long {
-//        var overtime = 0L
-//        val overtimeDays = mutableListOf<Pair<Day, Long>>()
-//        val flawDays = mutableListOf<Pair<Day, Long>>()
-//
-//        this.days.forEach { day ->
-//            if (day.tag == TagForDay.WORKING_DAY || day.tag == TagForDay.SHORTENED_DAY) {
-//                val startDayCalendar = Calendar.getInstance().also {
-//                    it.set(Calendar.YEAR, this.year)
-//                    it.set(Calendar.MONTH, this.month)
-//                    it.set(Calendar.DAY_OF_MONTH, day.dayOfMonth)
-//                    it.set(Calendar.HOUR_OF_DAY, 0)
-//                    it.set(Calendar.MINUTE, 0)
-//                    it.set(Calendar.SECOND, 0)
-//                    it.set(Calendar.MILLISECOND, 0)
-//                }
-//                val endDayCalendar = Calendar.getInstance().also {
-//                    it.set(Calendar.YEAR, this.year)
-//                    it.set(Calendar.MONTH, this.month)
-//                    it.set(Calendar.DAY_OF_MONTH, it.get(Calendar.DAY_OF_MONTH) + 1)
-//                    it.set(Calendar.HOUR_OF_DAY, 0)
-//                    it.set(Calendar.MINUTE, 0)
-//                    it.set(Calendar.SECOND, 0)
-//                    it.set(Calendar.MILLISECOND, 0)
-//                }
-//                val norma = when (day.tag) {
-//                    TagForDay.WORKING_DAY -> 8
-//                    TagForDay.SHORTENED_DAY -> 7
-//                    else -> 0
-//                }
-////                println("ZZZ day ${startDayCalendar.get(Calendar.DAY_OF_MONTH)}")
-////                println("ZZZ norma $norma")
-//                val normaInLong = norma * 3_600_000
-////                println("ZZZ normaInLong $normaInLong")
-//
-//                routes.forEach { route ->
-//                    val timeInDay = route.timeInLongInPeriod(
-//                        startDate = startDayCalendar.timeInMillis,
-//                        endDate = endDayCalendar.timeInMillis
-//                    )
-//                    timeInDay?.let {
-//                        if (timeInDay >= 0L) {
-////                            println("ZZZ timeInDay $timeInDay")
-//                            val routeOvertime = timeInDay - normaInLong
-////                            println("ZZZ routeOvertime $routeOvertime")
-//                            if (routeOvertime > 0) {
-//                                overtimeDays.add(Pair(day, routeOvertime))
-//                            } else {
-//                                flawDays.add(Pair(day, routeOvertime))
-//                            }
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//        overtimeDays.forEach { day ->
-//            println("ZZZ overtimeDays $day")
-//        }
-//        flawDays.forEach { day ->
-//            println("ZZZ flawDays $day")
-//        }
-//
-//        return overtime
-//    }
+    fun Train.getTimeInServicePhase(listDistance: List<Int>, index: Int): Long {
+        val startInterval = listDistance[index]
+        val endInterval = if (index + 1 < listDistance.size) listDistance[index + 1] else Int.MAX_VALUE
+        val searchIntervalDistance = startInterval until endInterval
+        this.distance?.toIntOrNull()?.let { currentDistance ->
+            if (searchIntervalDistance.contains(currentDistance)) {
+                val timeStartFollowing: Long? = this.stations.first().timeDeparture
+                val timeEndFollowing: Long? = this.stations.last().timeArrival
+                return (timeEndFollowing - timeStartFollowing) ?: 0L
+            }
+        }
+        return 0L
+    }
 }

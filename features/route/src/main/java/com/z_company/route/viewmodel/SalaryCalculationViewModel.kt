@@ -10,6 +10,7 @@ import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.UtilForMonthOfYear.getStandardNormaHours
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
+import com.z_company.domain.entities.route.UtilsForEntities.getTimeInServicePhase
 import com.z_company.domain.entities.route.UtilsForEntities.getTotalWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.timeFollowingSingleLocomotive
@@ -25,6 +26,7 @@ import org.koin.core.component.inject
 import java.util.Calendar
 import com.z_company.domain.util.minus
 import com.z_company.domain.util.plus
+import com.z_company.domain.util.toDoubleOrZero
 
 class SalaryCalculationViewModel : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
@@ -88,16 +90,44 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                         val overTime =
                             if (totalWorkTime > personalNormaHoursInLong) totalWorkTime - personalNormaHoursInLong else 0L
                         val routeCount = routeList.size
-                        val surchargeAtOvertime05Hour = if (routeCount != 0 && overTime / routeCount < 7_200_000) {
-                            overTime
-                        } else {
-                            routeCount.toLong() * 7_200_000L
-                        }
+                        val surchargeAtOvertime05Hour =
+                            if (routeCount != 0 && overTime / routeCount < 7_200_000) {
+                                overTime
+                            } else {
+                                routeCount.toLong() * 7_200_000L
+                            }
                         val surchargeAtOvertimeHour =
                             if (overTime > surchargeAtOvertime05Hour) overTime - surchargeAtOvertime05Hour else 0L
                         val paymentNightTimeHours = routeList.getNightTime(settings)
                         val normaHours = currentMonthOfYear.getStandardNormaHours()
 
+                        salarySetting?.let { salarySetting ->
+                            val phaseList = salarySetting.surchargeExtendedServicePhaseList.sortedBy {
+                                it.distance
+                            }
+                            val timeList: MutableList<Long> = mutableListOf()
+                            val percentList = phaseList.map {
+                                it.percentSurcharge
+                            }
+                            val moneyList : MutableList<Double> = mutableListOf()
+                            phaseList.forEachIndexed { index, _ ->
+                                var totalTimeInServicePhase = 0L
+                                routeList.forEach { route ->
+                                    route.trains.forEach { train ->
+                                        totalTimeInServicePhase += train.getTimeInServicePhase(phaseList.map { it.distance.toIntOrNull() ?: 0 }, index)
+                                    }
+                                }
+                                timeList.add(totalTimeInServicePhase)
+                                moneyList.add(totalTimeInServicePhase.times(salarySetting.tariffRate * (percentList[index].toDoubleOrZero() / 100)))
+                            }
+                            _uiState.update {
+                                it.copy(
+                                    surchargeExtendedServicePhaseHour = timeList,
+                                    surchargeExtendedServicePhasePercent = percentList,
+                                    surchargeExtendedServicePhaseMoney = moneyList
+                                )
+                            }
+                        }
                         _uiState.update {
                             it.copy(
                                 month = currentMonthOfYear.month.getMonthFullText(),
