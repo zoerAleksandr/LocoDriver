@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -92,7 +93,8 @@ fun FormTrainScreen(
     stationListState: SnapshotStateList<StationFormState>?,
     exitScreen: () -> Unit,
     changeShowConfirmExitDialog: (Boolean) -> Unit,
-    exitWithoutSave: () -> Unit
+    exitWithoutSave: () -> Unit,
+    onClickHeavyLongDistance: (Boolean) -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -206,7 +208,8 @@ fun FormTrainScreen(
                             changeShowConfirmExitDialog = changeShowConfirmExitDialog,
                             onSaveClick = onSaveClick,
                             exitWithoutSave = exitWithoutSave,
-                            showConfirmExitDialog = formUiState.confirmExitDialogShow
+                            showConfirmExitDialog = formUiState.confirmExitDialogShow,
+                            onClickHeavyLongDistance = onClickHeavyLongDistance
                         )
                     }
 
@@ -234,6 +237,7 @@ fun TrainFormScreenContent(
     changeShowConfirmExitDialog: (Boolean) -> Unit,
     exitWithoutSave: () -> Unit,
     onSaveClick: () -> Unit,
+    onClickHeavyLongDistance: (Boolean) -> Unit
 ) {
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
@@ -472,6 +476,18 @@ fun TrainFormScreenContent(
                     ),
                     shape = Shapes.medium,
                 )
+            }
+        }
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Checkbox(checked = train.isHeavyLongDistance, onCheckedChange = onClickHeavyLongDistance)
+                Text(text = "Длинносоставный тяжеловесный", style = hintStyle)
             }
         }
         stationListState?.let { stationList ->

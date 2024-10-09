@@ -11,6 +11,7 @@ import com.z_company.data_local.route.entity.Photo
 import com.z_company.data_local.route.entity.Train
 
 /** version 2 add field distance in Train */
+/** version 3 add field isHeavyLongDistance in Train */
 @Database(
     entities = [
         BasicData::class,
@@ -19,10 +20,11 @@ import com.z_company.data_local.route.entity.Train
         Passenger::class,
         Photo::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
     autoMigrations = [
-        AutoMigration (from = 1, to = 2)
+        AutoMigration(from = 1, to = 2),
+        AutoMigration(from = 2, to = 3)
     ]
 )
 internal abstract class RouteDB : RoomDatabase() {

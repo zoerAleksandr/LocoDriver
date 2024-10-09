@@ -46,6 +46,7 @@ fun FormTrainDestination(
         stationListState = formUiState.stationsListState,
         exitScreen = router::back,
         changeShowConfirmExitDialog = viewModel::changeShowConfirmDialog,
-        exitWithoutSave = viewModel::exitWithoutSaving
+        exitWithoutSave = viewModel::exitWithoutSaving,
+        onClickHeavyLongDistance = viewModel::setIsHeavyLongDistance
     )
 }

@@ -194,6 +194,13 @@ class TrainFormViewModel(
         changesHave()
     }
 
+    fun setIsHeavyLongDistance(value: Boolean) {
+        currentTrain = currentTrain?.copy(
+            isHeavyLongDistance = value
+        )
+        changesHave()
+    }
+
     fun setWeight(weight: String) {
         currentTrain = currentTrain?.copy(
             weight = weight.ifBlank { null }

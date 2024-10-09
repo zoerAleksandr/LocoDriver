@@ -13,6 +13,7 @@ internal object TrainConverter {
         weight = train.weight,
         axle = train.axle,
         conditionalLength = train.conditionalLength,
+        isHeavyLongDistance = train.isHeavyLongDistance,
         stations = StationConverter.fromDataList(train.stations)
     )
 
@@ -25,6 +26,7 @@ internal object TrainConverter {
         weight = entity.weight,
         axle = entity.axle,
         conditionalLength = entity.conditionalLength,
+        isHeavyLongDistance = entity.isHeavyLongDistance,
         stations = StationConverter.toDataList(entity.stations),
     )
 

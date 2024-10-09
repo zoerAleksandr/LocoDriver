@@ -32,6 +32,8 @@ internal data class Train(
     var weight: String?,
     var axle: String?,
     var conditionalLength: String?,
+    @ColumnInfo(defaultValue = "0")
+    var isHeavyLongDistance: Boolean = false,
     var stations: List<Station> = listOf()
 )
 

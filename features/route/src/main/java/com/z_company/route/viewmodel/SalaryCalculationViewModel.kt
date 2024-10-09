@@ -10,6 +10,7 @@ import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.UtilForMonthOfYear.getStandardNormaHours
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
+import com.z_company.domain.entities.route.UtilsForEntities.getTimeInHeavyLongDistance
 import com.z_company.domain.entities.route.UtilsForEntities.getTimeInServicePhase
 import com.z_company.domain.entities.route.UtilsForEntities.getTotalWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
@@ -101,20 +102,25 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                         val paymentNightTimeHours = routeList.getNightTime(settings)
                         val normaHours = currentMonthOfYear.getStandardNormaHours()
 
+                        // calculation surcharge Extended Service Phase
                         salarySetting?.let { salarySetting ->
-                            val phaseList = salarySetting.surchargeExtendedServicePhaseList.sortedBy {
-                                it.distance
-                            }
+                            val phaseList =
+                                salarySetting.surchargeExtendedServicePhaseList.sortedBy {
+                                    it.distance
+                                }
                             val timeList: MutableList<Long> = mutableListOf()
                             val percentList = phaseList.map {
                                 it.percentSurcharge
                             }
-                            val moneyList : MutableList<Double> = mutableListOf()
+                            val moneyList: MutableList<Double> = mutableListOf()
                             phaseList.forEachIndexed { index, _ ->
                                 var totalTimeInServicePhase = 0L
                                 routeList.forEach { route ->
                                     route.trains.forEach { train ->
-                                        totalTimeInServicePhase += train.getTimeInServicePhase(phaseList.map { it.distance.toIntOrNull() ?: 0 }, index)
+                                        totalTimeInServicePhase += train.getTimeInServicePhase(
+                                            phaseList.map { it.distance.toIntOrNull() ?: 0 },
+                                            index
+                                        )
                                     }
                                 }
                                 timeList.add(totalTimeInServicePhase)
@@ -128,6 +134,16 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                                 )
                             }
                         }
+
+                        // calculation surcharge Heavy Long Distance
+                        var totalTimeHeavyLongDistance = 0L
+                        routeList.forEach { route ->
+                            route.trains.forEach { train ->
+                                totalTimeHeavyLongDistance += train.getTimeInHeavyLongDistance()
+                            }
+                        }
+
+
                         _uiState.update {
                             it.copy(
                                 month = currentMonthOfYear.month.getMonthFullText(),
@@ -141,7 +157,8 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                                 paymentHolidayHours = paymentHolidayHours,
                                 surchargeHolidayHours = paymentHolidayHours,
                                 paymentNightTimeHours = paymentNightTimeHours,
-                                normaHours = normaHours
+                                normaHours = normaHours,
+                                surchargeHeavyLongDistanceTrainsHour = totalTimeHeavyLongDistance
                             )
                         }
                         calculationMoney()
@@ -182,7 +199,11 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
             val surchargeQualificationClassPercent = setting.surchargeQualificationClass
             val surchargeQualificationClassMoney =
                 (totalWorkTime - paymentAtPassengerHours)?.times(setting.tariffRate * (surchargeQualificationClassPercent / 100))
-
+            val surchargeHeavyLongDistanceTrainsHour =
+                uiState.value.surchargeHeavyLongDistanceTrainsHour
+            val surchargeHeavyLongDistanceTrainsPercent = setting.surchargeHeavyLongDistanceTrains
+            val surchargeHeavyLongDistanceTrainsMoney =
+                surchargeHeavyLongDistanceTrainsHour?.times(setting.tariffRate * (surchargeHeavyLongDistanceTrainsPercent / 100))
             val totalChargedMoney =
                 paymentAtTariffMoney + paymentAtPassengerMoney + paymentAtSingleLocomotiveMoney + paymentAtOvertimeMoney +
                         surchargeAtOvertime05Money + surchargeAtOvertimeMoney + paymentHolidayMoney + surchargeHolidayMoney +
@@ -214,6 +235,8 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                     paymentNightTimeMoney = paymentNightTimeMoney,
                     surchargeQualificationClassPercent = surchargeQualificationClassPercent,
                     surchargeQualificationClassMoney = surchargeQualificationClassMoney,
+                    surchargeHeavyLongDistanceTrainsPercent = surchargeHeavyLongDistanceTrainsPercent,
+                    surchargeHeavyLongDistanceTrainsMoney = surchargeHeavyLongDistanceTrainsMoney,
                     totalChargedMoney = totalChargedMoney,
                     retentionNdfl = retentionNdfl,
                     otherRetention = otherRetention,

@@ -5,6 +5,7 @@ import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.TimePeriod
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getTimeInCurrentMonth
+import com.z_company.domain.entities.route.UtilsForEntities.getTimeInServicePhase
 import com.z_company.domain.util.CalculateNightTime
 import com.z_company.domain.util.div
 import com.z_company.domain.util.lessThan
@@ -425,7 +426,8 @@ object UtilsForEntities {
 
     fun Train.getTimeInServicePhase(listDistance: List<Int>, index: Int): Long {
         val startInterval = listDistance[index]
-        val endInterval = if (index + 1 < listDistance.size) listDistance[index + 1] else Int.MAX_VALUE
+        val endInterval =
+            if (index + 1 < listDistance.size) listDistance[index + 1] else Int.MAX_VALUE
         val searchIntervalDistance = startInterval until endInterval
         this.distance?.toIntOrNull()?.let { currentDistance ->
             if (searchIntervalDistance.contains(currentDistance)) {
@@ -435,5 +437,15 @@ object UtilsForEntities {
             }
         }
         return 0L
+    }
+
+    fun Train.getTimeInHeavyLongDistance(): Long {
+        return if (this.isHeavyLongDistance) {
+            val timeStartFollowing: Long? = this.stations.first().timeDeparture
+            val timeEndFollowing: Long? = this.stations.last().timeArrival
+            (timeEndFollowing - timeStartFollowing) ?: 0L
+        } else {
+            0L
+        }
     }
 }
