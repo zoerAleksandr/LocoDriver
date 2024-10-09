@@ -1,7 +1,6 @@
 package com.z_company.route.viewmodel
 
 import android.content.Context
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.setValue
@@ -43,7 +42,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import ru.rustore.sdk.billingclient.RuStoreBillingClient
 import ru.rustore.sdk.billingclient.utils.pub.checkPurchasesAvailability
-import java.util.Calendar
 
 class HomeViewModel : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
@@ -161,43 +159,46 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
         val currentTime = getInstance().timeInMillis
         val endTimeSubscription = sharedPreferenceStorage.getSubscriptionExpiration()
-        val listState = uiState.value.routeListState
-
-        if (listState is ResultState.Success) {
-            val routesSize = listState.data.size
-            if (endTimeSubscription < currentTime && endTimeSubscription != 0L) {
-                _alertBeforePurchasesEvent.tryEmit(
-                    AlertBeforePurchasesEvent.ShowDialogNeedSubscribe
-                )
-                _uiState.update {
-                    it.copy(
-                        isLoadingStateAddButton = false
+        viewModelScope.launch {
+            var routesSize: Int
+            withContext(Dispatchers.IO) {
+                routesSize = routeUseCase.listRouteWithDeleting().size
+            }
+            withContext(Dispatchers.Main) {
+                if (endTimeSubscription < currentTime && endTimeSubscription != 0L) {
+                    _alertBeforePurchasesEvent.tryEmit(
+                        AlertBeforePurchasesEvent.ShowDialogNeedSubscribe
                     )
-                }
-            } else if (routesSize >= 10 && endTimeSubscription == 0L) {
-                _alertBeforePurchasesEvent.tryEmit(
-                    AlertBeforePurchasesEvent.ShowDialogNeedSubscribe
-                )
-                _uiState.update {
-                    it.copy(
-                        isLoadingStateAddButton = false
+                    _uiState.update {
+                        it.copy(
+                            isLoadingStateAddButton = false
+                        )
+                    }
+                } else if (routesSize >= 10 && endTimeSubscription == 0L) {
+                    _alertBeforePurchasesEvent.tryEmit(
+                        AlertBeforePurchasesEvent.ShowDialogNeedSubscribe
                     )
-                }
-            } else if (routesSize < 10 && endTimeSubscription == 0L) {
-                _alertBeforePurchasesEvent.tryEmit(
-                    AlertBeforePurchasesEvent.ShowDialogAlertSubscribe
-                )
-                _uiState.update {
-                    it.copy(
-                        isLoadingStateAddButton = false
+                    _uiState.update {
+                        it.copy(
+                            isLoadingStateAddButton = false
+                        )
+                    }
+                } else if (routesSize < 10 && endTimeSubscription == 0L) {
+                    _alertBeforePurchasesEvent.tryEmit(
+                        AlertBeforePurchasesEvent.ShowDialogAlertSubscribe
                     )
-                }
-            } else {
-                _uiState.update {
-                    it.copy(
-                        showNewRouteScreen = true,
-                        isLoadingStateAddButton = false
-                    )
+                    _uiState.update {
+                        it.copy(
+                            isLoadingStateAddButton = false
+                        )
+                    }
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            showNewRouteScreen = true,
+                            isLoadingStateAddButton = false
+                        )
+                    }
                 }
             }
         }
@@ -249,10 +250,6 @@ class HomeViewModel : ViewModel(), KoinComponent {
                             settingState = result
                         )
                     }
-//                    if (result is ResultState.Success) {
-//                        currentMonthOfYear = result.data?.selectMonthOfYear
-//                        loadRoutes()
-//                    }
                 }
             }
     }
@@ -381,9 +378,6 @@ class HomeViewModel : ViewModel(), KoinComponent {
         setCalendarJob?.cancel()
         setCalendarJob = calendarUseCase.loadMonthOfYearList().onEach { result ->
             if (result is ResultState.Success) {
-                result.data.forEach {
-                    Log.d("ZZZ", "in HomeViewModel $it")
-                }
                 result.data.find {
                     it.year == yearAndMonth.first && it.month == yearAndMonth.second
                 }?.let { selectMonthOfYear ->

@@ -22,7 +22,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
@@ -145,6 +144,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
         }
     }
 
+    // при вызове метода происходит утечка памяти
     private fun syncRuStoreSubscription() {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {

@@ -655,7 +655,16 @@ fun HomeScreen(
                         normaHours = monthOfYear.getPersonalNormaHours(),
                     )
                     IconButton(onClick = { onMoreInfoClick(monthOfYear.id) }) {
-                        Icon(imageVector = Icons.Outlined.Info, tint = MaterialTheme.colorScheme.primary, contentDescription = null)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.rub),
+                                tint = MaterialTheme.colorScheme.primary,
+                                contentDescription = null
+                            )
+                        }
                     }
                 }
             }

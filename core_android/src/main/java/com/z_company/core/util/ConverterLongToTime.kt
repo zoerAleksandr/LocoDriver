@@ -34,6 +34,15 @@ object ConverterLongToTime {
         }
     }
 
+    fun getTimeInHourDecimal(long: Long?): String {
+        return if (long == null) {
+            "0,00"
+        } else {
+            val hour = long / 3_600_000.toDouble()
+            String.format("%.2f", hour)
+        }
+    }
+
     fun getDateAndTimeStringFormat(long: Long?): String {
         return long?.let {
             SimpleDateFormat(

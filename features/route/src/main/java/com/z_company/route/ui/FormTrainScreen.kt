@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -80,6 +81,7 @@ fun FormTrainScreen(
     resetSaveState: () -> Unit,
     resetErrorMessage: () -> Unit,
     onNumberChanged: (String) -> Unit,
+    onDistanceChange: (String) -> Unit,
     onWeightChanged: (String) -> Unit,
     onAxleChanged: (String) -> Unit,
     onLengthChanged: (String) -> Unit,
@@ -91,7 +93,8 @@ fun FormTrainScreen(
     stationListState: SnapshotStateList<StationFormState>?,
     exitScreen: () -> Unit,
     changeShowConfirmExitDialog: (Boolean) -> Unit,
-    exitWithoutSave: () -> Unit
+    exitWithoutSave: () -> Unit,
+    onClickHeavyLongDistance: (Boolean) -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -192,6 +195,7 @@ fun FormTrainScreen(
                         TrainFormScreenContent(
                             train = train,
                             onNumberChanged = onNumberChanged,
+                            onDistanceChange = onDistanceChange,
                             onWeightChanged = onWeightChanged,
                             onAxleChanged = onAxleChanged,
                             onLengthChanged = onLengthChanged,
@@ -204,7 +208,8 @@ fun FormTrainScreen(
                             changeShowConfirmExitDialog = changeShowConfirmExitDialog,
                             onSaveClick = onSaveClick,
                             exitWithoutSave = exitWithoutSave,
-                            showConfirmExitDialog = formUiState.confirmExitDialogShow
+                            showConfirmExitDialog = formUiState.confirmExitDialogShow,
+                            onClickHeavyLongDistance = onClickHeavyLongDistance
                         )
                     }
 
@@ -218,6 +223,7 @@ fun FormTrainScreen(
 fun TrainFormScreenContent(
     train: Train,
     onNumberChanged: (String) -> Unit,
+    onDistanceChange: (String) -> Unit,
     onWeightChanged: (String) -> Unit,
     onAxleChanged: (String) -> Unit,
     onLengthChanged: (String) -> Unit,
@@ -231,6 +237,7 @@ fun TrainFormScreenContent(
     changeShowConfirmExitDialog: (Boolean) -> Unit,
     exitWithoutSave: () -> Unit,
     onSaveClick: () -> Unit,
+    onClickHeavyLongDistance: (Boolean) -> Unit
 ) {
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
@@ -270,45 +277,87 @@ fun TrainFormScreenContent(
         horizontalAlignment = Alignment.End,
         contentPadding = PaddingValues(16.dp)
     ) {
-//        item { Spacer(modifier = Modifier.height(70.dp)) }
 
         item {
-            OutlinedTextField(
+            Row(
                 modifier = Modifier
-                    .fillMaxWidth(0.5f),
-                value = train.number ?: "",
-                onValueChange = {
-                    onNumberChanged(it)
-                },
-                placeholder = {
-                    Text(text = "Номер", style = dataTextStyle)
-                },
-                prefix = {
-                    if (!train.number.isNullOrBlank()) {
-                        Text(text = "№ ", style = hintStyle)
-                    }
-                },
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Decimal,
-                    imeAction = ImeAction.Next
-                ),
-                keyboardActions = KeyboardActions(
-                    onNext = {
-                        scope.launch {
-                            focusManager.moveFocus(FocusDirection.Down)
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    modifier = Modifier
+                        .weight(1f),
+                    value = train.distance ?: "",
+                    onValueChange = {
+                        onDistanceChange(it)
+                    },
+                    placeholder = {
+                        Text(text = "Плечо", style = dataTextStyle)
+                    },
+                    suffix = {
+                        if (!train.distance.isNullOrBlank()) {
+                            Text(text = "км", style = hintStyle)
                         }
-                    }
-                ),
-                textStyle = dataTextStyle,
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    focusedBorderColor = Color.Transparent,
-                    unfocusedBorderColor = Color.Transparent
-                ),
-                shape = Shapes.medium,
-            )
+                    },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = ImeAction.Next
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onNext = {
+                            scope.launch {
+                                focusManager.moveFocus(FocusDirection.Down)
+                            }
+                        }
+                    ),
+                    textStyle = dataTextStyle,
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent
+                    ),
+                    shape = Shapes.medium,
+                )
+
+                OutlinedTextField(
+                    modifier = Modifier
+                        .weight(1f),
+                    value = train.number ?: "",
+                    onValueChange = {
+                        onNumberChanged(it)
+                    },
+                    placeholder = {
+                        Text(text = "Номер", style = dataTextStyle)
+                    },
+                    prefix = {
+                        if (!train.number.isNullOrBlank()) {
+                            Text(text = "№ ", style = hintStyle)
+                        }
+                    },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = ImeAction.Next
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onNext = {
+                            scope.launch {
+                                focusManager.moveFocus(FocusDirection.Down)
+                            }
+                        }
+                    ),
+                    textStyle = dataTextStyle,
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent
+                    ),
+                    shape = Shapes.medium,
+                )
+            }
         }
         item {
             Row(
@@ -427,6 +476,18 @@ fun TrainFormScreenContent(
                     ),
                     shape = Shapes.medium,
                 )
+            }
+        }
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Checkbox(checked = train.isHeavyLongDistance, onCheckedChange = onClickHeavyLongDistance)
+                Text(text = "Длинносоставный тяжеловесный", style = hintStyle)
             }
         }
         stationListState?.let { stationList ->

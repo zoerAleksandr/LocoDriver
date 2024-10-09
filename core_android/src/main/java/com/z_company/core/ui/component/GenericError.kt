@@ -47,6 +47,11 @@ fun GenericError(
     }
 }
 
+@Composable
+fun GenericErrorValue() {
+    Text("Ошибка")
+}
+
 @Preview(showBackground = true)
 @Composable
 private fun PreviewGenericError() {

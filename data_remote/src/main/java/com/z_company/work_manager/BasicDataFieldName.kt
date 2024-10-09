@@ -32,6 +32,7 @@ object TrainFieldName {
     const val TRAIN_ID_FIELD_NAME = "trainId"
     const val TRAIN_BASIC_ID_FIELD_NAME = "basicId"
     const val TRAIN_NUMBER_FIELD_NAME = "number"
+    const val TRAIN_DISTANCE_FIELD_NAME = "distance"
     const val WEIGHT_FIELD_NAME = "weight"
     const val AXLE_FIELD_NAME = "axle"
     const val LENGTH_FIELD_NAME = "conditionalLength"

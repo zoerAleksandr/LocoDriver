@@ -810,7 +810,7 @@ private fun TrainSubItem(index: Int, train: Train) {
         }
 
         val stationEnd = if (train.stations.isNotEmpty() && train.stations.size > 1) {
-            " ${train.stations.last().stationName ?: ""}"
+            " - ${train.stations.last().stationName ?: ""}"
         } else {
             ""
         }

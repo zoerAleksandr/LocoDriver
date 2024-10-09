@@ -27,9 +27,13 @@ internal data class Train(
     var basicId: String,
     var remoteObjectId: String = "",
     var number: String?,
+    @ColumnInfo(defaultValue = "")
+    var distance: String?,
     var weight: String?,
     var axle: String?,
     var conditionalLength: String?,
+    @ColumnInfo(defaultValue = "0")
+    var isHeavyLongDistance: Boolean = false,
     var stations: List<Station> = listOf()
 )
 

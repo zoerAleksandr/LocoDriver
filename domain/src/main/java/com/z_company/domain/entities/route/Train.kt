@@ -7,9 +7,11 @@ data class Train(
     var basicId: String = "",
     var remoteObjectId: String? = null,
     var number: String? = null,
+    var distance: String? = null,
     var weight: String? = null,
     var axle: String? = null,
     var conditionalLength: String? = null,
+    var isHeavyLongDistance: Boolean = false,
     var stations: MutableList<Station> = mutableListOf()
 )
 

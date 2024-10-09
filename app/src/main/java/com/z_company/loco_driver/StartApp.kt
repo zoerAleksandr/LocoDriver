@@ -5,6 +5,7 @@ import com.my.tracker.MyTracker
 import com.my.tracker.MyTrackerConfig.LocationTrackingMode
 import com.parse.Parse
 import com.z_company.data_local.route.di.roomRouteModule
+import com.z_company.data_local.setting.di.roomSalarySettingModule
 import com.z_company.data_local.setting.di.roomSettingsModule
 import com.z_company.loco_driver.di.paymentsModule
 import com.z_company.loco_driver.di.repositoryModule
@@ -36,6 +37,7 @@ class StartApp : Application() {
             modules(
                 viewModelModule,
                 roomSettingsModule,
+                roomSalarySettingModule,
                 roomRouteModule,
                 repositoryModule,
                 useCaseModule,

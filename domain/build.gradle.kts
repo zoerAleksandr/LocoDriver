@@ -1,3 +1,6 @@
+import TestLibs.exclude_jetbrains_kotlin
+import TestLibs.exclude_mockito
+
 plugins {
     id(Plugins.java_lib)
     id(Plugins.kotlin_jvm)
@@ -10,6 +13,13 @@ java {
 
 dependencies {
     api(project(Libs.project_core))
-//    implementation(project(Libs.project_core_android))
     implementation(Libs.kotlinx_coroutines_core)
+
+    testImplementation(TestLibs.kotlin_test)
+    testImplementation (TestLibs.mockito_core)
+    testImplementation (TestLibs.mockito_inline)
+    testImplementation(TestLibs.mockito_kotlin) {
+        exclude(exclude_jetbrains_kotlin)
+        exclude(exclude_mockito)
+    }
 }

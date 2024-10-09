@@ -52,8 +52,6 @@ dependencies {
     kapt(Libs.room_compiler)
 
     implementation(Libs.datastore_pref)
-
-
     androidTestImplementation(TestLibs.ext_junit)
     androidTestImplementation(TestLibs.arch_core)
     androidTestImplementation(TestLibs.test_runner)

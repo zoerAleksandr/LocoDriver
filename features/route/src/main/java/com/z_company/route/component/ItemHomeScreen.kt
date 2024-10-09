@@ -4,7 +4,9 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -145,29 +147,89 @@ fun ItemHomeScreen(
                 contentColor = MaterialTheme.colorScheme.primary
             )
         ) {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                Box(
+                Row(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(0.175f)
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    route.basicData.timeStartWork?.let { timeStartWork ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        route.basicData.timeStartWork?.let { timeStartWork ->
+                            AutoSizeText(
+                                modifier = Modifier.padding(end = 8.dp),
+                                text = SimpleDateFormat(
+                                    DateAndTimeFormat.MINI_DATE_FORMAT, Locale.getDefault()
+                                ).format(
+                                    timeStartWork
+                                ),
+                                maxTextSize = requiredSizeText,
+                                maxLines = 1,
+                                style = AppTypography.getType().headlineSmall,
+                                fontWeight = FontWeight.Light,
+                                onTextLayout = { textLayoutResult ->
+                                    val size = textLayoutResult.layoutInput.style.fontSize
+                                    changingTextSize(size)
+                                }
+                            )
+                        }
+                        route.basicData.timeStartWork?.let { timeStartWork ->
+                            AutoSizeText(
+                                modifier = Modifier.padding(),
+                                text = SimpleDateFormat(
+                                    DateAndTimeFormat.TIME_FORMAT, Locale.getDefault()
+                                ).format(
+                                    timeStartWork
+                                ),
+                                maxTextSize = requiredSizeText,
+                                maxLines = 1,
+                                style = AppTypography.getType().headlineSmall,
+                                fontWeight = FontWeight.Light,
+                                onTextLayout = { textLayoutResult ->
+                                    val size = textLayoutResult.layoutInput.style.fontSize
+                                    changingTextSize(size)
+                                }
+                            )
+                        }
+                        route.basicData.timeEndWork?.let { timeEndWork ->
+                            AutoSizeText(
+                                modifier = Modifier.padding(),
+                                text = " - ${
+                                    SimpleDateFormat(
+                                        DateAndTimeFormat.TIME_FORMAT, Locale.getDefault()
+                                    ).format(
+                                        timeEndWork
+                                    )
+                                }",
+                                maxTextSize = requiredSizeText,
+                                maxLines = 1,
+                                style = AppTypography.getType().headlineSmall,
+                                fontWeight = FontWeight.Light,
+                                onTextLayout = { textLayoutResult ->
+                                    val size = textLayoutResult.layoutInput.style.fontSize
+                                    changingTextSize(size)
+                                }
+                            )
+                        }
+                    }
+
+                    val workTimeValue = route.getWorkTime()
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        contentAlignment = Alignment.CenterEnd
+                    ) {
                         AutoSizeText(
-                            modifier = Modifier.padding(end = 8.dp),
-                            text = SimpleDateFormat(
-                                DateAndTimeFormat.MINI_DATE_FORMAT, Locale.getDefault()
-                            ).format(
-                                timeStartWork
-                            ),
-                            maxTextSize = requiredSizeText,
-                            maxLines = 1,
+                            text = DateAndTimeConverter.getTimeInStringFormat(workTimeValue),
                             style = AppTypography.getType().headlineSmall,
-                            fontWeight = FontWeight.Light,
+                            fontWeight = FontWeight.Medium,
+                            maxTextSize = requiredSizeText,
                             onTextLayout = { textLayoutResult ->
                                 val size = textLayoutResult.layoutInput.style.fontSize
                                 changingTextSize(size)
@@ -176,40 +238,32 @@ fun ItemHomeScreen(
                     }
                 }
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(0.175f)
-                ) {
-                    route.basicData.timeStartWork?.let { timeStartWork ->
-                        AutoSizeText(
-                            modifier = Modifier.padding(end = 8.dp),
-                            text = SimpleDateFormat(
-                                DateAndTimeFormat.TIME_FORMAT, Locale.getDefault()
-                            ).format(
-                                timeStartWork
-                            ),
-                            maxTextSize = requiredSizeText,
-                            maxLines = 1,
-                            style = AppTypography.getType().headlineSmall,
-                            fontWeight = FontWeight.Light,
-                            onTextLayout = { textLayoutResult ->
-                                val size = textLayoutResult.layoutInput.style.fontSize
-                                changingTextSize(size)
+                route.trains.firstOrNull()?.let { train ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val trainNumber = if (!train.number.isNullOrBlank()) {
+                            "№${train.number} "
+                        } else {
+                            ""
+                        }
+                        val stationStart = if (train.stations.isNotEmpty()) {
+                            train.stations.first().stationName ?: ""
+                        } else {
+                            ""
+                        }
+
+                        val stationEnd =
+                            if (train.stations.isNotEmpty() && train.stations.size > 1) {
+                                " - ${train.stations.last().stationName ?: ""}"
+                            } else {
+                                ""
                             }
-                        )
-                    }
-                }
-                Box(
-                    modifier = Modifier
-                        .padding(start = 4.dp)
-                        .fillMaxWidth()
-                        .weight(0.45f),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    route.trains.firstOrNull()?.stations?.firstOrNull()?.stationName?.let { station ->
+
                         AutoSizeText(
-                            text = station,
+                            text = "$trainNumber$stationStart$stationEnd",
                             style = AppTypography.getType().headlineSmall,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -223,25 +277,8 @@ fun ItemHomeScreen(
                         )
                     }
                 }
-                val workTimeValue = route.getWorkTime()
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .weight(0.2f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    AutoSizeText(
-                        text = DateAndTimeConverter.getTimeInStringFormat(workTimeValue),
-                        style = AppTypography.getType().headlineSmall,
-                        fontWeight = FontWeight.Light,
-                        maxTextSize = requiredSizeText,
-                        onTextLayout = { textLayoutResult ->
-                            val size = textLayoutResult.layoutInput.style.fontSize
-                            changingTextSize(size)
-                        }
-                    )
-                }
             }
         }
+
     }
 }

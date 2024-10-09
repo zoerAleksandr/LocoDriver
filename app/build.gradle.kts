@@ -79,7 +79,7 @@ android {
 
 dependencies {
     implementation ("com.my.tracker:mytracker-sdk:3.3.2")
-    implementation(platform("ru.rustore.sdk:bom:6.0.0"))
+    implementation(platform("ru.rustore.sdk:bom:6.1.0"))
     implementation("ru.rustore.sdk:billingclient")
     implementation(project(Libs.project_core_android))
     implementation(project(Libs.project_domain))

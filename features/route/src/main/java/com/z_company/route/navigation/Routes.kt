@@ -176,3 +176,6 @@ object MoreInfoRoute: AppRoutes("MoreInfoRoute") {
     fun buildRoute(monthId: String) =
         "$basicRoute/$monthId"
 }
+
+object SalaryCalculationRoute: AppRoutes("SalaryCalculationRoute")
+object SettingSalaryRoute: AppRoutes("SettingSalaryRoute")

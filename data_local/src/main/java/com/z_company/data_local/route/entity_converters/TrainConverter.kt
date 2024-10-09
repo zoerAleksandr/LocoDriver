@@ -9,9 +9,11 @@ internal object TrainConverter {
         basicId = train.basicId,
         remoteObjectId = train.remoteObjectId ?: "",
         number = train.number,
+        distance = train.distance,
         weight = train.weight,
         axle = train.axle,
         conditionalLength = train.conditionalLength,
+        isHeavyLongDistance = train.isHeavyLongDistance,
         stations = StationConverter.fromDataList(train.stations)
     )
 
@@ -20,9 +22,11 @@ internal object TrainConverter {
         basicId = entity.basicId,
         remoteObjectId = entity.remoteObjectId,
         number = entity.number,
+        distance = entity.distance,
         weight = entity.weight,
         axle = entity.axle,
         conditionalLength = entity.conditionalLength,
+        isHeavyLongDistance = entity.isHeavyLongDistance,
         stations = StationConverter.toDataList(entity.stations),
     )
 

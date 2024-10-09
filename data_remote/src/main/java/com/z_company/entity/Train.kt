@@ -5,6 +5,7 @@ data class Train(
     var remoteObjectId: String = "",
     var basicId: String = "",
     var number: String? = null,
+    var distance: String? = null,
     var weight: String? = null,
     var axle: String? = null,
     var conditionalLength: String? = null,
