@@ -1,5 +1,6 @@
 package com.z_company.route.viewmodel
 
+import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
@@ -18,6 +19,8 @@ import com.z_company.domain.util.addOrReplace
 import com.z_company.domain.util.str
 import com.z_company.route.Const.NULLABLE_ID
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -211,29 +214,31 @@ class LocoFormViewModel(
     }
 
     init {
-        loadSetting()
+        viewModelScope.launch {
+            loadSetting().join()
 
-        if (locoId == NULLABLE_ID) {
-            isNewLoco = true
-            currentLoco = Locomotive(
-                basicId = basicId,
-                type = currentSetting?.defaultLocoType ?: LocoType.ELECTRIC
-            )
-        } else {
-            isNewLoco = false
-            loadLoco(locoId!!)
+            if (locoId == NULLABLE_ID) {
+                isNewLoco = true
+                currentLoco = Locomotive(
+                    basicId = basicId,
+                    type = currentSetting?.defaultLocoType ?: LocoType.ELECTRIC
+                )
+            } else {
+                isNewLoco = false
+                loadLoco(locoId!!)
+            }
         }
     }
 
-    private fun loadSetting() {
-        getSettingJob?.cancel()
-        getSettingJob = viewModelScope.launch {
+    private suspend fun loadSetting(): Job {
+        return viewModelScope.launch {
             settingsUseCase.getCurrentSettings().collect {
                 if (it is ResultState.Success) {
                     currentSetting = it.data
                     currentSetting?.let { setting ->
                         currentSetting = setting
                     }
+                    this.cancel()
                 }
             }
         }
@@ -244,7 +249,7 @@ class LocoFormViewModel(
             saveCoefficientJob?.cancel()
             val double = data?.toDoubleOrNull()
             double?.let {
-                settingsUseCase.setDieselCoefficient(double).collect{}
+                settingsUseCase.setDieselCoefficient(double).collect {}
             }
         }
     }
