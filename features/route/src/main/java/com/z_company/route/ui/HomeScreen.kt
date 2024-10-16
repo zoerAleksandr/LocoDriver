@@ -26,7 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
@@ -142,7 +142,9 @@ fun HomeScreen(
     checkPurchasesAvailability: (Context) -> Unit,
     restorePurchases: () -> Unit,
     restoreResultState: ResultState<String>?,
-    resetSubscriptionState: () -> Unit
+    resetSubscriptionState: () -> Unit,
+    showConfirmDialogRemoveRoute: Boolean,
+    changeShowConfirmExitDialog: (Boolean) -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -356,6 +358,10 @@ fun HomeScreen(
         mutableStateOf<Route?>(null)
     }
 
+    var routeForRemove by remember {
+        mutableStateOf<Route?>(null)
+    }
+
     var showContextDialog by remember {
         mutableStateOf(false)
     }
@@ -482,7 +488,9 @@ fun HomeScreen(
                         .clickable {
                             showContextDialog = false
                             routeForPreview?.let { route ->
-                                onDeleteRoute(route)
+                                changeShowConfirmExitDialog(true)
+                                routeForRemove = route
+//                                onDeleteRoute(route)
                             }
                         },
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -518,6 +526,43 @@ fun HomeScreen(
             )
         }
     }
+    if (showConfirmDialogRemoveRoute) {
+        AlertDialog(
+            onDismissRequest = { changeShowConfirmExitDialog(false) },
+            title = {
+                Text(text = "Внимание!", style = AppTypography.getType().headlineSmall)
+            },
+            text = {
+                Text(
+                    text = "Удалить маршрут?",
+                    style = AppTypography.getType().bodyLarge
+                )
+            },
+            shape = Shapes.medium,
+            confirmButton = {
+                Button(
+                    shape = Shapes.medium,
+                    onClick = {
+                        changeShowConfirmExitDialog(false)
+                        routeForRemove?.let {
+                            onDeleteRoute(it)
+                        }
+                    }
+                ) {
+                    Text(text = "Удалить", style = AppTypography.getType().titleMedium)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { changeShowConfirmExitDialog(false) }) {
+                    Text(
+                        text = "Отмена",
+                        style = AppTypography.getType().titleMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        )
+    }
 
     BottomSheetScaffold(
         scaffoldState = scaffoldState,
@@ -538,7 +583,10 @@ fun HomeScreen(
             HomeBottomSheetContent(
                 routeListState = routeListState,
                 reloadRoute = reloadRoute,
-                onDeleteRoute = onDeleteRoute,
+                onDeleteRoute = {
+                    routeForRemove = it
+                    changeShowConfirmExitDialog(true)
+                },
                 onRouteClick = onRouteClick,
                 onRouteLongClick = { route ->
                     showContextDialog = true

@@ -24,7 +24,7 @@ fun HomeDestination(
         },
         onMoreInfoClick = { router.showMoreInfo(it) },
         onNewRouteClick = homeViewModel::newRouteClick,
-        onDeleteRoute = homeViewModel::remove,
+        onDeleteRoute = homeViewModel::removeRoute,
         onDeleteRouteConfirmed = homeViewModel::resetRemoveRouteState,
         reloadRoute = homeViewModel::loadRoutes,
         onSettingsClick = { router.showSettings() },
@@ -52,6 +52,8 @@ fun HomeDestination(
         checkPurchasesAvailability = homeViewModel::checkPurchasesAvailability,
         restorePurchases = homeViewModel::restorePurchases,
         restoreResultState = uiState.restoreSubscriptionState,
-        resetSubscriptionState = homeViewModel::resetSubscriptionState
+        resetSubscriptionState = homeViewModel::resetSubscriptionState,
+        showConfirmDialogRemoveRoute = uiState.showConfirmRemoveRoute,
+        changeShowConfirmExitDialog = homeViewModel::isShowConfirmRemoveRoute
     )
 }

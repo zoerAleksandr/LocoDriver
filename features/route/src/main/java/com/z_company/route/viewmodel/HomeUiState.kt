@@ -21,5 +21,6 @@ data class HomeUiState(
     val showNewRouteScreen: Boolean = false,
     val showPurchasesScreen: Boolean = false,
     val isLoadingStateAddButton: Boolean = false,
-    val restoreSubscriptionState: ResultState<String>? = null
+    val restoreSubscriptionState: ResultState<String>? = null,
+    val showConfirmRemoveRoute: Boolean = false
 )

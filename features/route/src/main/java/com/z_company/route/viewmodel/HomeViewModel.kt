@@ -353,7 +353,15 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun remove(route: Route) {
+    fun isShowConfirmRemoveRoute(isShow: Boolean) {
+        _uiState.update {
+            it.copy(
+                showConfirmRemoveRoute = isShow
+            )
+        }
+    }
+
+    fun removeRoute(route: Route){
         removeRouteJob?.cancel()
         removeRouteJob = routeUseCase.markAsRemoved(route).onEach { result ->
             _uiState.update {
