@@ -30,7 +30,6 @@ import com.z_company.domain.util.minus
 import com.z_company.domain.util.plus
 import com.z_company.domain.util.sum
 import com.z_company.domain.util.toDoubleOrZero
-import com.z_company.domain.util.plus
 
 class SalaryCalculationViewModel : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()

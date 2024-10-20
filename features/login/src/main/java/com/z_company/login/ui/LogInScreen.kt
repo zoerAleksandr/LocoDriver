@@ -55,6 +55,7 @@ import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.domain.entities.User
 import com.z_company.login.R
+import com.z_company.login.viewmodel.MIN_LENGTH_PASSWORD
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -166,7 +167,7 @@ fun LogInScreen(
                 placeholder = { Text(text = "пароль", style = dataTextStyle) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = paddingBetweenView),
+                    .padding(top = paddingBetweenView + 20.dp),
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = {
                     val image = if (passwordVisible)
@@ -181,6 +182,11 @@ fun LogInScreen(
                     }
                 },
                 textStyle = dataTextStyle,
+                supportingText = {
+                    if (password.isNotEmpty() && password.length < MIN_LENGTH_PASSWORD) {
+                        Text(text = "Минимум $MIN_LENGTH_PASSWORD символа")
+                    }
+                },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
             )
             OutlinedTextField(
@@ -243,7 +249,10 @@ fun LogInScreen(
                         start = startIndex, end = endIndex
                     )
                 }
-                ClickableText(text = annotationString, style = hintStyle.copy(color = MaterialTheme.colorScheme.primary)) {
+                ClickableText(
+                    text = annotationString,
+                    style = hintStyle.copy(color = MaterialTheme.colorScheme.primary)
+                ) {
                     ctx.startActivity(urlIntent)
                 }
             }

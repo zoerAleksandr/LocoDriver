@@ -43,6 +43,7 @@ import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.domain.entities.User
 import com.z_company.login.R
+import com.z_company.login.viewmodel.MIN_LENGTH_PASSWORD
 import kotlinx.coroutines.launch
 
 @Composable
@@ -139,6 +140,11 @@ fun SignInScreen(
                         .fillMaxWidth(),
                     singleLine = true,
                     textStyle = dataTextStyle,
+                    supportingText = {
+                        if (password.isNotEmpty() && password.length < MIN_LENGTH_PASSWORD) {
+                            Text(text = "Минимум $MIN_LENGTH_PASSWORD символа")
+                        }
+                    },
                     visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
                         val image = if (passwordVisible)
