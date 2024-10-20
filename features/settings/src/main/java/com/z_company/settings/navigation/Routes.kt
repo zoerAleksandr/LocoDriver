@@ -7,3 +7,4 @@ object SettingsFeature : AppRoutes("SettingsFeature")
 
 object SettingsScreenRoute : AppRoutes("SettingsScreen")
 object SelectReleaseDaysScreenRoute: AppRoutes("SelectReleaseDaysScreen")
+object SettingHomeScreenRoute: AppRoutes("SettingHomeScreen")

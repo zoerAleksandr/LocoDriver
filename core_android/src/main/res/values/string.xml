@@ -6,6 +6,7 @@
 
     <!-- Title Screens -->
     <string name="settings">Настройки</string>
+    <string name="settings_home_screen">Настройки главного экрана</string>
     <string name="norma_hours">Норма часов</string>
 
     <!-- Generic messages -->
