@@ -1,4 +1,5 @@
 package com.z_company.domain.util
+import com.z_company.domain.util.plus
 
 fun <T> MutableList<T>.addOrReplace(element: T) {
     val searchElement = this.find {
@@ -63,4 +64,12 @@ fun <T> List<T>.safetySubList(fromIndex: Int, toIndex: Int): List<T>{
     }
 
     return this.subList(fromIndex, lastIndex)
+}
+
+fun List<Double?>.sum(): Double {
+    var sum: Double = 0.toDouble()
+    this.forEach {
+        sum += it
+    }
+    return sum
 }

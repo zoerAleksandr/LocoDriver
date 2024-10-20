@@ -424,19 +424,27 @@ object UtilsForEntities {
         }
     }
 
-    fun Train.getTimeInServicePhase(listDistance: List<Int>, index: Int): Long {
+    fun Route.getTimeInServicePhase(listDistance: List<Int>, index: Int): Long {
         val startInterval = listDistance[index]
         val endInterval =
             if (index + 1 < listDistance.size) listDistance[index + 1] else Int.MAX_VALUE
         val searchIntervalDistance = startInterval until endInterval
-        this.distance?.toIntOrNull()?.let { currentDistance ->
-            if (searchIntervalDistance.contains(currentDistance)) {
-                val timeStartFollowing: Long? = this.stations.first().timeDeparture
-                val timeEndFollowing: Long? = this.stations.last().timeArrival
-                return (timeEndFollowing - timeStartFollowing) ?: 0L
-            }
+        var distance = 0
+        this.trains.forEach {
+            distance += it.distance?.toIntOrNull() ?: 0
         }
-        return 0L
+        return if (searchIntervalDistance.contains(distance)) {
+            this.getWorkTime() ?: 0L
+        } else {
+            0L
+        }
+    }
+
+    fun Route.isHeavyLongDistanceTrain(): Boolean {
+        this.trains.forEach {
+            if (it.isHeavyLongDistance) return true
+        }
+        return false
     }
 
     fun Train.getTimeInHeavyLongDistance(): Long {

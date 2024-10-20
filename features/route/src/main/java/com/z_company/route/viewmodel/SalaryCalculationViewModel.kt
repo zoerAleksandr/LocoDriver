@@ -10,10 +10,11 @@ import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.UtilForMonthOfYear.getStandardNormaHours
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
-import com.z_company.domain.entities.route.UtilsForEntities.getTimeInHeavyLongDistance
 import com.z_company.domain.entities.route.UtilsForEntities.getTimeInServicePhase
 import com.z_company.domain.entities.route.UtilsForEntities.getTotalWorkTime
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
+import com.z_company.domain.entities.route.UtilsForEntities.isHeavyLongDistanceTrain
 import com.z_company.domain.entities.route.UtilsForEntities.timeFollowingSingleLocomotive
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
@@ -27,8 +28,9 @@ import org.koin.core.component.inject
 import java.util.Calendar
 import com.z_company.domain.util.minus
 import com.z_company.domain.util.plus
+import com.z_company.domain.util.sum
 import com.z_company.domain.util.toDoubleOrZero
-import kotlinx.coroutines.delay
+import com.z_company.domain.util.plus
 
 class SalaryCalculationViewModel : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
@@ -117,12 +119,10 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                             phaseList.forEachIndexed { index, _ ->
                                 var totalTimeInServicePhase = 0L
                                 routeList.forEach { route ->
-                                    route.trains.forEach { train ->
-                                        totalTimeInServicePhase += train.getTimeInServicePhase(
-                                            phaseList.map { it.distance.toIntOrNull() ?: 0 },
-                                            index
-                                        )
-                                    }
+                                    totalTimeInServicePhase += route.getTimeInServicePhase(
+                                        phaseList.map { it.distance.toIntOrNull() ?: 0 },
+                                        index
+                                    )
                                 }
                                 timeList.add(totalTimeInServicePhase)
                                 moneyList.add(totalTimeInServicePhase.times(salarySetting.tariffRate * (percentList[index].toDoubleOrZero() / 100)))
@@ -139,9 +139,8 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                         // calculation surcharge Heavy Long Distance
                         var totalTimeHeavyLongDistance = 0L
                         routeList.forEach { route ->
-                            route.trains.forEach { train ->
-                                totalTimeHeavyLongDistance += train.getTimeInHeavyLongDistance()
-                            }
+                            if (route.isHeavyLongDistanceTrain())
+                                totalTimeHeavyLongDistance += route.getWorkTime() ?: 0L
                         }
 
 
@@ -205,10 +204,13 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
             val surchargeHeavyLongDistanceTrainsPercent = setting.surchargeHeavyLongDistanceTrains
             val surchargeHeavyLongDistanceTrainsMoney =
                 surchargeHeavyLongDistanceTrainsHour?.times(setting.tariffRate * (surchargeHeavyLongDistanceTrainsPercent / 100))
+            val surchargeExtendedServicePhase =
+                uiState.value.surchargeExtendedServicePhaseMoney.sum()
             val totalChargedMoney =
                 paymentAtTariffMoney + paymentAtPassengerMoney + paymentAtSingleLocomotiveMoney + paymentAtOvertimeMoney +
                         surchargeAtOvertime05Money + surchargeAtOvertimeMoney + paymentHolidayMoney + surchargeHolidayMoney +
-                        zonalSurchargeMoney + paymentNightTimeMoney + surchargeQualificationClassMoney
+                        zonalSurchargeMoney + paymentNightTimeMoney + surchargeQualificationClassMoney + surchargeHeavyLongDistanceTrainsMoney +
+                        surchargeExtendedServicePhase
 
 
             val retentionNdfl = totalChargedMoney?.times(0.13)
