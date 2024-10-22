@@ -26,7 +26,17 @@ internal data class UserSettings(
     var usingDefaultWorkTime: Boolean,
     @ColumnInfo(defaultValue = "1")
     var isConsiderFutureRoute: Boolean,
-    var monthOfYear: MonthOfYear
+    var monthOfYear: MonthOfYear,
+    @ColumnInfo(defaultValue = "1")
+    var isVisibleNightTime: Boolean,
+    @ColumnInfo(defaultValue = "1")
+    var isVisiblePassengerTime: Boolean,
+    @ColumnInfo(defaultValue = "1")
+    var isVisibleRelationTime: Boolean,
+    @ColumnInfo(defaultValue = "1")
+    var isVisibleHolidayTime: Boolean,
+    @ColumnInfo(defaultValue = "1")
+    var isVisibleExtendedServicePhase: Boolean
 )
 
 data class NightTime(

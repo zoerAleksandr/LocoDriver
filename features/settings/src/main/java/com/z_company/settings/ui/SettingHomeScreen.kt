@@ -2,6 +2,7 @@ package com.z_company.settings.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -31,7 +32,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.R
 import com.z_company.core.ResultState
+import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.AsyncDataValue
+import com.z_company.core.ui.component.GenericError
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.settings.viewmodel.SettingHomeScreenUIState
@@ -43,7 +46,8 @@ fun SettingHomeScreen(
     onBack: () -> Unit,
     onSaveClick: () -> Unit,
     onSettingSaved: () -> Unit,
-    changeIsVisibleNightTime: (Boolean) -> Unit
+    changeIsVisibleNightTime: (Boolean) -> Unit,
+    resetSaveState: () -> Unit
 ) {
     val titleStyle = AppTypography.getType().headlineMedium.copy(fontWeight = FontWeight.Light)
     val styleData = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
@@ -93,97 +97,109 @@ fun SettingHomeScreen(
                 )
             )
         }) {
-        Column(
-            modifier = Modifier
-                .padding(it)
-                .padding(start = 12.dp, end = 12.dp, top = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Column(
-                modifier = Modifier
-                    .background(
-                        color = MaterialTheme.colorScheme.surface,
-                        shape = Shapes.medium
-                    )
-                    .padding(16.dp),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(text = "Работа в ночное время", style = styleData)
-                    Switch(
-                        checked = uiState.isVisibleNightTime,
-                        onCheckedChange = changeIsVisibleNightTime
+        Box(Modifier.padding(it)) {
+            AsyncData(
+                resultState = uiState.currentSetting,
+                errorContent = {
+                    GenericError(
+                        onDismissAction = resetSaveState
                     )
                 }
-                HorizontalDivider()
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(text = "Следование пассажиром", style = styleData)
-                    Switch(
-                        checked = uiState.isVisibleNightTime,
-                        onCheckedChange = changeIsVisibleNightTime
-                    )
-                }
-                HorizontalDivider()
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(text = "Время отвлечения", style = styleData)
-                    Switch(
-                        checked = uiState.isVisibleNightTime,
-                        onCheckedChange = changeIsVisibleNightTime
-                    )
-                }
-                HorizontalDivider()
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        modifier = Modifier.weight(0.8f),
-                        overflow = TextOverflow.Visible,
-                        text = "Праздничные часы",
-                        style = styleData
-                    )
-                    Switch(
-                        checked = uiState.isVisibleNightTime,
-                        onCheckedChange = changeIsVisibleNightTime
-                    )
-                }
-                HorizontalDivider()
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        modifier = Modifier.weight(0.8f),
-                        overflow = TextOverflow.Visible,
-                        text = "Время на удлинненных плечах обслуживания",
-                        style = styleData
-                    )
-                    Switch(
-                        checked = uiState.isVisibleNightTime,
-                        onCheckedChange = changeIsVisibleNightTime
-                    )
-                }
+            ) { setting ->
+                setting?.let {
+                    Column(
+                        modifier = Modifier
+                            .padding(start = 12.dp, end = 12.dp, top = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .background(
+                                    color = MaterialTheme.colorScheme.surface,
+                                    shape = Shapes.medium
+                                )
+                                .padding(16.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(text = "Работа в ночное время", style = styleData)
+                                Switch(
+                                    checked = uiState.isVisibleNightTime,
+                                    onCheckedChange = changeIsVisibleNightTime
+                                )
+                            }
+                            HorizontalDivider()
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(text = "Следование пассажиром", style = styleData)
+                                Switch(
+                                    checked = uiState.isVisibleNightTime,
+                                    onCheckedChange = changeIsVisibleNightTime
+                                )
+                            }
+                            HorizontalDivider()
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(text = "Время отвлечения", style = styleData)
+                                Switch(
+                                    checked = uiState.isVisibleNightTime,
+                                    onCheckedChange = changeIsVisibleNightTime
+                                )
+                            }
+                            HorizontalDivider()
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    modifier = Modifier.weight(0.8f),
+                                    overflow = TextOverflow.Visible,
+                                    text = "Праздничные часы",
+                                    style = styleData
+                                )
+                                Switch(
+                                    checked = uiState.isVisibleNightTime,
+                                    onCheckedChange = changeIsVisibleNightTime
+                                )
+                            }
+                            HorizontalDivider()
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    modifier = Modifier.weight(0.8f),
+                                    overflow = TextOverflow.Visible,
+                                    text = "Время на удлинненных плечах обслуживания",
+                                    style = styleData
+                                )
+                                Switch(
+                                    checked = uiState.isVisibleNightTime,
+                                    onCheckedChange = changeIsVisibleNightTime
+                                )
+                            }
 
+                        }
+
+                        Text(
+                            modifier = Modifier.padding(start = 16.dp, top = 4.dp),
+                            text = "Выбоанные параметры будут отображаться на главном экране если их значение больше 0.",
+                            style = styleHint,
+                        )
+                    }
+                }
             }
-
-            Text(
-                modifier = Modifier.padding(start = 16.dp, top = 4.dp),
-                text = "Выбоанные параметры будут отображаться на главном экране если их значение больше 0.",
-                style = styleHint,
-            )
         }
     }
 }

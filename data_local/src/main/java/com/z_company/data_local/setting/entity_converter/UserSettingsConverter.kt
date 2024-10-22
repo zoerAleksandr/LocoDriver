@@ -16,6 +16,11 @@ internal object UserSettingsConverter {
         isConsiderFutureRoute = userSettings.isConsiderFutureRoute,
         defaultLocoType = userSettings.defaultLocoType,
         monthOfYear = MonthOfYearConverter.fromData(userSettings.selectMonthOfYear),
+        isVisibleNightTime = userSettings.isVisibleNightTime,
+        isVisiblePassengerTime = userSettings.isVisiblePassengerTime,
+        isVisibleRelationTime = userSettings.isVisibleRelationTime,
+        isVisibleHolidayTime = userSettings.isVisibleHolidayTime,
+        isVisibleExtendedServicePhase = userSettings.isVisibleExtendedServicePhase
     )
 
     fun toData(userSettingsEntity: UserSettingsEntity) = UserSettings(
@@ -29,6 +34,11 @@ internal object UserSettingsConverter {
         usingDefaultWorkTime = userSettingsEntity.usingDefaultWorkTime,
         isConsiderFutureRoute = userSettingsEntity.isConsiderFutureRoute,
         defaultLocoType = userSettingsEntity.defaultLocoType,
-        selectMonthOfYear = MonthOfYearConverter.toData(userSettingsEntity.monthOfYear)
+        selectMonthOfYear = MonthOfYearConverter.toData(userSettingsEntity.monthOfYear),
+        isVisibleNightTime = userSettingsEntity.isVisibleNightTime,
+        isVisiblePassengerTime = userSettingsEntity.isVisiblePassengerTime,
+        isVisibleRelationTime = userSettingsEntity.isVisibleRelationTime,
+        isVisibleHolidayTime = userSettingsEntity.isVisibleHolidayTime,
+        isVisibleExtendedServicePhase = userSettingsEntity.isVisibleExtendedServicePhase
     )
 }
