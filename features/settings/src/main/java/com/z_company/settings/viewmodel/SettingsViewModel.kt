@@ -102,44 +102,16 @@ class SettingsViewModel : ViewModel(), KoinComponent {
 
     private fun loadPurchasesInfo() {
         viewModelScope.launch {
-            withContext(Dispatchers.IO) {
-                try {
-                    val purchases = billingClient.purchases.getPurchases().await()
-                    var maxEndTime = 0L
-                    purchases.forEach { purchase ->
-                        val purchaseEndTime =
-                            purchase.getEndTimeSubscription(billingClient).first()
-                        if (purchaseEndTime > maxEndTime) {
-                            maxEndTime = purchaseEndTime
-                        }
-                    }
-                    sharedPreferenceStorage.setSubscriptionExpiration(maxEndTime)
-                    val textEndTime = if (maxEndTime == 0L) {
-                        ""
-                    } else {
-                        ConverterLongToTime.getDateAndTimeStringFormat(maxEndTime)
-                    }
-
-                    viewModelScope.launch {
-                        withContext(Dispatchers.Main) {
-                            _uiState.update {
-                                it.copy(
-                                    purchasesEndTime = ResultState.Success(textEndTime)
-                                )
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    viewModelScope.launch {
-                        withContext(Dispatchers.Main) {
-                            _uiState.update {
-                                it.copy(
-                                    purchasesEndTime = ResultState.Error(ErrorEntity())
-                                )
-                            }
-                        }
-                    }
-                }
+            val maxEndTime = sharedPreferenceStorage.getSubscriptionExpiration()
+            val textEndTime = if (maxEndTime == 0L) {
+                ""
+            } else {
+                ConverterLongToTime.getDateAndTimeStringFormat(maxEndTime)
+            }
+            _uiState.update {
+                it.copy(
+                    purchasesEndTime = ResultState.Success(textEndTime)
+                )
             }
         }
     }
@@ -166,7 +138,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                     currentUser = resultState.data
                     currentEmail = currentUser?.email ?: ""
                 }
-                if (resultState is ResultState.Error){
+                if (resultState is ResultState.Error) {
                     _uiState.update {
                         it.copy(isRefreshing = false)
                     }

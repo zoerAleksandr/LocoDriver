@@ -31,9 +31,34 @@ class SettingHomeScreenViewModel : ViewModel(), KoinComponent {
         }
 
 
-    fun changeIsVisibleNightTime(b: Boolean) {
+    fun changeIsVisibleNightTime(value: Boolean) {
         currentSettings = currentSettings?.copy(
-            // todo
+            isVisibleNightTime = value
+        )
+    }
+
+    fun changeIsVisiblePassengerTime(value: Boolean) {
+        currentSettings = currentSettings?.copy(
+            isVisiblePassengerTime = value
+        )
+    }
+
+    fun changeIsVisibleRelationTime(value: Boolean) {
+        currentSettings = currentSettings?.copy(
+            isVisibleRelationTime = value
+        )
+    }
+
+
+    fun changeIsVisibleHolidayTime(value: Boolean) {
+        currentSettings = currentSettings?.copy(
+            isVisibleHolidayTime = value
+        )
+    }
+
+    fun changeIsVisibleExtendedServicePhase(value: Boolean) {
+        currentSettings = currentSettings?.copy(
+            isVisibleExtendedServicePhase = value
         )
     }
 

@@ -15,7 +15,6 @@ import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.outlined.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -488,31 +487,31 @@ fun SettingScreenContent(
                     )
                 }
             }
-            item {
-                Box(
-                    modifier = Modifier
-                        .padding(top = 8.dp)
-                        .background(
-                            color = MaterialTheme.colorScheme.surface,
-                            shape = Shapes.medium
-                        )
-                        .padding(16.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(text = "Настоить главный экран", style = styleData)
-                        Icon(
-                            modifier = Modifier.clickable {
-                                onSettingHomeScreenClick()
-                            },
-                            imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                            contentDescription = null
-                        )
-                    }
-                }
-            }
+//            item {
+//                Box(
+//                    modifier = Modifier
+//                        .padding(top = 8.dp)
+//                        .background(
+//                            color = MaterialTheme.colorScheme.surface,
+//                            shape = Shapes.medium
+//                        )
+//                        .clickable {
+//                            onSettingHomeScreenClick()
+//                        }
+//                        .padding(16.dp)
+//                ) {
+//                    Row(
+//                        modifier = Modifier.fillMaxWidth(),
+//                        horizontalArrangement = Arrangement.SpaceBetween,
+//                    ) {
+//                        Text(text = "Настоить главный экран", style = styleData)
+//                        Icon(
+//                            imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+//                            contentDescription = null
+//                        )
+//                    }
+//                }
+//            }
             item {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Box(

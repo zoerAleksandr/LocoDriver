@@ -1,6 +1,8 @@
 package com.z_company.route.viewmodel
 
+import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.data_local.SharedPreferenceStorage
@@ -8,6 +10,7 @@ import com.z_company.route.Const.LOCO_DRIVER_ANNUAL_SUBSCRIPTION
 import com.z_company.route.Const.LOCO_DRIVER_MONTHLY_SUBSCRIPTION
 import com.z_company.route.R
 import com.z_company.route.extention.getEndTimeSubscription
+import com.z_company.use_case.RuStoreUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -26,9 +29,11 @@ import ru.rustore.sdk.billingclient.model.purchase.PaymentResult
 import ru.rustore.sdk.billingclient.model.purchase.PurchaseState
 import java.util.Calendar
 
+@RequiresApi(Build.VERSION_CODES.O)
 class PurchasesViewModel : ViewModel(), KoinComponent {
     private val billingClient: RuStoreBillingClient by inject()
     private val sharedPreferenceStorage: SharedPreferenceStorage by inject()
+    private val ruStoreUseCase: RuStoreUseCase by inject()
 
     private val availableProductIds = listOf(
         LOCO_DRIVER_MONTHLY_SUBSCRIPTION,
@@ -46,6 +51,7 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
 
     init {
         getProducts()
+        ruStoreUseCase.getJWE()
     }
 
     fun onProductClick(product: Product) {
@@ -61,20 +67,11 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                         productIds = availableProductIds
                     ).await()
                     val purchases = billingClient.purchases.getPurchases().await()
-                    var maxEndTime = 0L
-                    purchases.forEach { purchase ->
-                        val purchaseEndTime =
-                            purchase.getEndTimeSubscription(billingClient).first()
-                        if (purchaseEndTime > maxEndTime) {
-                            maxEndTime = purchaseEndTime
-                        }
-                    }
-                    sharedPreferenceStorage.setSubscriptionExpiration(maxEndTime)
-
                     val productIds: MutableList<String> = mutableListOf()
                     purchases.forEach { purchase ->
                         val purchaseId = purchase.purchaseId
                         productIds.add(purchase.productId)
+                        Log.d("ZZZ", "token = ${purchase.subscriptionToken}")
 
                         purchase.productId
                         if (purchase.developerPayload?.isNotEmpty() == true) {

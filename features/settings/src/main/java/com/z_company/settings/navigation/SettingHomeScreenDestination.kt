@@ -19,7 +19,11 @@ fun SettingHomeScreenDestination(router: Router) {
         onBack = router::back,
         onSaveClick = viewModel::saveSetting,
         onSettingSaved = router::back,
+        resetSaveState = viewModel::resetSaveState,
         changeIsVisibleNightTime = viewModel::changeIsVisibleNightTime,
-        resetSaveState = viewModel::resetSaveState
+        changeIsVisiblePassengerTime = viewModel::changeIsVisiblePassengerTime,
+        changeIsVisibleRelationTime = viewModel::changeIsVisibleRelationTime,
+        changeIsVisibleHolidayTime = viewModel::changeIsVisibleHolidayTime,
+        changeIsVisibleExtendedServicePhase = viewModel::changeIsVisibleExtendedServicePhase
     )
 }

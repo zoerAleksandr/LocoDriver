@@ -490,7 +490,6 @@ fun HomeScreen(
                             routeForPreview?.let { route ->
                                 changeShowConfirmExitDialog(true)
                                 routeForRemove = route
-//                                onDeleteRoute(route)
                             }
                         },
                     horizontalArrangement = Arrangement.SpaceBetween,

@@ -1,5 +1,6 @@
 package com.z_company.route.component
 
+import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -22,6 +23,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -33,6 +35,7 @@ import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.Shapes
@@ -261,19 +264,14 @@ fun ItemHomeScreen(
                             } else {
                                 ""
                             }
-
-                        AutoSizeText(
+                        Text(
                             text = "$trainNumber$stationStart$stationEnd",
-                            style = AppTypography.getType().headlineSmall,
+                            style = AppTypography.getType().titleLarge.copy(
+                                fontSize = 20.sp
+                            ),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             fontWeight = FontWeight.Light,
-                            maxTextSize = requiredSizeText,
-                            minTextSize = 22.sp,
-                            onTextLayout = { textLayoutResult ->
-                                val size = textLayoutResult.layoutInput.style.fontSize
-                                changingTextSize(size)
-                            }
                         )
                     }
                 }

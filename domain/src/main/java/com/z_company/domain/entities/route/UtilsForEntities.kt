@@ -415,8 +415,8 @@ object UtilsForEntities {
             this.number?.toInt() in 4701..4778 ||
             this.number?.toInt() in 4801..4898
         ) {
-            val timeStartFollowing: Long? = this.stations.first().timeDeparture
-            val timeEndFollowing: Long? = this.stations.last().timeArrival
+            val timeStartFollowing: Long? = this.stations.firstOrNull()?.timeDeparture
+            val timeEndFollowing: Long? = this.stations.lastOrNull()?.timeArrival
             (timeEndFollowing - timeStartFollowing) ?: 0L
         } else {
             0L

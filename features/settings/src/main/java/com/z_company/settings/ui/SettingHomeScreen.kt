@@ -46,8 +46,12 @@ fun SettingHomeScreen(
     onBack: () -> Unit,
     onSaveClick: () -> Unit,
     onSettingSaved: () -> Unit,
+    resetSaveState: () -> Unit,
     changeIsVisibleNightTime: (Boolean) -> Unit,
-    resetSaveState: () -> Unit
+    changeIsVisiblePassengerTime: (Boolean) -> Unit,
+    changeIsVisibleRelationTime: (Boolean) -> Unit,
+    changeIsVisibleHolidayTime: (Boolean) -> Unit,
+    changeIsVisibleExtendedServicePhase: (Boolean) -> Unit
 ) {
     val titleStyle = AppTypography.getType().headlineMedium.copy(fontWeight = FontWeight.Light)
     val styleData = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
@@ -112,6 +116,8 @@ fun SettingHomeScreen(
                             .padding(start = 12.dp, end = 12.dp, top = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
+
+
                         Column(
                             modifier = Modifier
                                 .background(
@@ -127,7 +133,7 @@ fun SettingHomeScreen(
                             ) {
                                 Text(text = "Работа в ночное время", style = styleData)
                                 Switch(
-                                    checked = uiState.isVisibleNightTime,
+                                    checked = setting.isVisibleNightTime,
                                     onCheckedChange = changeIsVisibleNightTime
                                 )
                             }
@@ -139,8 +145,8 @@ fun SettingHomeScreen(
                             ) {
                                 Text(text = "Следование пассажиром", style = styleData)
                                 Switch(
-                                    checked = uiState.isVisibleNightTime,
-                                    onCheckedChange = changeIsVisibleNightTime
+                                    checked = setting.isVisiblePassengerTime,
+                                    onCheckedChange = changeIsVisiblePassengerTime
                                 )
                             }
                             HorizontalDivider()
@@ -151,8 +157,8 @@ fun SettingHomeScreen(
                             ) {
                                 Text(text = "Время отвлечения", style = styleData)
                                 Switch(
-                                    checked = uiState.isVisibleNightTime,
-                                    onCheckedChange = changeIsVisibleNightTime
+                                    checked = setting.isVisibleRelationTime,
+                                    onCheckedChange = changeIsVisibleRelationTime
                                 )
                             }
                             HorizontalDivider()
@@ -168,8 +174,8 @@ fun SettingHomeScreen(
                                     style = styleData
                                 )
                                 Switch(
-                                    checked = uiState.isVisibleNightTime,
-                                    onCheckedChange = changeIsVisibleNightTime
+                                    checked = setting.isVisibleHolidayTime,
+                                    onCheckedChange = changeIsVisibleHolidayTime
                                 )
                             }
                             HorizontalDivider()
@@ -185,16 +191,15 @@ fun SettingHomeScreen(
                                     style = styleData
                                 )
                                 Switch(
-                                    checked = uiState.isVisibleNightTime,
-                                    onCheckedChange = changeIsVisibleNightTime
+                                    checked = setting.isVisibleExtendedServicePhase,
+                                    onCheckedChange = changeIsVisibleExtendedServicePhase
                                 )
                             }
-
                         }
 
                         Text(
                             modifier = Modifier.padding(start = 16.dp, top = 4.dp),
-                            text = "Выбоанные параметры будут отображаться на главном экране если их значение больше 0.",
+                            text = "Выбранные параметры будут отображаться на главном экране если их значение больше 0.",
                             style = styleHint,
                         )
                     }

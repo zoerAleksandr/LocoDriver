@@ -200,20 +200,16 @@ fun PurchasesScreen(
                                     val subscriptionInDays =
                                         activeProduct.subscription?.subscriptionPeriod?.days
                                     subscriptionInDays?.let {
-                                        val subscriptionInLong = 86_400_000L * subscriptionInDays
-                                        val endPeriodInLong = purchasesTime + subscriptionInLong
+//                                        val subscriptionInLong = 86_400_000L * subscriptionInDays
+//                                        val endPeriodInLong = purchasesTime + subscriptionInLong
                                         Text(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .padding(top = 12.dp),
-                                            text = "Оформлена до ${
-                                                ConverterLongToTime.getDateAndTimeStringFormat(
-                                                    endPeriodInLong
-                                                )
-                                            }",
+                                            text = "Активная",
                                             textAlign = TextAlign.End,
                                             style = subTitleTextStyle,
-                                            color = MaterialTheme.colorScheme.tertiary
+                                            color = Color.Green
                                         )
                                     }
                                 }

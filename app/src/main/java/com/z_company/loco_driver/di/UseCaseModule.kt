@@ -6,6 +6,7 @@ import com.z_company.use_case.LoginUseCase
 import com.z_company.domain.repositories.RouteRepository
 import com.z_company.use_case.RemoteRouteUseCase
 import com.z_company.domain.use_cases.*
+import com.z_company.use_case.RuStoreUseCase
 import org.koin.dsl.module
 
 val useCaseModule = module {
@@ -25,4 +26,5 @@ val useCaseModule = module {
 
     single { SearchRouteUseCase(repository = get()) }
     single { SalarySettingUseCase(repository = get()) }
+    single { RuStoreUseCase(ruStoreRepository = get()) }
 }

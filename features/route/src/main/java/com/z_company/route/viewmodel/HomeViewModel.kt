@@ -1,6 +1,7 @@
 package com.z_company.route.viewmodel
 
 import android.content.Context
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.setValue
@@ -41,6 +42,8 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import ru.rustore.sdk.billingclient.RuStoreBillingClient
+import ru.rustore.sdk.billingclient.model.purchase.Purchase
+import ru.rustore.sdk.billingclient.model.purchase.PurchaseState
 import ru.rustore.sdk.billingclient.utils.pub.checkPurchasesAvailability
 
 class HomeViewModel : ViewModel(), KoinComponent {
@@ -109,13 +112,22 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 try {
                     val currentTimeInMillis = getInstance().timeInMillis
                     val purchases = billingClient.purchases.getPurchases().await()
+                    var isActivePurchase = false
                     var maxEndTime = 0L
                     purchases.forEach { purchase ->
-                        val purchaseEndTime =
-                            purchase.getEndTimeSubscription(billingClient).first()
-                        if (purchaseEndTime > maxEndTime) {
-                            maxEndTime = purchaseEndTime
+                        if (purchase.purchaseState == PurchaseState.CONFIRMED) {
+                            isActivePurchase = true
+                            val period = 31 * 86_400_000L
+                            maxEndTime = currentTimeInMillis + period
+                            Log.d("ZZZ", "maxEndTime ${currentTimeInMillis + period}")
                         }
+                        Log.d("ZZZ", "is Active = $isActivePurchase")
+
+//                        val purchaseEndTime =
+//                            purchase.getEndTimeSubscription(billingClient).first()
+//                        if (purchaseEndTime > maxEndTime) {
+//                            maxEndTime = purchaseEndTime
+//                        }
                     }
                     if (maxEndTime > currentTimeInMillis) {
                         sharedPreferenceStorage.setSubscriptionExpiration(maxEndTime)
@@ -361,7 +373,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun removeRoute(route: Route){
+    fun removeRoute(route: Route) {
         removeRouteJob?.cancel()
         removeRouteJob = routeUseCase.markAsRemoved(route).onEach { result ->
             _uiState.update {
