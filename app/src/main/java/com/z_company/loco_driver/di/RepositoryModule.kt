@@ -17,7 +17,7 @@ import com.z_company.domain.repositories.HistoryResponseRepository
 import com.z_company.domain.repositories.SalarySettingRepository
 import com.z_company.domain.repositories.SettingsRepository
 import com.z_company.repository.Back4AppManager
-import com.z_company.repository.RuStoreRepository
+import com.z_company.repository.ru_store_api.RuStoreRepositoryKtor
 import org.koin.android.ext.koin.androidApplication
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
@@ -49,5 +49,5 @@ val repositoryModule = module {
 
     single { Back4AppManager() }
     single<SalarySettingRepository> { RoomSalarySettingRepository() }
-    single<RuStoreRepository> { RuStoreRepository() }
+    single<RuStoreRepositoryKtor> { RuStoreRepositoryKtor() }
 }

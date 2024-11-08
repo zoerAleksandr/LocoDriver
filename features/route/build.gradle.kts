@@ -72,6 +72,8 @@ dependencies {
     implementation(Libs.maxkeppeler_sheets)
     implementation(Libs.rebugger)
 
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+
     implementation(Libs.camera_camera2)
     implementation(Libs.camera_lifecycle)
     implementation(Libs.camera_view)

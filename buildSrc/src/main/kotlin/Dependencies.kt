@@ -43,6 +43,7 @@ object Plugins {
     const val kotlin_kapt = "kapt"
     const val java_lib = "java-library"
     const val google_relay = "com.google.relay"
+    const val kotlinx_serialization = "kotlinx-serialization"
 }
 
 object Apps {

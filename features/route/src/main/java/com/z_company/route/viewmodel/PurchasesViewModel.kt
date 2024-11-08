@@ -6,6 +6,7 @@ import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.data_local.SharedPreferenceStorage
+import com.z_company.repository.ru_store_api.DTO.SubscriptionAnswerDTO
 import com.z_company.route.Const.LOCO_DRIVER_ANNUAL_SUBSCRIPTION
 import com.z_company.route.Const.LOCO_DRIVER_MONTHLY_SUBSCRIPTION
 import com.z_company.route.R
@@ -17,16 +18,22 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 import ru.rustore.sdk.billingclient.RuStoreBillingClient
 import ru.rustore.sdk.billingclient.model.product.Product
 import ru.rustore.sdk.billingclient.model.purchase.PaymentResult
 import ru.rustore.sdk.billingclient.model.purchase.PurchaseState
+import ru.rustore.sdk.core.util.RuStoreUtils.isRuStoreInstalled
 import java.util.Calendar
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -51,7 +58,6 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
 
     init {
         getProducts()
-        ruStoreUseCase.getJWE()
     }
 
     fun onProductClick(product: Product) {
@@ -60,18 +66,52 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
 
     private fun getProducts() {
         _state.value = _state.value.copy(isLoading = true)
+        // TODO Добавить проверку наличия ruStore isRuStoreInstalled(context)
+
+        val callback = object : Callback<SubscriptionAnswerDTO> {
+            override fun onResponse(
+                p0: Call<SubscriptionAnswerDTO>,
+                p1: Response<SubscriptionAnswerDTO>
+            ) {
+                Log.d("ZZZ", "p1 onResponse ${p1.body()}")
+            }
+
+            override fun onFailure(p0: Call<SubscriptionAnswerDTO>, p1: Throwable) {
+                Log.d("ZZZ", "p1 onFailure $p1")
+            }
+        }
+
         viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                ruStoreUseCase.getJWE()
+                    .onSuccess { answer ->
+                        val purchases = billingClient.purchases.getPurchases().await()
+                        purchases.forEach { purchase ->
+                            Log.d("ZZZ", "purchases - ${purchases}")
+                            ruStoreUseCase.test(
+                                jweToken = answer.body.jwe,
+                                subscriptionId = purchase.productId,
+                                subscriptionToken = purchase.subscriptionToken ?: "",
+                                callback = callback
+                            )
+                        }
+                    }
+                    .onFailure {
+                        Log.d("ZZZ", "throwable - $it")
+                    }
+            }
+
             runCatching {
                 withContext(Dispatchers.IO) {
                     val products = billingClient.products.getProducts(
                         productIds = availableProductIds
                     ).await()
+
                     val purchases = billingClient.purchases.getPurchases().await()
                     val productIds: MutableList<String> = mutableListOf()
                     purchases.forEach { purchase ->
                         val purchaseId = purchase.purchaseId
                         productIds.add(purchase.productId)
-                        Log.d("ZZZ", "token = ${purchase.subscriptionToken}")
 
                         purchase.productId
                         if (purchase.developerPayload?.isNotEmpty() == true) {

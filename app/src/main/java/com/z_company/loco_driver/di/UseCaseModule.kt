@@ -26,5 +26,5 @@ val useCaseModule = module {
 
     single { SearchRouteUseCase(repository = get()) }
     single { SalarySettingUseCase(repository = get()) }
-    single { RuStoreUseCase(ruStoreRepository = get()) }
+    single { RuStoreUseCase(ruStoreRepositoryKtor = get()) }
 }
