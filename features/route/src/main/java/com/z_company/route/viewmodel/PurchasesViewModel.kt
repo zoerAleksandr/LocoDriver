@@ -62,7 +62,6 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
 
     private fun getProducts() {
         _state.value = _state.value.copy(isLoading = true)
-        // TODO Добавить проверку наличия ruStore isRuStoreInstalled(context)
 
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
@@ -72,14 +71,15 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                 ).await().toMutableList()
 
                 val purchases = billingClient.purchases.getPurchases().await()
+
                 val subscriptions = mutableListOf<SubscriptionDetails>()
                 // получил данные по активным подпискам
                 ruStoreUseCase.getJWE()
                     .onSuccess { answer ->
-                        viewModelScope.launch {
-                            purchases.forEachIndexed { index, purchase ->
-                                val purchaseId = purchase.purchaseId
+                        purchases.forEachIndexed { index, purchase ->
+                            val purchaseId = purchase.purchaseId
 
+                            if (purchase.purchaseState == PurchaseState.CONFIRMED) {
                                 // получил детали по активным подпискам
                                 val callback = object : Callback<SubscriptionAnswerDTO> {
                                     override fun onResponse(
@@ -131,29 +131,29 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                                     subscriptionToken = purchase.subscriptionToken ?: "",
                                     callback = callback
                                 )
+                            }
 
-                                if (purchaseId != null) {
-                                    when (purchase.purchaseState) {
-                                        PurchaseState.CREATED, PurchaseState.INVOICE_CREATED -> {
-                                            billingClient.purchases.deletePurchase(purchaseId)
-                                                .await()
-                                        }
-
-                                        PurchaseState.PAID -> {
-                                            billingClient.purchases.confirmPurchase(purchaseId)
-                                                .await()
-                                        }
-
-                                        else -> Unit
+                            if (purchaseId != null) {
+                                when (purchase.purchaseState) {
+                                    PurchaseState.CREATED, PurchaseState.INVOICE_CREATED -> {
+                                        billingClient.purchases.deletePurchase(purchaseId)
+                                            .await()
                                     }
-                                }
 
-                                if (purchase.developerPayload?.isNotEmpty() == true) {
-                                    Log.w(
-                                        "RuStoreBillingClient",
-                                        "DeveloperPayloadInfo: ${purchase.developerPayload}"
-                                    )
+                                    PurchaseState.PAID -> {
+                                        billingClient.purchases.confirmPurchase(purchaseId)
+                                            .await()
+                                    }
+
+                                    else -> Unit
                                 }
+                            }
+
+                            if (purchase.developerPayload?.isNotEmpty() == true) {
+                                Log.w(
+                                    "RuStoreBillingClient",
+                                    "DeveloperPayloadInfo: ${purchase.developerPayload}"
+                                )
                             }
                         }
                     }
@@ -162,9 +162,9 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                         _state.value = _state.value.copy(isLoading = false)
                     }
             }.onFailure { throwable ->
-                    _event.tryEmit(BillingEvent.ShowError(throwable))
-                    _state.value = _state.value.copy(isLoading = false)
-                }
+                _event.tryEmit(BillingEvent.ShowError(throwable))
+                _state.value = _state.value.copy(isLoading = false)
+            }
         }
     }
 

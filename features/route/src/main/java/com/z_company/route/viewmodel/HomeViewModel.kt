@@ -1,7 +1,6 @@
 package com.z_company.route.viewmodel
 
 import android.content.Context
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.setValue
@@ -33,16 +32,14 @@ import org.koin.core.component.inject
 import java.util.Calendar.MONTH
 import java.util.Calendar.YEAR
 import java.util.Calendar.getInstance
-import com.z_company.route.extention.getEndTimeSubscription
+import com.z_company.use_case.RuStoreUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import ru.rustore.sdk.billingclient.RuStoreBillingClient
-import ru.rustore.sdk.billingclient.model.purchase.Purchase
 import ru.rustore.sdk.billingclient.model.purchase.PurchaseState
 import ru.rustore.sdk.billingclient.utils.pub.checkPurchasesAvailability
 
@@ -52,6 +49,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
     private val settingsUseCase: SettingsUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferenceStorage by inject()
     private val billingClient: RuStoreBillingClient by inject()
+    private val ruStoreUseCase: RuStoreUseCase by inject()
     var totalTime by mutableLongStateOf(0L)
         private set
 
@@ -112,22 +110,23 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 try {
                     val currentTimeInMillis = getInstance().timeInMillis
                     val purchases = billingClient.purchases.getPurchases().await()
-                    var isActivePurchase = false
                     var maxEndTime = 0L
                     purchases.forEach { purchase ->
-                        if (purchase.purchaseState == PurchaseState.CONFIRMED) {
-                            isActivePurchase = true
-                            val period = 31 * 86_400_000L
-                            maxEndTime = currentTimeInMillis + period
-                            Log.d("ZZZ", "maxEndTime ${currentTimeInMillis + period}")
-                        }
-                        Log.d("ZZZ", "is Active = $isActivePurchase")
-
-//                        val purchaseEndTime =
-//                            purchase.getEndTimeSubscription(billingClient).first()
-//                        if (purchaseEndTime > maxEndTime) {
-//                            maxEndTime = purchaseEndTime
-//                        }
+                        this.launch {
+                            if (purchase.purchaseState == PurchaseState.CONFIRMED) {
+                                ruStoreUseCase.getExpiryTimeMillis(
+                                    purchase.productId,
+                                    purchase.subscriptionToken ?: ""
+                                ).collect { resultState ->
+                                    if (resultState is ResultState.Success) {
+                                        if (resultState.data > maxEndTime) {
+                                            maxEndTime = resultState.data
+                                        }
+                                        this@launch.cancel()
+                                    }
+                                }
+                            }
+                        }.join()
                     }
                     if (maxEndTime > currentTimeInMillis) {
                         sharedPreferenceStorage.setSubscriptionExpiration(maxEndTime)

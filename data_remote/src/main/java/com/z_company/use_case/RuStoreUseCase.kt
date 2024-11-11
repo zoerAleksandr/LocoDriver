@@ -3,12 +3,22 @@ package com.z_company.use_case
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
+import com.z_company.core.ErrorEntity
+import com.z_company.core.ResultState
 import com.z_company.repository.ru_store_api.DTO.JWEAnswerDTO
 import com.z_company.repository.ru_store_api.DTO.SubscriptionAnswerDTO
 import com.z_company.repository.ru_store_api.RetrofitClient
 import com.z_company.repository.ru_store_api.RetrofitServices
 import com.z_company.repository.ru_store_api.RuStoreRepositoryKtor
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.withContext
+import retrofit2.Call
 import retrofit2.Callback
+import retrofit2.Response
 import java.security.InvalidKeyException
 import java.security.KeyFactory
 import java.security.NoSuchAlgorithmException
@@ -44,26 +54,73 @@ class RuStoreUseCase(val ruStoreRepositoryKtor: RuStoreRepositoryKtor) {
         return ruStoreApi.getDetails(
             jweToken = jweToken,
             packageName = "com.z_company.loco_driver",
-            subscriptionId,
-            subscriptionToken
+            subscriptionId = subscriptionId,
+            subscriptionToken = subscriptionToken
         ).enqueue(callback)
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
+    suspend fun getExpiryTimeMillis(
+        productId: String,
+        subscriptionToken: String
+    ): Flow<ResultState<Long>> {
+        return channelFlow {
+            trySend(ResultState.Loading)
+            withContext(Dispatchers.IO) {
+                getJWE()
+                    .onSuccess { answer ->
+                        getSubscriptionDetails(
+                            jweToken = answer.body.jwe,
+                            subscriptionId = productId,
+                            subscriptionToken = subscriptionToken,
+                            callback = object : Callback<SubscriptionAnswerDTO> {
+                                override fun onResponse(
+                                    p0: Call<SubscriptionAnswerDTO>,
+                                    p1: Response<SubscriptionAnswerDTO>
+                                ) {
+                                    Log.d("ZZZ", "onResponse ${p1.body()}")
+                                    val timeInMillis: Long? =
+                                        p1.body()?.expiryTimeMillis?.toLongOrNull()
+                                    if (timeInMillis == null) {
+                                        trySend(ResultState.Error(ErrorEntity(Throwable(message = "SubscriptionAnswerDTO body == null"))))
+                                        this@channelFlow.cancel()
+                                    } else {
+                                        trySend(ResultState.Success(timeInMillis))
+                                        this@channelFlow.cancel()
+                                    }
+                                }
+
+                                override fun onFailure(
+                                    p0: Call<SubscriptionAnswerDTO>,
+                                    p1: Throwable
+                                ) {
+                                    trySend(ResultState.Error(ErrorEntity(p1)))
+                                }
+
+                            }
+                        )
+                    }
+                    .onFailure {
+                        trySend(ResultState.Error(ErrorEntity(it)))
+                    }
+            }
+            awaitClose()
+        }
+    }
+
     @Throws(
         NoSuchAlgorithmException::class,
         InvalidKeySpecException::class,
         InvalidKeyException::class,
         SignatureException::class
     )
-
+    @RequiresApi(Build.VERSION_CODES.O)
     private fun generateSignature(keyId: String, privateKeyContent: String): String {
         val kf = KeyFactory.getInstance("RSA")
         val keySpecPKCS8 = PKCS8EncodedKeySpec(Base64.getDecoder().decode(privateKeyContent))
         val privateKey = kf.generatePrivate(keySpecPKCS8)
         val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX")
         val timestamp = dateFormat.format(Date())
-        Log.d("ZZZ", "timestamp $timestamp")
         val messageToSign = keyId + timestamp
         println("Message to sign: $messageToSign")
         val signature: Signature = Signature.getInstance("SHA512withRSA")
@@ -78,16 +135,4 @@ class RuStoreUseCase(val ruStoreRepositoryKtor: RuStoreRepositoryKtor) {
             signatureValue
         )
     }
-}
-
-sealed class Response<out T> {
-    object Loading : Response<Nothing>()
-
-    data class Success<out T>(
-        val data: T
-    ) : Response<T>()
-
-    data class Failure(
-        val e: Exception
-    ) : Response<Nothing>()
 }

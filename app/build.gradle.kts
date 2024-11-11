@@ -32,9 +32,6 @@ android {
     }
 
     defaultConfig {
-//        val VKIDClientSecret = properties.getProperty("VKIDClientSecret")
-//        val VKIDClientID = properties.getProperty("VKIDClientID")
-
         addManifestPlaceholders(
             mapOf(
                 "VKIDRedirectHost" to "vk.com",

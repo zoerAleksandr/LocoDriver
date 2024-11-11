@@ -13,21 +13,20 @@ import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.use_cases.LoadCalendarFromStorage
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
-import com.z_company.route.extention.getEndTimeSubscription
 import com.z_company.use_case.RemoteRouteUseCase
+import com.z_company.use_case.RuStoreUseCase
 import com.z_company.work_manager.UserFieldName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import ru.rustore.sdk.billingclient.RuStoreBillingClient
-import java.util.Calendar
+import ru.rustore.sdk.billingclient.model.purchase.PurchaseState
 
 private const val TAG = "MainViewModel_TAG"
 
@@ -38,6 +37,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private val remoteRouteUseCase: RemoteRouteUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferenceStorage by inject()
     private val billingClient: RuStoreBillingClient by inject()
+    private val ruStoreUseCase: RuStoreUseCase by inject()
 
     private var saveCalendarInLocalJob: Job? = null
     private var setDefaultSetting: Job? = null
@@ -53,8 +53,8 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
         if (sharedPreferenceStorage.tokenIsFirstAppEntry()) {
             setDefaultSettings()
         }
-        syncRuStoreSubscription()
         viewModelScope.launch {
+            syncRuStoreSubscription()
             loadCalendar()
             delay(1000L)
             getSession()
@@ -144,28 +144,30 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
         }
     }
 
-    // при вызове метода происходит утечка памяти
-    private fun syncRuStoreSubscription() {
-        viewModelScope.launch {
-            withContext(Dispatchers.IO) {
-                try {
-                    val currentTimeInMillis = Calendar.getInstance().timeInMillis
-                    val purchases = billingClient.purchases.getPurchases().await()
-                    var maxEndTime = 0L
-                    purchases.forEach { purchase ->
-                        val purchaseEndTime =
-                            purchase.getEndTimeSubscription(billingClient).first()
-                        if (purchaseEndTime > maxEndTime) {
-                            maxEndTime = purchaseEndTime
+    // при вызове метода происходит утечка памяти на Pixel API 34 Android 14
+    private suspend fun syncRuStoreSubscription() {
+        withContext(Dispatchers.IO) {
+            try {
+                val purchases = billingClient.purchases.getPurchases().await()
+                purchases.forEach { purchase ->
+                    this.launch {
+                        if (purchase.purchaseState == PurchaseState.CONFIRMED) {
+                            ruStoreUseCase.getExpiryTimeMillis(
+                                productId = purchase.productId,
+                                subscriptionToken = purchase.subscriptionToken ?: ""
+                            ).collect { resultState ->
+                                if (resultState is ResultState.Success) {
+                                    sharedPreferenceStorage.setSubscriptionExpiration(
+                                        resultState.data
+                                    )
+                                    this@launch.cancel()
+                                }
+                            }
                         }
-                    }
-                    if (maxEndTime > currentTimeInMillis) {
-                        sharedPreferenceStorage.setSubscriptionExpiration(maxEndTime)
-                    }
-
-                } catch (e: Exception) {
-                    Log.w(TAG, "${e.message}")
+                    }.join()
                 }
+            } catch (e: Exception) {
+                Log.w(TAG, "${e.message}")
             }
         }
     }

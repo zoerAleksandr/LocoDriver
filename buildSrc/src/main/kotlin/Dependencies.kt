@@ -49,7 +49,7 @@ object Plugins {
 object Apps {
     const val application_id = "com.z_company.loco_driver"
     const val compile_sdk_version = 34
-    const val min_sdk_version = 24
+    const val min_sdk_version = 26
     const val target_sdk_version = 34
 
     const val version_code = 19

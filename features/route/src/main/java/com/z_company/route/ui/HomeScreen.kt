@@ -244,7 +244,7 @@ fun HomeScreen(
                         }
                     ) {
                         Text(
-                            text = "Оформить подписку",
+                            text = "Оформить подписку за 44 руб/мес",
                             style = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.tertiary)
                         )
                     }
@@ -1399,22 +1399,18 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: ResultState<Long?>
                                                         if (sectionElectric.acceptedEnergy != null &&
                                                             sectionElectric.deliveryEnergy != null
                                                         ) {
-                                                            consumptionEnergy.let {
-                                                                Text(
-                                                                    text = "Расход: $consumptionEnergy",
-                                                                    style = styleHint,
-                                                                )
-                                                            }
+                                                            Text(
+                                                                text = "Расход: $consumptionEnergy",
+                                                                style = styleHint,
+                                                            )
                                                         }
                                                         if (sectionElectric.acceptedRecovery != null &&
                                                             sectionElectric.deliveryRecovery != null
                                                         ) {
-                                                            consumptionRecovery.let {
-                                                                Text(
-                                                                    text = "Рекуперация: $consumptionRecovery",
-                                                                    style = styleHint,
-                                                                )
-                                                            }
+                                                            Text(
+                                                                text = "Рекуперация: $consumptionRecovery",
+                                                                style = styleHint,
+                                                            )
                                                         }
                                                     }
                                                 } else {
@@ -1672,7 +1668,7 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: ResultState<Long?>
                     }
                     AnimatedVisibility(visible = trainExpandItemState[index]!!) {
                         Column {
-                            train.stations.forEachIndexed { index, station ->
+                            train.stations.forEachIndexed { _, station ->
                                 val stationNameText = station.stationName.ifNullOrBlank { "" }
                                 val timeArrival = getTimeFromDateLong(station.timeArrival)
                                 val timeDeparture = getTimeFromDateLong(station.timeDeparture)
