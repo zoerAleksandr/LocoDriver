@@ -4,6 +4,7 @@ plugins {
     id(Plugins.android_app)
     id(Plugins.kotlin_android)
     kotlin(Plugins.kotlin_kapt)
+    id("ru.ok.tracer").version("0.5.1")
 }
 
 android {
@@ -76,11 +77,22 @@ android {
         }
     }
 }
+tracer {
+    create("defaultConfig") {
+        pluginToken = "fXDqsEd0kMKfFaGKjIOyiNSkthd3jXtkvvvP1Ckevvf0"
+        appToken = "1io5grTlupk1xA2hlnGu4uthwGqLCge4HE5xHMfTgYH0"
+    }
+}
+
 
 dependencies {
     implementation ("com.my.tracker:mytracker-sdk:3.3.2")
     implementation(platform("ru.rustore.sdk:bom:6.1.0"))
     implementation("ru.rustore.sdk:billingclient")
+
+    implementation(platform("ru.ok.tracer:tracer-platform:0.5.1"))
+    implementation("ru.ok.tracer:tracer-crash-report")
+
     implementation(project(Libs.project_core_android))
     implementation(project(Libs.project_domain))
     implementation(project(Libs.project_data_local))

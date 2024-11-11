@@ -3,6 +3,7 @@ pluginManagement {
         google()
         mavenCentral()
         gradlePluginPortal()
+        maven { setUrl("https://artifactory-external.vkpartner.ru/artifactory/maven/") }
     }
 }
 dependencyResolutionManagement {

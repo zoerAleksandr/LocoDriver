@@ -6,11 +6,12 @@ import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.data_local.SharedPreferenceStorage
+import com.z_company.domain.entities.SubscriptionDetails
+import com.z_company.repository.ru_store_api.DTO.JWEAnswerDTO
 import com.z_company.repository.ru_store_api.DTO.SubscriptionAnswerDTO
 import com.z_company.route.Const.LOCO_DRIVER_ANNUAL_SUBSCRIPTION
 import com.z_company.route.Const.LOCO_DRIVER_MONTHLY_SUBSCRIPTION
 import com.z_company.route.R
-import com.z_company.route.extention.getEndTimeSubscription
 import com.z_company.use_case.RuStoreUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
@@ -18,9 +19,6 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -33,8 +31,6 @@ import ru.rustore.sdk.billingclient.RuStoreBillingClient
 import ru.rustore.sdk.billingclient.model.product.Product
 import ru.rustore.sdk.billingclient.model.purchase.PaymentResult
 import ru.rustore.sdk.billingclient.model.purchase.PurchaseState
-import ru.rustore.sdk.core.util.RuStoreUtils.isRuStoreInstalled
-import java.util.Calendar
 
 @RequiresApi(Build.VERSION_CODES.O)
 class PurchasesViewModel : ViewModel(), KoinComponent {
@@ -68,88 +64,107 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
         _state.value = _state.value.copy(isLoading = true)
         // TODO Добавить проверку наличия ruStore isRuStoreInstalled(context)
 
-        val callback = object : Callback<SubscriptionAnswerDTO> {
-            override fun onResponse(
-                p0: Call<SubscriptionAnswerDTO>,
-                p1: Response<SubscriptionAnswerDTO>
-            ) {
-                Log.d("ZZZ", "p1 onResponse ${p1.body()}")
-            }
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                // получил данные по доступным продуктам
+                val products: MutableList<Product> = billingClient.products.getProducts(
+                    productIds = availableProductIds
+                ).await().toMutableList()
 
-            override fun onFailure(p0: Call<SubscriptionAnswerDTO>, p1: Throwable) {
-                Log.d("ZZZ", "p1 onFailure $p1")
-            }
-        }
-
-        viewModelScope.launch {
-            withContext(Dispatchers.IO) {
+                val purchases = billingClient.purchases.getPurchases().await()
+                val subscriptions = mutableListOf<SubscriptionDetails>()
+                // получил данные по активным подпискам
                 ruStoreUseCase.getJWE()
                     .onSuccess { answer ->
-                        val purchases = billingClient.purchases.getPurchases().await()
-                        purchases.forEach { purchase ->
-                            Log.d("ZZZ", "purchases - ${purchases}")
-                            ruStoreUseCase.test(
-                                jweToken = answer.body.jwe,
-                                subscriptionId = purchase.productId,
-                                subscriptionToken = purchase.subscriptionToken ?: "",
-                                callback = callback
-                            )
-                        }
-                    }
-                    .onFailure {
-                        Log.d("ZZZ", "throwable - $it")
-                    }
-            }
+                        viewModelScope.launch {
+                            purchases.forEachIndexed { index, purchase ->
+                                val purchaseId = purchase.purchaseId
 
-            runCatching {
-                withContext(Dispatchers.IO) {
-                    val products = billingClient.products.getProducts(
-                        productIds = availableProductIds
-                    ).await()
+                                // получил детали по активным подпискам
+                                val callback = object : Callback<SubscriptionAnswerDTO> {
+                                    override fun onResponse(
+                                        p0: Call<SubscriptionAnswerDTO>,
+                                        p1: Response<SubscriptionAnswerDTO>
+                                    ) {
+                                        subscriptions.add(
+                                            SubscriptionDetails(
+                                                productId = purchaseId ?: "",
+                                                title = products.find { it.productId == purchase.productId }?.title
+                                                    ?: "",
+                                                description = products.find { it.productId == purchase.productId }?.description
+                                                    ?: "",
+                                                expiryTime = p1.body()?.expiryTimeMillis ?: "",
+                                                priceLabel = products.find { it.productId == purchase.productId }?.priceLabel
+                                                    ?: ""
+                                            )
+                                        )
 
-                    val purchases = billingClient.purchases.getPurchases().await()
-                    val productIds: MutableList<String> = mutableListOf()
-                    purchases.forEach { purchase ->
-                        val purchaseId = purchase.purchaseId
-                        productIds.add(purchase.productId)
+                                        // удаляем из списка продуктов те, которые уже куплены
+                                        products.removeIf { product ->
+                                            product.productId == purchase.productId
+                                        }
 
-                        purchase.productId
-                        if (purchase.developerPayload?.isNotEmpty() == true) {
-                            Log.w(
-                                "RuStoreBillingClient",
-                                "DeveloperPayloadInfo: ${purchase.developerPayload}"
-                            )
-                        }
-                        if (purchaseId != null) {
-                            when (purchase.purchaseState) {
-                                PurchaseState.CREATED, PurchaseState.INVOICE_CREATED -> {
-                                    billingClient.purchases.deletePurchase(purchaseId).await()
+                                        if (index + 1 == purchases.size) {
+                                            // обновляем UI
+                                            _state.update {
+                                                it.copy(
+                                                    products = products,
+                                                    subscriptions = subscriptions,
+                                                    isLoading = false,
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    override fun onFailure(
+                                        p0: Call<SubscriptionAnswerDTO>,
+                                        p1: Throwable
+                                    ) {
+                                        _event.tryEmit(BillingEvent.ShowError(p1))
+                                        _state.value = _state.value.copy(isLoading = false)
+                                    }
                                 }
 
-                                PurchaseState.PAID -> {
-                                    billingClient.purchases.confirmPurchase(purchaseId).await()
+                                ruStoreUseCase.getSubscriptionDetails(
+                                    jweToken = answer.body.jwe,
+                                    subscriptionId = purchase.productId,
+                                    subscriptionToken = purchase.subscriptionToken ?: "",
+                                    callback = callback
+                                )
+
+                                if (purchaseId != null) {
+                                    when (purchase.purchaseState) {
+                                        PurchaseState.CREATED, PurchaseState.INVOICE_CREATED -> {
+                                            billingClient.purchases.deletePurchase(purchaseId)
+                                                .await()
+                                        }
+
+                                        PurchaseState.PAID -> {
+                                            billingClient.purchases.confirmPurchase(purchaseId)
+                                                .await()
+                                        }
+
+                                        else -> Unit
+                                    }
                                 }
 
-                                else -> Unit
+                                if (purchase.developerPayload?.isNotEmpty() == true) {
+                                    Log.w(
+                                        "RuStoreBillingClient",
+                                        "DeveloperPayloadInfo: ${purchase.developerPayload}"
+                                    )
+                                }
                             }
                         }
                     }
-
-                    withContext(Dispatchers.Main) {
-                        _state.update {
-                            it.copy(
-                                products = products,
-                                purchases = purchases,
-                                isLoading = false,
-                                boughtProductsId = productIds
-                            )
-                        }
+                    .onFailure { throwable ->
+                        _event.tryEmit(BillingEvent.ShowError(throwable))
+                        _state.value = _state.value.copy(isLoading = false)
                     }
-                }
             }.onFailure { throwable ->
-                _event.tryEmit(BillingEvent.ShowError(throwable))
-                _state.value = _state.value.copy(isLoading = false)
-            }
+                    _event.tryEmit(BillingEvent.ShowError(throwable))
+                    _state.value = _state.value.copy(isLoading = false)
+                }
         }
     }
 
@@ -176,30 +191,47 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
             }
 
             is PaymentResult.Success -> {
-                setSubscriptionExpiration(paymentResult.purchaseId)
+                setSubscriptionExpiration(paymentResult.productId, paymentResult.subscriptionToken)
             }
 
             else -> Unit
         }
     }
 
-    private fun setSubscriptionExpiration(purchaseId: String) {
+    private fun setSubscriptionExpiration(productId: String, subscriptionToken: String?) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
-                val purchase = billingClient.purchases.getPurchaseInfo(purchaseId).await()
-                val productId = purchase.productId
-                val product = billingClient.products.getProducts(listOf(productId)).await()
-                val periodInDays = product.first().subscription?.subscriptionPeriod?.days
-                if (periodInDays != null) {
-                    val endPeriodInLong =
-                        Calendar.getInstance().timeInMillis + (86_400_000L * periodInDays.toLong())
-                    withContext(Dispatchers.Main) {
-                        val oldEndPeriod = sharedPreferenceStorage.getSubscriptionExpiration()
-                        if (endPeriodInLong > oldEndPeriod) {
-                            sharedPreferenceStorage.setSubscriptionExpiration(endPeriodInLong)
+                ruStoreUseCase.getJWE()
+                    .onSuccess { value: JWEAnswerDTO ->
+                        val callback = object : Callback<SubscriptionAnswerDTO> {
+                            override fun onResponse(
+                                p0: Call<SubscriptionAnswerDTO>,
+                                p1: Response<SubscriptionAnswerDTO>
+                            ) {
+                                val oldEndPeriod =
+                                    sharedPreferenceStorage.getSubscriptionExpiration()
+                                p1.body()?.expiryTimeMillis?.toLongOrNull()?.let { expiryTime ->
+                                    if (expiryTime > oldEndPeriod) {
+                                        sharedPreferenceStorage.setSubscriptionExpiration(expiryTime)
+                                    }
+                                }
+                            }
+
+                            override fun onFailure(p0: Call<SubscriptionAnswerDTO>, p1: Throwable) {
+                                _event.tryEmit(BillingEvent.ShowError(p1))
+                            }
+
                         }
+                        ruStoreUseCase.getSubscriptionDetails(
+                            jweToken = value.body.jwe,
+                            subscriptionId = productId,
+                            subscriptionToken = subscriptionToken ?: "",
+                            callback = callback
+                        )
                     }
-                }
+                    .onFailure {
+                        _event.tryEmit(BillingEvent.ShowError(it))
+                    }
             }
         }
     }

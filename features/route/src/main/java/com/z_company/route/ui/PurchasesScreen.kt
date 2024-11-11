@@ -1,6 +1,7 @@
 package com.z_company.route.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -46,6 +47,7 @@ import com.z_company.core.ui.component.GenericLoading
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
+import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.route.viewmodel.BillingEvent
 import com.z_company.route.viewmodel.BillingState
 import kotlinx.coroutines.flow.SharedFlow
@@ -165,80 +167,175 @@ fun PurchasesScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            billingState.products
-                .filter { product ->
-                    product.productStatus == ProductStatus.ACTIVE
-                }
-                .forEach { activeProduct ->
-                    Column(
+            billingState.subscriptions.forEach { subscription ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            color = MaterialTheme.colorScheme.surface,
+                            shape = Shapes.medium
+                        )
+                        .border(
+                            width = 1.dp,
+                            shape = Shapes.medium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    Text(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        text = subscription.title.toString(), style = subTitleTextStyle
+                    )
+                    Text(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        text = subscription.description.toString(),
+                        style = hintStyle
+                    )
+                    Text(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(
-                                color = MaterialTheme.colorScheme.surface,
-                                shape = Shapes.medium
+                            .padding(top = 12.dp),
+                        text = "Активна до ${
+                            ConverterLongToTime.getDateAndTimeStringFormat(
+                                subscription.expiryTime.toLongOrNull()
                             )
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalAlignment = Alignment.End
+                        }",
+                        textAlign = TextAlign.End,
+                        style = subTitleTextStyle,
+                    )
+                }
+            }
+
+            billingState.products.forEach { product ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            color = MaterialTheme.colorScheme.surface,
+                            shape = Shapes.medium
+                        )
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    Text(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        text = product.title.toString(), style = subTitleTextStyle
+                    )
+                    Text(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        text = product.description.toString(),
+                        style = hintStyle
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            modifier = Modifier
-                                .fillMaxWidth(),
-                            text = activeProduct.title.toString(), style = subTitleTextStyle
+                            text = product.priceLabel.toString(),
+                            style = subTitleTextStyle
                         )
-                        Text(
-                            modifier = Modifier
-                                .fillMaxWidth(),
-                            text = activeProduct.description.toString(),
-                            style = hintStyle
-                        )
-                        if (billingState.boughtProductsId.contains(activeProduct.productId)) {
-                            val purchases =
-                                billingState.purchases.find { purchase -> purchase.productId == activeProduct.productId }
-                            purchases?.let { currentPurchases ->
-                                val purchasesTime = currentPurchases.purchaseTime?.time
-                                purchasesTime?.let {
-                                    val subscriptionInDays =
-                                        activeProduct.subscription?.subscriptionPeriod?.days
-                                    subscriptionInDays?.let {
-//                                        val subscriptionInLong = 86_400_000L * subscriptionInDays
-//                                        val endPeriodInLong = purchasesTime + subscriptionInLong
-                                        Text(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(top = 12.dp),
-                                            text = "Активная",
-                                            textAlign = TextAlign.End,
-                                            style = subTitleTextStyle,
-                                            color = Color.Green
-                                        )
-                                    }
-                                }
-                            }
-                        } else {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = activeProduct.priceLabel.toString(),
-                                    style = subTitleTextStyle
-                                )
-                                TextButton(
-                                    onClick = { onProductClick(activeProduct) }
-                                ) {
-                                    Text(
-                                        text = "Оформить подписку",
-                                        color = MaterialTheme.colorScheme.tertiary,
-                                        style = subTitleTextStyle
-                                    )
-                                }
-                            }
+                        TextButton(
+                            onClick = { onProductClick(product) }
+                        ) {
+                            Text(
+                                text = "Оформить подписку",
+                                color = MaterialTheme.colorScheme.tertiary,
+                                style = subTitleTextStyle
+                            )
                         }
                     }
+//                    Text(
+//                        modifier = Modifier
+//                            .fillMaxWidth()
+//                            .padding(top = 12.dp),
+//                        text = "${product.priceLabel} RUB",
+//                        textAlign = TextAlign.End,
+//                        style = subTitleTextStyle,
+//                    )
                 }
+            }
+//            billingState.products
+//                .filter { product ->
+//                    product.productStatus == ProductStatus.ACTIVE
+//                }
+//                .forEach { activeProduct ->
+//                    Column(
+//                        modifier = Modifier
+//                            .fillMaxWidth()
+//                            .background(
+//                                color = MaterialTheme.colorScheme.surface,
+//                                shape = Shapes.medium
+//                            )
+//                            .padding(horizontal = 16.dp, vertical = 12.dp),
+//                        horizontalAlignment = Alignment.End
+//                    ) {
+//                        Text(
+//                            modifier = Modifier
+//                                .fillMaxWidth(),
+//                            text = activeProduct.title.toString(), style = subTitleTextStyle
+//                        )
+//                        Text(
+//                            modifier = Modifier
+//                                .fillMaxWidth(),
+//                            text = activeProduct.description.toString(),
+//                            style = hintStyle
+//                        )
+//                        if (billingState.boughtProductsId.contains(activeProduct.productId)) {
+//                            val purchases =
+//                                billingState.subscriptions.find { purchase -> purchase.productId == activeProduct.productId }
+//                            purchases?.let { currentPurchases ->
+//                                val purchasesTime = currentPurchases.purchaseTime?.time
+//                                purchasesTime?.let {
+//                                    val subscriptionInDays =
+//                                        activeProduct.subscription?.subscriptionPeriod?.days
+//                                    subscriptionInDays?.let {
+////                                        val subscriptionInLong = 86_400_000L * subscriptionInDays
+////                                        val endPeriodInLong = purchasesTime + subscriptionInLong
+//                                        Text(
+//                                            modifier = Modifier
+//                                                .fillMaxWidth()
+//                                                .padding(top = 12.dp),
+//                                            text = "Активная",
+//                                            textAlign = TextAlign.End,
+//                                            style = subTitleTextStyle,
+//                                            color = Color.Green
+//                                        )
+//                                    }
+//                                }
+//                            }
+//                        } else {
+//                            Row(
+//                                modifier = Modifier
+//                                    .fillMaxWidth()
+//                                    .padding(top = 12.dp),
+//                                horizontalArrangement = Arrangement.SpaceBetween,
+//                                verticalAlignment = Alignment.CenterVertically
+//                            ) {
+//                                Text(
+//                                    text = activeProduct.priceLabel.toString(),
+//                                    style = subTitleTextStyle
+//                                )
+//                                TextButton(
+//                                    onClick = { onProductClick(activeProduct) }
+//                                ) {
+//                                    Text(
+//                                        text = "Оформить подписку",
+//                                        color = MaterialTheme.colorScheme.tertiary,
+//                                        style = subTitleTextStyle
+//                                    )
+//                                }
+//                            }
+//                        }
+//                    }
+//                }
 
             Text(
                 modifier = Modifier

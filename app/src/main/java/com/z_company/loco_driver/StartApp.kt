@@ -14,8 +14,22 @@ import com.z_company.loco_driver.di.useCaseModule
 import com.z_company.loco_driver.di.viewModelModule
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
+import ru.ok.tracer.HasTracerConfiguration
+import ru.ok.tracer.TracerConfiguration
+import ru.ok.tracer.crash.report.CrashFreeConfiguration
+import ru.ok.tracer.crash.report.CrashReportConfiguration
 
-class StartApp : Application() {
+class StartApp : Application(), HasTracerConfiguration {
+    override val tracerConfiguration: List<TracerConfiguration>
+        get() = listOf(
+            CrashReportConfiguration.build {
+
+            },
+            CrashFreeConfiguration.build {
+
+            },
+        )
+
     override fun onCreate() {
         super.onCreate()
         val myTrackerConfig = MyTracker.getTrackerConfig()
