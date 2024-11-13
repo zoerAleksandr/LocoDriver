@@ -12,4 +12,5 @@ data class RouteFormUiState(
     val errorMessage: String? = null,
     val nightTime: Long? = null,
     val passengerTime: Long? = null,
+    val isCopy: Boolean = false
 )

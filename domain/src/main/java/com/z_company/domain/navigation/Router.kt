@@ -10,7 +10,7 @@ interface Router {
     fun showLogIn()
     fun showRecoveryPassword()
     fun showHome()
-    fun showRouteForm(basicId: String? = null)
+    fun showRouteForm(basicId: String? = null, isMakeCopy: Boolean = false)
     fun showRouteDetails(basicData: BasicData)
     fun showSettings()
     fun showSearch()

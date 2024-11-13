@@ -17,8 +17,9 @@ fun FormDestination(
     backStackEntry: NavBackStackEntry
 ) {
     val routeId = FormRoute.getRouteId(backStackEntry) ?: NULLABLE_ID
+    val isMakeCopy = FormRoute.isMakeCopy(backStackEntry)
     val viewModel = koinViewModel<FormViewModel>(
-        parameters = { parametersOf(routeId) }
+        parameters = { parametersOf(routeId, isMakeCopy) }
     )
     val formUiState by viewModel.uiState.collectAsState()
     val dialogRestUiState by viewModel.dialogRestUiState.collectAsState()
@@ -28,6 +29,7 @@ fun FormDestination(
         dialogRestUiState = dialogRestUiState,
         currentRoute = viewModel.currentRoute,
         exitScreen = router::back,
+        isCopy = formUiState.isCopy,
         onSaveClick = viewModel::saveRoute,
         onBack = viewModel::checkBeforeExitTheScreen,
         onNumberChanged = viewModel::setNumber,

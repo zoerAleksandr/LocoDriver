@@ -54,9 +54,9 @@ class RouterImpl(
         }
     }
 
-    override fun showRouteForm(basicId: String?) {
+    override fun showRouteForm(basicId: String?, isMakeCopy: Boolean) {
         navController.navigate(
-            FormRoute.buildDetailsRoute(basicId)
+            FormRoute.buildDetailsRoute(basicId, isMakeCopy)
         )
     }
 

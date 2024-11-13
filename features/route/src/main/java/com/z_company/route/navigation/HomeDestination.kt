@@ -22,6 +22,7 @@ fun HomeDestination(
         onRouteClick = {
             router.showRouteForm(it)
         },
+        makeCopyRoute = {router.showRouteForm(basicId = it, isMakeCopy = true)},
         onMoreInfoClick = { router.showMoreInfo(it) },
         onNewRouteClick = homeViewModel::newRouteClick,
         onDeleteRoute = homeViewModel::removeRoute,

@@ -23,7 +23,9 @@ import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.dsl.module
 
 val viewModelModule = module {
-    viewModel { FormViewModel(get()) }
+    viewModel {(routeId: String, isCopy: Boolean) ->
+        FormViewModel(routeId = routeId,  isCopy = isCopy)
+    }
     viewModel { HomeViewModel() }
     viewModel { SignInViewModel() }
     viewModel { LogInViewModel() }

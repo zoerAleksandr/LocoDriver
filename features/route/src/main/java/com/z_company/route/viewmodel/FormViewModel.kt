@@ -25,8 +25,10 @@ import kotlin.properties.Delegates
 import com.z_company.domain.util.plus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
+import java.util.UUID
 
-class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
+class FormViewModel(private val routeId: String?, private val isCopy: Boolean = false) : ViewModel(),
+    KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val locoUseCase: LocomotiveUseCase by inject()
     private val trainUseCase: TrainUseCase by inject()
@@ -87,7 +89,7 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
             currentRoute = Route()
             isNewRoute = true
         } else {
-            loadRoute(routeId!!)
+            loadRoute(routeId!!, isCopy)
             isNewRoute = false
         }
         loadSettings()
@@ -99,21 +101,25 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
         }
     }
 
-    private fun loadRoute(id: String) {
+    private fun loadRoute(id: String, isCopy: Boolean) {
         if (routeId == currentRoute?.basicData?.id) return
         loadRouteJob?.cancel()
         loadRouteJob = routeUseCase.routeDetails(id).onEach { routeState ->
-            _uiState.update {
-                if (routeState is ResultState.Success) {
-                    currentRoute = routeState.data
-                    currentRoute?.let { route ->
-                        calculateRestTime(route)
-                        getNightTimeInRoute(route)
-                        calculationPassengerTime(route)
-                    }
+            if (routeState is ResultState.Success) {
+                currentRoute = routeState.data
+                currentRoute?.let { route ->
+                    calculateRestTime(route)
+                    getNightTimeInRoute(route)
+                    calculationPassengerTime(route)
                 }
-                it.copy(routeDetailState = routeState)
             }
+            _uiState.update {
+                it.copy(
+                    routeDetailState = routeState,
+                    isCopy = isCopy
+                )
+            }
+            loadRouteJob?.cancel()
         }.launchIn(viewModelScope)
     }
 
@@ -144,8 +150,30 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
             val state = _uiState.value.routeDetailState
             if (state is ResultState.Success) {
                 state.data?.let { route ->
+
+                    var routeToSave = route
+                    if (isCopy) {
+                        val newBasicId = UUID.randomUUID().toString()
+                        routeToSave = routeToSave.copy(
+                            basicData = routeToSave.basicData.copy(id = newBasicId)
+                        )
+                        routeToSave.trains.forEach { train ->
+                            train.trainId = UUID.randomUUID().toString()
+                            train.basicId = newBasicId
+                        }
+                        routeToSave.locomotives.forEach { locomotive ->
+                            locomotive.locoId = UUID.randomUUID().toString()
+                            locomotive.basicId = newBasicId
+                        }
+                        routeToSave.passengers.forEach { passenger ->
+                            passenger.passengerId = UUID.randomUUID().toString()
+                            passenger.basicId = newBasicId
+                        }
+
+                    }
+
                     saveRouteJob?.cancel()
-                    saveRouteJob = routeUseCase.saveRoute(route).onEach { saveRouteState ->
+                    saveRouteJob = routeUseCase.saveRoute(routeToSave).onEach { saveRouteState ->
                         if (saveRouteState is ResultState.Success) {
                             deletedLocoList.forEach { locomotive ->
                                 deleteLocoJob?.cancel()
@@ -401,7 +429,7 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
                         }
                 }.join()
             }
-            if (isNewRoute){
+            if (isNewRoute) {
                 routesList.add(route)
             }
 

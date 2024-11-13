@@ -25,19 +25,28 @@ object DetailsRoute : AppRoutes("RouteDetailsRoute") {
 
 object FormRoute : AppRoutes("FormRoute") {
     private const val paramRouteId = "routeId"
-    override val route: String = "$basicRoute?$paramRouteId={$paramRouteId}"
+    private const val paramMakeCopy = "makeCopy"
+    override val route: String = "$basicRoute?$paramRouteId={$paramRouteId}/?$paramMakeCopy={$paramMakeCopy}"
     val navArguments = listOf(
         navArgument(paramRouteId) {
             type = NavType.StringType
             nullable = true
+        },
+        navArgument(paramMakeCopy) {
+            type = NavType.BoolType
+            nullable = false
+            defaultValue = false
         }
     )
 
     fun getRouteId(backStackEntry: NavBackStackEntry): String? =
         backStackEntry.arguments?.getString(paramRouteId)
 
-    fun buildDetailsRoute(id: String?) =
-        id?.let { "$basicRoute?$paramRouteId=$id" } ?: basicRoute
+    fun isMakeCopy(backStackEntry: NavBackStackEntry): Boolean =
+        backStackEntry.arguments?.getBoolean(paramMakeCopy) ?: false
+
+    fun buildDetailsRoute(id: String?, isMakeCopy: Boolean) =
+        id?.let { "$basicRoute?$paramRouteId=$id/?$paramMakeCopy=$isMakeCopy" } ?: basicRoute
 }
 
 object FormLoco : AppRoutes("FormLoco") {

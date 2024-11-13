@@ -115,6 +115,7 @@ fun HomeScreen(
     onRouteClick: (String) -> Unit,
     onNewRouteClick: () -> Unit,
     onMoreInfoClick: (String) -> Unit,
+    makeCopyRoute: (String) -> Unit,
     onDeleteRoute: (Route) -> Unit,
     onDeleteRouteConfirmed: () -> Unit,
     reloadRoute: () -> Unit,
@@ -426,7 +427,7 @@ fun HomeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = 48.dp)
+                .padding(bottom = 32.dp)
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onPress = {
@@ -442,13 +443,12 @@ fun HomeScreen(
                     .fillMaxWidth()
                     .requiredHeightIn(
                         min = heightScreen.times(0.3f).dp,
-                        max = heightScreen.times(0.8f).dp
+                        max = heightScreen.times(0.7f).dp
                     )
                     .padding(start = 12.dp, end = 12.dp, top = 30.dp, bottom = 12.dp)
                     .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
                     .clickable {}
             ) {
-
                 calculationHomeRest(routeForPreview)
                 PreviewRoute(routeForPreview, minTimeRest, homeRestValue)
             }
@@ -478,6 +478,31 @@ fun HomeScreen(
                     )
                     Icon(
                         painter = painterResource(id = R.drawable.rounded_visibility_24),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+                HorizontalDivider()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .clickable {
+                            showContextDialog = false
+                            routeForPreview?.let { route ->
+                                makeCopyRoute(route.basicData.id)
+                            }
+                        },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Дублировать",
+                        style = AppTypography.getType().bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Icon(
+                        painter = painterResource(id = R.drawable.outline_content_copy_24),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary
                     )
@@ -789,7 +814,7 @@ fun HomeScreen(
                     .height(heightScreen.times(0.05f).dp),
                 horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.Top
-            ){
+            ) {
                 AsyncData(resultState = dayoffHours,
                     loadingContent = {
                         CircularProgressIndicator(
