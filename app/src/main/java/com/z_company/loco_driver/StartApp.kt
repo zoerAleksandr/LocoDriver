@@ -18,6 +18,7 @@ import ru.ok.tracer.HasTracerConfiguration
 import ru.ok.tracer.TracerConfiguration
 import ru.ok.tracer.crash.report.CrashFreeConfiguration
 import ru.ok.tracer.crash.report.CrashReportConfiguration
+import ru.ok.tracer.heap.dumps.HeapDumpConfiguration
 
 class StartApp : Application(), HasTracerConfiguration {
     override val tracerConfiguration: List<TracerConfiguration>
@@ -28,6 +29,9 @@ class StartApp : Application(), HasTracerConfiguration {
             CrashFreeConfiguration.build {
 
             },
+            HeapDumpConfiguration.build {
+
+            }
         )
 
     override fun onCreate() {

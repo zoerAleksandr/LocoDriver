@@ -89,6 +89,7 @@ dependencies {
 
     implementation(platform("ru.ok.tracer:tracer-platform:0.5.1"))
     implementation("ru.ok.tracer:tracer-crash-report")
+    implementation("ru.ok.tracer:tracer-heap-dumps")
 
     implementation(project(Libs.project_core_android))
     implementation(project(Libs.project_domain))

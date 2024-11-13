@@ -17,6 +17,7 @@ data class HomeUiState(
     val nightTimeInRouteList: ResultState<Long>? = null,
     val passengerTimeInRouteList: ResultState<Long>? = null,
     val dayOffHours: ResultState<Int>? = null,
+    val holidayHours: ResultState<Long>? = null,
     val showFirstEntryToAccountDialog: Boolean = false,
     val showNewRouteScreen: Boolean = false,
     val showPurchasesScreen: Boolean = false,

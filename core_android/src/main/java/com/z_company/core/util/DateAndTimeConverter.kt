@@ -184,8 +184,10 @@ object DateAndTimeConverter {
                     millis
                 )
             }
-            "$date $time" }
-        else { "" }
+            "$date $time"
+        } else {
+            ""
+        }
     }
 
     fun getDateAndTime(value: Long): String {
@@ -226,5 +228,21 @@ object DateAndTimeConverter {
                 millis
             )
         } ?: ""
+    }
+
+    fun isDifferenceDate(first: Long, second: Long): Boolean {
+        val firstDate = SimpleDateFormat(
+            DateAndTimeFormat.DATE_FORMAT_ONLY_DAY_OF_MONTH, Locale.getDefault()
+        ).format(
+            first
+        )
+
+        val secondDate = SimpleDateFormat(
+            DateAndTimeFormat.DATE_FORMAT_ONLY_DAY_OF_MONTH, Locale.getDefault()
+        ).format(
+            second
+        )
+
+        return firstDate != secondDate
     }
 }

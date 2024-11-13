@@ -17,6 +17,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getHomeRest
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeWithHoliday
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -284,6 +285,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                             calculationOfTotalTime(routeList)
                             calculationOfNightTime(routeList)
                             calculationPassengerTime(routeList)
+                            calculationHolidayTime(routeList)
                         }
                     }
                 }.launchIn(this)
@@ -363,6 +365,31 @@ class HomeViewModel : ViewModel(), KoinComponent {
             }
         }
     }
+
+    private fun calculationHolidayTime(routes: List<Route>) {
+        _uiState.update {
+            it.copy(
+                holidayHours = ResultState.Loading
+            )
+        }
+        try {
+            currentMonthOfYear?.let { monthOfYear ->
+                val holidayTime = routes.getWorkingTimeOnAHoliday(monthOfYear)
+                _uiState.update {
+                    it.copy(
+                        holidayHours = ResultState.Success(holidayTime)
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            _uiState.update {
+                it.copy(
+                    nightTimeInRouteList = ResultState.Error(ErrorEntity(e))
+                )
+            }
+        }
+    }
+
 
     fun isShowConfirmRemoveRoute(isShow: Boolean) {
         _uiState.update {

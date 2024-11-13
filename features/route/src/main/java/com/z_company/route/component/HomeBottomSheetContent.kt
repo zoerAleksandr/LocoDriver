@@ -42,7 +42,7 @@ fun HomeBottomSheetContent(
     isExpand: Boolean,
 ) {
     var requiredSize by remember {
-        mutableStateOf(24.sp)
+        mutableStateOf(22.sp)
     }
 
     fun changingTextSize(value: TextUnit) {
