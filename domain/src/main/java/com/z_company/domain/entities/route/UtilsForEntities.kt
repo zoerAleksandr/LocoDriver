@@ -320,7 +320,7 @@ object UtilsForEntities {
 
     // согласно распоряжению ОАО "РЖД" от 5 апреля 2014 г. N 859р
     fun Train.trainCategory(): String {
-        return when (this.number?.toInt()) {
+        return when (this.number?.toIntOrNull()) {
             in 1..150 -> "Скорые круглогодичные"
             in 151..298 -> "Скорые сезонного и разового обращения"
             in 301..450 -> "Пассажирские круглогодичные"
@@ -404,16 +404,16 @@ object UtilsForEntities {
 
     fun Train.timeFollowingSingleLocomotive(): Long {
         return if (
-            this.number?.toInt() in 4001..4148 ||
-            this.number?.toInt() in 4151..4188 ||
-            this.number?.toInt() in 4191..4198 ||
-            this.number?.toInt() in 4201..4228 ||
-            this.number?.toInt() in 4231..4258 ||
-            this.number?.toInt() in 4261..4298 ||
-            this.number?.toInt() in 4301..4398 ||
-            this.number?.toInt() in 4401..4698 ||
-            this.number?.toInt() in 4701..4778 ||
-            this.number?.toInt() in 4801..4898
+            this.number?.toIntOrNull() in 4001..4148 ||
+            this.number?.toIntOrNull() in 4151..4188 ||
+            this.number?.toIntOrNull() in 4191..4198 ||
+            this.number?.toIntOrNull() in 4201..4228 ||
+            this.number?.toIntOrNull() in 4231..4258 ||
+            this.number?.toIntOrNull() in 4261..4298 ||
+            this.number?.toIntOrNull() in 4301..4398 ||
+            this.number?.toIntOrNull() in 4401..4698 ||
+            this.number?.toIntOrNull() in 4701..4778 ||
+            this.number?.toIntOrNull() in 4801..4898
         ) {
             val timeStartFollowing: Long? = this.stations.firstOrNull()?.timeDeparture
             val timeEndFollowing: Long? = this.stations.lastOrNull()?.timeArrival

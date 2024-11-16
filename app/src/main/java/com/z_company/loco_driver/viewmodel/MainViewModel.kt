@@ -22,7 +22,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import ru.rustore.sdk.billingclient.RuStoreBillingClient
@@ -146,29 +145,38 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
 
     // при вызове метода происходит утечка памяти на Pixel API 34 Android 14
     private suspend fun syncRuStoreSubscription() {
-        withContext(Dispatchers.IO) {
-            try {
-                val purchases = billingClient.purchases.getPurchases().await()
-                purchases.forEach { purchase ->
-                    this.launch {
-                        if (purchase.purchaseState == PurchaseState.CONFIRMED) {
-                            ruStoreUseCase.getExpiryTimeMillis(
-                                productId = purchase.productId,
-                                subscriptionToken = purchase.subscriptionToken ?: ""
-                            ).collect { resultState ->
-                                if (resultState is ResultState.Success) {
-                                    sharedPreferenceStorage.setSubscriptionExpiration(
-                                        resultState.data
-                                    )
-                                    this@launch.cancel()
+        var job: Job? = null
+        try {
+            billingClient.purchases.getPurchases()
+                .addOnSuccessListener { purchases ->
+                    viewModelScope.launch {
+                        purchases.forEach { purchase ->
+                            job?.cancel()
+                            job = this.launch(Dispatchers.IO) {
+                                if (purchase.purchaseState == PurchaseState.CONFIRMED) {
+                                    ruStoreUseCase.getExpiryTimeMillis(
+                                        productId = purchase.productId,
+                                        subscriptionToken = purchase.subscriptionToken ?: ""
+                                    ).collect { resultState ->
+                                        if (resultState is ResultState.Success) {
+                                            sharedPreferenceStorage.setSubscriptionExpiration(
+                                                resultState.data
+                                            )
+                                            this@launch.cancel()
+                                        }
+                                    }
                                 }
                             }
+                            job?.join()
                         }
-                    }.join()
+                    }
+
                 }
-            } catch (e: Exception) {
-                Log.w(TAG, "${e.message}")
-            }
+                .addOnFailureListener {
+                    Log.w(TAG, "${it.message}")
+                }
+        } catch (e: Exception) {
+            Log.w(TAG, "${e.message}")
         }
     }
 

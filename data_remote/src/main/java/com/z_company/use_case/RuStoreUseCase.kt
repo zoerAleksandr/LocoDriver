@@ -78,7 +78,6 @@ class RuStoreUseCase(val ruStoreRepositoryKtor: RuStoreRepositoryKtor) {
                                     p0: Call<SubscriptionAnswerDTO>,
                                     p1: Response<SubscriptionAnswerDTO>
                                 ) {
-                                    Log.d("ZZZ", "onResponse ${p1.body()}")
                                     val timeInMillis: Long? =
                                         p1.body()?.expiryTimeMillis?.toLongOrNull()
                                     if (timeInMillis == null) {
