@@ -51,6 +51,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.dimensionResource
@@ -101,7 +102,11 @@ fun FormTrainScreen(
     exitScreen: () -> Unit,
     changeShowConfirmExitDialog: (Boolean) -> Unit,
     exitWithoutSave: () -> Unit,
-    onClickHeavyLongDistance: (Boolean) -> Unit
+    onClickHeavyLongDistance: (Boolean) -> Unit,
+    menuList: List<String>,
+    isExpandedMenu: Pair<Int, Boolean>?,
+    onExpandedMenuChange: (Int, Boolean) -> Unit,
+    onChangedContentMenu: (Int, String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -216,10 +221,13 @@ fun FormTrainScreen(
                             onSaveClick = onSaveClick,
                             exitWithoutSave = exitWithoutSave,
                             showConfirmExitDialog = formUiState.confirmExitDialogShow,
-                            onClickHeavyLongDistance = onClickHeavyLongDistance
+                            onClickHeavyLongDistance = onClickHeavyLongDistance,
+                            menuList = menuList,
+                            isExpandedMenu = isExpandedMenu,
+                            onChangedContentMenu = onChangedContentMenu,
+                            onExpandedMenuChange = onExpandedMenuChange
                         )
                     }
-
                 }
             }
         }
@@ -244,8 +252,13 @@ fun TrainFormScreenContent(
     changeShowConfirmExitDialog: (Boolean) -> Unit,
     exitWithoutSave: () -> Unit,
     onSaveClick: () -> Unit,
-    onClickHeavyLongDistance: (Boolean) -> Unit
-) {
+    onClickHeavyLongDistance: (Boolean) -> Unit,
+    menuList: List<String>,
+    isExpandedMenu: Pair<Int, Boolean>?,
+    onExpandedMenuChange: (Int, Boolean) -> Unit,
+    onChangedContentMenu: (Int, String) -> Unit,
+
+    ) {
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
@@ -342,7 +355,7 @@ fun TrainFormScreenContent(
                         value = train.number ?: "",
                         onValueChange = {
                             onNumberChanged(it)
-                            if (it.isEmpty()){
+                            if (it.isEmpty()) {
                                 isTrainInfoVisible = false
                             }
                         },
@@ -390,7 +403,11 @@ fun TrainFormScreenContent(
                     )
                 }
                 AnimatedVisibility(visible = isTrainInfoVisible) {
-                    Text(modifier = Modifier.padding(vertical = 4.dp),text = train.trainCategory(), style = hintStyle)
+                    Text(
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        text = train.trainCategory(),
+                        style = hintStyle
+                    )
                 }
             }
         }
@@ -539,6 +556,12 @@ fun TrainFormScreenContent(
                     index = index,
                     stationFormState = item,
                     onDelete = onDeleteStation,
+                    menuList = menuList,
+                    isExpandedMenu = if (isExpandedMenu?.first == index) {
+                        isExpandedMenu.second
+                    } else false,
+                    onExpandedMenuChange = onExpandedMenuChange,
+                    onChangedContentMenu = onChangedContentMenu,
                     onStationNameChanged = onStationNameChanged,
                     onArrivalTimeChanged = onArrivalTimeChanged,
                     onDepartureTimeChanged = onDepartureTimeChanged,

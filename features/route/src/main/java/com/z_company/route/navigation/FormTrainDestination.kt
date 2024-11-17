@@ -47,6 +47,11 @@ fun FormTrainDestination(
         exitScreen = router::back,
         changeShowConfirmExitDialog = viewModel::changeShowConfirmDialog,
         exitWithoutSave = viewModel::exitWithoutSaving,
-        onClickHeavyLongDistance = viewModel::setIsHeavyLongDistance
+        onClickHeavyLongDistance = viewModel::setIsHeavyLongDistance,
+        menuList = viewModel.stationList,
+        isExpandedMenu = formUiState.isExpandedDropDownMenuStation,
+        onExpandedMenuChange = viewModel::changeExpandedMenu,
+        onChangedContentMenu = viewModel::onChangedDropDownContent,
+
     )
 }

@@ -19,7 +19,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -27,6 +31,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,11 +39,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.PopupProperties
 import com.z_company.core.ui.component.TimePickerDialog
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
@@ -59,6 +70,10 @@ fun StationItem(
     index: Int,
     stationFormState: StationFormState,
     onStationNameChanged: (Int, String) -> Unit,
+    menuList: List<String>,
+    isExpandedMenu: Boolean,
+    onExpandedMenuChange: (Int, Boolean) -> Unit,
+    onChangedContentMenu: (Int, String) -> Unit,
     onArrivalTimeChanged: (Int, Long?) -> Unit,
     onDepartureTimeChanged: (Int, Long?) -> Unit,
     onDelete: (StationFormState) -> Unit,
@@ -160,45 +175,108 @@ fun StationItem(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedTextField(
+                val focusRequester = remember { FocusRequester() }
+
+                ExposedDropdownMenuBox(
                     modifier = Modifier
                         .weight(0.5f),
-                    value = stationFormState.station.data ?: "",
-                    onValueChange = {
-                        onStationNameChanged(index, it)
-                    },
-                    placeholder = {
-                        Text(
-                            text = "Станция",
-                            style = dataTextStyle
+                    expanded = isExpandedMenu,
+                    onExpandedChange = { onExpandedMenuChange(index, it) }
+                ) {
+                    var stationName by remember {
+                        mutableStateOf(
+                            TextFieldValue(
+                                text = stationFormState.station.data ?: "",
+                                selection = TextRange(stationFormState.station.data?.length ?: 0)
+                            )
                         )
-                    },
-                    textStyle = dataTextStyle,
-                    keyboardOptions = KeyboardOptions(
-                        imeAction = ImeAction.Done
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onDone = {
-                            scope.launch {
-                                focusManager.clearFocus()
+                    }
+                    LaunchedEffect(Unit) {
+                        focusRequester.requestFocus()
+                    }
+
+                    OutlinedTextField(
+                        modifier = Modifier
+                            .menuAnchor()
+                            .focusRequester(focusRequester),
+                        value = stationName,
+                        onValueChange = {
+                            stationName = it
+                            onStationNameChanged(index, it.text)
+                            onChangedContentMenu(index, it.text)
+                        },
+                        placeholder = {
+                            Text(
+                                text = "Станция",
+                                style = dataTextStyle
+                            )
+                        },
+                        textStyle = dataTextStyle,
+                        keyboardOptions = KeyboardOptions(
+                            imeAction = ImeAction.Done
+                        ),
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isExpandedMenu) },
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                scope.launch {
+                                    focusManager.clearFocus()
+                                }
+                            }
+                        ),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent
+                        ),
+                        shape = Shapes.medium,
+                    )
+
+                    if (menuList.isNotEmpty()) {
+                        DropdownMenu(
+                            modifier = Modifier
+                                .background(
+                                    color = MaterialTheme.colorScheme.surface,
+                                    shape = Shapes.medium
+                                )
+                                .exposedDropdownSize(true),
+                            expanded = isExpandedMenu,
+                            properties = PopupProperties(focusable = false),
+                            onDismissRequest = { onExpandedMenuChange(index, false) }
+                        ) {
+                            menuList.forEach { selectionStation ->
+                                DropdownMenuItem(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(
+                                            color = MaterialTheme.colorScheme.surface,
+                                            shape = Shapes.medium
+                                        ),
+                                    text = {
+                                        Text(text = selectionStation, style = dataTextStyle)
+                                    },
+                                    onClick = {
+                                        onStationNameChanged(index, selectionStation)
+                                        onExpandedMenuChange(index, false)
+                                        stationName = stationName.copy(
+                                            text = selectionStation,
+                                            selection = TextRange(selectionStation.length)
+                                        )
+                                    })
                             }
                         }
-                    ),
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent
-                    ),
-                    shape = Shapes.medium,
-                )
+                    }
+                }
 
                 Box(
                     modifier = Modifier
                         .weight(0.25f)
                         .fillMaxHeight()
-                        .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
+                        .background(
+                            color = MaterialTheme.colorScheme.surface,
+                            shape = Shapes.medium
+                        )
                         .clickable(!isFirst) {
                             showArrivalDatePicker = true
                         },
@@ -225,7 +303,10 @@ fun StationItem(
                     modifier = Modifier
                         .weight(0.25f)
                         .fillMaxHeight()
-                        .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
+                        .background(
+                            color = MaterialTheme.colorScheme.surface,
+                            shape = Shapes.medium
+                        )
                         .clickable {
                             showDepartureDatePicker = true
                         },

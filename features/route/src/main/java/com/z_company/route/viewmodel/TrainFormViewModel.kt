@@ -1,13 +1,16 @@
 package com.z_company.route.viewmodel
 
+import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.toMutableStateList
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.use_cases.TrainUseCase
+import com.z_company.domain.util.addAllOrSkip
 import com.z_company.domain.util.addOrReplace
 import com.z_company.domain.util.compareWithNullable
 import com.z_company.route.Const.NULLABLE_ID
@@ -321,6 +324,7 @@ class TrainFormViewModel(
         val arrival = station.arrival.data
         return arrival.compareWithNullable(departure)
     }
+
     private fun formValidStation(
         station: Station
     ): Boolean {
@@ -335,6 +339,9 @@ class TrainFormViewModel(
                 index, s
             )
         )
+        s?.let {
+            onChangedDropDownContent(index, s)
+        }
         changesHave()
     }
 
@@ -364,5 +371,49 @@ class TrainFormViewModel(
                 index, field
             )
         )
+    }
+
+    val allStationList = mutableStateListOf("Luga", "Veimarn", "Gatchina", "Piter", "Pitsburg")
+    var stationList2 = mutableStateListOf<String>()
+        .also {
+            it.addAll(allStationList)
+        }
+
+    var stationList: SnapshotStateList<String>
+        get() {
+            return stationList2
+        }
+        set(value) {
+            stationList2 = value
+        }
+
+    fun changeExpandedMenu(index: Int, value: Boolean) {
+        _uiState.update {
+            it.copy(
+                isExpandedDropDownMenuStation = Pair(index, value)
+            )
+        }
+    }
+
+    fun onChangedDropDownContent(index: Int, value: String) {
+        if (value.isEmpty()) {
+            changeExpandedMenu(index, false)
+            stationList2.addAllOrSkip(allStationList)
+        } else {
+            stationList2.clear()
+            val newStationList =
+                allStationList
+                    .filter { it.startsWith(prefix = value, ignoreCase = true) }
+                    .filterNot { it == value }
+                    .toMutableStateList()
+            newStationList.forEach { st ->
+                Log.d("ZZZ", "item $st")
+                stationList2.add(st)
+                changeExpandedMenu(index, true)
+            }
+        }
+
+        Log.d("ZZZ", "value $value")
+        Log.d("ZZZ", "isExpanded ${uiState.value.isExpandedDropDownMenuStation}")
     }
 }

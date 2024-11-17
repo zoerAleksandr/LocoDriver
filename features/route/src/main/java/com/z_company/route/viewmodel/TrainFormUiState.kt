@@ -12,5 +12,6 @@ data class TrainFormUiState(
     val errorMessage: String? = null,
     val exitFromScreen: Boolean = false,
     val changesHaveState: Boolean = false,
-    val confirmExitDialogShow: Boolean = false
+    val confirmExitDialogShow: Boolean = false,
+    val isExpandedDropDownMenuStation: Pair<Int, Boolean>? = null
 )

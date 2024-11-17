@@ -56,7 +56,12 @@ class FormViewModel(private val routeId: String?, private val isCopy: Boolean = 
     private val deletedPassengerList = mutableListOf<Passenger>()
     private val deletedPhotoList = mutableListOf<Photo>()
 
-    private var isNewRoute by Delegates.notNull<Boolean>()
+    private var isNewRoute = if (routeId == NULLABLE_ID) {
+        true
+    } else {
+        false
+    }
+//    by Delegates.notNull<Boolean>()
     var currentRoute: Route?
         get() {
             return _uiState.value.routeDetailState.let {
@@ -78,6 +83,14 @@ class FormViewModel(private val routeId: String?, private val isCopy: Boolean = 
     private var usingDefaultWorkTime: Boolean = false
 
     init {
+        if (routeId == NULLABLE_ID) {
+//            isNewRoute = true
+            currentRoute = Route()
+        } else {
+//            isNewRoute = false
+            loadRoute(routeId!!, isCopy)
+        }
+
         val changeHave = sharedPreferenceStorage.tokenIsChangesHave()
         _uiState.update {
             it.copy(
@@ -85,13 +98,6 @@ class FormViewModel(private val routeId: String?, private val isCopy: Boolean = 
             )
         }
 
-        if (routeId == NULLABLE_ID) {
-            currentRoute = Route()
-            isNewRoute = true
-        } else {
-            loadRoute(routeId!!, isCopy)
-            isNewRoute = false
-        }
         loadSettings()
     }
 
