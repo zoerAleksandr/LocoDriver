@@ -20,7 +20,8 @@ internal object UserSettingsConverter {
         isVisiblePassengerTime = userSettings.isVisiblePassengerTime,
         isVisibleRelationTime = userSettings.isVisibleRelationTime,
         isVisibleHolidayTime = userSettings.isVisibleHolidayTime,
-        isVisibleExtendedServicePhase = userSettings.isVisibleExtendedServicePhase
+        isVisibleExtendedServicePhase = userSettings.isVisibleExtendedServicePhase,
+        stationList = userSettings.stationList
     )
 
     fun toData(userSettingsEntity: UserSettingsEntity) = UserSettings(
@@ -39,6 +40,7 @@ internal object UserSettingsConverter {
         isVisiblePassengerTime = userSettingsEntity.isVisiblePassengerTime,
         isVisibleRelationTime = userSettingsEntity.isVisibleRelationTime,
         isVisibleHolidayTime = userSettingsEntity.isVisibleHolidayTime,
-        isVisibleExtendedServicePhase = userSettingsEntity.isVisibleExtendedServicePhase
+        isVisibleExtendedServicePhase = userSettingsEntity.isVisibleExtendedServicePhase,
+        stationList = userSettingsEntity.stationList
     )
 }

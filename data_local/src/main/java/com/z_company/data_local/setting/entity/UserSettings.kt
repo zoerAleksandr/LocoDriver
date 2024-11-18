@@ -6,12 +6,14 @@ import androidx.room.PrimaryKey
 import androidx.room.TypeConverters
 import com.z_company.data_local.setting.type_converter.MonthOfYearToPrimitiveConverter
 import com.z_company.data_local.setting.type_converter.NightTimeToPrimitiveConverter
+import com.z_company.data_local.setting.type_converter.StationListToPrimitiveConverter
 import com.z_company.domain.entities.route.LocoType
 
 @Entity
 @TypeConverters(
     NightTimeToPrimitiveConverter::class,
-    MonthOfYearToPrimitiveConverter::class
+    MonthOfYearToPrimitiveConverter::class,
+    StationListToPrimitiveConverter::class
 )
 internal data class UserSettings(
     @PrimaryKey
@@ -36,7 +38,9 @@ internal data class UserSettings(
     @ColumnInfo(defaultValue = "1")
     var isVisibleHolidayTime: Boolean,
     @ColumnInfo(defaultValue = "1")
-    var isVisibleExtendedServicePhase: Boolean
+    var isVisibleExtendedServicePhase: Boolean,
+    @ColumnInfo(defaultValue = "[]")
+    val stationList: List<String> = listOf()
 )
 
 data class NightTime(

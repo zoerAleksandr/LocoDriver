@@ -16,6 +16,8 @@ import com.z_company.data_local.setting.entity.UserSettings
  * add field isVisibleRelationTime
  * add field isVisibleHolidayTime
  * add field isVisibleExtendedServicePhase
+ * version 4
+ * add field stationList
  */
 
 @Database(
@@ -23,13 +25,14 @@ import com.z_company.data_local.setting.entity.UserSettings
         UserSettings::class,
         MonthOfYear::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
     autoMigrations = [
-        AutoMigration (from = 1, to = 2),
-        AutoMigration (from = 2, to = 3),
+        AutoMigration(from = 1, to = 2),
+        AutoMigration(from = 2, to = 3),
+        AutoMigration(from = 3, to = 4),
     ]
 )
-internal abstract class SettingsDB: RoomDatabase() {
+internal abstract class SettingsDB : RoomDatabase() {
     abstract fun settingsDao(): SettingsDao
 }

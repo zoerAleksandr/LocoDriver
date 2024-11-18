@@ -1,6 +1,5 @@
 package com.z_company.route.viewmodel
 
-import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
@@ -9,17 +8,20 @@ import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
+import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.use_cases.TrainUseCase
 import com.z_company.domain.util.addAllOrSkip
 import com.z_company.domain.util.addOrReplace
 import com.z_company.domain.util.compareWithNullable
 import com.z_company.route.Const.NULLABLE_ID
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlin.properties.Delegates
@@ -29,6 +31,7 @@ class TrainFormViewModel(
     basicId: String
 ) : ViewModel(), KoinComponent {
     private val trainUseCase: TrainUseCase by inject()
+    private val settingsUseCase: SettingsUseCase by inject()
 
     private val _uiState = MutableStateFlow(TrainFormUiState())
     val uiState = _uiState.asStateFlow()
@@ -38,6 +41,7 @@ class TrainFormViewModel(
 
     private var isNewTrain by Delegates.notNull<Boolean>()
 
+    private val stationNameList = mutableStateListOf<String>()
     var currentTrain: Train?
         get() {
             return _uiState.value.trainDetailState.let {
@@ -71,6 +75,22 @@ class TrainFormViewModel(
         } else {
             isNewTrain = false
             loadTrain(trainId!!)
+        }
+        viewModelScope.launch {
+            loadSetting().join()
+        }
+    }
+
+    private suspend fun loadSetting(): Job {
+        return viewModelScope.launch {
+            settingsUseCase.getCurrentSettings().collect {
+                if (it is ResultState.Success) {
+                    it.data?.let { settings ->
+                        stationNameList.addAllOrSkip(settings.stationList.toMutableStateList())
+                    }
+                    this.cancel()
+                }
+            }
         }
     }
 
@@ -156,6 +176,7 @@ class TrainFormViewModel(
                         timeDeparture = state.departure.data
                     )
                 }.toMutableList()
+                saveStationsName(train)
                 saveTrainJob?.cancel()
                 saveTrainJob = trainUseCase.saveTrain(train).onEach { resultState ->
                     _uiState.update {
@@ -164,6 +185,20 @@ class TrainFormViewModel(
                 }.launchIn(viewModelScope)
             }
         }
+    }
+
+    private fun saveStationsName(train: Train){
+        viewModelScope.launch {
+            val list = train.stations
+                .map { it.stationName ?: "" }
+            stationNameList.addAll(list)
+            settingsUseCase.setStations(list).collect{}
+        }
+    }
+
+    fun removeStationName(value: String){
+        stationNameList.remove(value)
+        mutableStationList.remove(value)
     }
 
     fun resetSaveState() {
@@ -373,18 +408,17 @@ class TrainFormViewModel(
         )
     }
 
-    val allStationList = mutableStateListOf("Luga", "Veimarn", "Gatchina", "Piter", "Pitsburg")
-    var stationList2 = mutableStateListOf<String>()
+    private var mutableStationList = mutableStateListOf<String>()
         .also {
-            it.addAll(allStationList)
+            it.addAll(stationNameList)
         }
 
     var stationList: SnapshotStateList<String>
         get() {
-            return stationList2
+            return mutableStationList
         }
         set(value) {
-            stationList2 = value
+            mutableStationList = value
         }
 
     fun changeExpandedMenu(index: Int, value: Boolean) {
@@ -398,22 +432,18 @@ class TrainFormViewModel(
     fun onChangedDropDownContent(index: Int, value: String) {
         if (value.isEmpty()) {
             changeExpandedMenu(index, false)
-            stationList2.addAllOrSkip(allStationList)
+            mutableStationList.addAllOrSkip(stationNameList)
         } else {
-            stationList2.clear()
+            mutableStationList.clear()
             val newStationList =
-                allStationList
+                stationNameList
                     .filter { it.startsWith(prefix = value, ignoreCase = true) }
                     .filterNot { it == value }
                     .toMutableStateList()
             newStationList.forEach { st ->
-                Log.d("ZZZ", "item $st")
-                stationList2.add(st)
+                mutableStationList.add(st)
                 changeExpandedMenu(index, true)
             }
         }
-
-        Log.d("ZZZ", "value $value")
-        Log.d("ZZZ", "isExpanded ${uiState.value.isExpandedDropDownMenuStation}")
     }
 }

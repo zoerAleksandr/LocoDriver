@@ -15,7 +15,7 @@ import org.koin.core.parameter.parametersOf
 fun FormTrainDestination(
     router: Router,
     backStackEntry: NavBackStackEntry
-){
+) {
     val trainId = FormTrain.getTrainId(backStackEntry) ?: NULLABLE_ID
     val basicId = FormTrain.getBasicId(backStackEntry) ?: NULLABLE_ID
 
@@ -52,6 +52,6 @@ fun FormTrainDestination(
         isExpandedMenu = formUiState.isExpandedDropDownMenuStation,
         onExpandedMenuChange = viewModel::changeExpandedMenu,
         onChangedContentMenu = viewModel::onChangedDropDownContent,
-
+        onDeleteStationName = viewModel::removeStationName
     )
 }

@@ -79,4 +79,10 @@ class RoomSettingRepository : SettingsRepository, KoinComponent {
             dao.clearCalendar()
         }
     }
+
+    override fun setStations(stations: List<String>): Flow<ResultState<Unit>> {
+        return flowRequest {
+            dao.setStationList(stations = stations, key = SETTINGS_KEY)
+        }
+    }
 }

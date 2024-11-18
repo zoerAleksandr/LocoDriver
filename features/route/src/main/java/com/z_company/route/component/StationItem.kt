@@ -16,6 +16,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -23,7 +24,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -42,7 +42,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
@@ -77,6 +76,7 @@ fun StationItem(
     onArrivalTimeChanged: (Int, Long?) -> Unit,
     onDepartureTimeChanged: (Int, Long?) -> Unit,
     onDelete: (StationFormState) -> Unit,
+    onDeleteStationName: (String) -> Unit
 ) {
     val focusManager = LocalFocusManager.current
     val revealState = rememberRevealState()
@@ -215,7 +215,6 @@ fun StationItem(
                         keyboardOptions = KeyboardOptions(
                             imeAction = ImeAction.Done
                         ),
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isExpandedMenu) },
                         keyboardActions = KeyboardActions(
                             onDone = {
                                 scope.launch {
@@ -248,13 +247,22 @@ fun StationItem(
                             menuList.forEach { selectionStation ->
                                 DropdownMenuItem(
                                     modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(
-                                            color = MaterialTheme.colorScheme.surface,
-                                            shape = Shapes.medium
-                                        ),
+                                        .fillMaxWidth(),
                                     text = {
-                                        Text(text = selectionStation, style = dataTextStyle)
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(text = selectionStation, style = dataTextStyle)
+                                            Icon(
+                                                modifier = Modifier.clickable {
+                                                    onDeleteStationName(selectionStation)
+                                                },
+                                                imageVector = Icons.Outlined.Close,
+                                                contentDescription = null
+                                            )
+                                        }
+
                                     },
                                     onClick = {
                                         onStationNameChanged(index, selectionStation)

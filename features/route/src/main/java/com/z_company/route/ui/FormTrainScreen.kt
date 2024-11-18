@@ -25,7 +25,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -36,6 +35,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -51,7 +51,6 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
-import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.dimensionResource
@@ -107,6 +106,7 @@ fun FormTrainScreen(
     isExpandedMenu: Pair<Int, Boolean>?,
     onExpandedMenuChange: (Int, Boolean) -> Unit,
     onChangedContentMenu: (Int, String) -> Unit,
+    onDeleteStationName: (String) -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -225,7 +225,8 @@ fun FormTrainScreen(
                             menuList = menuList,
                             isExpandedMenu = isExpandedMenu,
                             onChangedContentMenu = onChangedContentMenu,
-                            onExpandedMenuChange = onExpandedMenuChange
+                            onExpandedMenuChange = onExpandedMenuChange,
+                            onDeleteStationName = onDeleteStationName
                         )
                     }
                 }
@@ -257,7 +258,7 @@ fun TrainFormScreenContent(
     isExpandedMenu: Pair<Int, Boolean>?,
     onExpandedMenuChange: (Int, Boolean) -> Unit,
     onChangedContentMenu: (Int, String) -> Unit,
-
+    onDeleteStationName: (String) -> Unit
     ) {
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
@@ -538,11 +539,20 @@ fun TrainFormScreenContent(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Checkbox(
+                Switch(
                     checked = train.isHeavyLongDistance,
                     onCheckedChange = onClickHeavyLongDistance
                 )
-                Text(text = "Длинносоставный тяжеловесный", style = hintStyle)
+                Text(
+                    text = "Длинносоставный тяжеловесный",
+                    style = hintStyle.copy(
+                        color = if (train.isHeavyLongDistance){
+                            hintStyle.color
+                        } else {
+                            hintStyle.color.copy(alpha = 0.7f)
+                        }
+                    ),
+                )
             }
         }
         stationListState?.let { stationList ->
@@ -565,6 +575,7 @@ fun TrainFormScreenContent(
                     onStationNameChanged = onStationNameChanged,
                     onArrivalTimeChanged = onArrivalTimeChanged,
                     onDepartureTimeChanged = onDepartureTimeChanged,
+                    onDeleteStationName = onDeleteStationName
                 )
             }
         }
