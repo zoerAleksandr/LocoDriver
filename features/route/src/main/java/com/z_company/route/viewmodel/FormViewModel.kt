@@ -1,5 +1,6 @@
 package com.z_company.route.viewmodel
 
+import android.app.Application
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -21,13 +22,21 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import kotlin.properties.Delegates
 import com.z_company.domain.util.plus
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import ru.rustore.sdk.review.RuStoreReviewManagerFactory
+import ru.rustore.sdk.review.model.ReviewInfo
 import java.util.UUID
 
-class FormViewModel(private val routeId: String?, private val isCopy: Boolean = false) : ViewModel(),
+class FormViewModel(
+    private val routeId: String?,
+    private val isCopy: Boolean = false,
+    private val application: Application,
+) : ViewModel(),
     KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val locoUseCase: LocomotiveUseCase by inject()
@@ -36,6 +45,8 @@ class FormViewModel(private val routeId: String?, private val isCopy: Boolean = 
     private val photoUseCase: PhotoUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferenceStorage by inject()
+
+    val reviewManager = RuStoreReviewManagerFactory.create(application.applicationContext)
 
     private val _uiState = MutableStateFlow(RouteFormUiState())
     val uiState = _uiState.asStateFlow()
@@ -61,7 +72,6 @@ class FormViewModel(private val routeId: String?, private val isCopy: Boolean = 
     } else {
         false
     }
-//    by Delegates.notNull<Boolean>()
     var currentRoute: Route?
         get() {
             return _uiState.value.routeDetailState.let {
@@ -84,11 +94,12 @@ class FormViewModel(private val routeId: String?, private val isCopy: Boolean = 
 
     init {
         if (routeId == NULLABLE_ID) {
-//            isNewRoute = true
             currentRoute = Route()
         } else {
-//            isNewRoute = false
             loadRoute(routeId!!, isCopy)
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            prepareReviewDialog()
         }
 
         val changeHave = sharedPreferenceStorage.tokenIsChangesHave()
@@ -127,6 +138,39 @@ class FormViewModel(private val routeId: String?, private val isCopy: Boolean = 
             }
             loadRouteJob?.cancel()
         }.launchIn(viewModelScope)
+    }
+
+    private var reviewInfo: ReviewInfo? = null
+    private suspend fun getRoutesCount(): Int {
+        delay(10L)
+        return routeUseCase.listRouteWithDeleting().size
+    }
+
+    private fun isShowReviewDialog(count: Int): Boolean {
+        return (count > 10 && count % 5 == 0)
+    }
+    private suspend fun prepareReviewDialog() = coroutineScope {
+        val count = async { getRoutesCount() }.await()
+        val isShow = isShowReviewDialog(count)
+        if (isShow) {
+            reviewManager.requestReviewFlow()
+                .addOnSuccessListener { info ->
+                    reviewInfo = info
+                }
+                .addOnFailureListener { throwable ->
+                    Log.w("ZZZ", "prepareReviewDialog throwable = $throwable")
+                }
+        }
+    }
+
+    private fun showReviewDialog(reviewInfo: ReviewInfo) {
+        reviewManager.launchReviewFlow(reviewInfo)
+            .addOnSuccessListener {
+                Log.i("ZZZ", "showReviewDialog Success")
+            }
+            .addOnFailureListener { throwable ->
+                Log.w("ZZZ", "showReviewDialog Failure = $throwable")
+            }
     }
 
     private fun loadSettings() {
@@ -202,6 +246,9 @@ class FormViewModel(private val routeId: String?, private val isCopy: Boolean = 
                                     deletePhotoJob =
                                         photoUseCase.removePhoto(photo).launchIn(viewModelScope)
                                 }.join()
+                            }
+                            reviewInfo?.let { info ->
+                                showReviewDialog(info)
                             }
                         }
                         _uiState.update {

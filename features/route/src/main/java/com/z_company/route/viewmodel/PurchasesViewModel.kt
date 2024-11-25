@@ -69,7 +69,6 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                 val products: MutableList<Product> = billingClient.products.getProducts(
                     productIds = availableProductIds
                 ).await().toMutableList()
-
                 val purchases = billingClient.purchases.getPurchases().await()
 
                 val subscriptions = mutableListOf<SubscriptionDetails>()
@@ -93,7 +92,8 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                                                     ?: "",
                                                 description = products.find { it.productId == purchase.productId }?.description
                                                     ?: "",
-                                                expiryTime = p1.body()?.expiryTimeMillis ?: "",
+                                                expiryTime = p1.body()?.expiryTimeMillis
+                                                    ?: "",
                                                 priceLabel = products.find { it.productId == purchase.productId }?.priceLabel
                                                     ?: ""
                                             )
@@ -104,7 +104,7 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                                             product.productId == purchase.productId
                                         }
 
-                                        if (index + 1 == purchases.size) {
+                                        if (index + 1 == products.size) {
                                             // обновляем UI
                                             _state.update {
                                                 it.copy(
@@ -153,6 +153,15 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                                 Log.w(
                                     "RuStoreBillingClient",
                                     "DeveloperPayloadInfo: ${purchase.developerPayload}"
+                                )
+                            }
+                        }
+                        if (purchases.isEmpty()) {
+                            _state.update {
+                                it.copy(
+                                    products = products,
+                                    subscriptions = subscriptions,
+                                    isLoading = false,
                                 )
                             }
                         }

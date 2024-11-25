@@ -1,5 +1,6 @@
 package com.z_company.repository
 
+import android.util.Log
 import com.parse.ParseObject
 import com.parse.ParseQuery
 import com.parse.ParseUser
@@ -203,6 +204,7 @@ class Back4AppManager : KoinComponent {
                     notSynchronizedList.forEach { route ->
                         CoroutineScope(Dispatchers.IO).launch {
                             remoteRepository.saveRoute(route).collect { result ->
+                                Log.d("ZZZ", "result = $result")
                                 if (result is ResultState.Success) {
                                     syncRouteCount += 1
                                     if (syncRouteCount == notSynchronizedList.size) {

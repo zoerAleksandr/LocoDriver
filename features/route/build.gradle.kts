@@ -41,6 +41,7 @@ android {
 dependencies {
     implementation(platform("ru.rustore.sdk:bom:6.1.0"))
     implementation("ru.rustore.sdk:billingclient")
+    implementation("ru.rustore.sdk:review")
     
     implementation(project(Libs.project_core_android))
     implementation(project(Libs.project_domain))

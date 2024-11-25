@@ -19,14 +19,15 @@ import com.z_company.route.viewmodel.TrainFormViewModel
 import com.z_company.route.viewmodel.ViewingImageViewModel
 import com.z_company.settings.viewmodel.SelectReleaseDaysViewModel
 import com.z_company.settings.viewmodel.SettingsViewModel
+import org.koin.android.ext.koin.androidApplication
 import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.dsl.module
 
 val viewModelModule = module {
     viewModel {(routeId: String, isCopy: Boolean) ->
-        FormViewModel(routeId = routeId,  isCopy = isCopy)
+        FormViewModel(application = androidApplication(), routeId = routeId,  isCopy = isCopy)
     }
-    viewModel { HomeViewModel() }
+    viewModel { HomeViewModel(application = androidApplication()) }
     viewModel { SignInViewModel() }
     viewModel { LogInViewModel() }
     viewModel { PasswordRecoveryViewModel() }

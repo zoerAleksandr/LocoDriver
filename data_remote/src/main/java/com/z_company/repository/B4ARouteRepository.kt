@@ -24,6 +24,7 @@ import com.z_company.entity_converter.TrainConverter
 import com.z_company.type_converter.TrainJSONConverter
 import com.z_company.type_converter.LocomotiveJSONConverter
 import com.z_company.type_converter.PassengerJSONConverter
+import com.z_company.type_converter.RouteJSONConverter
 import com.z_company.work_manager.BASIC_DATA_INPUT_KEY
 import com.z_company.work_manager.GET_BASIC_DATA_WORKER_OUTPUT_KEY
 import com.z_company.work_manager.LOAD_BASIC_DATA_ID_INPUT_KEY
@@ -48,6 +49,7 @@ import com.z_company.work_manager.REMOVE_LOCOMOTIVE_OBJECT_ID_KEY
 import com.z_company.work_manager.REMOVE_PASSENGER_OBJECT_ID_KEY
 import com.z_company.work_manager.REMOVE_PHOTO_OBJECT_ID_KEY
 import com.z_company.work_manager.REMOVE_TRAIN_OBJECT_ID_KEY
+import com.z_company.work_manager.ROUTE_DATA_INPUT_KEY
 import com.z_company.work_manager.RemoveBasicDataWorker
 import com.z_company.work_manager.RemoveLocomotiveWorker
 import com.z_company.work_manager.RemovePassengerWorker
@@ -56,6 +58,7 @@ import com.z_company.work_manager.RemoveTrainWorker
 import com.z_company.work_manager.SaveLocomotiveListWorker
 import com.z_company.work_manager.SavePassengerListWorker
 import com.z_company.work_manager.SavePhotoListWorker
+import com.z_company.work_manager.SaveRouteWorker
 import com.z_company.work_manager.SaveTrainListWorker
 import com.z_company.work_manager.SynchronizedWorker
 import com.z_company.work_manager.TRAINS_INPUT_KEY
@@ -135,6 +138,21 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
     }
 
     override suspend fun saveRoute(route: Route): Flow<ResultState<Data>> {
+//        val routeJSON = RouteJSONConverter.toString(route)
+//        val routeDataInput = Data.Builder()
+//            .putString(ROUTE_DATA_INPUT_KEY, routeJSON)
+//            .build()
+//
+//        val routeSaveWorker = OneTimeWorkRequestBuilder<SaveRouteWorker>()
+//            .setInputData(routeDataInput)
+//            .addTag(SAVE_ROUTE_WORKER_TAG)
+//            .setConstraints(constraints)
+//            .build()
+//
+//        WorkManager.getInstance(context).enqueue(routeSaveWorker)
+//        return WorkManagerState.state(context, routeSaveWorker.id)
+
+
         val basicDataJSON = BasicDataJSONConverter.toString(
             BasicDataConverter.fromData(route.basicData)
         )
