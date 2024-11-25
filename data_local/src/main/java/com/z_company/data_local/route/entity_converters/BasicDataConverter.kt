@@ -7,6 +7,7 @@ import com.z_company.data_local.route.entity.BasicData as BasicDataEntity
 internal object BasicDataConverter {
     fun fromData(basicData: BasicData) = BasicDataEntity(
         id = basicData.id,
+        schemaVersion = basicData.schemaVersion,
         isSynchronized = basicData.isSynchronized,
         isDeleted = basicData.isDeleted,
         remoteObjectId = basicData.remoteObjectId,

@@ -7,6 +7,7 @@ import java.util.Date
 object BasicDataConverter {
     fun fromData(basicData: BasicData) = BasicDataRemote(
         id = basicData.id,
+        schemaVersion = basicData.schemaVersion,
         isSynchronized = basicData.isSynchronized,
         remoteObjectId = basicData.remoteObjectId ?: "",
         updatedAt = Date(),
@@ -19,6 +20,7 @@ object BasicDataConverter {
 
     fun toData(entity: BasicDataRemote) = BasicData(
         id = entity.id,
+        schemaVersion = entity.schemaVersion,
         isSynchronized = entity.isSynchronized,
         remoteObjectId = entity.remoteObjectId,
         updatedAt = entity.updatedAt,

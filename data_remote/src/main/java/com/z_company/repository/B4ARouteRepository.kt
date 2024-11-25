@@ -138,126 +138,126 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
     }
 
     override suspend fun saveRoute(route: Route): Flow<ResultState<Data>> {
-//        val routeJSON = RouteJSONConverter.toString(route)
-//        val routeDataInput = Data.Builder()
-//            .putString(ROUTE_DATA_INPUT_KEY, routeJSON)
-//            .build()
-//
-//        val routeSaveWorker = OneTimeWorkRequestBuilder<SaveRouteWorker>()
-//            .setInputData(routeDataInput)
-//            .addTag(SAVE_ROUTE_WORKER_TAG)
-//            .setConstraints(constraints)
-//            .build()
-//
-//        WorkManager.getInstance(context).enqueue(routeSaveWorker)
-//        return WorkManagerState.state(context, routeSaveWorker.id)
-
-
-        val basicDataJSON = BasicDataJSONConverter.toString(
-            BasicDataConverter.fromData(route.basicData)
-        )
-
-        val locomotiveJSONList: Array<String> = Array(route.locomotives.size) { "" }
-        route.locomotives.forEachIndexed { index, loco ->
-            locomotiveJSONList[index] = LocomotiveJSONConverter.toString(
-                LocomotiveConverter.fromData(loco)
-            )
-        }
-
-        val trainJSONList: Array<String> = Array(route.trains.size) { "" }
-        route.trains.forEachIndexed { index, train ->
-            trainJSONList[index] = TrainJSONConverter.toString(
-                TrainConverter.toRemote(train)
-            )
-        }
-
-        val passengerJSONList: Array<String> = Array(route.passengers.size) { "" }
-        route.passengers.forEachIndexed { index, passenger ->
-            passengerJSONList[index] = PassengerJSONConverter.toString(
-                PassengerConverter.toRemote(passenger)
-            )
-        }
-
-        val photoJSONList: Array<String> = Array(route.photos.size) { "" }
-        route.photos.forEachIndexed { index, photo ->
-            photoJSONList[index] = photo.photoId
-        }
-
-        val basicDataInput = Data.Builder()
-            .putString(BASIC_DATA_INPUT_KEY, basicDataJSON)
+        val routeJSON = RouteJSONConverter.toString(route)
+        val routeDataInput = Data.Builder()
+            .putString(ROUTE_DATA_INPUT_KEY, routeJSON)
             .build()
 
-        val locomotiveInput = Data.Builder()
-            .putStringArray(LOCOMOTIVE_INPUT_KEY, locomotiveJSONList)
-            .build()
-
-        val trainInput = Data.Builder()
-            .putStringArray(TRAINS_INPUT_KEY, trainJSONList)
-            .build()
-
-        val passengerInput = Data.Builder()
-            .putStringArray(PASSENGERS_INPUT_KEY, passengerJSONList)
-            .build()
-
-        val photoInput = Data.Builder()
-            .putStringArray(PHOTOS_INPUT_KEY, photoJSONList)
-            .build()
-
-        val basicDataWorker = OneTimeWorkRequestBuilder<SaveBasicDataWorker>()
-            .setInputData(basicDataInput)
+        val routeSaveWorker = OneTimeWorkRequestBuilder<SaveRouteWorker>()
+            .setInputData(routeDataInput)
             .addTag(SAVE_ROUTE_WORKER_TAG)
             .setConstraints(constraints)
             .build()
 
-        val locoWorker = OneTimeWorkRequestBuilder<SaveLocomotiveListWorker>()
-            .setInputData(locomotiveInput)
-            .addTag(SAVE_LOCO_WORKER_TAG)
-            .setConstraints(constraints)
-            .build()
+        WorkManager.getInstance(context).enqueue(routeSaveWorker)
+        return WorkManagerState.state(context, routeSaveWorker.id)
 
-        val trainWorker = OneTimeWorkRequestBuilder<SaveTrainListWorker>()
-            .setInputData(trainInput)
-            .addTag(SAVE_TRAIN_WORKER_TAG)
-            .setConstraints(constraints)
-            .build()
 
-        val passengerWorker = OneTimeWorkRequestBuilder<SavePassengerListWorker>()
-            .setInputData(passengerInput)
-            .addTag(SAVE_PASSENGER_WORKER_TAG)
-            .setConstraints(constraints)
-            .build()
-
-        val photoWorker = OneTimeWorkRequestBuilder<SavePhotoListWorker>()
-            .setInputData(photoInput)
-            .addTag(SAVE_PHOTO_WORKER_TAG)
-            .setConstraints(constraints)
-            .build()
-
-        val workChain = WorkManager.getInstance(context)
-            .beginWith(basicDataWorker)
-            .then(listOf(locoWorker, trainWorker, passengerWorker, photoWorker))
-
-        workChain.enqueue()
-
-        val worksList =
-            listOf(
-                basicDataWorker.id,
-                locoWorker.id,
-                trainWorker.id,
-                passengerWorker.id,
-                photoWorker.id
-            )
-
-        CoroutineScope(Dispatchers.IO).launch {
-            WorkManagerState.listState(context, worksList, basicDataWorker.id).collect { result ->
-                if (result is ResultState.Success) {
-                    routeUseCase.isSynchronizedBasicData(result.data)
-                        .launchIn(this)
-                }
-            }
-        }
-
-        return WorkManagerState.state(context, basicDataWorker.id)
+//        val basicDataJSON = BasicDataJSONConverter.toString(
+//            BasicDataConverter.fromData(route.basicData)
+//        )
+//
+//        val locomotiveJSONList: Array<String> = Array(route.locomotives.size) { "" }
+//        route.locomotives.forEachIndexed { index, loco ->
+//            locomotiveJSONList[index] = LocomotiveJSONConverter.toString(
+//                LocomotiveConverter.fromData(loco)
+//            )
+//        }
+//
+//        val trainJSONList: Array<String> = Array(route.trains.size) { "" }
+//        route.trains.forEachIndexed { index, train ->
+//            trainJSONList[index] = TrainJSONConverter.toString(
+//                TrainConverter.toRemote(train)
+//            )
+//        }
+//
+//        val passengerJSONList: Array<String> = Array(route.passengers.size) { "" }
+//        route.passengers.forEachIndexed { index, passenger ->
+//            passengerJSONList[index] = PassengerJSONConverter.toString(
+//                PassengerConverter.toRemote(passenger)
+//            )
+//        }
+//
+//        val photoJSONList: Array<String> = Array(route.photos.size) { "" }
+//        route.photos.forEachIndexed { index, photo ->
+//            photoJSONList[index] = photo.photoId
+//        }
+//
+//        val basicDataInput = Data.Builder()
+//            .putString(BASIC_DATA_INPUT_KEY, basicDataJSON)
+//            .build()
+//
+//        val locomotiveInput = Data.Builder()
+//            .putStringArray(LOCOMOTIVE_INPUT_KEY, locomotiveJSONList)
+//            .build()
+//
+//        val trainInput = Data.Builder()
+//            .putStringArray(TRAINS_INPUT_KEY, trainJSONList)
+//            .build()
+//
+//        val passengerInput = Data.Builder()
+//            .putStringArray(PASSENGERS_INPUT_KEY, passengerJSONList)
+//            .build()
+//
+//        val photoInput = Data.Builder()
+//            .putStringArray(PHOTOS_INPUT_KEY, photoJSONList)
+//            .build()
+//
+//        val basicDataWorker = OneTimeWorkRequestBuilder<SaveBasicDataWorker>()
+//            .setInputData(basicDataInput)
+//            .addTag(SAVE_ROUTE_WORKER_TAG)
+//            .setConstraints(constraints)
+//            .build()
+//
+//        val locoWorker = OneTimeWorkRequestBuilder<SaveLocomotiveListWorker>()
+//            .setInputData(locomotiveInput)
+//            .addTag(SAVE_LOCO_WORKER_TAG)
+//            .setConstraints(constraints)
+//            .build()
+//
+//        val trainWorker = OneTimeWorkRequestBuilder<SaveTrainListWorker>()
+//            .setInputData(trainInput)
+//            .addTag(SAVE_TRAIN_WORKER_TAG)
+//            .setConstraints(constraints)
+//            .build()
+//
+//        val passengerWorker = OneTimeWorkRequestBuilder<SavePassengerListWorker>()
+//            .setInputData(passengerInput)
+//            .addTag(SAVE_PASSENGER_WORKER_TAG)
+//            .setConstraints(constraints)
+//            .build()
+//
+//        val photoWorker = OneTimeWorkRequestBuilder<SavePhotoListWorker>()
+//            .setInputData(photoInput)
+//            .addTag(SAVE_PHOTO_WORKER_TAG)
+//            .setConstraints(constraints)
+//            .build()
+//
+//        val workChain = WorkManager.getInstance(context)
+//            .beginWith(basicDataWorker)
+//            .then(listOf(locoWorker, trainWorker, passengerWorker, photoWorker))
+//
+//        workChain.enqueue()
+//
+//        val worksList =
+//            listOf(
+//                basicDataWorker.id,
+//                locoWorker.id,
+//                trainWorker.id,
+//                passengerWorker.id,
+//                photoWorker.id
+//            )
+//
+//        CoroutineScope(Dispatchers.IO).launch {
+//            WorkManagerState.listState(context, worksList, basicDataWorker.id).collect { result ->
+//                if (result is ResultState.Success) {
+//                    routeUseCase.isSynchronizedBasicData(result.data)
+//                        .launchIn(this)
+//                }
+//            }
+//        }
+//
+//        return WorkManagerState.state(context, basicDataWorker.id)
     }
 
     override suspend fun getAllBasicDataId(): Flow<ResultState<List<String>?>> {

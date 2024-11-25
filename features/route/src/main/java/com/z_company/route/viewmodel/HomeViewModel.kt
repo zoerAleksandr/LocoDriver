@@ -6,7 +6,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
@@ -45,7 +44,6 @@ import kotlinx.coroutines.withContext
 import ru.rustore.sdk.billingclient.RuStoreBillingClient
 import ru.rustore.sdk.billingclient.model.purchase.PurchaseState
 import ru.rustore.sdk.billingclient.utils.pub.checkPurchasesAvailability
-import ru.rustore.sdk.review.RuStoreReviewManagerFactory
 
 class HomeViewModel(application: Application) : AndroidViewModel(application = application), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
@@ -63,8 +61,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     private var setCalendarJob: Job? = null
     private var saveCurrentMonthJob: Job? = null
     private var loadSettingJob: Job? = null
-
-    val manager = RuStoreReviewManagerFactory.create(application.applicationContext)
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState = _uiState.asStateFlow()

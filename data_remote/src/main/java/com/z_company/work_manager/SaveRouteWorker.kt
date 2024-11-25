@@ -31,9 +31,7 @@ class SaveRouteWorker(context: Context, params: WorkerParameters) :
             if (!route.basicData.remoteObjectId.isNullOrEmpty()) {
                 routeObject.objectId = route.basicData.remoteObjectId
             }
-            value.let {
-                routeObject.put(DATA_FIELD_NAME, it)
-            }
+            routeObject.put(DATA_FIELD_NAME, value)
 
             val relation: ParseRelation<ParseUser> = routeObject.getRelation(USER_FIELD_NAME)
             relation.add(currentUser)
