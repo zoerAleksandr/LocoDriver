@@ -104,7 +104,7 @@ class SignInViewModel : ViewModel(), KoinComponent {
 
     private fun loadDataFromRemote() {
         viewModelScope.launch {
-            back4AppManager.loadRouteListFromRemote().launchIn(viewModelScope)
+            back4AppManager.loadRouteListFromRemoteSchema1().launchIn(viewModelScope)
         }
     }
 

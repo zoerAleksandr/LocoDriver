@@ -1,6 +1,7 @@
 package com.z_company.work_manager
 
 import android.content.Context
+import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
@@ -17,6 +18,7 @@ import com.z_company.work_manager.BasicDataFieldName.TIME_START_WORK_FIELD_NAME
 import com.z_company.work_manager.BasicDataFieldName.TIME_END_WORK_FIELD_NAME
 import com.z_company.work_manager.BasicDataFieldName.REST_FIELD_NAME
 import com.z_company.work_manager.BasicDataFieldName.NOTES_FIELD_NAME
+import com.z_company.work_manager.BasicDataFieldName.SCHEMA_VERSION_NAME
 import com.z_company.work_manager.BasicDataFieldName.USER_FIELD_NAME
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.launchIn
@@ -54,6 +56,9 @@ class SaveBasicDataWorker(context: Context, params: WorkerParameters) :
             basicData.notes?.let { notes ->
                 basicDataObject.put(NOTES_FIELD_NAME, notes)
             }
+            basicData.schemaVersion?.let { version ->
+                basicDataObject.put(SCHEMA_VERSION_NAME, version)
+            }
             val relation: ParseRelation<ParseUser> = basicDataObject.getRelation(USER_FIELD_NAME)
             relation.add(currentUser)
 
@@ -65,6 +70,7 @@ class SaveBasicDataWorker(context: Context, params: WorkerParameters) :
             val data = workDataOf(BASIC_DATA_OBJECT_ID_KEY to basicDataObject.objectId)
             return@coroutineScope Result.success(data)
         } catch (e: Exception) {
+            Log.d("ZZZ", "e. ${e.message}")
             return@coroutineScope Result.failure()
         }
     }

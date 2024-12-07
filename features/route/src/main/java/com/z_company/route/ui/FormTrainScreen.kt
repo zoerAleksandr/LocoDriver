@@ -547,9 +547,9 @@ fun TrainFormScreenContent(
                     text = "Длинносоставный тяжеловесный",
                     style = hintStyle.copy(
                         color = if (train.isHeavyLongDistance){
-                            hintStyle.color
+                            MaterialTheme.colorScheme.primary
                         } else {
-                            hintStyle.color.copy(alpha = 0.7f)
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
                         }
                     ),
                 )

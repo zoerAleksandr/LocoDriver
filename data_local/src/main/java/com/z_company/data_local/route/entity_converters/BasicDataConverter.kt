@@ -24,6 +24,7 @@ internal object BasicDataConverter {
         isSynchronized = entity.isSynchronized,
         isDeleted = entity.isDeleted,
         remoteObjectId = entity.remoteObjectId,
+        schemaVersion = entity.schemaVersion,
         updatedAt = entity.updatedAt,
         number = entity.number,
         timeStartWork = entity.timeStartWork,

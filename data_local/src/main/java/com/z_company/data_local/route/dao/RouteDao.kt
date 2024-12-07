@@ -79,7 +79,7 @@ internal interface RouteDao {
     @Query("SELECT * FROM Photo WHERE basicId = :basicId")
     fun getPhotosByRoute(basicId: String): Flow<List<Photo>>
     @Query("UPDATE BasicData SET remoteObjectId =:remoteObjectId WHERE id =:id")
-    fun setRemoteObjectIdBasicData(id: String, remoteObjectId: String)
+    fun setRemoteObjectIdBasicData(id: String, remoteObjectId: String?)
     @Query("UPDATE Locomotive SET removeObjectId =:remoteObjectId WHERE locoId =:id")
     fun setRemoteObjectIdLocomotive(id: String, remoteObjectId: String)
     @Query("UPDATE Train SET remoteObjectId =:remoteObjectId WHERE trainId =:id")
@@ -89,7 +89,10 @@ internal interface RouteDao {
     @Query("UPDATE Photo SET remoteObjectId =:objectId WHERE photoId =:photoId")
     fun setRemoteObjectIdPhoto(photoId: String, objectId: String)
     @Query("UPDATE BasicData SET isSynchronized = 1 WHERE remoteObjectId =:id")
-    fun isSynchronizedRoute(id: String)
+    fun setSynchronizedRoute(id: String)
+
+    @Query("UPDATE BasicData SET schemaVersion =:version WHERE id =:id")
+    fun setSchemaVersion(version: Int, id: String)
     @Query("DELETE FROM BasicData")
     suspend fun clearRepository()
 }

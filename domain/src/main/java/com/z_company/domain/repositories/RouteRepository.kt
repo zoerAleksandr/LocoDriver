@@ -24,7 +24,7 @@ interface RouteRepository {
     fun removePassenger(passenger: Passenger): Flow<ResultState<Unit>>
     fun removePhoto(photo: Photo): Flow<ResultState<Unit>>
     fun saveRoute(route: Route): Flow<ResultState<Unit>>
-    fun setRemoteObjectIdBasicData(basicId: String, remoteObjectId: String): Flow<ResultState<Unit>>
+    fun setRemoteObjectIdBasicData(basicId: String, remoteObjectId: String?): Flow<ResultState<Unit>>
     fun setRemoteObjectIdLocomotive(locoId: String, remoteObjectId: String): Flow<ResultState<Unit>>
     fun setRemoteObjectIdTrain(trainId: String, remoteObjectId: String): Flow<ResultState<Unit>>
     fun setRemoteObjectIdPassenger(passengerId: String, objectId: String): Flow<ResultState<Unit>>
@@ -34,6 +34,7 @@ interface RouteRepository {
     fun savePassenger(passenger: Passenger): Flow<ResultState<Unit>>
     fun savePhoto(photo: Photo): Flow<ResultState<Unit>>
     fun markAsRemoved(route: Route): Flow<ResultState<Unit>>
-    fun isSynchronizedBasicData(basicId: String): Flow<ResultState<Unit>>
+    fun setSynchronizedBasicData(basicId: String): Flow<ResultState<Unit>>
+    fun setSchemaVersion(version: Int, id: String): Flow<ResultState<Unit>>
     fun clearRepository(): Flow<ResultState<Unit>>
 }

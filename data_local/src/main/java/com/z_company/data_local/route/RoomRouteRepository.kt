@@ -121,6 +121,12 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
     override fun saveRoute(route: Route): Flow<ResultState<Unit>> {
         return flowRequest {
             var newRoute = RouteConverter.fromData(route)
+            // ver 2
+//            if (!route.basicData.isSynchronized){
+//                newRoute.basicData.schemaVersion = 2
+//            } else {
+//                newRoute.basicData.schemaVersion = route.basicData.schemaVersion
+//            }
             if (route.basicData.id.isBlank()) {
                 route.basicData.id = UUID.randomUUID().toString()
             }
@@ -155,7 +161,7 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
 
     override fun setRemoteObjectIdBasicData(
         basicId: String,
-        remoteObjectId: String
+        remoteObjectId: String?
     ): Flow<ResultState<Unit>> {
         return flowRequest {
             dao.setRemoteObjectIdBasicData(basicId, remoteObjectId)
@@ -271,9 +277,15 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
         }
     }
 
-    override fun isSynchronizedBasicData(basicId: String): Flow<ResultState<Unit>> {
+    override fun setSynchronizedBasicData(basicId: String): Flow<ResultState<Unit>> {
         return flowRequest {
-            dao.isSynchronizedRoute(basicId)
+            dao.setSynchronizedRoute(basicId)
+        }
+    }
+
+    override fun setSchemaVersion(version: Int, id: String): Flow<ResultState<Unit>> {
+        return flowRequest {
+            dao.setSchemaVersion(version, id)
         }
     }
 

@@ -84,13 +84,17 @@ class RouteUseCase(private val repository: RouteRepository) {
         }
     }
 
-    fun isSynchronizedBasicData(basicId: String): Flow<ResultState<Unit>> {
-        return repository.isSynchronizedBasicData(basicId)
+    fun setSynchronizedBasicData(basicId: String): Flow<ResultState<Unit>> {
+        return repository.setSynchronizedBasicData(basicId)
+    }
+
+    fun setSchemaVersion(version: Int, id: String): Flow<ResultState<Unit>> {
+        return repository.setSchemaVersion(version, id)
     }
 
     fun setRemoteObjectIdBasicData(
         basicId: String,
-        remoteObjectId: String
+        remoteObjectId: String?
     ): Flow<ResultState<Unit>> {
         return repository.setRemoteObjectIdBasicData(basicId, remoteObjectId)
     }

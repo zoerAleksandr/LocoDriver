@@ -5,7 +5,7 @@ import java.util.UUID
 
 data class BasicData(
     var id: String = UUID.randomUUID().toString(),
-    var schemaVersion: Int = 2,
+    var schemaVersion: Int = 1,
     var isSynchronized: Boolean = false,
     var remoteObjectId: String? = null,
     var isDeleted: Boolean = false,

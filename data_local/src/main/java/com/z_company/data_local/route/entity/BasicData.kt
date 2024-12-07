@@ -15,7 +15,7 @@ internal data class BasicData(
     @PrimaryKey
     val id: String,
     @ColumnInfo(defaultValue = "1")
-    var schemaVersion: Int,
+    var schemaVersion: Int = 1,
     var isSynchronized: Boolean = false,
     var remoteObjectId: String? = null,
     var isDeleted: Boolean,

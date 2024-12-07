@@ -252,12 +252,16 @@ object UtilsForEntities {
         this.forEach { route ->
             route.passengers.forEach { passenger ->
                 passengerTime = if (route.isTransition()) {
-                    passengerTime.plus(
-                        monthOfYear.getTimeInCurrentMonth(
-                            passenger.timeDeparture!!,
-                            passenger.timeArrival!!,
+                    if (passenger.timeDeparture != null && passenger.timeArrival != null) {
+                        passengerTime.plus(
+                            monthOfYear.getTimeInCurrentMonth(
+                                passenger.timeDeparture!!,
+                                passenger.timeArrival!!,
+                            )
                         )
-                    )
+                    } else {
+                        0L
+                    }
                 } else {
                     passengerTime.plus((passenger.timeArrival - passenger.timeDeparture) ?: 0L)
                 }

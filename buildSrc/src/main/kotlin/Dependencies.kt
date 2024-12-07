@@ -52,8 +52,8 @@ object Apps {
     const val min_sdk_version = 26
     const val target_sdk_version = 34
 
-    const val version_code = 25
-    const val version_name = "1.2.9"
+    const val version_code = 26
+    const val version_name = "1.2.10"
 
     const val jvm_target_version = "17"
     val java_compatibility_version = JavaVersion.VERSION_17
@@ -96,7 +96,7 @@ object Versions {
     const val vkid_ver = "1.3.2"
     const val parse_sdk_android_ver = "4.3.0"
     const val work_manager_version = "2.9.0"
-    const val accompanist_ui_controller_version = "0.35.0-alpha"
+    const val accompanist_ui_controller_version = "0.34.0"
     const val rebugger_ver = "1.0.0-rc03"
     const val desugaring_ver = "2.0.4"
     const val mockito_core_ver= "3.10.0"

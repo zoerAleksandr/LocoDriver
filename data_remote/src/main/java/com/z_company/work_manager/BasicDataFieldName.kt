@@ -14,6 +14,7 @@ object BasicDataFieldName {
     const val REST_FIELD_NAME = "restPointOfTurnover"
     const val NOTES_FIELD_NAME = "notes"
     const val USER_FIELD_NAME = "user"
+    const val SCHEMA_VERSION_NAME = "schemaVersion"
 }
 
 object LocomotiveFieldName {
