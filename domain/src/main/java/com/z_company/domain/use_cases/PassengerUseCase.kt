@@ -14,6 +14,10 @@ class PassengerUseCase(
     fun getPassengerById(passengerId: String): Flow<ResultState<Passenger?>> {
         return repository.loadPassenger(passengerId)
     }
+
+    fun getPassengerListByBasicId(basicId: String): List<Passenger> {
+        return repository.loadPassengerListByBasicId(basicId)
+    }
     fun removePassenger(passenger: Passenger): Flow<ResultState<Unit>>{
         return repository.removePassenger(passenger)
     }

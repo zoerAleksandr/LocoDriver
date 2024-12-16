@@ -22,6 +22,7 @@ fun HomeDestination(
         onRouteClick = {
             router.showRouteForm(it)
         },
+        makeCopyRoute = {router.showRouteForm(basicId = it, isMakeCopy = true)},
         onMoreInfoClick = { router.showMoreInfo(it) },
         onNewRouteClick = homeViewModel::newRouteClick,
         onDeleteRoute = homeViewModel::removeRoute,
@@ -37,7 +38,8 @@ fun HomeDestination(
         minTimeRest = uiState.minTimeRest,
         nightTime = uiState.nightTimeInRouteList,
         passengerTime = uiState.passengerTimeInRouteList,
-        dayOffHours = uiState.dayOffHours,
+        dayoffHours = uiState.dayOffHours,
+        holidayHours = uiState.holidayHours,
         calculationHomeRest = homeViewModel::calculationHomeRest,
         homeRestValue = previewRouteUiState.homeRestState,
         firstEntryDialogState = uiState.showFirstEntryToAccountDialog,

@@ -25,6 +25,7 @@ import com.z_company.route.navigation.SearchRoute
 import com.z_company.route.navigation.SettingSalaryRoute
 import com.z_company.route.navigation.ViewingImageRoute
 import com.z_company.settings.navigation.SelectReleaseDaysScreenRoute
+import com.z_company.settings.navigation.SettingHomeScreenRoute
 import com.z_company.settings.navigation.SettingsFeature
 
 class RouterImpl(
@@ -53,9 +54,9 @@ class RouterImpl(
         }
     }
 
-    override fun showRouteForm(basicId: String?) {
+    override fun showRouteForm(basicId: String?, isMakeCopy: Boolean) {
         navController.navigate(
-            FormRoute.buildDetailsRoute(basicId)
+            FormRoute.buildDetailsRoute(basicId, isMakeCopy)
         )
     }
 
@@ -164,6 +165,12 @@ class RouterImpl(
     override fun showSettingSalary() {
         navController.navigate(
             SettingSalaryRoute.route
+        )
+    }
+
+    override fun showSettingHomeScreen() {
+        navController.navigate(
+            SettingHomeScreenRoute.route
         )
     }
 }

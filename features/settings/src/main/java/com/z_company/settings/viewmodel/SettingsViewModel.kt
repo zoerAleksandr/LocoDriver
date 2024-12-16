@@ -6,7 +6,6 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.parse.ParseUser
-import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.isEmailValid
@@ -20,7 +19,6 @@ import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.repository.Back4AppManager
-import com.z_company.route.extention.getEndTimeSubscription
 import com.z_company.use_case.AuthUseCase
 import com.z_company.use_case.RemoteRouteUseCase
 import kotlinx.coroutines.Dispatchers
@@ -28,12 +26,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import ru.rustore.sdk.billingclient.RuStoreBillingClient
@@ -46,7 +42,6 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private val calendarUseCase: CalendarUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
     private val back4AppManager: Back4AppManager by inject()
-    private val billingClient: RuStoreBillingClient by inject()
     private val sharedPreferenceStorage: SharedPreferenceStorage by inject()
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -102,44 +97,16 @@ class SettingsViewModel : ViewModel(), KoinComponent {
 
     private fun loadPurchasesInfo() {
         viewModelScope.launch {
-            withContext(Dispatchers.IO) {
-                try {
-                    val purchases = billingClient.purchases.getPurchases().await()
-                    var maxEndTime = 0L
-                    purchases.forEach { purchase ->
-                        val purchaseEndTime =
-                            purchase.getEndTimeSubscription(billingClient).first()
-                        if (purchaseEndTime > maxEndTime) {
-                            maxEndTime = purchaseEndTime
-                        }
-                    }
-                    sharedPreferenceStorage.setSubscriptionExpiration(maxEndTime)
-                    val textEndTime = if (maxEndTime == 0L) {
-                        ""
-                    } else {
-                        ConverterLongToTime.getDateAndTimeStringFormat(maxEndTime)
-                    }
-
-                    viewModelScope.launch {
-                        withContext(Dispatchers.Main) {
-                            _uiState.update {
-                                it.copy(
-                                    purchasesEndTime = ResultState.Success(textEndTime)
-                                )
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    viewModelScope.launch {
-                        withContext(Dispatchers.Main) {
-                            _uiState.update {
-                                it.copy(
-                                    purchasesEndTime = ResultState.Error(ErrorEntity())
-                                )
-                            }
-                        }
-                    }
-                }
+            val maxEndTime = sharedPreferenceStorage.getSubscriptionExpiration()
+            val textEndTime = if (maxEndTime == 0L) {
+                ""
+            } else {
+                ConverterLongToTime.getDateAndTimeStringFormat(maxEndTime)
+            }
+            _uiState.update {
+                it.copy(
+                    purchasesEndTime = ResultState.Success(textEndTime)
+                )
             }
         }
     }
@@ -166,7 +133,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                     currentUser = resultState.data
                     currentEmail = currentUser?.email ?: ""
                 }
-                if (resultState is ResultState.Error){
+                if (resultState is ResultState.Error) {
                     _uiState.update {
                         it.copy(isRefreshing = false)
                     }
@@ -179,23 +146,6 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         _uiState.update {
             it.copy(saveSettingsState = null)
         }
-    }
-
-    fun setCurrentMonth(yearAndMonth: Pair<Int, Int>) {
-        setCalendarJob?.cancel()
-        setCalendarJob = calendarUseCase.loadMonthOfYearList().onEach { result ->
-            if (result is ResultState.Success) {
-                result.data.find {
-                    it.year == yearAndMonth.first && it.month == yearAndMonth.second
-                }?.let { selectMonthOfYear ->
-                    currentSettings = currentSettings?.copy(
-                        selectMonthOfYear = selectMonthOfYear
-                    )
-                    saveCurrentMonthInLocal(selectMonthOfYear)
-                }
-            }
-        }
-            .launchIn(viewModelScope)
     }
 
     private fun saveCurrentMonthInLocal(monthOfYear: MonthOfYear) {
@@ -233,7 +183,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                     result.data?.let { userSettings ->
                         _uiState.update {
                             it.copy(
-                                updateAt = ResultState.Success(userSettings.updateAt),
+                                updateAt = userSettings.updateAt,
                             )
                         }
                     }
@@ -325,8 +275,15 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             back4AppManager.synchronizedStorage().collect { result ->
                 _uiState.update {
                     it.copy(
-                        updateRepositoryState = result
+                        updateRepositoryState = result,
                     )
+                }
+                if (result is ResultState.Success){
+                    _uiState.update {
+                        it.copy(
+                            updateAt = result.data
+                        )
+                    }
                 }
             }
         }
@@ -335,7 +292,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     fun resetRepositoryState() {
         _uiState.update {
             it.copy(
-                updateRepositoryState = ResultState.Success(Unit)
+                updateRepositoryState = null
             )
         }
     }

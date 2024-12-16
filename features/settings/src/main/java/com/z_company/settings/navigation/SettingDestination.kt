@@ -42,6 +42,7 @@ fun SettingDestination(
         purchasesState = uiState.purchasesEndTime,
         onBillingClick = router::showPurchasesScreen,
         isRefreshing = uiState.isRefreshing,
-        onRefresh = settingsViewModel::refreshingUserData
+        onRefresh = settingsViewModel::refreshingUserData,
+        onSettingHomeScreenClick = router::showSettingHomeScreen
     )
 }

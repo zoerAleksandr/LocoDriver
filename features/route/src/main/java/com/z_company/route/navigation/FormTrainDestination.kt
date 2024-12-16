@@ -15,7 +15,7 @@ import org.koin.core.parameter.parametersOf
 fun FormTrainDestination(
     router: Router,
     backStackEntry: NavBackStackEntry
-){
+) {
     val trainId = FormTrain.getTrainId(backStackEntry) ?: NULLABLE_ID
     val basicId = FormTrain.getBasicId(backStackEntry) ?: NULLABLE_ID
 
@@ -47,6 +47,11 @@ fun FormTrainDestination(
         exitScreen = router::back,
         changeShowConfirmExitDialog = viewModel::changeShowConfirmDialog,
         exitWithoutSave = viewModel::exitWithoutSaving,
-        onClickHeavyLongDistance = viewModel::setIsHeavyLongDistance
+        onClickHeavyLongDistance = viewModel::setIsHeavyLongDistance,
+        menuList = viewModel.stationList,
+        isExpandedMenu = formUiState.isExpandedDropDownMenuStation,
+        onExpandedMenuChange = viewModel::changeExpandedMenu,
+        onChangedContentMenu = viewModel::onChangedDropDownContent,
+        onDeleteStationName = viewModel::removeStationName
     )
 }

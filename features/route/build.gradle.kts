@@ -39,8 +39,9 @@ android {
 }
 
 dependencies {
-    implementation(platform("ru.rustore.sdk:bom:6.0.0"))
+    implementation(platform("ru.rustore.sdk:bom:6.1.0"))
     implementation("ru.rustore.sdk:billingclient")
+    implementation("ru.rustore.sdk:review")
     
     implementation(project(Libs.project_core_android))
     implementation(project(Libs.project_domain))
@@ -71,6 +72,8 @@ dependencies {
     implementation(Libs.reveal_swipe)
     implementation(Libs.maxkeppeler_sheets)
     implementation(Libs.rebugger)
+
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
 
     implementation(Libs.camera_camera2)
     implementation(Libs.camera_lifecycle)

@@ -16,7 +16,13 @@ data class UserSettings(
     var usingDefaultWorkTime: Boolean = false,
     var isConsiderFutureRoute: Boolean = true,
     var updateAt: Long = timestamp,
-    var selectMonthOfYear: MonthOfYear = MonthOfYear()
+    var selectMonthOfYear: MonthOfYear = MonthOfYear(),
+    var isVisibleNightTime: Boolean = true,
+    var isVisiblePassengerTime: Boolean = true,
+    var isVisibleRelationTime: Boolean = true,
+    var isVisibleHolidayTime: Boolean = true,
+    var isVisibleExtendedServicePhase: Boolean = true,
+    val stationList: List<String> = listOf()
 )
 
 data class NightTime(

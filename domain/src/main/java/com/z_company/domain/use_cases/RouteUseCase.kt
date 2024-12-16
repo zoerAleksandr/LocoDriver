@@ -63,6 +63,11 @@ class RouteUseCase(private val repository: RouteRepository) {
         return repository.loadRoutesWithDeleting()
     }
 
+
+    fun getListRoutes(): List<Route> {
+        return repository.loadRoutes()
+    }
+
     fun routeDetails(routeId: String): Flow<ResultState<Route?>> {
         return repository.loadRoute(routeId)
     }
@@ -78,19 +83,26 @@ class RouteUseCase(private val repository: RouteRepository) {
     fun saveRoute(route: Route): Flow<ResultState<Unit>> {
         return if (route.basicData.timeStartWork == null) {
             val currentTimeInMillis = getInstance().timeInMillis
-            repository.saveRoute(route.copy(basicData = route.basicData.copy(timeStartWork = currentTimeInMillis)))
+            repository.saveRoute(route.copy(basicData = route.basicData.copy(timeStartWork = currentTimeInMillis, isSynchronizedRoute = false)))
         } else {
-            repository.saveRoute(route)
+            repository.saveRoute(route.copy(basicData = route.basicData.copy(isSynchronizedRoute = false)))
         }
     }
 
-    fun isSynchronizedBasicData(basicId: String): Flow<ResultState<Unit>> {
-        return repository.isSynchronizedBasicData(basicId)
+    fun setSynchronizedRoute(basicId: String): Flow<ResultState<Unit>> {
+        return repository.setSynchronizedRoute(basicId)
+    }
+
+    fun setRemoteObjectIdRoute(
+        basicId: String,
+        remoteObjectId: String?
+    ): Flow<ResultState<Unit>> {
+        return repository.setRemoteObjectIdRoute(basicId, remoteObjectId)
     }
 
     fun setRemoteObjectIdBasicData(
         basicId: String,
-        remoteObjectId: String
+        remoteObjectId: String?
     ): Flow<ResultState<Unit>> {
         return repository.setRemoteObjectIdBasicData(basicId, remoteObjectId)
     }

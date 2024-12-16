@@ -52,7 +52,6 @@ class LoadBasicDataWorker(val context: Context, params: WorkerParameters) :
                     getString(BasicDataFieldName.NOTES_FIELD_NAME)?.let { notes ->
                         basicData = basicData.copy(notes = notes)
                     }
-
                 }
                 val basicDataAsString = BasicDataJSONConverter.toString(basicData)
                 val data =

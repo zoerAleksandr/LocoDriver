@@ -15,4 +15,5 @@ interface SettingsRepository {
     fun setWorkTimeDefault(timeInMillis: Long): Flow<ResultState<Unit>>
     fun setCurrentMonthOfYear(monthOfYear: MonthOfYear): Flow<ResultState<Unit>>
     fun clearRepository(): Flow<ResultState<Unit>>
+    fun setStations(stations: List<String>): Flow<ResultState<Unit>>
 }

@@ -1,5 +1,10 @@
 package com.z_company.work_manager
 
+object RouteFieldName {
+    const val ROUTE_CLASS_NAME_REMOTE = "Route"
+    const val USER_FIELD_NAME = "user"
+    const val DATA_FIELD_NAME = "data"
+}
 object BasicDataFieldName {
     const val BASIC_DATA_CLASS_NAME_REMOTE = "BasicData"
     const val BASIC_DATA_UID_FIELD_NAME = "uid"
@@ -9,6 +14,7 @@ object BasicDataFieldName {
     const val REST_FIELD_NAME = "restPointOfTurnover"
     const val NOTES_FIELD_NAME = "notes"
     const val USER_FIELD_NAME = "user"
+    const val SCHEMA_VERSION_NAME = "schemaVersion"
 }
 
 object LocomotiveFieldName {

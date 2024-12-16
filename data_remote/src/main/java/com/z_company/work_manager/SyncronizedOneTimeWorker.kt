@@ -73,6 +73,7 @@ class SynchronizedOneTimeWorker(context: Context, params: WorkerParameters) :
                 notSynchronizedList.forEach { route ->
                     this.launch {
                         remoteRepository.saveRoute(route).collect { result ->
+                            Log.d("ZZZ", "result in sync $result")
                             if (result is ResultState.Success) {
                                 syncRouteCount += 1
                                 this.cancel()

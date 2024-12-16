@@ -1,6 +1,7 @@
 package com.z_company.work_manager
 
 import android.content.Context
+import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
@@ -65,6 +66,7 @@ class SaveBasicDataWorker(context: Context, params: WorkerParameters) :
             val data = workDataOf(BASIC_DATA_OBJECT_ID_KEY to basicDataObject.objectId)
             return@coroutineScope Result.success(data)
         } catch (e: Exception) {
+            Log.d("ZZZ", "e. ${e.message}")
             return@coroutineScope Result.failure()
         }
     }

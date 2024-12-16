@@ -12,6 +12,12 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
         return settingsRepository.updateNightTime(nightTime)
     }
 
+    fun setStations(stations: List<String>): Flow<ResultState<Unit>> {
+        val uniqueStationsName = stations
+            .distinct()
+        return settingsRepository.setStations(uniqueStationsName)
+    }
+
     fun setDieselCoefficient(coefficient: Double): Flow<ResultState<Unit>> {
         return settingsRepository.setDieselCoefficient(coefficient)
     }

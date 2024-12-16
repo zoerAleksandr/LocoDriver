@@ -1,10 +1,12 @@
 package com.z_company.route.viewmodel
 
+import android.app.Application
 import android.content.Context
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
@@ -17,6 +19,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getHomeRest
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeWithHoliday
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -32,23 +35,24 @@ import org.koin.core.component.inject
 import java.util.Calendar.MONTH
 import java.util.Calendar.YEAR
 import java.util.Calendar.getInstance
-import com.z_company.route.extention.getEndTimeSubscription
+import com.z_company.use_case.RuStoreUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import ru.rustore.sdk.billingclient.RuStoreBillingClient
+import ru.rustore.sdk.billingclient.model.purchase.PurchaseState
 import ru.rustore.sdk.billingclient.utils.pub.checkPurchasesAvailability
 
-class HomeViewModel : ViewModel(), KoinComponent {
+class HomeViewModel(application: Application) : AndroidViewModel(application = application), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferenceStorage by inject()
     private val billingClient: RuStoreBillingClient by inject()
+    private val ruStoreUseCase: RuStoreUseCase by inject()
     var totalTime by mutableLongStateOf(0L)
         private set
 
@@ -108,30 +112,58 @@ class HomeViewModel : ViewModel(), KoinComponent {
             withContext(Dispatchers.IO) {
                 try {
                     val currentTimeInMillis = getInstance().timeInMillis
-                    val purchases = billingClient.purchases.getPurchases().await()
                     var maxEndTime = 0L
-                    purchases.forEach { purchase ->
-                        val purchaseEndTime =
-                            purchase.getEndTimeSubscription(billingClient).first()
-                        if (purchaseEndTime > maxEndTime) {
-                            maxEndTime = purchaseEndTime
+                    var job: Job? = null
+                    billingClient.purchases.getPurchases()
+                        .addOnSuccessListener { purchases ->
+                            viewModelScope.launch {
+                                purchases.forEach { purchase ->
+                                    job?.cancel()
+                                    job = this.launch(Dispatchers.IO) {
+                                        if (purchase.purchaseState == PurchaseState.CONFIRMED) {
+                                            ruStoreUseCase.getExpiryTimeMillis(
+                                                purchase.productId,
+                                                purchase.subscriptionToken ?: ""
+                                            ).collect { resultState ->
+                                                if (resultState is ResultState.Success) {
+                                                    if (resultState.data > maxEndTime) {
+                                                        maxEndTime = resultState.data
+                                                    }
+                                                    job?.cancel()
+                                                }
+                                                if (resultState is ResultState.Error) {
+                                                    _uiState.update {
+                                                        it.copy(
+                                                            restoreSubscriptionState = ResultState.Error(resultState.entity)
+                                                        )
+                                                    }
+                                                    job?.cancel()
+                                                }
+                                            }
+                                        }
+                                    }
+                                    job?.join()
+                                }
+                                if (maxEndTime > currentTimeInMillis) {
+                                    sharedPreferenceStorage.setSubscriptionExpiration(maxEndTime)
+                                    _uiState.update {
+                                        it.copy(
+                                            restoreSubscriptionState = ResultState.Success("Покупки восстановлены")
+                                        )
+                                    }
+                                }
+                                if (maxEndTime < currentTimeInMillis) {
+                                    _uiState.update {
+                                        it.copy(
+                                            restoreSubscriptionState = ResultState.Success("Действующих подписок не найдено")
+                                        )
+                                    }
+                                }
+                            }
                         }
-                    }
-                    if (maxEndTime > currentTimeInMillis) {
-                        sharedPreferenceStorage.setSubscriptionExpiration(maxEndTime)
-                        _uiState.update {
-                            it.copy(
-                                restoreSubscriptionState = ResultState.Success("Покупки восстановлены")
-                            )
+                        .addOnFailureListener {
+                            Log.w("ZZZ", "${it.message}")
                         }
-                    }
-                    if (maxEndTime < currentTimeInMillis) {
-                        _uiState.update {
-                            it.copy(
-                                restoreSubscriptionState = ResultState.Success("Действующих подписок не найдено")
-                            )
-                        }
-                    }
                 } catch (e: Exception) {
                     _uiState.update {
                         it.copy(
@@ -273,6 +305,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                             calculationOfTotalTime(routeList)
                             calculationOfNightTime(routeList)
                             calculationPassengerTime(routeList)
+                            calculationHolidayTime(routeList)
                         }
                     }
                 }.launchIn(this)
@@ -353,6 +386,31 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
+    private fun calculationHolidayTime(routes: List<Route>) {
+        _uiState.update {
+            it.copy(
+                holidayHours = ResultState.Loading
+            )
+        }
+        try {
+            currentMonthOfYear?.let { monthOfYear ->
+                val holidayTime = routes.getWorkingTimeOnAHoliday(monthOfYear)
+                _uiState.update {
+                    it.copy(
+                        holidayHours = ResultState.Success(holidayTime)
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            _uiState.update {
+                it.copy(
+                    nightTimeInRouteList = ResultState.Error(ErrorEntity(e))
+                )
+            }
+        }
+    }
+
+
     fun isShowConfirmRemoveRoute(isShow: Boolean) {
         _uiState.update {
             it.copy(
@@ -361,7 +419,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun removeRoute(route: Route){
+    fun removeRoute(route: Route) {
         removeRouteJob?.cancel()
         removeRouteJob = routeUseCase.markAsRemoved(route).onEach { result ->
             _uiState.update {

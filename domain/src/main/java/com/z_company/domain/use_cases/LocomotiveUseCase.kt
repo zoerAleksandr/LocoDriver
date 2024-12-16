@@ -14,6 +14,10 @@ class LocomotiveUseCase(
     fun getLocoById(locoId: String) : Flow<ResultState<Locomotive?>> {
         return repository.loadLoco(locoId)
     }
+    fun getLocomotiveList(basicId: String): List<Locomotive> {
+        return repository.loadLocoListByBasicId(basicId)
+    }
+
     fun isValidAcceptedTime(locomotive: Locomotive): Boolean {
         return true
     }

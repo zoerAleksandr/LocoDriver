@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.flowWithLifecycle
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
+import com.z_company.core.ui.component.AsyncDataValue
 import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
@@ -114,6 +115,7 @@ fun HomeScreen(
     onRouteClick: (String) -> Unit,
     onNewRouteClick: () -> Unit,
     onMoreInfoClick: (String) -> Unit,
+    makeCopyRoute: (String) -> Unit,
     onDeleteRoute: (Route) -> Unit,
     onDeleteRouteConfirmed: () -> Unit,
     reloadRoute: () -> Unit,
@@ -127,7 +129,8 @@ fun HomeScreen(
     minTimeRest: Long?,
     nightTime: ResultState<Long>?,
     passengerTime: ResultState<Long>?,
-    dayOffHours: ResultState<Int>?,
+    dayoffHours: ResultState<Int>?,
+    holidayHours: ResultState<Long>?,
     calculationHomeRest: (Route?) -> Unit,
     homeRestValue: ResultState<Long?>,
     firstEntryDialogState: Boolean,
@@ -244,7 +247,7 @@ fun HomeScreen(
                         }
                     ) {
                         Text(
-                            text = "Оформить подписку",
+                            text = "Оформить подписку за 44 руб/мес",
                             style = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.tertiary)
                         )
                     }
@@ -305,7 +308,7 @@ fun HomeScreen(
                         }
                     ) {
                         Text(
-                            text = "Оформить подписку",
+                            text = "Оформить подписку за 44 руб/мес",
                             style = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.tertiary)
                         )
                     }
@@ -424,7 +427,7 @@ fun HomeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = 48.dp)
+                .padding(bottom = 32.dp)
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onPress = {
@@ -440,13 +443,12 @@ fun HomeScreen(
                     .fillMaxWidth()
                     .requiredHeightIn(
                         min = heightScreen.times(0.3f).dp,
-                        max = heightScreen.times(0.8f).dp
+                        max = heightScreen.times(0.7f).dp
                     )
                     .padding(start = 12.dp, end = 12.dp, top = 30.dp, bottom = 12.dp)
                     .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
                     .clickable {}
             ) {
-
                 calculationHomeRest(routeForPreview)
                 PreviewRoute(routeForPreview, minTimeRest, homeRestValue)
             }
@@ -488,9 +490,33 @@ fun HomeScreen(
                         .clickable {
                             showContextDialog = false
                             routeForPreview?.let { route ->
+                                makeCopyRoute(route.basicData.id)
+                            }
+                        },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Дублировать",
+                        style = AppTypography.getType().bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Icon(
+                        painter = painterResource(id = R.drawable.outline_content_copy_24),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+                HorizontalDivider()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .clickable {
+                            showContextDialog = false
+                            routeForPreview?.let { route ->
                                 changeShowConfirmExitDialog(true)
                                 routeForRemove = route
-//                                onDeleteRoute(route)
                             }
                         },
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -781,8 +807,15 @@ fun HomeScreen(
                         )
                     }
                 }
-
-                AsyncData(resultState = dayOffHours,
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(heightScreen.times(0.05f).dp),
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.Top
+            ) {
+                AsyncData(resultState = dayoffHours,
                     loadingContent = {
                         CircularProgressIndicator(
                             modifier = Modifier.size(24.dp),
@@ -792,7 +825,10 @@ fun HomeScreen(
                 ) { hours ->
                     hours?.let {
                         if (it != 0) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Row(
+                                modifier = Modifier.padding(end = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 Icon(
                                     modifier = Modifier
                                         .size(28.dp)
@@ -812,11 +848,39 @@ fun HomeScreen(
                         }
                     }
                 }
+
+                AsyncDataValue(resultState = holidayHours) { hours ->
+                    hours?.let {
+                        if (it != 0L) {
+                            Row(
+                                modifier = Modifier.padding(end = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .padding(end = 4.dp),
+                                    painter = painterResource(id = R.drawable.icon_holiday_hours),
+                                    contentDescription = null,
+//                                    tint = Color.Red
+                                )
+                                AutoSizeText(
+                                    text = ConverterLongToTime.getTimeInStringFormat(hours),
+                                    style = AppTypography.getType().headlineSmall,
+                                    maxTextSize = 24.sp,
+                                    fontWeight = FontWeight.Light,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+
+                }
             }
             Spacer(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(heightScreen.times(0.19f).dp)
+                    .height(heightScreen.times(0.12f).dp)
             )
             ButtonLocoDriver(
                 modifier = Modifier
@@ -1266,13 +1330,13 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: ResultState<Long?>
                                 Column {
                                     locomotive.electricSectionList.forEachIndexed { index, sectionElectric ->
                                         val acceptedEnergyText =
-                                            sectionElectric.acceptedEnergy?.toPlainString()
+                                            sectionElectric.acceptedEnergy?.toPlainString() ?: ""
                                         val deliveryEnergyText =
-                                            sectionElectric.deliveryEnergy?.toPlainString()
+                                            sectionElectric.deliveryEnergy?.toPlainString() ?: ""
                                         val acceptedRecoveryText =
-                                            sectionElectric.acceptedRecovery?.toPlainString()
+                                            sectionElectric.acceptedRecovery?.toPlainString() ?: ""
                                         val deliveryRecoveryText =
-                                            sectionElectric.deliveryRecovery?.toPlainString()
+                                            sectionElectric.deliveryRecovery?.toPlainString() ?: ""
                                         val consumptionEnergy =
                                             CalculationEnergy.getTotalEnergyConsumption(
                                                 accepted = sectionElectric.acceptedEnergy,
@@ -1400,22 +1464,18 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: ResultState<Long?>
                                                         if (sectionElectric.acceptedEnergy != null &&
                                                             sectionElectric.deliveryEnergy != null
                                                         ) {
-                                                            consumptionEnergy.let {
-                                                                Text(
-                                                                    text = "Расход: $consumptionEnergy",
-                                                                    style = styleHint,
-                                                                )
-                                                            }
+                                                            Text(
+                                                                text = "Расход: $consumptionEnergy",
+                                                                style = styleHint,
+                                                            )
                                                         }
                                                         if (sectionElectric.acceptedRecovery != null &&
                                                             sectionElectric.deliveryRecovery != null
                                                         ) {
-                                                            consumptionRecovery.let {
-                                                                Text(
-                                                                    text = "Рекуперация: $consumptionRecovery",
-                                                                    style = styleHint,
-                                                                )
-                                                            }
+                                                            Text(
+                                                                text = "Рекуперация: $consumptionRecovery",
+                                                                style = styleHint,
+                                                            )
                                                         }
                                                     }
                                                 } else {
@@ -1673,7 +1733,7 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: ResultState<Long?>
                     }
                     AnimatedVisibility(visible = trainExpandItemState[index]!!) {
                         Column {
-                            train.stations.forEachIndexed { index, station ->
+                            train.stations.forEachIndexed { _, station ->
                                 val stationNameText = station.stationName.ifNullOrBlank { "" }
                                 val timeArrival = getTimeFromDateLong(station.timeArrival)
                                 val timeDeparture = getTimeFromDateLong(station.timeDeparture)

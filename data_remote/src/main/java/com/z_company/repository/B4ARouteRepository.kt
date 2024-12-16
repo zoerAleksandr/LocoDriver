@@ -24,11 +24,11 @@ import com.z_company.entity_converter.TrainConverter
 import com.z_company.type_converter.TrainJSONConverter
 import com.z_company.type_converter.LocomotiveJSONConverter
 import com.z_company.type_converter.PassengerJSONConverter
+import com.z_company.type_converter.RouteJSONConverter
 import com.z_company.work_manager.BASIC_DATA_INPUT_KEY
 import com.z_company.work_manager.GET_BASIC_DATA_WORKER_OUTPUT_KEY
 import com.z_company.work_manager.LOAD_BASIC_DATA_ID_INPUT_KEY
 import com.z_company.work_manager.LOAD_BASIC_DATA_ID_OUTPUT_KEY
-import com.z_company.work_manager.SaveBasicDataWorker
 import com.z_company.work_manager.LoadBasicDataListWorker
 import com.z_company.work_manager.LOAD_LOCOMOTIVE_WORKER_INPUT_KEY
 import com.z_company.work_manager.LOAD_LOCOMOTIVE_WORKER_OUTPUT_KEY
@@ -47,15 +47,20 @@ import com.z_company.work_manager.REMOVE_BASIC_DATA_OBJECT_ID_KEY
 import com.z_company.work_manager.REMOVE_LOCOMOTIVE_OBJECT_ID_KEY
 import com.z_company.work_manager.REMOVE_PASSENGER_OBJECT_ID_KEY
 import com.z_company.work_manager.REMOVE_PHOTO_OBJECT_ID_KEY
+import com.z_company.work_manager.REMOVE_ROUTE_OBJECT_ID_KEY
 import com.z_company.work_manager.REMOVE_TRAIN_OBJECT_ID_KEY
+import com.z_company.work_manager.ROUTE_DATA_INPUT_KEY
 import com.z_company.work_manager.RemoveBasicDataWorker
 import com.z_company.work_manager.RemoveLocomotiveWorker
 import com.z_company.work_manager.RemovePassengerWorker
 import com.z_company.work_manager.RemovePhotoWorker
+import com.z_company.work_manager.RemoveRouteWorker
 import com.z_company.work_manager.RemoveTrainWorker
+import com.z_company.work_manager.SaveBasicDataWorker
 import com.z_company.work_manager.SaveLocomotiveListWorker
 import com.z_company.work_manager.SavePassengerListWorker
 import com.z_company.work_manager.SavePhotoListWorker
+import com.z_company.work_manager.SaveRouteWorker
 import com.z_company.work_manager.SaveTrainListWorker
 import com.z_company.work_manager.SynchronizedWorker
 import com.z_company.work_manager.TRAINS_INPUT_KEY
@@ -81,6 +86,7 @@ private const val UNIQUE_SYNC_WORK_NAME = "periodicSynchronized"
 private const val GET_ALL_DATA_WORKER_TAG = "GET_ALL_DATA_WORKER_TAG"
 private const val SYNC_DATA_ONE_TIME_WORKER_TAG = "SYNC_DATA_ONE_TIME_WORKER_TAG"
 private const val SYNC_DATA_PERIODIC_WORKER_TAG = "SYNC_DATA_PERIODIC_WORKER_TAG"
+private const val REMOVE_ROUTE_WORKER_TAG = "REMOVE_ROUTE_WORKER_TAG"
 private const val REMOVE_BASIC_DATA_WORKER_TAG = "REMOVE_BASIC_DATA_WORKER_TAG"
 private const val REMOVE_LOCOMOTIVE_WORKER_TAG = "REMOVE_LOCOMOTIVE_WORKER_TAG"
 private const val REMOVE_TRAIN_WORKER_TAG = "REMOVE_TRAIN_WORKER_TAG"
@@ -91,7 +97,6 @@ private const val LOAD_BASIC_DATA_FROM_REMOTE_WORKER_TAG = "LOAD_BASIC_DATA_FROM
 private const val LOAD_LOCOMOTIVE_FROM_REMOTE_WORKER_TAG = "LOAD_DATA_FROM_REMOTE_WORKER_TAG"
 private const val LOAD_TRAIN_FROM_REMOTE_WORKER_TAG = "LOAD_TRAIN_FROM_REMOTE_WORKER_TAG"
 private const val LOAD_PASSENGER_FROM_REMOTE_WORKER_TAG = "LOAD_PASSENGER_FROM_REMOTE_WORKER_TAG"
-private const val LOAD_PHOTO_FROM_REMOTE_WORKER_TAG = "LOAD_PHOTO_FROM_REMOTE_WORKER_TAG"
 
 class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
@@ -132,6 +137,22 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
                 }
             }
         }
+    }
+
+    override suspend fun saveRouteVer2(route: Route): Flow<ResultState<Data>> {
+        val routeJSON = RouteJSONConverter.toString(route)
+        val routeDataInput = Data.Builder()
+            .putString(ROUTE_DATA_INPUT_KEY, routeJSON)
+            .build()
+
+        val routeSaveWorker = OneTimeWorkRequestBuilder<SaveRouteWorker>()
+            .setInputData(routeDataInput)
+            .addTag(SAVE_ROUTE_WORKER_TAG)
+            .setConstraints(constraints)
+            .build()
+
+        WorkManager.getInstance(context).enqueue(routeSaveWorker)
+        return WorkManagerState.state(context, routeSaveWorker.id)
     }
 
     override suspend fun saveRoute(route: Route): Flow<ResultState<Data>> {
@@ -233,7 +254,7 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
         CoroutineScope(Dispatchers.IO).launch {
             WorkManagerState.listState(context, worksList, basicDataWorker.id).collect { result ->
                 if (result is ResultState.Success) {
-                    routeUseCase.isSynchronizedBasicData(result.data)
+                    routeUseCase.setSynchronizedRoute(result.data)
                         .launchIn(this)
                 }
             }
@@ -270,6 +291,20 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
         }
     }
 
+    override suspend fun removeRoute(remoteRouteId: String): Flow<ResultState<Data>> {
+        val inputData = Data.Builder()
+            .putString(REMOVE_ROUTE_OBJECT_ID_KEY, remoteRouteId)
+            .build()
+
+        val worker = OneTimeWorkRequestBuilder<RemoveRouteWorker>()
+            .setInputData(inputData)
+            .addTag(REMOVE_ROUTE_WORKER_TAG)
+            .setConstraints(constraints)
+            .build()
+        WorkManager.getInstance(context).enqueue(worker)
+        return WorkManagerState.state(context, worker.id)
+    }
+
     override suspend fun removeBasicData(remoteObjectId: String): Flow<ResultState<Data>> {
         val inputData = Data.Builder()
             .putString(REMOVE_BASIC_DATA_OBJECT_ID_KEY, remoteObjectId)
@@ -286,7 +321,7 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
 
     override suspend fun synchronizedRoutePeriodic(): Flow<ResultState<Unit>> {
         val worker = PeriodicWorkRequestBuilder<SynchronizedWorker>(
-            72,
+            36,
             TimeUnit.HOURS,
         )
             .setInitialDelay(12, TimeUnit.HOURS)

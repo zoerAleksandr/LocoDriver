@@ -1,5 +1,6 @@
 package com.z_company.route.viewmodel
 
+import android.app.Application
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -21,12 +22,23 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import kotlin.properties.Delegates
 import com.z_company.domain.util.plus
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import ru.rustore.sdk.review.RuStoreReviewManagerFactory
+import ru.rustore.sdk.review.model.ReviewInfo
+import java.util.UUID
 
-class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
+class FormViewModel(
+    private val routeId: String?,
+    private val isCopy: Boolean = false,
+    application: Application,
+) : ViewModel(),
+    KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val locoUseCase: LocomotiveUseCase by inject()
     private val trainUseCase: TrainUseCase by inject()
@@ -34,6 +46,8 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
     private val photoUseCase: PhotoUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferenceStorage by inject()
+
+    val reviewManager = RuStoreReviewManagerFactory.create(application.applicationContext)
 
     private val _uiState = MutableStateFlow(RouteFormUiState())
     val uiState = _uiState.asStateFlow()
@@ -54,7 +68,11 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
     private val deletedPassengerList = mutableListOf<Passenger>()
     private val deletedPhotoList = mutableListOf<Photo>()
 
-    private var isNewRoute by Delegates.notNull<Boolean>()
+    private var isNewRoute = if (routeId == NULLABLE_ID) {
+        true
+    } else {
+        false
+    }
     var currentRoute: Route?
         get() {
             return _uiState.value.routeDetailState.let {
@@ -76,6 +94,15 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
     private var usingDefaultWorkTime: Boolean = false
 
     init {
+        if (routeId == NULLABLE_ID) {
+            currentRoute = Route()
+        } else {
+            loadRoute(routeId!!, isCopy)
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            prepareReviewDialog()
+        }
+
         val changeHave = sharedPreferenceStorage.tokenIsChangesHave()
         _uiState.update {
             it.copy(
@@ -83,13 +110,6 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
             )
         }
 
-        if (routeId == NULLABLE_ID) {
-            currentRoute = Route()
-            isNewRoute = true
-        } else {
-            loadRoute(routeId!!)
-            isNewRoute = false
-        }
         loadSettings()
     }
 
@@ -99,22 +119,60 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
         }
     }
 
-    private fun loadRoute(id: String) {
+    private fun loadRoute(id: String, isCopy: Boolean) {
         if (routeId == currentRoute?.basicData?.id) return
         loadRouteJob?.cancel()
         loadRouteJob = routeUseCase.routeDetails(id).onEach { routeState ->
-            _uiState.update {
-                if (routeState is ResultState.Success) {
-                    currentRoute = routeState.data
-                    currentRoute?.let { route ->
-                        calculateRestTime(route)
-                        getNightTimeInRoute(route)
-                        calculationPassengerTime(route)
-                    }
+            if (routeState is ResultState.Success) {
+                currentRoute = routeState.data
+                currentRoute?.let { route ->
+                    calculateRestTime(route)
+                    getNightTimeInRoute(route)
+                    calculationPassengerTime(route)
                 }
-                it.copy(routeDetailState = routeState)
             }
+            _uiState.update {
+                it.copy(
+                    routeDetailState = routeState,
+                    isCopy = isCopy
+                )
+            }
+            loadRouteJob?.cancel()
         }.launchIn(viewModelScope)
+    }
+
+    private var reviewInfo: ReviewInfo? = null
+    private suspend fun getRoutesCount(): Int {
+        delay(10L)
+        return routeUseCase.listRouteWithDeleting().size
+    }
+
+    private fun isShowReviewDialog(count: Int): Boolean {
+        return (count > 10 && count % 5 == 0)
+    }
+
+    private suspend fun prepareReviewDialog() = coroutineScope {
+        val count = async { getRoutesCount() }.await()
+        val isShow = isShowReviewDialog(count)
+        if (isShow) {
+            reviewManager.requestReviewFlow()
+                .addOnSuccessListener { info ->
+                    reviewInfo = info
+                }
+                .addOnFailureListener { throwable ->
+                    Log.w("ZZZ", "prepareReviewDialog throwable = $throwable")
+                }
+        }
+    }
+
+    private fun showReviewDialog(reviewInfo: ReviewInfo) {
+        reviewManager.launchReviewFlow(reviewInfo)
+            .addOnSuccessListener {
+                Log.i("ZZZ", "showReviewDialog Success")
+            }
+            .addOnFailureListener { throwable ->
+                Log.w("ZZZ", "showReviewDialog Failure = $throwable")
+            }
     }
 
     private fun loadSettings() {
@@ -144,36 +202,78 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
             val state = _uiState.value.routeDetailState
             if (state is ResultState.Success) {
                 state.data?.let { route ->
-                    saveRouteJob?.cancel()
-                    saveRouteJob = routeUseCase.saveRoute(route).onEach { saveRouteState ->
-                        if (saveRouteState is ResultState.Success) {
-                            deletedLocoList.forEach { locomotive ->
-                                deleteLocoJob?.cancel()
-                                deleteLocoJob =
-                                    locoUseCase.removeLoco(locomotive).launchIn(viewModelScope)
-                            }
-                            deletedTrainList.forEach { train ->
-                                deleteTrainJob?.cancel()
-                                deleteTrainJob =
-                                    trainUseCase.removeTrain(train).launchIn(viewModelScope)
-                            }
-                            deletedPassengerList.forEach { passenger ->
-                                deletePassengerJob?.cancel()
-                                deletePassengerJob = passengerUseCase.removePassenger(passenger)
-                                    .launchIn(viewModelScope)
-                            }
-                            deletedPhotoList.forEach { photo ->
-                                viewModelScope.launch {
-                                    deletePhotoJob?.cancel()
-                                    deletePhotoJob =
-                                        photoUseCase.removePhoto(photo).launchIn(viewModelScope)
-                                }.join()
-                            }
+                    var routeToSave = route
+                    if (isCopy) {
+                        val newBasicId = UUID.randomUUID().toString()
+                        routeToSave = routeToSave.copy(
+                            basicData = routeToSave.basicData.copy(id = newBasicId)
+                        )
+                        routeToSave.trains.forEach { train ->
+                            train.trainId = UUID.randomUUID().toString()
+                            train.basicId = newBasicId
                         }
-                        _uiState.update {
-                            it.copy(saveRouteState = saveRouteState)
+                        routeToSave.locomotives.forEach { locomotive ->
+                            locomotive.locoId = UUID.randomUUID().toString()
+                            locomotive.basicId = newBasicId
                         }
-                    }.launchIn(viewModelScope)
+                        routeToSave.passengers.forEach { passenger ->
+                            passenger.passengerId = UUID.randomUUID().toString()
+                            passenger.basicId = newBasicId
+                        }
+
+                    }
+                    viewModelScope.launch(Dispatchers.IO) {
+                        this.launch(Dispatchers.IO) {
+                            val locomotives = getLocoList(routeToSave.basicData.id)
+                            val trains = getTrainList(routeToSave.basicData.id)
+                            val passengers = getPassengerList(routeToSave.basicData.id)
+                            routeToSave = routeToSave.copy(
+                                locomotives = locomotives,
+                                trains = trains,
+                                passengers = passengers
+                            )
+                        }.join()
+
+                        saveRouteJob?.cancel()
+                        saveRouteJob =
+                            routeUseCase.saveRoute(routeToSave).onEach { saveRouteState ->
+                                if (saveRouteState is ResultState.Success) {
+                                    deletedLocoList.forEach { locomotive ->
+                                        deleteLocoJob?.cancel()
+                                        deleteLocoJob =
+                                            locoUseCase.removeLoco(locomotive)
+                                                .launchIn(viewModelScope)
+                                    }
+                                    deletedTrainList.forEach { train ->
+                                        deleteTrainJob?.cancel()
+                                        deleteTrainJob =
+                                            trainUseCase.removeTrain(train).launchIn(viewModelScope)
+                                    }
+                                    deletedPassengerList.forEach { passenger ->
+                                        deletePassengerJob?.cancel()
+                                        deletePassengerJob =
+                                            passengerUseCase.removePassenger(passenger)
+                                                .launchIn(viewModelScope)
+                                    }
+                                    deletedPhotoList.forEach { photo ->
+                                        viewModelScope.launch {
+                                            deletePhotoJob?.cancel()
+                                            deletePhotoJob =
+                                                photoUseCase.removePhoto(photo)
+                                                    .launchIn(viewModelScope)
+                                        }.join()
+                                    }
+                                    reviewInfo?.let { info ->
+                                        showReviewDialog(info)
+                                    }
+                                }
+                                withContext(Dispatchers.Main) {
+                                    _uiState.update {
+                                        it.copy(saveRouteState = saveRouteState)
+                                    }
+                                }
+                            }.launchIn(this)
+                    }
                 }
                 sharedPreferenceStorage.setTokenIsChangeHave(false)
             }
@@ -401,7 +501,7 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
                         }
                 }.join()
             }
-            if (isNewRoute){
+            if (isNewRoute) {
                 routesList.add(route)
             }
 
@@ -509,4 +609,18 @@ class FormViewModel(private val routeId: String?) : ViewModel(), KoinComponent {
 
         changesHave()
     }
+
+    private fun getLocoList(basicId: String): MutableList<Locomotive> {
+        return locoUseCase.getLocomotiveList(basicId).toMutableList()
+    }
+
+    private fun getTrainList(basicId: String): MutableList<Train> {
+        return trainUseCase.getTrainListByBasicId(basicId).toMutableList()
+    }
+
+    private fun getPassengerList(basicId: String): MutableList<Passenger> {
+        return passengerUseCase.getPassengerListByBasicId(basicId).toMutableList()
+    }
+
+
 }

@@ -1,6 +1,8 @@
 package com.z_company.route.component
 
+import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
@@ -22,6 +24,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -30,9 +33,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.Shapes
@@ -165,14 +170,15 @@ fun ItemHomeScreen(
                             AutoSizeText(
                                 modifier = Modifier.padding(end = 8.dp),
                                 text = SimpleDateFormat(
-                                    DateAndTimeFormat.MINI_DATE_FORMAT, Locale.getDefault()
+                                    DateAndTimeFormat.MINI_DATE_FORMAT,
+                                    Locale.getDefault()
                                 ).format(
                                     timeStartWork
                                 ),
                                 maxTextSize = requiredSizeText,
                                 maxLines = 1,
                                 style = AppTypography.getType().headlineSmall,
-                                fontWeight = FontWeight.Light,
+                                fontWeight = FontWeight.Normal,
                                 onTextLayout = { textLayoutResult ->
                                     val size = textLayoutResult.layoutInput.style.fontSize
                                     changingTextSize(size)
@@ -181,7 +187,6 @@ fun ItemHomeScreen(
                         }
                         route.basicData.timeStartWork?.let { timeStartWork ->
                             AutoSizeText(
-                                modifier = Modifier.padding(),
                                 text = SimpleDateFormat(
                                     DateAndTimeFormat.TIME_FORMAT, Locale.getDefault()
                                 ).format(
@@ -190,27 +195,62 @@ fun ItemHomeScreen(
                                 maxTextSize = requiredSizeText,
                                 maxLines = 1,
                                 style = AppTypography.getType().headlineSmall,
-                                fontWeight = FontWeight.Light,
+                                fontWeight = FontWeight.Normal,
                                 onTextLayout = { textLayoutResult ->
                                     val size = textLayoutResult.layoutInput.style.fontSize
                                     changingTextSize(size)
                                 }
                             )
                         }
+                        AutoSizeText(
+                            text = " - ",
+                            maxTextSize = requiredSizeText,
+                            style = AppTypography.getType().headlineSmall,
+                            fontWeight = FontWeight.Light,
+                            onTextLayout = { textLayoutResult ->
+                                val size = textLayoutResult.layoutInput.style.fontSize
+                                changingTextSize(size)
+                            }
+                        )
+                        route.basicData.timeEndWork?.let { timeEndWork ->
+                            route.basicData.timeStartWork?.let { timeStartWork ->
+                                val isDifference = DateAndTimeConverter.isDifferenceDate(
+                                    first = timeStartWork,
+                                    second = timeEndWork
+                                )
+                                if (isDifference) {
+                                    AutoSizeText(
+                                        modifier = Modifier
+                                            .padding(end = 8.dp),
+                                        text = SimpleDateFormat(
+                                            DateAndTimeFormat.MINI_DATE_FORMAT,
+                                            Locale.getDefault()
+                                        ).format(
+                                            timeEndWork
+                                        ),
+                                        maxTextSize = requiredSizeText,
+                                        maxLines = 1,
+                                        style = AppTypography.getType().headlineSmall,
+                                        fontWeight = FontWeight.Normal,
+                                        onTextLayout = { textLayoutResult ->
+                                            val size = textLayoutResult.layoutInput.style.fontSize
+                                            changingTextSize(size)
+                                        }
+                                    )
+                                }
+                            }
+                        }
                         route.basicData.timeEndWork?.let { timeEndWork ->
                             AutoSizeText(
-                                modifier = Modifier.padding(),
-                                text = " - ${
-                                    SimpleDateFormat(
-                                        DateAndTimeFormat.TIME_FORMAT, Locale.getDefault()
-                                    ).format(
-                                        timeEndWork
-                                    )
-                                }",
+                                text = SimpleDateFormat(
+                                    DateAndTimeFormat.TIME_FORMAT, Locale.getDefault()
+                                ).format(
+                                    timeEndWork
+                                ),
                                 maxTextSize = requiredSizeText,
                                 maxLines = 1,
                                 style = AppTypography.getType().headlineSmall,
-                                fontWeight = FontWeight.Light,
+                                fontWeight = FontWeight.Normal,
                                 onTextLayout = { textLayoutResult ->
                                     val size = textLayoutResult.layoutInput.style.fontSize
                                     changingTextSize(size)
@@ -228,7 +268,7 @@ fun ItemHomeScreen(
                         AutoSizeText(
                             text = DateAndTimeConverter.getTimeInStringFormat(workTimeValue),
                             style = AppTypography.getType().headlineSmall,
-                            fontWeight = FontWeight.Medium,
+                            fontWeight = FontWeight.Normal,
                             maxTextSize = requiredSizeText,
                             onTextLayout = { textLayoutResult ->
                                 val size = textLayoutResult.layoutInput.style.fontSize
@@ -261,19 +301,14 @@ fun ItemHomeScreen(
                             } else {
                                 ""
                             }
-
-                        AutoSizeText(
+                        Text(
                             text = "$trainNumber$stationStart$stationEnd",
-                            style = AppTypography.getType().headlineSmall,
+                            style = AppTypography.getType().titleLarge.copy(
+                                fontSize = 20.sp
+                            ),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             fontWeight = FontWeight.Light,
-                            maxTextSize = requiredSizeText,
-                            minTextSize = 22.sp,
-                            onTextLayout = { textLayoutResult ->
-                                val size = textLayoutResult.layoutInput.style.fontSize
-                                changingTextSize(size)
-                            }
                         )
                     }
                 }

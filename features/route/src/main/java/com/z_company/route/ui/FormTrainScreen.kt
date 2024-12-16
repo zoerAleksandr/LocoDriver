@@ -4,8 +4,10 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,9 +22,9 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -33,14 +35,18 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,6 +67,7 @@ import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.domain.entities.route.Train
+import com.z_company.domain.entities.route.UtilsForEntities.trainCategory
 import com.z_company.route.component.BottomShadow
 import com.z_company.route.component.ConfirmExitDialog
 import com.z_company.route.component.StationItem
@@ -94,7 +101,12 @@ fun FormTrainScreen(
     exitScreen: () -> Unit,
     changeShowConfirmExitDialog: (Boolean) -> Unit,
     exitWithoutSave: () -> Unit,
-    onClickHeavyLongDistance: (Boolean) -> Unit
+    onClickHeavyLongDistance: (Boolean) -> Unit,
+    menuList: List<String>,
+    isExpandedMenu: Pair<Int, Boolean>?,
+    onExpandedMenuChange: (Int, Boolean) -> Unit,
+    onChangedContentMenu: (Int, String) -> Unit,
+    onDeleteStationName: (String) -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -209,10 +221,14 @@ fun FormTrainScreen(
                             onSaveClick = onSaveClick,
                             exitWithoutSave = exitWithoutSave,
                             showConfirmExitDialog = formUiState.confirmExitDialogShow,
-                            onClickHeavyLongDistance = onClickHeavyLongDistance
+                            onClickHeavyLongDistance = onClickHeavyLongDistance,
+                            menuList = menuList,
+                            isExpandedMenu = isExpandedMenu,
+                            onChangedContentMenu = onChangedContentMenu,
+                            onExpandedMenuChange = onExpandedMenuChange,
+                            onDeleteStationName = onDeleteStationName
                         )
                     }
-
                 }
             }
         }
@@ -237,11 +253,19 @@ fun TrainFormScreenContent(
     changeShowConfirmExitDialog: (Boolean) -> Unit,
     exitWithoutSave: () -> Unit,
     onSaveClick: () -> Unit,
-    onClickHeavyLongDistance: (Boolean) -> Unit
-) {
+    onClickHeavyLongDistance: (Boolean) -> Unit,
+    menuList: List<String>,
+    isExpandedMenu: Pair<Int, Boolean>?,
+    onExpandedMenuChange: (Int, Boolean) -> Unit,
+    onChangedContentMenu: (Int, String) -> Unit,
+    onDeleteStationName: (String) -> Unit
+    ) {
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
+    var isTrainInfoVisible by remember {
+        mutableStateOf(false)
+    }
 
     val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
     val subTitleTextStyle = AppTypography.getType().titleLarge
@@ -279,84 +303,113 @@ fun TrainFormScreenContent(
     ) {
 
         item {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedTextField(
+                Row(
                     modifier = Modifier
-                        .weight(1f),
-                    value = train.distance ?: "",
-                    onValueChange = {
-                        onDistanceChange(it)
-                    },
-                    placeholder = {
-                        Text(text = "Плечо", style = dataTextStyle)
-                    },
-                    suffix = {
-                        if (!train.distance.isNullOrBlank()) {
-                            Text(text = "км", style = hintStyle)
-                        }
-                    },
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Decimal,
-                        imeAction = ImeAction.Next
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onNext = {
-                            scope.launch {
-                                focusManager.moveFocus(FocusDirection.Down)
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedTextField(
+                        modifier = Modifier
+                            .weight(1f),
+                        value = train.distance ?: "",
+                        onValueChange = {
+                            onDistanceChange(it)
+                        },
+                        placeholder = {
+                            Text(text = "Плечо", style = dataTextStyle)
+                        },
+                        suffix = {
+                            if (!train.distance.isNullOrBlank()) {
+                                Text(text = "км", style = hintStyle)
                             }
-                        }
-                    ),
-                    textStyle = dataTextStyle,
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent
-                    ),
-                    shape = Shapes.medium,
-                )
+                        },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Decimal,
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = {
+                                scope.launch {
+                                    focusManager.moveFocus(FocusDirection.Down)
+                                }
+                            }
+                        ),
+                        textStyle = dataTextStyle,
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent
+                        ),
+                        shape = Shapes.medium,
+                    )
 
-                OutlinedTextField(
-                    modifier = Modifier
-                        .weight(1f),
-                    value = train.number ?: "",
-                    onValueChange = {
-                        onNumberChanged(it)
-                    },
-                    placeholder = {
-                        Text(text = "Номер", style = dataTextStyle)
-                    },
-                    prefix = {
-                        if (!train.number.isNullOrBlank()) {
-                            Text(text = "№ ", style = hintStyle)
-                        }
-                    },
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Decimal,
-                        imeAction = ImeAction.Next
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onNext = {
-                            scope.launch {
-                                focusManager.moveFocus(FocusDirection.Down)
+                    OutlinedTextField(
+                        modifier = Modifier
+                            .weight(1f),
+                        value = train.number ?: "",
+                        onValueChange = {
+                            onNumberChanged(it)
+                            if (it.isEmpty()) {
+                                isTrainInfoVisible = false
                             }
-                        }
-                    ),
-                    textStyle = dataTextStyle,
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent
-                    ),
-                    shape = Shapes.medium,
-                )
+                        },
+                        placeholder = {
+                            Text(text = "Номер", style = dataTextStyle)
+                        },
+                        prefix = {
+                            if (!train.number.isNullOrBlank()) {
+                                Text(text = "№ ", style = hintStyle)
+                            }
+                        },
+                        trailingIcon = {
+                            if (!train.number.isNullOrBlank()) {
+                                Icon(
+                                    modifier = Modifier.clickable {
+                                        focusManager.clearFocus()
+                                        isTrainInfoVisible = !isTrainInfoVisible
+                                    },
+                                    imageVector = Icons.Outlined.Info,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.tertiary
+                                )
+                            }
+                        },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Decimal,
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = {
+                                scope.launch {
+                                    focusManager.moveFocus(FocusDirection.Down)
+                                }
+                            }
+                        ),
+                        textStyle = dataTextStyle,
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent
+                        ),
+                        shape = Shapes.medium,
+                    )
+                }
+                AnimatedVisibility(visible = isTrainInfoVisible) {
+                    Text(
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        text = train.trainCategory(),
+                        style = hintStyle
+                    )
+                }
             }
         }
         item {
@@ -486,8 +539,20 @@ fun TrainFormScreenContent(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Checkbox(checked = train.isHeavyLongDistance, onCheckedChange = onClickHeavyLongDistance)
-                Text(text = "Длинносоставный тяжеловесный", style = hintStyle)
+                Switch(
+                    checked = train.isHeavyLongDistance,
+                    onCheckedChange = onClickHeavyLongDistance
+                )
+                Text(
+                    text = "Длинносоставный тяжеловесный",
+                    style = hintStyle.copy(
+                        color = if (train.isHeavyLongDistance){
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                        }
+                    ),
+                )
             }
         }
         stationListState?.let { stationList ->
@@ -501,9 +566,16 @@ fun TrainFormScreenContent(
                     index = index,
                     stationFormState = item,
                     onDelete = onDeleteStation,
+                    menuList = menuList,
+                    isExpandedMenu = if (isExpandedMenu?.first == index) {
+                        isExpandedMenu.second
+                    } else false,
+                    onExpandedMenuChange = onExpandedMenuChange,
+                    onChangedContentMenu = onChangedContentMenu,
                     onStationNameChanged = onStationNameChanged,
                     onArrivalTimeChanged = onArrivalTimeChanged,
                     onDepartureTimeChanged = onDepartureTimeChanged,
+                    onDeleteStationName = onDeleteStationName
                 )
             }
         }

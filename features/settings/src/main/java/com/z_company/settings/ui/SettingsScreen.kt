@@ -85,7 +85,8 @@ fun SettingsScreen(
     purchasesState: ResultState<String>,
     onBillingClick: () -> Unit,
     isRefreshing: Boolean,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onSettingHomeScreenClick: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -128,7 +129,7 @@ fun SettingsScreen(
         LaunchedEffect(settingsUiState.updateRepositoryState) {
             if (settingsUiState.updateRepositoryState is ResultState.Error) {
                 scope.launch {
-                    snackbarHostState.showSnackbar("Ошибка синхронизации. \nПроверьте интернет соединение и повторите попытку.")
+                    snackbarHostState.showSnackbar("Ошибка синхронизации. \n${settingsUiState.updateRepositoryState.entity.message}.")
                 }
                 resetRepositoryState()
             }
@@ -177,7 +178,8 @@ fun SettingsScreen(
                                 purchasesState = purchasesState,
                                 onBillingClick = onBillingClick,
                                 isRefreshing = isRefreshing,
-                                onRefresh = onRefresh
+                                onRefresh = onRefresh,
+                                onSettingHomeScreenClick = onSettingHomeScreenClick
                             )
                         }
                     }
@@ -197,9 +199,9 @@ fun SettingScreenContent(
     homeRestTimeChanged: (Long) -> Unit,
     onLogOut: () -> Unit,
     onSync: () -> Unit,
-    updateRepoState: ResultState<Unit>,
+    updateRepoState: ResultState<Long>?,
     currentUserState: ResultState<User?>,
-    updateAtState: ResultState<Long>,
+    updateAtState: Long?,
     showReleaseDaySelectScreen: () -> Unit,
     onResentVerificationEmail: () -> Unit,
     emailForConfirm: String,
@@ -212,7 +214,8 @@ fun SettingScreenContent(
     purchasesState: ResultState<String>,
     onBillingClick: () -> Unit,
     isRefreshing: Boolean,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onSettingHomeScreenClick: () -> Unit
 ) {
     val styleTitle = AppTypography.getType().titleLarge
         .copy(
@@ -398,7 +401,10 @@ fun SettingScreenContent(
                             }
                         }
                         HorizontalDivider()
-                        ClickableText(text = AnnotatedString("Изменить норму"), style = styleHint.copy(color = MaterialTheme.colorScheme.tertiary)) {
+                        ClickableText(
+                            text = AnnotatedString("Изменить норму"),
+                            style = styleHint.copy(color = MaterialTheme.colorScheme.tertiary)
+                        ) {
                             showReleaseDaySelectScreen()
                         }
                     }
@@ -480,7 +486,31 @@ fun SettingScreenContent(
                     )
                 }
             }
-
+//            item {
+//                Box(
+//                    modifier = Modifier
+//                        .padding(top = 8.dp)
+//                        .background(
+//                            color = MaterialTheme.colorScheme.surface,
+//                            shape = Shapes.medium
+//                        )
+//                        .clickable {
+//                            onSettingHomeScreenClick()
+//                        }
+//                        .padding(16.dp)
+//                ) {
+//                    Row(
+//                        modifier = Modifier.fillMaxWidth(),
+//                        horizontalArrangement = Arrangement.SpaceBetween,
+//                    ) {
+//                        Text(text = "Настоить главный экран", style = styleData)
+//                        Icon(
+//                            imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+//                            contentDescription = null
+//                        )
+//                    }
+//                }
+//            }
             item {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Box(
@@ -713,19 +743,19 @@ fun SettingScreenContent(
                                         Row(
                                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                                         ) {
-                                            AsyncData(resultState = updateAtState) { updateAt ->
-                                                updateAt?.let { timeInMillis ->
-                                                    val textSyncDate =
-                                                        DateAndTimeConverter.getDateAndTime(
-                                                            timeInMillis
-                                                        )
-
-                                                    Text(
-                                                        text = textSyncDate,
-                                                        style = styleData
+//                                            AsyncData(resultState = updateAtState) { updateAt ->
+                                            updateAtState?.let { timeInMillis ->
+                                                val textSyncDate =
+                                                    DateAndTimeConverter.getDateAndTime(
+                                                        timeInMillis
                                                     )
-                                                }
+
+                                                Text(
+                                                    text = textSyncDate,
+                                                    style = styleData
+                                                )
                                             }
+//                                            }
                                             AsyncData(
                                                 resultState = updateRepoState,
                                                 loadingContent = {

@@ -23,5 +23,8 @@ fun NavGraphBuilder.settingsGraph(
         composable(SelectReleaseDaysScreenRoute.route) {
             SelectReleaseDaysDestination(router = router)
         }
+        composable(SettingHomeScreenRoute.route) {
+            SettingHomeScreenDestination(router = router)
+        }
     }
 }

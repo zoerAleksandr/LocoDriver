@@ -43,16 +43,17 @@ object Plugins {
     const val kotlin_kapt = "kapt"
     const val java_lib = "java-library"
     const val google_relay = "com.google.relay"
+    const val kotlinx_serialization = "kotlinx-serialization"
 }
 
 object Apps {
     const val application_id = "com.z_company.loco_driver"
     const val compile_sdk_version = 34
-    const val min_sdk_version = 24
+    const val min_sdk_version = 26
     const val target_sdk_version = 34
 
-    const val version_code = 17
-    const val version_name = "1.2.2"
+    const val version_code = 27
+    const val version_name = "1.2.11"
 
     const val jvm_target_version = "17"
     val java_compatibility_version = JavaVersion.VERSION_17
@@ -62,8 +63,8 @@ object Apps {
 
 object Versions {
     const val android_plugin_id = "8.1.1"
-    const val accompanist_navigation_animation_version = "0.31.3-beta"
-    const val accompanist_swiperefresh_version = "0.31.3-beta"
+    const val accompanist_navigation_animation_version = "0.32.0"
+    const val accompanist_swiperefresh_version = "0.32.0"
     const val activity_compose_version = "1.9.0"
     const val app_compat_version = "1.7.0-alpha02"
     const val coil_version = "2.4.0"
@@ -87,7 +88,7 @@ object Versions {
     const val datastore_pref_ver = "1.0.0"
     const val maxkeppeler_sheets_ver = "1.1.1"
     const val camera_ver = "1.3.1"
-    const val permission_accompanist_ver = "0.31.0-alpha"
+    const val permission_accompanist_ver = "0.32.0"
     const val google_relay_ver = "0.3.11"
     const val appwrite_ver = "4.0.0"
 
@@ -95,7 +96,7 @@ object Versions {
     const val vkid_ver = "1.3.2"
     const val parse_sdk_android_ver = "4.3.0"
     const val work_manager_version = "2.9.0"
-    const val accompanist_ui_controller_version = "0.35.0-alpha"
+    const val accompanist_ui_controller_version = "0.32.0"
     const val rebugger_ver = "1.0.0-rc03"
     const val desugaring_ver = "2.0.4"
     const val mockito_core_ver= "3.10.0"

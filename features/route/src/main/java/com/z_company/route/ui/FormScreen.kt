@@ -62,6 +62,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -87,6 +88,7 @@ import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.route.component.ConfirmExitDialog
 import com.z_company.route.viewmodel.DialogRestUiState
 import kotlinx.coroutines.launch
@@ -99,6 +101,7 @@ fun FormScreen(
     formUiState: RouteFormUiState,
     dialogRestUiState: DialogRestUiState,
     currentRoute: Route?,
+    isCopy: Boolean,
     exitScreen: () -> Unit,
     onSaveClick: () -> Unit,
     onSettingClick: () -> Unit,
@@ -205,6 +208,7 @@ fun FormScreen(
                     } else {
                         RouteFormScreenContent(
                             route = route,
+                            isCopy = isCopy,
                             onNumberChanged = onNumberChanged,
                             onNotesChanged = onNotesChanged,
                             errorMessage = formUiState.errorMessage,
@@ -242,6 +246,7 @@ fun FormScreen(
 @Composable
 private fun RouteFormScreenContent(
     route: Route,
+    isCopy: Boolean,
     onNumberChanged: (String) -> Unit,
     onNotesChanged: (String) -> Unit,
     errorMessage: String?,
@@ -275,6 +280,10 @@ private fun RouteFormScreenContent(
             fontWeight = FontWeight.Light
         )
     val scrollState = rememberLazyListState()
+
+    var showStartDatePickerCopyRoute by remember {
+        mutableStateOf(false)
+    }
 
     var showStartTimePicker by remember {
         mutableStateOf(false)
@@ -391,6 +400,40 @@ private fun RouteFormScreenContent(
             showEndDatePicker = false
             showEndTimePicker = true
             endCalendar.timeInMillis = endDatePickerState.selectedDateMillis!!
+        })
+    }
+
+    LaunchedEffect(isCopy) {
+        if (isCopy) {
+            showStartDatePickerCopyRoute = true
+        }
+    }
+
+    val startDateCopyRoutePickerState = rememberDatePickerStateInLocale(
+        route.basicData.timeStartWork ?: Calendar.getInstance().timeInMillis
+    )
+
+    if (showStartDatePickerCopyRoute) {
+        CustomDatePickerDialog(datePickerState = startDateCopyRoutePickerState, onDismissRequest = {
+            showStartDatePickerCopyRoute = false
+        }, onConfirmRequest = {
+            showStartDatePickerCopyRoute = false
+            val oldValueStartCalendar = Calendar.getInstance().also {
+                it.timeInMillis = startCalendar.timeInMillis
+            }
+            startCalendar.timeInMillis = startDateCopyRoutePickerState.selectedDateMillis!!
+            startCalendar.set(Calendar.HOUR_OF_DAY, oldValueStartCalendar.get(Calendar.HOUR_OF_DAY))
+            startCalendar.set(Calendar.MINUTE, oldValueStartCalendar.get(Calendar.MINUTE))
+            startCalendar.set(Calendar.SECOND, 0)
+            startCalendar.set(Calendar.MILLISECOND, 0)
+
+            onTimeStartWorkChanged(startCalendar.timeInMillis)
+            val workTimeInMillis = route.getWorkTime()
+            workTimeInMillis?.let { workTime ->
+                endCalendar.timeInMillis =
+                    startCalendar.timeInMillis + workTime
+                onTimeEndWorkChanged(endCalendar.timeInMillis)
+            }
         })
     }
 
@@ -576,7 +619,9 @@ private fun RouteFormScreenContent(
                     unfocusedBorderColor = Color.Transparent
                 ),
                 shape = Shapes.medium,
-                keyboardOptions = KeyboardOptions.Default.copy(capitalization = KeyboardCapitalization.Words)
+                keyboardOptions = KeyboardOptions.Default.copy(
+                   keyboardType = KeyboardType.Number
+                )
             )
         }
 
