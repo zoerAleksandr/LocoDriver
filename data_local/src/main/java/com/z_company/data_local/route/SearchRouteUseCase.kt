@@ -23,7 +23,7 @@ class SearchRouteUseCase(val repository: RouteRepository) {
         preliminarySearch: Boolean
     ): Flow<SearchStateScreen<List<RouteWithTag>>> =
         callbackFlow {
-            repository.loadRoutes().collect { result ->
+            repository.loadRoutesAsFlow().collect { result ->
                 when (result) {
                     is ResultState.Loading -> trySend(SearchStateScreen.Loading())
 

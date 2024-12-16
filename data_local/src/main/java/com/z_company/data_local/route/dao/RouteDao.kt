@@ -61,7 +61,10 @@ internal interface RouteDao {
     fun getRouteById(id: String): Flow<Route?>
     @Transaction
     @Query("SELECT * FROM BasicData WHERE isDeleted = 0")
-    fun getAllRoute(): Flow<List<Route>>
+    fun getAllRouteAsFlow(): Flow<List<Route>>
+    @Transaction
+    @Query("SELECT * FROM BasicData WHERE isDeleted = 0")
+    fun getAllRoute(): List<Route>
     @Transaction
     @Query("SELECT * FROM BasicData")
     fun getAllRouteWithDeleting(): List<Route>
@@ -70,10 +73,16 @@ internal interface RouteDao {
     fun getAllRouteByPeriod(startPeriod: Long, endPeriod: Long): Flow<List<Route>>
     @Query("SELECT * FROM Locomotive WHERE locoId = :locoId")
     fun getLocoById(locoId: String): Flow<Locomotive?>
+    @Query("SELECT * FROM Locomotive WHERE basicId = :basicId")
+    fun getLocoListByBasicId(basicId: String): List<Locomotive>
     @Query("SELECT * FROM Train WHERE trainId = :trainId")
     fun getTrainById(trainId: String): Flow<Train?>
+    @Query("SELECT * FROM Train WHERE basicId = :basicId")
+    fun getTrainListByBasicId(basicId: String): List<Train>
     @Query("SELECT * FROM Passenger WHERE passengerId = :passengerId")
     fun getPassengerById(passengerId: String): Flow<Passenger?>
+    @Query("SELECT * FROM Passenger WHERE basicId = :basicId")
+    fun getPassengerListByBasicId(basicId: String): List<Passenger>
     @Query("SELECT * FROM Photo WHERE photoId = :photoId")
     fun getPhotoById(photoId: String): Flow<Photo?>
     @Query("SELECT * FROM Photo WHERE basicId = :basicId")
@@ -88,11 +97,13 @@ internal interface RouteDao {
     fun setRemoteObjectIdPassenger(passengerId: String, objectId: String)
     @Query("UPDATE Photo SET remoteObjectId =:objectId WHERE photoId =:photoId")
     fun setRemoteObjectIdPhoto(photoId: String, objectId: String)
-    @Query("UPDATE BasicData SET isSynchronized = 1 WHERE remoteObjectId =:id")
+    @Query("UPDATE BasicData SET isSynchronizedRoute = 1 WHERE id =:id")
     fun setSynchronizedRoute(id: String)
-
-    @Query("UPDATE BasicData SET schemaVersion =:version WHERE id =:id")
-    fun setSchemaVersion(version: Int, id: String)
+//
+//    @Query("UPDATE BasicData SET schemaVersion =:version WHERE id =:id")
+//    fun setSchemaVersion(version: Int, id: String)
     @Query("DELETE FROM BasicData")
     suspend fun clearRepository()
+    @Query("UPDATE BasicData SET remoteRouteId =:remoteObjectId WHERE id =:basicId")
+    fun setRemoteObjectIdRoute(basicId: String, remoteObjectId: String?)
 }

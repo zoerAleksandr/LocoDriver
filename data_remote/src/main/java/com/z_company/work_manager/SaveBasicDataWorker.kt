@@ -18,7 +18,6 @@ import com.z_company.work_manager.BasicDataFieldName.TIME_START_WORK_FIELD_NAME
 import com.z_company.work_manager.BasicDataFieldName.TIME_END_WORK_FIELD_NAME
 import com.z_company.work_manager.BasicDataFieldName.REST_FIELD_NAME
 import com.z_company.work_manager.BasicDataFieldName.NOTES_FIELD_NAME
-import com.z_company.work_manager.BasicDataFieldName.SCHEMA_VERSION_NAME
 import com.z_company.work_manager.BasicDataFieldName.USER_FIELD_NAME
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.launchIn
@@ -55,9 +54,6 @@ class SaveBasicDataWorker(context: Context, params: WorkerParameters) :
             basicDataObject.put(REST_FIELD_NAME, basicData.restPointOfTurnover)
             basicData.notes?.let { notes ->
                 basicDataObject.put(NOTES_FIELD_NAME, notes)
-            }
-            basicData.schemaVersion?.let { version ->
-                basicDataObject.put(SCHEMA_VERSION_NAME, version)
             }
             val relation: ParseRelation<ParseUser> = basicDataObject.getRelation(USER_FIELD_NAME)
             relation.add(currentUser)

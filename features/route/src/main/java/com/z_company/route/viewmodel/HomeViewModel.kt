@@ -2,6 +2,7 @@ package com.z_company.route.viewmodel
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.setValue
@@ -111,40 +112,58 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
             withContext(Dispatchers.IO) {
                 try {
                     val currentTimeInMillis = getInstance().timeInMillis
-                    val purchases = billingClient.purchases.getPurchases().await()
                     var maxEndTime = 0L
-                    purchases.forEach { purchase ->
-                        this.launch {
-                            if (purchase.purchaseState == PurchaseState.CONFIRMED) {
-                                ruStoreUseCase.getExpiryTimeMillis(
-                                    purchase.productId,
-                                    purchase.subscriptionToken ?: ""
-                                ).collect { resultState ->
-                                    if (resultState is ResultState.Success) {
-                                        if (resultState.data > maxEndTime) {
-                                            maxEndTime = resultState.data
+                    var job: Job? = null
+                    billingClient.purchases.getPurchases()
+                        .addOnSuccessListener { purchases ->
+                            viewModelScope.launch {
+                                purchases.forEach { purchase ->
+                                    job?.cancel()
+                                    job = this.launch(Dispatchers.IO) {
+                                        if (purchase.purchaseState == PurchaseState.CONFIRMED) {
+                                            ruStoreUseCase.getExpiryTimeMillis(
+                                                purchase.productId,
+                                                purchase.subscriptionToken ?: ""
+                                            ).collect { resultState ->
+                                                if (resultState is ResultState.Success) {
+                                                    if (resultState.data > maxEndTime) {
+                                                        maxEndTime = resultState.data
+                                                    }
+                                                    job?.cancel()
+                                                }
+                                                if (resultState is ResultState.Error) {
+                                                    _uiState.update {
+                                                        it.copy(
+                                                            restoreSubscriptionState = ResultState.Error(resultState.entity)
+                                                        )
+                                                    }
+                                                    job?.cancel()
+                                                }
+                                            }
                                         }
-                                        this@launch.cancel()
+                                    }
+                                    job?.join()
+                                }
+                                if (maxEndTime > currentTimeInMillis) {
+                                    sharedPreferenceStorage.setSubscriptionExpiration(maxEndTime)
+                                    _uiState.update {
+                                        it.copy(
+                                            restoreSubscriptionState = ResultState.Success("Покупки восстановлены")
+                                        )
+                                    }
+                                }
+                                if (maxEndTime < currentTimeInMillis) {
+                                    _uiState.update {
+                                        it.copy(
+                                            restoreSubscriptionState = ResultState.Success("Действующих подписок не найдено")
+                                        )
                                     }
                                 }
                             }
-                        }.join()
-                    }
-                    if (maxEndTime > currentTimeInMillis) {
-                        sharedPreferenceStorage.setSubscriptionExpiration(maxEndTime)
-                        _uiState.update {
-                            it.copy(
-                                restoreSubscriptionState = ResultState.Success("Покупки восстановлены")
-                            )
                         }
-                    }
-                    if (maxEndTime < currentTimeInMillis) {
-                        _uiState.update {
-                            it.copy(
-                                restoreSubscriptionState = ResultState.Success("Действующих подписок не найдено")
-                            )
+                        .addOnFailureListener {
+                            Log.w("ZZZ", "${it.message}")
                         }
-                    }
                 } catch (e: Exception) {
                     _uiState.update {
                         it.copy(

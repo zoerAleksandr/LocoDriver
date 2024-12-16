@@ -4,7 +4,6 @@ import java.util.Date
 
 data class BasicData(
     val id: String = "",
-    var schemaVersion: Int = 0,
     var isSynchronized: Boolean = false,
     var remoteObjectId: String = "",
     var updatedAt: Date = Date(),

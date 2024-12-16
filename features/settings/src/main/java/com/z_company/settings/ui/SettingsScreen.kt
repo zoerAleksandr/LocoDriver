@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -130,7 +129,7 @@ fun SettingsScreen(
         LaunchedEffect(settingsUiState.updateRepositoryState) {
             if (settingsUiState.updateRepositoryState is ResultState.Error) {
                 scope.launch {
-                    snackbarHostState.showSnackbar("Ошибка синхронизации. \nПроверьте интернет соединение и повторите попытку.")
+                    snackbarHostState.showSnackbar("Ошибка синхронизации. \n${settingsUiState.updateRepositoryState.entity.message}.")
                 }
                 resetRepositoryState()
             }
@@ -200,9 +199,9 @@ fun SettingScreenContent(
     homeRestTimeChanged: (Long) -> Unit,
     onLogOut: () -> Unit,
     onSync: () -> Unit,
-    updateRepoState: ResultState<Unit>,
+    updateRepoState: ResultState<Long>?,
     currentUserState: ResultState<User?>,
-    updateAtState: ResultState<Long>,
+    updateAtState: Long?,
     showReleaseDaySelectScreen: () -> Unit,
     onResentVerificationEmail: () -> Unit,
     emailForConfirm: String,
@@ -744,19 +743,19 @@ fun SettingScreenContent(
                                         Row(
                                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                                         ) {
-                                            AsyncData(resultState = updateAtState) { updateAt ->
-                                                updateAt?.let { timeInMillis ->
-                                                    val textSyncDate =
-                                                        DateAndTimeConverter.getDateAndTime(
-                                                            timeInMillis
-                                                        )
-
-                                                    Text(
-                                                        text = textSyncDate,
-                                                        style = styleData
+//                                            AsyncData(resultState = updateAtState) { updateAt ->
+                                            updateAtState?.let { timeInMillis ->
+                                                val textSyncDate =
+                                                    DateAndTimeConverter.getDateAndTime(
+                                                        timeInMillis
                                                     )
-                                                }
+
+                                                Text(
+                                                    text = textSyncDate,
+                                                    style = styleData
+                                                )
                                             }
+//                                            }
                                             AsyncData(
                                                 resultState = updateRepoState,
                                                 loadingContent = {

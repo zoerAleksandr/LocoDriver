@@ -28,6 +28,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import ru.rustore.sdk.review.RuStoreReviewManagerFactory
 import ru.rustore.sdk.review.model.ReviewInfo
 import java.util.UUID
@@ -35,7 +36,7 @@ import java.util.UUID
 class FormViewModel(
     private val routeId: String?,
     private val isCopy: Boolean = false,
-    private val application: Application,
+    application: Application,
 ) : ViewModel(),
     KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
@@ -149,6 +150,7 @@ class FormViewModel(
     private fun isShowReviewDialog(count: Int): Boolean {
         return (count > 10 && count % 5 == 0)
     }
+
     private suspend fun prepareReviewDialog() = coroutineScope {
         val count = async { getRoutesCount() }.await()
         val isShow = isShowReviewDialog(count)
@@ -200,7 +202,6 @@ class FormViewModel(
             val state = _uiState.value.routeDetailState
             if (state is ResultState.Success) {
                 state.data?.let { route ->
-
                     var routeToSave = route
                     if (isCopy) {
                         val newBasicId = UUID.randomUUID().toString()
@@ -221,40 +222,58 @@ class FormViewModel(
                         }
 
                     }
+                    viewModelScope.launch(Dispatchers.IO) {
+                        this.launch(Dispatchers.IO) {
+                            val locomotives = getLocoList(routeToSave.basicData.id)
+                            val trains = getTrainList(routeToSave.basicData.id)
+                            val passengers = getPassengerList(routeToSave.basicData.id)
+                            routeToSave = routeToSave.copy(
+                                locomotives = locomotives,
+                                trains = trains,
+                                passengers = passengers
+                            )
+                        }.join()
 
-                    saveRouteJob?.cancel()
-                    saveRouteJob = routeUseCase.saveRoute(routeToSave).onEach { saveRouteState ->
-                        if (saveRouteState is ResultState.Success) {
-                            deletedLocoList.forEach { locomotive ->
-                                deleteLocoJob?.cancel()
-                                deleteLocoJob =
-                                    locoUseCase.removeLoco(locomotive).launchIn(viewModelScope)
-                            }
-                            deletedTrainList.forEach { train ->
-                                deleteTrainJob?.cancel()
-                                deleteTrainJob =
-                                    trainUseCase.removeTrain(train).launchIn(viewModelScope)
-                            }
-                            deletedPassengerList.forEach { passenger ->
-                                deletePassengerJob?.cancel()
-                                deletePassengerJob = passengerUseCase.removePassenger(passenger)
-                                    .launchIn(viewModelScope)
-                            }
-                            deletedPhotoList.forEach { photo ->
-                                viewModelScope.launch {
-                                    deletePhotoJob?.cancel()
-                                    deletePhotoJob =
-                                        photoUseCase.removePhoto(photo).launchIn(viewModelScope)
-                                }.join()
-                            }
-                            reviewInfo?.let { info ->
-                                showReviewDialog(info)
-                            }
-                        }
-                        _uiState.update {
-                            it.copy(saveRouteState = saveRouteState)
-                        }
-                    }.launchIn(viewModelScope)
+                        saveRouteJob?.cancel()
+                        saveRouteJob =
+                            routeUseCase.saveRoute(routeToSave).onEach { saveRouteState ->
+                                if (saveRouteState is ResultState.Success) {
+                                    deletedLocoList.forEach { locomotive ->
+                                        deleteLocoJob?.cancel()
+                                        deleteLocoJob =
+                                            locoUseCase.removeLoco(locomotive)
+                                                .launchIn(viewModelScope)
+                                    }
+                                    deletedTrainList.forEach { train ->
+                                        deleteTrainJob?.cancel()
+                                        deleteTrainJob =
+                                            trainUseCase.removeTrain(train).launchIn(viewModelScope)
+                                    }
+                                    deletedPassengerList.forEach { passenger ->
+                                        deletePassengerJob?.cancel()
+                                        deletePassengerJob =
+                                            passengerUseCase.removePassenger(passenger)
+                                                .launchIn(viewModelScope)
+                                    }
+                                    deletedPhotoList.forEach { photo ->
+                                        viewModelScope.launch {
+                                            deletePhotoJob?.cancel()
+                                            deletePhotoJob =
+                                                photoUseCase.removePhoto(photo)
+                                                    .launchIn(viewModelScope)
+                                        }.join()
+                                    }
+                                    reviewInfo?.let { info ->
+                                        showReviewDialog(info)
+                                    }
+                                }
+                                withContext(Dispatchers.Main) {
+                                    _uiState.update {
+                                        it.copy(saveRouteState = saveRouteState)
+                                    }
+                                }
+                            }.launchIn(this)
+                    }
                 }
                 sharedPreferenceStorage.setTokenIsChangeHave(false)
             }
@@ -590,4 +609,18 @@ class FormViewModel(
 
         changesHave()
     }
+
+    private fun getLocoList(basicId: String): MutableList<Locomotive> {
+        return locoUseCase.getLocomotiveList(basicId).toMutableList()
+    }
+
+    private fun getTrainList(basicId: String): MutableList<Train> {
+        return trainUseCase.getTrainListByBasicId(basicId).toMutableList()
+    }
+
+    private fun getPassengerList(basicId: String): MutableList<Passenger> {
+        return passengerUseCase.getPassengerListByBasicId(basicId).toMutableList()
+    }
+
+
 }

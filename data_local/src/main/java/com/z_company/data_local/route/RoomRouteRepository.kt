@@ -30,15 +30,21 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
         }
     }
 
-    override fun loadRoutes(): Flow<ResultState<List<Route>>> {
+    override fun loadRoutesAsFlow(): Flow<ResultState<List<Route>>> {
         return flowMap {
-            dao.getAllRoute().map { routes ->
+            dao.getAllRouteAsFlow().map { routes ->
                 ResultState.Success(
                     routes.map { route ->
                         RouteConverter.toData(route)
                     }
                 )
             }
+        }
+    }
+
+    override fun loadRoutes(): List<Route> {
+        return dao.getAllRoute().map {
+            RouteConverter.toData(it)
         }
     }
 
@@ -70,6 +76,12 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
         }
     }
 
+    override fun loadLocoListByBasicId(basicId: String): List<Locomotive> {
+        return dao.getLocoListByBasicId(basicId).map { locomotive ->
+            LocomotiveConverter.toData(locomotive)
+        }
+    }
+
     override fun loadTrain(trainId: String): Flow<ResultState<Train?>> {
         return flowMap {
             dao.getTrainById(trainId).map { train ->
@@ -82,6 +94,12 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
         }
     }
 
+    override fun loadTrainListByBasicId(basicId: String): List<Train> {
+        return dao.getTrainListByBasicId(basicId).map { train ->
+            TrainConverter.toData(train)
+        }
+    }
+
     override fun loadPassenger(passengerId: String): Flow<ResultState<Passenger?>> {
         return flowMap {
             dao.getPassengerById(passengerId).map { passenger ->
@@ -91,6 +109,12 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
                     }
                 )
             }
+        }
+    }
+
+    override fun loadPassengerListByBasicId(basicId: String): List<Passenger> {
+        return dao.getPassengerListByBasicId(basicId).map { passenger ->
+            PassengerConverter.toData(passenger)
         }
     }
 
@@ -120,13 +144,7 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
 
     override fun saveRoute(route: Route): Flow<ResultState<Unit>> {
         return flowRequest {
-            var newRoute = RouteConverter.fromData(route)
-            // ver 2
-//            if (!route.basicData.isSynchronized){
-//                newRoute.basicData.schemaVersion = 2
-//            } else {
-//                newRoute.basicData.schemaVersion = route.basicData.schemaVersion
-//            }
+            val newRoute = RouteConverter.fromData(route)
             if (route.basicData.id.isBlank()) {
                 route.basicData.id = UUID.randomUUID().toString()
             }
@@ -150,12 +168,16 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
                     it.basicId = newRoute.basicData.id
                 }
             }
-            newRoute = newRoute.copy(
-                basicData = newRoute.basicData.copy(
-                    isSynchronized = false
-                )
-            )
             dao.save(newRoute)
+        }
+    }
+
+    override fun setRemoteObjectIdRoute(
+        basicId: String,
+        remoteObjectId: String?
+    ): Flow<ResultState<Unit>> {
+        return flowRequest {
+            dao.setRemoteObjectIdRoute(basicId, remoteObjectId)
         }
     }
 
@@ -277,17 +299,17 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
         }
     }
 
-    override fun setSynchronizedBasicData(basicId: String): Flow<ResultState<Unit>> {
+    override fun setSynchronizedRoute(basicId: String): Flow<ResultState<Unit>> {
         return flowRequest {
             dao.setSynchronizedRoute(basicId)
         }
     }
 
-    override fun setSchemaVersion(version: Int, id: String): Flow<ResultState<Unit>> {
-        return flowRequest {
-            dao.setSchemaVersion(version, id)
-        }
-    }
+//    override fun setSchemaVersion(version: Int, id: String): Flow<ResultState<Unit>> {
+//        return flowRequest {
+//            dao.setSchemaVersion(version, id)
+//        }
+//    }
 
     override fun clearRepository(): Flow<ResultState<Unit>> {
         return flowRequest {

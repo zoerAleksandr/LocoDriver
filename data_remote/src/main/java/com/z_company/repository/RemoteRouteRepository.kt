@@ -14,6 +14,7 @@ interface RemoteRouteRepository {
     suspend fun saveRoute(route: Route): Flow<ResultState<Data>>
     suspend fun saveRouteVer2(route: Route): Flow<ResultState<Data>>
     suspend fun getAllBasicDataId(): Flow<ResultState<List<String>?>>
+    suspend fun removeRoute(remoteRouteId: String): Flow<ResultState<Data>>
     suspend fun removeBasicData(remoteObjectId: String): Flow<ResultState<Data>>
     suspend fun synchronizedRoutePeriodic(): Flow<ResultState<Unit>>
     suspend fun cancelingSync()

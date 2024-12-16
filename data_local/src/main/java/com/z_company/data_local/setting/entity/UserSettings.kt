@@ -40,7 +40,9 @@ internal data class UserSettings(
     @ColumnInfo(defaultValue = "1")
     var isVisibleExtendedServicePhase: Boolean,
     @ColumnInfo(defaultValue = "[]")
-    val stationList: List<String> = listOf()
+    val stationList: List<String> = listOf(),
+//    @ColumnInfo(defaultValue = "1")
+//    var timeInputKeyboard: Boolean = true
 )
 
 data class NightTime(

@@ -14,8 +14,10 @@ import java.util.Date
 internal data class BasicData(
     @PrimaryKey
     val id: String,
-    @ColumnInfo(defaultValue = "1")
-    var schemaVersion: Int = 1,
+    @ColumnInfo(defaultValue = "0")
+    var isSynchronizedRoute: Boolean = false,
+    @ColumnInfo(defaultValue = "NULL")
+    var remoteRouteId: String? = null,
     var isSynchronized: Boolean = false,
     var remoteObjectId: String? = null,
     var isDeleted: Boolean,

@@ -42,7 +42,6 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private val calendarUseCase: CalendarUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
     private val back4AppManager: Back4AppManager by inject()
-    private val billingClient: RuStoreBillingClient by inject()
     private val sharedPreferenceStorage: SharedPreferenceStorage by inject()
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -149,23 +148,6 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun setCurrentMonth(yearAndMonth: Pair<Int, Int>) {
-        setCalendarJob?.cancel()
-        setCalendarJob = calendarUseCase.loadMonthOfYearList().onEach { result ->
-            if (result is ResultState.Success) {
-                result.data.find {
-                    it.year == yearAndMonth.first && it.month == yearAndMonth.second
-                }?.let { selectMonthOfYear ->
-                    currentSettings = currentSettings?.copy(
-                        selectMonthOfYear = selectMonthOfYear
-                    )
-                    saveCurrentMonthInLocal(selectMonthOfYear)
-                }
-            }
-        }
-            .launchIn(viewModelScope)
-    }
-
     private fun saveCurrentMonthInLocal(monthOfYear: MonthOfYear) {
         saveCurrentMonthJob?.cancel()
         saveCurrentMonthJob =
@@ -201,7 +183,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                     result.data?.let { userSettings ->
                         _uiState.update {
                             it.copy(
-                                updateAt = ResultState.Success(userSettings.updateAt),
+                                updateAt = userSettings.updateAt,
                             )
                         }
                     }
@@ -293,8 +275,15 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             back4AppManager.synchronizedStorage().collect { result ->
                 _uiState.update {
                     it.copy(
-                        updateRepositoryState = result
+                        updateRepositoryState = result,
                     )
+                }
+                if (result is ResultState.Success){
+                    _uiState.update {
+                        it.copy(
+                            updateAt = result.data
+                        )
+                    }
                 }
             }
         }
@@ -303,7 +292,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     fun resetRepositoryState() {
         _uiState.update {
             it.copy(
-                updateRepositoryState = ResultState.Success(Unit)
+                updateRepositoryState = null
             )
         }
     }
