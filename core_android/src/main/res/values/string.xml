@@ -52,4 +52,28 @@
     <string name="october_full">Октябрь</string>
     <string name="november_full">Ноябрь</string>
     <string name="december_full">Декабрь</string>
+
+    <string name="onBoardingFirstPresentationTitle1">Добавляй маршруты</string>
+    <string name="onBoardingFirstPresentationTitle2">Больше информации</string>
+    <string name="onBoardingFirstPresentationTitle3">Расход топлива и электроэнергии</string>
+    <string name="onBoardingFirstPresentationTitle4">Просмотривай статистику</string>
+    <string name="onBoardingFirstPresentationTitle5">Рассчетный лист</string>
+    <string name="onBoardingFirstPresentationTitle6">Поиск</string>
+    <string name="onBoardingFirstPresentationTitle7">Персонализация</string>
+
+    <string name="onBoardingFirstPresentationDesc1">Данные хранятся в памяти телефона и в облачном хранилище</string>
+    <string name="onBoardingFirstPresentationDesc2">Запиши подробные данные о локомотиве и поезде</string>
+    <string name="onBoardingFirstPresentationDesc3">Посчитает за вас расход, переведет литры в киллограммы</string>
+    <string name="onBoardingFirstPresentationDesc4">Информация о отработанных часах всегда под рукой</string>
+    <string name="onBoardingFirstPresentationDesc5">Укажи свою ставку и надбавки и мы сделаем предварительный расчет зарплаты</string>
+    <string name="onBoardingFirstPresentationDesc6">Можно найти любой маршрут по локомотиву, станции или другой информации</string>
+    <string name="onBoardingFirstPresentationDesc7">Укажи стандартное время работы или тип локомотива, и они автоматически добавятся в новом маршруте</string>
+
+    <string name="onBoardingUpdatePresentationTitle1">Заголовок Update Presentation 1</string>
+    <string name="onBoardingUpdatePresentationTitle2">Заголовок Update Presentation 2</string>
+    <string name="onBoardingUpdatePresentationTitle3">Заголовок Update Presentation 3</string>
+
+    <string name="onBoardingUpdatePresentationDesc1">Описание один Update Presentation</string>
+    <string name="onBoardingUpdatePresentationDesc2">Описание два Update Presentation</string>
+    <string name="onBoardingUpdatePresentationDesc3">Описание три Update Presentation</string>
 </resources>

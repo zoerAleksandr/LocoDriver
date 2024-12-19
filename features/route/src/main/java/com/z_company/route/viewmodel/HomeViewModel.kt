@@ -579,5 +579,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
             )
         )
         checkLoginToAccount()
+        sharedPreferenceStorage.enableShowingUpdatePresentation()
     }
 }

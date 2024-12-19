@@ -1,5 +1,6 @@
 package com.z_company.loco_driver.ui
 
+import android.util.Log
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,7 +22,11 @@ import com.z_company.loco_driver.ui.theme.LocoDriverTheme
 fun LocoDriverApp(
     appState: LocoDriverAppState,
     isLoggedIn: Boolean,
+    isShowFirstPresentation: Boolean,
+    isShowUpdatePresentation: Boolean
 ) {
+    Log.d("ZZZ", "isShowFirstPresentation $isShowFirstPresentation")
+    Log.d("ZZZ", "isShowUpdatePresentation $isShowUpdatePresentation")
     LocoDriverTheme {
         Surface(
             modifier = Modifier
@@ -30,7 +35,7 @@ fun LocoDriverApp(
                 .navigationBarsPadding(),
             color = Color.Transparent
         ) {
-            MainNavigation(appState, isLoggedIn)
+            MainNavigation(appState, isLoggedIn, isShowFirstPresentation, isShowUpdatePresentation)
         }
     }
 }

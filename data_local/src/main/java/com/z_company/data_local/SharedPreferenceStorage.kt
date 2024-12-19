@@ -10,6 +10,7 @@ private const val TOKEN_IS_FIRST_APP_ENTRY_TAG = "TOKEN_IS_FIRST_APP_ENTRY_TAG"
 private const val TOKEN_IS_SYNC_TAG = "TOKEN_IS_SYNC_TAG"
 private const val TOKEN_IS_CHANGES_HAVE_TAG = "TOKEN_IS_CHANGES_HAVE_TAG"
 private const val TOKEN_SUBSCRIPTION_EXPIRATION_TAG = "TOKEN_SUBSCRIPTION_EXPIRATION_TAG"
+private const val TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_12_TEST_2 = "TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_12_TEST_2"
 
 class SharedPreferenceStorage(application: Application) : KoinComponent {
     private val sharedpref: SharedPreferences =
@@ -19,6 +20,12 @@ class SharedPreferenceStorage(application: Application) : KoinComponent {
         )
     private val editor = sharedpref.edit()
 
+    fun isShowUpdatePresentation(): Boolean =
+        sharedpref.getBoolean(TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_12_TEST_2, true)
+    
+    fun enableShowingUpdatePresentation() {
+        editor.putBoolean(TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_12_TEST_2, false).apply()
+    }
     fun getSubscriptionExpiration(): Long =
         sharedpref.getLong(TOKEN_SUBSCRIPTION_EXPIRATION_TAG, 0L)
     fun tokenIsChangesHave(): Boolean =

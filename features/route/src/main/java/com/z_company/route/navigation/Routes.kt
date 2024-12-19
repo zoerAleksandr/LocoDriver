@@ -4,7 +4,6 @@ import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.z_company.core.navigation.AppRoutes
-import com.z_company.domain.entities.MonthOfYear
 
 object HomeFeature : AppRoutes("HomeFeature")
 object HomeRoute : AppRoutes("HomeRoute")
@@ -188,3 +187,4 @@ object MoreInfoRoute: AppRoutes("MoreInfoRoute") {
 
 object SalaryCalculationRoute: AppRoutes("SalaryCalculationRoute")
 object SettingSalaryRoute: AppRoutes("SettingSalaryRoute")
+object UpdatePresentationBlockRoute: AppRoutes("UpdatePresentationBlockRoute")

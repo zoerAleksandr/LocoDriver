@@ -41,6 +41,9 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private var saveCalendarInLocalJob: Job? = null
     private var setDefaultSetting: Job? = null
 
+    val showFirstPresentation = sharedPreferenceStorage.tokenIsFirstAppEntry()
+    val showUpdatePresentation =
+        sharedPreferenceStorage.isShowUpdatePresentation() && !sharedPreferenceStorage.tokenIsFirstAppEntry()
 
     private var _inProgress = MutableLiveData(true)
     val inProgress: MutableLiveData<Boolean> get() = _inProgress
@@ -162,7 +165,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
                                             sharedPreferenceStorage.setSubscriptionExpiration(
                                                 resultState.data
                                             )
-                                            this@launch.cancel()
+                                            job?.cancel()
                                         }
                                     }
                                 }
