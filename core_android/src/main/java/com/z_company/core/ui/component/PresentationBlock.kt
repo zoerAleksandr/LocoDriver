@@ -39,6 +39,8 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalView
@@ -218,8 +220,22 @@ fun OnBoardingItem(items: OnBoardingItems) {
                 modifier = Modifier.padding(start = 24.dp, end = 24.dp),
                 contentScale = ContentScale.Inside
             )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .background(
+                        brush = Brush.verticalGradient(
+                            startY = 0.0f,
+                            endY = Float.POSITIVE_INFINITY,
+                            colors = listOf(
+                                Color.Transparent,
+                                MaterialTheme.colorScheme.secondaryContainer,
+                            )
+                        )
+                    )
+            )
         }
-
         Box(
             modifier = Modifier
                 .fillMaxWidth()
