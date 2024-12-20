@@ -203,25 +203,6 @@ class FormViewModel(
             if (state is ResultState.Success) {
                 state.data?.let { route ->
                     var routeToSave = route
-                    if (isCopy) {
-                        val newBasicId = UUID.randomUUID().toString()
-                        routeToSave = routeToSave.copy(
-                            basicData = routeToSave.basicData.copy(id = newBasicId)
-                        )
-                        routeToSave.trains.forEach { train ->
-                            train.trainId = UUID.randomUUID().toString()
-                            train.basicId = newBasicId
-                        }
-                        routeToSave.locomotives.forEach { locomotive ->
-                            locomotive.locoId = UUID.randomUUID().toString()
-                            locomotive.basicId = newBasicId
-                        }
-                        routeToSave.passengers.forEach { passenger ->
-                            passenger.passengerId = UUID.randomUUID().toString()
-                            passenger.basicId = newBasicId
-                        }
-
-                    }
                     viewModelScope.launch(Dispatchers.IO) {
                         this.launch(Dispatchers.IO) {
                             val locomotives = getLocoList(routeToSave.basicData.id)
@@ -232,6 +213,24 @@ class FormViewModel(
                                 trains = trains,
                                 passengers = passengers
                             )
+                            if (isCopy) {
+                                val newBasicId = UUID.randomUUID().toString()
+                                routeToSave = routeToSave.copy(
+                                    basicData = routeToSave.basicData.copy(id = newBasicId)
+                                )
+                                routeToSave.trains.forEach { train ->
+                                    train.trainId = UUID.randomUUID().toString()
+                                    train.basicId = newBasicId
+                                }
+                                routeToSave.locomotives.forEach { locomotive ->
+                                    locomotive.locoId = UUID.randomUUID().toString()
+                                    locomotive.basicId = newBasicId
+                                }
+                                routeToSave.passengers.forEach { passenger ->
+                                    passenger.passengerId = UUID.randomUUID().toString()
+                                    passenger.basicId = newBasicId
+                                }
+                            }
                         }.join()
 
                         saveRouteJob?.cancel()
