@@ -52,8 +52,8 @@ object Apps {
     const val min_sdk_version = 26
     const val target_sdk_version = 34
 
-    const val version_code = 27
-    const val version_name = "1.2.11"
+    const val version_code = 28
+    const val version_name = "1.2.12"
 
     const val jvm_target_version = "17"
     val java_compatibility_version = JavaVersion.VERSION_17
@@ -82,7 +82,7 @@ object Versions {
     const val test_ext_version = "1.1.5"
     const val test_runner_version = "1.6.0-alpha01"
     const val koin_version = "3.5.6"
-    const val accompanist_pager_version = "0.13.0"
+    const val accompanist_pager_version = "0.32.0"
     const val gson_version = "2.9.0"
     const val constraint_layout_ver = "1.0.1"
     const val datastore_pref_ver = "1.0.0"

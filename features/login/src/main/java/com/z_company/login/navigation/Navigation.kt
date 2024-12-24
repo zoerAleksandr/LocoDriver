@@ -9,11 +9,19 @@ import com.z_company.core.ui.navigation.composableScreen
 
 @ExperimentalAnimationApi
 fun NavGraphBuilder.loginGraph(
-    router: Router
+    router: Router,
+    isShowFirstPresentation: Boolean
 ) {
+    val startDestination =
+        if (isShowFirstPresentation) {
+            FirstPresentationBlockRoute.route
+        } else {
+            SignInScreenRoute.route
+        }
+
     navigation(
         route = AuthFeature.route,
-        startDestination = SignInScreenRoute.route,
+        startDestination = startDestination,
     ) {
         composableScreen(
             route = SignInScreenRoute.route,
@@ -32,6 +40,11 @@ fun NavGraphBuilder.loginGraph(
         ) {
             Log.i("NAV", LogInScreenRoute.route)
             LogInDestination(router)
+        }
+        composableScreen(
+            route = FirstPresentationBlockRoute.route
+        ){
+            FirstPresentationBlockDestination(router = router)
         }
     }
 }

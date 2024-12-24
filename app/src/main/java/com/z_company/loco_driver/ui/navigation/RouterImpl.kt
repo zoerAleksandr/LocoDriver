@@ -16,6 +16,7 @@ import com.z_company.route.navigation.FormLoco
 import com.z_company.route.navigation.FormPassenger
 import com.z_company.route.navigation.FormRoute
 import com.z_company.route.navigation.FormTrain
+import com.z_company.route.navigation.HomeFeature
 import com.z_company.route.navigation.HomeRoute
 import com.z_company.route.navigation.MoreInfoRoute
 import com.z_company.route.navigation.PreviewPhotoRoute
@@ -45,9 +46,18 @@ class RouterImpl(
         navController.navigate(RecoveryPasswordRoute.route)
     }
 
-    override fun showHome() {
-        navController.navigate(HomeRoute.route) {
+    override fun showStartScreen() {
+        navController.navigate(HomeFeature.route) {
             popUpTo(AuthFeature.route) {
+                inclusive = true
+                saveState = false
+            }
+        }
+    }
+
+    override fun showHome(startingRoute: String) {
+        navController.navigate(HomeRoute.route) {
+            popUpTo(startingRoute) {
                 inclusive = true
                 saveState = false
             }

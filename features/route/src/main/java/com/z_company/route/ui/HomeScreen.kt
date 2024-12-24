@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import android.app.Activity
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -44,6 +45,7 @@ import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -54,10 +56,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
@@ -149,6 +153,17 @@ fun HomeScreen(
     showConfirmDialogRemoveRoute: Boolean,
     changeShowConfirmExitDialog: (Boolean) -> Unit,
 ) {
+    val view = LocalView.current
+    val backgroundColor = MaterialTheme.colorScheme.background
+
+    // для изменения color status bar после изменения в PresentationBlock
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            window.statusBarColor = backgroundColor.toArgb()
+        }
+    }
+
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val lifecycle = LocalLifecycleOwner.current.lifecycle

@@ -1,5 +1,6 @@
 package com.z_company.login.ui
 
+import android.app.Activity
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,6 +31,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -61,6 +65,17 @@ fun SignInScreen(
     isEnableButtonSignIn: Boolean,
     cancelSignIn: () -> Unit
 ) {
+    val view = LocalView.current
+    val backgroundColor = MaterialTheme.colorScheme.background
+
+    // для изменения color status bar после изменения в PresentationBlock
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            window.statusBarColor = backgroundColor.toArgb()
+        }
+    }
+
     val snackbarHostState = remember { SnackbarHostState() }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
 
@@ -79,7 +94,10 @@ fun SignInScreen(
             fontWeight = FontWeight.Light
         )
     if (userState is ResultState.Loading) {
-        GenericLoading(onCloseClick = cancelSignIn)
+        GenericLoading(
+            message = "Выполняется вход...",
+            onCloseClick = cancelSignIn
+        )
     }
     if (userState is ResultState.Error) {
         LaunchedEffect(Unit) {

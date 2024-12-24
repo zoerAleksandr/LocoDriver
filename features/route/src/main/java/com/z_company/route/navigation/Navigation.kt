@@ -2,18 +2,24 @@ package com.z_company.route.navigation
 
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.navigation.NavGraphBuilder
-import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import com.z_company.core.ui.navigation.composableScreen
 import com.z_company.domain.navigation.Router
 
 @OptIn(ExperimentalAnimationApi::class)
 fun NavGraphBuilder.homeGraph(
-    router: Router
+    router: Router,
+    isShowUpdatePresentation: Boolean
 ) {
+    val startDestination =
+        if (isShowUpdatePresentation) {
+            UpdatePresentationBlockRoute.route
+        } else {
+            HomeRoute.route
+        }
     navigation(
         route = HomeFeature.route,
-        startDestination = HomeRoute.route
+        startDestination = startDestination
     ) {
         composableScreen(
             route = HomeRoute.route,
@@ -93,6 +99,11 @@ fun NavGraphBuilder.homeGraph(
             route = SettingSalaryRoute.route
         ) {
             SettingSalaryDestination(router = router)
+        }
+        composableScreen(
+            route = UpdatePresentationBlockRoute.route
+        ){
+            UpdatePresentationBlockDestination(router = router)
         }
     }
 }

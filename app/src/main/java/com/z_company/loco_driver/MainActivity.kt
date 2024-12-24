@@ -17,18 +17,12 @@ import com.z_company.loco_driver.viewmodel.MainViewModel
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import ru.rustore.sdk.billingclient.RuStoreBillingClient
-import java.security.InvalidKeyException
-import java.security.KeyFactory
-import java.security.NoSuchAlgorithmException
-import java.security.SignatureException
-import java.security.spec.InvalidKeySpecException
-import java.security.spec.PKCS8EncodedKeySpec
-
 
 class MainActivity : ComponentActivity(), KoinComponent {
 
     private val mainViewModel: MainViewModel by viewModels()
     private val ruStoreBillingClient: RuStoreBillingClient by inject()
+
     @OptIn(ExperimentalAnimationApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,10 +35,16 @@ class MainActivity : ComponentActivity(), KoinComponent {
             setContent {
                 enableEdgeToEdge()
                 val appState = rememberLocoDriverAppState()
-                LocoDriverApp(appState = appState, isLoggedIn = it != false)
+                LocoDriverApp(
+                    appState = appState,
+                    isLoggedIn = it != false,
+                    isShowFirstPresentation = mainViewModel.showFirstPresentation,
+                    isShowUpdatePresentation = mainViewModel.showUpdatePresentation
+                )
             }
         }
     }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         ruStoreBillingClient.onNewIntent(intent)

@@ -6,13 +6,13 @@ import androidx.compose.runtime.getValue
 import com.z_company.domain.navigation.Router
 import com.z_company.login.ui.SignInScreen
 import com.z_company.login.viewmodel.SignInViewModel
-import org.koin.androidx.compose.getViewModel
+import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun SignInDestination(
     router: Router
 ){
-    val viewModel = getViewModel<SignInViewModel>()
+    val viewModel = koinViewModel<SignInViewModel>()
     val uiState by viewModel.uiState.collectAsState()
 
     SignInScreen(
@@ -21,7 +21,7 @@ fun SignInDestination(
         password = viewModel.password,
         setEmail = viewModel::setEmailValue,
         setPassword = viewModel::setPasswordValue,
-        onSignInSuccess = router::showHome,
+        onSignInSuccess = router::showStartScreen,
         onRegisteredClick = router::showLogIn,
         logInUser = viewModel::signInUser,
         onPasswordRecovery = router::showRecoveryPassword,
