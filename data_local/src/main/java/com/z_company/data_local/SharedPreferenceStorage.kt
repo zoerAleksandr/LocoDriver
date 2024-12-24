@@ -21,7 +21,7 @@ class SharedPreferenceStorage(application: Application) : KoinComponent {
     private val editor = sharedpref.edit()
 
     fun isShowUpdatePresentation(): Boolean =
-        sharedpref.getBoolean(TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_12_TEST_2, true)
+        sharedpref.getBoolean(TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_12_TEST_2, false)
     
     fun enableShowingUpdatePresentation() {
         editor.putBoolean(TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_12_TEST_2, false).apply()

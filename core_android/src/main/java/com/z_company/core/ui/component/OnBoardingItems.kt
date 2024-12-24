@@ -11,12 +11,12 @@ class OnBoardingItems(
         fun getDataFirstPresentation(): List<OnBoardingItems>{
             return listOf(
                 OnBoardingItems(R.drawable.onboarding_first_screen, R.string.onBoardingFirstPresentationTitle1, R.string.onBoardingFirstPresentationDesc1),
-                OnBoardingItems(R.drawable.logo_v2_1, R.string.onBoardingFirstPresentationTitle2, R.string.onBoardingFirstPresentationDesc2),
-                OnBoardingItems(R.drawable.logo_v2_1, R.string.onBoardingFirstPresentationTitle3, R.string.onBoardingFirstPresentationDesc3),
-                OnBoardingItems(R.drawable.logo_v2_1, R.string.onBoardingFirstPresentationTitle4, R.string.onBoardingFirstPresentationDesc4),
-                OnBoardingItems(R.drawable.logo_v2_1, R.string.onBoardingFirstPresentationTitle5, R.string.onBoardingFirstPresentationDesc5),
-                OnBoardingItems(R.drawable.logo_v2_1, R.string.onBoardingFirstPresentationTitle6, R.string.onBoardingFirstPresentationDesc6),
-                OnBoardingItems(R.drawable.logo_v2_1, R.string.onBoardingFirstPresentationTitle7, R.string.onBoardingFirstPresentationDesc7)
+                OnBoardingItems(R.drawable.onboarding_first_screen_2, R.string.onBoardingFirstPresentationTitle2, R.string.onBoardingFirstPresentationDesc2),
+                OnBoardingItems(R.drawable.onboarding_first_screen_3, R.string.onBoardingFirstPresentationTitle3, R.string.onBoardingFirstPresentationDesc3),
+                OnBoardingItems(R.drawable.onboarding_first_screen_4, R.string.onBoardingFirstPresentationTitle4, R.string.onBoardingFirstPresentationDesc4),
+                OnBoardingItems(R.drawable.onboarding_first_screen_5, R.string.onBoardingFirstPresentationTitle5, R.string.onBoardingFirstPresentationDesc5),
+                OnBoardingItems(R.drawable.onboarding_first_screen_6, R.string.onBoardingFirstPresentationTitle6, R.string.onBoardingFirstPresentationDesc6),
+                OnBoardingItems(R.drawable.onboarding_first_screen_7, R.string.onBoardingFirstPresentationTitle7, R.string.onBoardingFirstPresentationDesc7)
             )
         }
         fun getDataUpdatePresentation(): List<OnBoardingItems>{
