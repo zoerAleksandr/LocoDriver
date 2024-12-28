@@ -1,5 +1,6 @@
 package com.z_company.data_local.setting.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.TypeConverters
@@ -14,6 +15,12 @@ internal data class SalarySetting(
     val salarySettingKey: String,
     var tariffRate: Double,
     var zonalSurcharge: Double,
+    @ColumnInfo(defaultValue = "0.0")
+    val averagePaymentHour: Double,
+    @ColumnInfo(defaultValue = "0.0")
+    val districtCoefficient : Double,
+    @ColumnInfo(defaultValue = "0.0")
+    val nordicCoefficient: Double,
     var surchargeQualificationClass: Double,
     var surchargeExtendedServicePhaseList: List<SurchargeExtendedServicePhase>,
     var surchargeHeavyLongDistanceTrains: Double,

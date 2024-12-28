@@ -1,0 +1,109 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 2,
+    "identityHash": "f6214df72fc11eb99a9121dd01c517e1",
+    "entities": [
+      {
+        "tableName": "SalarySetting",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`salarySettingKey` TEXT NOT NULL, `tariffRate` REAL NOT NULL, `zonalSurcharge` REAL NOT NULL, `averagePaymentHour` REAL NOT NULL DEFAULT 0.0, `districtCoefficient` REAL NOT NULL DEFAULT 0.0, `nordicCoefficient` REAL NOT NULL DEFAULT 0.0, `surchargeQualificationClass` REAL NOT NULL, `surchargeExtendedServicePhaseList` TEXT NOT NULL, `surchargeHeavyLongDistanceTrains` REAL NOT NULL, `otherSurcharge` REAL NOT NULL, `ndfl` REAL NOT NULL, `unionistsRetention` REAL NOT NULL, `otherRetention` REAL NOT NULL, PRIMARY KEY(`salarySettingKey`))",
+        "fields": [
+          {
+            "fieldPath": "salarySettingKey",
+            "columnName": "salarySettingKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tariffRate",
+            "columnName": "tariffRate",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "zonalSurcharge",
+            "columnName": "zonalSurcharge",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "averagePaymentHour",
+            "columnName": "averagePaymentHour",
+            "affinity": "REAL",
+            "notNull": true,
+            "defaultValue": "0.0"
+          },
+          {
+            "fieldPath": "districtCoefficient",
+            "columnName": "districtCoefficient",
+            "affinity": "REAL",
+            "notNull": true,
+            "defaultValue": "0.0"
+          },
+          {
+            "fieldPath": "nordicCoefficient",
+            "columnName": "nordicCoefficient",
+            "affinity": "REAL",
+            "notNull": true,
+            "defaultValue": "0.0"
+          },
+          {
+            "fieldPath": "surchargeQualificationClass",
+            "columnName": "surchargeQualificationClass",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "surchargeExtendedServicePhaseList",
+            "columnName": "surchargeExtendedServicePhaseList",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "surchargeHeavyLongDistanceTrains",
+            "columnName": "surchargeHeavyLongDistanceTrains",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "otherSurcharge",
+            "columnName": "otherSurcharge",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ndfl",
+            "columnName": "ndfl",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "unionistsRetention",
+            "columnName": "unionistsRetention",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "otherRetention",
+            "columnName": "otherRetention",
+            "affinity": "REAL",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "salarySettingKey"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'f6214df72fc11eb99a9121dd01c517e1')"
+    ]
+  }
+}

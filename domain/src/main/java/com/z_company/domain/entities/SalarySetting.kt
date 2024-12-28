@@ -6,6 +6,9 @@ const val SALARY_SETTINGS_KEY = "Salary_Setting_Key"
 data class SalarySetting(
     val key: String = SALARY_SETTINGS_KEY,
     val tariffRate: Double = 0.0,
+    val averagePaymentHour: Double = 0.0,
+    val districtCoefficient : Double = 0.0,
+    val nordicCoefficient: Double = 0.0,
     val zonalSurcharge: Double = 25.0,
     val surchargeQualificationClass: Double = 0.0,
     var surchargeExtendedServicePhaseList: List<SurchargeExtendedServicePhase> = emptyList(),

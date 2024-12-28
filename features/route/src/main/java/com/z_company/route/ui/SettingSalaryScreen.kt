@@ -53,7 +53,7 @@ import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.domain.entities.SurchargeExtendedServicePhase
-import com.z_company.domain.util.str
+import com.z_company.route.viewmodel.SettingSalaryUIState
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -62,11 +62,15 @@ fun SettingSalaryScreen(
     onBack: () -> Unit,
     onSaveClick: () -> Unit,
     isEnableSaveButton: Boolean,
+    uiState: SettingSalaryUIState,
     saveSettingState: ResultState<Unit>?,
     resetSaveState: () -> Unit,
     tariffRateValueState: ResultState<String>,
     setTariffRate: (String) -> Unit,
     isErrorInputTariffRate: Boolean,
+    setAveragePaymentHour: (String) -> Unit,
+    setNordicCoefficient: (String) -> Unit,
+    setDistrictCoefficient: (String) -> Unit,
     zonalSurchargeValueState: ResultState<String>,
     setZonalSurcharge: (String) -> Unit,
     isErrorInputZonalSurcharge: Boolean,
@@ -227,6 +231,48 @@ fun SettingSalaryScreen(
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
                     Text(
+                        "Средний час, руб.",
+                        overflow = TextOverflow.Visible,
+                        style = styleDataMedium
+                    )
+                    AsyncDataValue(resultState = uiState.averagePaymentHour) { averagePaymentHourValue ->
+                        averagePaymentHourValue?.let {
+                            OutlinedTextField(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                value = averagePaymentHourValue,
+                                onValueChange = { value ->
+                                    setAveragePaymentHour(value)
+                                },
+                                isError = uiState.isErrorInputAveragePayment,
+                                supportingText = {
+                                    if (uiState.isErrorInputAveragePayment) {
+                                        Text(text = "Некорректные данные")
+                                    }
+                                },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent
+                                ),
+                                shape = Shapes.medium,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Decimal
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(top = paddingLarge),
+                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
+                ) {
+                    Text(
                         "Зональная надбавка, %",
                         overflow = TextOverflow.Visible,
                         style = styleDataMedium
@@ -325,6 +371,90 @@ fun SettingSalaryScreen(
                                 isError = isErrorInputSurchargeHeavyLongDistanceTrains,
                                 supportingText = {
                                     if (isErrorInputSurchargeHeavyLongDistanceTrains) {
+                                        Text(text = "Некорректные данные")
+                                    }
+                                },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent
+                                ),
+                                shape = Shapes.medium,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Decimal
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(top = paddingLarge),
+                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
+                ) {
+                    Text(
+                        "Северная надбавка, %",
+                        overflow = TextOverflow.Visible,
+                        style = styleDataMedium
+                    )
+                    AsyncDataValue(resultState = uiState.nordicCoefficient) { nordicCoefficient ->
+                        nordicCoefficient?.let {
+                            OutlinedTextField(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                value = nordicCoefficient,
+                                onValueChange = { value ->
+                                    setNordicCoefficient(value)
+                                },
+                                isError = uiState.isErrorInputNordicCoefficient,
+                                supportingText = {
+                                    if (uiState.isErrorInputNordicCoefficient) {
+                                        Text(text = "Некорректные данные")
+                                    }
+                                },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent
+                                ),
+                                shape = Shapes.medium,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Decimal
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(top = paddingLarge),
+                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
+                ) {
+                    Text(
+                        "Районный коэффициент",
+                        overflow = TextOverflow.Visible,
+                        style = styleDataMedium
+                    )
+                    AsyncDataValue(resultState = uiState.districtCoefficient) { districtCoefficient ->
+                        districtCoefficient?.let {
+                            OutlinedTextField(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                value = districtCoefficient,
+                                onValueChange = { value ->
+                                    setDistrictCoefficient(value)
+                                },
+                                isError = uiState.isErrorInputDistrictCoefficient,
+                                supportingText = {
+                                    if (uiState.isErrorInputDistrictCoefficient) {
                                         Text(text = "Некорректные данные")
                                     }
                                 },

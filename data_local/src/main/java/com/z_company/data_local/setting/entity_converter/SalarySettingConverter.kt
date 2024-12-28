@@ -7,9 +7,14 @@ internal object SalarySettingConverter {
     fun fromData(salarySetting: SalarySetting) = SalarySettingEntity(
         salarySettingKey = salarySetting.key,
         tariffRate = salarySetting.tariffRate,
+        averagePaymentHour = salarySetting.averagePaymentHour,
+        districtCoefficient = salarySetting.districtCoefficient,
+        nordicCoefficient = salarySetting.nordicCoefficient,
         zonalSurcharge = salarySetting.zonalSurcharge,
         surchargeQualificationClass = salarySetting.surchargeQualificationClass,
-        surchargeExtendedServicePhaseList = SurchargeExtendedServicePhaseConverter.fromDataList(salarySetting.surchargeExtendedServicePhaseList),
+        surchargeExtendedServicePhaseList = SurchargeExtendedServicePhaseConverter.fromDataList(
+            salarySetting.surchargeExtendedServicePhaseList
+        ),
         surchargeHeavyLongDistanceTrains = salarySetting.surchargeHeavyLongDistanceTrains,
         otherSurcharge = salarySetting.otherSurcharge,
         ndfl = salarySetting.ndfl,
@@ -20,6 +25,9 @@ internal object SalarySettingConverter {
     fun toData(entity: SalarySettingEntity) = SalarySetting(
         key = entity.salarySettingKey,
         tariffRate = entity.tariffRate,
+        averagePaymentHour = entity.averagePaymentHour,
+        districtCoefficient = entity.districtCoefficient,
+        nordicCoefficient = entity.nordicCoefficient,
         zonalSurcharge = entity.zonalSurcharge,
         surchargeQualificationClass = entity.surchargeQualificationClass,
         surchargeExtendedServicePhaseList = SurchargeExtendedServicePhaseConverter.toDataList(entity.surchargeExtendedServicePhaseList),

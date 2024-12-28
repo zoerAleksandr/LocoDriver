@@ -1,7 +1,5 @@
 package com.z_company.route.viewmodel
 
-import android.util.Log
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -35,6 +33,9 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                 it.copy(
                     settingSalaryState = ResultState.Success(value),
                     tariffRate = ResultState.Success(value?.tariffRate.str()),
+                    averagePaymentHour = ResultState.Success(value?.averagePaymentHour.str()),
+                    districtCoefficient = ResultState.Success(value?.districtCoefficient.str()),
+                    nordicCoefficient = ResultState.Success(value?.nordicCoefficient.str()),
                     zonalSurcharge = ResultState.Success(value?.zonalSurcharge.str()),
                     surchargeQualificationClass = ResultState.Success(value?.surchargeQualificationClass.str()),
                     surchargeHeavyLongDistanceTrains = ResultState.Success(value?.surchargeHeavyLongDistanceTrains.str()),
@@ -123,6 +124,42 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
             it.copy(
                 tariffRate = ResultState.Success(value),
                 isErrorInputTariffRate = isErrorInputDouble(value)
+            )
+        }
+    }
+
+    fun setAveragePaymentHour(value: String) {
+        currentSalarySetting = currentSalarySetting?.copy(
+            averagePaymentHour = value.toDoubleOrZero()
+        )
+        _uiState.update {
+            it.copy(
+                averagePaymentHour = ResultState.Success(value),
+                isErrorInputAveragePayment = isErrorInputDouble(value)
+            )
+        }
+    }
+
+    fun setDistrictCoefficient(value: String) {
+        currentSalarySetting = currentSalarySetting?.copy(
+            districtCoefficient = value.toDoubleOrZero()
+        )
+        _uiState.update {
+            it.copy(
+                districtCoefficient = ResultState.Success(value),
+                isErrorInputDistrictCoefficient = isErrorInputDouble(value)
+            )
+        }
+    }
+
+    fun setNordicCoefficient(value: String) {
+        currentSalarySetting = currentSalarySetting?.copy(
+            nordicCoefficient = value.toDoubleOrZero()
+        )
+        _uiState.update {
+            it.copy(
+                nordicCoefficient = ResultState.Success(value),
+                isErrorInputNordicCoefficient = isErrorInputDouble(value)
             )
         }
     }
