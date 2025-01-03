@@ -371,7 +371,7 @@ private fun LocoFormScreenContent(
                     },
                     onValueChange = { onNumberChanged(it) },
                     keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Number,
+                        keyboardType = KeyboardType.Text,
                         imeAction = ImeAction.Done
                     ),
                     keyboardActions = KeyboardActions(
