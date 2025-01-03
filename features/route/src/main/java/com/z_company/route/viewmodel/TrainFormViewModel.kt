@@ -1,5 +1,6 @@
 package com.z_company.route.viewmodel
 
+import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
@@ -14,6 +15,7 @@ import com.z_company.domain.util.addAllOrSkip
 import com.z_company.domain.util.addOrReplace
 import com.z_company.domain.util.compareWithNullable
 import com.z_company.route.Const.NULLABLE_ID
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -86,6 +88,7 @@ class TrainFormViewModel(
             settingsUseCase.getCurrentSettings().collect {
                 if (it is ResultState.Success) {
                     it.data?.let { settings ->
+                        Log.d("ZZZ", "in ViewModel ${settings.stationList}")
                         stationNameList.addAllOrSkip(settings.stationList.toMutableStateList())
                     }
                     this.cancel()
@@ -187,18 +190,21 @@ class TrainFormViewModel(
         }
     }
 
-    private fun saveStationsName(train: Train){
-        viewModelScope.launch {
+    private fun saveStationsName(train: Train) {
+        viewModelScope.launch(Dispatchers.IO) {
             val list = train.stations
                 .map { it.stationName ?: "" }
             stationNameList.addAll(list)
-            settingsUseCase.setStations(list).collect{}
+            settingsUseCase.setStations(list)
         }
     }
 
-    fun removeStationName(value: String){
-        stationNameList.remove(value)
-        mutableStationList.remove(value)
+    fun removeStationName(value: String) {
+        viewModelScope.launch {
+            stationNameList.remove(value)
+            mutableStationList.remove(value)
+            settingsUseCase.removeStation(value)
+        }
     }
 
     fun resetSaveState() {

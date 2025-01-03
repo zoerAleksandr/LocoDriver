@@ -4,6 +4,7 @@ import com.z_company.core.ResultState
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.NightTime
 import com.z_company.domain.entities.UserSettings
+import com.z_company.domain.entities.route.Station
 import kotlinx.coroutines.flow.Flow
 
 interface SettingsRepository {
@@ -16,4 +17,5 @@ interface SettingsRepository {
     fun setCurrentMonthOfYear(monthOfYear: MonthOfYear): Flow<ResultState<Unit>>
     fun clearRepository(): Flow<ResultState<Unit>>
     fun setStations(stations: List<String>): Flow<ResultState<Unit>>
+    fun getStations(): List<String>
 }
