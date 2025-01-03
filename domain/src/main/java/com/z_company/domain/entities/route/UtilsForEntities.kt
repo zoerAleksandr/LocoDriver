@@ -193,6 +193,30 @@ object UtilsForEntities {
         }
     }
 
+    fun Passenger.isTransition(): Boolean {
+        if (this.timeDeparture == null || this.timeArrival == null){
+            return false
+        } else {
+            val startCalendar = Calendar.getInstance().also {
+                it.timeInMillis = this.timeDeparture!!
+            }
+            val yearStart = startCalendar.get(Calendar.YEAR)
+            val monthStart = startCalendar.get(Calendar.MONTH)
+            val endCalendar = Calendar.getInstance().also {
+                it.timeInMillis = this.timeArrival!!
+            }
+            val yearEnd = endCalendar.get(Calendar.YEAR)
+            val monthEnd = endCalendar.get(Calendar.MONTH)
+            return if (monthStart < monthEnd && yearStart == yearEnd) {
+                true
+            } else if (monthStart > monthEnd && yearStart < yearEnd) {
+                true
+            } else {
+                false
+            }
+        }
+    }
+
     fun List<Route>.getTotalWorkTime(monthOfYear: MonthOfYear): Long {
         var totalTime = 0L
         this.forEach { route ->
@@ -251,7 +275,7 @@ object UtilsForEntities {
         var passengerTime = 0L
         this.forEach { route ->
             route.passengers.forEach { passenger ->
-                passengerTime = if (route.isTransition()) {
+                passengerTime = if (passenger.isTransition()) {
                     if (passenger.timeDeparture != null && passenger.timeArrival != null) {
                         passengerTime.plus(
                             monthOfYear.getTimeInCurrentMonth(

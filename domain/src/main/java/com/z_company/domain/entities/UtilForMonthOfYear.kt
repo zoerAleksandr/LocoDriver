@@ -82,6 +82,9 @@ object UtilForMonthOfYear {
                 it.set(Calendar.MILLISECOND, 0)
             }
             val endCurrentDayInMillis = endCurrentDay.timeInMillis
+            println("ttt startTime $startTime")
+            println("ttt endCurrentDayInMillis $endCurrentDayInMillis")
+            println("ttt result ${endCurrentDayInMillis - startTime}")
             return endCurrentDayInMillis - startTime
         } else {
             val startCurrentDay = Calendar.getInstance().also {

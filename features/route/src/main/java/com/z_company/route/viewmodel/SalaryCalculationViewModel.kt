@@ -88,8 +88,13 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                         val paymentHolidayHours =
                             routeList.getWorkingTimeOnAHoliday(currentMonthOfYear)
 
-                        val workTimeAtTariff =
+                        var workTimeAtTariff =
                             totalWorkTime - passengerTime - singleLocoTimeFollowing - paymentHolidayHours
+
+                        if (workTimeAtTariff < 0L){
+                            workTimeAtTariff = 0L
+                        }
+
                         val overTime =
                             if (totalWorkTime > personalNormaHoursInLong) totalWorkTime - personalNormaHoursInLong else 0L
                         val routeCount = routeList.size
