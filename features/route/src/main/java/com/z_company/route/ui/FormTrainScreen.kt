@@ -275,7 +275,7 @@ fun TrainFormScreenContent(
         )
     val hintStyle = AppTypography.getType().titleLarge
         .copy(
-            fontSize = 18.sp,
+            fontSize = 17.sp,
             fontWeight = FontWeight.Light
         )
 
@@ -468,7 +468,7 @@ fun TrainFormScreenContent(
                     },
                     suffix = {
                         if (!train.axle.isNullOrBlank()) {
-                            Text(text = "осей", style = hintStyle)
+                            Text(text = "о.", style = hintStyle)
                         }
                     },
                     keyboardOptions = KeyboardOptions(
