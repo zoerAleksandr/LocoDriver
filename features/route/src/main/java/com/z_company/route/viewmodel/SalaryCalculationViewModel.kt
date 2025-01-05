@@ -4,14 +4,16 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
+import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.SalarySetting
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.UtilForMonthOfYear.getStandardNormaHours
+import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getTimeInServicePhase
-import com.z_company.domain.entities.route.UtilsForEntities.getTotalWorkTime
+import com.z_company.domain.entities.route.UtilsForEntities.setWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.isHeavyLongDistanceTrain
@@ -46,7 +48,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
             settingsUseCase.getCurrentSettings().collect { result ->
                 if (result is ResultState.Success) {
                     userSettings = result.data
-                    getTotalWorkTime()
+                    setWorkTime()
                 }
             }
         }
@@ -62,7 +64,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    private fun getTotalWorkTime() {
+    private fun setWorkTime() {
         val currentTimeInMillis = Calendar.getInstance().timeInMillis
         userSettings?.let { settings ->
             viewModelScope.launch {
@@ -75,89 +77,41 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                             loadRouteState.data.filter { it.basicData.timeStartWork!! < currentTimeInMillis }
                         }
 
-                        val totalWorkTime = routeList.getTotalWorkTime(currentMonthOfYear)
-                        val passengerTime = routeList.getPassengerTime(currentMonthOfYear)
-                        var singleLocoTimeFollowing = 0L
-                        routeList.forEach { route ->
-                            route.trains.forEach { train ->
-                                singleLocoTimeFollowing += train.timeFollowingSingleLocomotive()
-                            }
-                        }
-                        val personalNormaHoursInLong =
-                            settings.selectMonthOfYear.getPersonalNormaHours() * 3_600_000
-                        val paymentHolidayHours =
-                            routeList.getWorkingTimeOnAHoliday(currentMonthOfYear)
+                        val totalWorkTime = getTotalWorkTime(routeList, currentMonthOfYear)
+                        val passengerTime = getPassengerTime(routeList, currentMonthOfYear)
+                        val singleLocoTime = getSingleLocomotiveTime(routeList)
+                        val personalNormaHoursInLong = getPersonalNormaInLong(settings)
+                        val paymentHolidayHours = getHolidayTime(routeList, currentMonthOfYear)
 
-                        val workTimeAtTariff =
-                            totalWorkTime - passengerTime - singleLocoTimeFollowing - paymentHolidayHours
-                        val overTime =
-                            if (totalWorkTime > personalNormaHoursInLong) totalWorkTime - personalNormaHoursInLong else 0L
-                        val routeCount = routeList.size
-                        val surchargeAtOvertime05Hour =
-                            if (routeCount != 0 && overTime / routeCount < 7_200_000) {
-                                overTime
-                            } else {
-                                routeCount.toLong() * 7_200_000L
-                            }
-                        val surchargeAtOvertimeHour =
-                            if (overTime > surchargeAtOvertime05Hour) overTime - surchargeAtOvertime05Hour else 0L
-                        val paymentNightTimeHours = routeList.getNightTime(settings)
+                        val workTimeAtTariff = getWorkTimeAtTariff(totalWorkTime, passengerTime, singleLocoTime, paymentHolidayHours)
+
+                        val overTime = getOvertime(totalWorkTime, personalNormaHoursInLong)
+                        val surchargeAtOvertime05Hour = getOvertime05Surcharge(routeList, overTime)
+                        val surchargeAtOvertimeHour = getOvertimeSurcharge(overTime, surchargeAtOvertime05Hour)
+
+                        val nightTimeHours = getNightTime(routeList, settings)
                         val normaHours = currentMonthOfYear.getStandardNormaHours()
 
                         // calculation surcharge Extended Service Phase
-                        salarySetting?.let { salarySetting ->
-                            val phaseList =
-                                salarySetting.surchargeExtendedServicePhaseList.sortedBy {
-                                    it.distance
-                                }
-                            val timeList: MutableList<Long> = mutableListOf()
-                            val percentList = phaseList.map {
-                                it.percentSurcharge
-                            }
-                            val moneyList: MutableList<Double> = mutableListOf()
-                            phaseList.forEachIndexed { index, _ ->
-                                var totalTimeInServicePhase = 0L
-                                routeList.forEach { route ->
-                                    totalTimeInServicePhase += route.getTimeInServicePhase(
-                                        phaseList.map { it.distance.toIntOrNull() ?: 0 },
-                                        index
-                                    )
-                                }
-                                timeList.add(totalTimeInServicePhase)
-                                moneyList.add(totalTimeInServicePhase.times(salarySetting.tariffRate * (percentList[index].toDoubleOrZero() / 100)))
-                            }
-                            _uiState.update {
-                                it.copy(
-                                    surchargeExtendedServicePhaseHour = timeList,
-                                    surchargeExtendedServicePhasePercent = percentList,
-                                    surchargeExtendedServicePhaseMoney = moneyList
-                                )
-                            }
-                        }
+                        setSurchargeExtendedServicePhase(routeList)
 
-                        // calculation surcharge Heavy Long Distance
-                        var totalTimeHeavyLongDistance = 0L
-                        routeList.forEach { route ->
-                            if (route.isHeavyLongDistanceTrain())
-                                totalTimeHeavyLongDistance += route.getWorkTime() ?: 0L
-                        }
-
+                        val totalTimeHeavyLongDistance = getHeavyLongDistanceTime(routeList)
 
                         _uiState.update {
                             it.copy(
                                 month = currentMonthOfYear.month.getMonthFullText(),
+                                normaHours = normaHours,
                                 totalWorkTime = totalWorkTime,
                                 paymentAtTariffHours = workTimeAtTariff,
                                 paymentAtPassengerHours = passengerTime,
-                                paymentAtSingleLocomotiveHours = singleLocoTimeFollowing,
+                                paymentAtSingleLocomotiveHours = singleLocoTime,
                                 paymentAtOvertimeHours = overTime,
                                 surchargeAtOvertime05Hours = surchargeAtOvertime05Hour,
                                 surchargeAtOvertimeHours = surchargeAtOvertimeHour,
                                 paymentHolidayHours = paymentHolidayHours,
                                 surchargeHolidayHours = paymentHolidayHours,
-                                paymentNightTimeHours = paymentNightTimeHours,
-                                normaHours = normaHours,
-                                surchargeHeavyLongDistanceTrainsHour = totalTimeHeavyLongDistance
+//                                paymentNightTimeHours = nightTimeHours,
+//                                surchargeHeavyLongDistanceTrainsHour = totalTimeHeavyLongDistance
                             )
                         }
                         calculationMoney()
@@ -166,6 +120,133 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
             }
         }
     }
+
+    private fun setSurchargeHeavyLongDistanceData(routeList: List<Route>, salarySetting: SalarySetting){
+        val totalTimeHeavyLongDistance = getHeavyLongDistanceTime(routeList)
+        val surchargeHeavyLongDistanceTrainsPercent = salarySetting.surchargeHeavyLongDistanceTrains
+        val surchargeHeavyLongDistanceTrainsMoney =
+            totalTimeHeavyLongDistance.times(salarySetting.tariffRate * (surchargeHeavyLongDistanceTrainsPercent / 100))
+
+        _uiState.update {
+            it.copy(
+                surchargeHeavyLongDistanceTrainsHour = totalTimeHeavyLongDistance,
+                surchargeHeavyLongDistanceTrainsPercent = surchargeHeavyLongDistanceTrainsPercent,
+                surchargeHeavyLongDistanceTrainsMoney = surchargeHeavyLongDistanceTrainsMoney,
+            )
+        }
+    }
+
+    private fun setNightTimeData(routeList: List<Route>, userSettings: UserSettings, salarySetting: SalarySetting){
+        val nightTimeHours = getNightTime(routeList, userSettings)
+        val paymentNightTimePercent = 40.0
+        val paymentNightTimeMoney =
+            nightTimeHours.times(salarySetting.tariffRate * (paymentNightTimePercent / 100))
+
+        _uiState.update {
+            it.copy(
+                paymentNightTimeHours = nightTimeHours,
+                paymentNightTimePercent = paymentNightTimePercent,
+                paymentNightTimeMoney = paymentNightTimeMoney,
+            )
+        }
+    }
+
+    private fun setSurchargeExtendedServicePhase(routeList: List<Route>) {
+        salarySetting?.let { salarySetting ->
+            val phaseList =
+                salarySetting.surchargeExtendedServicePhaseList.sortedBy {
+                    it.distance
+                }
+            val timeList: MutableList<Long> = mutableListOf()
+            val percentList = phaseList.map {
+                it.percentSurcharge
+            }
+            val moneyList: MutableList<Double> = mutableListOf()
+            phaseList.forEachIndexed { index, _ ->
+                var totalTimeInServicePhase = 0L
+                routeList.forEach { route ->
+                    totalTimeInServicePhase += route.getTimeInServicePhase(
+                        phaseList.map { it.distance.toIntOrNull() ?: 0 },
+                        index
+                    )
+                }
+                timeList.add(totalTimeInServicePhase)
+                moneyList.add(totalTimeInServicePhase.times(salarySetting.tariffRate * (percentList[index].toDoubleOrZero() / 100)))
+            }
+            _uiState.update {
+                it.copy(
+                    surchargeExtendedServicePhaseHour = timeList,
+                    surchargeExtendedServicePhasePercent = percentList,
+                    surchargeExtendedServicePhaseMoney = moneyList
+                )
+            }
+        }
+    }
+
+    private fun getHeavyLongDistanceTime(
+        routeList: List<Route>,
+    ): Long {
+        var totalTimeHeavyLongDistance = 0L
+        routeList.forEach { route ->
+            if (route.isHeavyLongDistanceTrain())
+                totalTimeHeavyLongDistance += route.getWorkTime() ?: 0L
+        }
+        return totalTimeHeavyLongDistance
+    }
+
+    private fun getNightTime(
+        routeList: List<Route>,
+        settings: UserSettings
+    ) = routeList.getNightTime(settings)
+
+    private fun getWorkTimeAtTariff(
+        totalWorkTime: Long,
+        passengerTime: Long,
+        singleLocoTime: Long,
+        paymentHolidayHours: Long
+    ) = totalWorkTime - passengerTime - singleLocoTime - paymentHolidayHours
+
+    private fun getOvertimeSurcharge(overTime: Long, surchargeAtOvertime05Hour: Long) =
+        if (overTime > surchargeAtOvertime05Hour) overTime - surchargeAtOvertime05Hour else 0L
+
+    private fun getOvertime05Surcharge(routeList: List<Route>, overTime: Long): Long {
+        val routeCount = routeList.size
+        return if (routeCount != 0 && overTime / routeCount < 7_200_000) {
+            overTime
+        } else {
+            routeCount.toLong() * 7_200_000L
+        }
+    }
+    private fun getOvertime(totalWorkTime: Long, personalNormaHoursInLong: Int) =
+        if (totalWorkTime > personalNormaHoursInLong) totalWorkTime - personalNormaHoursInLong else 0L
+
+    private fun getHolidayTime(
+        routeList: List<Route>,
+        currentMonthOfYear: MonthOfYear
+    ) = routeList.getWorkingTimeOnAHoliday(currentMonthOfYear)
+
+    private fun getPersonalNormaInLong(settings: UserSettings) =
+        settings.selectMonthOfYear.getPersonalNormaHours() * 3_600_000
+
+    private fun getSingleLocomotiveTime(routeList: List<Route>): Long {
+        var singleLocoTimeFollowing = 0L
+        routeList.forEach { route ->
+            route.trains.forEach { train ->
+                singleLocoTimeFollowing += train.timeFollowingSingleLocomotive()
+            }
+        }
+        return singleLocoTimeFollowing
+    }
+
+    private fun getPassengerTime(
+        routeList: List<Route>,
+        currentMonthOfYear: MonthOfYear
+    ) = routeList.getPassengerTime(currentMonthOfYear)
+
+    private fun getTotalWorkTime(
+        routeList: List<Route>,
+        currentMonthOfYear: MonthOfYear
+    ) = routeList.setWorkTime(currentMonthOfYear)
 
     private fun calculationMoney() {
         salarySetting?.let { setting ->
@@ -192,17 +273,17 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
             val zonalSurchargePercent = setting.zonalSurcharge
             val zonalSurchargeMoney =
                 (totalWorkTime - paymentAtPassengerHours)?.times(setting.tariffRate * (zonalSurchargePercent / 100))
-            val paymentNightTimePercent = 40.0
-            val paymentNightTimeMoney =
-                paymentNightTimeHours?.times(setting.tariffRate * (paymentNightTimePercent / 100))
+//            val paymentNightTimePercent = 40.0
+//            val paymentNightTimeMoney =
+//                paymentNightTimeHours?.times(setting.tariffRate * (paymentNightTimePercent / 100))
             val surchargeQualificationClassPercent = setting.surchargeQualificationClass
             val surchargeQualificationClassMoney =
                 (totalWorkTime - paymentAtPassengerHours)?.times(setting.tariffRate * (surchargeQualificationClassPercent / 100))
             val surchargeHeavyLongDistanceTrainsHour =
                 uiState.value.surchargeHeavyLongDistanceTrainsHour
-            val surchargeHeavyLongDistanceTrainsPercent = setting.surchargeHeavyLongDistanceTrains
-            val surchargeHeavyLongDistanceTrainsMoney =
-                surchargeHeavyLongDistanceTrainsHour?.times(setting.tariffRate * (surchargeHeavyLongDistanceTrainsPercent / 100))
+//            val surchargeHeavyLongDistanceTrainsPercent = setting.surchargeHeavyLongDistanceTrains
+//            val surchargeHeavyLongDistanceTrainsMoney =
+//                surchargeHeavyLongDistanceTrainsHour?.times(setting.tariffRate * (surchargeHeavyLongDistanceTrainsPercent / 100))
             val surchargeExtendedServicePhase =
                 uiState.value.surchargeExtendedServicePhaseMoney.sum()
             val totalChargedMoney =
@@ -233,12 +314,12 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                     surchargeHolidayMoney = surchargeHolidayMoney,
                     zonalSurchargePercent = zonalSurchargePercent,
                     zonalSurchargeMoney = zonalSurchargeMoney,
-                    paymentNightTimePercent = paymentNightTimePercent,
-                    paymentNightTimeMoney = paymentNightTimeMoney,
+//                    paymentNightTimePercent = paymentNightTimePercent,
+//                    paymentNightTimeMoney = paymentNightTimeMoney,
                     surchargeQualificationClassPercent = surchargeQualificationClassPercent,
                     surchargeQualificationClassMoney = surchargeQualificationClassMoney,
-                    surchargeHeavyLongDistanceTrainsPercent = surchargeHeavyLongDistanceTrainsPercent,
-                    surchargeHeavyLongDistanceTrainsMoney = surchargeHeavyLongDistanceTrainsMoney,
+//                    surchargeHeavyLongDistanceTrainsPercent = surchargeHeavyLongDistanceTrainsPercent,
+//                    surchargeHeavyLongDistanceTrainsMoney = surchargeHeavyLongDistanceTrainsMoney,
                     totalChargedMoney = totalChargedMoney,
                     retentionNdfl = retentionNdfl,
                     otherRetention = otherRetention,

@@ -193,7 +193,7 @@ object UtilsForEntities {
         }
     }
 
-    fun List<Route>.getTotalWorkTime(monthOfYear: MonthOfYear): Long {
+    fun List<Route>.setWorkTime(monthOfYear: MonthOfYear): Long {
         var totalTime = 0L
         this.forEach { route ->
             if (route.isTransition()) {
@@ -317,7 +317,7 @@ object UtilsForEntities {
     }
 
     fun List<Route>.getWorkTimeWithHoliday(monthOfYear: MonthOfYear): Long {
-        val totalWorkTime = this.getTotalWorkTime(monthOfYear)
+        val totalWorkTime = this.setWorkTime(monthOfYear)
         val holidayWorkTime = this.getWorkingTimeOnAHoliday(monthOfYear)
         return totalWorkTime - holidayWorkTime
     }
