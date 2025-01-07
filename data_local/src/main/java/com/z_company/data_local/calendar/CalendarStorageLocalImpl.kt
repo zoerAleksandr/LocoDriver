@@ -434,14 +434,14 @@ class CalendarStorageLocalImpl : CalendarStorage {
 
         MonthOfYear(
             year = 2025, month = 0, days = listOf(
-                Day(1, NON_WORKING_DAY),
-                Day(2, NON_WORKING_DAY),
-                Day(3, NON_WORKING_DAY),
-                Day(4, NON_WORKING_DAY),
-                Day(5, NON_WORKING_DAY),
-                Day(6, NON_WORKING_DAY),
-                Day(7, NON_WORKING_DAY),
-                Day(8, NON_WORKING_DAY),
+                Day(1, HOLIDAY),
+                Day(2, HOLIDAY),
+                Day(3, HOLIDAY),
+                Day(4, HOLIDAY),
+                Day(5, HOLIDAY),
+                Day(6, HOLIDAY),
+                Day(7, HOLIDAY),
+                Day(8, HOLIDAY),
                 Day(9, WORKING_DAY),
                 Day(10, WORKING_DAY),
                 Day(11, NON_WORKING_DAY),
