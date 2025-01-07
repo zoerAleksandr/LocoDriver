@@ -38,7 +38,7 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                     nordicCoefficient = ResultState.Success(value?.nordicCoefficient.str()),
                     zonalSurcharge = ResultState.Success(value?.zonalSurcharge.str()),
                     surchargeQualificationClass = ResultState.Success(value?.surchargeQualificationClass.str()),
-                    surchargeHeavyLongDistanceTrains = ResultState.Success(value?.surchargeHeavyLongDistanceTrains.str()),
+//                    surchargeHeavyLongDistanceTrains = ResultState.Success(value?.surchargeHeavyLongDistanceTrains.str()),
                     otherSurchargeState = ResultState.Success(value?.otherSurcharge.str()),
                     ndfl = ResultState.Success(value?.ndfl.str()),
                     unionistsRetentionState = ResultState.Success(value?.unionistsRetention.str()),
@@ -224,17 +224,17 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun setSurchargeHeavyLongDistanceTrains(value: String) {
-        currentSalarySetting = currentSalarySetting?.copy(
-            surchargeHeavyLongDistanceTrains = value.toDoubleOrZero()
-        )
-        _uiState.update {
-            it.copy(
-                surchargeHeavyLongDistanceTrains = ResultState.Success(value),
-                isErrorInputSurchargeHeavyLongDistanceTrains = isErrorInputDouble(value)
-            )
-        }
-    }
+//    fun setSurchargeHeavyLongDistanceTrains(value: String) {
+//        currentSalarySetting = currentSalarySetting?.copy(
+//            surchargeHeavyLongDistanceTrains = value.toDoubleOrZero()
+//        )
+//        _uiState.update {
+//            it.copy(
+//                surchargeHeavyLongDistanceTrains = ResultState.Success(value),
+//                isErrorInputSurchargeHeavyLongDistanceTrains = isErrorInputDouble(value)
+//            )
+//        }
+//    }
 
     fun setNDFL(value: String) {
         currentSalarySetting = currentSalarySetting?.copy(

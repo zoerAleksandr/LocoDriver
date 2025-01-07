@@ -703,46 +703,46 @@ fun SalaryCalculationScreen(
                     }
                 }
             }
-            item {
-                uiState.surchargeHeavyLongDistanceTrainsMoney?.let { value ->
-                    if (value != 0.0) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = verticalPaddingSmall)
-                        ) {
-                            Text(
-                                modifier = Modifier.weight(widthColumn1),
-                                overflow = TextOverflow.Visible,
-                                style = styleDataLight,
-                                text = "ДоплРабЛокомБрТяжДлинПоез"
-                            )
-                            Text(
-                                modifier = Modifier.weight(widthColumn2),
-                                overflow = TextOverflow.Visible,
-                                style = styleDataLight,
-                                textAlign = TextAlign.Center,
-                                text = ConverterLongToTime.getTimeInHourDecimal(uiState.surchargeHeavyLongDistanceTrainsHour)
-                            )
-                            Text(
-                                modifier = Modifier.weight(widthColumn3),
-                                overflow = TextOverflow.Visible,
-                                style = styleDataLight,
-                                textAlign = TextAlign.Center,
-                                text = uiState.surchargeHeavyLongDistanceTrainsPercent.str()
-                            )
-                            Text(
-                                modifier = Modifier.weight(widthColumn4),
-                                overflow = TextOverflow.Visible,
-                                style = styleDataLight,
-                                textAlign = TextAlign.End,
-                                text = uiState.surchargeHeavyLongDistanceTrainsMoney.str2decimalSign()
-                            )
-
-                        }
-                    }
-                }
-            }
+//            item {
+//                uiState.surchargeHeavyLongDistanceTrainsMoney?.let { value ->
+//                    if (value != 0.0) {
+//                        Row(
+//                            modifier = Modifier
+//                                .fillMaxWidth()
+//                                .padding(top = verticalPaddingSmall)
+//                        ) {
+//                            Text(
+//                                modifier = Modifier.weight(widthColumn1),
+//                                overflow = TextOverflow.Visible,
+//                                style = styleDataLight,
+//                                text = "ДоплРабЛокомБрТяжДлинПоез"
+//                            )
+//                            Text(
+//                                modifier = Modifier.weight(widthColumn2),
+//                                overflow = TextOverflow.Visible,
+//                                style = styleDataLight,
+//                                textAlign = TextAlign.Center,
+//                                text = ConverterLongToTime.getTimeInHourDecimal(uiState.surchargeHeavyLongDistanceTrainsHour)
+//                            )
+//                            Text(
+//                                modifier = Modifier.weight(widthColumn3),
+//                                overflow = TextOverflow.Visible,
+//                                style = styleDataLight,
+//                                textAlign = TextAlign.Center,
+//                                text = uiState.surchargeHeavyLongDistanceTrainsPercent.str()
+//                            )
+//                            Text(
+//                                modifier = Modifier.weight(widthColumn4),
+//                                overflow = TextOverflow.Visible,
+//                                style = styleDataLight,
+//                                textAlign = TextAlign.End,
+//                                text = uiState.surchargeHeavyLongDistanceTrainsMoney.str2decimalSign()
+//                            )
+//
+//                        }
+//                    }
+//                }
+//            }
             itemsIndexed(
                 items = uiState.surchargeExtendedServicePhaseMoney,
             ) { index, item ->

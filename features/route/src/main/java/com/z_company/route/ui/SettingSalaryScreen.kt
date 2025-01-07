@@ -81,8 +81,8 @@ fun SettingSalaryScreen(
     addServicePhase: () -> Unit,
     setSurchargeExtendedServicePhaseDistance: (Int, String) -> Unit,
     setSurchargeExtendedServicePhasePercent: (Int, String) -> Unit,
-    surchargeHeavyLongDistanceTrainsValueState: ResultState<String>,
-    setSurchargeHeavyLongDistanceTrains: (String) -> Unit,
+//    surchargeHeavyLongDistanceTrainsValueState: ResultState<String>,
+//    setSurchargeHeavyLongDistanceTrains: (String) -> Unit,
     isErrorInputSurchargeHeavyLongDistanceTrains: Boolean,
     ndflValueState: ResultState<String>,
     setNDFL: (String) -> Unit,
@@ -349,47 +349,47 @@ fun SettingSalaryScreen(
                     }
                 }
             }
-            item {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(top = paddingLarge),
-                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
-                ) {
-                    Text(
-                        "Доплата за тяжелые и длинные поезда, %",
-                        overflow = TextOverflow.Visible,
-                        style = styleDataMedium
-                    )
-                    AsyncDataValue(resultState = surchargeHeavyLongDistanceTrainsValueState) { surchargeHeavyLongDistanceTrainsValue ->
-                        surchargeHeavyLongDistanceTrainsValue?.let {
-                            OutlinedTextField(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                value = surchargeHeavyLongDistanceTrainsValue,
-                                onValueChange = { value ->
-                                    setSurchargeHeavyLongDistanceTrains(value)
-                                },
-                                isError = isErrorInputSurchargeHeavyLongDistanceTrains,
-                                supportingText = {
-                                    if (isErrorInputSurchargeHeavyLongDistanceTrains) {
-                                        Text(text = "Некорректные данные")
-                                    }
-                                },
-                                singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent
-                                ),
-                                shape = Shapes.medium,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Decimal
-                                )
-                            )
-                        }
-                    }
-                }
-            }
+//            item {
+//                Column(
+//                    modifier = Modifier.fillMaxWidth().padding(top = paddingLarge),
+//                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
+//                ) {
+//                    Text(
+//                        "Доплата за тяжелые и длинные поезда, %",
+//                        overflow = TextOverflow.Visible,
+//                        style = styleDataMedium
+//                    )
+//                    AsyncDataValue(resultState = surchargeHeavyLongDistanceTrainsValueState) { surchargeHeavyLongDistanceTrainsValue ->
+//                        surchargeHeavyLongDistanceTrainsValue?.let {
+//                            OutlinedTextField(
+//                                modifier = Modifier
+//                                    .fillMaxWidth(),
+//                                value = surchargeHeavyLongDistanceTrainsValue,
+//                                onValueChange = { value ->
+//                                    setSurchargeHeavyLongDistanceTrains(value)
+//                                },
+//                                isError = isErrorInputSurchargeHeavyLongDistanceTrains,
+//                                supportingText = {
+//                                    if (isErrorInputSurchargeHeavyLongDistanceTrains) {
+//                                        Text(text = "Некорректные данные")
+//                                    }
+//                                },
+//                                singleLine = true,
+//                                colors = OutlinedTextFieldDefaults.colors(
+//                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+//                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+//                                    focusedBorderColor = Color.Transparent,
+//                                    unfocusedBorderColor = Color.Transparent
+//                                ),
+//                                shape = Shapes.medium,
+//                                keyboardOptions = KeyboardOptions(
+//                                    keyboardType = KeyboardType.Decimal
+//                                )
+//                            )
+//                        }
+//                    }
+//                }
+//            }
 
             item {
                 Column(

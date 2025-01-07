@@ -24,7 +24,7 @@ data class SettingSalaryUIState(
     val isErrorInputSurchargeQualificationClass: Boolean = false,
     val surchargeExtendedServicePhaseList: SnapshotStateList<SurchargeExtendedServicePhase> = mutableStateListOf(SurchargeExtendedServicePhase()),
     val isErrorInputSurchargeExtendedServicePhase: Boolean = false,
-    val surchargeHeavyLongDistanceTrains: ResultState<String> = ResultState.Loading,
+//    val surchargeHeavyLongDistanceTrains: ResultState<String> = ResultState.Loading,
     val isErrorInputSurchargeHeavyLongDistanceTrains: Boolean = false,
     val otherSurchargeState: ResultState<String> = ResultState.Loading,
     val isErrorInputOtherSurcharge: Boolean = false,
