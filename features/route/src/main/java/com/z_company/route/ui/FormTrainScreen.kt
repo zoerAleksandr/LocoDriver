@@ -35,7 +35,6 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -84,7 +83,6 @@ fun FormTrainScreen(
     onBackPressed: () -> Unit,
     onSaveClick: () -> Unit,
     onTrainSaved: () -> Unit,
-    onClearAllField: () -> Unit,
     resetSaveState: () -> Unit,
     resetErrorMessage: () -> Unit,
     onNumberChanged: (String) -> Unit,
@@ -101,7 +99,6 @@ fun FormTrainScreen(
     exitScreen: () -> Unit,
     changeShowConfirmExitDialog: (Boolean) -> Unit,
     exitWithoutSave: () -> Unit,
-    onClickHeavyLongDistance: (Boolean) -> Unit,
     menuList: List<String>,
     isExpandedMenu: Pair<Int, Boolean>?,
     onExpandedMenuChange: (Int, Boolean) -> Unit,
@@ -221,7 +218,6 @@ fun FormTrainScreen(
                             onSaveClick = onSaveClick,
                             exitWithoutSave = exitWithoutSave,
                             showConfirmExitDialog = formUiState.confirmExitDialogShow,
-                            onClickHeavyLongDistance = onClickHeavyLongDistance,
                             menuList = menuList,
                             isExpandedMenu = isExpandedMenu,
                             onChangedContentMenu = onChangedContentMenu,
@@ -253,7 +249,6 @@ fun TrainFormScreenContent(
     changeShowConfirmExitDialog: (Boolean) -> Unit,
     exitWithoutSave: () -> Unit,
     onSaveClick: () -> Unit,
-    onClickHeavyLongDistance: (Boolean) -> Unit,
     menuList: List<String>,
     isExpandedMenu: Pair<Int, Boolean>?,
     onExpandedMenuChange: (Int, Boolean) -> Unit,
@@ -528,30 +523,6 @@ fun TrainFormScreenContent(
                         unfocusedBorderColor = Color.Transparent
                     ),
                     shape = Shapes.medium,
-                )
-            }
-        }
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Switch(
-                    checked = train.isHeavyLongDistance,
-                    onCheckedChange = onClickHeavyLongDistance
-                )
-                Text(
-                    text = "Длинносоставный тяжеловесный",
-                    style = hintStyle.copy(
-                        color = if (train.isHeavyLongDistance){
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-                        }
-                    ),
                 )
             }
         }

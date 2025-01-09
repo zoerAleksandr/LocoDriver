@@ -11,6 +11,6 @@ fun String.toDoubleOrZero(): Double {
     return this.toDoubleOrNull() ?: 0.0
 }
 
-fun String.toIntOrZero(): Int {
-    return this.toIntOrNull() ?: 0
+fun String?.toIntOrZero(): Int {
+    return this?.toIntOrNull() ?: 0
 }

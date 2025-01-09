@@ -471,6 +471,94 @@ fun SettingSalaryScreen(
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
                     Text(
+                        "Северная надбавка, %",
+                        overflow = TextOverflow.Visible,
+                        style = styleDataMedium
+                    )
+                    AsyncDataValue(resultState = uiState.nordicCoefficient) { nordicCoefficient ->
+                        nordicCoefficient?.let {
+                            OutlinedTextField(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                value = nordicCoefficient,
+                                onValueChange = { value ->
+                                    setNordicCoefficient(value)
+                                },
+                                isError = uiState.isErrorInputNordicCoefficient,
+                                supportingText = {
+                                    if (uiState.isErrorInputNordicCoefficient) {
+                                        Text(text = "Некорректные данные")
+                                    }
+                                },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent
+                                ),
+                                shape = Shapes.medium,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Decimal
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = paddingLarge),
+                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
+                ) {
+                    Text(
+                        "Районный коэффициент",
+                        overflow = TextOverflow.Visible,
+                        style = styleDataMedium
+                    )
+                    AsyncDataValue(resultState = uiState.districtCoefficient) { districtCoefficient ->
+                        districtCoefficient?.let {
+                            OutlinedTextField(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                value = districtCoefficient,
+                                onValueChange = { value ->
+                                    setDistrictCoefficient(value)
+                                },
+                                isError = uiState.isErrorInputDistrictCoefficient,
+                                supportingText = {
+                                    if (uiState.isErrorInputDistrictCoefficient) {
+                                        Text(text = "Некорректные данные")
+                                    }
+                                },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent
+                                ),
+                                shape = Shapes.medium,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Decimal
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = paddingLarge),
+                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
+                ) {
+                    Text(
                         "Доплата за длинносоставные поезда",
                         overflow = TextOverflow.Visible,
                         style = styleDataMedium
@@ -673,94 +761,6 @@ fun SettingSalaryScreen(
                                 keyboardType = KeyboardType.Decimal
                             )
                         )
-                    }
-                }
-            }
-
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = paddingLarge),
-                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
-                ) {
-                    Text(
-                        "Северная надбавка, %",
-                        overflow = TextOverflow.Visible,
-                        style = styleDataMedium
-                    )
-                    AsyncDataValue(resultState = uiState.nordicCoefficient) { nordicCoefficient ->
-                        nordicCoefficient?.let {
-                            OutlinedTextField(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                value = nordicCoefficient,
-                                onValueChange = { value ->
-                                    setNordicCoefficient(value)
-                                },
-                                isError = uiState.isErrorInputNordicCoefficient,
-                                supportingText = {
-                                    if (uiState.isErrorInputNordicCoefficient) {
-                                        Text(text = "Некорректные данные")
-                                    }
-                                },
-                                singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent
-                                ),
-                                shape = Shapes.medium,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Decimal
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = paddingLarge),
-                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
-                ) {
-                    Text(
-                        "Районный коэффициент",
-                        overflow = TextOverflow.Visible,
-                        style = styleDataMedium
-                    )
-                    AsyncDataValue(resultState = uiState.districtCoefficient) { districtCoefficient ->
-                        districtCoefficient?.let {
-                            OutlinedTextField(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                value = districtCoefficient,
-                                onValueChange = { value ->
-                                    setDistrictCoefficient(value)
-                                },
-                                isError = uiState.isErrorInputDistrictCoefficient,
-                                supportingText = {
-                                    if (uiState.isErrorInputDistrictCoefficient) {
-                                        Text(text = "Некорректные данные")
-                                    }
-                                },
-                                singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent
-                                ),
-                                shape = Shapes.medium,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Decimal
-                                )
-                            )
-                        }
                     }
                 }
             }

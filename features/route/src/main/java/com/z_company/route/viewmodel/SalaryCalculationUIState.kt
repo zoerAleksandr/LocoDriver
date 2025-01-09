@@ -41,7 +41,7 @@ data class SalaryCalculationUIState(
     val paymentNightTimeMoney: Double? = null,
     val nordicSurchargePercent: Double? = null,
     val nordicSurchargeMoney: Double? = null,
-    val districtSurchargePercent: Double? = null,
+    val districtSurchargeCoefficient: Double? = null,
     val districtSurchargeMoney: Double? = null,
     val onePersonOperationPercent: Double? = null,
     val onePersonOperationMoney: Double? = null,
@@ -49,7 +49,8 @@ data class SalaryCalculationUIState(
     val restInExcessOfTheNormMoney: Double? = null,
     val harmfulnessSurchargePercent: Double? = null,
     val harmfulnessSurchargeMoney: Double? = null,
-
+    val averagePaymentHours: Int? = null,
+    val averagePaymentMoney: Double? = null,
     val totalChargedMoney: Double? = null,
     val retentionNdfl: Double? = null,
     val unionistsRetention: Double? = null,

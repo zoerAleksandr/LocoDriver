@@ -37,7 +37,7 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                     tariffRate = ResultState.Success(value?.tariffRate.str()),
                     averagePaymentHour = ResultState.Success(value?.averagePaymentHour.str()),
                     districtCoefficient = ResultState.Success(value?.districtCoefficient.str()),
-                    nordicCoefficient = ResultState.Success(value?.nordicCoefficient.str()),
+                    nordicCoefficient = ResultState.Success(value?.nordicPercent.str()),
                     onePersonOperationPercent = ResultState.Success(value?.onePersonOperationPercent.str()),
                     harmfulnessPercent = ResultState.Success(value?.harmfulnessPercent.str()),
                     longDistanceTrainPercent = ResultState.Success(value?.surchargeLongDistanceTrain.str()),
@@ -180,7 +180,7 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
 
     fun setNordicCoefficient(value: String) {
         currentSalarySetting = currentSalarySetting?.copy(
-            nordicCoefficient = value.toDoubleOrZero()
+            nordicPercent = value.toDoubleOrZero()
         )
         _uiState.update {
             it.copy(

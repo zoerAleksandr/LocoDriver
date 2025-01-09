@@ -8,7 +8,7 @@ data class SalarySetting(
     val tariffRate: Double = 0.0,
     val averagePaymentHour: Double = 0.0,
     val districtCoefficient : Double = 0.0,
-    val nordicCoefficient: Double = 0.0,
+    val nordicPercent: Double = 0.0,
     val onePersonOperationPercent: Double = 0.0,
     val harmfulnessPercent: Double = 0.0,
     val surchargeLongDistanceTrain: Double = 0.0,

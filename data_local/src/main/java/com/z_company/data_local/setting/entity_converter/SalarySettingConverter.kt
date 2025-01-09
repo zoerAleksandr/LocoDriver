@@ -9,7 +9,7 @@ internal object SalarySettingConverter {
         tariffRate = salarySetting.tariffRate,
         averagePaymentHour = salarySetting.averagePaymentHour,
         districtCoefficient = salarySetting.districtCoefficient,
-        nordicCoefficient = salarySetting.nordicCoefficient,
+        nordicCoefficient = salarySetting.nordicPercent,
         zonalSurcharge = salarySetting.zonalSurcharge,
         surchargeQualificationClass = salarySetting.surchargeQualificationClass,
         surchargeExtendedServicePhaseList = SurchargeExtendedServicePhaseConverter.fromDataList(
@@ -31,7 +31,7 @@ internal object SalarySettingConverter {
         tariffRate = entity.tariffRate,
         averagePaymentHour = entity.averagePaymentHour,
         districtCoefficient = entity.districtCoefficient,
-        nordicCoefficient = entity.nordicCoefficient,
+        nordicPercent = entity.nordicCoefficient,
         zonalSurcharge = entity.zonalSurcharge,
         surchargeQualificationClass = entity.surchargeQualificationClass,
         harmfulnessPercent = entity.harmfulnessPercent,

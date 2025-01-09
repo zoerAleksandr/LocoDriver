@@ -899,6 +899,115 @@ fun SalaryCalculationScreen(
                     }
                 }
             }
+
+            item {
+                uiState.districtSurchargeMoney?.let { value ->
+                    if (value != 0.0) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = verticalPaddingSmall)
+                        ) {
+                            Text(
+                                modifier = Modifier.weight(widthColumn1),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                text = "РайонНадб"
+                            )
+                            Box(
+                                modifier = Modifier.weight(widthColumn2),
+                            )
+                            Text(
+                                modifier = Modifier.weight(widthColumn3),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                textAlign = TextAlign.Center,
+                                text = uiState.districtSurchargeCoefficient.str()
+                            )
+                            Text(
+                                modifier = Modifier.weight(widthColumn4),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                textAlign = TextAlign.End,
+                                text = uiState.districtSurchargeMoney.str2decimalSign()
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                uiState.nordicSurchargeMoney?.let { value ->
+                    if (value != 0.0) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = verticalPaddingSmall)
+                        ) {
+                            Text(
+                                modifier = Modifier.weight(widthColumn1),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                text = "СевернНадб"
+                            )
+                            Box(
+                                modifier = Modifier.weight(widthColumn2),
+                            )
+                            Text(
+                                modifier = Modifier.weight(widthColumn3),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                textAlign = TextAlign.Center,
+                                text = uiState.nordicSurchargePercent.str()
+                            )
+                            Text(
+                                modifier = Modifier.weight(widthColumn4),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                textAlign = TextAlign.End,
+                                text = uiState.nordicSurchargeMoney.str2decimalSign()
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                uiState.averagePaymentMoney?.let { value ->
+                    if (value != 0.0) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = verticalPaddingSmall)
+                        ) {
+                            Text(
+                                modifier = Modifier.weight(widthColumn1),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                text = "ОплПоСреднему"
+                            )
+                            Text(
+                                modifier = Modifier.weight(widthColumn2),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                textAlign = TextAlign.Center,
+                                text = String.format("%.2f", uiState.averagePaymentHours?.toDouble() ?: 0.0)
+                            )
+                            Box(
+                                modifier = Modifier.weight(widthColumn3),
+                            )
+                            Text(
+                                modifier = Modifier.weight(widthColumn4),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                textAlign = TextAlign.End,
+                                text = String.format("%.2f", uiState.averagePaymentMoney)
+                            )
+                        }
+                    }
+                }
+            }
+
             item {
                 Row(
                     modifier = Modifier
