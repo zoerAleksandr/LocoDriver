@@ -9,6 +9,7 @@ import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.UtilForMonthOfYear.getTodayNormaHours
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
+import com.z_company.domain.entities.route.UtilsForEntities.getOnePersonOperationTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.setWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeWithHoliday
@@ -107,6 +108,7 @@ class MoreInfoViewModel(private val monthOfYearId: String) : ViewModel(), KoinCo
                                     val timeBalance =
                                         workTimeWithHoliday - monthOfYear.getPersonalNormaHours()
                                             .times(3_600_000)
+                                    val onePersonTime = routeList.getOnePersonOperationTime(monthOfYear)
                                     withContext(Dispatchers.Main) {
                                         _uiState.update {
                                             it.copy(
@@ -125,7 +127,8 @@ class MoreInfoViewModel(private val monthOfYearId: String) : ViewModel(), KoinCo
                                                 ),
                                                 timeBalanceState = ResultState.Success(
                                                     timeBalance
-                                                )
+                                                ),
+                                                onePersonTimeState = ResultState.Success(onePersonTime)
                                             )
                                         }
                                     }

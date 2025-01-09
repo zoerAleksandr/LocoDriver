@@ -31,6 +31,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -40,6 +41,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -108,6 +110,7 @@ fun FormScreen(
     onBack: () -> Unit,
     resetSaveState: () -> Unit,
     onNumberChanged: (String) -> Unit,
+    checkedOnePersonOperation: (Boolean) -> Unit,
     onNotesChanged: (String) -> Unit,
     onTimeStartWorkChanged: (Long?) -> Unit,
     onTimeEndWorkChanged: (Long?) -> Unit,
@@ -210,6 +213,7 @@ fun FormScreen(
                             route = route,
                             isCopy = isCopy,
                             onNumberChanged = onNumberChanged,
+                            checkedOnePersonOperation = checkedOnePersonOperation,
                             onNotesChanged = onNotesChanged,
                             errorMessage = formUiState.errorMessage,
                             onTimeStartWorkChanged = onTimeStartWorkChanged,
@@ -248,6 +252,7 @@ private fun RouteFormScreenContent(
     route: Route,
     isCopy: Boolean,
     onNumberChanged: (String) -> Unit,
+    checkedOnePersonOperation: (Boolean) -> Unit,
     onNotesChanged: (String) -> Unit,
     errorMessage: String?,
     onTimeStartWorkChanged: (Long?) -> Unit,
@@ -620,7 +625,7 @@ private fun RouteFormScreenContent(
                 ),
                 shape = Shapes.medium,
                 keyboardOptions = KeyboardOptions.Default.copy(
-                   keyboardType = KeyboardType.Number
+                    keyboardType = KeyboardType.Number
                 )
             )
         }
@@ -691,10 +696,34 @@ private fun RouteFormScreenContent(
         }
 
         item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = Shapes.medium
+                    )
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Работа в одно лицо",
+                    style = dataTextStyle,
+                )
+                Switch(
+                    checked = route.basicData.isOnePersonOperation,
+                    onCheckedChange = checkedOnePersonOperation
+                )
+            }
+        }
+
+        item {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 32.dp, top = 16.dp),
+                    .padding(bottom = 32.dp),
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {

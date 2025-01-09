@@ -33,6 +33,7 @@ fun FormDestination(
         onSaveClick = viewModel::saveRoute,
         onBack = viewModel::checkBeforeExitTheScreen,
         onNumberChanged = viewModel::setNumber,
+        checkedOnePersonOperation = viewModel::setOnePersonOperation,
         onNotesChanged = viewModel::setNotes,
         onSettingClick = router::showSettings,
         resetSaveState = viewModel::resetSaveState,

@@ -54,6 +54,7 @@ fun MoreInfoScreen(
     totalWorkTimeState: ResultState<Long?>,
     nightTimeState: ResultState<Long?>,
     passengerTimeState: ResultState<Long?>,
+    onePersonTimeState: ResultState<Long?>,
     holidayWorkTimeState: ResultState<Long?>,
     workTimeWithHoliday: ResultState<Long?>,
     todayNormaHours: ResultState<Int?>,
@@ -419,6 +420,37 @@ fun MoreInfoScreen(
                         passengerTime?.let {
                             Text(
                                 text = ConverterLongToTime.getTimeInStringFormat(passengerTime),
+                                style = styleDataLight
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "   в одно лицо",
+                        style = styleDataLight,
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 1
+                    )
+                    AsyncData(
+                        resultState = onePersonTimeState,
+                        errorContent = {},
+                        loadingContent = {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        }) { onePersonTime ->
+                        onePersonTime?.let {
+                            Text(
+                                text = ConverterLongToTime.getTimeInStringFormat(onePersonTime),
                                 style = styleDataLight
                             )
                         }

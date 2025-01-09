@@ -373,6 +373,15 @@ class FormViewModel(
         changesHave()
     }
 
+    fun setOnePersonOperation(value: Boolean) {
+        currentRoute = currentRoute?.copy(
+            basicData = currentRoute!!.basicData.copy(
+                isOnePersonOperation = value
+            )
+        )
+        changesHave()
+    }
+
     fun setNotes(text: String) {
         currentRoute = currentRoute?.copy(
             basicData = currentRoute!!.basicData.copy(

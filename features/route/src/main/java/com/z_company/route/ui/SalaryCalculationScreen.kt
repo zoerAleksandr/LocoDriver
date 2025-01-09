@@ -703,46 +703,161 @@ fun SalaryCalculationScreen(
                     }
                 }
             }
-//            item {
-//                uiState.surchargeHeavyLongDistanceTrainsMoney?.let { value ->
-//                    if (value != 0.0) {
-//                        Row(
-//                            modifier = Modifier
-//                                .fillMaxWidth()
-//                                .padding(top = verticalPaddingSmall)
-//                        ) {
-//                            Text(
-//                                modifier = Modifier.weight(widthColumn1),
-//                                overflow = TextOverflow.Visible,
-//                                style = styleDataLight,
-//                                text = "ДоплРабЛокомБрТяжДлинПоез"
-//                            )
-//                            Text(
-//                                modifier = Modifier.weight(widthColumn2),
-//                                overflow = TextOverflow.Visible,
-//                                style = styleDataLight,
-//                                textAlign = TextAlign.Center,
-//                                text = ConverterLongToTime.getTimeInHourDecimal(uiState.surchargeHeavyLongDistanceTrainsHour)
-//                            )
-//                            Text(
-//                                modifier = Modifier.weight(widthColumn3),
-//                                overflow = TextOverflow.Visible,
-//                                style = styleDataLight,
-//                                textAlign = TextAlign.Center,
-//                                text = uiState.surchargeHeavyLongDistanceTrainsPercent.str()
-//                            )
-//                            Text(
-//                                modifier = Modifier.weight(widthColumn4),
-//                                overflow = TextOverflow.Visible,
-//                                style = styleDataLight,
-//                                textAlign = TextAlign.End,
-//                                text = uiState.surchargeHeavyLongDistanceTrainsMoney.str2decimalSign()
-//                            )
-//
-//                        }
-//                    }
-//                }
-//            }
+
+            item {
+                uiState.onePersonOperationMoney?.let { value ->
+                    if (value != 0.0) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = verticalPaddingSmall)
+                        ) {
+                            Text(
+                                modifier = Modifier.weight(widthColumn1),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                text = "НадРабОдноЛицо"
+                            )
+                            Box(
+                                modifier = Modifier.weight(widthColumn2),
+                            )
+                            Text(
+                                modifier = Modifier.weight(widthColumn3),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                textAlign = TextAlign.Center,
+                                text = uiState.onePersonOperationPercent.str()
+                            )
+                            Text(
+                                modifier = Modifier.weight(widthColumn4),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                textAlign = TextAlign.End,
+                                text = uiState.onePersonOperationMoney.str2decimalSign()
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                uiState.harmfulnessSurchargeMoney?.let { value ->
+                    if (value != 0.0) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = verticalPaddingSmall)
+                        ) {
+                            Text(
+                                modifier = Modifier.weight(widthColumn1),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                text = "НадВреднНаПроизв"
+                            )
+                            Box(
+                                modifier = Modifier.weight(widthColumn2),
+                            )
+                            Text(
+                                modifier = Modifier.weight(widthColumn3),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                textAlign = TextAlign.Center,
+                                text = uiState.harmfulnessSurchargePercent.str()
+                            )
+                            Text(
+                                modifier = Modifier.weight(widthColumn4),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                textAlign = TextAlign.End,
+                                text = uiState.harmfulnessSurchargeMoney.str2decimalSign()
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                uiState.surchargeLongDistanceTrainsMoney?.let { value ->
+                    if (value != 0.0) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = verticalPaddingSmall)
+                        ) {
+                            Text(
+                                modifier = Modifier.weight(widthColumn1),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                text = "ДоплРабЛокомБрДлинПоез"
+                            )
+                            Text(
+                                modifier = Modifier.weight(widthColumn2),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                textAlign = TextAlign.Center,
+                                text = ConverterLongToTime.getTimeInHourDecimal(uiState.surchargeLongDistanceTrainsHours)
+                            )
+                            Text(
+                                modifier = Modifier.weight(widthColumn3),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                textAlign = TextAlign.Center,
+                                text = uiState.surchargeLongDistanceTrainsPercent.str()
+                            )
+                            Text(
+                                modifier = Modifier.weight(widthColumn4),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                textAlign = TextAlign.End,
+                                text = uiState.surchargeLongDistanceTrainsMoney.str2decimalSign()
+                            )
+                        }
+                    }
+                }
+            }
+
+            itemsIndexed(
+                items = uiState.surchargeHeavyTransMoney,
+            ) {index, item ->
+                item?.let { value ->
+                    if (value != 0.0) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = verticalPaddingSmall)
+                        ) {
+                            Text(
+                                modifier = Modifier.weight(widthColumn1),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                text = "ДоплРабЛокомБрТяжПоез"
+                            )
+                            Text(
+                                modifier = Modifier.weight(widthColumn2),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                textAlign = TextAlign.Center,
+                                text = ConverterLongToTime.getTimeInHourDecimal(uiState.surchargeHeavyTransHour[index])
+                            )
+                            Text(
+                                modifier = Modifier.weight(widthColumn3),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                textAlign = TextAlign.Center,
+                                text = uiState.surchargeHeavyTransPercent[index] ?: ""
+                            )
+                            Text(
+                                modifier = Modifier.weight(widthColumn4),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                textAlign = TextAlign.End,
+                                text = uiState.surchargeHeavyTransMoney[index].str2decimalSign()
+                            )
+                        }
+                    }
+                }
+            }
+
             itemsIndexed(
                 items = uiState.surchargeExtendedServicePhaseMoney,
             ) { index, item ->
@@ -781,7 +896,6 @@ fun SalaryCalculationScreen(
                                 text = uiState.surchargeExtendedServicePhaseMoney[index].str2decimalSign()
                             )
                         }
-
                     }
                 }
             }

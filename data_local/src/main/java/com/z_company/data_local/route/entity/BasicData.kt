@@ -18,6 +18,8 @@ internal data class BasicData(
     var isSynchronizedRoute: Boolean = false,
     @ColumnInfo(defaultValue = "NULL")
     var remoteRouteId: String? = null,
+    @ColumnInfo(defaultValue = "0")
+    var isOnePersonOperation: Boolean = false,
     var isSynchronized: Boolean = false,
     var remoteObjectId: String? = null,
     var isDeleted: Boolean,

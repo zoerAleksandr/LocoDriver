@@ -459,4 +459,21 @@ object UtilsForEntities {
             0L
         }
     }
+
+    fun List<Route>.getOnePersonOperationTime(monthOfYear: MonthOfYear): Long {
+        var resultTime = 0L
+        this.forEach { route ->
+            if (route.basicData.isOnePersonOperation) {
+                resultTime += if (route.isTransition()) {
+                    monthOfYear.getTimeInCurrentMonth(
+                        route.basicData.timeStartWork!!,
+                        route.basicData.timeEndWork!!
+                    )
+                } else {
+                    route.getWorkTime() ?: 0L
+                }
+            }
+        }
+        return resultTime
+    }
 }
