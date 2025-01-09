@@ -12,16 +12,18 @@ import com.z_company.data_local.setting.entity.SalarySetting
  * version 2 added field averagePaymentHour, districtCoefficient, nordicCoefficient
  * version 3 added field onePersonOperationPercent, harmfulnessPercent, surchargeHeavyTrainsList, surchargeLongTrain
  *           remove field surchargeHeavyLongDistanceTrains
+ * version 4 added field lengthLongDistanceTrain
  * */
 @Database(
     entities = [
         SalarySetting::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3, spec = DeleteColumnSurchargeHeavyLongDistanceTrains::class),
+        AutoMigration(from = 3, to = 4),
     ]
 )
 internal abstract class SalarySettingDB : RoomDatabase() {

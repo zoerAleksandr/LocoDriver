@@ -6,10 +6,12 @@ import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.SalarySetting
 import com.z_company.domain.entities.SurchargeExtendedServicePhase
+import com.z_company.domain.entities.SurchargeHeavyTrains
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.util.addOrReplace
 import com.z_company.domain.util.str
 import com.z_company.domain.util.toDoubleOrZero
+import com.z_company.domain.util.toIntOrZero
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -36,9 +38,12 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                     averagePaymentHour = ResultState.Success(value?.averagePaymentHour.str()),
                     districtCoefficient = ResultState.Success(value?.districtCoefficient.str()),
                     nordicCoefficient = ResultState.Success(value?.nordicCoefficient.str()),
+                    onePersonOperationPercent = ResultState.Success(value?.onePersonOperationPercent.str()),
+                    harmfulnessPercent = ResultState.Success(value?.harmfulnessPercent.str()),
+                    longDistanceTrainPercent = ResultState.Success(value?.surchargeLongDistanceTrain.str()),
+                    lengthLongDistanceTrain = ResultState.Success(value?.lengthLongDistanceTrain.str()),
                     zonalSurcharge = ResultState.Success(value?.zonalSurcharge.str()),
                     surchargeQualificationClass = ResultState.Success(value?.surchargeQualificationClass.str()),
-//                    surchargeHeavyLongDistanceTrains = ResultState.Success(value?.surchargeHeavyLongDistanceTrains.str()),
                     otherSurchargeState = ResultState.Success(value?.otherSurcharge.str()),
                     ndfl = ResultState.Success(value?.ndfl.str()),
                     unionistsRetentionState = ResultState.Success(value?.unionistsRetention.str()),
@@ -59,6 +64,18 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
             }
         }
 
+    private var surchargeHeavyTrainsState: SnapshotStateList<SurchargeHeavyTrains>
+        get() {
+            return _uiState.value.surchargeHeavyTrain
+        }
+        private set(value) {
+            _uiState.update {
+                it.copy(
+                    surchargeHeavyTrain = value
+                )
+            }
+        }
+
     init {
         loadSalarySetting()
     }
@@ -74,13 +91,22 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
             val state = uiState.value.settingSalaryState
             if (state is ResultState.Success) {
                 state.data?.let { salarySetting ->
-                    salarySetting.surchargeExtendedServicePhaseList = surchargeExtendedServicePhaseListState.map { servicePhase ->
-                        SurchargeExtendedServicePhase(
-                            id = servicePhase.id,
-                            distance = servicePhase.distance,
-                            percentSurcharge = servicePhase.percentSurcharge
-                        )
-                    }.toMutableList()
+                    salarySetting.surchargeExtendedServicePhaseList =
+                        surchargeExtendedServicePhaseListState.map { servicePhase ->
+                            SurchargeExtendedServicePhase(
+                                id = servicePhase.id,
+                                distance = servicePhase.distance,
+                                percentSurcharge = servicePhase.percentSurcharge
+                            )
+                        }.toMutableList()
+                    salarySetting.surchargeHeavyTrainsList =
+                        surchargeHeavyTrainsState.map { surcharge ->
+                            SurchargeHeavyTrains(
+                                id = surcharge.id,
+                                weight = surcharge.weight,
+                                percentSurcharge = surcharge.percentSurcharge
+                            )
+                        }.toMutableList()
                     salarySettingUseCase.saveSalarySetting(salarySetting).collect { saveResult ->
                         _uiState.update {
                             it.copy(
@@ -104,8 +130,8 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                     }
                     currentSalarySetting?.let {
                         setSurchargeExtendedServicePhaseListState(it.surchargeExtendedServicePhaseList)
+                        setSurchargeHeavyTrainState(it.surchargeHeavyTrainsList)
                     }
-
                 }
             }
         }
@@ -184,6 +210,88 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
             it.copy(
                 surchargeQualificationClass = ResultState.Success(value),
                 isErrorInputSurchargeQualificationClass = isErrorInputDouble(value)
+            )
+        }
+    }
+
+    fun setOnePersonOperationPercent(value: String) {
+        currentSalarySetting = currentSalarySetting?.copy(
+            onePersonOperationPercent = value.toDoubleOrZero()
+        )
+        _uiState.update {
+            it.copy(
+                onePersonOperationPercent = ResultState.Success(value),
+                isErrorInputOnePersonOperation = isErrorInputDouble(value)
+            )
+        }
+    }
+
+    fun setHarmfulnessPercent(value: String) {
+        currentSalarySetting = currentSalarySetting?.copy(
+            harmfulnessPercent = value.toDoubleOrZero()
+        )
+        _uiState.update {
+            it.copy(
+                harmfulnessPercent = ResultState.Success(value),
+                isErrorInputHarmfulnessPercent = isErrorInputDouble(value)
+            )
+        }
+    }
+
+    fun setSurchargeLongTrain(value: String) {
+        currentSalarySetting = currentSalarySetting?.copy(
+            surchargeLongDistanceTrain = value.toDoubleOrZero()
+        )
+        _uiState.update {
+            it.copy(
+                longDistanceTrainPercent = ResultState.Success(value),
+                isErrorInputLongDistanceTrainPercent = isErrorInputDouble(value)
+            )
+        }
+    }
+
+    fun setLengthLongDistanceTrain(value: String) {
+        currentSalarySetting = currentSalarySetting?.copy(
+            lengthLongDistanceTrain = value.toIntOrZero()
+        )
+        _uiState.update {
+            it.copy(
+                lengthLongDistanceTrain = ResultState.Success(value),
+                isErrorInputLengthLongDistanceTrain = isErrorInputDouble(value)
+            )
+        }
+    }
+
+
+    fun addSurchargeHeavyTrain() {
+        surchargeHeavyTrainsState.add(SurchargeHeavyTrains())
+    }
+
+    fun setSurchargeHeavyTrainPercent(index: Int, percent: String) {
+        surchargeHeavyTrainsState[index] = surchargeHeavyTrainsState[index].copy(
+            percentSurcharge = percent
+        )
+    }
+
+    fun setSurchargeHeavyTrainWeight(index: Int, weight: String) {
+        surchargeHeavyTrainsState[index] = surchargeHeavyTrainsState[index].copy(
+            weight = weight
+        )
+    }
+
+    fun deleteSurchargeHeavyTrain(index: Int) {
+        surchargeHeavyTrainsState.removeAt(index)
+    }
+
+    private fun setSurchargeHeavyTrainState(surcharges: List<SurchargeHeavyTrains>) {
+        surchargeHeavyTrainsState.clear()
+        surcharges.forEach { surchargeHeavyTrains ->
+            surchargeHeavyTrainsState.addOrReplace(
+                SurchargeHeavyTrains(
+                    id = surchargeHeavyTrains.id,
+                    percentSurcharge = surchargeHeavyTrains.percentSurcharge,
+                    weight = surchargeHeavyTrains.weight
+                )
             )
         }
     }

@@ -33,7 +33,8 @@ internal data class SalarySetting(
     val surchargeHeavyTrainsList: List<SurchargeHeavyTrains>,
     @ColumnInfo(defaultValue = "0.0")
     val surchargeLongTrain: Double,
-//    var surchargeHeavyLongDistanceTrains: Double,
+    @ColumnInfo(defaultValue = "0")
+    val lengthLongDistanceTrain: Int,
     val otherSurcharge: Double,
     var ndfl: Double,
     val unionistsRetention: Double,
