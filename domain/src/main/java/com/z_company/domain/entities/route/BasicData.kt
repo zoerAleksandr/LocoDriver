@@ -9,6 +9,7 @@ data class BasicData(
     var remoteRouteId: String? = null,
     var isSynchronized: Boolean = false,
     var remoteObjectId: String? = null,
+    var isOnePersonOperation: Boolean = false,
     var isDeleted: Boolean = false,
     var updatedAt: Date = Date(),
     var number: String? = null,

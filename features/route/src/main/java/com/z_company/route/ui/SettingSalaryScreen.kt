@@ -53,7 +53,8 @@ import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.domain.entities.SurchargeExtendedServicePhase
-import com.z_company.domain.util.str
+import com.z_company.domain.entities.SurchargeHeavyTrains
+import com.z_company.route.viewmodel.SettingSalaryUIState
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -62,11 +63,15 @@ fun SettingSalaryScreen(
     onBack: () -> Unit,
     onSaveClick: () -> Unit,
     isEnableSaveButton: Boolean,
+    uiState: SettingSalaryUIState,
     saveSettingState: ResultState<Unit>?,
     resetSaveState: () -> Unit,
     tariffRateValueState: ResultState<String>,
     setTariffRate: (String) -> Unit,
     isErrorInputTariffRate: Boolean,
+    setAveragePaymentHour: (String) -> Unit,
+    setNordicCoefficient: (String) -> Unit,
+    setDistrictCoefficient: (String) -> Unit,
     zonalSurchargeValueState: ResultState<String>,
     setZonalSurcharge: (String) -> Unit,
     isErrorInputZonalSurcharge: Boolean,
@@ -77,9 +82,23 @@ fun SettingSalaryScreen(
     addServicePhase: () -> Unit,
     setSurchargeExtendedServicePhaseDistance: (Int, String) -> Unit,
     setSurchargeExtendedServicePhasePercent: (Int, String) -> Unit,
-    surchargeHeavyLongDistanceTrainsValueState: ResultState<String>,
-    setSurchargeHeavyLongDistanceTrains: (String) -> Unit,
-    isErrorInputSurchargeHeavyLongDistanceTrains: Boolean,
+    onePersonOperationPercent: ResultState<String>,
+    setOnePersonOperationPercent: (String) -> Unit,
+    isErrorInputOnePersonOperation: Boolean,
+    harmfulnessPercentState: ResultState<String>,
+    setHarmfulnessPercent: (String) -> Unit,
+    isErrorInputHarmfulness: Boolean,
+    surchargeLongDistanceTrainState: ResultState<String>,
+    setSurchargeLongTrain: (String) -> Unit,
+    isErrorInputSurchargeLongDistance: Boolean,
+    lengthLongDistanceTrainState: ResultState<String>,
+    setLengthLongDistanceTrain: (String) -> Unit,
+    isErrorInputLengthLongDistance: Boolean,
+    surchargeHeavyTrainsState: SnapshotStateList<SurchargeHeavyTrains>,
+    addSurchargeHeavyTran: () -> Unit,
+    setSurchargeHeavyTrainPercent: (Int, String) -> Unit,
+    setSurchargeHeavyTrainWeight: (Int, String) -> Unit,
+    onSurchargeHeavyTrainDismissed: (Int) -> Unit,
     ndflValueState: ResultState<String>,
     setNDFL: (String) -> Unit,
     isErrorInputNdfl: Boolean,
@@ -173,7 +192,9 @@ fun SettingSalaryScreen(
         ) {
             item {
                 Text(
-                    modifier = Modifier.fillMaxWidth().padding(top = paddingLarge),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = paddingLarge),
                     text = "Начисления",
                     overflow = TextOverflow.Visible,
                     style = styleDataLight,
@@ -182,7 +203,9 @@ fun SettingSalaryScreen(
             }
             item {
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(top = paddingLarge),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
                     Text(
@@ -223,7 +246,53 @@ fun SettingSalaryScreen(
             }
             item {
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(top = paddingLarge),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = paddingLarge),
+                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
+                ) {
+                    Text(
+                        "Средний час, руб.",
+                        overflow = TextOverflow.Visible,
+                        style = styleDataMedium
+                    )
+                    AsyncDataValue(resultState = uiState.averagePaymentHour) { averagePaymentHourValue ->
+                        averagePaymentHourValue?.let {
+                            OutlinedTextField(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                value = averagePaymentHourValue,
+                                onValueChange = { value ->
+                                    setAveragePaymentHour(value)
+                                },
+                                isError = uiState.isErrorInputAveragePayment,
+                                supportingText = {
+                                    if (uiState.isErrorInputAveragePayment) {
+                                        Text(text = "Некорректные данные")
+                                    }
+                                },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent
+                                ),
+                                shape = Shapes.medium,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Decimal
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
                     Text(
@@ -264,7 +333,9 @@ fun SettingSalaryScreen(
             }
             item {
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(top = paddingLarge),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
                     Text(
@@ -303,28 +374,31 @@ fun SettingSalaryScreen(
                     }
                 }
             }
+
             item {
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(top = paddingLarge),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
                     Text(
-                        "Доплата за тяжелые и длинные поезда, %",
+                        "Работа в одно лицо, %",
                         overflow = TextOverflow.Visible,
                         style = styleDataMedium
                     )
-                    AsyncDataValue(resultState = surchargeHeavyLongDistanceTrainsValueState) { surchargeHeavyLongDistanceTrainsValue ->
+                    AsyncDataValue(resultState = onePersonOperationPercent) { surchargeHeavyLongDistanceTrainsValue ->
                         surchargeHeavyLongDistanceTrainsValue?.let {
                             OutlinedTextField(
                                 modifier = Modifier
                                     .fillMaxWidth(),
                                 value = surchargeHeavyLongDistanceTrainsValue,
                                 onValueChange = { value ->
-                                    setSurchargeHeavyLongDistanceTrains(value)
+                                    setOnePersonOperationPercent(value)
                                 },
-                                isError = isErrorInputSurchargeHeavyLongDistanceTrains,
+                                isError = isErrorInputOnePersonOperation,
                                 supportingText = {
-                                    if (isErrorInputSurchargeHeavyLongDistanceTrains) {
+                                    if (isErrorInputOnePersonOperation) {
                                         Text(text = "Некорректные данные")
                                     }
                                 },
@@ -346,6 +420,352 @@ fun SettingSalaryScreen(
             }
 
             item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = paddingLarge),
+                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
+                ) {
+                    Text(
+                        "Доплата за вредность, %",
+                        overflow = TextOverflow.Visible,
+                        style = styleDataMedium
+                    )
+                    AsyncDataValue(resultState = harmfulnessPercentState) { harmfulnessPercent ->
+                        harmfulnessPercent?.let {
+                            OutlinedTextField(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                value = harmfulnessPercent,
+                                onValueChange = { value ->
+                                    setHarmfulnessPercent(value)
+                                },
+                                isError = isErrorInputHarmfulness,
+                                supportingText = {
+                                    if (isErrorInputHarmfulness) {
+                                        Text(text = "Некорректные данные")
+                                    }
+                                },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent
+                                ),
+                                shape = Shapes.medium,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Decimal
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = paddingLarge),
+                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
+                ) {
+                    Text(
+                        "Северная надбавка, %",
+                        overflow = TextOverflow.Visible,
+                        style = styleDataMedium
+                    )
+                    AsyncDataValue(resultState = uiState.nordicCoefficient) { nordicCoefficient ->
+                        nordicCoefficient?.let {
+                            OutlinedTextField(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                value = nordicCoefficient,
+                                onValueChange = { value ->
+                                    setNordicCoefficient(value)
+                                },
+                                isError = uiState.isErrorInputNordicCoefficient,
+                                supportingText = {
+                                    if (uiState.isErrorInputNordicCoefficient) {
+                                        Text(text = "Некорректные данные")
+                                    }
+                                },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent
+                                ),
+                                shape = Shapes.medium,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Decimal
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = paddingLarge),
+                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
+                ) {
+                    Text(
+                        "Районный коэффициент",
+                        overflow = TextOverflow.Visible,
+                        style = styleDataMedium
+                    )
+                    AsyncDataValue(resultState = uiState.districtCoefficient) { districtCoefficient ->
+                        districtCoefficient?.let {
+                            OutlinedTextField(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                value = districtCoefficient,
+                                onValueChange = { value ->
+                                    setDistrictCoefficient(value)
+                                },
+                                isError = uiState.isErrorInputDistrictCoefficient,
+                                supportingText = {
+                                    if (uiState.isErrorInputDistrictCoefficient) {
+                                        Text(text = "Некорректные данные")
+                                    }
+                                },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent
+                                ),
+                                shape = Shapes.medium,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Decimal
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = paddingLarge),
+                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
+                ) {
+                    Text(
+                        "Доплата за длинносоставные поезда",
+                        overflow = TextOverflow.Visible,
+                        style = styleDataMedium
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .padding(top = 6.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.background,
+                                shape = Shapes.medium
+                            )
+                            .fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        AsyncDataValue(resultState = lengthLongDistanceTrainState) { lengthLongDistanceTrain ->
+                            lengthLongDistanceTrain?.let { lengthInAxle ->
+                                OutlinedTextField(
+                                    modifier = Modifier.weight(1f),
+                                    value = lengthInAxle,
+                                    onValueChange = { value ->
+                                        setLengthLongDistanceTrain(value)
+                                    },
+                                    singleLine = true,
+                                    suffix = {
+                                        Text(
+                                            text = "у.д.",
+                                            style = styleDataMedium
+                                        )
+                                    },
+                                    isError = isErrorInputLengthLongDistance,
+                                    supportingText = {
+                                        if (isErrorInputLengthLongDistance) {
+                                            Text(text = "Некорректные данные")
+                                        }
+                                    },
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                        focusedBorderColor = Color.Transparent,
+                                        unfocusedBorderColor = Color.Transparent
+                                    ),
+                                    shape = Shapes.medium,
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Decimal
+                                    )
+                                )
+                            }
+                        }
+                        AsyncDataValue(resultState = surchargeLongDistanceTrainState) { surchargeLongDistanceTrain ->
+                            surchargeLongDistanceTrain?.let { surcharge ->
+                                OutlinedTextField(
+                                    modifier = Modifier.weight(1f),
+                                    value = surcharge,
+                                    onValueChange = { value ->
+                                        setSurchargeLongTrain(value)
+                                    },
+                                    singleLine = true,
+                                    suffix = {
+                                        Text(
+                                            text = "%",
+                                            style = styleDataMedium
+                                        )
+                                    },
+                                    isError = isErrorInputSurchargeLongDistance,
+                                    supportingText = {
+                                        if (isErrorInputSurchargeLongDistance) {
+                                            Text(text = "Некорректные данные")
+                                        }
+                                    },
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                        focusedBorderColor = Color.Transparent,
+                                        unfocusedBorderColor = Color.Transparent
+                                    ),
+                                    shape = Shapes.medium,
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Decimal
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Доплата за тяжеловесные поезда",
+                        overflow = TextOverflow.Visible,
+                        style = styleDataMedium
+                    )
+                    TextButton(
+                        onClick = addSurchargeHeavyTran
+                    ) {
+                        Text(
+                            text = "Добавить",
+                            style = styleDataMedium.copy(color = MaterialTheme.colorScheme.tertiary)
+                        )
+                    }
+                }
+            }
+
+            itemsIndexed(
+                items = surchargeHeavyTrainsState,
+                key = { _, item -> item.id }
+            ) {index, item ->
+                val dismissState = rememberSwipeToDismissBoxState()
+                if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
+                    onSurchargeHeavyTrainDismissed(index)
+                }
+                SwipeToDismissBox(
+                    state = dismissState,
+                    enableDismissFromStartToEnd = false,
+                    backgroundContent = {
+                        val color by animateColorAsState(
+                            when (dismissState.targetValue) {
+                                SwipeToDismissBoxValue.Settled -> Color.Transparent
+                                SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.error
+                                else -> Color.Transparent
+                            }, label = ""
+                        )
+                        Box(
+                            Modifier
+                                .fillMaxSize()
+                                .padding(top = 6.dp)
+                                .background(color = color, shape = Shapes.medium),
+                            contentAlignment = Alignment.CenterEnd
+                        ) {
+                            Icon(
+                                modifier = Modifier.padding(end = 16.dp),
+                                imageVector = Icons.Outlined.Delete,
+                                tint = MaterialTheme.colorScheme.background,
+                                contentDescription = null
+                            )
+                        }
+                    }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .padding(top = 6.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.background,
+                                shape = Shapes.medium
+                            )
+                            .fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            modifier = Modifier.weight(1f),
+                            value = item.weight,
+                            onValueChange = { value ->
+                                setSurchargeHeavyTrainWeight(index, value)
+                            },
+                            singleLine = true,
+                            suffix = {
+                                Text(
+                                    text = "т.",
+                                    style = styleDataMedium
+                                )
+                            },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                focusedBorderColor = Color.Transparent,
+                                unfocusedBorderColor = Color.Transparent
+                            ),
+                            shape = Shapes.medium,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal
+                            )
+                        )
+                        OutlinedTextField(
+                            modifier = Modifier.weight(1f),
+                            value = item.percentSurcharge,
+                            onValueChange = { value ->
+                                setSurchargeHeavyTrainPercent(index, value)
+                            },
+                            singleLine = true,
+                            suffix = {
+                                Text(
+                                    text = "%",
+                                    style = styleDataMedium
+                                )
+                            },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                focusedBorderColor = Color.Transparent,
+                                unfocusedBorderColor = Color.Transparent
+                            ),
+                            shape = Shapes.medium,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal
+                            )
+                        )
+                    }
+                }
+            }
+
+            item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -357,7 +777,8 @@ fun SettingSalaryScreen(
                         style = styleDataMedium
                     )
                     TextButton(
-                        onClick = addServicePhase) {
+                        onClick = addServicePhase
+                    ) {
                         Text(
                             text = "Добавить",
                             style = styleDataMedium.copy(color = MaterialTheme.colorScheme.tertiary)
@@ -470,14 +891,18 @@ fun SettingSalaryScreen(
                     "Удержания",
                     overflow = TextOverflow.Visible,
                     style = styleDataLight,
-                    modifier = Modifier.fillMaxWidth().padding(top = paddingLarge),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = paddingLarge),
                     textAlign = TextAlign.End
                 )
             }
 
             item {
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(top = paddingLarge),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
                     Text(
@@ -519,7 +944,9 @@ fun SettingSalaryScreen(
 
             item {
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(top = paddingLarge),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
                     Text(
@@ -561,7 +988,9 @@ fun SettingSalaryScreen(
 
             item {
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(top = paddingLarge),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
                     Text(

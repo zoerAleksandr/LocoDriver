@@ -13,7 +13,7 @@ import com.z_company.core.ResultState
 import com.z_company.data_local.SharedPreferenceStorage
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.UserSettings
-import com.z_company.domain.entities.UtilForMonthOfYear.getDayOffHours
+import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHours
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.getHomeRest
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
@@ -320,7 +320,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                     dayOffHours = ResultState.Loading
                 )
             }
-            val dayOffHours = currentMonthOfYear.getDayOffHours()
+            val dayOffHours = currentMonthOfYear.getDayoffHours()
             _uiState.update {
                 it.copy(
                     dayOffHours = ResultState.Success(dayOffHours)

@@ -11,6 +11,7 @@ import com.z_company.domain.util.lessThan
 import com.z_company.domain.util.minus
 import com.z_company.domain.util.moreThan
 import com.z_company.domain.util.plus
+import com.z_company.domain.util.toIntOrZero
 import java.util.Calendar
 
 object UtilsForEntities {
@@ -218,6 +219,7 @@ object UtilsForEntities {
     }
 
     fun List<Route>.getTotalWorkTime(monthOfYear: MonthOfYear): Long {
+    fun List<Route>.setWorkTime(monthOfYear: MonthOfYear): Long {
         var totalTime = 0L
         this.forEach { route ->
             if (route.isTransition()) {
@@ -275,7 +277,7 @@ object UtilsForEntities {
         var passengerTime = 0L
         this.forEach { route ->
             route.passengers.forEach { passenger ->
-                passengerTime = if (passenger.isTransition()) {
+                passengerTime = if (route.isTransition()) {
                     if (passenger.timeDeparture != null && passenger.timeArrival != null) {
                         passengerTime.plus(
                             monthOfYear.getTimeInCurrentMonth(
@@ -467,20 +469,58 @@ object UtilsForEntities {
         }
     }
 
-    fun Route.isHeavyLongDistanceTrain(): Boolean {
-        this.trains.forEach {
-            if (it.isHeavyLongDistance) return true
+    fun Route.getTimeInHeavyTrain(listWeight: List<Int>, index: Int): Long {
+        val startInterval = listWeight[index]
+        val endInterval =
+            if (index + 1 < listWeight.size) listWeight[index + 1] else Int.MAX_VALUE
+        val searchIntervalWeight = startInterval until endInterval
+        var resultTime = 0L
+        this.trains.forEach { train ->
+            val weight = train.weight.toIntOrZero()
+            if (searchIntervalWeight.contains(weight)) {
+                val timeStartFollowing: Long? = train.stations.firstOrNull()?.timeDeparture
+                val timeEndFollowing: Long? = train.stations.lastOrNull()?.timeArrival
+                resultTime += (timeEndFollowing - timeStartFollowing) ?: 0L
+            }
         }
-        return false
+
+        return resultTime
     }
 
-    fun Train.getTimeInHeavyLongDistance(): Long {
-        return if (this.isHeavyLongDistance) {
+    private fun Train.getTimeInLongDistance(lengthIsLongDistance: Int): Long {
+        return if (this.conditionalLength.toIntOrZero() > lengthIsLongDistance) {
             val timeStartFollowing: Long? = this.stations.firstOrNull()?.timeDeparture
             val timeEndFollowing: Long? = this.stations.lastOrNull()?.timeArrival
             (timeEndFollowing - timeStartFollowing) ?: 0L
         } else {
             0L
         }
+    }
+
+    fun List<Route>.getOnePersonOperationTime(monthOfYear: MonthOfYear): Long {
+        var resultTime = 0L
+        this.forEach { route ->
+            if (route.basicData.isOnePersonOperation) {
+                resultTime += if (route.isTransition()) {
+                    monthOfYear.getTimeInCurrentMonth(
+                        route.basicData.timeStartWork!!,
+                        route.basicData.timeEndWork!!
+                    )
+                } else {
+                    route.getWorkTime() ?: 0L
+                }
+            }
+        }
+        return resultTime
+    }
+
+    fun List<Route>.getLongDistanceTime(lengthIsLongDistance: Int): Long {
+        var resultTime = 0L
+        this.forEach { route ->
+            route.trains.forEach { train ->
+                resultTime += train.getTimeInLongDistance(lengthIsLongDistance)
+            }
+        }
+        return resultTime
     }
 }

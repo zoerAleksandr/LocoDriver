@@ -18,7 +18,7 @@ object UtilForMonthOfYear {
         return normaOfMonth
     }
 
-    fun MonthOfYear.getDayOffHours(): Int {
+    fun MonthOfYear.getDayoffHours(): Int {
         var totalRelease = 0
         this.days.forEach { day ->
             if (day.isReleaseDay) {

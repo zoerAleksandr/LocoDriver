@@ -12,4 +12,5 @@ data class MoreInfoUiState(
     val workTimeWithHoliday: ResultState<Long?> = ResultState.Loading,
     val todayNormaHours: ResultState<Int?> = ResultState.Loading,
     val timeBalanceState: ResultState<Long?> = ResultState.Loading,
+    val onePersonTimeState: ResultState<Long?> = ResultState.Loading
 )

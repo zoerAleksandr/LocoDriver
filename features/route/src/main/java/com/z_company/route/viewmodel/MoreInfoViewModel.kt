@@ -1,6 +1,5 @@
 package com.z_company.route.viewmodel
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ErrorEntity
@@ -10,11 +9,11 @@ import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.UtilForMonthOfYear.getTodayNormaHours
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
+import com.z_company.domain.entities.route.UtilsForEntities.getOnePersonOperationTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
-import com.z_company.domain.entities.route.UtilsForEntities.getTotalWorkTime
+import com.z_company.domain.entities.route.UtilsForEntities.setWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeWithHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
-import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import kotlinx.coroutines.Dispatchers
@@ -99,7 +98,7 @@ class MoreInfoViewModel(private val monthOfYearId: String) : ViewModel(), KoinCo
                                     } else {
                                         result.data.filter { it.basicData.timeStartWork!! < currentTimeInMillis }
                                     }
-                                    val totalWorkTime = routeList.getTotalWorkTime(monthOfYear)
+                                    val totalWorkTime = routeList.setWorkTime(monthOfYear)
                                     val nightTime = routeList.getNightTime(settings)
                                     val passengerTime = routeList.getPassengerTime(monthOfYear)
                                     val holidayWorkTime =
@@ -109,6 +108,7 @@ class MoreInfoViewModel(private val monthOfYearId: String) : ViewModel(), KoinCo
                                     val timeBalance =
                                         workTimeWithHoliday - monthOfYear.getPersonalNormaHours()
                                             .times(3_600_000)
+                                    val onePersonTime = routeList.getOnePersonOperationTime(monthOfYear)
                                     withContext(Dispatchers.Main) {
                                         _uiState.update {
                                             it.copy(
@@ -127,7 +127,8 @@ class MoreInfoViewModel(private val monthOfYearId: String) : ViewModel(), KoinCo
                                                 ),
                                                 timeBalanceState = ResultState.Success(
                                                     timeBalance
-                                                )
+                                                ),
+                                                onePersonTimeState = ResultState.Success(onePersonTime)
                                             )
                                         }
                                     }
