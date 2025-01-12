@@ -213,17 +213,6 @@ class TrainFormViewModel(
         }
     }
 
-    fun clearAllField() {
-        currentTrain = currentTrain?.copy(
-            number = null,
-            weight = null,
-            axle = null,
-            conditionalLength = null
-        )
-        stationsListState.clear()
-        changesHave()
-    }
-
     fun setNumber(number: String) {
         currentTrain = currentTrain?.copy(
             number = number.ifBlank { null }
@@ -234,13 +223,6 @@ class TrainFormViewModel(
     fun setDistance(distance: String) {
         currentTrain = currentTrain?.copy(
             distance = distance.ifBlank { null }
-        )
-        changesHave()
-    }
-
-    fun setIsHeavyLongDistance(value: Boolean) {
-        currentTrain = currentTrain?.copy(
-            isHeavyLongDistance = value
         )
         changesHave()
     }
