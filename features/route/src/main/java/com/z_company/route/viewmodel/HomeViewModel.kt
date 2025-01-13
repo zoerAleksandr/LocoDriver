@@ -448,6 +448,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                     it.year == yearAndMonth.first && it.month == yearAndMonth.second
                 }?.let { selectMonthOfYear ->
                     currentMonthOfYear = selectMonthOfYear
+                    currentUserSetting = currentUserSetting?.copy(
+                        selectMonthOfYear = selectMonthOfYear
+                    )
                     loadRoutes()
                     saveCurrentMonthInLocal(selectMonthOfYear)
                 }

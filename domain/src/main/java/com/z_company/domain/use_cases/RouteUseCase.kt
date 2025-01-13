@@ -31,10 +31,11 @@ class RouteUseCase(private val repository: RouteRepository) {
                 it.set(SECOND, 0)
                 it.set(MILLISECOND, 0)
             }
-            val startMonthInLong: Long = startMonth.timeInMillis
+            // TODO
+            val startMonthInLong: Long = startMonth.timeInMillis - 14_400_000
             val maxDayOfMonth = startMonth.getActualMaximum(DAY_OF_MONTH)
 
-            val endMonthInLong: Long = getInstance().also {
+            val endMonth: Calendar = getInstance().also {
                 it.set(YEAR, monthOfYear.year)
                 it.set(MONTH, monthOfYear.month)
                 it.set(DAY_OF_MONTH, maxDayOfMonth)
@@ -42,7 +43,9 @@ class RouteUseCase(private val repository: RouteRepository) {
                 it.set(MINUTE, 59)
                 it.set(SECOND, 0)
                 it.set(MILLISECOND, 0)
-            }.timeInMillis
+            }
+            // TODO
+            val endMonthInLong = endMonth.timeInMillis - 14_400_000
 
             withContext(Dispatchers.IO) {
                 this.launch {

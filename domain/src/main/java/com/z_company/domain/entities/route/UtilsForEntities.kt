@@ -13,6 +13,7 @@ import com.z_company.domain.util.moreThan
 import com.z_company.domain.util.plus
 import com.z_company.domain.util.toIntOrZero
 import java.util.Calendar
+import java.util.TimeZone
 
 object UtilsForEntities {
     fun Route.getWorkTime(): Long? {
@@ -173,14 +174,16 @@ object UtilsForEntities {
         if (this.basicData.timeStartWork == null || this.basicData.timeEndWork == null) {
             return false
         } else {
-            val startCalendar = Calendar.getInstance().also {
-                it.timeInMillis = this.basicData.timeStartWork!!
+            val startCalendar = Calendar.getInstance(TimeZone.getDefault()).also {
+                // TODO
+                it.timeInMillis = this.basicData.timeStartWork!! + 14_400_000
             }
             val yearStart = startCalendar.get(Calendar.YEAR)
             val monthStart = startCalendar.get(Calendar.MONTH)
 
             val endCalendar = Calendar.getInstance().also {
-                it.timeInMillis = this.basicData.timeEndWork!!
+                // TODO
+                it.timeInMillis = this.basicData.timeEndWork!! + 14_400_000
             }
             val yearEnd = endCalendar.get(Calendar.YEAR)
             val monthEnd = endCalendar.get(Calendar.MONTH)
@@ -195,16 +198,18 @@ object UtilsForEntities {
     }
 
     fun Passenger.isTransition(): Boolean {
-        if (this.timeDeparture == null || this.timeArrival == null){
+        if (this.timeDeparture == null || this.timeArrival == null) {
             return false
         } else {
             val startCalendar = Calendar.getInstance().also {
-                it.timeInMillis = this.timeDeparture!!
+                // TODO
+                it.timeInMillis = this.timeDeparture!! + 14_400_000
             }
             val yearStart = startCalendar.get(Calendar.YEAR)
             val monthStart = startCalendar.get(Calendar.MONTH)
             val endCalendar = Calendar.getInstance().also {
-                it.timeInMillis = this.timeArrival!!
+                // TODO
+                it.timeInMillis = this.timeArrival!! + 14_400_000
             }
             val yearEnd = endCalendar.get(Calendar.YEAR)
             val monthEnd = endCalendar.get(Calendar.MONTH)
@@ -222,10 +227,13 @@ object UtilsForEntities {
         var totalTime = 0L
         this.forEach { route ->
             if (route.isTransition()) {
-                totalTime += monthOfYear.getTimeInCurrentMonth(
-                    route.basicData.timeStartWork!!,
-                    route.basicData.timeEndWork!!
+                val time = monthOfYear.getTimeInCurrentMonth(
+                    // TODO
+                    route.basicData.timeStartWork!! + 14_400_000,
+                    route.basicData.timeEndWork!! + 14_400_000
                 )
+                println("ZZZ time $time")
+                totalTime += time
             } else {
                 route.getWorkTime().let { time ->
                     totalTime += time ?: 0
@@ -243,6 +251,7 @@ object UtilsForEntities {
         val endNightMinute = userSettings.nightTime.endNightMinute
 
         this.forEach { route ->
+            println("ZZZ route $route")
             if (route.isTransition()) {
                 val nightTimeInRoute =
                     CalculateNightTime.getNightTimeTransitionRoute(
@@ -255,7 +264,6 @@ object UtilsForEntities {
                         hourEnd = endNightHour,
                         minuteEnd = endNightMinute
                     )
-
                 nightTime = nightTime.plus(nightTimeInRoute) ?: 0L
             } else {
                 val nightTimeInRoute = CalculateNightTime.getNightTime(
@@ -325,9 +333,10 @@ object UtilsForEntities {
                 val endHolidayInLong = endHoliday.timeInMillis
 
                 this.forEach { route ->
+                    // TODO
                     route.timeInLongInPeriod(
-                        startDate = startHolidayInLong,
-                        endDate = endHolidayInLong
+                        startDate = startHolidayInLong - 14_400_400,
+                        endDate = endHolidayInLong - 14_400_400
                     )?.let { timeInPeriod ->
                         if (timeInPeriod > 0) {
                             holidayTime += timeInPeriod
