@@ -44,6 +44,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -72,6 +73,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.flowWithLifecycle
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
@@ -135,6 +138,7 @@ fun HomeScreen(
     passengerTime: ResultState<Long>?,
     dayoffHours: ResultState<Int>?,
     holidayHours: ResultState<Long>?,
+    totalTimeWithHoliday: ResultState<Long>?,
     calculationHomeRest: (Route?) -> Unit,
     homeRestValue: ResultState<Long?>,
     firstEntryDialogState: Boolean,
@@ -152,6 +156,7 @@ fun HomeScreen(
     resetSubscriptionState: () -> Unit,
     showConfirmDialogRemoveRoute: Boolean,
     changeShowConfirmExitDialog: (Boolean) -> Unit,
+    offsetInMoscow: Long,
 ) {
     val view = LocalView.current
     val backgroundColor = MaterialTheme.colorScheme.background
@@ -179,6 +184,18 @@ fun HomeScreen(
     val sheetPeekHeight = remember {
         heightScreen.times(0.25)
     }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(key1 = lifecycleOwner, effect = {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_START) {
+                reloadRoute()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose { }
+    })
 
     val isExpand = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded
 
@@ -633,7 +650,8 @@ fun HomeScreen(
                     showContextDialog = true
                     routeForPreview = route
                 },
-                isExpand = isExpand
+                isExpand = isExpand,
+                offsetInMoscow = offsetInMoscow
             )
         },
         containerColor = MaterialTheme.colorScheme.background,
@@ -890,6 +908,21 @@ fun HomeScreen(
                         }
                     }
 
+                }
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                AsyncDataValue(resultState = totalTimeWithHoliday) { time ->
+                    AutoSizeText(
+                        text = "Всего отработано: ${ConverterLongToTime.getTimeInStringFormat(time)}",
+                        style = AppTypography.getType().headlineSmall,
+                        maxTextSize = 24.sp,
+                        fontWeight = FontWeight.Light,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
             Spacer(

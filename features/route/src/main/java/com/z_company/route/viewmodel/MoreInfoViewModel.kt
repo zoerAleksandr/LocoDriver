@@ -12,7 +12,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getOnePersonOperationTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.setWorkTime
-import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeWithHoliday
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeWithoutHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -90,50 +90,54 @@ class MoreInfoViewModel(private val monthOfYearId: String) : ViewModel(), KoinCo
                 runCatching {
                     withContext(Dispatchers.IO) {
                         val currentTimeInMillis = Calendar.getInstance().timeInMillis
-                        routeUseCase.listRoutesByMonth(monthOfYear).collect { result ->
-                            if (result is ResultState.Success) {
-                                userSettings?.let { settings ->
-                                    val routeList = if (settings.isConsiderFutureRoute) {
-                                        result.data
-                                    } else {
-                                        result.data.filter { it.basicData.timeStartWork!! < currentTimeInMillis }
-                                    }
-                                    val totalWorkTime = routeList.setWorkTime(monthOfYear)
-                                    val nightTime = routeList.getNightTime(settings)
-                                    val passengerTime = routeList.getPassengerTime(monthOfYear)
-                                    val holidayWorkTime =
-                                        routeList.getWorkingTimeOnAHoliday(monthOfYear)
-                                    val workTimeWithHoliday =
-                                        routeList.getWorkTimeWithHoliday(monthOfYear)
-                                    val timeBalance =
-                                        workTimeWithHoliday - monthOfYear.getPersonalNormaHours()
-                                            .times(3_600_000)
-                                    val onePersonTime = routeList.getOnePersonOperationTime(monthOfYear)
-                                    withContext(Dispatchers.Main) {
-                                        _uiState.update {
-                                            it.copy(
-                                                totalWorkTimeState = ResultState.Success(
-                                                    totalWorkTime
-                                                ),
-                                                nightTimeState = ResultState.Success(nightTime),
-                                                passengerTimeState = ResultState.Success(
-                                                    passengerTime
-                                                ),
-                                                holidayWorkTimeState = ResultState.Success(
-                                                    holidayWorkTime
-                                                ),
-                                                workTimeWithHoliday = ResultState.Success(
-                                                    workTimeWithHoliday
-                                                ),
-                                                timeBalanceState = ResultState.Success(
-                                                    timeBalance
-                                                ),
-                                                onePersonTimeState = ResultState.Success(onePersonTime)
-                                            )
+                        userSettings?.let { settings ->
+                            routeUseCase.listRoutesByMonth(monthOfYear, settings.timeZone)
+                                .collect { result ->
+                                    if (result is ResultState.Success) {
+                                        val routeList = if (settings.isConsiderFutureRoute) {
+                                            result.data
+                                        } else {
+                                            result.data.filter { it.basicData.timeStartWork!! < currentTimeInMillis }
+                                        }
+                                        val totalWorkTime = routeList.setWorkTime(monthOfYear, settings.timeZone)
+                                        val nightTime = routeList.getNightTime(settings)
+                                        val passengerTime = routeList.getPassengerTime(monthOfYear, settings.timeZone)
+                                        val holidayWorkTime =
+                                            routeList.getWorkingTimeOnAHoliday(monthOfYear, settings.timeZone)
+                                        val workTimeWithHoliday =
+                                            routeList.getWorkTimeWithoutHoliday(monthOfYear, settings.timeZone)
+                                        val timeBalance =
+                                            workTimeWithHoliday - monthOfYear.getPersonalNormaHours()
+                                                .times(3_600_000)
+                                        val onePersonTime =
+                                            routeList.getOnePersonOperationTime(monthOfYear, settings.timeZone)
+                                        withContext(Dispatchers.Main) {
+                                            _uiState.update {
+                                                it.copy(
+                                                    totalWorkTimeState = ResultState.Success(
+                                                        totalWorkTime
+                                                    ),
+                                                    nightTimeState = ResultState.Success(nightTime),
+                                                    passengerTimeState = ResultState.Success(
+                                                        passengerTime
+                                                    ),
+                                                    holidayWorkTimeState = ResultState.Success(
+                                                        holidayWorkTime
+                                                    ),
+                                                    workTimeWithHoliday = ResultState.Success(
+                                                        workTimeWithHoliday
+                                                    ),
+                                                    timeBalanceState = ResultState.Success(
+                                                        timeBalance
+                                                    ),
+                                                    onePersonTimeState = ResultState.Success(
+                                                        onePersonTime
+                                                    )
+                                                )
+                                            }
                                         }
                                     }
                                 }
-                            }
                         }
                     }
                 }.onFailure { throwable ->

@@ -18,7 +18,7 @@ import java.util.Calendar
 import java.util.Calendar.*
 
 class RouteUseCase(private val repository: RouteRepository) {
-    suspend fun listRoutesByMonth(monthOfYear: MonthOfYear): Flow<ResultState<List<Route>>> =
+    suspend fun listRoutesByMonth(monthOfYear: MonthOfYear, offsetInMoscow: Long): Flow<ResultState<List<Route>>> =
         channelFlow {
             trySend(ResultState.Loading)
 
@@ -31,8 +31,7 @@ class RouteUseCase(private val repository: RouteRepository) {
                 it.set(SECOND, 0)
                 it.set(MILLISECOND, 0)
             }
-            // TODO
-            val startMonthInLong: Long = startMonth.timeInMillis - 14_400_000
+            val startMonthInLong: Long = startMonth.timeInMillis - offsetInMoscow
             val maxDayOfMonth = startMonth.getActualMaximum(DAY_OF_MONTH)
 
             val endMonth: Calendar = getInstance().also {
@@ -44,8 +43,7 @@ class RouteUseCase(private val repository: RouteRepository) {
                 it.set(SECOND, 0)
                 it.set(MILLISECOND, 0)
             }
-            // TODO
-            val endMonthInLong = endMonth.timeInMillis - 14_400_000
+            val endMonthInLong = endMonth.timeInMillis - offsetInMoscow
 
             withContext(Dispatchers.IO) {
                 this.launch {

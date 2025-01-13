@@ -30,13 +30,14 @@ fun HomeDestination(
         reloadRoute = homeViewModel::loadRoutes,
         onSettingsClick = { router.showSettings() },
         onSearchClick = { router.showSearch() },
-        totalTime = homeViewModel.totalTime,
+        totalTime = homeViewModel.timeWithoutHoliday,
         currentMonthOfYear = homeViewModel.currentMonthOfYear,
         yearList = uiState.yearList,
         monthList = uiState.monthList,
         selectYearAndMonth = homeViewModel::setCurrentMonth,
         minTimeRest = uiState.minTimeRest,
         nightTime = uiState.nightTimeInRouteList,
+        totalTimeWithHoliday = uiState.totalTimeWithHoliday,
         passengerTime = uiState.passengerTimeInRouteList,
         dayoffHours = uiState.dayOffHours,
         holidayHours = uiState.holidayHours,
@@ -56,6 +57,7 @@ fun HomeDestination(
         restoreResultState = uiState.restoreSubscriptionState,
         resetSubscriptionState = homeViewModel::resetSubscriptionState,
         showConfirmDialogRemoveRoute = uiState.showConfirmRemoveRoute,
-        changeShowConfirmExitDialog = homeViewModel::isShowConfirmRemoveRoute
+        changeShowConfirmExitDialog = homeViewModel::isShowConfirmRemoveRoute,
+        offsetInMoscow = uiState.offsetInMoscow
     )
 }

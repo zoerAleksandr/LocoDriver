@@ -88,7 +88,7 @@ class FormViewModel(
         }
 
     private var currentMonthOfYear: MonthOfYear? = null
-
+    private var currentTimeZoneOffset: Long? = null
     private var nightTime: NightTime? = null
     private var defaultWorkTime: Long? = null
     private var usingDefaultWorkTime: Boolean = false
@@ -185,6 +185,7 @@ class FormViewModel(
                         minTimeHomeRest = result.data?.minTimeHomeRest
                     )
                 }
+                currentTimeZoneOffset = result.data?.timeZone
                 currentMonthOfYear = result.data?.selectMonthOfYear
                 nightTime = result.data?.nightTime
                 defaultWorkTime = result.data?.defaultWorkTime
@@ -472,7 +473,8 @@ class FormViewModel(
                         hourStart = time.startNightHour,
                         minuteStart = time.startNightMinute,
                         hourEnd = time.endNightHour,
-                        minuteEnd = time.endNightMinute
+                        minuteEnd = time.endNightMinute,
+                        offsetInMoscow = currentTimeZoneOffset ?: 0L
                     )
                 )
             }
@@ -484,7 +486,7 @@ class FormViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             currentMonthOfYear?.let { monthOfYear ->
                 this.launch {
-                    routeUseCase.listRoutesByMonth(monthOfYear).collect { resultCurrentMonth ->
+                    routeUseCase.listRoutesByMonth(monthOfYear, currentTimeZoneOffset ?: 0L).collect { resultCurrentMonth ->
                         if (resultCurrentMonth is ResultState.Success) {
                             routesList.addAll(resultCurrentMonth.data)
                             this.cancel()
@@ -500,7 +502,7 @@ class FormViewModel(
                             month = 11
                         )
                     }
-                    routeUseCase.listRoutesByMonth(previousMonthOfYear)
+                    routeUseCase.listRoutesByMonth(previousMonthOfYear, currentTimeZoneOffset ?: 0L)
                         .collect { resultCurrentMonth ->
                             if (resultCurrentMonth is ResultState.Success) {
                                 routesList.addAll(resultCurrentMonth.data)

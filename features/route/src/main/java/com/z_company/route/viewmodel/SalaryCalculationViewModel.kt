@@ -73,7 +73,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
             salarySetting?.let { salarySetting ->
                 viewModelScope.launch {
                     val currentMonthOfYear = userSettings.selectMonthOfYear
-                    routeUseCase.listRoutesByMonth(currentMonthOfYear).collect { loadRouteState ->
+                    routeUseCase.listRoutesByMonth(currentMonthOfYear, userSettings.timeZone).collect { loadRouteState ->
                         if (loadRouteState is ResultState.Success) {
                             val routeList = if (userSettings.isConsiderFutureRoute) {
                                 loadRouteState.data
@@ -414,7 +414,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         salarySetting: SalarySetting
     ): Double {
         val currentMonthOfYear = userSettings.selectMonthOfYear
-        val onePersonOperationTime = routeList.getOnePersonOperationTime(currentMonthOfYear)
+        val onePersonOperationTime = routeList.getOnePersonOperationTime(currentMonthOfYear, userSettings.timeZone)
         return onePersonOperationTime.times(salarySetting.tariffRate * (salarySetting.onePersonOperationPercent / 100))
     }
 
@@ -424,8 +424,8 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         userSettings: UserSettings
     ): Long {
         val currentMonthOfYear = userSettings.selectMonthOfYear
-        val totalWorkTime = getTotalWorkTime(routeList, currentMonthOfYear)
-        val passengerTime = getPassengerTime(routeList, currentMonthOfYear)
+        val totalWorkTime = getTotalWorkTime(routeList, userSettings, currentMonthOfYear)
+        val passengerTime = getPassengerTime(routeList, userSettings, currentMonthOfYear)
 
         return totalWorkTime - passengerTime
     }
@@ -488,7 +488,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         salarySetting: SalarySetting
     ) {
         val currentMonthOfYear = userSettings.selectMonthOfYear
-        val totalWorkTime = getTotalWorkTime(routeList, currentMonthOfYear)
+        val totalWorkTime = getTotalWorkTime(routeList, userSettings, currentMonthOfYear)
         val workTimeAtTariff = getWorkTimeAtTariff(routeList, userSettings)
         val paymentAtTariffMoney =
             getMoneyAtWorkTimeAtTariff(routeList, userSettings, salarySetting)
@@ -519,10 +519,10 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         val currentMonthOfYear = userSettings.selectMonthOfYear
         val personalNormaHoursInLong = getPersonalNormaInLong(userSettings)
 
-        val totalWorkTime = getTotalWorkTime(routeList, currentMonthOfYear)
-        val passengerTime = getPassengerTime(routeList, currentMonthOfYear)
+        val totalWorkTime = getTotalWorkTime(routeList, userSettings,  currentMonthOfYear)
+        val passengerTime = getPassengerTime(routeList, userSettings, currentMonthOfYear)
         val singleLocoTime = getSingleLocomotiveTime(routeList)
-        val paymentHolidayHours = getHolidayTime(routeList, currentMonthOfYear)
+        val paymentHolidayHours = getHolidayTime(routeList, userSettings, currentMonthOfYear)
         val overtime = getOvertime(totalWorkTime, personalNormaHoursInLong)
 
         return totalWorkTime - passengerTime - singleLocoTime - paymentHolidayHours - overtime
@@ -567,7 +567,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         salarySetting: SalarySetting
     ) {
         val currentMonthOfYear = userSettings.selectMonthOfYear
-        val passengerTime = getPassengerTime(routeList, currentMonthOfYear)
+        val passengerTime = getPassengerTime(routeList, userSettings, currentMonthOfYear)
         val paymentAtPassengerMoney = getMoneyAtPassenger(routeList, userSettings, salarySetting)
 
         _uiState.update {
@@ -580,8 +580,9 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
 
     private fun getPassengerTime(
         routeList: List<Route>,
+        userSettings: UserSettings,
         currentMonthOfYear: MonthOfYear
-    ) = routeList.getPassengerTime(currentMonthOfYear)
+    ) = routeList.getPassengerTime(currentMonthOfYear, userSettings.timeZone)
 
     private fun getMoneyAtPassenger(
         routeList: List<Route>,
@@ -590,7 +591,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
     ): Double {
 
         val currentMonthOfYear = userSettings.selectMonthOfYear
-        val passengerTime = getPassengerTime(routeList, currentMonthOfYear)
+        val passengerTime = getPassengerTime(routeList, userSettings, currentMonthOfYear)
         return passengerTime.times(salarySetting.tariffRate)
     }
 
@@ -600,7 +601,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         salarySetting: SalarySetting
     ) {
         val currentMonthOfYear = userSettings.selectMonthOfYear
-        val paymentHolidayHours = getHolidayTime(routeList, currentMonthOfYear)
+        val paymentHolidayHours = getHolidayTime(routeList, userSettings, currentMonthOfYear)
 
         val paymentHolidayMoney = getMoneyAtHoliday(
             routeList, userSettings, salarySetting
@@ -618,8 +619,9 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
 
     private fun getHolidayTime(
         routeList: List<Route>,
+        userSettings: UserSettings,
         currentMonthOfYear: MonthOfYear
-    ) = routeList.getWorkingTimeOnAHoliday(currentMonthOfYear)
+    ) = routeList.getWorkingTimeOnAHoliday(currentMonthOfYear, userSettings.timeZone)
 
     private fun getMoneyAtHoliday(
         routeList: List<Route>,
@@ -627,7 +629,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         salarySetting: SalarySetting
     ): Double {
         val currentMonthOfYear = userSettings.selectMonthOfYear
-        val paymentHolidayHours = getHolidayTime(routeList, currentMonthOfYear)
+        val paymentHolidayHours = getHolidayTime(routeList, userSettings, currentMonthOfYear)
 
         return paymentHolidayHours.times(salarySetting.tariffRate)
     }
@@ -638,7 +640,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         salarySetting: SalarySetting
     ) {
         val currentMonthOfYear = userSettings.selectMonthOfYear
-        val totalWorkTime = getTotalWorkTime(routeList, currentMonthOfYear)
+        val totalWorkTime = getTotalWorkTime(routeList, userSettings, currentMonthOfYear)
         val personalNormaHoursInLong = getPersonalNormaInLong(userSettings)
         val overtimeHours = getOvertime(totalWorkTime, personalNormaHoursInLong)
         val overtimeMoney = getMoneyAtPaymentOvertime(routeList, userSettings, salarySetting)
@@ -721,7 +723,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         val baseMoneyForOvertime =
             getBasicMoneyForOvertimeCalculation(routeList, userSettings, salarySetting)
         val currentMonthOfYear = userSettings.selectMonthOfYear
-        val totalWorkTime = getTotalWorkTime(routeList, currentMonthOfYear)
+        val totalWorkTime = getTotalWorkTime(routeList, userSettings, currentMonthOfYear)
         val personalNormaHoursInLong = getPersonalNormaInLong(userSettings)
         val overTime = getOvertime(totalWorkTime, personalNormaHoursInLong)
         val overtimeMoneyOfOneHour = baseMoneyForOvertime / totalWorkTime
@@ -736,7 +738,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         val baseMoneyForOvertime =
             getBasicMoneyForOvertimeCalculation(routeList, userSettings, salarySetting)
         val currentMonthOfYear = userSettings.selectMonthOfYear
-        val totalWorkTime = getTotalWorkTime(routeList, currentMonthOfYear)
+        val totalWorkTime = getTotalWorkTime(routeList, userSettings, currentMonthOfYear)
         val personalNormaHoursInLong = getPersonalNormaInLong(userSettings)
         val overTime = getOvertime(totalWorkTime, personalNormaHoursInLong)
         val surchargeAtOvertime05Hour = getOvertime05Surcharge(routeList, overTime)
@@ -752,7 +754,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         val baseMoneyForOvertime =
             getBasicMoneyForOvertimeCalculation(routeList, userSettings, salarySetting)
         val currentMonthOfYear = userSettings.selectMonthOfYear
-        val totalWorkTime = getTotalWorkTime(routeList, currentMonthOfYear)
+        val totalWorkTime = getTotalWorkTime(routeList, userSettings, currentMonthOfYear)
         val personalNormaHoursInLong = getPersonalNormaInLong(userSettings)
         val overTime = getOvertime(totalWorkTime, personalNormaHoursInLong)
         val surchargeAtOvertime05Hour = getOvertime05Surcharge(routeList, overTime)
@@ -925,8 +927,9 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
 
     private fun getTotalWorkTime(
         routeList: List<Route>,
+        userSettings: UserSettings,
         currentMonthOfYear: MonthOfYear
-    ) = routeList.setWorkTime(currentMonthOfYear)
+    ) = routeList.setWorkTime(currentMonthOfYear, userSettings.timeZone)
 
     fun loadData() {
         loadUserSetting()

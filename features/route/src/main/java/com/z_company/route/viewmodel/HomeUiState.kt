@@ -14,6 +14,7 @@ data class HomeUiState(
     val yearList: List<Int> = listOf(),
     val minTimeRest: Long? = null,
     val minTimeHomeRest: Long? = null,
+    val totalTimeWithHoliday: ResultState<Long>? = null,
     val nightTimeInRouteList: ResultState<Long>? = null,
     val passengerTimeInRouteList: ResultState<Long>? = null,
     val dayOffHours: ResultState<Int>? = null,
@@ -23,5 +24,6 @@ data class HomeUiState(
     val showPurchasesScreen: Boolean = false,
     val isLoadingStateAddButton: Boolean = false,
     val restoreSubscriptionState: ResultState<String>? = null,
-    val showConfirmRemoveRoute: Boolean = false
+    val showConfirmRemoveRoute: Boolean = false,
+    val offsetInMoscow: Long = 0L
 )

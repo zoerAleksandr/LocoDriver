@@ -40,6 +40,7 @@ fun HomeBottomSheetContent(
     onRouteClick: (String) -> Unit,
     onRouteLongClick: (Route) -> Unit,
     isExpand: Boolean,
+    offsetInMoscow: Long,
 ) {
     var requiredSize by remember {
         mutableStateOf(22.sp)
@@ -70,7 +71,7 @@ fun HomeBottomSheetContent(
                         if (route.basicData.timeStartWork!! > Calendar.getInstance().timeInMillis) {
                             background = MaterialTheme.colorScheme.surfaceBright
                         } else {
-                            if (route.isTransition()) {
+                            if (route.isTransition(offsetInMoscow)) {
                                 background = MaterialTheme.colorScheme.surfaceDim
                             }
                         }

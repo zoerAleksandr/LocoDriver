@@ -170,20 +170,18 @@ object UtilsForEntities {
         return totalTime
     }
 
-    fun Route.isTransition(): Boolean {
+    fun Route.isTransition(offsetInMoscow: Long): Boolean {
         if (this.basicData.timeStartWork == null || this.basicData.timeEndWork == null) {
             return false
         } else {
             val startCalendar = Calendar.getInstance(TimeZone.getDefault()).also {
-                // TODO
-                it.timeInMillis = this.basicData.timeStartWork!! + 14_400_000
+                it.timeInMillis = this.basicData.timeStartWork!! + offsetInMoscow
             }
             val yearStart = startCalendar.get(Calendar.YEAR)
             val monthStart = startCalendar.get(Calendar.MONTH)
 
             val endCalendar = Calendar.getInstance().also {
-                // TODO
-                it.timeInMillis = this.basicData.timeEndWork!! + 14_400_000
+                it.timeInMillis = this.basicData.timeEndWork!! + offsetInMoscow
             }
             val yearEnd = endCalendar.get(Calendar.YEAR)
             val monthEnd = endCalendar.get(Calendar.MONTH)
@@ -197,19 +195,17 @@ object UtilsForEntities {
         }
     }
 
-    fun Passenger.isTransition(): Boolean {
+    fun Passenger.isTransition(offsetInMoscow: Long): Boolean {
         if (this.timeDeparture == null || this.timeArrival == null) {
             return false
         } else {
             val startCalendar = Calendar.getInstance().also {
-                // TODO
-                it.timeInMillis = this.timeDeparture!! + 14_400_000
+                it.timeInMillis = this.timeDeparture!! + offsetInMoscow
             }
             val yearStart = startCalendar.get(Calendar.YEAR)
             val monthStart = startCalendar.get(Calendar.MONTH)
             val endCalendar = Calendar.getInstance().also {
-                // TODO
-                it.timeInMillis = this.timeArrival!! + 14_400_000
+                it.timeInMillis = this.timeArrival!! + offsetInMoscow
             }
             val yearEnd = endCalendar.get(Calendar.YEAR)
             val monthEnd = endCalendar.get(Calendar.MONTH)
@@ -223,16 +219,14 @@ object UtilsForEntities {
         }
     }
 
-    fun List<Route>.setWorkTime(monthOfYear: MonthOfYear): Long {
+    fun List<Route>.setWorkTime(monthOfYear: MonthOfYear, offsetInMoscow: Long): Long {
         var totalTime = 0L
         this.forEach { route ->
-            if (route.isTransition()) {
+            if (route.isTransition(offsetInMoscow)) {
                 val time = monthOfYear.getTimeInCurrentMonth(
-                    // TODO
-                    route.basicData.timeStartWork!! + 14_400_000,
-                    route.basicData.timeEndWork!! + 14_400_000
+                    route.basicData.timeStartWork!! + offsetInMoscow,
+                    route.basicData.timeEndWork!! + offsetInMoscow
                 )
-                println("ZZZ time $time")
                 totalTime += time
             } else {
                 route.getWorkTime().let { time ->
@@ -251,8 +245,7 @@ object UtilsForEntities {
         val endNightMinute = userSettings.nightTime.endNightMinute
 
         this.forEach { route ->
-            println("ZZZ route $route")
-            if (route.isTransition()) {
+            if (route.isTransition(userSettings.timeZone)) {
                 val nightTimeInRoute =
                     CalculateNightTime.getNightTimeTransitionRoute(
                         month = userSettings.selectMonthOfYear.month,
@@ -262,7 +255,8 @@ object UtilsForEntities {
                         hourStart = startNightHour,
                         minuteStart = startNightMinute,
                         hourEnd = endNightHour,
-                        minuteEnd = endNightMinute
+                        minuteEnd = endNightMinute,
+                        offsetInMoscow = userSettings.timeZone
                     )
                 nightTime = nightTime.plus(nightTimeInRoute) ?: 0L
             } else {
@@ -272,7 +266,8 @@ object UtilsForEntities {
                     hourStart = startNightHour,
                     minuteStart = startNightMinute,
                     hourEnd = endNightHour,
-                    minuteEnd = endNightMinute
+                    minuteEnd = endNightMinute,
+                    offsetInMoscow = userSettings.timeZone
                 )
                 nightTime = nightTime.plus(nightTimeInRoute) ?: 0L
             }
@@ -280,11 +275,11 @@ object UtilsForEntities {
         return nightTime
     }
 
-    fun List<Route>.getPassengerTime(monthOfYear: MonthOfYear): Long {
+    fun List<Route>.getPassengerTime(monthOfYear: MonthOfYear, offsetInMoscow: Long): Long {
         var passengerTime = 0L
         this.forEach { route ->
             route.passengers.forEach { passenger ->
-                passengerTime = if (passenger.isTransition()) {
+                passengerTime = if (passenger.isTransition(offsetInMoscow)) {
                     if (passenger.timeDeparture != null && passenger.timeArrival != null) {
                         passengerTime.plus(
                             monthOfYear.getTimeInCurrentMonth(
@@ -303,7 +298,7 @@ object UtilsForEntities {
         return passengerTime
     }
 
-    fun List<Route>.getWorkingTimeOnAHoliday(monthOfYear: MonthOfYear): Long {
+    fun List<Route>.getWorkingTimeOnAHoliday(monthOfYear: MonthOfYear, offsetInMoscow: Long): Long {
         var holidayTime = 0L
 
         val holidayList = monthOfYear.days.filter { it.tag == TagForDay.HOLIDAY }
@@ -333,10 +328,9 @@ object UtilsForEntities {
                 val endHolidayInLong = endHoliday.timeInMillis
 
                 this.forEach { route ->
-                    // TODO
                     route.timeInLongInPeriod(
-                        startDate = startHolidayInLong - 14_400_400,
-                        endDate = endHolidayInLong - 14_400_400
+                        startDate = startHolidayInLong - offsetInMoscow,
+                        endDate = endHolidayInLong - offsetInMoscow
                     )?.let { timeInPeriod ->
                         if (timeInPeriod > 0) {
                             holidayTime += timeInPeriod
@@ -350,9 +344,9 @@ object UtilsForEntities {
         return holidayTime
     }
 
-    fun List<Route>.getWorkTimeWithHoliday(monthOfYear: MonthOfYear): Long {
-        val totalWorkTime = this.setWorkTime(monthOfYear)
-        val holidayWorkTime = this.getWorkingTimeOnAHoliday(monthOfYear)
+    fun List<Route>.getWorkTimeWithoutHoliday(monthOfYear: MonthOfYear, offsetInMoscow: Long): Long {
+        val totalWorkTime = this.setWorkTime(monthOfYear, offsetInMoscow)
+        val holidayWorkTime = this.getWorkingTimeOnAHoliday(monthOfYear, offsetInMoscow)
         return totalWorkTime - holidayWorkTime
     }
 
@@ -505,11 +499,11 @@ object UtilsForEntities {
         }
     }
 
-    fun List<Route>.getOnePersonOperationTime(monthOfYear: MonthOfYear): Long {
+    fun List<Route>.getOnePersonOperationTime(monthOfYear: MonthOfYear, offsetInMoscow: Long): Long {
         var resultTime = 0L
         this.forEach { route ->
             if (route.basicData.isOnePersonOperation) {
-                resultTime += if (route.isTransition()) {
+                resultTime += if (route.isTransition(offsetInMoscow)) {
                     monthOfYear.getTimeInCurrentMonth(
                         route.basicData.timeStartWork!!,
                         route.basicData.timeEndWork!!

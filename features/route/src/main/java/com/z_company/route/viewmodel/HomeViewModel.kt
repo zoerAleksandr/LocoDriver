@@ -18,8 +18,9 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.getHomeRest
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
-import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeWithHoliday
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeWithoutHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
+import com.z_company.domain.entities.route.UtilsForEntities.setWorkTime
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -46,14 +47,15 @@ import ru.rustore.sdk.billingclient.RuStoreBillingClient
 import ru.rustore.sdk.billingclient.model.purchase.PurchaseState
 import ru.rustore.sdk.billingclient.utils.pub.checkPurchasesAvailability
 
-class HomeViewModel(application: Application) : AndroidViewModel(application = application), KoinComponent {
+class HomeViewModel(application: Application) : AndroidViewModel(application = application),
+    KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferenceStorage by inject()
     private val billingClient: RuStoreBillingClient by inject()
     private val ruStoreUseCase: RuStoreUseCase by inject()
-    var totalTime by mutableLongStateOf(0L)
+    var timeWithoutHoliday by mutableLongStateOf(0L)
         private set
 
     private var loadRouteJob: Job? = null
@@ -134,7 +136,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                                                 if (resultState is ResultState.Error) {
                                                     _uiState.update {
                                                         it.copy(
-                                                            restoreSubscriptionState = ResultState.Error(resultState.entity)
+                                                            restoreSubscriptionState = ResultState.Error(
+                                                                resultState.entity
+                                                            )
                                                         )
                                                     }
                                                     job?.cancel()
@@ -282,6 +286,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                             settingState = result
                         )
                     }
+                    if (result is ResultState.Success) {
+                        result.data?.let { setting ->
+                            _uiState.update {
+                                it.copy(
+                                    offsetInMoscow = setting.timeZone
+                                )
+                            }
+                        }
+                    }
                 }
             }
     }
@@ -290,25 +303,27 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         currentMonthOfYear?.let { monthOfYear ->
             loadRouteJob?.cancel()
             viewModelScope.launch(Dispatchers.IO) {
-                loadRouteJob = routeUseCase.listRoutesByMonth(monthOfYear).onEach { result ->
-                    _uiState.update {
-                        it.copy(routeListState = result)
-                    }
-                    if (result is ResultState.Success) {
-                        val currentTimeInMillis = getInstance().timeInMillis
-                        currentUserSetting?.let { settings ->
-                            val routeList = if (settings.isConsiderFutureRoute) {
-                                result.data
-                            } else {
-                                result.data.filter { it.basicData.timeStartWork!! < currentTimeInMillis }
+                currentUserSetting?.let { settings ->
+                    loadRouteJob = routeUseCase.listRoutesByMonth(monthOfYear, settings.timeZone)
+                        .onEach { result ->
+                            _uiState.update {
+                                it.copy(routeListState = result)
                             }
-                            calculationOfTotalTime(routeList)
-                            calculationOfNightTime(routeList)
-                            calculationPassengerTime(routeList)
-                            calculationHolidayTime(routeList)
-                        }
-                    }
-                }.launchIn(this)
+                            if (result is ResultState.Success) {
+                                val currentTimeInMillis = getInstance().timeInMillis
+                                val routeList = if (settings.isConsiderFutureRoute) {
+                                    result.data
+                                } else {
+                                    result.data.filter { it.basicData.timeStartWork!! < currentTimeInMillis }
+                                }
+                                calculationTotalTime(routeList, settings.timeZone)
+                                calculationOfTimeWithoutHoliday(routeList, settings.timeZone)
+                                calculationOfNightTime(routeList)
+                                calculationPassengerTime(routeList, settings.timeZone)
+                                calculationHolidayTime(routeList, settings.timeZone)
+                            }
+                        }.launchIn(this)
+                }
             }
         }
     }
@@ -335,7 +350,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         }
     }
 
-    private fun calculationPassengerTime(routes: List<Route>) {
+    private fun calculationPassengerTime(routes: List<Route>, offsetInMoscow: Long) {
         _uiState.update {
             it.copy(
                 passengerTimeInRouteList = ResultState.Loading
@@ -343,7 +358,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         }
         try {
             currentMonthOfYear?.let { monthOfYear ->
-                val passengerTime = routes.getPassengerTime(monthOfYear)
+                val passengerTime = routes.getPassengerTime(monthOfYear, offsetInMoscow)
                 _uiState.update {
                     it.copy(
                         passengerTimeInRouteList = ResultState.Success(passengerTime)
@@ -386,7 +401,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         }
     }
 
-    private fun calculationHolidayTime(routes: List<Route>) {
+    private fun calculationHolidayTime(routes: List<Route>, offsetInMoscow: Long) {
         _uiState.update {
             it.copy(
                 holidayHours = ResultState.Loading
@@ -394,7 +409,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         }
         try {
             currentMonthOfYear?.let { monthOfYear ->
-                val holidayTime = routes.getWorkingTimeOnAHoliday(monthOfYear)
+                val holidayTime = routes.getWorkingTimeOnAHoliday(monthOfYear, offsetInMoscow)
                 _uiState.update {
                     it.copy(
                         holidayHours = ResultState.Success(holidayTime)
@@ -434,9 +449,36 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         }
     }
 
-    private fun calculationOfTotalTime(routes: List<Route>) {
+    private fun calculationOfTimeWithoutHoliday(routes: List<Route>, offsetInMoscow: Long) {
         currentMonthOfYear?.let { monthOfYear ->
-            totalTime = routes.getWorkTimeWithHoliday(monthOfYear)
+            timeWithoutHoliday = routes.getWorkTimeWithoutHoliday(monthOfYear, offsetInMoscow)
+        }
+    }
+
+    private fun calculationTotalTime(routes: List<Route>, offsetInMoscow: Long) {
+        _uiState.update {
+            it.copy(
+                totalTimeWithHoliday = ResultState.Loading
+            )
+        }
+        try {
+            val stateSettings = uiState.value.settingState
+            if (stateSettings is ResultState.Success) {
+                stateSettings.data?.let { settings ->
+                    val totalTime = routes.setWorkTime(settings.selectMonthOfYear, offsetInMoscow)
+                    _uiState.update {
+                        it.copy(
+                            totalTimeWithHoliday = ResultState.Success(totalTime)
+                        )
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            _uiState.update {
+                it.copy(
+                    totalTimeWithHoliday = ResultState.Error(ErrorEntity(e))
+                )
+            }
         }
     }
 
@@ -499,31 +541,34 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         val routesList = mutableListOf<Route>()
         viewModelScope.launch(Dispatchers.IO) {
             currentMonthOfYear?.let { monthOfYear ->
-                this.launch {
-                    routeUseCase.listRoutesByMonth(monthOfYear).collect { resultCurrentMonth ->
-                        if (resultCurrentMonth is ResultState.Success) {
-                            routesList.addAll(resultCurrentMonth.data)
-                            this.cancel()
-                        }
-                    }
-                }.join()
-                this.launch {
-                    val previousMonthOfYear = if (monthOfYear.month != 0) {
-                        monthOfYear.copy(month = monthOfYear.month - 1)
-                    } else {
-                        monthOfYear.copy(
-                            year = monthOfYear.year - 1,
-                            month = 11
-                        )
-                    }
-                    routeUseCase.listRoutesByMonth(previousMonthOfYear)
-                        .collect { resultCurrentMonth ->
-                            if (resultCurrentMonth is ResultState.Success) {
-                                routesList.addAll(resultCurrentMonth.data)
-                                this.cancel()
+                currentUserSetting?.let { setting ->
+                    this.launch {
+                        routeUseCase.listRoutesByMonth(monthOfYear, setting.timeZone)
+                            .collect { resultCurrentMonth ->
+                                if (resultCurrentMonth is ResultState.Success) {
+                                    routesList.addAll(resultCurrentMonth.data)
+                                    this.cancel()
+                                }
                             }
+                    }.join()
+                    this.launch {
+                        val previousMonthOfYear = if (monthOfYear.month != 0) {
+                            monthOfYear.copy(month = monthOfYear.month - 1)
+                        } else {
+                            monthOfYear.copy(
+                                year = monthOfYear.year - 1,
+                                month = 11
+                            )
                         }
-                }.join()
+                        routeUseCase.listRoutesByMonth(previousMonthOfYear, setting.timeZone)
+                            .collect { resultCurrentMonth ->
+                                if (resultCurrentMonth is ResultState.Success) {
+                                    routesList.addAll(resultCurrentMonth.data)
+                                    this.cancel()
+                                }
+                            }
+                    }.join()
+                }
             }
             val sortedRouteList = routesList.sortedBy {
                 it.basicData.timeStartWork

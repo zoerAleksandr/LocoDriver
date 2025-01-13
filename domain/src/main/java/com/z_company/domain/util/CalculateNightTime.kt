@@ -16,19 +16,18 @@ object CalculateNightTime {
         hourStart: Int,
         minuteStart: Int,
         hourEnd: Int,
-        minuteEnd: Int
+        minuteEnd: Int,
+        offsetInMoscow: Long,
     ): Long? {
         if (startMillis == null || endMillis == null) {
             return null
         }
         val startLocalDateTime = getInstance().also {
-            // TODO
-            it.timeInMillis = startMillis + 14_400_000
+            it.timeInMillis = startMillis + offsetInMoscow
         }
 
         val endLocalDateTime = getInstance().also {
-            // TODO
-            it.timeInMillis = endMillis + 14_400_000
+            it.timeInMillis = endMillis + offsetInMoscow
         }
         val dateList = mutableListOf<Calendar>()
         dateList.add(startLocalDateTime)
@@ -107,13 +106,13 @@ object CalculateNightTime {
 
     fun getNightTimeTransitionRoute(
         month: Int,
-        year: Int,
         startMillis: Long?,
         endMillis: Long?,
         hourStart: Int,
         minuteStart: Int,
         hourEnd: Int,
-        minuteEnd: Int
+        minuteEnd: Int,
+        offsetInMoscow: Long,
     ): Long? {
         if (startMillis == null || endMillis == null) {
             return null
@@ -122,19 +121,14 @@ object CalculateNightTime {
             it.timeInMillis = startMillis
         }
 
-        val endWorkCalendar = getInstance().also {
-            it.timeInMillis = endMillis
-        }
         if (startWorkCalendar.get(MONTH) == month) {
 
             val startLocalDateTime = getInstance().also {
-                // TODO
-                it.timeInMillis = startMillis + 14_400_000
+                it.timeInMillis = startMillis + offsetInMoscow
             }
 
             val endLocalDateTime = getInstance().also {
-                // TODO
-                it.timeInMillis = endMillis + 14_400_000
+                it.timeInMillis = endMillis + offsetInMoscow
             }
             val dateList = mutableListOf<Calendar>()
             dateList.add(startLocalDateTime)
@@ -191,63 +185,23 @@ object CalculateNightTime {
                                 it.set(MILLISECOND, 0)
                             }
                         }
-                    val endNightTime = if (endLocalDateTime.before(endNight)) {
-                        endLocalDateTime
-                    } else {
-                        endNight
-                    }
-                    // First part night
-//                    if (calendar.before(endNightTime)) {
-//                        println("ZZZ calendar ${calendar.timeInMillis}")
-//                        println("ZZZ endNightTime ${endNightTime.timeInMillis}")
-//                        val nightTime = endNightTime.timeInMillis - calendar.timeInMillis
-//                        println("ZZZ first path $nightTime")
-//                        countNightTime += nightTime
-//                    }
-//                    // Second part night
+
+                    // Second part night
                     if (endTimeThisDay.after(startNightTime)) {
-                        println("ZZZ endTimeThisDay $endTimeThisDay")
-                        println("ZZZ startNightTime $startNightTime")
                         val nightTime = endTimeThisDay.timeInMillis - startNightTime.timeInMillis
-                        println("ZZZ second path $nightTime")
                         countNightTime += nightTime
                     }
                 }
             }
-            println("ZZZ, countNightTime $countNightTime")
             return countNightTime
 
-
-//            val endCurrentDay = getInstance().also {
-//                it.timeInMillis = startMillis
-//                it.set(DAY_OF_MONTH, it.get(DAY_OF_MONTH) + 1)
-//                it.set(HOUR_OF_DAY, 0)
-//                it.set(MINUTE, 0)
-//                it.set(MILLISECOND, 0)
-//            }
-//            val startWorkCalendarInMillis = startWorkCalendar.timeInMillis
-//            val endCurrentDayInMillis = endCurrentDay.timeInMillis
-//            return getNightTime(
-//                startMillis = startWorkCalendarInMillis - 14_400_000,
-//                endMillis = endCurrentDayInMillis - 14_400_000,
-//                hourStart = hourStart,
-//                minuteStart = minuteStart,
-//                hourEnd = hourEnd,
-//                minuteEnd = minuteEnd
-//            )
         } else {
-//
-//            if (startMillis == null || endMillis == null) {
-//                return null
-//            }
             val startLocalDateTime = getInstance().also {
-                // TODO
-                it.timeInMillis = startMillis + 14_400_000
+                it.timeInMillis = startMillis + offsetInMoscow
             }
 
             val endLocalDateTime = getInstance().also {
-                // TODO
-                it.timeInMillis = endMillis + 14_400_000
+                it.timeInMillis = endMillis + offsetInMoscow
             }
             val dateList = mutableListOf<Calendar>()
             dateList.add(startLocalDateTime)
@@ -286,24 +240,6 @@ object CalculateNightTime {
                     }
 
                 } else {
-                    val startNightTime = if (calendar.before(startNight)) {
-                        startNight
-                    } else {
-                        calendar
-                    }
-                    val endTimeThisDay =
-                        if (calendar.get(DAY_OF_MONTH) == endLocalDateTime.get(DAY_OF_MONTH)) {
-                            endLocalDateTime
-                        } else {
-                            getInstance().also {
-                                it.timeInMillis = calendar.timeInMillis
-                                it.set(DAY_OF_MONTH, calendar.get(DAY_OF_MONTH) + 1)
-                                it.set(HOUR_OF_DAY, 0)
-                                it.set(MINUTE, 0)
-                                it.set(SECOND, 0)
-                                it.set(MILLISECOND, 0)
-                            }
-                        }
                     val endNightTime = if (endLocalDateTime.before(endNight)) {
                         endLocalDateTime
                     } else {
@@ -311,44 +247,12 @@ object CalculateNightTime {
                     }
                     // First part night
                     if (calendar.before(endNightTime)) {
-                        println("ZZZ calendar ${calendar.timeInMillis}")
-                        println("ZZZ endNightTime ${endNightTime.timeInMillis}")
                         val nightTime = endNightTime.timeInMillis - calendar.timeInMillis
-                        println("ZZZ first path $nightTime")
                         countNightTime += nightTime
                     }
-                    // Second part night
-//                    if (endTimeThisDay.after(startNightTime)) {
-//                        println("ZZZ endTimeThisDay $endTimeThisDay")
-//                        println("ZZZ startNightTime $startNightTime")
-//                        val nightTime = endTimeThisDay.timeInMillis - startNightTime.timeInMillis
-//                        println("ZZZ second path $nightTime")
-//                        countNightTime += nightTime
-//                    }
                 }
             }
-            println("ZZZ, countNightTime $countNightTime")
             return countNightTime
-
-
-//            println("ZZZ startWorkCalendar.get(MONTH) != month")
-//            val startCurrentDay = getInstance().also {
-//                it.timeInMillis = startWorkCalendar.timeInMillis
-////                it.set(DAY_OF_MONTH, it.get(DAY_OF_MONTH) )
-//                it.set(HOUR_OF_DAY, 0)
-//                it.set(MINUTE, 0)
-//                it.set(MILLISECOND, 0)
-//            }
-//            val endWorkCalendarInMillis = endWorkCalendar.timeInMillis
-//            val startCurrentDayInMillis = startCurrentDay.timeInMillis
-//            return getNightTime(
-//                startMillis = startCurrentDayInMillis - 14_400_000,
-//                endMillis = endWorkCalendarInMillis - 14_400_000,
-//                hourStart = hourStart,
-//                minuteStart = minuteStart,
-//                hourEnd = hourEnd,
-//                minuteEnd = minuteEnd
-//            )
         }
     }
 }
