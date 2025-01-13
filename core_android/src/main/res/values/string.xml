@@ -69,11 +69,9 @@
     <string name="onBoardingFirstPresentationDesc6">Можно найти любой маршрут по локомотиву, станции или другой информации</string>
     <string name="onBoardingFirstPresentationDesc7">Укажи стандартное время работы или тип локомотива, и они автоматически добавятся в новом маршруте</string>
 
-    <string name="onBoardingUpdatePresentationTitle1">Заголовок Update Presentation 1</string>
-    <string name="onBoardingUpdatePresentationTitle2">Заголовок Update Presentation 2</string>
-    <string name="onBoardingUpdatePresentationTitle3">Заголовок Update Presentation 3</string>
+    <string name="onBoardingUpdatePresentationTitle1">Часовой пояс</string>
+    <string name="onBoardingUpdatePresentationTitle2">Главный экран</string>
 
-    <string name="onBoardingUpdatePresentationDesc1">Описание один Update Presentation</string>
-    <string name="onBoardingUpdatePresentationDesc2">Описание два Update Presentation</string>
-    <string name="onBoardingUpdatePresentationDesc3">Описание три Update Presentation</string>
+    <string name="onBoardingUpdatePresentationDesc1">Для учета переходных маршрутов, ночных и праздничных часов установите свой часовой пояс</string>
+    <string name="onBoardingUpdatePresentationDesc2">Добавили обшее отработанное время на главный экран</string>
 </resources>

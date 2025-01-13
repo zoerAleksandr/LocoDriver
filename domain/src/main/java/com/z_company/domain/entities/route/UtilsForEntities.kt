@@ -249,7 +249,6 @@ object UtilsForEntities {
                 val nightTimeInRoute =
                     CalculateNightTime.getNightTimeTransitionRoute(
                         month = userSettings.selectMonthOfYear.month,
-                        year = userSettings.selectMonthOfYear.year,
                         startMillis = route.basicData.timeStartWork,
                         endMillis = route.basicData.timeEndWork,
                         hourStart = startNightHour,
@@ -283,15 +282,15 @@ object UtilsForEntities {
                     if (passenger.timeDeparture != null && passenger.timeArrival != null) {
                         passengerTime.plus(
                             monthOfYear.getTimeInCurrentMonth(
-                                passenger.timeDeparture!!,
-                                passenger.timeArrival!!,
+                                passenger.timeDeparture!! + offsetInMoscow,
+                                passenger.timeArrival!! + offsetInMoscow,
                             )
                         )
                     } else {
                         0L
                     }
                 } else {
-                    passengerTime.plus((passenger.timeArrival - passenger.timeDeparture) ?: 0L)
+                    passengerTime.plus(((passenger.timeArrival + offsetInMoscow) - (passenger.timeDeparture + offsetInMoscow)) ?: 0L)
                 }
             }
         }

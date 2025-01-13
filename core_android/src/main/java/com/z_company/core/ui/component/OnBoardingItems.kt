@@ -21,9 +21,8 @@ class OnBoardingItems(
         }
         fun getDataUpdatePresentation(): List<OnBoardingItems>{
             return listOf(
-                OnBoardingItems(R.drawable.logo_v2_1, R.string.onBoardingUpdatePresentationTitle1, R.string.onBoardingUpdatePresentationDesc1),
-                OnBoardingItems(R.drawable.logo_v2_1, R.string.onBoardingUpdatePresentationTitle2, R.string.onBoardingUpdatePresentationDesc2),
-                OnBoardingItems(R.drawable.logo_v2_1, R.string.onBoardingUpdatePresentationTitle3, R.string.onBoardingUpdatePresentationDesc3)
+                OnBoardingItems(R.drawable.onboarding_update_time_zone, R.string.onBoardingUpdatePresentationTitle1, R.string.onBoardingUpdatePresentationDesc1),
+                OnBoardingItems(R.drawable.onboarding_update_total_time, R.string.onBoardingUpdatePresentationTitle2, R.string.onBoardingUpdatePresentationDesc2),
             )
         }
     }

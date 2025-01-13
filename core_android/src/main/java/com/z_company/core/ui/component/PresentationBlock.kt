@@ -134,7 +134,7 @@ fun TopSection(onBackClick: () -> Unit = {}, onSkipClick: () -> Unit = {}) {
 
 @Composable
 fun BottomSection(size: Int, index: Int, onButtonClick: () -> Unit = {}) {
-    val fabText = if (index == size - 1) "Регистрация" else "Далее"
+    val fabText = if (index == size - 1) "Начать" else "Далее"
     Box(
         modifier = Modifier
             .background(MaterialTheme.colorScheme.background)
