@@ -41,6 +41,8 @@ internal data class UserSettings(
     var isVisibleExtendedServicePhase: Boolean,
     @ColumnInfo(defaultValue = "[]")
     val stationList: List<String> = listOf(),
+    @ColumnInfo(defaultValue = "0")
+    val timeZone: Long
 //    @ColumnInfo(defaultValue = "1")
 //    var timeInputKeyboard: Boolean = true
 )

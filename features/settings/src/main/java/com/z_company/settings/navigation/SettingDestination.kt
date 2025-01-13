@@ -43,6 +43,8 @@ fun SettingDestination(
         onBillingClick = router::showPurchasesScreen,
         isRefreshing = uiState.isRefreshing,
         onRefresh = settingsViewModel::refreshingUserData,
-        onSettingHomeScreenClick = router::showSettingHomeScreen
+        onSettingHomeScreenClick = router::showSettingHomeScreen,
+        timeZoneRussiaList = settingsViewModel.timeZoneList,
+        setTimeZone = settingsViewModel::setTimeZone
     )
 }

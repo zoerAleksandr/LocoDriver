@@ -22,7 +22,8 @@ data class UserSettings(
     var isVisibleRelationTime: Boolean = true,
     var isVisibleHolidayTime: Boolean = true,
     var isVisibleExtendedServicePhase: Boolean = true,
-    val stationList: List<String> = listOf()
+    val stationList: List<String> = listOf(),
+    val timeZone: Long = 0L
 )
 
 data class NightTime(

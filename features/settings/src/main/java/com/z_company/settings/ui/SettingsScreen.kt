@@ -52,6 +52,7 @@ import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.settings.component.ConfirmEmailDialog
 import com.z_company.settings.viewmodel.SettingsUiState
+import com.z_company.settings.viewmodel.TimeZoneRussia
 import kotlinx.coroutines.launch
 import com.z_company.core.R as CoreR
 
@@ -82,11 +83,13 @@ fun SettingsScreen(
     changeEndNightTime: (Int, Int) -> Unit,
     changeUsingDefaultWorkTime: (Boolean) -> Unit,
     changeConsiderFutureRoute: (Boolean) -> Unit,
+    setTimeZone: (Long) -> Unit,
     purchasesState: ResultState<String>,
     onBillingClick: () -> Unit,
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
-    onSettingHomeScreenClick: () -> Unit
+    onSettingHomeScreenClick: () -> Unit,
+    timeZoneRussiaList: List<TimeZoneRussia>,
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -179,7 +182,9 @@ fun SettingsScreen(
                                 onBillingClick = onBillingClick,
                                 isRefreshing = isRefreshing,
                                 onRefresh = onRefresh,
-                                onSettingHomeScreenClick = onSettingHomeScreenClick
+                                onSettingHomeScreenClick = onSettingHomeScreenClick,
+                                setTimeZone = setTimeZone,
+                                timeZoneRussiaList = timeZoneRussiaList
                             )
                         }
                     }
@@ -212,9 +217,11 @@ fun SettingScreenContent(
     changeUsingDefaultWorkTime: (Boolean) -> Unit,
     changeConsiderFutureRoute: (Boolean) -> Unit,
     purchasesState: ResultState<String>,
+    setTimeZone: (Long) -> Unit,
     onBillingClick: () -> Unit,
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
+    timeZoneRussiaList: List<TimeZoneRussia>,
     onSettingHomeScreenClick: () -> Unit
 ) {
     val styleTitle = AppTypography.getType().titleLarge
@@ -410,6 +417,86 @@ fun SettingScreenContent(
                     }
                 }
             }
+
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                ) {
+                    Text(
+                        modifier = Modifier
+                            .padding(start = 16.dp, bottom = 6.dp),
+                        text = "ЧАСОВОЙ ПОЯС",
+                        style = styleTitle
+                    )
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    color = MaterialTheme.colorScheme.surface,
+                                    shape = Shapes.medium
+                                )
+                        ) {
+                            val currentTimeZone: TimeZoneRussia = timeZoneRussiaList.find {
+                                it.offsetOfMoscow == currentSettings.timeZone
+                            } ?: timeZoneRussiaList[1]
+
+                            var selectedTimeZone by remember { mutableStateOf(currentTimeZone) }
+                            var expanded by remember { mutableStateOf(false) }
+
+                            ExposedDropdownMenuBox(
+                                expanded = expanded,
+                                onExpandedChange = {
+                                    expanded = !expanded
+                                }
+                            ) {
+                                OutlinedTextField(
+                                    value = selectedTimeZone.description,
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    trailingIcon = {
+                                        ExposedDropdownMenuDefaults.TrailingIcon(
+                                            expanded = expanded
+                                        )
+                                    },
+                                    modifier = Modifier
+                                        .menuAnchor()
+                                        .fillMaxWidth(),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                        focusedBorderColor = Color.Transparent,
+                                        unfocusedBorderColor = Color.Transparent
+                                    ),
+                                )
+
+                                ExposedDropdownMenu(
+                                    expanded = expanded,
+                                    onDismissRequest = { expanded = false }
+                                ) {
+                                    timeZoneRussiaList.forEach { item ->
+                                        DropdownMenuItem(
+                                            text = { Text(text = item.description) },
+                                            onClick = {
+                                                selectedTimeZone = item
+                                                setTimeZone(item.offsetOfMoscow)
+                                                expanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        Text(
+                            modifier = Modifier.padding(start = 16.dp, top = 8.dp),
+                            text = "Установите местный часовой пояс. Будет учитываться при расчете ночных, праздничных часов и переходных поездках.",
+                            style = styleHint
+                        )
+                    }
+                }
+            }
+
             item {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Box(

@@ -68,6 +68,22 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             }
         }
 
+    private val oneHourInMillis = 3_600_000L
+    val timeZoneList = listOf(
+        TimeZoneRussia("Калининград (MSK–1, UTC+2)", oneHourInMillis * -1),
+        TimeZoneRussia("Москва (UTC+3)", oneHourInMillis * 0),
+        TimeZoneRussia("Самара (MSK+1, UTC+4)", oneHourInMillis * 1),
+        TimeZoneRussia("Екатеринбург (MSK+2, UTC+5)", oneHourInMillis * 2),
+        TimeZoneRussia("Омск (MSK+3, UTC+6),)", oneHourInMillis * 3),
+        TimeZoneRussia("Красноярск (MSK+4, UTC+7)", oneHourInMillis * 4),
+        TimeZoneRussia("Иркутск (MSK+5, UTC+8)", oneHourInMillis * 5),
+        TimeZoneRussia("Якутск (MSK+6, UTC+9)", oneHourInMillis * 6),
+        TimeZoneRussia("Владивосток (MSK+7, UTC+10)", oneHourInMillis * 7),
+        TimeZoneRussia("Магадан (MSK+8, UTC+11)", oneHourInMillis * 8),
+        TimeZoneRussia("Камчатка (MSK+9, UTC+12)", oneHourInMillis * 9),
+        TimeZoneRussia("Анадырь (MSK+10, UTC+13)", oneHourInMillis * 10),
+    )
+
     private var currentUser: User?
         get() {
             return _uiState.value.userDetailsState.let {
@@ -278,7 +294,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                         updateRepositoryState = result,
                     )
                 }
-                if (result is ResultState.Success){
+                if (result is ResultState.Success) {
                     _uiState.update {
                         it.copy(
                             updateAt = result.data
@@ -344,4 +360,15 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             isConsiderFutureRoute = isConsider
         )
     }
+
+    fun setTimeZone(timeZone: Long) {
+        currentSettings = currentSettings?.copy(
+            timeZone = timeZone
+        )
+    }
 }
+
+data class TimeZoneRussia(
+    val description: String,
+    val offsetOfMoscow: Long
+)
