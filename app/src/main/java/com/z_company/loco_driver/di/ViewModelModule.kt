@@ -54,9 +54,7 @@ val viewModelModule = module {
     viewModel { SelectReleaseDaysViewModel() }
     viewModel { SearchViewModel() }
     viewModel { PurchasesViewModel() }
-    viewModel {(monthOfYearId: String) ->
-        MoreInfoViewModel(monthOfYearId)
-    }
+    viewModel { MoreInfoViewModel() }
     viewModel { SalaryCalculationViewModel() }
     viewModel { SettingSalaryViewModel() }
 }

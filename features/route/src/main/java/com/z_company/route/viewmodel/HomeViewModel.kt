@@ -33,8 +33,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import java.util.Calendar.MONTH
-import java.util.Calendar.YEAR
 import java.util.Calendar.getInstance
 import com.z_company.use_case.RuStoreUseCase
 import kotlinx.coroutines.Dispatchers
@@ -58,7 +56,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     var timeWithoutHoliday by mutableLongStateOf(0L)
         private set
 
-    private var loadRouteJob: Job? = null
     private var removeRouteJob: Job? = null
     private var loadCalendarJob: Job? = null
     private var setCalendarJob: Job? = null
@@ -248,7 +245,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         }
     }
 
-    var currentUserSetting: UserSettings?
+    private var currentUserSetting: UserSettings?
         get() {
             return _uiState.value.settingState.let {
                 if (it is ResultState.Success) it.data else null
@@ -278,53 +275,53 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
 
     private fun loadSetting() {
         loadSettingJob?.cancel()
-        loadSettingJob =
-            viewModelScope.launch {
-                settingsUseCase.getCurrentSettings().collect { result ->
-                    _uiState.update {
-                        it.copy(
-                            settingState = result
-                        )
-                    }
-                    if (result is ResultState.Success) {
-                        result.data?.let { setting ->
-                            _uiState.update {
-                                it.copy(
-                                    offsetInMoscow = setting.timeZone
-                                )
-                            }
+        loadSettingJob = viewModelScope.launch {
+            settingsUseCase.getCurrentSettings().collect { result ->
+                _uiState.update {
+                    it.copy(
+                        settingState = result
+                    )
+                }
+                if (result is ResultState.Success) {
+                    result.data?.let { setting ->
+                        _uiState.update {
+                            it.copy(
+                                offsetInMoscow = setting.timeZone
+                            )
                         }
+                        currentMonthOfYear = setting.selectMonthOfYear
+                        loadMinTimeRestInRoute()
+                        loadMonthList()
+                        loadRoutes(setting)
                     }
                 }
             }
+        }
     }
 
-    fun loadRoutes() {
-        currentMonthOfYear?.let { monthOfYear ->
-            loadRouteJob?.cancel()
-            viewModelScope.launch(Dispatchers.IO) {
-                currentUserSetting?.let { settings ->
-                    loadRouteJob = routeUseCase.listRoutesByMonth(monthOfYear, settings.timeZone)
-                        .onEach { result ->
-                            _uiState.update {
-                                it.copy(routeListState = result)
-                            }
-                            if (result is ResultState.Success) {
-                                val currentTimeInMillis = getInstance().timeInMillis
-                                val routeList = if (settings.isConsiderFutureRoute) {
-                                    result.data
-                                } else {
-                                    result.data.filter { it.basicData.timeStartWork!! < currentTimeInMillis }
-                                }
-                                calculationTotalTime(routeList, settings.timeZone)
-                                calculationOfTimeWithoutHoliday(routeList, settings.timeZone)
-                                calculationOfNightTime(routeList)
-                                calculationPassengerTime(routeList, settings.timeZone)
-                                calculationHolidayTime(routeList, settings.timeZone)
-                            }
-                        }.launchIn(this)
+    private fun loadRoutes(settings: UserSettings) {
+        viewModelScope.launch(Dispatchers.IO) {
+            routeUseCase.listRoutesByMonth(settings.selectMonthOfYear, settings.timeZone)
+                .collect { result ->
+                    withContext(Dispatchers.Main) {
+                        _uiState.update {
+                            it.copy(routeListState = result)
+                        }
+                    }
+                    if (result is ResultState.Success) {
+                        val currentTimeInMillis = getInstance().timeInMillis
+                        val routeList = if (settings.isConsiderFutureRoute) {
+                            result.data
+                        } else {
+                            result.data.filter { it.basicData.timeStartWork!! < currentTimeInMillis }
+                        }
+                        calculationTotalTime(routeList, settings.timeZone)
+                        calculationOfTimeWithoutHoliday(routeList, settings.timeZone)
+                        calculationOfNightTime(routeList, settings)
+                        calculationPassengerTime(routeList, settings.timeZone)
+                        calculationHolidayTime(routeList, settings.timeZone)
+                    }
                 }
-            }
         }
     }
 
@@ -374,31 +371,29 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         }
     }
 
-    private fun calculationOfNightTime(routes: List<Route>) {
-        _uiState.update {
-            it.copy(
-                nightTimeInRouteList = ResultState.Loading
-            )
-        }
-        try {
-            val stateSettings = uiState.value.settingState
-            if (stateSettings is ResultState.Success) {
-                stateSettings.data?.let { settings ->
-                    val nightTimeState = routes.getNightTime(settings)
-                    _uiState.update {
-                        it.copy(
-                            nightTimeInRouteList = ResultState.Success(nightTimeState)
-                        )
-                    }
-                }
-            }
-        } catch (e: Exception) {
+    private fun calculationOfNightTime(routes: List<Route>, settings: UserSettings) {
+//        viewModelScope.launch {
             _uiState.update {
                 it.copy(
-                    nightTimeInRouteList = ResultState.Error(ErrorEntity(e))
+                    nightTimeInRouteList = ResultState.Loading
                 )
             }
-        }
+//            delay(3000L)
+            try {
+                val nightTimeState = routes.getNightTime(settings)
+                _uiState.update {
+                    it.copy(
+                        nightTimeInRouteList = ResultState.Success(nightTimeState)
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        nightTimeInRouteList = ResultState.Error(ErrorEntity(e))
+                    )
+                }
+            }
+//        }
     }
 
     private fun calculationHolidayTime(routes: List<Route>, offsetInMoscow: Long) {
@@ -493,7 +488,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                     currentUserSetting = currentUserSetting?.copy(
                         selectMonthOfYear = selectMonthOfYear
                     )
-                    loadRoutes()
                     saveCurrentMonthInLocal(selectMonthOfYear)
                 }
             }
@@ -516,7 +510,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                         monthList = result.data.map { it.month }.distinct().sorted(),
                         yearList = result.data.map { it.year }.distinct().sorted()
                     )
-
                 }
             }
         }.launchIn(viewModelScope)
@@ -615,17 +608,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         sharedPreferenceStorage.setTokenIsFirstAppEntry(false)
     }
 
-    init {
-        val calendar = getInstance()
+    fun loadData() {
         loadSetting()
-        loadMonthList()
-        loadMinTimeRestInRoute()
-        setCurrentMonth(
-            Pair(
-                calendar.get(YEAR),
-                calendar.get(MONTH)
-            )
-        )
+    }
+
+    init {
+        loadData()
         checkLoginToAccount()
         sharedPreferenceStorage.enableShowingUpdatePresentation()
     }

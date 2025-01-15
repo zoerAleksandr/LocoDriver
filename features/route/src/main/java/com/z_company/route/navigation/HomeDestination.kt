@@ -27,7 +27,7 @@ fun HomeDestination(
         onNewRouteClick = homeViewModel::newRouteClick,
         onDeleteRoute = homeViewModel::removeRoute,
         onDeleteRouteConfirmed = homeViewModel::resetRemoveRouteState,
-        reloadRoute = homeViewModel::loadRoutes,
+        reloadRoute = homeViewModel::loadData,
         onSettingsClick = { router.showSettings() },
         onSearchClick = { router.showSearch() },
         totalTime = homeViewModel.timeWithoutHoliday,
