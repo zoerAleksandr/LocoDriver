@@ -24,13 +24,10 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
                     if (result is ResultState.Success) {
                         result.data?.let { settings ->
                             val oldStations = settings.stationList
-                            println("ZZZ oldStations $oldStations")
                             val newList = mutableListOf<String>()
 
                             newList.addAll(stations)
-                            println("ZZZ newList 1 $newList")
                             newList.addAll(oldStations)
-                            println("ZZZ newList 2 $newList")
 
                             val uniqueStationsName: MutableList<String> =
                                 newList.filter { it.isNotBlank() }.distinct().toMutableList()
@@ -108,13 +105,14 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
                             newList.remove(value)
                             settingsRepository.setLocomotiveSeriesList(newList).collect()
                         }
+                        this.cancel()
                     }
                 }
             }
         }
     }
 
-    suspend fun setLocomotiveSeriesList(series: String) {
+    suspend fun setLocomotiveSeries(series: String) {
         coroutineScope {
             withContext(Dispatchers.IO) {
                 settingsRepository.getSettings().collect { result ->
@@ -126,9 +124,29 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
                             newList.addAll(oldSeries)
                             val uniqueSeriesName: MutableList<String> =
                                 newList.filter { it.isNotBlank() }.distinct().toMutableList()
-
                             settingsRepository.setLocomotiveSeriesList(uniqueSeriesName).collect()
                         }
+                        this.cancel()
+                    }
+                }
+            }
+        }
+    }
+    suspend fun setLocomotiveSeriesList(series: List<String>) {
+        coroutineScope {
+            withContext(Dispatchers.IO) {
+                settingsRepository.getSettings().collect { result ->
+                    if (result is ResultState.Success) {
+                        result.data?.let { settings ->
+                            val oldSeries = settings.locomotiveSeriesList
+                            val newList = mutableListOf<String>()
+                            newList.addAll(series)
+                            newList.addAll(oldSeries)
+                            val uniqueSeriesName: MutableList<String> =
+                                newList.filter { it.isNotBlank() }.distinct().toMutableList()
+                            settingsRepository.setLocomotiveSeriesList(uniqueSeriesName).collect()
+                        }
+                        this.cancel()
                     }
                 }
             }

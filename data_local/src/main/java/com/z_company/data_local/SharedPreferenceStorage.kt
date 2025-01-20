@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import org.koin.core.component.KoinComponent
 
-
+private const val TOKEN_IS_LOAD_STATION_NAME_AND_LOCOMOTIVE_SERIES = "TOKEN_IS_LOAD_STATION_NAME_AND_LOCOMOTIVE_SERIES"
 private const val TOKEN_IS_FIRST_APP_ENTRY_TAG = "TOKEN_IS_FIRST_APP_ENTRY_TAG"
 private const val TOKEN_IS_SYNC_TAG = "TOKEN_IS_SYNC_TAG"
 private const val TOKEN_IS_CHANGES_HAVE_TAG = "TOKEN_IS_CHANGES_HAVE_TAG"
@@ -49,5 +49,12 @@ class SharedPreferenceStorage(application: Application) : KoinComponent {
 
     fun setTokenIsSyncEnable(value: Boolean) {
         editor.putBoolean(TOKEN_IS_SYNC_TAG, value).apply()
+    }
+
+    fun tokenIsLoadStationAndLocomotiveSeries(): Boolean =
+        sharedpref.getBoolean(TOKEN_IS_LOAD_STATION_NAME_AND_LOCOMOTIVE_SERIES, false)
+
+    fun setTokenIsLoadStationAndLocomotiveSeries(value: Boolean) {
+        editor.putBoolean(TOKEN_IS_LOAD_STATION_NAME_AND_LOCOMOTIVE_SERIES, value).apply()
     }
 }

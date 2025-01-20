@@ -25,8 +25,6 @@ fun LocoDriverApp(
     isShowFirstPresentation: Boolean,
     isShowUpdatePresentation: Boolean
 ) {
-    Log.d("ZZZ", "isShowFirstPresentation $isShowFirstPresentation")
-    Log.d("ZZZ", "isShowUpdatePresentation $isShowUpdatePresentation")
     LocoDriverTheme {
         Surface(
             modifier = Modifier

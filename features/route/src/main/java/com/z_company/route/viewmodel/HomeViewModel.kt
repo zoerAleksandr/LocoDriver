@@ -1,7 +1,6 @@
 package com.z_company.route.viewmodel
 
 import android.app.Application
-import android.content.Context
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -81,8 +80,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
 
     val alertBeforePurchasesEvent = _alertBeforePurchasesEvent.asSharedFlow()
 
-    fun checkPurchasesAvailability(context: Context) {
-        RuStoreBillingClient.checkPurchasesAvailability(context)
+    fun checkPurchasesAvailability() {
+        RuStoreBillingClient.checkPurchasesAvailability()
             .addOnSuccessListener { result ->
                 _uiState.update {
                     it.copy(
@@ -294,6 +293,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                         loadMonthList()
                         loadRoutes(setting)
                     }
+                    loadSettingJob?.cancel()
                 }
             }
         }
@@ -372,28 +372,25 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     }
 
     private fun calculationOfNightTime(routes: List<Route>, settings: UserSettings) {
-//        viewModelScope.launch {
+        _uiState.update {
+            it.copy(
+                nightTimeInRouteList = ResultState.Loading
+            )
+        }
+        try {
+            val nightTimeState = routes.getNightTime(settings)
             _uiState.update {
                 it.copy(
-                    nightTimeInRouteList = ResultState.Loading
+                    nightTimeInRouteList = ResultState.Success(nightTimeState)
                 )
             }
-//            delay(3000L)
-            try {
-                val nightTimeState = routes.getNightTime(settings)
-                _uiState.update {
-                    it.copy(
-                        nightTimeInRouteList = ResultState.Success(nightTimeState)
-                    )
-                }
-            } catch (e: Exception) {
-                _uiState.update {
-                    it.copy(
-                        nightTimeInRouteList = ResultState.Error(ErrorEntity(e))
-                    )
-                }
+        } catch (e: Exception) {
+            _uiState.update {
+                it.copy(
+                    nightTimeInRouteList = ResultState.Error(ErrorEntity(e))
+                )
             }
-//        }
+        }
     }
 
     private fun calculationHolidayTime(routes: List<Route>, offsetInMoscow: Long) {
@@ -599,6 +596,42 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         }
     }
 
+    // ДЛЯ ТОГО, ЧТОБЫ СФОРМИРОВАЛИСЬ СПИСКИ ДЛЯ DROPDOWN MENU СЕРИЙ ЛОКОМОТИВОВ И СТАНЦИЙ
+    private fun initListStationAndLocomotiveSeries() {
+        if (!sharedPreferenceStorage.tokenIsLoadStationAndLocomotiveSeries()) {
+            viewModelScope.launch(
+                Dispatchers.IO
+            ) {
+                val seriesList = mutableListOf<String>()
+                val stationList = mutableListOf<String>()
+
+                val routes = routeUseCase.getListRoutes()
+
+                routes.forEach { route ->
+                    route.locomotives.forEach { locomotive ->
+                        locomotive.series?.let { series ->
+                            seriesList.add(series)
+                        }
+                    }
+                    route.trains.forEach { train ->
+                        train.stations.forEach { station ->
+                            station.stationName?.let { name ->
+                                stationList.add(name)
+                            }
+                        }
+                    }
+                }
+                this.launch {
+                    settingsUseCase.setLocomotiveSeriesList(seriesList)
+                }
+                this.launch {
+                    settingsUseCase.setStations(stationList)
+                }
+                sharedPreferenceStorage.setTokenIsLoadStationAndLocomotiveSeries(true)
+            }
+        }
+    }
+
     fun disableFirstEntryToAccountDialog() {
         _uiState.update {
             it.copy(
@@ -615,6 +648,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     init {
         loadData()
         checkLoginToAccount()
+        initListStationAndLocomotiveSeries()
         sharedPreferenceStorage.enableShowingUpdatePresentation()
     }
 }

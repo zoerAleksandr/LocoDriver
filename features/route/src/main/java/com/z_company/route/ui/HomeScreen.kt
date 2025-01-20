@@ -1,7 +1,6 @@
 package com.z_company.route.ui
 
 import android.app.Activity
-import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -150,7 +149,7 @@ fun HomeScreen(
     showFormScreenReset: () -> Unit,
     isLoadingStateAddButton: Boolean,
     alertBeforePurchasesState: SharedFlow<AlertBeforePurchasesEvent>,
-    checkPurchasesAvailability: (Context) -> Unit,
+    checkPurchasesAvailability: () -> Unit,
     restorePurchases: () -> Unit,
     restoreResultState: ResultState<String>?,
     resetSubscriptionState: () -> Unit,
@@ -275,7 +274,7 @@ fun HomeScreen(
                         shape = Shapes.medium,
                         onClick = {
                             showAlertSubscribeDialog = !showAlertSubscribeDialog
-                            checkPurchasesAvailability(context)
+                            checkPurchasesAvailability()
                         }
                     ) {
                         Text(
@@ -336,7 +335,7 @@ fun HomeScreen(
                         shape = Shapes.medium,
                         onClick = {
                             showNeedSubscribeDialog = !showNeedSubscribeDialog
-                            checkPurchasesAvailability(context)
+                            checkPurchasesAvailability()
                         }
                     ) {
                         Text(

@@ -84,7 +84,7 @@ tracer {
 
 dependencies {
     implementation ("com.my.tracker:mytracker-sdk:3.3.2")
-    implementation(platform("ru.rustore.sdk:bom:6.1.0"))
+    implementation(platform("ru.rustore.sdk:bom:7.0.0"))
     implementation("ru.rustore.sdk:billingclient")
 
     implementation(platform("ru.ok.tracer:tracer-platform:0.5.1"))

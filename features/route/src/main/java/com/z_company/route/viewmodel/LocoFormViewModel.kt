@@ -1,6 +1,5 @@
 package com.z_company.route.viewmodel
 
-import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
@@ -12,7 +11,6 @@ import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.SectionDiesel
 import com.z_company.domain.entities.route.SectionElectric
-import com.z_company.domain.entities.route.Train
 import com.z_company.domain.use_cases.LocomotiveUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.util.CalculationEnergy
@@ -23,7 +21,6 @@ import com.z_company.route.Const.NULLABLE_ID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -260,7 +257,7 @@ class LocoFormViewModel(
 
     private fun saveLocomotiveSeries(value: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            settingsUseCase.setLocomotiveSeriesList(value)
+            settingsUseCase.setLocomotiveSeries(value)
         }
     }
 

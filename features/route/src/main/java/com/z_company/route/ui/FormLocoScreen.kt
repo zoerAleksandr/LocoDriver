@@ -356,7 +356,7 @@ private fun LocoFormScreenContent(
                 val focusRequester = remember { FocusRequester() }
                 ExposedDropdownMenuBox(
                     modifier = Modifier
-                        .weight(0.5f),
+                        .weight(1f),
                     expanded = isExpandedMenu,
                     onExpandedChange = { onExpandedMenuChange(it) }
                 ) {
@@ -375,8 +375,7 @@ private fun LocoFormScreenContent(
                         modifier = Modifier
                             .menuAnchor()
                             .focusRequester(focusRequester)
-                            .padding(end = 8.dp)
-                            .weight(1f),
+                            .padding(end = 8.dp),
                         value = series,
                         textStyle = dataTextStyle,
                         placeholder = {
@@ -443,7 +442,8 @@ private fun LocoFormScreenContent(
                                             text = selectionSeries,
                                             selection = TextRange(selectionSeries.length)
                                         )
-                                    })
+                                    }
+                                )
                             }
                         }
                     }
@@ -497,6 +497,10 @@ private fun LocoFormScreenContent(
                         modifier = Modifier.padding(4.dp),
                         selected = index == locomotive.type.ordinal,
                         onClick = { onTypeLocoChanged(index) },
+                        colors = SegmentedButtonDefaults.colors(
+                            activeContainerColor = Color.Transparent,
+                            inactiveContainerColor = Color.Transparent
+                        ),
                         shape = SegmentedButtonDefaults.itemShape(
                             index = index,
                             count = types.size,
