@@ -17,5 +17,6 @@ data class LocoFormUiState(
     val settingsState: ResultState<UserSettings?> = ResultState.Loading,
     val exitFromScreen: Boolean = false,
     val changesHaveState: Boolean = false,
-    val confirmExitDialogShow: Boolean = false
+    val confirmExitDialogShow: Boolean = false,
+    val isExpandedDropDownMenuSeries: Boolean = false
 )

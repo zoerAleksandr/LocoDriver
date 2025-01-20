@@ -23,6 +23,7 @@ data class UserSettings(
     var isVisibleHolidayTime: Boolean = true,
     var isVisibleExtendedServicePhase: Boolean = true,
     val stationList: List<String> = listOf(),
+    val locomotiveSeriesList: List<String> = listOf(),
     val timeZone: Long = 0L
 )
 

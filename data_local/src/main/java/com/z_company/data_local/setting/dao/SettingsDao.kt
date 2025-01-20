@@ -6,13 +6,12 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.TypeConverters
 import androidx.room.Update
-import com.z_company.data_local.route.entity.Station
 import com.z_company.data_local.setting.entity.MonthOfYear
 import com.z_company.data_local.setting.entity.NightTime
 import com.z_company.data_local.setting.entity.UserSettings
 import com.z_company.data_local.setting.type_converter.MonthOfYearToPrimitiveConverter
 import com.z_company.data_local.setting.type_converter.NightTimeToPrimitiveConverter
-import com.z_company.data_local.setting.type_converter.StationListToPrimitiveConverter
+import com.z_company.data_local.setting.type_converter.StringListToPrimitiveConverter
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -54,11 +53,19 @@ internal interface SettingsDao {
     @Query("UPDATE UserSettings SET lastEnteredDieselCoefficient =:coefficient WHERE settingsKey =:key")
     fun setDieselCoefficient(coefficient: Double, key: String)
 
-    @TypeConverters(StationListToPrimitiveConverter::class)
+    @TypeConverters(StringListToPrimitiveConverter::class)
     @Query("UPDATE UserSettings SET stationList =:stations WHERE settingsKey =:key")
     fun setStationList(stations: List<String>, key: String)
 
-    @TypeConverters(StationListToPrimitiveConverter::class)
+    @TypeConverters(StringListToPrimitiveConverter::class)
     @Query("SELECT stationList FROM UserSettings")
     fun getStations(): List<String>
+
+    @TypeConverters(StringListToPrimitiveConverter::class)
+    @Query("UPDATE UserSettings SET locomotiveSeriesList =:locomotiveSeries WHERE settingsKey =:key")
+    fun setLocomotiveSeriesList(locomotiveSeries: List<String>, key: String)
+
+    @TypeConverters(StringListToPrimitiveConverter::class)
+    @Query("SELECT locomotiveSeriesList FROM UserSettings")
+    fun getLocomotiveSeriesList(): List<String>
 }

@@ -18,4 +18,6 @@ interface SettingsRepository {
     fun clearRepository(): Flow<ResultState<Unit>>
     fun setStations(stations: List<String>): Flow<ResultState<Unit>>
     fun getStations(): List<String>
+    fun setLocomotiveSeriesList(locomotiveSeries: List<String>): Flow<ResultState<Unit>>
+    fun getLocomotiveSeriesList(): List<String>
 }

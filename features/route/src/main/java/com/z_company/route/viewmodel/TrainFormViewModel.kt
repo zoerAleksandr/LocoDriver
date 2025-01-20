@@ -88,7 +88,6 @@ class TrainFormViewModel(
             settingsUseCase.getCurrentSettings().collect {
                 if (it is ResultState.Success) {
                     it.data?.let { settings ->
-                        Log.d("ZZZ", "in ViewModel ${settings.stationList}")
                         stationNameList.addAllOrSkip(settings.stationList.toMutableStateList())
                     }
                     this.cancel()

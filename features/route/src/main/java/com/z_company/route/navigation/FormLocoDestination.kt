@@ -56,7 +56,12 @@ fun FormLocoDestination(
         onCoefficientValueChanged = viewModel::setCoefficient,
         exitScreen = router::back,
         changeShowConfirmExitDialog = viewModel::changeShowConfirmDialog,
-        exitWithoutSave = viewModel::exitWithoutSaving
+        exitWithoutSave = viewModel::exitWithoutSaving,
+        menuList = viewModel.seriesList,
+        isExpandedMenu = formUiState.isExpandedDropDownMenuSeries,
+        onExpandedMenuChange = viewModel::changeExpandedMenu,
+        onChangedContentMenu = viewModel::onChangedDropDownContent,
+        onDeleteSeries = viewModel::removeSeries
     )
 
 }

@@ -24,10 +24,14 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -55,14 +59,19 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.zIndex
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
@@ -129,7 +138,13 @@ fun FormLocoScreen(
     onCoefficientValueChanged: (Int, String?) -> Unit,
     exitScreen: () -> Unit,
     changeShowConfirmExitDialog: (Boolean) -> Unit,
-    exitWithoutSave: () -> Unit
+    exitWithoutSave: () -> Unit,
+    menuList: List<String>,
+    isExpandedMenu: Boolean,
+    onExpandedMenuChange: (Boolean) -> Unit,
+    onChangedContentMenu: (String) -> Unit,
+    onDeleteSeries: (String) -> Unit
+
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -243,7 +258,12 @@ fun FormLocoScreen(
                             showConfirmExitDialog = formUiState.confirmExitDialogShow,
                             changeShowConfirmExitDialog = changeShowConfirmExitDialog,
                             exitWithoutSave = exitWithoutSave,
-                            onSaveClick = onSaveClick
+                            onSaveClick = onSaveClick,
+                            menuList = menuList,
+                            isExpandedMenu = isExpandedMenu,
+                            onExpandedMenuChange = onExpandedMenuChange,
+                            onChangedContentMenu = onChangedContentMenu,
+                            onDeleteSeries = onDeleteSeries
                         )
                     }
 
@@ -285,6 +305,11 @@ private fun LocoFormScreenContent(
     changeShowConfirmExitDialog: (Boolean) -> Unit,
     exitWithoutSave: () -> Unit,
     onSaveClick: () -> Unit,
+    menuList: List<String>,
+    isExpandedMenu: Boolean,
+    onExpandedMenuChange: (Boolean) -> Unit,
+    onChangedContentMenu: (String) -> Unit,
+    onDeleteSeries: (String) -> Unit
 ) {
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
@@ -328,35 +353,101 @@ private fun LocoFormScreenContent(
                 modifier = Modifier
                     .fillMaxWidth()
             ) {
-                OutlinedTextField(
+                val focusRequester = remember { FocusRequester() }
+                ExposedDropdownMenuBox(
                     modifier = Modifier
-                        .padding(end = 8.dp)
-                        .weight(1f),
-                    value = locomotive.series ?: "",
-                    textStyle = dataTextStyle,
-                    placeholder = {
-                        Text(text = "Серия", style = dataTextStyle)
-                    },
-                    onValueChange = {
-                        onSeriesChanged(it)
-                    },
-                    keyboardOptions = KeyboardOptions(
-                        imeAction = ImeAction.Next
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onNext = {
-                            focusManager.moveFocus(FocusDirection.Right)
+                        .weight(0.5f),
+                    expanded = isExpandedMenu,
+                    onExpandedChange = { onExpandedMenuChange(it) }
+                ) {
+                    var series by remember {
+                        mutableStateOf(
+                            TextFieldValue(
+                                text = locomotive.series ?: "",
+                                selection = TextRange(locomotive.series?.length ?: 0)
+                            )
+                        )
+                    }
+                    LaunchedEffect(Unit) {
+                        focusRequester.requestFocus()
+                    }
+                    OutlinedTextField(
+                        modifier = Modifier
+                            .menuAnchor()
+                            .focusRequester(focusRequester)
+                            .padding(end = 8.dp)
+                            .weight(1f),
+                        value = series,
+                        textStyle = dataTextStyle,
+                        placeholder = {
+                            Text(text = "Серия", style = dataTextStyle)
+                        },
+                        onValueChange = {
+                            series = it
+                            onSeriesChanged(it.text)
+                            onChangedContentMenu(it.text)
+                        },
+                        keyboardOptions = KeyboardOptions(
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = {
+                                focusManager.moveFocus(FocusDirection.Right)
+                            }
+                        ),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent
+                        ),
+                        shape = Shapes.medium,
+                    )
+                    if (menuList.isNotEmpty()) {
+                        DropdownMenu(
+                            modifier = Modifier
+                                .background(
+                                    color = MaterialTheme.colorScheme.surface,
+                                    shape = Shapes.medium
+                                )
+                                .exposedDropdownSize(true),
+                            expanded = isExpandedMenu,
+                            properties = PopupProperties(focusable = false),
+                            onDismissRequest = { onExpandedMenuChange(false) }
+                        ) {
+                            menuList.forEach { selectionSeries ->
+                                DropdownMenuItem(
+                                    modifier = Modifier
+                                        .fillMaxWidth(),
+                                    text = {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(text = selectionSeries, style = dataTextStyle)
+                                            Icon(
+                                                modifier = Modifier.clickable {
+                                                    onDeleteSeries(selectionSeries)
+                                                },
+                                                imageVector = Icons.Outlined.Close,
+                                                contentDescription = null
+                                            )
+                                        }
+
+                                    },
+                                    onClick = {
+                                        onSeriesChanged(selectionSeries)
+                                        onExpandedMenuChange(false)
+                                        series = series.copy(
+                                            text = selectionSeries,
+                                            selection = TextRange(selectionSeries.length)
+                                        )
+                                    })
+                            }
                         }
-                    ),
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent
-                    ),
-                    shape = Shapes.medium,
-                )
+                    }
+                }
                 OutlinedTextField(
                     modifier = Modifier
                         .padding(start = 8.dp)

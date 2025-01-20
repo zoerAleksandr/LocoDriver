@@ -1,10 +1,10 @@
 package com.z_company.type_converter
 
-import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import com.z_company.domain.entities.route.Route
 
 internal object RouteJSONConverter {
-    private val gson = Gson()
+    private val gson = GsonBuilder().setDateFormat("MMM dd, yyyy HH:mm:ss").create()
     fun fromString(value: String): Route {
         return gson.fromJson(value, Route::class.java)
     }

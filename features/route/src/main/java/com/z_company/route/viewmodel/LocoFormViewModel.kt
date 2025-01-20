@@ -12,12 +12,15 @@ import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.SectionDiesel
 import com.z_company.domain.entities.route.SectionElectric
+import com.z_company.domain.entities.route.Train
 import com.z_company.domain.use_cases.LocomotiveUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.util.CalculationEnergy
+import com.z_company.domain.util.addAllOrSkip
 import com.z_company.domain.util.addOrReplace
 import com.z_company.domain.util.str
 import com.z_company.route.Const.NULLABLE_ID
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -42,8 +45,8 @@ class LocoFormViewModel(
     private var loadLocoJob: Job? = null
     private var saveLocoJob: Job? = null
     private var saveCoefficientJob: Job? = null
-    private var getSettingJob: Job? = null
 
+    private val locomotiveSeriesList = mutableStateListOf<String>()
     private var isNewLoco by Delegates.notNull<Boolean>()
 
     var currentLoco: Locomotive?
@@ -237,6 +240,7 @@ class LocoFormViewModel(
                     currentSetting = it.data
                     currentSetting?.let { setting ->
                         currentSetting = setting
+                        locomotiveSeriesList.addAllOrSkip(setting.locomotiveSeriesList.toMutableStateList())
                     }
                     this.cancel()
                 }
@@ -251,6 +255,59 @@ class LocoFormViewModel(
             double?.let {
                 settingsUseCase.setDieselCoefficient(double).collect {}
             }
+        }
+    }
+
+    private fun saveLocomotiveSeries(value: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            settingsUseCase.setLocomotiveSeriesList(value)
+        }
+    }
+
+    private var mutableLocomotiveSeriesList = mutableStateListOf<String>()
+        .also {
+            it.addAll(locomotiveSeriesList)
+        }
+
+    var seriesList: SnapshotStateList<String>
+        get() {
+            return mutableLocomotiveSeriesList
+        }
+        set(value) {
+            mutableLocomotiveSeriesList = value
+        }
+
+    fun changeExpandedMenu(value: Boolean) {
+        _uiState.update {
+            it.copy(
+                isExpandedDropDownMenuSeries = value
+            )
+        }
+    }
+
+    fun onChangedDropDownContent(value: String) {
+        if (value.isEmpty()) {
+            changeExpandedMenu(false)
+            mutableLocomotiveSeriesList.addAllOrSkip(locomotiveSeriesList)
+        } else {
+            mutableLocomotiveSeriesList.clear()
+            val newSeriesList =
+                locomotiveSeriesList
+                    .filter { it.startsWith(prefix = value, ignoreCase = true) }
+                    .filterNot { it == value }
+                    .toMutableStateList()
+            newSeriesList.forEach { series ->
+                mutableLocomotiveSeriesList.add(series)
+                changeExpandedMenu(true)
+            }
+        }
+    }
+
+    fun removeSeries(value: String) {
+        viewModelScope.launch {
+            seriesList.remove(value)
+            mutableLocomotiveSeriesList.remove(value)
+            settingsUseCase.removeLocomotiveSeries(value)
         }
     }
 
@@ -276,6 +333,9 @@ class LocoFormViewModel(
         val state = _uiState.value.locoDetailState
         if (state is ResultState.Success) {
             state.data?.let { loco ->
+                loco.series?.let { series ->
+                    saveLocomotiveSeries(series)
+                }
                 when (loco.type) {
                     LocoType.ELECTRIC -> {
                         loco.electricSectionList = electricSectionListState.map { state ->
