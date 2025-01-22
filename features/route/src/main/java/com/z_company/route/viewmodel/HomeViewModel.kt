@@ -495,7 +495,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     private fun saveCurrentMonthInLocal(monthOfYear: MonthOfYear) {
         saveCurrentMonthJob?.cancel()
         saveCurrentMonthJob =
-            settingsUseCase.setCurrentMonthOfYear(monthOfYear).launchIn(viewModelScope)
+            settingsUseCase.setCurrentMonthOfYear(monthOfYear).onEach{
+                if (it is ResultState.Success){
+                    loadSetting()
+                }
+            }.launchIn(viewModelScope)
     }
 
     private fun loadMonthList() {
