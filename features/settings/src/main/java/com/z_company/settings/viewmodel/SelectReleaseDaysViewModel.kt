@@ -1,11 +1,11 @@
 package com.z_company.settings.viewmodel
 
+import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
-import com.z_company.domain.entities.Day
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ReleasePeriod
 import com.z_company.domain.use_cases.CalendarUseCase
@@ -34,7 +34,6 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
     val uiState = _uiState.asStateFlow()
 
     private var saveCurrentMonthJob: Job? = null
-    private var saveOtherMonthJob: Job? = null
     private var setCalendarJob: Job? = null
     private var loadCalendarJob: Job? = null
 
@@ -62,8 +61,8 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
             }
         }
 
-    private var otherMonthOfYear: MutableList<MonthOfYear> = mutableListOf()
     private var allMonthOfYear: List<MonthOfYear> = listOf()
+    private var newMonthList: MutableList<MonthOfYear> = mutableListOf()
 
     fun setCurrentMonth(yearAndMonth: Pair<Int, Int>) {
         setCalendarJob?.cancel()
@@ -80,20 +79,25 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
         }.launchIn(viewModelScope)
     }
 
-    private fun saveCurrentMonthInLocal(monthOfYear: MonthOfYear) {
+    private suspend fun saveCurrentMonthInLocal(monthOfYear: MonthOfYear) {
         saveCurrentMonthJob?.cancel()
         saveCurrentMonthJob =
-            settingsUseCase.setCurrentMonthOfYear(monthOfYear).launchIn(viewModelScope)
+            settingsUseCase.setCurrentMonthOfYear(monthOfYear).onEach {
+                if (it is ResultState.Success) {
+                    saveCurrentMonthJob?.cancel()
+                }
+            }.launchIn(viewModelScope)
+        saveCurrentMonthJob?.join()
     }
 
     fun addReleasePeriod(period: ReleasePeriod) {
         releasePeriodListState.add(period)
-        changeReleasePeriod()
+        testAddPeriodInMonthOfYear(period)
     }
 
     fun deleteReleasePeriod(period: ReleasePeriod) {
         releasePeriodListState.remove(period)
-        changeReleasePeriod()
+        testRemovePeriodInMonthOfYear(period)
     }
 
     private fun loadMonthList() {
@@ -107,137 +111,90 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
                         yearList = result.data.map { it.year }.distinct().sorted()
                     )
                 }
+                newMonthList = result.data.toMutableList()
+
             }
-        }
-            .launchIn(viewModelScope)
+        }.launchIn(viewModelScope)
     }
 
-    private fun changeReleasePeriod() {
-        currentMonthOfYear?.let { monthOfYear ->
-            val newDays: MutableList<Day> = monthOfYear.days.toMutableList()
-            val changingDateList = mutableListOf<Day>()
-            uiState.value.releaseDaysPeriodState?.let { periodList ->
-                if (periodList.isEmpty()) {
-                    newDays.forEachIndexed { index, day ->
-                        val newDay = day.copy(isReleaseDay = false)
-                        newDays[index] = newDay
-                    }
-                } else {
-                    periodList.forEach { releasePeriod ->
-                        val releaseCalendarList: MutableList<Calendar> = mutableListOf()
-                        val firsDay = getInstance().also {
-                            it.timeInMillis = releasePeriod.days.first().timeInMillis
-                        }
-                        if (releasePeriod.days.size > 1) {
-                            val day = getInstance().also {
-                                it.timeInMillis = firsDay.timeInMillis
-                            }
+    private fun testAddPeriodInMonthOfYear(period: ReleasePeriod) {
+        Log.d("ZZZ", "add ${period.days.map { it.get(DAY_OF_MONTH) }}")
 
-                            while (!day.after(releasePeriod.days.last())) {
-                                val nextDay = getInstance().also {
-                                    it.timeInMillis = day.timeInMillis
-                                }
-                                releaseCalendarList.add(nextDay)
-                                day.add(Calendar.DATE, 1)
-                            }
-                        } else {
-                            releaseCalendarList.add(firsDay)
-                        }
-                        newDays.forEachIndexed { index, day ->
-                            if (!changingDateList.contains(day)) {
-                                val foundDay = releaseCalendarList.find { calendar ->
-                                    calendar.get(DAY_OF_MONTH) == day.dayOfMonth
-                                }
-                                if (foundDay == null) {
-                                    val newDay = day.copy(isReleaseDay = false)
-                                    newDays[index] = newDay
-                                } else {
-                                    if (foundDay.get(MONTH) == monthOfYear.month) {
-                                        val newDay = day.copy(isReleaseDay = true)
-                                        newDays[index] = newDay
-                                        changingDateList.add(newDay)
-                                    } else {
-                                        setOtherMonthOfYear(foundDay)
-                                    }
-                                }
-                            }
+        period.days.forEach { releaseDay ->
+            val searchMonth = newMonthList.find {
+                it.month == releaseDay.get(MONTH) && it.year == releaseDay.get(YEAR)
+            }
+            searchMonth?.let {
+                val indexMonthList = newMonthList.indexOf(searchMonth)
+                if (indexMonthList != -1) {
+                    val day = newMonthList[indexMonthList].days.find { d ->
+                        d.dayOfMonth == releaseDay.get(DAY_OF_MONTH)
+                    }
+                    day?.let {
+                        val indexDay = newMonthList[indexMonthList].days.indexOf(it)
+                        val days = newMonthList[indexMonthList].days.toMutableList()
+                        days[indexDay] = day.copy(isReleaseDay = true)
+                        val newMonth = newMonthList[indexMonthList].copy(
+                            days = days
+                        )
+                        newMonthList[indexMonthList] = newMonth
+                        if (newMonth.month == currentMonthOfYear?.month && newMonth.year == currentMonthOfYear?.year) {
+                            currentMonthOfYear = newMonth
                         }
                     }
                 }
-                currentMonthOfYear = monthOfYear.copy(
-                    days = newDays
-                )
             }
         }
     }
 
-    private fun setOtherMonthOfYear(date: Calendar) {
-        val foundMonthOfYear = otherMonthOfYear.find {
-            it.year == date.get(YEAR) && it.month == date.get(MONTH)
-        }
-        if (foundMonthOfYear == null) {
-            val monthOfYear = allMonthOfYear.find {
-                it.year == date.get(YEAR) && it.month == date.get(MONTH)
+    private fun testRemovePeriodInMonthOfYear(period: ReleasePeriod) {
+        period.days.forEach { releaseDay ->
+            val searchMonth = newMonthList.find {
+                it.month == releaseDay.get(MONTH) && it.year == releaseDay.get(YEAR)
             }
-            monthOfYear?.let { month ->
-                val days: MutableList<Day> = month.days.toMutableList()
-                val foundDay = days.find {
-                    it.dayOfMonth == date.get(DAY_OF_MONTH)
+            searchMonth?.let {
+                val indexMonthList = newMonthList.indexOf(searchMonth)
+                if (indexMonthList != -1) {
+                    val day = newMonthList[indexMonthList].days.find { d ->
+                        d.dayOfMonth == releaseDay.get(DAY_OF_MONTH)
+                    }
+                    day?.let {
+                        val indexDay = newMonthList[indexMonthList].days.indexOf(it)
+                        val days = newMonthList[indexMonthList].days.toMutableList()
+                        days[indexDay] = day.copy(isReleaseDay = false)
+                        val newMonth = newMonthList[indexMonthList].copy(
+                            days = days
+                        )
+                        newMonthList[indexMonthList] = newMonth
+                        if (newMonth.month == currentMonthOfYear?.month && newMonth.year == currentMonthOfYear?.year) {
+                            currentMonthOfYear = newMonth
+                        }
+                    }
                 }
-                foundDay?.let {
-                    val newDay = it.copy(
-                        isReleaseDay = true
-                    )
-                    days[date.get(DAY_OF_MONTH) - 1] = newDay
-                }
-                val newMonthOfYear = month.copy(
-                    days = days
-                )
-                otherMonthOfYear.add(newMonthOfYear)
             }
-        } else {
-            val days: MutableList<Day> = foundMonthOfYear.days.toMutableList()
-            val foundDay = days.find {
-                it.dayOfMonth == date.get(DAY_OF_MONTH)
-            }
-            foundDay?.let {
-                val newDay = it.copy(
-                    isReleaseDay = true
-                )
-                days[date.get(DAY_OF_MONTH) - 1] = newDay
-            }
-            val newMonthOfYear = foundMonthOfYear.copy(
-                days = days
-            )
-            val index = otherMonthOfYear.indexOf(foundMonthOfYear)
-            otherMonthOfYear[index] = newMonthOfYear
-        }
-    }
-
-    private suspend fun saveNormaOtherMonth() {
-        otherMonthOfYear.forEach { monthOfYear ->
-            saveOtherMonthJob?.cancel()
-            saveOtherMonthJob = calendarUseCase.updateMonthOfYear(monthOfYear).onEach {
-                if (it is ResultState.Success) {
-                    saveOtherMonthJob?.cancel()
-                }
-            }.launchIn(viewModelScope)
-            saveOtherMonthJob?.join()
         }
     }
 
     fun saveNormaHours() {
-        currentMonthOfYear?.let { monthOfYar ->
-            saveCurrentMonthJob?.cancel()
-            saveCurrentMonthJob =
-                calendarUseCase.updateMonthOfYear(monthOfYar).onEach { resultState ->
-                    _uiState.update {
-                        it.copy(saveReleaseDaysState = resultState)
-                    }
-                }.launchIn(viewModelScope)
-        }
         viewModelScope.launch {
-            saveNormaOtherMonth()
+            currentMonthOfYear?.let { monthOfYear ->
+                newMonthList.forEach {
+                    if (it.month == monthOfYear.month && it.year == monthOfYear.year) {
+                        saveCurrentMonthInLocal(it)
+                    }
+                    saveCurrentMonthJob?.cancel()
+                    saveCurrentMonthJob =
+                        calendarUseCase.updateMonthOfYear(it).onEach { resultState ->
+                            _uiState.update {
+                                it.copy(saveReleaseDaysState = resultState)
+                            }
+                            if (resultState is ResultState.Success){
+                                saveCurrentMonthJob?.cancel()
+                            }
+                        }.launchIn(viewModelScope)
+                    saveCurrentMonthJob?.join()
+                }
+            }
         }
     }
 

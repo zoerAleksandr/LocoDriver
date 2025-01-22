@@ -367,12 +367,15 @@ private fun SelectRangeDateBottomSheet(
                     startRangeCalendar?.let { start ->
                         list.add(start)
                         endRangeCalendar?.let { end ->
-                            val nextDay = Calendar.getInstance().also {
+                            val day = Calendar.getInstance().also {
                                 it.timeInMillis = start.timeInMillis
                             }
-                            while (nextDay.before(end)) {
+                            while (day.before(end)) {
+                                day.add(Calendar.DATE, 1)
+                                val nextDay = Calendar.getInstance().also {
+                                    it.timeInMillis = day.timeInMillis
+                                }
                                 list.add(nextDay)
-                                nextDay.add(Calendar.DATE, 1)
                             }
                         }
 
