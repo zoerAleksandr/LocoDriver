@@ -31,7 +31,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -63,7 +62,6 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -534,15 +532,15 @@ private fun RouteFormScreenContent(
         }
 
         item {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Row(
                     modifier = Modifier
-                        .weight(1f)
+                        .fillMaxWidth()
                         .background(
                             color = MaterialTheme.colorScheme.surface,
                             shape = Shapes.medium
@@ -553,25 +551,34 @@ private fun RouteFormScreenContent(
                         .padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    val dateStartText = startTimeInLong?.let {
-                        DateAndTimeConverter.getDateFromDateLong(startTimeInLong)
-                    } ?: "Начало"
-                    val timeStartText = startTimeInLong?.let {
-                        DateAndTimeConverter.getTimeFromDateLong(startTimeInLong)
-                    } ?: ""
                     Text(
-                        text = dateStartText,
+                        text = "Явка",
                         style = dataTextStyle
                     )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        val dateStartText = startTimeInLong?.let {
+                            DateAndTimeConverter.getDateFromDateLong(startTimeInLong)
+                        } ?: "укажите время"
+                        val timeStartText = startTimeInLong?.let {
+                            DateAndTimeConverter.getTimeFromDateLong(startTimeInLong)
+                        } ?: ""
 
-                    Text(
-                        text = " $timeStartText",
-                        style = dataTextStyle,
-                    )
+                        Text(
+                            text = dateStartText,
+                            style = dataTextStyle
+                        )
+
+                        Text(
+                            text = " $timeStartText",
+                            style = dataTextStyle,
+                        )
+                    }
                 }
                 Row(
                     modifier = Modifier
-                        .weight(1f)
+                        .fillMaxWidth()
                         .background(
                             color = MaterialTheme.colorScheme.surface,
                             shape = Shapes.medium
@@ -582,20 +589,28 @@ private fun RouteFormScreenContent(
                         .padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    val dateEndText = endTimeInLong?.let {
-                        DateAndTimeConverter.getDateFromDateLong(endTimeInLong)
-                    } ?: "Окончание"
-                    val timeEndText = endTimeInLong?.let {
-                        DateAndTimeConverter.getTimeFromDateLong(endTimeInLong)
-                    } ?: ""
                     Text(
-                        text = dateEndText,
-                        style = dataTextStyle,
+                        text = "Сдача",
+                        style = dataTextStyle
                     )
-                    Text(
-                        text = " $timeEndText",
-                        style = dataTextStyle,
-                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        val dateEndText = endTimeInLong?.let {
+                            DateAndTimeConverter.getDateFromDateLong(endTimeInLong)
+                        } ?: "укажите время"
+                        val timeEndText = endTimeInLong?.let {
+                            DateAndTimeConverter.getTimeFromDateLong(endTimeInLong)
+                        } ?: ""
+                        Text(
+                            text = dateEndText,
+                            style = dataTextStyle,
+                        )
+                        Text(
+                            text = " $timeEndText",
+                            style = dataTextStyle,
+                        )
+                    }
                 }
             }
         }

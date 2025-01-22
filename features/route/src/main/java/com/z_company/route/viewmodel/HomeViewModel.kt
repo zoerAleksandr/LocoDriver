@@ -498,6 +498,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
             settingsUseCase.setCurrentMonthOfYear(monthOfYear).onEach{
                 if (it is ResultState.Success){
                     loadSetting()
+                    saveCurrentMonthJob?.cancel()
                 }
             }.launchIn(viewModelScope)
     }
