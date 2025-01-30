@@ -232,7 +232,7 @@ class LocoFormViewModel(
 
     private suspend fun loadSetting(): Job {
         return viewModelScope.launch {
-            settingsUseCase.getCurrentSettings().collect {
+            settingsUseCase.getFlowCurrentSettingsState().collect {
                 if (it is ResultState.Success) {
                     currentSetting = it.data
                     currentSetting?.let { setting ->

@@ -12,12 +12,14 @@ import com.z_company.domain.entities.Day
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.use_cases.LoadCalendarFromStorage
 import com.z_company.domain.use_cases.CalendarUseCase
+import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.use_case.RemoteRouteUseCase
 import com.z_company.use_case.RuStoreUseCase
 import com.z_company.work_manager.UserFieldName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.launchIn
@@ -30,6 +32,7 @@ import ru.rustore.sdk.billingclient.model.purchase.PurchaseState
 private const val TAG = "MainViewModel_TAG"
 
 class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
+    private val salarySettingUseCase: SalarySettingUseCase by inject()
     private val loadCalendarFromStorage: LoadCalendarFromStorage by inject()
     private val calendarUseCase: CalendarUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
@@ -79,7 +82,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
             val monthOfYearList = mutableListOf<MonthOfYear>()
             this.launch {
                 // загрузил старые и сохранил их в список
-                calendarUseCase.loadMonthOfYearList().collect { monthListResult ->
+                calendarUseCase.loadFlowMonthOfYearListState().collect { monthListResult ->
                     if (monthListResult is ResultState.Success) {
                         monthListResult.data.forEach { monthOfYear ->
                             monthOfYearList.add(monthOfYear)
@@ -92,6 +95,9 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
             // оставляем это поле без изменений, остальное обновляем, если месяц ранее не сохранялся,
             // тогда записываем его в room без изменений
             this.launch {
+                val salarySetting = this.async { salarySettingUseCase.getSalarySetting() }.await()
+                val currentTariffRate = salarySetting.tariffRate
+
                 loadCalendarFromStorage.getMonthOfYearList()
                     .collect { resultState ->
                         if (resultState is ResultState.Success) {
@@ -112,11 +118,23 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
                                             )
                                         }
                                     }
-                                    month = month.copy(days = newDays)
-
+                                    month = month.copy(
+                                        days = newDays
+                                    )
+                                    // если тариф не сохранялся, то добавить последний
+                                    // если указан, то оставить без изменений
+                                    if (month.tariffRate == 0.0) {
+                                        month = month.copy(
+                                            tariffRate = currentTariffRate
+                                        )
+                                    }
                                     newMonthOfYearList.add(month)
                                 } else {
-                                    newMonthOfYearList.add(monthOfYear)
+                                    // добавить последний тариф
+                                    val monthOfYearWithTariffRate = monthOfYear.copy(
+                                        tariffRate = currentTariffRate
+                                    )
+                                    newMonthOfYearList.add(monthOfYearWithTariffRate)
                                 }
                             }
                             saveCalendarInLocal(newMonthOfYearList)

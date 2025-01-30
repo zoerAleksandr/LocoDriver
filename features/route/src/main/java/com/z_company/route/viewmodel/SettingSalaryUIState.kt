@@ -12,6 +12,8 @@ data class SettingSalaryUIState(
     val isEnableSaveButton: Boolean = true,
     val settingSalaryState: ResultState<SalarySetting?> = ResultState.Loading,
     val tariffRate: ResultState<String> = ResultState.Loading,
+    val currentMonth: ResultState<String> = ResultState.Loading,
+    val currentYear: ResultState<String> = ResultState.Loading,
     val isErrorInputTariffRate: Boolean = false,
     val averagePaymentHour: ResultState<String> = ResultState.Loading,
     val isErrorInputAveragePayment: Boolean = false,
@@ -42,5 +44,7 @@ data class SettingSalaryUIState(
     val unionistsRetentionState: ResultState<String> = ResultState.Loading,
     val isErrorInputUnionistsRetention: Boolean = false,
     val otherRetention: ResultState<String> = ResultState.Loading,
-    val isErrorInputOtherRetention: Boolean = false
+    val isErrorInputOtherRetention: Boolean = false,
+    val isShowDialogChangeTariffRate: Boolean = false,
+
 )

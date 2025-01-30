@@ -82,7 +82,7 @@ class SettingHomeScreenViewModel : ViewModel(), KoinComponent {
 
     private fun loadSetting(){
         viewModelScope.launch {
-            settingsUseCase.getCurrentSettings().collect{ result ->
+            settingsUseCase.getFlowCurrentSettingsState().collect{ result ->
                 _uiState.update {
                     it.copy(
                         currentSetting = result,

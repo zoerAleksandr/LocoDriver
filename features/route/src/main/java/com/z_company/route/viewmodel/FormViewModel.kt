@@ -177,7 +177,7 @@ class FormViewModel(
 
     private fun loadSettings() {
         loadSettingsJob?.cancel()
-        loadSettingsJob = settingsUseCase.getCurrentSettings().onEach { result ->
+        loadSettingsJob = settingsUseCase.getFlowCurrentSettingsState().onEach { result ->
             if (result is ResultState.Success) {
                 _dialogRestUiState.update {
                     it.copy(

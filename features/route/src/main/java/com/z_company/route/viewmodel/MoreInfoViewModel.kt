@@ -41,7 +41,7 @@ class MoreInfoViewModel: ViewModel(), KoinComponent {
     private fun loadSetting() {
         loadSettingJob?.cancel()
         loadSettingJob = viewModelScope.launch {
-            settingsUseCase.getCurrentSettings().collect { result ->
+            settingsUseCase.getFlowCurrentSettingsState().collect { result ->
                 if (result is ResultState.Success) {
                     result.data?.let { settings ->
                         getTotalWorkTime(settings)

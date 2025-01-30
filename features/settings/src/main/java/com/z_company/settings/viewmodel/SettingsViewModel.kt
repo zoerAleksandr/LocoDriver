@@ -32,7 +32,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import ru.rustore.sdk.billingclient.RuStoreBillingClient
 
 class SettingsViewModel : ViewModel(), KoinComponent {
     private val authUseCase: AuthUseCase by inject()
@@ -172,7 +171,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
 
     private fun loadMonthList() {
         loadCalendarJob?.cancel()
-        loadCalendarJob = calendarUseCase.loadMonthOfYearList().onEach { result ->
+        loadCalendarJob = calendarUseCase.loadFlowMonthOfYearListState().onEach { result ->
             if (result is ResultState.Success) {
                 _uiState.update { state ->
                     state.copy(
@@ -189,7 +188,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private fun loadSettings() {
         loadSettingsJob?.cancel()
         loadSettingsJob = viewModelScope.launch {
-            settingsUseCase.getCurrentSettings().collect { result ->
+            settingsUseCase.getFlowCurrentSettingsState().collect { result ->
                 _uiState.update {
                     it.copy(
                         settingDetails = result,
@@ -207,7 +206,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             }
         }
         viewModelScope.launch {
-            calendarUseCase.loadMonthOfYearList().collect { result ->
+            calendarUseCase.loadFlowMonthOfYearListState().collect { result ->
                 if (result is ResultState.Success) {
                     currentSettings?.let { setting ->
                         _uiState.update {

@@ -6,16 +6,18 @@ import com.z_company.domain.repositories.CalendarRepositories
 import kotlinx.coroutines.flow.Flow
 
 class CalendarUseCase(private val repositories: CalendarRepositories) {
-    fun loadMonthOfYearList(): Flow<ResultState<List<MonthOfYear>>> {
-        return repositories.getMonthOfYearList()
+    fun loadFlowMonthOfYearListState(): Flow<ResultState<List<MonthOfYear>>> {
+        return repositories.getFlowMonthOfYearListState()
     }
+
+    fun loadMonthOfYearList(): List<MonthOfYear> = repositories.getMonthOfYearList()
 
     /* For save Calendar in local storage after loading */
     fun saveCalendar(calendar: List<MonthOfYear>): Flow<ResultState<Unit>> {
         return repositories.saveCalendar(calendar)
     }
 
-    fun clearCalendar(): Flow<ResultState<Unit>>{
+    fun clearCalendar(): Flow<ResultState<Unit>> {
         return repositories.clearCalendar()
     }
 
@@ -23,7 +25,7 @@ class CalendarUseCase(private val repositories: CalendarRepositories) {
         return repositories.updateMonthOfYear(monthOfYear)
     }
 
-    fun loadMonthOfYearById(monthOfYearId: String): Flow<ResultState<MonthOfYear?>> {
+    suspend fun loadMonthOfYearById(monthOfYearId: String): MonthOfYear {
         return repositories.getMonthOfYearById(monthOfYearId)
     }
 }

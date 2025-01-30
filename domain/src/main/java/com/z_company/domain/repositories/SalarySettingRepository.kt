@@ -5,6 +5,7 @@ import com.z_company.domain.entities.SalarySetting
 import kotlinx.coroutines.flow.Flow
 
 interface SalarySettingRepository {
-    fun getSalarySetting(): Flow<ResultState<SalarySetting?>>
+    fun getSalarySetting(): SalarySetting
+    fun getSalarySettingState(): Flow<ResultState<SalarySetting?>>
     fun saveSalarySetting(setting: SalarySetting): Flow<ResultState<Unit>>
 }

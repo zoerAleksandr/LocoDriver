@@ -66,7 +66,7 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
 
     fun setCurrentMonth(yearAndMonth: Pair<Int, Int>) {
         setCalendarJob?.cancel()
-        setCalendarJob = calendarUseCase.loadMonthOfYearList().onEach { result ->
+        setCalendarJob = calendarUseCase.loadFlowMonthOfYearListState().onEach { result ->
             if (result is ResultState.Success) {
                 result.data.find {
                     it.year == yearAndMonth.first && it.month == yearAndMonth.second
@@ -102,7 +102,7 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
 
     private fun loadMonthList() {
         loadCalendarJob?.cancel()
-        loadCalendarJob = calendarUseCase.loadMonthOfYearList().onEach { result ->
+        loadCalendarJob = calendarUseCase.loadFlowMonthOfYearListState().onEach { result ->
             if (result is ResultState.Success) {
                 allMonthOfYear = result.data
                 _uiState.update { state ->
@@ -200,7 +200,7 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
 
     private fun loadSettings() {
         viewModelScope.launch {
-            settingsUseCase.getCurrentSettings().collect { result ->
+            settingsUseCase.getFlowCurrentSettingsState().collect { result ->
                 if (result is ResultState.Success) {
                     _uiState.update {
                         it.copy(

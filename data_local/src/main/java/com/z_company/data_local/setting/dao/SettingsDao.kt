@@ -20,7 +20,10 @@ internal interface SettingsDao {
     suspend fun saveSettings(userSettings: UserSettings)
 
     @Query("SELECT * FROM UserSettings")
-    fun getSettings(): Flow<UserSettings?>
+    fun getFlowSettings(): Flow<UserSettings?>
+    @Query("SELECT * FROM UserSettings")
+    fun getUserSettings(): UserSettings
+
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun saveMonthOfYearList(monthList: List<MonthOfYear>)
@@ -32,10 +35,12 @@ internal interface SettingsDao {
     fun updateMonthOfYear(monthOfYear: MonthOfYear)
 
     @Query("SELECT * FROM MonthOfYear")
-    fun getMonthOfYearList(): Flow<List<MonthOfYear>>
+    fun getMonthOfYearList(): List<MonthOfYear>
+    @Query("SELECT * FROM MonthOfYear")
+    fun getFlowMonthOfYearList(): Flow<List<MonthOfYear>>
 
     @Query("SELECT * FROM MonthOfYear WHERE id =:id")
-    fun getMonthOfYearById(id: String): Flow<MonthOfYear?>
+    fun getMonthOfYearById(id: String): MonthOfYear
 
     @TypeConverters(NightTimeToPrimitiveConverter::class)
     @Query("UPDATE UserSettings SET nightTime =:nightTime WHERE settingsKey =:key")

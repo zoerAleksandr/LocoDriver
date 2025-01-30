@@ -254,7 +254,7 @@ fun SalaryCalculationScreen(
                         overflow = TextOverflow.Visible,
                         style = styleDataLight.copy(fontWeight = FontWeight.Medium),
                         textAlign = TextAlign.Center,
-                        text = uiState.normaHours.toString()
+                        text = uiState.normaHours.str()
                     )
                 }
             }

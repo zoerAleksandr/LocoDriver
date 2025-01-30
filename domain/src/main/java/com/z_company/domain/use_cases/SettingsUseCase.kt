@@ -20,7 +20,7 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
     suspend fun setStations(stations: List<String>) {
         coroutineScope {
             withContext(Dispatchers.IO) {
-                settingsRepository.getSettings().collect { result ->
+                settingsRepository.getFlowSettingsState().collect { result ->
                     if (result is ResultState.Success) {
                         result.data?.let { settings ->
                             val oldStations = settings.stationList
@@ -49,8 +49,12 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
         return settingsRepository.setSettings(UserSettings())
     }
 
-    fun getCurrentSettings(): Flow<ResultState<UserSettings?>> {
-        return settingsRepository.getSettings()
+    fun getFlowCurrentSettingsState(): Flow<ResultState<UserSettings?>> {
+        return settingsRepository.getFlowSettingsState()
+    }
+
+    fun getUserSetting(): UserSettings {
+        return settingsRepository.getUserSettings()
     }
 
     fun setUpdateAt(timestamp: Long): Flow<ResultState<Unit>> {
@@ -76,7 +80,7 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
     suspend fun removeStation(value: String) {
         coroutineScope {
             withContext(Dispatchers.IO) {
-                settingsRepository.getSettings().collect { result ->
+                settingsRepository.getFlowSettingsState().collect { result ->
                     if (result is ResultState.Success) {
                         result.data?.let { settings ->
                             val oldStations = settings.stationList
@@ -96,7 +100,7 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
     suspend fun removeLocomotiveSeries(value: String) {
         coroutineScope {
             withContext(Dispatchers.IO) {
-                settingsRepository.getSettings().collect { result ->
+                settingsRepository.getFlowSettingsState().collect { result ->
                     if (result is ResultState.Success) {
                         result.data?.let { settings ->
                             val oldSeries = settings.locomotiveSeriesList
@@ -115,7 +119,7 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
     suspend fun setLocomotiveSeries(series: String) {
         coroutineScope {
             withContext(Dispatchers.IO) {
-                settingsRepository.getSettings().collect { result ->
+                settingsRepository.getFlowSettingsState().collect { result ->
                     if (result is ResultState.Success) {
                         result.data?.let { settings ->
                             val oldSeries = settings.locomotiveSeriesList
@@ -135,7 +139,7 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
     suspend fun setLocomotiveSeriesList(series: List<String>) {
         coroutineScope {
             withContext(Dispatchers.IO) {
-                settingsRepository.getSettings().collect { result ->
+                settingsRepository.getFlowSettingsState().collect { result ->
                     if (result is ResultState.Success) {
                         result.data?.let { settings ->
                             val oldSeries = settings.locomotiveSeriesList

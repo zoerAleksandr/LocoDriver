@@ -8,14 +8,16 @@ object MonthOfYearConverter {
         id = monthOfYear.id,
         year = monthOfYear.year,
         month = monthOfYear.month,
-        days = monthOfYear.days
+        days = monthOfYear.days,
+        tariffRate = monthOfYear.tariffRate
     )
 
     fun toData(entity: MonthOfYearEntity) = MonthOfYear(
         id = entity.id,
         year = entity.year,
         month = entity.month,
-        days = entity.days
+        days = entity.days,
+        tariffRate = entity.tariffRate
     )
 
     fun fromDataList(list: List<MonthOfYear>): MutableList<MonthOfYearEntity> {

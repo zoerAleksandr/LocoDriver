@@ -1,7 +1,10 @@
 package com.z_company.route.ui
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +18,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -41,12 +45,14 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncDataValue
 import com.z_company.core.ui.component.CustomSnackBar
@@ -54,6 +60,7 @@ import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.domain.entities.SurchargeExtendedServicePhase
 import com.z_company.domain.entities.SurchargeHeavyTrains
+import com.z_company.route.component.AnimationDialog
 import com.z_company.route.viewmodel.SettingSalaryUIState
 import kotlinx.coroutines.launch
 
@@ -108,7 +115,13 @@ fun SettingSalaryScreen(
     otherRetentionValueState: ResultState<String>,
     setOtherRetention: (String) -> Unit,
     isErrorInputOtherRetention: Boolean,
-    onServicePhaseDismissed: (Int) -> Unit
+    onServicePhaseDismissed: (Int) -> Unit,
+    isShowDialogChangeTariffRate: Boolean,
+    onHideDialogChangeTariffRate: () -> Unit,
+    saveOnlyMonthTariffRate: () -> Unit,
+    saveTariffRateCurrentAndNextMonth: () -> Unit,
+    currentMonth: ResultState<String>,
+    currentYear: ResultState<String>,
 ) {
     val styleDataLight = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
     val titleStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Medium)
@@ -136,6 +149,81 @@ fun SettingSalaryScreen(
             resetSaveState()
         }
     }
+    AnimationDialog(
+        showDialog = isShowDialogChangeTariffRate,
+        onDismissRequest = onHideDialogChangeTariffRate
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
+                    .padding(horizontal = 16.dp, vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                Text(
+                    modifier = Modifier,
+                    text = "Изменилась тарифная ставка",
+                    overflow = TextOverflow.Visible,
+                    style = styleDataLight.copy(color = MaterialTheme.colorScheme.primary),
+                    textAlign = TextAlign.End
+                )
+                Text(
+                    text = "Для какого месяца сохранить тариф?",
+                    overflow = TextOverflow.Visible,
+                    style = styleDataMedium.copy(color = MaterialTheme.colorScheme.primary)
+                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = Shapes.medium,
+                        onClick = saveOnlyMonthTariffRate
+                    ) {
+                        Text(
+                            modifier = Modifier,
+                            style = styleDataMedium,
+                            text = "Только для этого"
+                        )
+                    }
+                    Button(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = Shapes.medium,
+                        onClick = saveTariffRateCurrentAndNextMonth
+                    ) {
+                        Text(
+                            modifier = Modifier,
+                            style = styleDataMedium,
+                            text = "Для этого и следующих"
+                        )
+                    }
+                    Button(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 24.dp),
+                        shape = Shapes.medium,
+                        onClick = onHideDialogChangeTariffRate
+                    ) {
+                        Text(
+                            modifier = Modifier,
+                            style = styleDataMedium,
+                            text = "Отмена"
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -208,11 +296,36 @@ fun SettingSalaryScreen(
                         .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
-                    Text(
-                        "Тарифная ставка, руб.",
-                        overflow = TextOverflow.Visible,
-                        style = styleDataMedium
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "Тарифная ставка, руб. на",
+                            overflow = TextOverflow.Visible,
+                            style = styleDataMedium
+                        )
+                        AsyncDataValue(resultState = currentMonth){ month ->
+                            month?.let{
+                                Text(
+                                    text = month,
+                                    overflow = TextOverflow.Visible,
+                                    style = styleDataMedium
+                                )
+                            }
+                        }
+                        AsyncDataValue(resultState = currentYear){ year ->
+                            year?.let{
+                                Text(
+                                    text = year,
+                                    overflow = TextOverflow.Visible,
+                                    style = styleDataMedium
+                                )
+                            }
+                        }
+                    }
+
                     AsyncDataValue(resultState = tariffRateValueState) { tariffRateValue ->
                         tariffRateValue?.let {
                             OutlinedTextField(
@@ -671,7 +784,7 @@ fun SettingSalaryScreen(
             itemsIndexed(
                 items = surchargeHeavyTrainsState,
                 key = { _, item -> item.id }
-            ) {index, item ->
+            ) { index, item ->
                 val dismissState = rememberSwipeToDismissBoxState()
                 if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
                     onSurchargeHeavyTrainDismissed(index)

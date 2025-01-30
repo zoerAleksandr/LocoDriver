@@ -41,9 +41,9 @@ class RoomSettingRepository : SettingsRepository, KoinComponent {
         }
     }
 
-    override fun getSettings(): Flow<ResultState<UserSettings?>> {
+    override fun getFlowSettingsState(): Flow<ResultState<UserSettings?>> {
         return flowMap {
-            dao.getSettings().map { settings ->
+            dao.getFlowSettings().map { settings ->
                 ResultState.Success(
                     settings?.let {
                         UserSettingsConverter.toData(settings)
@@ -51,6 +51,10 @@ class RoomSettingRepository : SettingsRepository, KoinComponent {
                 )
             }
         }
+    }
+
+    override fun getUserSettings(): UserSettings {
+       return UserSettingsConverter.toData(dao.getUserSettings())
     }
 
     override fun setUpdateAt(timestamp: Long): Flow<ResultState<Unit>> {

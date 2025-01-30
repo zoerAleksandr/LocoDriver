@@ -14,9 +14,9 @@ import org.koin.core.component.inject
 
 class RoomCalendarRepository : CalendarRepositories, KoinComponent {
     private val dao: SettingsDao by inject()
-    override fun getMonthOfYearList(): Flow<ResultState<List<MonthOfYear>>> {
+    override fun getFlowMonthOfYearListState(): Flow<ResultState<List<MonthOfYear>>> {
         return flowMap {
-            dao.getMonthOfYearList().map { monthList ->
+            dao.getFlowMonthOfYearList().map { monthList ->
                 ResultState.Success(
                     monthList.map { monthOfYear ->
                         MonthOfYearConverter.toData(monthOfYear)
@@ -32,22 +32,20 @@ class RoomCalendarRepository : CalendarRepositories, KoinComponent {
         }
     }
 
-    override fun getMonthOfYearById(id: String): Flow<ResultState<MonthOfYear?>> {
-        return flowMap {
-            dao.getMonthOfYearById(id).map { value ->
-                ResultState.Success(
-                    value?.let {
-                        MonthOfYearConverter.toData(it)
-                    }
-                )
-            }
-        }
+    override fun getMonthOfYearById(id: String): MonthOfYear {
+        return MonthOfYearConverter.toData(dao.getMonthOfYearById(id))
     }
 
     override fun clearCalendar(): Flow<ResultState<Unit>> {
         return flowRequest {
             dao.clearCalendar()
         }
+    }
+
+    override fun getMonthOfYearList(): List<MonthOfYear> {
+        return MonthOfYearConverter.toDataList(
+            dao.getMonthOfYearList()
+        )
     }
 
     override fun saveCalendar(calendar: List<MonthOfYear>): Flow<ResultState<Unit>> {

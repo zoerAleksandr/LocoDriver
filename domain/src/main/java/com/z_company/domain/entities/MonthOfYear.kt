@@ -11,7 +11,8 @@ data class MonthOfYear(
     var id: String = UUID.randomUUID().toString(),
     var year: Int = Calendar.getInstance().get(Calendar.YEAR),
     var month: Int = Calendar.getInstance().get(Calendar.MONTH),
-    val days: List<Day> = listOf()
+    val days: List<Day> = listOf(),
+    val tariffRate: Double = 0.0
 )
 
 data class Day(

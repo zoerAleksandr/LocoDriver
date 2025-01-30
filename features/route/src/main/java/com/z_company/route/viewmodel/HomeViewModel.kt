@@ -275,7 +275,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     private fun loadSetting() {
         loadSettingJob?.cancel()
         loadSettingJob = viewModelScope.launch {
-            settingsUseCase.getCurrentSettings().collect { result ->
+            settingsUseCase.getFlowCurrentSettingsState().collect { result ->
                 _uiState.update {
                     it.copy(
                         settingState = result
@@ -476,7 +476,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
 
     fun setCurrentMonth(yearAndMonth: Pair<Int, Int>) {
         setCalendarJob?.cancel()
-        setCalendarJob = calendarUseCase.loadMonthOfYearList().onEach { result ->
+        setCalendarJob = calendarUseCase.loadFlowMonthOfYearListState().onEach { result ->
             if (result is ResultState.Success) {
                 result.data.find {
                     it.year == yearAndMonth.first && it.month == yearAndMonth.second
@@ -505,7 +505,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
 
     private fun loadMonthList() {
         loadCalendarJob?.cancel()
-        loadCalendarJob = calendarUseCase.loadMonthOfYearList().onEach { result ->
+        loadCalendarJob = calendarUseCase.loadFlowMonthOfYearListState().onEach { result ->
             if (result is ResultState.Success) {
                 _uiState.update { state ->
                     state.copy(
@@ -519,7 +519,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
 
     private fun loadMinTimeRestInRoute() {
         viewModelScope.launch {
-            settingsUseCase.getCurrentSettings().collect { result ->
+            settingsUseCase.getFlowCurrentSettingsState().collect { result ->
                 if (result is ResultState.Success) {
                     _uiState.update {
                         it.copy(

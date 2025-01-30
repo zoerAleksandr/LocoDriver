@@ -1,5 +1,6 @@
 package com.z_company.data_local.setting.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.TypeConverters
@@ -15,5 +16,7 @@ data class MonthOfYear(
     val id: String,
     val year: Int,
     val month: Int,
-    val days: List<Day>
+    val days: List<Day>,
+    @ColumnInfo(defaultValue = "0.0")
+    val tariffRate: Double
 )

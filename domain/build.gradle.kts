@@ -14,7 +14,7 @@ java {
 dependencies {
     api(project(Libs.project_core))
     implementation(Libs.kotlinx_coroutines_core)
-
+    implementation(Libs.koin_core)
     testImplementation(TestLibs.kotlin_test)
     testImplementation (TestLibs.mockito_core)
     testImplementation (TestLibs.mockito_inline)

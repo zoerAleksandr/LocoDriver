@@ -1,6 +1,5 @@
 package com.z_company.route.viewmodel
 
-import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
@@ -85,7 +84,7 @@ class TrainFormViewModel(
 
     private suspend fun loadSetting(): Job {
         return viewModelScope.launch {
-            settingsUseCase.getCurrentSettings().collect {
+            settingsUseCase.getFlowCurrentSettingsState().collect {
                 if (it is ResultState.Success) {
                     it.data?.let { settings ->
                         stationNameList.addAllOrSkip(settings.stationList.toMutableStateList())
