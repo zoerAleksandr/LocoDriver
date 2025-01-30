@@ -24,7 +24,14 @@ data class UserSettings(
     var isVisibleExtendedServicePhase: Boolean = true,
     val stationList: List<String> = listOf(),
     val locomotiveSeriesList: List<String> = listOf(),
-    val timeZone: Long = 0L
+    val timeZone: Long = 0L,
+    val servicePhases: List<ServicePhase> = listOf()
+)
+
+data class ServicePhase(
+    val departureStation: String,
+    val arrivalStation: String,
+    val distance: Int
 )
 
 data class NightTime(

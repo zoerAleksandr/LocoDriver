@@ -6,6 +6,7 @@ import androidx.room.PrimaryKey
 import androidx.room.TypeConverters
 import com.z_company.data_local.setting.type_converter.MonthOfYearToPrimitiveConverter
 import com.z_company.data_local.setting.type_converter.NightTimeToPrimitiveConverter
+import com.z_company.data_local.setting.type_converter.ServicePhaseToPrimitiveConverter
 import com.z_company.data_local.setting.type_converter.StringListToPrimitiveConverter
 import com.z_company.domain.entities.route.LocoType
 
@@ -13,7 +14,8 @@ import com.z_company.domain.entities.route.LocoType
 @TypeConverters(
     NightTimeToPrimitiveConverter::class,
     MonthOfYearToPrimitiveConverter::class,
-    StringListToPrimitiveConverter::class
+    StringListToPrimitiveConverter::class,
+    ServicePhaseToPrimitiveConverter::class
 )
 internal data class UserSettings(
     @PrimaryKey
@@ -45,8 +47,16 @@ internal data class UserSettings(
     val timeZone: Long,
     @ColumnInfo(defaultValue = "[]")
     val locomotiveSeriesList: List<String> = listOf(),
+    @ColumnInfo(defaultValue = "[]")
+    val servicePhases: List<ServicePhase> = listOf()
 //    @ColumnInfo(defaultValue = "1")
 //    var timeInputKeyboard: Boolean = true
+)
+
+data class ServicePhase(
+    val departureStation: String,
+    val arrivalStation: String,
+    val distance: Int
 )
 
 data class NightTime(

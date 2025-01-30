@@ -50,7 +50,6 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private var saveSettingsJob: Job? = null
 
     private var loadLoginJob: Job? = null
-    private var setCalendarJob: Job? = null
     private var loadCalendarJob: Job? = null
     private var saveCurrentMonthJob: Job? = null
 
@@ -161,12 +160,6 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         _uiState.update {
             it.copy(saveSettingsState = null)
         }
-    }
-
-    private fun saveCurrentMonthInLocal(monthOfYear: MonthOfYear) {
-        saveCurrentMonthJob?.cancel()
-        saveCurrentMonthJob =
-            settingsUseCase.setCurrentMonthOfYear(monthOfYear).launchIn(viewModelScope)
     }
 
     private fun loadMonthList() {

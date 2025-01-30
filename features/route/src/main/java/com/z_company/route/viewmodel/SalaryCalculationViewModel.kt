@@ -1,6 +1,5 @@
 package com.z_company.route.viewmodel
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState

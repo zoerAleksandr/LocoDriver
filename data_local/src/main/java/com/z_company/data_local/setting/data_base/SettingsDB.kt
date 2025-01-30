@@ -24,6 +24,8 @@ import com.z_company.data_local.setting.entity.UserSettings
  * add field locomotiveSeriesList
  * version 7
  * add field tariffRate in MonthOfYear
+ * version 8
+ * add field servicePhases in UserSettings
  */
 
 @Database(
@@ -31,7 +33,7 @@ import com.z_company.data_local.setting.entity.UserSettings
         UserSettings::class,
         MonthOfYear::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -40,6 +42,7 @@ import com.z_company.data_local.setting.entity.UserSettings
         AutoMigration(from = 4, to = 5),
         AutoMigration(from = 5, to = 6),
         AutoMigration(from = 6, to = 7),
+        AutoMigration(from = 7, to = 8),
     ]
 )
 internal abstract class SettingsDB : RoomDatabase() {

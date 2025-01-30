@@ -23,7 +23,8 @@ internal object UserSettingsConverter {
         isVisibleExtendedServicePhase = userSettings.isVisibleExtendedServicePhase,
         stationList = userSettings.stationList,
         timeZone = userSettings.timeZone,
-        locomotiveSeriesList = userSettings.locomotiveSeriesList
+        locomotiveSeriesList = userSettings.locomotiveSeriesList,
+        servicePhases = ServicePhasesConverter.fromDataList(userSettings.servicePhases)
     )
 
     fun toData(userSettingsEntity: UserSettingsEntity) = UserSettings(
@@ -45,6 +46,7 @@ internal object UserSettingsConverter {
         isVisibleExtendedServicePhase = userSettingsEntity.isVisibleExtendedServicePhase,
         stationList = userSettingsEntity.stationList,
         timeZone = userSettingsEntity.timeZone,
-        locomotiveSeriesList = userSettingsEntity.locomotiveSeriesList
+        locomotiveSeriesList = userSettingsEntity.locomotiveSeriesList,
+//        servicePhases = ServicePhasesConverter.toDataList(userSettingsEntity.servicePhases)
     )
 }
