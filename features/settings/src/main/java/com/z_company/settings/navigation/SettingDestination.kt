@@ -45,6 +45,12 @@ fun SettingDestination(
         onRefresh = settingsViewModel::refreshingUserData,
         onSettingHomeScreenClick = router::showSettingHomeScreen,
         timeZoneRussiaList = settingsViewModel.timeZoneList,
-        setTimeZone = settingsViewModel::setTimeZone
+        setTimeZone = settingsViewModel::setTimeZone,
+        servicePhases = uiState.servicePhases,
+        showDialogAddServicePhase = settingsViewModel::showDialogAddServicePhase,
+        hideDialogAddServicePhase = settingsViewModel::hideDialogAddServicePhase,
+        addServicePhase = settingsViewModel::addServicePhase,
+        deleteServicePhase = settingsViewModel::deleteServicePhase,
+        updateServicePhase = settingsViewModel::selectToUpdateServicePhase
     )
 }

@@ -1,19 +1,26 @@
 package com.z_company.settings.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.ClickableText
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -22,14 +29,22 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.accompanist.swiperefresh.SwipeRefresh
@@ -55,6 +70,10 @@ import com.z_company.settings.viewmodel.SettingsUiState
 import com.z_company.settings.viewmodel.TimeZoneRussia
 import kotlinx.coroutines.launch
 import com.z_company.core.R as CoreR
+import androidx.compose.ui.text.style.TextOverflow
+import com.z_company.domain.entities.ServicePhase
+import com.z_company.domain.util.toIntOrZero
+import com.z_company.route.component.AnimationDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,10 +109,18 @@ fun SettingsScreen(
     onRefresh: () -> Unit,
     onSettingHomeScreenClick: () -> Unit,
     timeZoneRussiaList: List<TimeZoneRussia>,
+    servicePhases: SnapshotStateList<ServicePhase>?,
+    showDialogAddServicePhase: (ServicePhase) -> Unit,
+    hideDialogAddServicePhase: () -> Unit,
+    addServicePhase: (ServicePhase, Int) -> Unit,
+    deleteServicePhase: (Int) -> Unit,
+    updateServicePhase: (ServicePhase, Int) -> Unit
+
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val titleStyle = AppTypography.getType().headlineMedium.copy(fontWeight = FontWeight.Light)
+    val styleData = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
 
     Scaffold(
         snackbarHost = {
@@ -137,6 +164,182 @@ fun SettingsScreen(
                 resetRepositoryState()
             }
         }
+
+        AnimationDialog(
+            showDialog = settingsUiState.showDialogAddServicePhase,
+            onDismissRequest = { hideDialogAddServicePhase() })
+        {
+            val focusManager = LocalFocusManager.current
+
+            var departureStation by remember {
+                mutableStateOf("")
+            }
+            var arrivalStation by remember {
+                mutableStateOf("")
+            }
+            var distance by remember {
+                mutableStateOf("")
+            }
+            LaunchedEffect(settingsUiState.selectedServicePhase) {
+                if (settingsUiState.selectedServicePhase != null) {
+                    departureStation = settingsUiState.selectedServicePhase.first.departureStation
+                    arrivalStation = settingsUiState.selectedServicePhase.first.arrivalStation
+                    distance = settingsUiState.selectedServicePhase.first.distance.toString()
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onPress = {
+                                hideDialogAddServicePhase()
+                            }
+                        )
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            color = MaterialTheme.colorScheme.surface,
+                            shape = Shapes.medium
+                        )
+                        .clickable { }
+                        .padding(horizontal = 16.dp, vertical = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    Text(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        text = "НОВОЕ ПЛЕЧО",
+                        textAlign = TextAlign.Center,
+                        style = titleStyle
+                    )
+                    OutlinedTextField(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        value = departureStation,
+                        onValueChange = { departure ->
+                            departureStation = departure
+                        },
+                        placeholder = {
+                            Text(text = "От станции", style = styleData)
+                        },
+                        textStyle = styleData,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Text, imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(onNext = {
+                            scope.launch {
+                                focusManager.moveFocus(FocusDirection.Down)
+                            }
+                        }),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.primary
+                        ),
+                        shape = Shapes.medium,
+                    )
+
+                    OutlinedTextField(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        value = arrivalStation,
+                        onValueChange = { arrival ->
+                            arrivalStation = arrival
+                        },
+                        placeholder = {
+                            Text(text = "До станции", style = styleData)
+                        },
+                        textStyle = styleData,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Text, imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(onNext = {
+                            scope.launch {
+                                focusManager.moveFocus(FocusDirection.Down)
+                            }
+                        }),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.primary
+                        ),
+                        shape = Shapes.medium,
+                    )
+
+                    OutlinedTextField(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        value = distance,
+                        onValueChange = { dis ->
+                            distance = dis
+                        },
+                        placeholder = {
+                            Text(text = "Расстояние", style = styleData)
+                        },
+                        suffix = {
+                            Text(text = "км", style = styleData)
+                        },
+                        textStyle = styleData,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Number, imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(onNext = {
+                            scope.launch {
+                                focusManager.clearFocus()
+                            }
+                        }),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.primary
+                        ),
+                        shape = Shapes.medium,
+                    )
+
+                    Button(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 16.dp),
+                        shape = Shapes.medium,
+                        onClick = {
+                            addServicePhase(
+                                ServicePhase(
+                                    departureStation = departureStation,
+                                    arrivalStation = arrivalStation,
+                                    distance = distance.toIntOrZero()
+                                ),
+                                if (settingsUiState.selectedServicePhase?.second != null) {
+                                    settingsUiState.selectedServicePhase.second
+                                } else {
+                                    -1
+                                }
+                            )
+                        }
+                    ) {
+                        Text(
+                            modifier = Modifier,
+                            style = styleData,
+                            text = "Добавить"
+                        )
+                    }
+                }
+            }
+        }
+
 
         Box(Modifier.padding(it)) {
             AsyncData(
@@ -184,7 +387,13 @@ fun SettingsScreen(
                                 onRefresh = onRefresh,
                                 onSettingHomeScreenClick = onSettingHomeScreenClick,
                                 setTimeZone = setTimeZone,
-                                timeZoneRussiaList = timeZoneRussiaList
+                                timeZoneRussiaList = timeZoneRussiaList,
+                                showDialogAddServicePhase = showDialogAddServicePhase,
+                                hideDialogAddServicePhase = hideDialogAddServicePhase,
+                                servicePhases = servicePhases
+                                    ?: emptyList<ServicePhase>().toMutableStateList(),
+                                updateServicePhase = updateServicePhase,
+                                deleteServicePhase = deleteServicePhase
                             )
                         }
                     }
@@ -222,7 +431,12 @@ fun SettingScreenContent(
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
     timeZoneRussiaList: List<TimeZoneRussia>,
-    onSettingHomeScreenClick: () -> Unit
+    onSettingHomeScreenClick: () -> Unit,
+    showDialogAddServicePhase: (ServicePhase) -> Unit,
+    hideDialogAddServicePhase: () -> Unit,
+    servicePhases: SnapshotStateList<ServicePhase>,
+    updateServicePhase: (ServicePhase, Int) -> Unit,
+    deleteServicePhase: (Int) -> Unit,
 ) {
     val styleTitle = AppTypography.getType().titleLarge
         .copy(
@@ -365,7 +579,6 @@ fun SettingScreenContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
                 Column(
@@ -422,6 +635,7 @@ fun SettingScreenContent(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .padding(top = 16.dp)
                 ) {
                     Text(
                         modifier = Modifier
@@ -498,7 +712,7 @@ fun SettingScreenContent(
             }
 
             item {
-                Column(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
                     Box(
                         modifier = Modifier
                             .padding(top = 8.dp)
@@ -573,36 +787,227 @@ fun SettingScreenContent(
                     )
                 }
             }
+
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "ПЛЕЧИ ОБСЛУЖИВАНИЯ",
+                        overflow = TextOverflow.Ellipsis,
+                        style = styleTitle
+                    )
+                    TextButton(
+                        onClick = {
+                            showDialogAddServicePhase(
+                                ServicePhase("", "", 0)
+                            )
+                        }
+                    ) {
+                        Text(
+                            text = "Добавить",
+                            style = styleHint.copy(color = MaterialTheme.colorScheme.tertiary)
+                        )
+                    }
+                }
+            }
+
+            itemsIndexed(
+                items = servicePhases,
+                key = { _, item -> item.hashCode() }
+            ){index, item ->
+                val dismissState = rememberSwipeToDismissBoxState()
+                if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
+                    deleteServicePhase(index)
+                }
+                SwipeToDismissBox(
+                    state = dismissState,
+                    enableDismissFromStartToEnd = false,
+                    backgroundContent = {
+                        val color by animateColorAsState(
+                            when (dismissState.targetValue) {
+                                SwipeToDismissBoxValue.Settled -> Color.Transparent
+                                SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.error
+                                else -> Color.Transparent
+                            }, label = ""
+                        )
+                        Box(
+                            Modifier
+                                .fillMaxSize()
+                                .padding(top = 4.dp)
+                                .background(
+                                    color = color,
+                                    shape = Shapes.medium
+                                ),
+                            contentAlignment = Alignment.CenterEnd
+                        ) {
+                            Icon(
+                                modifier = Modifier.padding(end = 16.dp),
+                                imageVector = Icons.Outlined.Delete,
+                                tint = MaterialTheme.colorScheme.surface,
+                                contentDescription = null
+                            )
+                        }
+                    }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.surface,
+                                shape = Shapes.medium
+                            )
+                            .padding(16.dp)
+                            .clickable {
+                                updateServicePhase(
+                                    ServicePhase(
+                                        item.departureStation,
+                                        item.arrivalStation,
+                                        item.distance
+                                    ),
+                                    index
+                                )
+                            },
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = "${item.departureStation} - ${item.arrivalStation}",
+                            overflow = TextOverflow.Ellipsis,
+                            style = styleData
+                        )
+                        Text(
+                            text = "${item.distance} км",
+                            overflow = TextOverflow.Visible,
+                            style = styleData
+                        )
+                    }
+                }
+//                HorizontalDivider()
+            }
+
 //            item {
-//                Box(
+//                Column(
 //                    modifier = Modifier
-//                        .padding(top = 8.dp)
-//                        .background(
-//                            color = MaterialTheme.colorScheme.surface,
-//                            shape = Shapes.medium
-//                        )
-//                        .clickable {
-//                            onSettingHomeScreenClick()
-//                        }
-//                        .padding(16.dp)
+//                        .fillMaxWidth()
 //                ) {
-//                    Row(
-//                        modifier = Modifier.fillMaxWidth(),
-//                        horizontalArrangement = Arrangement.SpaceBetween,
-//                    ) {
-//                        Text(text = "Настоить главный экран", style = styleData)
-//                        Icon(
-//                            imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-//                            contentDescription = null
+//                    Text(
+//                        modifier = Modifier
+//                            .padding(start = 16.dp, bottom = 6.dp),
+//                        text = "ПЛЕЧИ ОБСЛУЖИВАНИЯ",
+//                        style = styleTitle
+//                    )
+//
+//                    Column(modifier = Modifier.fillMaxWidth()) {
+//                        Box(
+//                            modifier = Modifier
+//                                .fillMaxWidth()
+//                                .background(
+//                                    color = MaterialTheme.colorScheme.surface,
+//                                    shape = Shapes.medium
+//                                )
+//                                .padding(16.dp)
+//                        ) {
+//                            Column(
+//                                verticalArrangement = Arrangement.spacedBy(8.dp)
+//                            ) {
+//                                servicePhases.forEachIndexed { index, servicePhase ->
+//                                    val dismissState = rememberSwipeToDismissBoxState()
+//                                    if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
+//                                        deleteServicePhase(servicePhase)
+//                                    }
+//
+//                                    SwipeToDismissBox(
+//                                        state = dismissState,
+//                                        enableDismissFromStartToEnd = false,
+//                                        backgroundContent = {
+//                                            val color by animateColorAsState(
+//                                                when (dismissState.targetValue) {
+//                                                    SwipeToDismissBoxValue.Settled -> Color.Transparent
+//                                                    SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.error
+//                                                    else -> Color.Transparent
+//                                                }, label = ""
+//                                            )
+//                                            Box(
+//                                                Modifier
+//                                                    .fillMaxSize()
+//                                                    .background(
+//                                                        color = color,
+//                                                        shape = Shapes.medium
+//                                                    ),
+//                                                contentAlignment = Alignment.CenterEnd
+//                                            ) {
+//                                                Icon(
+//                                                    modifier = Modifier.padding(end = 16.dp),
+//                                                    imageVector = Icons.Outlined.Delete,
+//                                                    tint = MaterialTheme.colorScheme.surface,
+//                                                    contentDescription = null
+//                                                )
+//                                            }
+//                                        }
+//                                    ) {
+//                                        Row(
+//                                            modifier = Modifier
+//                                                .fillMaxWidth()
+//                                                .background(
+//                                                    color = MaterialTheme.colorScheme.surface,
+//                                                    shape = Shapes.medium
+//                                                )
+//                                                .clickable {
+//                                                    updateServicePhase(
+//                                                        ServicePhase(
+//                                                            servicePhase.departureStation,
+//                                                            servicePhase.arrivalStation,
+//                                                            servicePhase.distance
+//                                                        ),
+//                                                        index
+//                                                    )
+//                                                },
+//                                            horizontalArrangement = Arrangement.SpaceBetween,
+//                                        ) {
+//                                            Text(
+//                                                text = "${servicePhase.departureStation} - ${servicePhase.arrivalStation}",
+//                                                overflow = TextOverflow.Ellipsis,
+//                                                style = styleData
+//                                            )
+//                                            Text(
+//                                                text = "${servicePhase.distance} км",
+//                                                overflow = TextOverflow.Visible,
+//                                                style = styleData
+//                                            )
+//                                        }
+//                                    }
+//                                    HorizontalDivider()
+//                                }
+//                                ClickableText(
+//                                    text = AnnotatedString("Добавить плечо"),
+//                                    style = styleHint.copy(color = MaterialTheme.colorScheme.tertiary)
+//                                ) {
+//                                    showDialogAddServicePhase(
+//                                        ServicePhase("", "", 0)
+//                                    )
+//                                }
+//                            }
+//                        }
+//
+//                        Text(
+//                            modifier = Modifier.padding(start = 16.dp, top = 8.dp),
+//                            text = "Используется для быстрого выбора длины плеча при добавлении данных о поезде.",
+//                            style = styleHint
 //                        )
 //                    }
 //                }
 //            }
+
             item {
-                Column(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.fillMaxWidth()
+                    .padding(top = 24.dp)
+                ) {
                     Box(
                         modifier = Modifier
-                            .padding(top = 8.dp)
                             .background(
                                 color = MaterialTheme.colorScheme.surface,
                                 shape = Shapes.medium
@@ -689,7 +1094,7 @@ fun SettingScreenContent(
             }
 
             item {
-                Column(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
                     Box(
                         modifier = Modifier
                             .padding(top = 8.dp)
@@ -728,7 +1133,7 @@ fun SettingScreenContent(
             item {
                 Text(
                     modifier = Modifier
-                        .padding(start = 16.dp, bottom = 6.dp),
+                        .padding(start = 16.dp, bottom = 6.dp, top = 16.dp),
                     text = "АККАУНТ",
                     style = styleTitle
                 )
@@ -915,6 +1320,7 @@ fun SettingScreenContent(
             item {
                 Button(
                     modifier = Modifier
+                        .padding(top = 16.dp)
                         .fillMaxWidth()
                         .background(
                             color = MaterialTheme.colorScheme.surface,

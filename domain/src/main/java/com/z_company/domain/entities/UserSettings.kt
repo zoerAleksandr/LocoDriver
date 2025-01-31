@@ -5,6 +5,7 @@ import java.util.Calendar
 
 const val SETTINGS_KEY = "User_Settings_Key"
 val timestamp = Calendar.getInstance().timeInMillis
+
 data class UserSettings(
     var key: String = SETTINGS_KEY,
     var minTimeRestPointOfTurnover: Long = 10_800_000L,
@@ -25,7 +26,7 @@ data class UserSettings(
     val stationList: List<String> = listOf(),
     val locomotiveSeriesList: List<String> = listOf(),
     val timeZone: Long = 0L,
-    val servicePhases: List<ServicePhase> = listOf()
+    var servicePhases: List<ServicePhase> = listOf()
 )
 
 data class ServicePhase(
@@ -41,23 +42,23 @@ data class NightTime(
     val endNightMinute: Int = 0
 ) {
     override fun toString(): String {
-        val startNightHourText = if(this.startNightHour.toString().length == 1) {
+        val startNightHourText = if (this.startNightHour.toString().length == 1) {
             "0${this.startNightHour}"
         } else {
             "${this.startNightHour}"
         }
-        val startNightMinuteText = if(this.startNightMinute.toString().length == 1) {
+        val startNightMinuteText = if (this.startNightMinute.toString().length == 1) {
             "0${this.startNightMinute}"
         } else {
             "${this.startNightMinute}"
         }
 
-        val endNightHourText = if(this.endNightHour.toString().length == 1) {
+        val endNightHourText = if (this.endNightHour.toString().length == 1) {
             "0${this.endNightHour}"
         } else {
             "${this.endNightHour}"
         }
-        val endNightMinuteText = if(this.endNightMinute.toString().length == 1) {
+        val endNightMinuteText = if (this.endNightMinute.toString().length == 1) {
             "0${this.endNightMinute}"
         } else {
             "${this.endNightMinute}"

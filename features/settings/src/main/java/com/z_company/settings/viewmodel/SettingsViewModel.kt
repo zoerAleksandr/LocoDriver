@@ -1,8 +1,11 @@
 package com.z_company.settings.viewmodel
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.toMutableStateList
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.parse.ParseUser
@@ -10,7 +13,7 @@ import com.z_company.core.ResultState
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.isEmailValid
 import com.z_company.data_local.SharedPreferenceStorage
-import com.z_company.domain.entities.MonthOfYear
+import com.z_company.domain.entities.ServicePhase
 import com.z_company.use_case.LoginUseCase
 import com.z_company.domain.entities.User
 import com.z_company.domain.entities.UserSettings
@@ -66,6 +69,18 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             }
         }
 
+    private var servicePhases: SnapshotStateList<ServicePhase>
+        get() {
+            return _uiState.value.servicePhases ?: mutableStateListOf()
+        }
+        private set(value) {
+            _uiState.update {
+                it.copy(
+                    servicePhases = value
+                )
+            }
+        }
+
     private val oneHourInMillis = 3_600_000L
     val timeZoneList = listOf(
         TimeZoneRussia("Калининград (MSK–1, UTC+2)", oneHourInMillis * -1),
@@ -95,6 +110,49 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         }
 
     var currentEmail by mutableStateOf("")
+
+    fun showDialogAddServicePhase(servicePhase: ServicePhase) {
+        _uiState.update {
+            it.copy(
+                showDialogAddServicePhase = true
+            )
+        }
+    }
+
+    fun hideDialogAddServicePhase() {
+        _uiState.update {
+            it.copy(
+                showDialogAddServicePhase = false
+            )
+        }
+    }
+
+    fun addServicePhase(servicePhase: ServicePhase, index: Int = -1) {
+        if (index == -1) {
+            servicePhases.add(servicePhase)
+        } else {
+            servicePhases[index] = servicePhase
+        }
+        _uiState.update {
+            it.copy(
+                selectedServicePhase = null
+            )
+        }
+        hideDialogAddServicePhase()
+    }
+
+    fun deleteServicePhase(index: Int) {
+        servicePhases.removeAt(index)
+    }
+
+    fun selectToUpdateServicePhase(phase: ServicePhase, index: Int) {
+        _uiState.update {
+            it.copy(
+                selectedServicePhase = Pair(phase, index)
+            )
+        }
+        showDialogAddServicePhase(phase)
+    }
 
     fun setEmail(value: String) {
         currentEmail = value
@@ -192,6 +250,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                         _uiState.update {
                             it.copy(
                                 updateAt = userSettings.updateAt,
+                                servicePhases = userSettings.servicePhases.toMutableStateList()
                             )
                         }
                     }
@@ -242,6 +301,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         val state = uiState.value.settingDetails
         if (state is ResultState.Success) {
             state.data?.let { settings ->
+                settings.servicePhases = servicePhases.toMutableList()
                 saveSettingsJob?.cancel()
                 saveSettingsJob = viewModelScope.launch {
                     settingsUseCase.saveSetting(settings).collect { result ->

@@ -47,6 +47,6 @@ internal object UserSettingsConverter {
         stationList = userSettingsEntity.stationList,
         timeZone = userSettingsEntity.timeZone,
         locomotiveSeriesList = userSettingsEntity.locomotiveSeriesList,
-//        servicePhases = ServicePhasesConverter.toDataList(userSettingsEntity.servicePhases)
+        servicePhases = ServicePhasesConverter.toDataList(userSettingsEntity.servicePhases)
     )
 }
