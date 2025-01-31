@@ -4,13 +4,16 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -18,15 +21,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -51,11 +57,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -65,8 +79,10 @@ import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
+import com.z_company.domain.entities.ServicePhase
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.trainCategory
+import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.BottomShadow
 import com.z_company.route.component.ConfirmExitDialog
 import com.z_company.route.component.StationItem
@@ -103,7 +119,14 @@ fun FormTrainScreen(
     isExpandedMenu: Pair<Int, Boolean>?,
     onExpandedMenuChange: (Int, Boolean) -> Unit,
     onChangedContentMenu: (Int, String) -> Unit,
-    onDeleteStationName: (String) -> Unit
+    onDeleteStationName: (String) -> Unit,
+    servicePhaseList: List<ServicePhase>,
+    isShowDialogSelectServicePhase: Boolean,
+    onShowDialogSelectServicePhase: () -> Unit,
+    onHideDialogSelectServicePhase: () -> Unit,
+    onSelectServicePhase: (ServicePhase?) -> Unit,
+    selectedServicePhase: ServicePhase?,
+    onSettingClick: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -222,7 +245,14 @@ fun FormTrainScreen(
                             isExpandedMenu = isExpandedMenu,
                             onChangedContentMenu = onChangedContentMenu,
                             onExpandedMenuChange = onExpandedMenuChange,
-                            onDeleteStationName = onDeleteStationName
+                            onDeleteStationName = onDeleteStationName,
+                            servicePhaseList = servicePhaseList,
+                            isShowDialogSelectServicePhase = isShowDialogSelectServicePhase,
+                            onShowDialogSelectServicePhase = onShowDialogSelectServicePhase,
+                            onHideDialogSelectServicePhase = onHideDialogSelectServicePhase,
+                            onSelectServicePhase = onSelectServicePhase,
+                            selectedServicePhase = selectedServicePhase,
+                            onSettingClick = onSettingClick
                         )
                     }
                 }
@@ -253,8 +283,15 @@ fun TrainFormScreenContent(
     isExpandedMenu: Pair<Int, Boolean>?,
     onExpandedMenuChange: (Int, Boolean) -> Unit,
     onChangedContentMenu: (Int, String) -> Unit,
-    onDeleteStationName: (String) -> Unit
-    ) {
+    onDeleteStationName: (String) -> Unit,
+    servicePhaseList: List<ServicePhase>,
+    isShowDialogSelectServicePhase: Boolean,
+    onShowDialogSelectServicePhase: () -> Unit,
+    onHideDialogSelectServicePhase: () -> Unit,
+    onSelectServicePhase: (ServicePhase?) -> Unit,
+    selectedServicePhase: ServicePhase?,
+    onSettingClick: () -> Unit
+) {
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
@@ -273,6 +310,115 @@ fun TrainFormScreenContent(
             fontSize = 17.sp,
             fontWeight = FontWeight.Light
         )
+
+    AnimationDialog(
+        showDialog = isShowDialogSelectServicePhase,
+        onDismissRequest = onHideDialogSelectServicePhase
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onPress = {
+                            onHideDialogSelectServicePhase()
+                        }
+                    )
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = Shapes.medium
+                    )
+                    .clickable { }
+                    .padding(horizontal = 8.dp, vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+
+                itemsIndexed(
+                    items = servicePhaseList,
+                    key = { _, item -> item.id }
+                ) { index, item ->
+                    if (index != 0) {
+                        HorizontalDivider()
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onSelectServicePhase(item)
+                                focusManager.clearFocus()
+                            }
+                            .padding(8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+
+                    ) {
+
+                        Text(
+                            text = "${item.departureStation} - ${item.arrivalStation}",
+                            style = dataTextStyle,
+                            overflow = TextOverflow.Ellipsis
+                        )
+
+                        Text(
+                            text = "${item.distance} км",
+                            style = dataTextStyle,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                item {
+                    if (servicePhaseList.isEmpty()) {
+                        Text(
+                            modifier = Modifier.padding(start = 16.dp),
+                            text = "Список пуст",
+                            style = dataTextStyle,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                item {
+                    val link = buildAnnotatedString {
+                        val text = "Редактировать список"
+
+                        val endIndex = text.lastIndex
+                        val startIndex = 0
+
+                        append(text)
+
+                        addStringAnnotation(
+                            tag = LINK_TO_SETTING,
+                            annotation = LINK_TO_SETTING,
+                            start = startIndex,
+                            end = endIndex
+                        )
+                    }
+                    ClickableText(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp, end = 12.dp),
+                        text = link,
+                        style = hintStyle.copy(
+                            color = MaterialTheme.colorScheme.tertiary,
+                            textAlign = TextAlign.End
+                        )
+                    ) {
+                        link.getStringAnnotations(LINK_TO_SETTING, it, it).firstOrNull()?.let {
+                            onHideDialogSelectServicePhase()
+                            onSettingClick()
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     if (showConfirmExitDialog) {
         ConfirmExitDialog(
@@ -319,9 +465,7 @@ fun TrainFormScreenContent(
                             Text(text = "Плечо", style = dataTextStyle)
                         },
                         suffix = {
-                            if (!train.distance.isNullOrBlank()) {
-                                Text(text = "км", style = hintStyle)
-                            }
+                            Text(text = "км", style = hintStyle)
                         },
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Decimal,
@@ -524,6 +668,40 @@ fun TrainFormScreenContent(
                     ),
                     shape = Shapes.medium,
                 )
+            }
+        }
+        item {
+            Row(
+                modifier = Modifier
+                    .padding(top = 12.dp)
+                    .fillMaxWidth()
+                    .clickable {
+                        onShowDialogSelectServicePhase()
+                    }
+                    .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                val text = if (selectedServicePhase == null) {
+                    "Выбрать плечо"
+
+                } else {
+                    "${selectedServicePhase.departureStation} - ${selectedServicePhase.arrivalStation}"
+                }
+                Text(
+                    text = AnnotatedString(text = text),
+                    style = dataTextStyle,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (selectedServicePhase != null) {
+                    Icon(
+                        modifier = Modifier.clickable {
+                            onSelectServicePhase(null)
+                        },
+                        imageVector = Icons.Outlined.Clear,
+                        contentDescription = null
+                    )
+                }
             }
         }
         stationListState?.let { stationList ->

@@ -14,7 +14,12 @@ import org.koin.core.component.inject
 class RoomSalarySettingRepository : SalarySettingRepository, KoinComponent {
     private val salarySettingDao: SalarySettingDao by inject()
     override fun getSalarySetting(): SalarySetting {
-        return SalarySettingConverter.toData(salarySettingDao.getSalarySetting())
+        val setting = salarySettingDao.getSalarySetting()
+        return if (setting == null) {
+            SalarySetting()
+        } else {
+            SalarySettingConverter.toData(setting)
+        }
     }
 
     override fun getSalarySettingState(): Flow<ResultState<SalarySetting?>> {

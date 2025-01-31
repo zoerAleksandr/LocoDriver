@@ -712,7 +712,9 @@ fun SettingScreenContent(
             }
 
             item {
-                Column(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
+                Column(modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp)) {
                     Box(
                         modifier = Modifier
                             .padding(top = 8.dp)
@@ -790,7 +792,9 @@ fun SettingScreenContent(
 
             item {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, top = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -802,7 +806,11 @@ fun SettingScreenContent(
                     TextButton(
                         onClick = {
                             showDialogAddServicePhase(
-                                ServicePhase("", "", 0)
+                                ServicePhase(
+                                    departureStation = "",
+                                    arrivalStation = "",
+                                    distance = 0
+                                )
                             )
                         }
                     ) {
@@ -817,7 +825,7 @@ fun SettingScreenContent(
             itemsIndexed(
                 items = servicePhases,
                 key = { _, item -> item.hashCode() }
-            ){index, item ->
+            ) { index, item ->
                 val dismissState = rememberSwipeToDismissBoxState()
                 if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
                     deleteServicePhase(index)
@@ -864,9 +872,9 @@ fun SettingScreenContent(
                             .clickable {
                                 updateServicePhase(
                                     ServicePhase(
-                                        item.departureStation,
-                                        item.arrivalStation,
-                                        item.distance
+                                        departureStation = item.departureStation,
+                                        arrivalStation = item.arrivalStation,
+                                        distance = item.distance
                                     ),
                                     index
                                 )
@@ -885,126 +893,13 @@ fun SettingScreenContent(
                         )
                     }
                 }
-//                HorizontalDivider()
             }
-
-//            item {
-//                Column(
-//                    modifier = Modifier
-//                        .fillMaxWidth()
-//                ) {
-//                    Text(
-//                        modifier = Modifier
-//                            .padding(start = 16.dp, bottom = 6.dp),
-//                        text = "ПЛЕЧИ ОБСЛУЖИВАНИЯ",
-//                        style = styleTitle
-//                    )
-//
-//                    Column(modifier = Modifier.fillMaxWidth()) {
-//                        Box(
-//                            modifier = Modifier
-//                                .fillMaxWidth()
-//                                .background(
-//                                    color = MaterialTheme.colorScheme.surface,
-//                                    shape = Shapes.medium
-//                                )
-//                                .padding(16.dp)
-//                        ) {
-//                            Column(
-//                                verticalArrangement = Arrangement.spacedBy(8.dp)
-//                            ) {
-//                                servicePhases.forEachIndexed { index, servicePhase ->
-//                                    val dismissState = rememberSwipeToDismissBoxState()
-//                                    if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
-//                                        deleteServicePhase(servicePhase)
-//                                    }
-//
-//                                    SwipeToDismissBox(
-//                                        state = dismissState,
-//                                        enableDismissFromStartToEnd = false,
-//                                        backgroundContent = {
-//                                            val color by animateColorAsState(
-//                                                when (dismissState.targetValue) {
-//                                                    SwipeToDismissBoxValue.Settled -> Color.Transparent
-//                                                    SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.error
-//                                                    else -> Color.Transparent
-//                                                }, label = ""
-//                                            )
-//                                            Box(
-//                                                Modifier
-//                                                    .fillMaxSize()
-//                                                    .background(
-//                                                        color = color,
-//                                                        shape = Shapes.medium
-//                                                    ),
-//                                                contentAlignment = Alignment.CenterEnd
-//                                            ) {
-//                                                Icon(
-//                                                    modifier = Modifier.padding(end = 16.dp),
-//                                                    imageVector = Icons.Outlined.Delete,
-//                                                    tint = MaterialTheme.colorScheme.surface,
-//                                                    contentDescription = null
-//                                                )
-//                                            }
-//                                        }
-//                                    ) {
-//                                        Row(
-//                                            modifier = Modifier
-//                                                .fillMaxWidth()
-//                                                .background(
-//                                                    color = MaterialTheme.colorScheme.surface,
-//                                                    shape = Shapes.medium
-//                                                )
-//                                                .clickable {
-//                                                    updateServicePhase(
-//                                                        ServicePhase(
-//                                                            servicePhase.departureStation,
-//                                                            servicePhase.arrivalStation,
-//                                                            servicePhase.distance
-//                                                        ),
-//                                                        index
-//                                                    )
-//                                                },
-//                                            horizontalArrangement = Arrangement.SpaceBetween,
-//                                        ) {
-//                                            Text(
-//                                                text = "${servicePhase.departureStation} - ${servicePhase.arrivalStation}",
-//                                                overflow = TextOverflow.Ellipsis,
-//                                                style = styleData
-//                                            )
-//                                            Text(
-//                                                text = "${servicePhase.distance} км",
-//                                                overflow = TextOverflow.Visible,
-//                                                style = styleData
-//                                            )
-//                                        }
-//                                    }
-//                                    HorizontalDivider()
-//                                }
-//                                ClickableText(
-//                                    text = AnnotatedString("Добавить плечо"),
-//                                    style = styleHint.copy(color = MaterialTheme.colorScheme.tertiary)
-//                                ) {
-//                                    showDialogAddServicePhase(
-//                                        ServicePhase("", "", 0)
-//                                    )
-//                                }
-//                            }
-//                        }
-//
-//                        Text(
-//                            modifier = Modifier.padding(start = 16.dp, top = 8.dp),
-//                            text = "Используется для быстрого выбора длины плеча при добавлении данных о поезде.",
-//                            style = styleHint
-//                        )
-//                    }
-//                }
-//            }
 
             item {
                 Column(
-                    modifier = Modifier.fillMaxWidth()
-                    .padding(top = 24.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 24.dp)
                 ) {
                     Box(
                         modifier = Modifier
@@ -1094,7 +989,9 @@ fun SettingScreenContent(
             }
 
             item {
-                Column(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
+                Column(modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp)) {
                     Box(
                         modifier = Modifier
                             .padding(top = 8.dp)

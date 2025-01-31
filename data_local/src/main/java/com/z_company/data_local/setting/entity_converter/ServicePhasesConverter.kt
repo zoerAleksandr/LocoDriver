@@ -6,11 +6,13 @@ import com.z_company.data_local.setting.entity.ServicePhase as ServicePhaseEntit
 internal object ServicePhasesConverter {
 
     fun fromData(servicePhase: ServicePhase) = ServicePhaseEntity(
+        id = servicePhase.id,
         departureStation = servicePhase.departureStation,
         arrivalStation = servicePhase.arrivalStation,
         distance = servicePhase.distance
     )
     fun toData(entity: ServicePhaseEntity) = ServicePhase(
+        id = entity.id,
         departureStation = entity.departureStation,
         arrivalStation = entity.arrivalStation,
         distance = entity.distance

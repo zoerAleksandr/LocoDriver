@@ -50,6 +50,13 @@ fun FormTrainDestination(
         isExpandedMenu = formUiState.isExpandedDropDownMenuStation,
         onExpandedMenuChange = viewModel::changeExpandedMenu,
         onChangedContentMenu = viewModel::onChangedDropDownContent,
-        onDeleteStationName = viewModel::removeStationName
+        onDeleteStationName = viewModel::removeStationName,
+        isShowDialogSelectServicePhase = formUiState.isShowDialogSelectServicePhase,
+        onHideDialogSelectServicePhase = viewModel::hideDialogSelectServicePhase,
+        onShowDialogSelectServicePhase = viewModel::showDialogSelectServicePhase,
+        servicePhaseList = formUiState.servicePhaseList,
+        onSelectServicePhase = viewModel::setSelectedServicePhase,
+        selectedServicePhase = formUiState.selectedServicePhase,
+        onSettingClick = router::showSettings
     )
 }

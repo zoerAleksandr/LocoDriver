@@ -1,11 +1,15 @@
 package com.z_company.route.viewmodel
 
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
+import com.z_company.domain.entities.ServicePhase
 import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -23,6 +27,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlin.properties.Delegates
@@ -69,6 +74,56 @@ class TrainFormViewModel(
             }
         }
 
+    private var servicePhaseList: SnapshotStateList<ServicePhase>
+        get() {
+            return _uiState.value.servicePhaseList
+        }
+        set(value) {
+            _uiState.update {
+                it.copy(
+                    servicePhaseList = value
+                )
+            }
+        }
+
+    fun setSelectedServicePhase(servicePhase: ServicePhase?) {
+        if (servicePhase != null) {
+            setDistance(servicePhase.distance.toString())
+            if (servicePhase != uiState.value.selectedServicePhase || uiState.value.selectedServicePhase == null) {
+                addingStation(stationName = servicePhase.departureStation)
+            }
+        } else {
+            setDistance("")
+        }
+        _uiState.update {
+            it.copy(
+                selectedServicePhase = servicePhase
+            )
+        }
+        hideDialogSelectServicePhase()
+    }
+
+    fun showDialogSelectServicePhase() {
+        viewModelScope.launch(Dispatchers.IO) {
+            loadSetting().join()
+            withContext(Dispatchers.Main) {
+                _uiState.update {
+                    it.copy(
+                        isShowDialogSelectServicePhase = true
+                    )
+                }
+            }
+        }
+    }
+
+    fun hideDialogSelectServicePhase() {
+        _uiState.update {
+            it.copy(
+                isShowDialogSelectServicePhase = false
+            )
+        }
+    }
+
     init {
         if (trainId == NULLABLE_ID) {
             isNewTrain = true
@@ -88,6 +143,8 @@ class TrainFormViewModel(
                 if (it is ResultState.Success) {
                     it.data?.let { settings ->
                         stationNameList.addAllOrSkip(settings.stationList.toMutableStateList())
+                        servicePhaseList.clear()
+                        servicePhaseList.addAllOrSkip(settings.servicePhases.toMutableStateList())
                     }
                     this.cancel()
                 }
@@ -272,10 +329,11 @@ class TrainFormViewModel(
         }
     }
 
-    fun addingStation() {
+    fun addingStation(stationName: String? = null) {
         stationsListState.add(
             StationFormState(
-                id = Station().stationId
+                id = Station().stationId,
+                station = StationField(data = stationName, type = StationDataType.NAME)
             )
         )
         changesHave()

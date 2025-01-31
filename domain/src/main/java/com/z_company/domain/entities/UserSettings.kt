@@ -2,6 +2,7 @@ package com.z_company.domain.entities
 
 import com.z_company.domain.entities.route.LocoType
 import java.util.Calendar
+import java.util.UUID
 
 const val SETTINGS_KEY = "User_Settings_Key"
 val timestamp = Calendar.getInstance().timeInMillis
@@ -30,6 +31,7 @@ data class UserSettings(
 )
 
 data class ServicePhase(
+    val id: String = UUID.randomUUID().toString(),
     val departureStation: String,
     val arrivalStation: String,
     val distance: Int

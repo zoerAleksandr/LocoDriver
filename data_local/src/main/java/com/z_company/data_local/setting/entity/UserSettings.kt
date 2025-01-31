@@ -54,6 +54,7 @@ internal data class UserSettings(
 )
 
 data class ServicePhase(
+    val id: String,
     val departureStation: String,
     val arrivalStation: String,
     val distance: Int

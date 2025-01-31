@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 internal interface SalarySettingDao {
     @Query("SELECT * FROM SalarySetting")
-    fun getSalarySetting(): SalarySetting
+    fun getSalarySetting(): SalarySetting?
     @Query("SELECT * FROM SalarySetting")
     fun getFlowSalarySetting(): Flow<SalarySetting?>
 
