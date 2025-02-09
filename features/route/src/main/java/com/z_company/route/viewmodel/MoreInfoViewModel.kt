@@ -64,6 +64,7 @@ class MoreInfoViewModel: ViewModel(), KoinComponent {
                                 } else {
                                     result.data.filter { it.basicData.timeStartWork!! < currentTimeInMillis }
                                 }
+
                                 val totalWorkTime =
                                     routeList.setWorkTime(
                                         settings.selectMonthOfYear,
@@ -96,6 +97,7 @@ class MoreInfoViewModel: ViewModel(), KoinComponent {
                                 withContext(Dispatchers.Main) {
                                     _uiState.update {
                                         it.copy(
+                                            routesCount = ResultState.Success(routeList.size),
                                             totalWorkTimeState = ResultState.Success(
                                                 totalWorkTime
                                             ),

@@ -1,14 +1,12 @@
 package com.z_company.repository
 
 import android.content.Context
-import android.util.Log
 import androidx.work.Constraints
 import androidx.work.Data
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.z_company.type_converter.BasicDataJSONConverter
 import com.z_company.core.ResultState
@@ -85,7 +83,6 @@ private const val SAVE_PHOTO_WORKER_TAG = "SAVE_PHOTO_WORKER_TAG"
 
 private const val UNIQUE_SYNC_WORK_NAME = "periodicSynchronized"
 private const val GET_ALL_DATA_WORKER_TAG = "GET_ALL_DATA_WORKER_TAG"
-private const val SYNC_DATA_ONE_TIME_WORKER_TAG = "SYNC_DATA_ONE_TIME_WORKER_TAG"
 private const val SYNC_DATA_PERIODIC_WORKER_TAG = "SYNC_DATA_PERIODIC_WORKER_TAG"
 private const val REMOVE_ROUTE_WORKER_TAG = "REMOVE_ROUTE_WORKER_TAG"
 private const val REMOVE_BASIC_DATA_WORKER_TAG = "REMOVE_BASIC_DATA_WORKER_TAG"
@@ -321,7 +318,6 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
     }
 
     override suspend fun synchronizedRoutePeriodic(): Flow<ResultState<Unit>> {
-        Log.d("ZZZ", "synchronizedRoutePeriodic")
         val worker = PeriodicWorkRequestBuilder<SynchronizedWorker>(
             48,
             TimeUnit.HOURS,

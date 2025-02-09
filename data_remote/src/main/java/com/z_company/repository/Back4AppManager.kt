@@ -319,13 +319,11 @@ class Back4AppManager : KoinComponent {
 
                 var timestamp: Long
                 if (notSynchronizedList.isEmpty()) {
-                    Log.d("ZZZ", "empty list")
                     timestamp = Calendar.getInstance().timeInMillis
                     settingsUseCase.setUpdateAt(timestamp).launchIn(this)
                     trySend(ResultState.Success(timestamp))
                 } else {
                     var syncRouteCount = 0
-                    Log.d("ZZZ", "notSynchronizedList size ${notSynchronizedList.size}")
                     notSynchronizedList.forEach { route ->
                         this.launch {
                             remoteRepository.saveRouteVer2(route).collect { result ->

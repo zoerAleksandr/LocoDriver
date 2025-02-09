@@ -30,6 +30,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
+import com.z_company.core.ui.component.AsyncDataValue
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
@@ -44,6 +45,7 @@ import kotlin.math.absoluteValue
 @Composable
 fun MoreInfoScreen(
     onBack: () -> Unit,
+    routesCount: ResultState<Int>,
     currentMonthOfYearState: ResultState<MonthOfYear?>,
     totalWorkTimeState: ResultState<Long?>,
     nightTimeState: ResultState<Long?>,
@@ -128,6 +130,27 @@ fun MoreInfoScreen(
                             )
                             Text(
                                 text = monthOfYear.year.toString(),
+                                style = styleDataLight
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Кол-во маршрутов",
+                        style = styleDataLight
+                    )
+                    AsyncDataValue(resultState = routesCount) { count ->
+                        count?.let {
+                            Text(
+                                text = count.toString(),
                                 style = styleDataLight
                             )
                         }

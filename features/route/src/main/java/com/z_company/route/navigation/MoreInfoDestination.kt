@@ -19,6 +19,7 @@ fun MoreInfoDestination(
 
     MoreInfoScreen(
         onBack = router::back,
+        routesCount = uiState.routesCount,
         currentMonthOfYearState = uiState.currentMonthOfYearState,
         totalWorkTimeState = uiState.totalWorkTimeState,
         nightTimeState = uiState.nightTimeState,
