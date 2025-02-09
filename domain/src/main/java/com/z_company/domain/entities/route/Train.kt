@@ -1,5 +1,6 @@
 package com.z_company.domain.entities.route
 
+import com.z_company.domain.entities.ServicePhase
 import java.util.UUID
 
 data class Train(
@@ -12,7 +13,8 @@ data class Train(
     var axle: String? = null,
     var conditionalLength: String? = null,
     var isHeavyLongDistance: Boolean = false,
-    var stations: MutableList<Station> = mutableListOf()
+    var stations: MutableList<Station> = mutableListOf(),
+    var servicePhase: ServicePhase? = null
 )
 
 data class Station(

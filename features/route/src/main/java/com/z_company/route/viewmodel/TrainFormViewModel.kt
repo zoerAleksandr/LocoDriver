@@ -1,9 +1,6 @@
 package com.z_company.route.viewmodel
 
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
 import androidx.lifecycle.ViewModel
@@ -217,7 +214,10 @@ class TrainFormViewModel(
                         setStations(train.stations)
                     }
                 }
-                it.copy(trainDetailState = resultState)
+                it.copy(
+                    selectedServicePhase = currentTrain?.servicePhase,
+                    trainDetailState = resultState
+                )
             }
         }.launchIn(viewModelScope)
     }
@@ -226,6 +226,7 @@ class TrainFormViewModel(
         val state = _uiState.value.trainDetailState
         if (state is ResultState.Success) {
             state.data?.let { train ->
+                train.servicePhase = uiState.value.selectedServicePhase
                 train.stations = stationsListState.map { state ->
                     Station(
                         stationId = state.id,

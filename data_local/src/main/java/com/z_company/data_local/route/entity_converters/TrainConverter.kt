@@ -14,7 +14,8 @@ internal object TrainConverter {
         axle = train.axle,
         conditionalLength = train.conditionalLength,
         isHeavyLongDistance = train.isHeavyLongDistance,
-        stations = StationConverter.fromDataList(train.stations)
+        stations = StationConverter.fromDataList(train.stations),
+        servicePhase = train.servicePhase
     )
 
     fun toData(entity: TrainEntity) = Train(
@@ -28,6 +29,7 @@ internal object TrainConverter {
         conditionalLength = entity.conditionalLength,
         isHeavyLongDistance = entity.isHeavyLongDistance,
         stations = StationConverter.toDataList(entity.stations),
+        servicePhase = entity.servicePhase
     )
 
     fun fromDataList(list: List<Train>): MutableList<TrainEntity> {

@@ -6,7 +6,10 @@ import androidx.room.ForeignKey
 import androidx.room.ForeignKey.Companion.CASCADE
 import androidx.room.PrimaryKey
 import androidx.room.TypeConverters
+import com.z_company.data_local.route.entity_converters.ServicePhaseConverter
 import com.z_company.data_local.route.type_converters.StationConverter
+import com.z_company.data_local.setting.type_converter.ServicePhaseToPrimitiveConverter
+import com.z_company.domain.entities.ServicePhase
 
 @Entity(
     foreignKeys = [
@@ -19,7 +22,10 @@ import com.z_company.data_local.route.type_converters.StationConverter
         )
     ]
 )
-@TypeConverters(StationConverter::class)
+@TypeConverters(
+    StationConverter::class,
+    ServicePhaseConverter::class
+)
 internal data class Train(
     @PrimaryKey
     var trainId: String,
@@ -34,7 +40,9 @@ internal data class Train(
     var conditionalLength: String?,
     @ColumnInfo(defaultValue = "0")
     var isHeavyLongDistance: Boolean = false,
-    var stations: List<Station> = listOf()
+    var stations: List<Station> = listOf(),
+    @ColumnInfo(defaultValue = "NULL")
+    var servicePhase: ServicePhase?
 )
 
 @Entity(
