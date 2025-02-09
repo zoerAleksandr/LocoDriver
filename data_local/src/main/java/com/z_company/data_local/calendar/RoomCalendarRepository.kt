@@ -32,8 +32,11 @@ class RoomCalendarRepository : CalendarRepositories, KoinComponent {
         }
     }
 
-    override fun getMonthOfYearById(id: String): MonthOfYear {
-        return MonthOfYearConverter.toData(dao.getMonthOfYearById(id))
+    override suspend fun getMonthOfYearById(id: String): MonthOfYear {
+        val month = dao.getMonthOfYearById(id)
+        return MonthOfYearConverter.toData(
+            month
+        )
     }
 
     override fun clearCalendar(): Flow<ResultState<Unit>> {

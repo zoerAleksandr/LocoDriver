@@ -1,6 +1,7 @@
 package com.z_company.work_manager
 
 import android.content.Context
+import android.util.Log
 import androidx.work.Data
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
@@ -57,6 +58,7 @@ object WorkManagerState {
                 .getWorkInfoByIdFlow(workerId)
                 .collect { workInfo ->
                     workInfo?.let {
+                        Log.d("ZZZ", " state - ${it.state}")
                         when (it.state) {
                             WorkInfo.State.SUCCEEDED -> {
                                 emit(ResultState.Success(it.outputData))
@@ -67,7 +69,7 @@ object WorkManagerState {
                             }
 
                             WorkInfo.State.ENQUEUED -> {
-                                 emit(ResultState.Loading)
+                                emit(ResultState.Success(it.outputData))
                             }
 
                             WorkInfo.State.BLOCKED -> {

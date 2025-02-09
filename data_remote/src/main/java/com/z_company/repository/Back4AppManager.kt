@@ -179,11 +179,9 @@ class Back4AppManager : KoinComponent {
                         if (route.basicData.remoteRouteId != null) {
                             this.launch {
                                 removeRouteFromRemoteRepositoryNewMethod(route).collect { result ->
-                                    Log.d("ZZZ", "remove remote $result")
                                     if (result is ResultState.Success) {
                                         // после успешного удаления на облаке удалить из Room
                                         routeUseCase.removeRoute(route).collect {
-                                            Log.d("ZZZ", "remove local $it")
                                             if (it is ResultState.Success) {
                                                 this.cancel()
                                             }
@@ -196,6 +194,15 @@ class Back4AppManager : KoinComponent {
                                     }
                                 }
                             }.join()
+                        }
+                        if (route.basicData.remoteRouteId == null && route.basicData.remoteObjectId == null) {
+                            this.launch {
+                                routeUseCase.removeRoute(route).collect {
+                                    if (it is ResultState.Success) {
+                                        this.cancel()
+                                    }
+                                }
+                            }
                         }
                     }
                     trySend(ResultState.Success(Unit))
@@ -278,7 +285,7 @@ class Back4AppManager : KoinComponent {
                                         )
                                     )
 
-                                    routeUseCase.saveRoute(route)
+                                    routeUseCase.saveRouteAfterLoading(route)
                                         .collect {
                                             if (it is ResultState.Success) {
                                                 this.cancel()
@@ -307,13 +314,18 @@ class Back4AppManager : KoinComponent {
                 val notSynchronizedList = routeUseCase.getListRoutes().filter {
                     !it.basicData.isSynchronizedRoute
                 }
+                val routeList = routeUseCase.getListRoutes()
+                Log.d("ZZZ", "$routeList")
+
                 var timestamp: Long
                 if (notSynchronizedList.isEmpty()) {
+                    Log.d("ZZZ", "empty list")
                     timestamp = Calendar.getInstance().timeInMillis
                     settingsUseCase.setUpdateAt(timestamp).launchIn(this)
                     trySend(ResultState.Success(timestamp))
                 } else {
                     var syncRouteCount = 0
+                    Log.d("ZZZ", "notSynchronizedList size ${notSynchronizedList.size}")
                     notSynchronizedList.forEach { route ->
                         this.launch {
                             remoteRepository.saveRouteVer2(route).collect { result ->
@@ -332,6 +344,7 @@ class Back4AppManager : KoinComponent {
                                     syncRouteCount += 1
                                     if (syncRouteCount == notSynchronizedList.size) {
                                         timestamp = Calendar.getInstance().timeInMillis
+                                        settingsUseCase.setUpdateAt(timestamp).launchIn(this)
                                         trySend(ResultState.Success(timestamp))
                                         this@withContext.cancel()
                                     }

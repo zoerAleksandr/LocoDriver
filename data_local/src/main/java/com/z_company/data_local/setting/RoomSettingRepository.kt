@@ -26,6 +26,15 @@ class RoomSettingRepository : SettingsRepository, KoinComponent {
         }
     }
 
+    override fun updateMonthOfYearInUserSetting(monthOfYear: MonthOfYear): Flow<ResultState<Unit>> {
+        return flowRequest {
+            dao.updateMonthOfYearInUserSetting(
+                monthOfYear = MonthOfYearConverter.fromData(monthOfYear),
+                key = SETTINGS_KEY
+            )
+        }
+    }
+
     override fun updateNightTime(nightTime: NightTime): Flow<ResultState<Unit>> {
         return flowRequest {
             dao.updateNightTime(

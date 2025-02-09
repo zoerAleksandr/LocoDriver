@@ -11,7 +11,7 @@ import com.z_company.settings.viewmodel.SettingsViewModel
 @Composable
 fun SettingDestination(
     router: Router
-){
+) {
     val settingsViewModel: SettingsViewModel = viewModel()
     val uiState by settingsViewModel.uiState.collectAsState()
     SettingsScreen(

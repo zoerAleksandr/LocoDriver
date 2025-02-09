@@ -13,6 +13,9 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.withContext
 
 class SettingsUseCase(private val settingsRepository: SettingsRepository) {
+    fun updateMonthOfYearInUserSetting(monthOfYear: MonthOfYear): Flow<ResultState<Unit>> {
+        return settingsRepository.updateMonthOfYearInUserSetting(monthOfYear)
+    }
     fun saveNightTime(nightTime: NightTime): Flow<ResultState<Unit>> {
         return settingsRepository.updateNightTime(nightTime)
     }
@@ -45,8 +48,11 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
         return settingsRepository.setDieselCoefficient(coefficient)
     }
 
-    fun setDefaultSettings(): Flow<ResultState<Unit>> {
-        return settingsRepository.setSettings(UserSettings())
+    fun setDefaultSettings(currentMonthOfYear: MonthOfYear): Flow<ResultState<Unit>> {
+        val setting = UserSettings(
+            selectMonthOfYear = currentMonthOfYear
+        )
+        return settingsRepository.setSettings(setting)
     }
 
     fun getFlowCurrentSettingsState(): Flow<ResultState<UserSettings?>> {

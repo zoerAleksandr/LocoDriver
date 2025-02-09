@@ -54,7 +54,6 @@ class SettingsViewModel : ViewModel(), KoinComponent {
 
     private var loadLoginJob: Job? = null
     private var loadCalendarJob: Job? = null
-    private var saveCurrentMonthJob: Job? = null
 
 
     var currentSettings: UserSettings?
@@ -340,17 +339,19 @@ class SettingsViewModel : ViewModel(), KoinComponent {
 
     fun onSync() {
         viewModelScope.launch {
-            back4AppManager.synchronizedStorage().collect { result ->
+            back4AppManager.loadRouteListFromRemote().collect { loadResult ->
                 _uiState.update {
                     it.copy(
-                        updateRepositoryState = result,
+                        updateRepositoryState = ResultState.Loading,
                     )
                 }
-                if (result is ResultState.Success) {
-                    _uiState.update {
-                        it.copy(
-                            updateAt = result.data
-                        )
+                if (loadResult is ResultState.Success) {
+                    back4AppManager.synchronizedStorage().collect { result ->
+                        _uiState.update {
+                            it.copy(
+                                updateRepositoryState = result,
+                            )
+                        }
                     }
                 }
             }

@@ -421,7 +421,7 @@ fun SalaryCalculationScreen(
             }
             item {
                 uiState.paymentAtOvertimeMoney?.let { value ->
-                    if (value != 0.0) {
+                    if (value != 0.0 && !value.isNaN()) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -491,7 +491,7 @@ fun SalaryCalculationScreen(
             }
             item {
                 uiState.surchargeAtOvertimeMoney?.let { value ->
-                    if (value != 0.0) {
+                    if (value != 0.0 && !value.isNaN()) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -818,7 +818,7 @@ fun SalaryCalculationScreen(
 
             itemsIndexed(
                 items = uiState.surchargeHeavyTransMoney,
-            ) {index, item ->
+            ) { index, item ->
                 item?.let { value ->
                     if (value != 0.0) {
                         Row(
@@ -902,7 +902,7 @@ fun SalaryCalculationScreen(
 
             item {
                 uiState.districtSurchargeMoney?.let { value ->
-                    if (value != 0.0) {
+                    if (value != 0.0 && !value.isNaN()) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -938,7 +938,7 @@ fun SalaryCalculationScreen(
 
             item {
                 uiState.nordicSurchargeMoney?.let { value ->
-                    if (value != 0.0) {
+                    if (value != 0.0 && !value.isNaN()) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -991,7 +991,10 @@ fun SalaryCalculationScreen(
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
                                 textAlign = TextAlign.Center,
-                                text = String.format("%.2f", uiState.averagePaymentHours?.toDouble() ?: 0.0)
+                                text = String.format(
+                                    "%.2f",
+                                    uiState.averagePaymentHours?.toDouble() ?: 0.0
+                                )
                             )
                             Box(
                                 modifier = Modifier.weight(widthColumn3),
@@ -1009,22 +1012,26 @@ fun SalaryCalculationScreen(
             }
 
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = verticalPaddingSmall),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        overflow = TextOverflow.Visible,
-                        style = styleHint,
-                        text = "Всего начислено"
-                    )
-                    Text(
-                        overflow = TextOverflow.Visible,
-                        style = styleDataLight,
-                        text = uiState.totalChargedMoney.str2decimalSign()
-                    )
+                uiState.totalChargedMoney?.let { value ->
+                    if (value != 0.0 && !value.isNaN()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = verticalPaddingSmall),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                overflow = TextOverflow.Visible,
+                                style = styleHint,
+                                text = "Всего начислено"
+                            )
+                            Text(
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                text = uiState.totalChargedMoney.str2decimalSign()
+                            )
+                        }
+                    }
                 }
             }
             item {
@@ -1047,27 +1054,31 @@ fun SalaryCalculationScreen(
                 }
             }
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = verticalPaddingSmall),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        overflow = TextOverflow.Visible,
-                        style = styleDataLight,
-                        text = "НалогНаДохФизЛицаУдер%"
-                    )
-                    Text(
-                        overflow = TextOverflow.Visible,
-                        style = styleDataLight,
-                        text = uiState.retentionNdfl.str2decimalSign()
-                    )
+                uiState.retentionNdfl?.let { value ->
+                    if (value != 0.0 && !value.isNaN()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = verticalPaddingSmall),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                text = "НалогНаДохФизЛицаУдер%"
+                            )
+                            Text(
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                text = uiState.retentionNdfl.str2decimalSign()
+                            )
+                        }
+                    }
                 }
             }
             item {
                 uiState.unionistsRetention?.let { value ->
-                    if (value != 0.0) {
+                    if (value != 0.0 && !value.isNaN()) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1091,7 +1102,7 @@ fun SalaryCalculationScreen(
 
             item {
                 uiState.otherRetention?.let { value ->
-                    if (value != 0.0) {
+                    if (value != 0.0 && !value.isNaN()) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1113,43 +1124,51 @@ fun SalaryCalculationScreen(
                 }
             }
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = verticalPaddingSmall),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        overflow = TextOverflow.Visible,
-                        style = styleHint,
-                        text = "Всего удержано"
-                    )
-                    Text(
-                        overflow = TextOverflow.Visible,
-                        style = styleDataLight,
-                        textAlign = TextAlign.Center,
-                        text = uiState.totalRetention.str2decimalSign()
-                    )
+                uiState.totalRetention?.let { value ->
+                    if (value != 0.0 && !value.isNaN()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = verticalPaddingSmall),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                overflow = TextOverflow.Visible,
+                                style = styleHint,
+                                text = "Всего удержано"
+                            )
+                            Text(
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                textAlign = TextAlign.Center,
+                                text = uiState.totalRetention.str2decimalSign()
+                            )
+                        }
+                    }
                 }
             }
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = verticalPaddingLarge),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        overflow = TextOverflow.Visible,
-                        style = styleHint,
-                        text = "К выдаче"
-                    )
-                    Text(
-                        overflow = TextOverflow.Visible,
-                        style = styleDataLight.copy(fontWeight = FontWeight.Medium),
-                        textAlign = TextAlign.Center,
-                        text = uiState.toBeCredited.str2decimalSign()
-                    )
+                uiState.toBeCredited?.let { value ->
+                    if (value != 0.0 && !value.isNaN()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = verticalPaddingLarge),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                overflow = TextOverflow.Visible,
+                                style = styleHint,
+                                text = "К выдаче"
+                            )
+                            Text(
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight.copy(fontWeight = FontWeight.Medium),
+                                textAlign = TextAlign.Center,
+                                text = uiState.toBeCredited.str2decimalSign()
+                            )
+                        }
+                    }
                 }
             }
         }

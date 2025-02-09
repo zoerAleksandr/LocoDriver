@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface SettingsRepository {
     fun setDieselCoefficient(value: Double): Flow<ResultState<Unit>>
+    fun updateMonthOfYearInUserSetting(monthOfYear: MonthOfYear): Flow<ResultState<Unit>>
     fun updateNightTime(nightTime: NightTime): Flow<ResultState<Unit>>
     fun setSettings(userSettings: UserSettings): Flow<ResultState<Unit>>
     fun getFlowSettingsState(): Flow<ResultState<UserSettings?>>

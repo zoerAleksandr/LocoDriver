@@ -8,7 +8,7 @@ interface CalendarRepositories {
     fun saveCalendar(calendar: List<MonthOfYear>): Flow<ResultState<Unit>>
     fun getFlowMonthOfYearListState(): Flow<ResultState<List<MonthOfYear>>>
     fun updateMonthOfYear(monthOfYear: MonthOfYear): Flow<ResultState<Unit>>
-    fun getMonthOfYearById(id: String): MonthOfYear
+    suspend fun getMonthOfYearById(id: String): MonthOfYear
 
     fun clearCalendar(): Flow<ResultState<Unit>>
     fun getMonthOfYearList(): List<MonthOfYear>

@@ -1,6 +1,7 @@
 package com.z_company.repository
 
 import android.content.Context
+import android.util.Log
 import androidx.work.Constraints
 import androidx.work.Data
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -320,37 +321,22 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
     }
 
     override suspend fun synchronizedRoutePeriodic(): Flow<ResultState<Unit>> {
+        Log.d("ZZZ", "synchronizedRoutePeriodic")
         val worker = PeriodicWorkRequestBuilder<SynchronizedWorker>(
-            36,
+            48,
             TimeUnit.HOURS,
         )
-            .setInitialDelay(12, TimeUnit.HOURS)
+//            .setInitialDelay(12, TimeUnit.HOURS)
             .setConstraints(constraints)
             .addTag(SYNC_DATA_PERIODIC_WORKER_TAG)
             .build()
 
         withContext(Dispatchers.IO) {
-
-            val listInfo = WorkManager.getInstance(context)
-                .getWorkInfosByTag(SYNC_DATA_ONE_TIME_WORKER_TAG)
-                .get()
-            if (listInfo.isNotEmpty()) {
-                if (listInfo.last().state != WorkInfo.State.RUNNING) {
-                    WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-                        UNIQUE_SYNC_WORK_NAME,
-                        ExistingPeriodicWorkPolicy.KEEP,
-                        worker
-                    )
-                } else {
-
-                }
-            } else {
-                WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-                    "periodicSynchronized",
-                    ExistingPeriodicWorkPolicy.KEEP,
-                    worker
-                )
-            }
+            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+                UNIQUE_SYNC_WORK_NAME,
+                ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE,
+                worker
+            )
         }
 
         return flow {

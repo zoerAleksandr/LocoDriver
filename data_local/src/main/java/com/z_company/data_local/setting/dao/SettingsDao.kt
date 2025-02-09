@@ -31,6 +31,10 @@ internal interface SettingsDao {
     @Query("DELETE FROM MonthOfYear")
     fun clearCalendar()
 
+    @TypeConverters(MonthOfYearToPrimitiveConverter::class)
+    @Query("UPDATE UserSettings SET monthOfYear =:monthOfYear WHERE settingsKey =:key")
+    fun updateMonthOfYearInUserSetting(monthOfYear: MonthOfYear, key: String)
+
     @Update
     fun updateMonthOfYear(monthOfYear: MonthOfYear)
 
@@ -40,7 +44,7 @@ internal interface SettingsDao {
     fun getFlowMonthOfYearList(): Flow<List<MonthOfYear>>
 
     @Query("SELECT * FROM MonthOfYear WHERE id =:id")
-    fun getMonthOfYearById(id: String): MonthOfYear
+    suspend fun getMonthOfYearById(id: String): MonthOfYear
 
     @TypeConverters(NightTimeToPrimitiveConverter::class)
     @Query("UPDATE UserSettings SET nightTime =:nightTime WHERE settingsKey =:key")

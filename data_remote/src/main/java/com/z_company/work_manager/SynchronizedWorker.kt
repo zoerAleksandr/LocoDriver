@@ -19,6 +19,7 @@ class SynchronizedWorker(context: Context, params: WorkerParameters) :
     private val back4AppManager: Back4AppManager by inject()
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+        Log.d("ZZZ", "doWork")
         try {
             var result: Result = Result.failure()
             this.launch {

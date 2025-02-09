@@ -90,6 +90,10 @@ class RouteUseCase(private val repository: RouteRepository) {
         }
     }
 
+    fun saveRouteAfterLoading(route: Route): Flow<ResultState<Unit>> {
+        return repository.saveRoute(route)
+    }
+
     fun setSynchronizedRoute(basicId: String): Flow<ResultState<Unit>> {
         return repository.setSynchronizedRoute(basicId)
     }

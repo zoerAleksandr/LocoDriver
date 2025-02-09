@@ -98,12 +98,14 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
             val tariffRate =
                 this.async { salarySettingUseCase.getTariffRateFromCurrentMonthOfYear(userSettings.selectMonthOfYear) }
                     .await()
-            _uiState.update {
-                it.copy(
-                    tariffRate = ResultState.Success(tariffRate.str()),
-                    currentMonth = ResultState.Success(userSettings.selectMonthOfYear.month.getMonthFullText()),
-                    currentYear = ResultState.Success(userSettings.selectMonthOfYear.year.toString())
-                )
+            withContext(Dispatchers.Main) {
+                _uiState.update {
+                    it.copy(
+                        tariffRate = ResultState.Success(tariffRate.str()),
+                        currentMonth = ResultState.Success(userSettings.selectMonthOfYear.month.getMonthFullText()),
+                        currentYear = ResultState.Success(userSettings.selectMonthOfYear.year.toString())
+                    )
+                }
             }
             initialValueTariffRate = tariffRate
             currentMonthOfYear = userSettings.selectMonthOfYear

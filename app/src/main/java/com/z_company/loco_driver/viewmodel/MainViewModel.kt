@@ -2,6 +2,7 @@ package com.z_company.loco_driver.viewmodel
 
 import android.util.Log
 import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -28,6 +29,9 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import ru.rustore.sdk.billingclient.RuStoreBillingClient
 import ru.rustore.sdk.billingclient.model.purchase.PurchaseState
+import java.util.Calendar
+import java.util.Calendar.MONTH
+import java.util.Calendar.YEAR
 
 private const val TAG = "MainViewModel_TAG"
 
@@ -55,9 +59,6 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     val isRegistered: MutableLiveData<Boolean> get() = _isRegistered
 
     init {
-        if (sharedPreferenceStorage.tokenIsFirstAppEntry()) {
-            setDefaultSettings()
-        }
         viewModelScope.launch {
             syncRuStoreSubscription()
             loadCalendar()
@@ -68,13 +69,14 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
 
     private fun enableSynchronisedRoute() {
         viewModelScope.launch {
-            remoteRouteUseCase.syncBasicDataPeriodic()
+            remoteRouteUseCase.syncBasicDataPeriodic().collect {}
         }
     }
 
-    private fun setDefaultSettings() {
+    private fun setDefaultSettings(currentMonthOfYear: MonthOfYear) {
         setDefaultSetting?.cancel()
-        setDefaultSetting = settingsUseCase.setDefaultSettings().launchIn(viewModelScope)
+        setDefaultSetting =
+            settingsUseCase.setDefaultSettings(currentMonthOfYear).launchIn(viewModelScope)
     }
 
     private fun loadCalendar() {
@@ -159,6 +161,19 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
             calendarUseCase.saveCalendar(calendar).collect { resultState ->
                 if (resultState is ResultState.Success) {
                     Log.i(TAG, "production calendar is loading")
+                    val currentCalendar = Calendar.getInstance()
+                    val searchMonthOfYear = calendar.find {
+                        it.month == currentCalendar.get(MONTH) && it.year == currentCalendar.get(
+                            YEAR
+                        )
+                    }
+                    settingsUseCase.updateMonthOfYearInUserSetting(
+                        searchMonthOfYear ?: calendar.first()
+                    )
+                        .collect {}
+                    if (sharedPreferenceStorage.tokenIsFirstAppEntry()) {
+                        setDefaultSettings(searchMonthOfYear ?: calendar.first())
+                    }
                 }
             }
         }
@@ -206,10 +221,8 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
             val session = ParseUser.getCurrentUser()
             if (session != null) {
                 _isRegistered.postValue(true)
-                if (session.getBoolean(UserFieldName.EMAIL_VERIFIED_FIELD_NAME_REMOTE) && !sharedPreferenceStorage.tokesIsSyncDBEnable()
-                ) {
+                if (session.getBoolean(UserFieldName.EMAIL_VERIFIED_FIELD_NAME_REMOTE)) {
                     enableSynchronisedRoute()
-                    sharedPreferenceStorage.setTokenIsSyncEnable(true)
                 }
 
             } else {
