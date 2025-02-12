@@ -48,6 +48,14 @@ fun FormPassengerDestination(
         exitFromScreenState = formUiState.exitFromScreen,
         exitScreen = router::back,
         exitWithoutSave = viewModel::exitWithoutSaving,
-        showConfirmExitDialogState = formUiState.confirmExitDialogShow
+        showConfirmExitDialogState = formUiState.confirmExitDialogShow,
+        dropDownMenuList = formUiState.stationList,
+        changeExpandMenuDepartureStation = viewModel::changeExpandMenuDepartureStation,
+        changeExpandMenuArrivalStation = viewModel::changeExpandMenuArrivalStation,
+        isExpandedMenuDepartureStation = formUiState.isExpandMenuDepartureStation,
+        isExpandedMenuArrivalStation = formUiState.isExpandMenuArrivalStation,
+        onDeleteStationName = viewModel::removeStationName,
+        onChangedDropDownContentDepartureStation = viewModel::onChangedDropDownContentDepartureStation,
+        onChangedDropDownContentArrivalStation = viewModel::onChangedDropDownContentArrivalStation
     )
 }

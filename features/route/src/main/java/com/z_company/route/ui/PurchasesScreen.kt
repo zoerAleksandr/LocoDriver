@@ -121,7 +121,13 @@ fun PurchasesScreen(
                         if (event.error is RuStoreException) {
                             event.error.resolveForBilling(context)
                         }
-                        snackbarHostState.showSnackbar(message = "Ошибка: ${event.error.message.orEmpty()}")
+                        event.error.message?.let {
+                            if (it.contains("Range timestamp not valid")) {
+                                snackbarHostState.showSnackbar(message = "Невозможно получить данные о подписках. На телефоне установлено неверное время. Установите автоматическое определение времени в настройках телефона.")
+                            } else {
+                                snackbarHostState.showSnackbar(message = "Ошибка: ${event.error.message.orEmpty()}")
+                            }
+                        }
                     }
                 }
             }

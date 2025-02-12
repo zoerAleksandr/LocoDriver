@@ -144,27 +144,6 @@ fun MoreInfoScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "Кол-во маршрутов",
-                        style = styleDataLight
-                    )
-                    AsyncDataValue(resultState = routesCount) { count ->
-                        count?.let {
-                            Text(
-                                text = count.toString(),
-                                style = styleDataLight
-                            )
-                        }
-                    }
-                }
-            }
-
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
                         text = "Норма часов",
                         style = styleDataLight
                     )
@@ -371,6 +350,27 @@ fun MoreInfoScreen(
                             Text(
                                 text = ConverterLongToTime.getTimeInStringFormat(workTime),
                                 style = styleDataMedium
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Кол-во маршрутов",
+                        style = styleDataLight
+                    )
+                    AsyncDataValue(resultState = routesCount) { count ->
+                        count?.let {
+                            Text(
+                                text = count.toString(),
+                                style = styleDataLight
                             )
                         }
                     }

@@ -1,5 +1,6 @@
 package com.z_company.settings.viewmodel
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -239,6 +240,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         loadSettingsJob?.cancel()
         loadSettingsJob = viewModelScope.launch {
             settingsUseCase.getFlowCurrentSettingsState().collect { result ->
+                Log.d("ZZZ", "userSetting in ViewModel $result")
                 _uiState.update {
                     it.copy(
                         settingDetails = result,
@@ -346,10 +348,10 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                     )
                 }
                 if (loadResult is ResultState.Success) {
-                    back4AppManager.synchronizedStorage().collect { result ->
+                    back4AppManager.synchronizedStorage().collect { syncResult ->
                         _uiState.update {
                             it.copy(
-                                updateRepositoryState = result,
+                                updateRepositoryState = syncResult,
                             )
                         }
                     }

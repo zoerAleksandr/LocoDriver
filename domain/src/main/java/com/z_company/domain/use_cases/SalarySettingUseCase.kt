@@ -8,7 +8,6 @@ import com.z_company.domain.repositories.SalarySettingRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flow
@@ -20,7 +19,7 @@ class SalarySettingUseCase(
     val repository: SalarySettingRepository,
 ) : KoinComponent {
     private val calendarUseCase: CalendarUseCase by inject()
-    suspend fun getSalarySetting(): SalarySetting = repository.getSalarySetting()
+    fun getSalarySetting(): SalarySetting = repository.getSalarySetting()
     fun getFlowSalarySetting(): Flow<ResultState<SalarySetting?>> =
         repository.getSalarySettingState()
 

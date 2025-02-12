@@ -8,12 +8,12 @@ internal object ServicePhaseConverter {
     private val gson = GsonBuilder().setDateFormat("MMM dd, yyyy HH:mm:ss").create()
 
     @TypeConverter
-    fun fromString(value: String): ServicePhase {
+    fun fromString(value: String?): ServicePhase? {
         return gson.fromJson(value, ServicePhase::class.java)
     }
 
     @TypeConverter
-    fun toString(entity: ServicePhase): String {
+    fun toString(entity: ServicePhase?): String? {
         return gson.toJson(entity)
     }
 }

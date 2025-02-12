@@ -10,11 +10,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,9 +21,13 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -53,13 +55,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.zIndex
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
@@ -103,7 +110,15 @@ fun FormPassengerScreen(
     exitFromScreenState: Boolean,
     changeShowConfirmExitDialog: (Boolean) -> Unit,
     showConfirmExitDialogState: Boolean,
-    exitWithoutSave: () -> Unit
+    exitWithoutSave: () -> Unit,
+    dropDownMenuList: List<String>,
+    isExpandedMenuDepartureStation: Boolean,
+    isExpandedMenuArrivalStation: Boolean,
+    changeExpandMenuDepartureStation: (Boolean) -> Unit,
+    changeExpandMenuArrivalStation: (Boolean) -> Unit,
+    onDeleteStationName: (String) -> Unit,
+    onChangedDropDownContentDepartureStation: (String) -> Unit,
+    onChangedDropDownContentArrivalStation: (String) -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -224,6 +239,14 @@ fun FormPassengerScreen(
                             onTimeArrivalChanged = onTimeArrivalChanged,
                             onNotesChanged = onNotesChanged,
                             resultTime = resultTime,
+                            menuList = dropDownMenuList,
+                            changeExpandMenuArrivalStation = changeExpandMenuArrivalStation,
+                            changeExpandMenuDepartureStation = changeExpandMenuDepartureStation,
+                            isExpandedMenuArrivalStation = isExpandedMenuArrivalStation,
+                            isExpandedMenuDepartureStation = isExpandedMenuDepartureStation,
+                            onDeleteStationName = onDeleteStationName,
+                            onChangedDropDownContentDepartureStation = onChangedDropDownContentDepartureStation,
+                            onChangedDropDownContentArrivalStation = onChangedDropDownContentArrivalStation
                         )
                     }
 
@@ -244,6 +267,14 @@ fun PassengerFormScreenContent(
     onTimeArrivalChanged: (Long?) -> Unit,
     onNotesChanged: (String) -> Unit,
     resultTime: Long?,
+    menuList: List<String>,
+    isExpandedMenuDepartureStation: Boolean,
+    isExpandedMenuArrivalStation: Boolean,
+    changeExpandMenuDepartureStation: (Boolean) -> Unit,
+    changeExpandMenuArrivalStation: (Boolean) -> Unit,
+    onDeleteStationName: (String) -> Unit,
+    onChangedDropDownContentDepartureStation: (String) -> Unit,
+    onChangedDropDownContentArrivalStation: (String) -> Unit
 ) {
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
@@ -290,8 +321,8 @@ fun PassengerFormScreenContent(
         item {
             OutlinedTextField(
                 modifier = Modifier
-                    .padding(top = 28.dp)
-                    .fillMaxWidth(0.5f),
+                    .padding(top = 32.dp)
+                    .fillMaxWidth(),
                 value = passenger.trainNumber ?: "",
                 onValueChange = {
                     onNumberChanged(it)
@@ -323,22 +354,38 @@ fun PassengerFormScreenContent(
                 ),
                 shape = Shapes.medium,
 
-            )
+                )
         }
+
         item {
-            Row(
+            val focusRequester = remember { FocusRequester() }
+
+            ExposedDropdownMenuBox(
                 modifier = Modifier
-                    .padding(top = 16.dp)
-                    .height(IntrinsicSize.Min)
+                    .padding(top = 32.dp)
                     .fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                expanded = isExpandedMenuDepartureStation,
+                onExpandedChange = { changeExpandMenuDepartureStation(it) }
             ) {
+                var stationName by remember {
+                    mutableStateOf(
+                        TextFieldValue(
+                            text = passenger.stationDeparture ?: "",
+                            selection = TextRange(passenger.stationDeparture?.length ?: 0)
+                        )
+                    )
+                }
+
                 OutlinedTextField(
                     modifier = Modifier
-                        .weight(0.5f),
-                    value = passenger.stationDeparture ?: "",
+                        .fillMaxWidth()
+                        .menuAnchor()
+                        .focusRequester(focusRequester),
+                    value = stationName,
                     onValueChange = {
-                        onStationDepartureChanged(it)
+                        stationName = it
+                        onChangedDropDownContentDepartureStation(it.text)
+                        onStationDepartureChanged(it.text)
                     },
                     textStyle = dataTextStyle,
                     placeholder = {
@@ -367,13 +414,165 @@ fun PassengerFormScreenContent(
                     ),
                     shape = Shapes.medium,
                 )
+                if (menuList.isNotEmpty()) {
+                    DropdownMenu(
+                        modifier = Modifier
+                            .background(
+                                color = MaterialTheme.colorScheme.surface,
+                                shape = Shapes.medium
+                            )
+                            .exposedDropdownSize(true),
+                        expanded = isExpandedMenuDepartureStation,
+                        properties = PopupProperties(focusable = false),
+                        onDismissRequest = { changeExpandMenuDepartureStation(false) }
+                    ) {
+                        menuList.forEach { selectionStation ->
+                            DropdownMenuItem(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                text = {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(text = selectionStation, style = dataTextStyle)
+                                        Icon(
+                                            modifier = Modifier.clickable {
+                                                onDeleteStationName(selectionStation)
+                                            },
+                                            imageVector = Icons.Outlined.Close,
+                                            contentDescription = null
+                                        )
+                                    }
+
+                                },
+                                onClick = {
+                                    onStationDepartureChanged(selectionStation)
+                                    changeExpandMenuDepartureStation(false)
+                                    stationName = stationName.copy(
+                                        text = selectionStation,
+                                        selection = TextRange(selectionStation.length)
+                                    )
+                                })
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            val departureTime = Calendar.getInstance().also { calendar ->
+                passenger.timeDeparture?.let { millis ->
+                    calendar.timeInMillis = millis
+                }
+            }
+            val departureCalendar by remember {
+                mutableStateOf(departureTime)
+            }
+
+            val departureTimePickerState = rememberTimePickerState(
+                initialHour = departureCalendar.get(Calendar.HOUR_OF_DAY),
+                initialMinute = departureCalendar.get(Calendar.MINUTE),
+                is24Hour = true
+            )
+
+            val departureDatePickerState = rememberDatePickerStateInLocale(
+                initialSelectedDateMillis = departureCalendar.timeInMillis
+            )
+
+            var showDepartureTimePicker by remember {
+                mutableStateOf(false)
+            }
+
+            var showDepartureDatePicker by remember {
+                mutableStateOf(false)
+            }
+
+            if (showDepartureDatePicker) {
+                CustomDatePickerDialog(
+                    datePickerState = departureDatePickerState,
+                    onDismissRequest = { showDepartureDatePicker = false },
+                    onConfirmRequest = {
+                        showDepartureDatePicker = false
+                        showDepartureTimePicker = true
+                        departureCalendar.timeInMillis =
+                            departureDatePickerState.selectedDateMillis!!
+                    })
+            }
+
+            if (showDepartureTimePicker) {
+                TimePickerDialog(
+                    timePickerState = departureTimePickerState,
+                    onDismissRequest = { showDepartureTimePicker = false },
+                    onConfirmRequest = {
+                        showDepartureTimePicker = false
+                        departureCalendar.set(
+                            Calendar.HOUR_OF_DAY,
+                            departureTimePickerState.hour
+                        )
+                        departureCalendar.set(
+                            Calendar.MINUTE,
+                            departureTimePickerState.minute
+                        )
+                        onTimeDepartureChanged(departureCalendar.timeInMillis)
+                    }
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .padding(top = 16.dp)
+                    .fillMaxWidth()
+                    .background(
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = Shapes.medium
+                    )
+                    .clickable {
+                        showDepartureDatePicker = true
+                    }
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                val textDateDeparture = passenger.timeDeparture?.let {
+                    DateAndTimeConverter.getDateFromDateLong(passenger.timeDeparture)
+                } ?: "Время отправления"
+                val textTimeDeparture = passenger.timeDeparture?.let {
+                    DateAndTimeConverter.getTimeFromDateLong(passenger.timeDeparture)
+                } ?: ""
+
+                Text(text = textDateDeparture, style = dataTextStyle)
+                Text(text = textTimeDeparture, style = dataTextStyle)
+            }
+        }
+
+        item {
+            val focusRequester = remember { FocusRequester() }
+
+            ExposedDropdownMenuBox(
+                modifier = Modifier
+                    .padding(top = 32.dp)
+                    .fillMaxWidth(),
+                expanded = isExpandedMenuArrivalStation,
+                onExpandedChange = { changeExpandMenuArrivalStation(it) }
+            ) {
+                var stationName by remember {
+                    mutableStateOf(
+                        TextFieldValue(
+                            text = passenger.stationArrival ?: "",
+                            selection = TextRange(passenger.stationArrival?.length ?: 0)
+                        )
+                    )
+                }
 
                 OutlinedTextField(
                     modifier = Modifier
-                        .weight(0.5f),
-                    value = passenger.stationArrival ?: "",
+                        .menuAnchor()
+                        .focusRequester(focusRequester)
+                        .fillMaxWidth(),
+                    value = stationName,
                     onValueChange = {
-                        onStationArrivalChanged(it)
+                        stationName = it
+                        onChangedDropDownContentArrivalStation(it.text)
+                        onStationArrivalChanged(it.text)
                     },
                     placeholder = {
                         Text(
@@ -386,13 +585,13 @@ fun PassengerFormScreenContent(
                         keyboardType = KeyboardType.Text,
                         imeAction = ImeAction.Next
                     ),
-                    keyboardActions = KeyboardActions(
-                        onNext = {
-                            scope.launch {
-                                focusManager.moveFocus(FocusDirection.Down)
-                            }
-                        }
-                    ),
+//                    keyboardActions = KeyboardActions(
+//                        onNext = {
+//                            scope.launch {
+//                                focusManager.clearFocus()
+//                            }
+//                        }
+//                    ),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         unfocusedContainerColor = MaterialTheme.colorScheme.surface,
@@ -402,6 +601,49 @@ fun PassengerFormScreenContent(
                     ),
                     shape = Shapes.medium,
                 )
+                if (menuList.isNotEmpty()) {
+                    DropdownMenu(
+                        modifier = Modifier
+                            .background(
+                                color = MaterialTheme.colorScheme.surface,
+                                shape = Shapes.medium
+                            )
+                            .exposedDropdownSize(true),
+                        expanded = isExpandedMenuArrivalStation,
+                        properties = PopupProperties(focusable = false),
+                        onDismissRequest = { changeExpandMenuArrivalStation(false) }
+                    ) {
+                        menuList.forEach { selectionStation ->
+                            DropdownMenuItem(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                text = {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(text = selectionStation, style = dataTextStyle)
+                                        Icon(
+                                            modifier = Modifier.clickable {
+                                                onDeleteStationName(selectionStation)
+                                            },
+                                            imageVector = Icons.Outlined.Close,
+                                            contentDescription = null
+                                        )
+                                    }
+
+                                },
+                                onClick = {
+                                    onStationArrivalChanged(selectionStation)
+                                    changeExpandMenuArrivalStation(false)
+                                    stationName = stationName.copy(
+                                        text = selectionStation,
+                                        selection = TextRange(selectionStation.length)
+                                    )
+                                })
+                        }
+                    }
+                }
             }
         }
 
@@ -464,112 +706,33 @@ fun PassengerFormScreenContent(
                     }
                 )
             }
-            val departureTime = Calendar.getInstance().also { calendar ->
-                passenger.timeDeparture?.let { millis ->
-                    calendar.timeInMillis = millis
-                }
-            }
-            val departureCalendar by remember {
-                mutableStateOf(departureTime)
-            }
-
-            val departureTimePickerState = rememberTimePickerState(
-                initialHour = departureCalendar.get(Calendar.HOUR_OF_DAY),
-                initialMinute = departureCalendar.get(Calendar.MINUTE),
-                is24Hour = true
-            )
-
-            val departureDatePickerState = rememberDatePickerStateInLocale(
-                initialSelectedDateMillis = departureCalendar.timeInMillis
-            )
-
-            var showDepartureTimePicker by remember {
-                mutableStateOf(false)
-            }
-
-            var showDepartureDatePicker by remember {
-                mutableStateOf(false)
-            }
-
-            if (showDepartureDatePicker) {
-                CustomDatePickerDialog(
-                    datePickerState = departureDatePickerState,
-                    onDismissRequest = { showDepartureDatePicker = false },
-                    onConfirmRequest = {
-                        showDepartureDatePicker = false
-                        showDepartureTimePicker = true
-                        departureCalendar.timeInMillis =
-                            departureDatePickerState.selectedDateMillis!!
-                    })
-            }
-
-            if (showDepartureTimePicker) {
-                TimePickerDialog(
-                    timePickerState = departureTimePickerState,
-                    onDismissRequest = { showDepartureTimePicker = false },
-                    onConfirmRequest = {
-                        showDepartureTimePicker = false
-                        departureCalendar.set(
-                            Calendar.HOUR_OF_DAY,
-                            departureTimePickerState.hour
-                        )
-                        departureCalendar.set(
-                            Calendar.MINUTE,
-                            departureTimePickerState.minute
-                        )
-                        onTimeDepartureChanged(departureCalendar.timeInMillis)
-                    }
-                )
-            }
 
             Row(
                 modifier = Modifier
                     .padding(top = 16.dp)
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .fillMaxWidth()
+                    .background(
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = Shapes.medium
+                    )
+                    .clickable {
+                        showArrivalDatePicker = true
+                    }
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .weight(0.5f)
-                        .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
-                        .clickable {
-                            showDepartureDatePicker = true
-                        }.padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    val textDateDeparture = passenger.timeDeparture?.let {
-                        DateAndTimeConverter.getDateFromDateLong(passenger.timeDeparture)
-                    } ?: "Отправление"
-                    val textTimeDeparture = passenger.timeDeparture?.let {
-                        DateAndTimeConverter.getTimeFromDateLong(passenger.timeDeparture)
+                val textDateArrival =
+                    passenger.timeArrival?.let {
+                        DateAndTimeConverter.getDateFromDateLong(passenger.timeArrival)
+                    } ?: "Время прибытия"
+
+                val textTimeArrival =
+                    passenger.timeArrival?.let {
+                        DateAndTimeConverter.getTimeFromDateLong(passenger.timeArrival)
                     } ?: ""
 
-                    Text(text = textDateDeparture, style = dataTextStyle)
-                    Text(text = textTimeDeparture, style = dataTextStyle)
-                }
-
-                Row(
-                    modifier = Modifier
-                        .weight(0.5f)
-                        .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
-                        .clickable {
-                            showArrivalDatePicker = true
-                        }.padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    val textDateArrival =
-                        passenger.timeArrival?.let {
-                            DateAndTimeConverter.getDateFromDateLong(passenger.timeArrival)
-                        } ?: "Прибытие"
-
-                    val textTimeArrival =
-                        passenger.timeArrival?.let {
-                            DateAndTimeConverter.getTimeFromDateLong(passenger.timeArrival)
-                        } ?: ""
-
-                    Text(text = textDateArrival, style = dataTextStyle)
-                    Text(text = textTimeArrival, style = dataTextStyle)
-                }
+                Text(text = textDateArrival, style = dataTextStyle)
+                Text(text = textTimeArrival, style = dataTextStyle)
             }
         }
 
@@ -577,7 +740,7 @@ fun PassengerFormScreenContent(
             OutlinedTextField(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 16.dp),
+                    .padding(top = 32.dp),
                 value = passenger.notes ?: "",
                 onValueChange = { onNotesChanged(it) },
                 textStyle = dataTextStyle,
@@ -596,6 +759,13 @@ fun PassengerFormScreenContent(
                     focusedContainerColor = MaterialTheme.colorScheme.surface,
                     focusedBorderColor = Color.Transparent,
                     unfocusedBorderColor = Color.Transparent
+                ),
+                keyboardActions = KeyboardActions(
+                    onNext = {
+                        scope.launch {
+                            focusManager.clearFocus()
+                        }
+                    }
                 ),
                 shape = Shapes.medium,
             )
