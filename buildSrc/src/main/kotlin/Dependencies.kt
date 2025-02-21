@@ -23,11 +23,13 @@ import Versions.maxkeppeler_sheets_ver
 import Versions.mockito_core_ver
 import Versions.mockito_inline_ver
 import Versions.mockito_kotlin_ver
+import Versions.ozcanalasalvar_ver
 import Versions.parse_sdk_android_ver
 import Versions.permission_accompanist_ver
 import Versions.rebugger_ver
 import Versions.reveal_swipe_version
 import Versions.room_version
+import Versions.rustore_bom_ver
 import Versions.splash_screen_ver
 import Versions.test_ext_version
 import Versions.test_runner_version
@@ -63,8 +65,8 @@ object Apps {
 
 object Versions {
     const val android_plugin_id = "8.1.1"
-    const val accompanist_navigation_animation_version = "0.32.0"
-    const val accompanist_swiperefresh_version = "0.32.0"
+    const val accompanist_navigation_animation_version = "0.34.0"
+    const val accompanist_swiperefresh_version = "0.34.0"
     const val activity_compose_version = "1.9.0"
     const val app_compat_version = "1.7.0-alpha02"
     const val coil_version = "2.4.0"
@@ -82,13 +84,13 @@ object Versions {
     const val test_ext_version = "1.1.5"
     const val test_runner_version = "1.6.0-alpha01"
     const val koin_version = "3.5.6"
-    const val accompanist_pager_version = "0.32.0"
+    const val accompanist_pager_version = "0.34.0"
     const val gson_version = "2.9.0"
     const val constraint_layout_ver = "1.0.1"
     const val datastore_pref_ver = "1.0.0"
     const val maxkeppeler_sheets_ver = "1.1.1"
     const val camera_ver = "1.3.1"
-    const val permission_accompanist_ver = "0.32.0"
+    const val permission_accompanist_ver = "0.34.0"
     const val google_relay_ver = "0.3.11"
     const val appwrite_ver = "4.0.0"
 
@@ -96,7 +98,9 @@ object Versions {
     const val vkid_ver = "1.3.2"
     const val parse_sdk_android_ver = "4.3.0"
     const val work_manager_version = "2.9.0"
-    const val accompanist_ui_controller_version = "0.32.0"
+    const val ozcanalasalvar_ver = "2.0.7"
+    const val rustore_bom_ver = "7.0.0"
+    const val accompanist_ui_controller_version = "0.34.0"
     const val rebugger_ver = "1.0.0-rc03"
     const val desugaring_ver = "2.0.4"
     const val mockito_core_ver= "3.10.0"
@@ -183,6 +187,12 @@ object Libs {
     const val parse_sdk_android = "com.github.parse-community.Parse-SDK-Android:parse:$parse_sdk_android_ver"
     const val parse_sdk_android_coroutine = "com.github.parse-community.Parse-SDK-Android:coroutines:$parse_sdk_android_ver"
     const val work_manager = "androidx.work:work-runtime-ktx:$work_manager_version"
+    const val ozcanalasalvar_datepicker = "com.github.ozcanalasalvar.picker:datepicker:$ozcanalasalvar_ver"
+    const val ozcanalasalvar_wheelview = "com.github.ozcanalasalvar.picker:wheelview:$ozcanalasalvar_ver"
+
+    const val rustore_bom = "ru.rustore.sdk:bom:$rustore_bom_ver"
+    const val rustore_bulling = "ru.rustore.sdk:billingclient"
+    const val rustore_review = "ru.rustore.sdk:review"
     //     Debug
     const val ui_tooling =
         "androidx.compose.ui:ui-tooling:$compose_ui_version"

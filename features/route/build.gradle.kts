@@ -39,10 +39,10 @@ android {
 }
 
 dependencies {
-    implementation(platform("ru.rustore.sdk:bom:7.0.0"))
-    implementation("ru.rustore.sdk:billingclient")
-    implementation("ru.rustore.sdk:review")
-    
+    implementation(platform(Libs.rustore_bom))
+    implementation(Libs.rustore_bulling)
+    implementation(Libs.rustore_review)
+
     implementation(project(Libs.project_core_android))
     implementation(project(Libs.project_domain))
     implementation(project(Libs.project_data_remote))
@@ -72,6 +72,9 @@ dependencies {
     implementation(Libs.reveal_swipe)
     implementation(Libs.maxkeppeler_sheets)
     implementation(Libs.rebugger)
+
+    implementation (Libs.ozcanalasalvar_datepicker)
+    implementation (Libs.ozcanalasalvar_wheelview)
 
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
 

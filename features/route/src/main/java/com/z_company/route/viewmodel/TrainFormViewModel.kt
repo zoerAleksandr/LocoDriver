@@ -237,11 +237,13 @@ class TrainFormViewModel(
                 }.toMutableList()
                 saveStationsName(train)
                 saveTrainJob?.cancel()
-                saveTrainJob = trainUseCase.saveTrain(train).onEach { resultState ->
-                    _uiState.update {
-                        it.copy(saveTrainState = resultState)
+                saveTrainJob = viewModelScope.launch {
+                    trainUseCase.saveTrain(train).collect { resultState ->
+                        _uiState.update {
+                            it.copy(saveTrainState = resultState)
+                        }
                     }
-                }.launchIn(viewModelScope)
+                }
             }
         }
     }
