@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import java.util.Calendar
 
 class SynchronizedWorker(context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params),
@@ -26,7 +27,8 @@ class SynchronizedWorker(context: Context, params: WorkerParameters) :
                 back4AppManager.synchronizedStorage().collect { resultSync ->
                     if (resultSync is ResultState.Success) {
                         result = Result.success()
-                        settingsUseCase.setUpdateAt(resultSync.data).collect {}
+                        val timestamp = Calendar.getInstance().timeInMillis
+                        settingsUseCase.setUpdateAt(timestamp).collect {}
                         this.cancel()
                     }
                     if (resultSync is ResultState.Error) {

@@ -240,7 +240,6 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         loadSettingsJob?.cancel()
         loadSettingsJob = viewModelScope.launch {
             settingsUseCase.getFlowCurrentSettingsState().collect { result ->
-                Log.d("ZZZ", "userSetting in ViewModel $result")
                 _uiState.update {
                     it.copy(
                         settingDetails = result,
@@ -341,17 +340,17 @@ class SettingsViewModel : ViewModel(), KoinComponent {
 
     fun onSync() {
         viewModelScope.launch {
-            back4AppManager.loadRouteListFromRemote().collect { loadResult ->
+            back4AppManager.synchronizedStorage().collect { syncResult ->
                 _uiState.update {
                     it.copy(
-                        updateRepositoryState = ResultState.Loading,
+                        updateRepositoryState = syncResult,
                     )
                 }
-                if (loadResult is ResultState.Success) {
-                    back4AppManager.synchronizedStorage().collect { syncResult ->
+                if (syncResult is ResultState.Success) {
+                    back4AppManager.loadRouteListFromRemote().collect { loadResult ->
                         _uiState.update {
                             it.copy(
-                                updateRepositoryState = syncResult,
+                                updateRepositoryState = loadResult,
                             )
                         }
                     }

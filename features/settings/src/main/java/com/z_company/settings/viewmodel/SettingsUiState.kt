@@ -13,7 +13,7 @@ data class SettingsUiState(
     val userDetailsState: ResultState<User?> = ResultState.Loading,
     val calendarState: ResultState<MonthOfYear?> = ResultState.Loading,
     val saveSettingsState: ResultState<Unit>? = null,
-    val updateRepositoryState: ResultState<Long>? = null,
+    val updateRepositoryState: ResultState<Unit>? = null,
     val updateAt: Long? = null,
     val monthList: List<Int> = listOf(),
     val yearList: List<Int> = listOf(),

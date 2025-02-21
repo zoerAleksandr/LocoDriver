@@ -413,7 +413,7 @@ fun SettingScreenContent(
     homeRestTimeChanged: (Long) -> Unit,
     onLogOut: () -> Unit,
     onSync: () -> Unit,
-    updateRepoState: ResultState<Long>?,
+    updateRepoState: ResultState<Unit>?,
     currentUserState: ResultState<User?>,
     updateAtState: Long?,
     showReleaseDaySelectScreen: () -> Unit,
