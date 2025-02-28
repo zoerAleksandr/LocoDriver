@@ -1,12 +1,11 @@
 package com.z_company.core.ui.component
 
 import android.util.Log
+import androidx.compose.ui.geometry.Size
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.text.InlineTextContent
-import androidx.compose.foundation.text.InternalFoundationTextApi
-import androidx.compose.foundation.text.TextDelegate
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -14,10 +13,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.platform.LocalDensity
@@ -30,27 +31,30 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.DpSize
-import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.unit.TextUnit
-import androidx.compose.ui.unit.isSpecified
-import androidx.compose.ui.unit.sp
-import kotlin.math.min
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
-import com.z_company.core.ui.component.SuggestedFontSizesStatus.Companion.rememberSuggestedFontSizesStatus
-import kotlin.reflect.KProperty
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isSpecified
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.fastAll
+import androidx.compose.ui.util.fastFilter
+import com.z_company.core.ui.component.SuggestedFontSizesStatus.Companion.validSuggestedFontSizes
+import kotlin.math.min
+import kotlin.math.roundToInt
+
+private const val TAG = "AutoSizeText"
 
 /**
  * Composable function that automatically adjusts the text size to fit within given constraints, considering the ratio of line spacing to text size.
@@ -68,7 +72,7 @@ import kotlin.reflect.KProperty
  * this will be [LocalContentColor].
  * @param suggestedFontSizes The suggested font sizes to choose from (Should be sorted from smallest to largest, not empty and contains only sp text unit).
  * @param suggestedFontSizesStatus Whether or not suggestedFontSizes is valid: not empty - contains oly sp text unit - sorted.
- * You can check validity by invoking [List<TextUnit>.suggestedFontSizesStatus]
+ * You can check validity by invoking [List<TextUnit>.suggestedFontSizesStatus].
  * @param stepGranularityTextSize The step size for adjusting the text size. this parameter is ignored if [suggestedFontSizes] is specified and [suggestedFontSizesStatus] is [SuggestedFontSizesStatus.VALID].
  * @param minTextSize The minimum text size allowed. this parameter is ignored if [suggestedFontSizes] is specified or [suggestedFontSizesStatus] is [SuggestedFontSizesStatus.VALID].
  * @param maxTextSize The maximum text size allowed.
@@ -96,7 +100,7 @@ import kotlin.reflect.KProperty
  * text, baselines and other details. The callback can be used to add additional decoration or
  * functionality to the text. For example, to draw selection around the text.
  * @param style style configuration for the text such as color, font, line height etc.
- * @param lineSpacingRatio The ratio of line spacing to text size.
+ * @param lineSpaceRatio The ratio of line spacing to text size.
  *
  * @author Reda El Madini - For support, contact gladiatorkilo@gmail.com
  */
@@ -105,8 +109,8 @@ fun AutoSizeText(
     text: String,
     modifier: Modifier = Modifier,
     color: Color = Color.Unspecified,
-    suggestedFontSizes: ImmutableWrapper<List<TextUnit>> = emptyList<TextUnit>().toImmutableWrapper(),
-    suggestedFontSizesStatus: SuggestedFontSizesStatus = suggestedFontSizes.rememberSuggestedFontSizesStatus,
+    suggestedFontSizes: List<TextUnit> = emptyList(),
+    suggestedFontSizesStatus: SuggestedFontSizesStatus = SuggestedFontSizesStatus.UNKNOWN,
     stepGranularityTextSize: TextUnit = TextUnit.Unspecified,
     minTextSize: TextUnit = TextUnit.Unspecified,
     maxTextSize: TextUnit = TextUnit.Unspecified,
@@ -122,7 +126,7 @@ fun AutoSizeText(
     minLines: Int = 1,
     onTextLayout: (TextLayoutResult) -> Unit = {},
     style: TextStyle = LocalTextStyle.current,
-    lineSpacingRatio: Float = style.lineHeight.value / style.fontSize.value,
+    lineSpaceRatio: Float = style.lineHeight.value / style.fontSize.value,
 ) {
     AutoSizeText(
         text = AnnotatedString(text),
@@ -145,7 +149,7 @@ fun AutoSizeText(
         minLines = minLines,
         onTextLayout = onTextLayout,
         style = style,
-        lineSpacingRatio = lineSpacingRatio,
+        lineSpacingRatio = lineSpaceRatio,
     )
 }
 
@@ -164,8 +168,8 @@ fun AutoSizeText(
     text: AnnotatedString,
     modifier: Modifier = Modifier,
     color: Color = Color.Unspecified,
-    suggestedFontSizes: ImmutableWrapper<List<TextUnit>> = emptyList<TextUnit>().toImmutableWrapper(),
-    suggestedFontSizesStatus: SuggestedFontSizesStatus = suggestedFontSizes.rememberSuggestedFontSizesStatus,
+    suggestedFontSizes: List<TextUnit> = emptyList(),
+    suggestedFontSizesStatus: SuggestedFontSizesStatus = SuggestedFontSizesStatus.UNKNOWN,
     stepGranularityTextSize: TextUnit = TextUnit.Unspecified,
     minTextSize: TextUnit = TextUnit.Unspecified,
     maxTextSize: TextUnit = TextUnit.Unspecified,
@@ -179,15 +183,14 @@ fun AutoSizeText(
     softWrap: Boolean = true,
     maxLines: Int = Int.MAX_VALUE,
     minLines: Int = 1,
-    inlineContent: ImmutableWrapper<Map<String, InlineTextContent>> = mapOf<String, InlineTextContent>().toImmutableWrapper(),
+    inlineContent: Map<String, InlineTextContent> = mapOf(),
     onTextLayout: (TextLayoutResult) -> Unit = {},
     style: TextStyle = LocalTextStyle.current,
     lineSpacingRatio: Float = style.lineHeight.value / style.fontSize.value,
 ) {
     // Change font scale to 1F
-    CompositionLocalProvider(
-        LocalDensity provides Density(density = LocalDensity.current.density, fontScale = 1F)
-    ) {
+    val newDensity = Density(density = LocalDensity.current.density, fontScale = 1F)
+    CompositionLocalProvider(LocalDensity provides newDensity) {
         BoxWithConstraints(
             modifier = modifier,
             contentAlignment = alignment,
@@ -210,6 +213,7 @@ fun AutoSizeText(
             val layoutDirection = LocalLayoutDirection.current
             val density = LocalDensity.current
             val fontFamilyResolver = LocalFontFamilyResolver.current
+            val textMeasurer = rememberTextMeasurer()
             val coercedLineSpacingRatio = lineSpacingRatio.takeIf { it.isFinite() && it >= 1 } ?: 1F
             val shouldMoveBackward: (TextUnit) -> Boolean = {
                 shouldShrink(
@@ -218,46 +222,57 @@ fun AutoSizeText(
                         fontSize = it,
                         lineHeight = it * coercedLineSpacingRatio,
                     ),
-                    minLines = minLines,
                     maxLines = maxLines,
-                    softWrap = softWrap,
                     layoutDirection = layoutDirection,
+                    softWrap = softWrap,
                     density = density,
                     fontFamilyResolver = fontFamilyResolver,
+                    textMeasurer = textMeasurer,
                 )
             }
 
-            val electedFontSize = kotlin.run {
+            val electedFontSize = remember(
+                key1 = suggestedFontSizes,
+                key2 = suggestedFontSizesStatus,
+            ) {
                 if (suggestedFontSizesStatus == SuggestedFontSizesStatus.VALID)
-                    suggestedFontSizes.value
+                    suggestedFontSizes
                 else
-                    remember(key1 = suggestedFontSizes) {
-                        suggestedFontSizes.value
-                            .filter { it.isSp }
-                            .takeIf { it.isNotEmpty() }
-                            ?.sortedBy { it.value }
-                    }
-            }
-                ?.findElectedValue(shouldMoveBackward = shouldMoveBackward)
-                ?: rememberCandidateFontSizesIntProgress(
+                    suggestedFontSizes.validSuggestedFontSizes
+            }?.let {
+                remember(
+                    key1 = it,
+                    key2 = shouldMoveBackward,
+                ) {
+                    it.findElectedValue(shouldMoveBackward = shouldMoveBackward)
+                }
+            } ?: run {
+                val candidateFontSizesIntProgress = rememberCandidateFontSizesIntProgress(
                     density = density,
-                    dpSize = DpSize(maxWidth, maxHeight),
+                    containerDpSize = DpSize(maxWidth, maxHeight),
                     maxTextSize = maxTextSize,
                     minTextSize = minTextSize,
                     stepGranularityTextSize = stepGranularityTextSize,
-                ).findElectedValue(
-                    transform = { density.toSp(it) },
-                    shouldMoveBackward = shouldMoveBackward,
                 )
+                remember(
+                    key1 = candidateFontSizesIntProgress,
+                    key2 = shouldMoveBackward,
+                ) {
+                    candidateFontSizesIntProgress.findElectedValue(
+                        transform = { density.intPxToSp(it) },
+                        shouldMoveBackward = shouldMoveBackward,
+                    )
+                }
+            }
 
             if (electedFontSize == 0.sp)
                 Log.w(
-                    "AutoSizeText",
+                    TAG,
                     """The text cannot be displayed. Please consider the following options:
                       |  1. Providing 'suggestedFontSizes' with smaller values that can be utilized.
                       |  2. Decreasing the 'stepGranularityTextSize' value.
                       |  3. Adjusting the 'minTextSize' parameter to a suitable value and ensuring the overflow parameter is set to "TextOverflow.Ellipsis".
-                    """.trimMargin()
+                    """.trimMargin(),
                 )
 
             Text(
@@ -266,7 +281,7 @@ fun AutoSizeText(
                 softWrap = softWrap,
                 maxLines = maxLines,
                 minLines = minLines,
-                inlineContent = inlineContent.value,
+                inlineContent = inlineContent,
                 onTextLayout = onTextLayout,
                 style = combinedTextStyle.copy(
                     fontSize = electedFontSize,
@@ -277,32 +292,7 @@ fun AutoSizeText(
     }
 }
 
-@OptIn(InternalFoundationTextApi::class)
 private fun BoxWithConstraintsScope.shouldShrink(
-    text: AnnotatedString,
-    textStyle: TextStyle,
-    minLines: Int,
-    maxLines: Int,
-    softWrap: Boolean,
-    layoutDirection: LayoutDirection,
-    density: Density,
-    fontFamilyResolver: FontFamily.Resolver,
-) = TextDelegate(
-    text = text,
-    style = textStyle,
-    maxLines = maxLines,
-    minLines = minLines,
-    softWrap = softWrap,
-    overflow = TextOverflow.Clip,
-    density = density,
-    fontFamilyResolver = fontFamilyResolver,
-).layout(
-    constraints = constraints,
-    layoutDirection = layoutDirection,
-).hasVisualOverflow
-
-
-private fun BoxWithConstraintsScope.shouldShrink2(
     text: AnnotatedString,
     textStyle: TextStyle,
     maxLines: Int,
@@ -323,43 +313,46 @@ private fun BoxWithConstraintsScope.shouldShrink2(
     fontFamilyResolver = fontFamilyResolver,
 ).hasVisualOverflow
 
+@Stable
 @Composable
 private fun rememberCandidateFontSizesIntProgress(
     density: Density,
-    dpSize: DpSize,
+    containerDpSize: DpSize,
     minTextSize: TextUnit = TextUnit.Unspecified,
     maxTextSize: TextUnit = TextUnit.Unspecified,
     stepGranularityTextSize: TextUnit = TextUnit.Unspecified,
 ): IntProgression {
-    val max = remember(key1 = maxTextSize, key2 = dpSize, key3 = density) {
-        val intSize = density.toIntSize(dpSize)
+    val max = remember(key1 = density, key2 = maxTextSize, key3 = containerDpSize) {
+        val intSize = density.dpSizeRoundToIntSize(containerDpSize)
         min(intSize.width, intSize.height).let { max ->
             maxTextSize
                 .takeIf { it.isSp }
-                ?.let { density.roundToPx(it) }
+                ?.let { density.spRoundToPx(it) }
                 ?.coerceIn(range = 0..max)
                 ?: max
         }
     }
 
-    val min = remember(key1 = minTextSize, key2 = max, key3 = density) {
+    val min = remember(key1 = density, key2 = minTextSize, key3 = max) {
         minTextSize
             .takeIf { it.isSp }
-            ?.let { density.roundToPx(it) }
+            ?.let { density.spToIntPx(it) }
             ?.coerceIn(range = 0..max)
             ?: 0
     }
 
     val step = remember(
-        stepGranularityTextSize,
-        min,
-        max,
-        density,
+        key1 = listOf(
+            density,
+            min,
+            max,
+            stepGranularityTextSize,
+        )
     ) {
         stepGranularityTextSize
             .takeIf { it.isSp }
-            ?.let { density.roundToPx(it) }
-            ?.coerceIn(minimumValue = 1, maximumValue = max - min)
+            ?.let { density.spToIntPx(it) }
+            ?.coerceIn(1, max - min)
             ?: 1
     }
 
@@ -369,7 +362,7 @@ private fun rememberCandidateFontSizesIntProgress(
 }
 
 // This function works by using a binary search algorithm
-fun <E> List<E>.findElectedValue(shouldMoveBackward: (E) -> Boolean) = run {
+fun <T> List<T>.findElectedValue(shouldMoveBackward: (T) -> Boolean) = run {
     indices.findElectedValue(
         transform = { this[it] },
         shouldMoveBackward = shouldMoveBackward,
@@ -377,9 +370,9 @@ fun <E> List<E>.findElectedValue(shouldMoveBackward: (E) -> Boolean) = run {
 }
 
 // This function works by using a binary search algorithm
-private fun <E> IntProgression.findElectedValue(
-    transform: (Int) -> E,
-    shouldMoveBackward: (E) -> Boolean,
+private fun <T> IntProgression.findElectedValue(
+    transform: (Int) -> T,
+    shouldMoveBackward: (T) -> Boolean,
 ) = run {
     var low = first / step
     var high = last / step
@@ -390,7 +383,7 @@ private fun <E> IntProgression.findElectedValue(
         else
             low = mid + 1
     }
-    transform((high * step).coerceAtLeast(minimumValue = first * step))
+    transform((high * step).coerceAtLeast(first * step))
 }
 
 enum class SuggestedFontSizesStatus {
@@ -398,12 +391,16 @@ enum class SuggestedFontSizesStatus {
 
     companion object {
         val List<TextUnit>.suggestedFontSizesStatus
-            get() = if (isNotEmpty() && all { it.isSp } && sortedBy { it.value } == this)
+            get() = if (isNotEmpty() && fastAll { it.isSp } && sortedBy { it.value } == this)
                 VALID
             else
                 INVALID
-        val ImmutableWrapper<List<TextUnit>>.rememberSuggestedFontSizesStatus
-            @Composable get() = remember(key1 = this) { value.suggestedFontSizesStatus }
+
+        val List<TextUnit>.validSuggestedFontSizes
+            get() = takeIf { it.isNotEmpty() } // Optimization: empty check first to immediately return null
+                ?.fastFilter { it.isSp }
+                ?.takeIf { it.isNotEmpty() }
+                ?.sortedBy { it.value }
     }
 }
 
@@ -472,7 +469,7 @@ fun PreviewAutoSizeTextWithMCharacter() {
                 modifier = Modifier.fillMaxSize(),
                 alignment = Alignment.Center,
                 style = MaterialTheme.typography.bodyMedium,
-                lineSpacingRatio = 1F,
+                lineSpaceRatio = 1F,
             )
         }
     }
@@ -500,56 +497,184 @@ fun PreviewAutoSizeTextWithYCharacter() {
 }
 
 // DP
-fun Density.toSp(dp: Dp): TextUnit = dp.toSp()
-fun Density.toPx(dp: Dp): Float = dp.toPx()
-fun Density.roundToPx(dp: Dp): Int = dp.roundToPx()
+fun Density.dpToSp(dp: Dp) = if (dp.isSpecified) dp.toSp() else TextUnit.Unspecified
+
+fun Density.dpToFloatPx(dp: Dp) = if (dp.isSpecified) dp.toPx() else Float.NaN
+
+fun Density.dpToIntPx(dp: Dp) = if (dp.isSpecified) dp.toPx().toInt() else 0
+
+fun Density.dpRoundToPx(dp: Dp) = if (dp.isSpecified) dp.roundToPx() else 0
+
+@Composable
+fun Dp.toSp() = LocalDensity.current.dpToSp(this)
+
+@Composable
+fun Dp.toFloatPx() = LocalDensity.current.dpToFloatPx(this)
+
+@Composable
+fun Dp.toIntPx() = LocalDensity.current.dpToIntPx(this)
+
+@Composable
+fun Dp.roundToPx() = LocalDensity.current.dpRoundToPx(this)
+
+fun Dp.toRecDpSize() = if (isSpecified) DpSize(this, this) else DpSize.Unspecified
+
+fun Dp.toRecDpOffset() = if (isSpecified) DpOffset(this, this) else DpOffset.Unspecified
+
 
 // TEXT UNIT
-fun Density.toDp(sp: TextUnit): Dp = sp.toDp()
-fun Density.toPx(sp: TextUnit): Float = sp.toPx()
-fun Density.roundToPx(sp: TextUnit): Int = sp.roundToPx()
+fun Density.spToDp(sp: TextUnit) = if (sp.isSpecified) sp.toDp() else Dp.Unspecified
+
+fun Density.spToFloatPx(sp: TextUnit) = if (sp.isSpecified) sp.toPx() else Float.NaN
+
+fun Density.spToIntPx(sp: TextUnit) = if (sp.isSpecified) sp.toPx().toInt() else 0
+
+fun Density.spRoundToPx(sp: TextUnit) = if (sp.isSpecified) sp.roundToPx() else 0
+
+@Composable
+fun TextUnit.toDp() = LocalDensity.current.spToDp(this)
+
+@Composable
+fun TextUnit.toFloatPx() = LocalDensity.current.spToFloatPx(this)
+
+@Composable
+fun TextUnit.toIntPx() = LocalDensity.current.spToIntPx(this)
+
+@Composable
+fun TextUnit.roundToPx() = LocalDensity.current.spRoundToPx(this)
+
 
 // FLOAT
-fun Density.toDp(px: Float): Dp = px.toDp()
-fun Density.toSp(px: Float): TextUnit = px.toSp()
+fun Density.floatPxToDp(px: Float) = if (px.isFinite()) px.toDp() else Dp.Unspecified
+
+fun Density.floatPxToSp(px: Float) = if (px.isFinite()) px.toSp() else TextUnit.Unspecified
+
+@Composable
+fun Float.toDp() = LocalDensity.current.floatPxToDp(this)
+
+@Composable
+fun Float.toSp() = LocalDensity.current.floatPxToSp(this)
+
+fun Float.toIntPx() = if (isFinite()) toInt() else 0
+
+fun Float.roundToPx() = if (isFinite()) roundToInt() else 0
+
+fun Float.toRecSize() = if (isFinite()) Size(this, this) else Size.Unspecified
+
+fun Float.toRecOffset() = if (isFinite()) Offset(this, this) else Offset.Unspecified
+
 
 // INT
-fun Density.toDp(px: Int): Dp = px.toDp()
-fun Density.toSp(px: Int): TextUnit = px.toSp()
+fun Density.intPxToDp(px: Int) = px.toDp()
 
-// SIZE
-fun Density.toIntSize(dpSize: DpSize): IntSize =
-    IntSize(dpSize.width.roundToPx(), dpSize.height.roundToPx())
+fun Density.intPxToSp(px: Int) = px.toSp()
 
-fun Density.toSize(dpSize: DpSize): Size =
+@Composable
+fun Int.toDp() = LocalDensity.current.intPxToDp(this)
+
+@Composable
+fun Int.toSp() = LocalDensity.current.intPxToSp(this)
+
+fun Int.toFloatPx() = toFloat()
+
+fun Int.toRecIntSize() = IntSize(this, this)
+
+fun Int.toRecIntOffset() = IntOffset(this, this)
+
+
+// DP SIZE
+fun Density.dpSizeToIntSize(dpSize: DpSize) =
+    if (dpSize.isSpecified) IntSize(dpSize.width.toPx().toInt(), dpSize.height.toPx().toInt())
+    else IntSize.Zero
+
+fun Density.dpSizeRoundToIntSize(dpSize: DpSize) =
+    if (dpSize.isSpecified) IntSize(dpSize.width.roundToPx(), dpSize.height.roundToPx())
+    else IntSize.Zero
+
+fun Density.dpSizeToSize(dpSize: DpSize) =
     if (dpSize.isSpecified) Size(dpSize.width.toPx(), dpSize.height.toPx())
     else Size.Unspecified
 
-fun Density.toDpSize(size: Size): DpSize =
+@Composable
+fun DpSize.toIntSize() = LocalDensity.current.dpSizeToIntSize(this)
+
+@Composable
+fun DpSize.roundToIntSize() = LocalDensity.current.dpSizeRoundToIntSize(this)
+
+@Composable
+fun DpSize.toSize() = LocalDensity.current.dpSizeToSize(this)
+
+fun DpSize.isSpaced() = isSpecified && width > 0.dp && height > 0.dp
+
+
+// SIZE
+fun Density.sizeToDpSize(size: androidx.compose.ui.geometry.Size) =
     if (size.isSpecified) DpSize(size.width.toDp(), size.height.toDp())
     else DpSize.Unspecified
 
-fun Density.toDpSize(intSize: IntSize): DpSize =
-    DpSize(intSize.width.toDp(), intSize.height.toDp())
+@Composable
+fun Size.toDpSize() =
+    if (isSpecified) LocalDensity.current.sizeToDpSize(this)
+    else DpSize.Unspecified
 
-// OFFSET
-fun Density.toIntOffset(dpOffset: DpOffset): IntOffset =
-    IntOffset(dpOffset.x.roundToPx(), dpOffset.y.roundToPx())
+fun Size.toIntSize() =
+    if (isSpecified) IntSize(width.toInt(), height.toInt())
+    else IntSize.Zero
 
-fun Density.toOffset(dpOffset: DpOffset): Offset =
+fun Size.isSpaced() = isSpecified && width > 0F && height > 0F
+
+
+// INT SIZE
+fun Density.intSizeToDpSize(intSize: IntSize) = DpSize(intSize.width.toDp(), intSize.height.toDp())
+
+@Composable
+fun IntSize.toDpSize() = LocalDensity.current.intSizeToDpSize(this)
+
+@Composable
+fun IntSize.toSize() = Size(width.toFloat(), height.toFloat())
+
+fun IntSize.isSpaced() = width > 0 && height > 0
+
+
+// DP OFFSET
+fun Density.dpOffsetToIntOffset(dpOffset: DpOffset) =
+    if (dpOffset.isSpecified) IntOffset(dpOffset.x.toPx().toInt(), dpOffset.y.toPx().toInt())
+    else IntOffset.Zero
+
+fun Density.dpOffsetRoundToIntOffset(dpOffset: DpOffset) =
+    if (dpOffset.isSpecified) IntOffset(dpOffset.x.roundToPx(), dpOffset.y.roundToPx())
+    else IntOffset.Zero
+
+fun Density.dpOffsetToOffset(dpOffset: DpOffset) =
     if (dpOffset.isSpecified) Offset(dpOffset.x.toPx(), dpOffset.y.toPx())
     else Offset.Unspecified
 
-fun Density.toDpOffset(offset: Offset): DpOffset =
+@Composable
+fun DpOffset.toIntOffset() = LocalDensity.current.dpOffsetToIntOffset(this)
+
+@Composable
+fun DpOffset.roundToIntOffset() = LocalDensity.current.dpOffsetRoundToIntOffset(this)
+
+@Composable
+fun DpOffset.toOffset() = LocalDensity.current.dpOffsetToOffset(this)
+
+
+// OFFSET
+fun Density.offsetToDpOffset(offset: Offset) =
     if (offset.isSpecified) DpOffset(offset.x.toDp(), offset.y.toDp())
     else DpOffset.Unspecified
 
-fun Density.toDpOffset(intOffset: IntOffset): DpOffset =
-    DpOffset(intOffset.x.toDp(), intOffset.y.toDp())
+@Composable
+fun Offset.toDpOffset() = LocalDensity.current.offsetToDpOffset(this)
 
-@Immutable
-data class ImmutableWrapper<T>(val value: T)
+fun Offset.toIntOffset() =
+    if (isSpecified) IntOffset(x.toInt(), y.toInt())
+    else IntOffset.Zero
 
-fun <T> T.toImmutableWrapper() = ImmutableWrapper(this)
+// INT OFFSET
+fun Density.intOffsetToDpOffset(intOffset: IntOffset) = DpOffset(intOffset.x.toDp(), intOffset.y.toDp())
 
-operator fun <T> ImmutableWrapper<T>.getValue(thisRef: Any?, property: KProperty<*>) = value
+@Composable
+fun IntOffset.toDpOffset() = LocalDensity.current.intOffsetToDpOffset(this)
+
+fun IntOffset.toOffset() = Offset(x.toFloat(), y.toFloat())

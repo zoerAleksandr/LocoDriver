@@ -73,8 +73,7 @@ dependencies {
     implementation(Libs.maxkeppeler_sheets)
     implementation(Libs.rebugger)
 
-    implementation (Libs.ozcanalasalvar_datepicker)
-    implementation (Libs.ozcanalasalvar_wheelview)
+    implementation(Libs.wheel_date_time_picker)
 
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
 

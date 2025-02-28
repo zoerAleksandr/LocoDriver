@@ -34,6 +34,7 @@ import Versions.splash_screen_ver
 import Versions.test_ext_version
 import Versions.test_runner_version
 import Versions.vkid_ver
+import Versions.wheel_date_time_picker_ver
 import Versions.work_manager_version
 import org.gradle.api.JavaVersion
 
@@ -90,7 +91,7 @@ object Versions {
     const val datastore_pref_ver = "1.0.0"
     const val maxkeppeler_sheets_ver = "1.1.1"
     const val camera_ver = "1.3.1"
-    const val permission_accompanist_ver = "0.34.0"
+    const val permission_accompanist_ver = "0.32.0"
     const val google_relay_ver = "0.3.11"
     const val appwrite_ver = "4.0.0"
 
@@ -100,12 +101,13 @@ object Versions {
     const val work_manager_version = "2.9.0"
     const val ozcanalasalvar_ver = "2.0.7"
     const val rustore_bom_ver = "7.0.0"
-    const val accompanist_ui_controller_version = "0.34.0"
+    const val accompanist_ui_controller_version = "0.32.0"
     const val rebugger_ver = "1.0.0-rc03"
     const val desugaring_ver = "2.0.4"
     const val mockito_core_ver= "3.10.0"
     const val mockito_inline_ver= "2.8.9"
     const val mockito_kotlin_ver= "1.5.0"
+    const val wheel_date_time_picker_ver = "1.0.7"
 }
 
 object Libs {
@@ -120,6 +122,7 @@ object Libs {
     const val project_feature_settings = ":features:settings"
 
     // Libs
+    const val wheel_date_time_picker = "network.chaintech:kmp-date-time-picker:$wheel_date_time_picker_ver"
     const val desugaring = "com.android.tools:desugar_jdk_libs:$desugaring_ver"
     const val rebugger = "io.github.theapache64:rebugger:$rebugger_ver"
     const val datastore_pref = "androidx.datastore:datastore-preferences:$datastore_pref_ver"

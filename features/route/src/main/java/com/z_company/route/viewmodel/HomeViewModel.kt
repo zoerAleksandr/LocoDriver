@@ -17,6 +17,7 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.getHomeRest
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeWithoutHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.setWorkTime

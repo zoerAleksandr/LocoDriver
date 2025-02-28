@@ -1,6 +1,5 @@
 package com.z_company.repository
 
-import android.util.Log
 import com.parse.ParseObject
 import com.parse.ParseQuery
 import com.parse.ParseUser
@@ -274,6 +273,9 @@ class Back4AppManager : KoinComponent {
                     if (parseObjects.isEmpty()) {
                         trySend(ResultState.Success(Unit))
                     } else {
+                        parseObjects.sortBy {
+                            it.updatedAt
+                        }
                         parseObjects.forEachIndexed { index, parseObject ->
                             CoroutineScope(Dispatchers.IO).launch {
                                 val saveRouteJob = this.launch {
@@ -294,7 +296,7 @@ class Back4AppManager : KoinComponent {
                                                             trySend(ResultState.Success(Unit))
                                                             val timeInMillis =
                                                                 Calendar.getInstance().timeInMillis
-                                                            settingsUseCase.setUpdateAt(timeInMillis)
+                                                            settingsUseCase.setUpdateAt(timeInMillis).collect()
                                                         }
                                                         this.cancel()
                                                     }

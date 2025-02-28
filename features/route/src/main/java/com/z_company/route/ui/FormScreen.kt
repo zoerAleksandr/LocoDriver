@@ -7,8 +7,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
-import com.z_company.core.ui.component.TimePickerDialog
-import com.z_company.route.component.CustomDatePickerDialog
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,7 +23,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Warning
@@ -36,6 +33,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -71,27 +69,38 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
+import com.z_company.core.ui.component.CustomSnackBar
+import com.z_company.core.ui.component.TimePickerDialog
+import com.z_company.core.ui.component.WheelDateTimePicker
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
-import com.z_company.domain.entities.route.Route
-import com.z_company.route.viewmodel.RouteFormUiState
-import com.z_company.domain.util.minus
+import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.Passenger
+import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Train
-import com.z_company.route.R
-import com.z_company.route.component.BottomShadow
-import com.z_company.route.component.rememberDatePickerStateInLocale
-import java.util.Calendar
-import com.z_company.route.extention.isScrollInInitialState
-import com.z_company.core.ui.component.CustomSnackBar
-import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
+import com.z_company.domain.util.minus
+import com.z_company.route.R
+import com.z_company.route.component.BottomShadow
 import com.z_company.route.component.ConfirmExitDialog
+import com.z_company.route.component.CustomDatePickerDialog
+import com.z_company.route.component.rememberDatePickerStateInLocale
+import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.route.viewmodel.DialogRestUiState
+import com.z_company.route.viewmodel.RouteFormUiState
 import kotlinx.coroutines.launch
+import kotlinx.datetime.toJavaLocalDateTime
+import network.chaintech.kmp_date_time_picker.ui.datetimepicker.WheelDateTimePickerView
+import network.chaintech.kmp_date_time_picker.utils.DateTimePickerView
+import java.time.Year
+import java.time.ZoneId
+import java.time.ZoneOffset
+import java.time.ZonedDateTime
+import java.util.Calendar
+
 
 const val LINK_TO_SETTING = "LINK_TO_SETTING"
 
@@ -351,15 +360,36 @@ private fun RouteFormScreenContent(
             })
     }
 
-    if (showStartDatePicker) {
-        CustomDatePickerDialog(datePickerState = startDatePickerState, onDismissRequest = {
+    WheelDateTimePicker(
+        titleText = "Явка",
+        isShowPicker = showStartDatePicker,
+        onDoneClick = { localDateTime ->
+            startCalendar.set(Calendar.YEAR, localDateTime.year)
+            startCalendar.set(Calendar.MONTH, localDateTime.monthNumber - 1)
+            startCalendar.set(Calendar.DAY_OF_MONTH, localDateTime.dayOfMonth)
+            startCalendar.set(Calendar.HOUR_OF_DAY, localDateTime.hour)
+            startCalendar.set(Calendar.MINUTE, localDateTime.minute)
+            startCalendar.set(Calendar.SECOND, 0)
+            startCalendar.set(Calendar.MILLISECOND, 0)
+            onTimeStartWorkChanged(startCalendar.timeInMillis)
             showStartDatePicker = false
-        }, onConfirmRequest = {
+        },
+        onDismiss = {
             showStartDatePicker = false
-            showStartTimePicker = true
-            startCalendar.timeInMillis = startDatePickerState.selectedDateMillis!!
-        })
-    }
+        }
+    )
+//        Dialog(onDismissRequest = { showStartDatePicker = false }) {
+//
+//        }
+
+
+//        CustomDatePickerDialog(datePickerState = startDatePickerState, onDismissRequest = {
+//            showStartDatePicker = false
+//        }, onConfirmRequest = {
+//            showStartDatePicker = false
+//            showStartTimePicker = true
+//            startCalendar.timeInMillis = startDatePickerState.selectedDateMillis!!
+//        })
 
     val endOfWorkTime by remember {
         mutableStateOf(

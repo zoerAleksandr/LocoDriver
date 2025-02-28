@@ -19,7 +19,6 @@ import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -38,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.AnnotatedString
@@ -91,13 +91,15 @@ fun SettingsScreen(
     homeRestTimeChanged: (Long) -> Unit,
     onLogOut: () -> Unit,
     logOut: () -> Unit,
-    onSync: () -> Unit,
+    onDownloadFromRemote: () -> Unit,
+    onUploadToRemote: () -> Unit,
     showReleaseDaySelectScreen: () -> Unit,
     onResentVerificationEmail: () -> Unit,
     emailForConfirm: String,
     onChangeEmail: (String) -> Unit,
     enableButtonConfirmVerification: Boolean,
-    resetRepositoryState: () -> Unit,
+    resetUploadState: () -> Unit,
+    resetDownloadState: () -> Unit,
     changeStartNightTime: (Int, Int) -> Unit,
     changeEndNightTime: (Int, Int) -> Unit,
     changeUsingDefaultWorkTime: (Boolean) -> Unit,
@@ -156,14 +158,25 @@ fun SettingsScreen(
                 )
             )
         }) {
-        LaunchedEffect(settingsUiState.updateRepositoryState) {
-            if (settingsUiState.updateRepositoryState is ResultState.Error) {
+        LaunchedEffect(settingsUiState.uploadState) {
+            if (settingsUiState.uploadState is ResultState.Error) {
                 scope.launch {
-                    snackbarHostState.showSnackbar("Ошибка синхронизации. \n${settingsUiState.updateRepositoryState.entity.message}.")
+                    snackbarHostState.showSnackbar("Ошибка выгрузки данных. \n${settingsUiState.uploadState.entity.message}.")
                 }
-                resetRepositoryState()
+                resetUploadState()
             }
         }
+
+        LaunchedEffect(settingsUiState.downloadState) {
+            if (settingsUiState.downloadState is ResultState.Error) {
+                scope.launch {
+                    snackbarHostState.showSnackbar("Ошибка загрузки данных. \n${settingsUiState.downloadState.entity.message}.")
+                }
+                resetDownloadState()
+            }
+        }
+
+
 
         AnimationDialog(
             showDialog = settingsUiState.showDialogAddServicePhase,
@@ -364,8 +377,10 @@ fun SettingsScreen(
                             SettingScreenContent(
                                 currentSettings = setting,
                                 onLogOut = onLogOut,
-                                onSync = onSync,
-                                updateRepoState = settingsUiState.updateRepositoryState,
+                                onDownloadFromRemote = onDownloadFromRemote,
+                                onUploadToRemote = onUploadToRemote,
+                                uploadRepoState = settingsUiState.uploadState,
+                                downloadRepoState = settingsUiState.downloadState,
                                 currentUserState = currentUserState,
                                 updateAtState = settingsUiState.updateAt,
                                 workTimeChanged = workTimeChanged,
@@ -412,8 +427,10 @@ fun SettingScreenContent(
     restTimeChanged: (Long) -> Unit,
     homeRestTimeChanged: (Long) -> Unit,
     onLogOut: () -> Unit,
-    onSync: () -> Unit,
-    updateRepoState: ResultState<Unit>?,
+    onDownloadFromRemote: () -> Unit,
+    onUploadToRemote: () -> Unit,
+    uploadRepoState: ResultState<Unit>?,
+    downloadRepoState: ResultState<Unit>?,
     currentUserState: ResultState<User?>,
     updateAtState: Long?,
     showReleaseDaySelectScreen: () -> Unit,
@@ -712,9 +729,11 @@ fun SettingScreenContent(
             }
 
             item {
-                Column(modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp)
+                ) {
                     Box(
                         modifier = Modifier
                             .padding(top = 8.dp)
@@ -746,7 +765,6 @@ fun SettingScreenContent(
                                 )
                             }
                             HorizontalDivider()
-
 
                             Row(
                                 modifier = Modifier
@@ -989,9 +1007,11 @@ fun SettingScreenContent(
             }
 
             item {
-                Column(modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp)
+                ) {
                     Box(
                         modifier = Modifier
                             .padding(top = 8.dp)
@@ -1115,61 +1135,8 @@ fun SettingScreenContent(
                                 }
                             }
                         }
-                        AsyncData(
-                            resultState = currentUserState,
-                            loadingContent = {},
-                            errorContent = {}
-                        ) { user ->
-                            user?.let {
-                                if (user.isVerification) {
-                                    HorizontalDivider()
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(text = "Синхронизация", style = styleData)
-                                        Row(
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        ) {
-//                                            AsyncData(resultState = updateAtState) { updateAt ->
-                                            updateAtState?.let { timeInMillis ->
-                                                val textSyncDate =
-                                                    DateAndTimeConverter.getDateAndTime(
-                                                        timeInMillis
-                                                    )
-
-                                                Text(
-                                                    text = textSyncDate,
-                                                    style = styleData
-                                                )
-                                            }
-//                                            }
-                                            AsyncData(
-                                                resultState = updateRepoState,
-                                                loadingContent = {
-                                                    CircularProgressIndicator(
-                                                        modifier = Modifier.size(24.dp),
-                                                        strokeWidth = 2.dp
-                                                    )
-                                                },
-                                                errorContent = {}
-                                            ) {
-                                                Icon(
-                                                    modifier = Modifier.clickable { onSync() },
-                                                    imageVector = Icons.Default.Refresh,
-                                                    contentDescription = null
-                                                )
-                                            }
-                                        }
-                                    }
-
-                                }
-                            }
-
-                        }
-
                         HorizontalDivider()
+
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1213,6 +1180,116 @@ fun SettingScreenContent(
                     style = styleHint
                 )
             }
+
+            item {
+                Text(
+                    modifier = Modifier
+                        .padding(start = 16.dp, bottom = 6.dp, top = 16.dp),
+                    text = "СИНХРОНИЗАЦИЯ",
+                    style = styleTitle
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            color = MaterialTheme.colorScheme.surface,
+                            shape = Shapes.medium
+                        )
+                        .padding(16.dp)
+                ) {
+                    AsyncData(
+                        resultState = currentUserState,
+                        loadingContent = {},
+                        errorContent = {}
+                    ) { user ->
+                        user?.let {
+                            if (user.isVerification) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        updateAtState?.let { timeInMillis ->
+                                            val textSyncDate =
+                                                DateAndTimeConverter.getDateAndTime(
+                                                    timeInMillis
+                                                )
+
+                                            Text(
+                                                text = "Последнее обновление $textSyncDate",
+                                                style = styleData,
+                                                overflow = TextOverflow.Visible
+                                            )
+                                        }
+                                    }
+                                    HorizontalDivider()
+
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { onUploadToRemote() },
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(text = "Отправить в облако", style = styleData)
+                                        AsyncData(
+                                            resultState = uploadRepoState,
+                                            loadingContent = {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(24.dp),
+                                                    strokeWidth = 2.dp
+                                                )
+                                            },
+                                            errorContent = {}
+                                        ) {
+                                            Icon(
+                                                tint = MaterialTheme.colorScheme.tertiary,
+                                                painter = painterResource(id = CoreR.drawable.rounded_cloud_upload_24),
+                                                contentDescription = null
+                                            )
+                                        }
+                                    }
+                                    HorizontalDivider()
+
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { onDownloadFromRemote() },
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(text = "Загрузить из облака", style = styleData)
+                                        AsyncData(
+                                            resultState = downloadRepoState,
+                                            loadingContent = {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(24.dp),
+                                                    strokeWidth = 2.dp
+                                                )
+                                            },
+                                            errorContent = {}
+                                        ) {
+                                            Icon(
+                                                tint = MaterialTheme.colorScheme.tertiary,
+                                                painter = painterResource(id = CoreR.drawable.rounded_cloud_download_24),
+                                                contentDescription = null
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Text(
+                    modifier = Modifier.padding(start = 16.dp, top = 8.dp),
+                    text = "Выгрузка на сервер маршрутных листов выполняется автоматически при наличии подписки и с подтвержденным e-mail",
+                    style = styleHint
+                )
+            }
+
 
             item {
                 Button(

@@ -1,6 +1,5 @@
 package com.z_company.settings.viewmodel
 
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -338,31 +337,42 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun onSync() {
+    fun onDownloadFromRemote() {
         viewModelScope.launch {
-            back4AppManager.synchronizedStorage().collect { syncResult ->
+            back4AppManager.loadRouteListFromRemote().collect { loadResult ->
                 _uiState.update {
                     it.copy(
-                        updateRepositoryState = syncResult,
+                        downloadState = loadResult,
                     )
-                }
-                if (syncResult is ResultState.Success) {
-                    back4AppManager.loadRouteListFromRemote().collect { loadResult ->
-                        _uiState.update {
-                            it.copy(
-                                updateRepositoryState = loadResult,
-                            )
-                        }
-                    }
                 }
             }
         }
     }
 
-    fun resetRepositoryState() {
+    fun onUploadToServer() {
+        viewModelScope.launch {
+            back4AppManager.synchronizedStorage().collect { syncResult ->
+                _uiState.update {
+                    it.copy(
+                        uploadState = syncResult,
+                    )
+                }
+            }
+        }
+    }
+
+
+    fun resetUploadState() {
         _uiState.update {
             it.copy(
-                updateRepositoryState = null
+                uploadState = null
+            )
+        }
+    }
+    fun resetDownloadState() {
+        _uiState.update {
+            it.copy(
+                downloadState = null
             )
         }
     }
