@@ -191,7 +191,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
             )
         }
         val currentTime = getInstance().timeInMillis
-        val endTimeSubscription = sharedPreferenceStorage.getSubscriptionExpiration()
+        val gracePeriod = 24 * 3_600_000 // 1 day grace period
+        val endTimeSubscription = sharedPreferenceStorage.getSubscriptionExpiration() + gracePeriod
         viewModelScope.launch {
             var routesSize: Int
             withContext(Dispatchers.IO) {

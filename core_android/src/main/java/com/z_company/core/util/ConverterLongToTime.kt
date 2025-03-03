@@ -1,5 +1,10 @@
 package com.z_company.core.util
 
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -51,4 +56,12 @@ object ConverterLongToTime {
             ).format(it)
         } ?: ""
     }
+
+
+    fun timestampToDateTime(timestamp: Long): LocalDateTime {
+        val instant: Instant = Instant.fromEpochMilliseconds(timestamp)
+        return instant.toLocalDateTime(TimeZone.currentSystemDefault())
+    }
+
+
 }

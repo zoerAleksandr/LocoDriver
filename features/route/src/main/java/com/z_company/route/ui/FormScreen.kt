@@ -92,6 +92,8 @@ import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.route.viewmodel.DialogRestUiState
 import com.z_company.route.viewmodel.RouteFormUiState
 import kotlinx.coroutines.launch
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 import kotlinx.datetime.toJavaLocalDateTime
 import network.chaintech.kmp_date_time_picker.ui.datetimepicker.WheelDateTimePickerView
 import network.chaintech.kmp_date_time_picker.utils.DateTimePickerView
@@ -297,15 +299,7 @@ private fun RouteFormScreenContent(
         mutableStateOf(false)
     }
 
-    var showStartTimePicker by remember {
-        mutableStateOf(false)
-    }
-
     var showStartDatePicker by remember {
-        mutableStateOf(false)
-    }
-
-    var showEndTimePicker by remember {
         mutableStateOf(false)
     }
 
@@ -338,58 +332,20 @@ private fun RouteFormScreenContent(
         mutableStateOf(startOfWorkTime)
     }
 
-    val startTimePickerState = rememberTimePickerState(
-        initialHour = startCalendar.get(Calendar.HOUR_OF_DAY),
-        initialMinute = startCalendar.get(Calendar.MINUTE),
-        is24Hour = true
-    )
-
-    val startDatePickerState =
-        rememberDatePickerStateInLocale(initialSelectedDateMillis = startCalendar.timeInMillis)
-
-    if (showStartTimePicker) {
-        TimePickerDialog(timePickerState = startTimePickerState,
-            onDismissRequest = { showStartTimePicker = false },
-            onConfirmRequest = {
-                showStartTimePicker = false
-                startCalendar.set(Calendar.HOUR_OF_DAY, startTimePickerState.hour)
-                startCalendar.set(Calendar.MINUTE, startTimePickerState.minute)
-                startCalendar.set(Calendar.SECOND, 0)
-                startCalendar.set(Calendar.MILLISECOND, 0)
-                onTimeStartWorkChanged(startCalendar.timeInMillis)
-            })
-    }
-
     WheelDateTimePicker(
         titleText = "Явка",
         isShowPicker = showStartDatePicker,
+        initDateTime = startCalendar.timeInMillis,
         onDoneClick = { localDateTime ->
-            startCalendar.set(Calendar.YEAR, localDateTime.year)
-            startCalendar.set(Calendar.MONTH, localDateTime.monthNumber - 1)
-            startCalendar.set(Calendar.DAY_OF_MONTH, localDateTime.dayOfMonth)
-            startCalendar.set(Calendar.HOUR_OF_DAY, localDateTime.hour)
-            startCalendar.set(Calendar.MINUTE, localDateTime.minute)
-            startCalendar.set(Calendar.SECOND, 0)
-            startCalendar.set(Calendar.MILLISECOND, 0)
-            onTimeStartWorkChanged(startCalendar.timeInMillis)
+            val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+            val millis = instant.toEpochMilliseconds()
+            onTimeStartWorkChanged(millis)
             showStartDatePicker = false
         },
         onDismiss = {
             showStartDatePicker = false
         }
     )
-//        Dialog(onDismissRequest = { showStartDatePicker = false }) {
-//
-//        }
-
-
-//        CustomDatePickerDialog(datePickerState = startDatePickerState, onDismissRequest = {
-//            showStartDatePicker = false
-//        }, onConfirmRequest = {
-//            showStartDatePicker = false
-//            showStartTimePicker = true
-//            startCalendar.timeInMillis = startDatePickerState.selectedDateMillis!!
-//        })
 
     val endOfWorkTime by remember {
         mutableStateOf(
@@ -404,37 +360,20 @@ private fun RouteFormScreenContent(
         mutableStateOf(endOfWorkTime)
     }
 
-    val endTimePickerState = rememberTimePickerState(
-        initialHour = endCalendar.get(Calendar.HOUR_OF_DAY),
-        initialMinute = endCalendar.get(Calendar.MINUTE),
-        is24Hour = true
+    WheelDateTimePicker(
+        titleText = "Сдача",
+        isShowPicker = showEndDatePicker,
+        initDateTime = endCalendar.timeInMillis,
+        onDoneClick = { localDateTime ->
+            val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+            val millis = instant.toEpochMilliseconds()
+            onTimeEndWorkChanged(millis)
+            showEndDatePicker = false
+        },
+        onDismiss = {
+            showEndDatePicker = false
+        }
     )
-
-    val endDatePickerState =
-        rememberDatePickerStateInLocale(initialSelectedDateMillis = endCalendar.timeInMillis)
-
-    if (showEndTimePicker) {
-        TimePickerDialog(timePickerState = endTimePickerState,
-            onDismissRequest = { showEndTimePicker = false },
-            onConfirmRequest = {
-                showEndTimePicker = false
-                endCalendar.set(Calendar.HOUR_OF_DAY, endTimePickerState.hour)
-                endCalendar.set(Calendar.MINUTE, endTimePickerState.minute)
-                endCalendar.set(Calendar.SECOND, 0)
-                endCalendar.set(Calendar.MILLISECOND, 0)
-                onTimeEndWorkChanged(endCalendar.timeInMillis)
-            })
-    }
-
-    if (showEndDatePicker) {
-        CustomDatePickerDialog(datePickerState = endDatePickerState, onDismissRequest = {
-            showEndDatePicker = false
-        }, onConfirmRequest = {
-            showEndDatePicker = false
-            showEndTimePicker = true
-            endCalendar.timeInMillis = endDatePickerState.selectedDateMillis!!
-        })
-    }
 
     LaunchedEffect(isCopy) {
         if (isCopy) {

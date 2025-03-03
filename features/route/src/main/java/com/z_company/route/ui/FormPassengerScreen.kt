@@ -44,7 +44,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -76,12 +75,12 @@ import com.z_company.domain.entities.route.Passenger
 import com.z_company.route.component.BottomShadow
 import com.z_company.route.extention.isScrollInInitialState
 import kotlinx.coroutines.launch
-import com.z_company.route.component.CustomDatePickerDialog
-import com.z_company.core.ui.component.TimePickerDialog
 import com.z_company.core.ui.component.CustomSnackBar
+import com.z_company.core.ui.component.WheelDateTimePicker
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.route.component.ConfirmExitDialog
-import com.z_company.route.component.rememberDatePickerStateInLocale
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -461,63 +460,31 @@ fun PassengerFormScreenContent(
         }
 
         item {
+            var showDepartureDatePicker by remember {
+                mutableStateOf(false)
+            }
+
             val departureTime = Calendar.getInstance().also { calendar ->
                 passenger.timeDeparture?.let { millis ->
                     calendar.timeInMillis = millis
                 }
             }
-            val departureCalendar by remember {
-                mutableStateOf(departureTime)
-            }
 
-            val departureTimePickerState = rememberTimePickerState(
-                initialHour = departureCalendar.get(Calendar.HOUR_OF_DAY),
-                initialMinute = departureCalendar.get(Calendar.MINUTE),
-                is24Hour = true
+            WheelDateTimePicker(
+                titleText = "Отправление",
+                isShowPicker = showDepartureDatePicker,
+                initDateTime = departureTime.timeInMillis,
+                onDoneClick = { localDateTime ->
+                    val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+                    val millis = instant.toEpochMilliseconds()
+                    onTimeDepartureChanged(millis)
+                    showDepartureDatePicker = false
+                },
+                onDismiss = {
+                    showDepartureDatePicker = false
+                }
             )
 
-            val departureDatePickerState = rememberDatePickerStateInLocale(
-                initialSelectedDateMillis = departureCalendar.timeInMillis
-            )
-
-            var showDepartureTimePicker by remember {
-                mutableStateOf(false)
-            }
-
-            var showDepartureDatePicker by remember {
-                mutableStateOf(false)
-            }
-
-            if (showDepartureDatePicker) {
-                CustomDatePickerDialog(
-                    datePickerState = departureDatePickerState,
-                    onDismissRequest = { showDepartureDatePicker = false },
-                    onConfirmRequest = {
-                        showDepartureDatePicker = false
-                        showDepartureTimePicker = true
-                        departureCalendar.timeInMillis =
-                            departureDatePickerState.selectedDateMillis!!
-                    })
-            }
-
-            if (showDepartureTimePicker) {
-                TimePickerDialog(
-                    timePickerState = departureTimePickerState,
-                    onDismissRequest = { showDepartureTimePicker = false },
-                    onConfirmRequest = {
-                        showDepartureTimePicker = false
-                        departureCalendar.set(
-                            Calendar.HOUR_OF_DAY,
-                            departureTimePickerState.hour
-                        )
-                        departureCalendar.set(
-                            Calendar.MINUTE,
-                            departureTimePickerState.minute
-                        )
-                        onTimeDepartureChanged(departureCalendar.timeInMillis)
-                    }
-                )
-            }
             Row(
                 modifier = Modifier
                     .padding(top = 16.dp)
@@ -648,64 +615,30 @@ fun PassengerFormScreenContent(
         }
 
         item {
+            var showArrivalDatePicker by remember {
+                mutableStateOf(false)
+            }
+
             val arrivalTime = Calendar.getInstance().also { calendar ->
                 passenger.timeArrival?.let { millis ->
                     calendar.timeInMillis = millis
                 }
             }
 
-            val arrivalCalendar by remember {
-                mutableStateOf(arrivalTime)
-            }
-
-            val arrivalTimePickerState = rememberTimePickerState(
-                initialHour = arrivalCalendar.get(Calendar.HOUR_OF_DAY),
-                initialMinute = arrivalCalendar.get(Calendar.MINUTE),
-                is24Hour = true
+            WheelDateTimePicker(
+                titleText = "Прибытие",
+                isShowPicker = showArrivalDatePicker,
+                initDateTime = arrivalTime.timeInMillis,
+                onDoneClick = { localDateTime ->
+                    val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+                    val millis = instant.toEpochMilliseconds()
+                    onTimeArrivalChanged(millis)
+                    showArrivalDatePicker = false
+                },
+                onDismiss = {
+                    showArrivalDatePicker = false
+                }
             )
-
-            val arrivalDatePickerState =
-                rememberDatePickerStateInLocale(initialSelectedDateMillis = arrivalCalendar.timeInMillis)
-
-            var showArrivalTimePicker by remember {
-                mutableStateOf(false)
-            }
-
-            var showArrivalDatePicker by remember {
-                mutableStateOf(false)
-            }
-
-            if (showArrivalDatePicker) {
-                CustomDatePickerDialog(
-                    datePickerState = arrivalDatePickerState,
-                    onDismissRequest = { showArrivalDatePicker = false },
-                    onConfirmRequest = {
-                        showArrivalDatePicker = false
-                        showArrivalTimePicker = true
-                        arrivalCalendar.timeInMillis =
-                            arrivalDatePickerState.selectedDateMillis!!
-                    }
-                )
-            }
-
-            if (showArrivalTimePicker) {
-                TimePickerDialog(
-                    timePickerState = arrivalTimePickerState,
-                    onDismissRequest = { showArrivalTimePicker = false },
-                    onConfirmRequest = {
-                        showArrivalTimePicker = false
-                        arrivalCalendar.set(
-                            Calendar.HOUR_OF_DAY,
-                            arrivalTimePickerState.hour
-                        )
-                        arrivalCalendar.set(
-                            Calendar.MINUTE,
-                            arrivalTimePickerState.minute
-                        )
-                        onTimeArrivalChanged(arrivalCalendar.timeInMillis)
-                    }
-                )
-            }
 
             Row(
                 modifier = Modifier

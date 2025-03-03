@@ -10,16 +10,24 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.z_company.core.ui.component.customDatePicker.DateTimePickerView
+import com.z_company.core.ui.component.customDatePicker.MyWheelDatePickerView
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
+import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.FilterNames
 import com.z_company.domain.entities.FilterSearch
 import com.z_company.domain.entities.TimePeriod
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atTime
+import kotlinx.datetime.toInstant
+import java.util.Calendar
 
 @OptIn(
     ExperimentalLayoutApi::class,
@@ -40,18 +48,6 @@ fun SearchSettingBottomSheet(
             fontSize = 18.sp,
             fontWeight = FontWeight.Normal
         )
-    val hintStyle = AppTypography.getType().titleLarge
-        .copy(
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Light
-        )
-    var showDatePickerStart by rememberSaveable {
-        mutableStateOf(false)
-    }
-
-    var showDatePickerEnd by rememberSaveable {
-        mutableStateOf(false)
-    }
 
     var startDate: Long? by remember {
         mutableStateOf(null)
@@ -66,45 +62,72 @@ fun SearchSettingBottomSheet(
         endDate = period.endDate
     }
 
-    val startDatePickerState = rememberDatePickerState()
-    if (showDatePickerStart) {
-        CustomDatePickerDialog(
-            datePickerState = startDatePickerState,
-            onDismissRequest = { showDatePickerStart = false },
-            onConfirmRequest = {
-                startDatePickerState.selectedDateMillis?.let { selectDate ->
-                    setPeriodFilter(
-                        TimePeriod(
-                            selectDate,
-                            endDate
-                        )
-                    )
-                    startDate = selectDate
-                }
-                showDatePickerStart = false
-            }
-        )
+    var showDatePickerStart by rememberSaveable {
+        mutableStateOf(false)
     }
 
-    val endDatePickerState = rememberDatePickerState()
-    if (showDatePickerEnd) {
-        CustomDatePickerDialog(
-            datePickerState = endDatePickerState,
-            onDismissRequest = { showDatePickerEnd = false },
-            onConfirmRequest = {
-                endDatePickerState.selectedDateMillis?.let { selectDate ->
-                    setPeriodFilter(
-                        TimePeriod(
-                            startDate,
-                            selectDate,
-                        )
-                    )
-                    endDate = selectDate
-                }
-                showDatePickerEnd = false
-            }
-        )
+    MyWheelDatePickerView(
+        showDatePicker = showDatePickerStart,
+        title = "Начало периода",
+        doneLabel = "Готово",
+        rowCount = 5,
+        height = 128.dp,
+        dateTextColor = MaterialTheme.colorScheme.onSurface,
+        dateTimePickerView = DateTimePickerView.DIALOG_VIEW,
+        startDate = ConverterLongToTime.timestampToDateTime(
+            startDate ?: Calendar.getInstance().timeInMillis
+        ).date,
+        onDoneClick = {
+            val localDateTime = it.atTime(0, 0, 0, 0)
+            val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+            val millis = instant.toEpochMilliseconds()
+            startDate = millis
+            setPeriodFilter(
+                TimePeriod(
+                    startDate,
+                    endDate
+                )
+            )
+            showDatePickerStart = false
+        },
+        onDismiss = {
+            showDatePickerStart = false
+        }
+    )
+
+    var showDatePickerEnd by rememberSaveable {
+        mutableStateOf(false)
     }
+
+    MyWheelDatePickerView(
+        showDatePicker = showDatePickerEnd,
+        title = "Конец периода",
+        doneLabel = "Готово",
+        rowCount = 5,
+        height = 128.dp,
+        dateTextColor = MaterialTheme.colorScheme.onSurface,
+        dateTimePickerView = DateTimePickerView.DIALOG_VIEW,
+        startDate = ConverterLongToTime.timestampToDateTime(
+            endDate ?: Calendar.getInstance().timeInMillis
+        ).date,
+        onDoneClick = {
+            val localDateTime = it.atTime(23, 59, 59, 0)
+            val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+            val millis = instant.toEpochMilliseconds()
+            endDate = millis
+            setPeriodFilter(
+                TimePeriod(
+                    startDate,
+                    endDate
+                )
+            )
+            showDatePickerEnd = false
+        },
+        onDismiss = {
+            showDatePickerEnd = false
+        }
+    )
+
     ModalBottomSheet(
         sheetState = bottomSheetState,
         onDismissRequest = closeSheet,
@@ -176,9 +199,17 @@ fun SearchSettingBottomSheet(
                                 modifier = Modifier.padding(4.dp),
                                 text = pair.first,
                                 style = dataTextStyle
-                            ) },
+                            )
+                        },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)
+                            selectedContainerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f),
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            selected = pair.second,
+                            enabled = pair.second,
+                            selectedBorderWidth = 1.dp,
+                            selectedBorderColor = MaterialTheme.colorScheme.primary,
+                            disabledBorderColor = Color.Transparent
                         )
                     )
                 }
@@ -199,9 +230,17 @@ fun SearchSettingBottomSheet(
                                 modifier = Modifier.padding(4.dp),
                                 text = pair.first,
                                 style = dataTextStyle
-                            ) },
+                            )
+                        },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            selected = pair.second,
+                            enabled = pair.second,
+                            selectedBorderWidth = 1.dp,
+                            selectedBorderColor = MaterialTheme.colorScheme.primary,
+                            disabledBorderColor = Color.Transparent
                         )
                     )
                 }
@@ -222,9 +261,17 @@ fun SearchSettingBottomSheet(
                                 modifier = Modifier.padding(4.dp),
                                 text = pair.first,
                                 style = dataTextStyle
-                            ) },
+                            )
+                        },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            selected = pair.second,
+                            enabled = pair.second,
+                            selectedBorderWidth = 1.dp,
+                            selectedBorderColor = MaterialTheme.colorScheme.primary,
+                            disabledBorderColor = Color.Transparent
                         )
                     )
                 }
@@ -245,9 +292,17 @@ fun SearchSettingBottomSheet(
                                 modifier = Modifier.padding(4.dp),
                                 text = pair.first,
                                 style = dataTextStyle
-                            ) },
+                            )
+                        },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            selected = pair.second,
+                            enabled = pair.second,
+                            selectedBorderWidth = 1.dp,
+                            selectedBorderColor = MaterialTheme.colorScheme.primary,
+                            disabledBorderColor = Color.Transparent
                         )
                     )
                 }
@@ -268,9 +323,17 @@ fun SearchSettingBottomSheet(
                                 modifier = Modifier.padding(4.dp),
                                 text = pair.first,
                                 style = dataTextStyle
-                            ) },
+                            )
+                        },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            selected = pair.second,
+                            enabled = pair.second,
+                            selectedBorderWidth = 1.dp,
+                            selectedBorderColor = MaterialTheme.colorScheme.primary,
+                            disabledBorderColor = Color.Transparent
                         )
                     )
                 }

@@ -40,9 +40,8 @@ class SynchronizedWorker(context: Context, params: WorkerParameters) :
                             this.cancel()
                         }
                     }
-                } else {
-                    this.cancel()
                 }
+                else { this.cancel() }
 
             }.join()
             return@withContext result

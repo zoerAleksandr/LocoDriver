@@ -9,6 +9,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.custom.AppTypography
+import com.z_company.core.util.ConverterLongToTime
 import kotlinx.datetime.LocalDateTime
 import network.chaintech.kmp_date_time_picker.ui.datetimepicker.WheelDateTimePickerView
 import network.chaintech.kmp_date_time_picker.utils.DateTimePickerView
@@ -17,28 +18,31 @@ import network.chaintech.kmp_date_time_picker.utils.DateTimePickerView
 fun WheelDateTimePicker(
     isShowPicker: Boolean,
     titleText: String,
+    initDateTime: Long,
     onDismiss: () -> Unit,
     onDoneClick: (LocalDateTime) -> Unit
 ) {
-    val dataTextStyle = AppTypography.getType().titleLarge.copy(
+    val labelStyle = AppTypography.getType().titleLarge.copy(
         fontWeight = FontWeight.Light,
         color = MaterialTheme.colorScheme.tertiary
     )
-    val hintStyle = AppTypography.getType().titleLarge
+    val doneStyle = AppTypography.getType().titleLarge
         .copy(
             fontSize = 18.sp,
-            fontWeight = FontWeight.Light,
+            fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.tertiary
         )
 
+    val startDate = ConverterLongToTime.timestampToDateTime(initDateTime)
 
     WheelDateTimePickerView(
         modifier = Modifier.padding(vertical = 24.dp, horizontal = 16.dp),
         showDatePicker = isShowPicker,
+        startDate = startDate,
         title = titleText,
-        titleStyle = dataTextStyle,
+        titleStyle = labelStyle,
         doneLabel = "Готово",
-        doneLabelStyle = hintStyle,
+        doneLabelStyle = doneStyle,
         rowCount = 5,
         height = 128.dp,
         dateTextColor = MaterialTheme.colorScheme.tertiary,
