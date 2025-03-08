@@ -13,7 +13,6 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.Color
 import kotlinx.datetime.Clock
 import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
@@ -21,7 +20,6 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
-import network.chaintech.kmp_date_time_picker.format
 
 
 fun LocalDateTime.Companion.now(): LocalDateTime {
@@ -120,24 +118,6 @@ fun isLeapYear(year: Int): Boolean {
     return prolepticYear and 3 == 0L && (prolepticYear % 100 != 0L || prolepticYear % 400 == 0L)
 }
 
-fun shortMonths(month: Int): String {
-    return when (month) {
-        1 -> "Jan"
-        2 -> "Feb"
-        3 -> "Mar"
-        4 -> "Apr"
-        5 -> "May"
-        6 -> "Jun"
-        7 -> "Jul"
-        8 -> "Aug"
-        9 -> "Sep"
-        10 -> "Oct"
-        11 -> "Nov"
-        12 -> "Dec"
-        else -> ""
-    }
-}
-
 fun String.capitalize(): String {
     return this.lowercase()
         .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
@@ -166,17 +146,17 @@ const val ISO8601 = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
 const val MONTH_YEAR = "MMMM YYYY"
 const val SHORT_DAY = "EEE"
 
-fun LocalDate.toMonthYear(): String {
-    return this.asString(MONTH_YEAR).firstLetterUppercase()
-}
-
-fun LocalDate.toShortDay(): String {
-    return this.asString(SHORT_DAY).uppercase()
-}
-
-fun LocalDate.asString(format: String = ISO8601): String {
-    return format(this, format)
-}
+//fun LocalDate.toMonthYear(): String {
+//    return this.asString(MONTH_YEAR).firstLetterUppercase()
+//}
+//
+//fun LocalDate.toShortDay(): String {
+//    return this.asString(SHORT_DAY).uppercase()
+//}
+//
+//fun LocalDate.asString(format: String = ISO8601): String {
+//    return format(this, format)
+//}
 
 private fun String.firstLetterUppercase(): String {
     return this.replaceFirstChar { it.uppercase() }
@@ -220,17 +200,17 @@ fun Modifier.noRippleEffect(
     )
 }
 
-fun dateTimeToString(currentDateTime: LocalDateTime, givenFormat: String): String {
-    return format(currentDateTime, outputFormat = givenFormat)
-}
-
-fun timeToString(currentTime: LocalTime, givenFormat: String): String {
-    return format(currentTime, outputFormat = givenFormat)
-}
+//fun dateTimeToString(currentDateTime: LocalDateTime, givenFormat: String): String {
+//    return format(currentDateTime, outputFormat = givenFormat)
+//}
+//
+//fun timeToString(currentTime: LocalTime, givenFormat: String): String {
+//    return format(currentTime, outputFormat = givenFormat)
+//}
 
 enum class DateTimePickerView { BOTTOM_SHEET_VIEW, DIALOG_VIEW }
 
-object WheelPickerDefaults {
+object MyWheelPickerDefaults {
     @Composable
     fun selectorProperties(
         enabled: Boolean = true,

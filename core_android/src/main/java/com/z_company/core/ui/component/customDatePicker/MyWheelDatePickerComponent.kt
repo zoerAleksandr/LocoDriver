@@ -1,5 +1,6 @@
 package com.z_company.core.ui.component.customDatePicker
 
+import android.util.Log
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -71,7 +72,7 @@ object MyWheelDatePickerComponent {
         dateTextStyle: TextStyle = MaterialTheme.typography.titleMedium,
         dateTextColor: Color = LocalContentColor.current,
         hideHeader: Boolean = false,
-        selectorProperties: SelectorProperties = WheelPickerDefaults.selectorProperties(),
+        selectorProperties: SelectorProperties = MyWheelPickerDefaults.selectorProperties(),
         onDoneClick: (snappedDate: LocalDate) -> Unit = {},
         onDateChangeListener: (snappedDate: LocalDate) -> Unit = {},
     ) {

@@ -1,11 +1,9 @@
-package com.z_company.core.ui.component.customDatePicker
+package com.z_company.core.ui.component.customDateTimePicker
 
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -14,52 +12,60 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import kotlinx.datetime.LocalDate
+import com.z_company.core.ui.component.customDatePicker.DateTimePickerView
+import kotlinx.datetime.LocalDateTime
+import com.z_company.core.ui.component.customDatePicker.MAX
+import com.z_company.core.ui.component.customDatePicker.MIN
+import com.z_company.core.ui.component.customDatePicker.MyWheelPickerDefaults
+import com.z_company.core.ui.component.customDatePicker.SelectorProperties
+import com.z_company.core.ui.component.customDatePicker.TimeFormat
+import com.z_company.core.ui.component.customDatePicker.now
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MyWheelDatePickerView(
-    modifier: Modifier = Modifier.padding(vertical = 24.dp, horizontal = 16.dp),
+fun MyWheelDateTimePickerView(
+    modifier: Modifier = Modifier,
     showDatePicker: Boolean = false,
-    title: String = "Дата",
+    title: String = "Дата и время",
     doneLabel: String = "Выбрать",
-    startDate: LocalDate = LocalDate.now(),
-    minDate: LocalDate = LocalDate.MIN(),
-    maxDate: LocalDate = LocalDate.MAX(),
+    timeFormat: TimeFormat = TimeFormat.HOUR_24,
+    startDate: LocalDateTime = LocalDateTime.now(),
+    minDate: LocalDateTime = LocalDateTime.MIN(),
+    maxDate: LocalDateTime = LocalDateTime.MAX(),
     yearsRange: IntRange? = IntRange(1922, 2122),
     height: Dp,
-    rowCount: Int = 5,
-    showShortMonths: Boolean = false,
-    showMonthAsNumber: Boolean = false,
-    dateTextStyle: TextStyle = MaterialTheme.typography.titleMedium,
+    rowCount: Int = 3,
+    dateTextStyle: TextStyle = MaterialTheme.typography.titleSmall,
     dateTextColor: Color = LocalContentColor.current,
     hideHeader: Boolean = false,
+    showMonthAsNumber: Boolean = false,
     containerColor: Color = MaterialTheme.colorScheme.surface,
     shape: Shape = RoundedCornerShape(10.dp),
-    dateTimePickerView: DateTimePickerView = DateTimePickerView.DIALOG_VIEW,
-    selectorProperties: SelectorProperties = MyWheelPickerDefaults.selectorProperties(),
+    dateTimePickerView: DateTimePickerView = DateTimePickerView.BOTTOM_SHEET_VIEW,
     dragHandle: @Composable (() -> Unit)? = { BottomSheetDefaults.DragHandle() },
-    onDoneClick: (snappedDate: LocalDate) -> Unit = {},
-    onDateChangeListener: (snappedDate: LocalDate) -> Unit = {},
+    selectorProperties: SelectorProperties = MyWheelPickerDefaults.selectorProperties(),
+    onDoneClick: (snappedDate: LocalDateTime) -> Unit = {},
+    onDateChangeListener: (snappedDate: LocalDateTime) -> Unit = {},
     onDismiss: () -> Unit = {},
 ) {
     if (dateTimePickerView == DateTimePickerView.BOTTOM_SHEET_VIEW) {
-        MyWheelDatePickerBottomSheet(
+        MyWheelDateTimePickerBottomSheet(
             modifier = modifier,
             showDatePicker = showDatePicker,
             title = title,
+            timeFormat = timeFormat,
             doneLabel = doneLabel,
+            startDate = startDate,
             minDate = minDate,
             maxDate = maxDate,
             yearsRange = yearsRange,
             height = height,
             rowCount = rowCount,
-            showShortMonths = showShortMonths,
+            showMonthAsNumber = showMonthAsNumber,
             dateTextStyle = dateTextStyle,
             dateTextColor = dateTextColor,
             hideHeader = hideHeader,
             containerColor = containerColor,
-            showMonthAsNumber=showMonthAsNumber,
             shape = shape,
             selectorProperties = selectorProperties,
             dragHandle = dragHandle,
@@ -68,10 +74,11 @@ fun MyWheelDatePickerView(
             onDismiss = onDismiss
         )
     } else {
-        MyWheelDatePickerDialog(
+        MyWheelDateTimePickerDialog(
             modifier = modifier,
             showDatePicker = showDatePicker,
             title = title,
+            timeFormat = timeFormat,
             doneLabel = doneLabel,
             startDate = startDate,
             minDate = minDate,
@@ -79,10 +86,9 @@ fun MyWheelDatePickerView(
             yearsRange = yearsRange,
             height = height,
             rowCount = rowCount,
-            showShortMonths = showShortMonths,
+            showMonthAsNumber = showMonthAsNumber,
             dateTextStyle = dateTextStyle,
             dateTextColor = dateTextColor,
-            showMonthAsNumber=showMonthAsNumber,
             hideHeader = hideHeader,
             containerColor = containerColor,
             shape = shape,

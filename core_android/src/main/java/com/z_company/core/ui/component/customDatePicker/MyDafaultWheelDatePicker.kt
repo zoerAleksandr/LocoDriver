@@ -1,6 +1,5 @@
 package com.z_company.core.ui.component.customDatePicker
 
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,6 +21,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ui.component.toDp
+import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
 import com.z_company.core.util.DateAndTimeConverter.getMonthShortText
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
@@ -39,19 +39,19 @@ fun MyDefaultWheelDatePicker(
     showMonthAsNumber: Boolean = false, // Added flag to show month as a number
     textStyle: TextStyle = MaterialTheme.typography.titleMedium,
     textColor: Color = LocalContentColor.current,
-    selectorProperties: SelectorProperties = WheelPickerDefaults.selectorProperties(),
+    selectorProperties: SelectorProperties = MyWheelPickerDefaults.selectorProperties(),
     onSnappedDate: (snappedDate: MySnappedDate) -> Int? = { _ -> null }
 ) {
     var snappedDate by remember { mutableStateOf(startDate) }
 
     var dayOfMonths = calculateDayOfMonths(snappedDate.monthNumber, snappedDate.year)
 
-    val months = (1..12).map {
-        network.chaintech.kmp_date_time_picker.utils.Month(
+    val months = (0..11).map {
+        Month(
             text = when {
                 showMonthAsNumber -> it.toString() // Show month as number
                 showShortMonths -> it.getMonthShortText() // Show short month name
-                else -> Month(it).name.capitalize() // Show full month name
+                else -> it.getMonthFullText().capitalize() // Show full month name
             },
             value = it,
             index = it - 1
@@ -83,7 +83,7 @@ fun MyDefaultWheelDatePicker(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(32.dp, Alignment.CenterHorizontally)
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
         ) {
             years?.let { years ->
                 MyWheelTextPicker(

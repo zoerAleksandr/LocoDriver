@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -37,7 +38,7 @@ fun MyWheelTextPicker(
     height: Dp = 128.dp,
     texts: List<String>,
     rowCount: Int,
-    style: TextStyle = MaterialTheme.typography.titleMedium,
+    style: TextStyle = MaterialTheme.typography.titleSmall,
     color: Color = LocalContentColor.current,
     contentAlignment: Alignment = Alignment.Center,
     onScrollFinished: (snappedIndex: Int) -> Int? = { null },
@@ -66,10 +67,11 @@ fun MyWheelPicker(
     height: Dp = 128.dp,
     onScrollFinished: (snappedIndex: Int) -> Int? = { null },
     texts: List<String>,
-    style: TextStyle = MaterialTheme.typography.titleMedium,
+    style: TextStyle = MaterialTheme.typography.titleSmall,
     color: Color = LocalContentColor.current,
     contentAlignment: Alignment = Alignment.Center,
 ) {
+    val context = LocalContext.current
     val lazyListState = rememberLazyListState(startIndex)
     val snapperLayoutInfo = rememberLazyListSnapperLayoutInfo(lazyListState = lazyListState)
     val isScrollInProgress = lazyListState.isScrollInProgress
@@ -108,14 +110,6 @@ fun MyWheelPicker(
                     modifier = Modifier
                         .height(height / rowCount)
                         .fillMaxWidth(),
-//                        .alpha(
-//                            calculateAnimatedAlpha(
-//                                lazyListState = lazyListState,
-//                                snapperLayoutInfo = snapperLayoutInfo,
-//                                index = index,
-//                                rowCount = rowCount
-//                            )
-//                        ),
                     contentAlignment = contentAlignment
                 ) {
                     Text(

@@ -1,6 +1,5 @@
 package com.z_company.settings.viewmodel
 
-import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.lifecycle.ViewModel
@@ -118,8 +117,6 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
     }
 
     private fun testAddPeriodInMonthOfYear(period: ReleasePeriod) {
-        Log.d("ZZZ", "add ${period.days.map { it.get(DAY_OF_MONTH) }}")
-
         period.days.forEach { releaseDay ->
             val searchMonth = newMonthList.find {
                 it.month == releaseDay.get(MONTH) && it.year == releaseDay.get(YEAR)

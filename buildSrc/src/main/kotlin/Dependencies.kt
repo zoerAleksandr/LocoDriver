@@ -16,6 +16,7 @@ import Versions.datastore_pref_ver
 import Versions.desugaring_ver
 import Versions.gson_version
 import Versions.koin_version
+import Versions.kotlinx_date_time_ver
 import Versions.lifecycle_runtime_version
 import Versions.lifecycle_viewmodel_version
 import Versions.material_compose3
@@ -34,7 +35,6 @@ import Versions.splash_screen_ver
 import Versions.test_ext_version
 import Versions.test_runner_version
 import Versions.vkid_ver
-import Versions.wheel_date_time_picker_ver
 import Versions.work_manager_version
 import org.gradle.api.JavaVersion
 
@@ -107,7 +107,7 @@ object Versions {
     const val mockito_core_ver= "3.10.0"
     const val mockito_inline_ver= "2.8.9"
     const val mockito_kotlin_ver= "1.5.0"
-    const val wheel_date_time_picker_ver = "1.0.7"
+    const val kotlinx_date_time_ver = "0.6.2"
 }
 
 object Libs {
@@ -122,7 +122,7 @@ object Libs {
     const val project_feature_settings = ":features:settings"
 
     // Libs
-    const val wheel_date_time_picker = "network.chaintech:kmp-date-time-picker:$wheel_date_time_picker_ver"
+    const val kotlinx_date_time = "org.jetbrains.kotlinx:kotlinx-datetime:$kotlinx_date_time_ver"
     const val desugaring = "com.android.tools:desugar_jdk_libs:$desugaring_ver"
     const val rebugger = "io.github.theapache64:rebugger:$rebugger_ver"
     const val datastore_pref = "androidx.datastore:datastore-preferences:$datastore_pref_ver"

@@ -73,7 +73,7 @@ dependencies {
     implementation(Libs.maxkeppeler_sheets)
     implementation(Libs.rebugger)
 
-    implementation(Libs.wheel_date_time_picker)
+    implementation(Libs.kotlinx_date_time)
 
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
 

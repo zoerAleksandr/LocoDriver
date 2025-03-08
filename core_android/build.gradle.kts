@@ -53,7 +53,7 @@ dependencies {
     implementation(Libs.koin_core)
     implementation(Libs.koin_android)
     implementation(Libs.koin_androidx_compose)
-    implementation(Libs.wheel_date_time_picker)
+    implementation(Libs.kotlinx_date_time)
 
     coreLibraryDesugaring(Libs.desugaring)
 
