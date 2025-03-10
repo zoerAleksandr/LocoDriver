@@ -65,3 +65,12 @@ fun Double?.str2decimalSign(): String {
         String.format("%.2f", hour)
     }
 }
+
+fun Double?.toMoneyString(): String {
+    return if (this == null) {
+        "0 ₽"
+    } else {
+        val value = this / 3_600_000.toDouble()
+        "${String.format(" % .2f", value)} ₽"
+    }
+}

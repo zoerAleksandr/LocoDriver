@@ -35,7 +35,7 @@ fun MyWheelDateTimePickerView(
     yearsRange: IntRange? = IntRange(1922, 2122),
     height: Dp,
     rowCount: Int = 3,
-    dateTextStyle: TextStyle = MaterialTheme.typography.titleSmall,
+    dateTextStyle: TextStyle = MaterialTheme.typography.titleMedium,
     dateTextColor: Color = LocalContentColor.current,
     hideHeader: Boolean = false,
     showMonthAsNumber: Boolean = false,

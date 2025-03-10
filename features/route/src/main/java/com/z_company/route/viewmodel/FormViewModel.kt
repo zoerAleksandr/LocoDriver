@@ -8,27 +8,29 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
-import com.z_company.domain.util.CalculateNightTime
 import com.z_company.data_local.SharedPreferenceStorage
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.NightTime
 import com.z_company.domain.entities.route.*
 import com.z_company.domain.entities.route.UtilsForEntities.getHomeRest
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.use_cases.*
+import com.z_company.domain.util.CalculateNightTime
 import com.z_company.domain.util.minus
-import com.z_company.route.Const.NULLABLE_ID
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
 import com.z_company.domain.util.plus
+import com.z_company.domain.util.sum
+import com.z_company.route.Const.NULLABLE_ID
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import ru.rustore.sdk.review.RuStoreReviewManagerFactory
 import ru.rustore.sdk.review.model.ReviewInfo
 import java.util.UUID
@@ -46,11 +48,15 @@ class FormViewModel(
     private val photoUseCase: PhotoUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferenceStorage by inject()
+    private val salaryCalculationUseCase: SalaryCalculationUseCase by inject()
 
     val reviewManager = RuStoreReviewManagerFactory.create(application.applicationContext)
 
     private val _uiState = MutableStateFlow(RouteFormUiState())
     val uiState = _uiState.asStateFlow()
+
+    private val _salaryForRouteState = MutableStateFlow(SalaryForRouteState())
+    val salaryForRouteState = _salaryForRouteState.asStateFlow()
 
     private val _dialogRestUiState = MutableStateFlow(DialogRestUiState())
     val dialogRestUiState = _dialogRestUiState.asStateFlow()
@@ -85,6 +91,9 @@ class FormViewModel(
                     routeDetailState = ResultState.Success(value),
                 )
             }
+            value?.let {
+                calculateSalary(value)
+            }
         }
 
     private var currentMonthOfYear: MonthOfYear? = null
@@ -92,6 +101,120 @@ class FormViewModel(
     private var nightTime: NightTime? = null
     private var defaultWorkTime: Long? = null
     private var usingDefaultWorkTime: Boolean = false
+
+    private fun calculateSalary(route: Route) {
+        val workTime = route.getWorkTime()
+        if (workTime == null) {
+            _salaryForRouteState.update {
+                it.copy(
+                    isCalculated = false
+                )
+            }
+        } else {
+            viewModelScope.launch(Dispatchers.IO) {
+                settingsUseCase.getFlowCurrentSettingsState().collect { result ->
+                    if (result is ResultState.Success) {
+                        result.data?.let { setting ->
+                            val moneyAtTariffRate =
+                                salaryCalculationUseCase.getMoneyAtWorkTimeAtTariff(
+                                    routeList = listOf(route),
+                                    userSettings = setting
+                                )
+
+                            val moneyAtNightHours = salaryCalculationUseCase.getMoneyAtNightTime(
+                                routeList = listOf(route),
+                                userSettings = setting
+                            )
+                            val zonalSurchargeMoney =
+                                salaryCalculationUseCase.getMoneyAtZonalSurcharge(
+                                    routeList = listOf(route),
+                                    userSettings = setting,
+                                )
+
+                            val moneyAtPassengerTime = salaryCalculationUseCase.getMoneyAtPassenger(
+                                routeList = listOf(route),
+                                userSettings = setting,
+                            )
+
+                            val moneyAtHoliday = salaryCalculationUseCase.getMoneyAtHoliday(
+                                routeList = listOf(route),
+                                userSettings = setting,
+                            )
+
+                            val surchargeAtLongDistanceTrain =
+                                salaryCalculationUseCase.getMoneyAtLongDistanceTrain(
+                                    listOf(route),
+                                    userSettings = setting
+                                )
+                            val surchargeAtExtendedServicePhase =
+                                salaryCalculationUseCase.getMoneyListSurchargeExtendedServicePhase(
+                                    routeList = listOf(route),
+                                    userSettings = setting,
+                                ).sum()
+                            val surchargeAtHeavyTrains =
+                                salaryCalculationUseCase.getMoneyListSurchargeHeavyTrains(
+                                    routeList = listOf(route),
+                                    userSettings = setting
+                                ).sum()
+
+                            val surchargeAtTrains =
+                                surchargeAtLongDistanceTrain + surchargeAtExtendedServicePhase + surchargeAtHeavyTrains
+
+                            val moneyAtOnePerson =
+                                salaryCalculationUseCase.getMoneyAtOnePersonOperation(
+                                    routeList = listOf(route),
+                                    userSettings = setting
+                                )
+
+                            val moneyAtQualificationClass =
+                                salaryCalculationUseCase.getMoneyAtQualificationClass(
+                                    routeList = listOf(route),
+                                    userSettings = setting
+                                )
+
+                            val nordicSurcharge = salaryCalculationUseCase.getMoneyNordicSurcharge(
+                                routeList = listOf(route),
+                                userSettings = setting
+                            )
+
+                            val districtSurcharge =
+                                salaryCalculationUseCase.getMoneyDistrictSurcharge(
+                                    routeList = listOf(route),
+                                    userSettings = setting
+                                )
+
+                            val moneyAtHarmfulness = salaryCalculationUseCase.getMoneyAtHarmfulness(
+                                routeList = listOf(route),
+                                userSettings = setting
+                            )
+
+                            val otherSurcharge = moneyAtQualificationClass + nordicSurcharge + districtSurcharge + moneyAtHarmfulness
+
+                            val totalMoney =
+                                moneyAtTariffRate + moneyAtNightHours + zonalSurchargeMoney + moneyAtPassengerTime + moneyAtHoliday + surchargeAtTrains + moneyAtOnePerson + otherSurcharge
+
+                            withContext(Dispatchers.Main) {
+                                _salaryForRouteState.update {
+                                    it.copy(
+                                        isCalculated = true,
+                                        totalPayment = totalMoney,
+                                        paymentAtTariffRate = moneyAtTariffRate,
+                                        paymentAtNightTime = moneyAtNightHours,
+                                        zonalSurchargeMoney = zonalSurchargeMoney,
+                                        paymentAtPassengerTime = moneyAtPassengerTime,
+                                        paymentHolidayMoney = moneyAtHoliday,
+                                        surchargesAtTrain = surchargeAtTrains,
+                                        paymentAtOnePerson = moneyAtOnePerson,
+                                        otherSurcharge = otherSurcharge
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     init {
         if (routeId == NULLABLE_ID) {
@@ -486,12 +609,13 @@ class FormViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             currentMonthOfYear?.let { monthOfYear ->
                 this.launch {
-                    routeUseCase.listRoutesByMonth(monthOfYear, currentTimeZoneOffset ?: 0L).collect { resultCurrentMonth ->
-                        if (resultCurrentMonth is ResultState.Success) {
-                            routesList.addAll(resultCurrentMonth.data)
-                            this.cancel()
+                    routeUseCase.listRoutesByMonth(monthOfYear, currentTimeZoneOffset ?: 0L)
+                        .collect { resultCurrentMonth ->
+                            if (resultCurrentMonth is ResultState.Success) {
+                                routesList.addAll(resultCurrentMonth.data)
+                                this.cancel()
+                            }
                         }
-                    }
                 }.join()
                 this.launch {
                     val previousMonthOfYear = if (monthOfYear.month != 0) {

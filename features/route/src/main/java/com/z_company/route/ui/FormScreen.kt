@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -13,8 +14,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -25,6 +28,8 @@ import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material3.ButtonDefaults
@@ -55,7 +60,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -81,6 +88,9 @@ import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.util.minus
+import com.z_company.domain.util.str
+import com.z_company.domain.util.str2decimalSign
+import com.z_company.domain.util.toMoneyString
 import com.z_company.route.R
 import com.z_company.route.component.BottomShadow
 import com.z_company.route.component.ConfirmExitDialog
@@ -89,6 +99,7 @@ import com.z_company.route.component.rememberDatePickerStateInLocale
 import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.route.viewmodel.DialogRestUiState
 import com.z_company.route.viewmodel.RouteFormUiState
+import com.z_company.route.viewmodel.SalaryForRouteState
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
@@ -96,11 +107,13 @@ import java.util.Calendar
 
 
 const val LINK_TO_SETTING = "LINK_TO_SETTING"
+const val LINK_TO_SALARY_SETTING = "LINK_TO_SALARY_SETTING"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FormScreen(
     formUiState: RouteFormUiState,
+    salaryForRouteState: SalaryForRouteState,
     dialogRestUiState: DialogRestUiState,
     currentRoute: Route?,
     isCopy: Boolean,
@@ -127,6 +140,7 @@ fun FormScreen(
     nightTime: Long?,
     changeShowConfirmExitDialog: (Boolean) -> Unit,
     exitWithoutSave: () -> Unit,
+    onSalarySettingClick: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -195,6 +209,7 @@ fun FormScreen(
                 resetSaveState()
             }
         }
+
         if (formUiState.exitFromScreen) {
             LaunchedEffect(Unit) {
                 exitScreen()
@@ -237,7 +252,9 @@ fun FormScreen(
                             changeShowConfirmExitDialog = changeShowConfirmExitDialog,
                             onSaveClick = onSaveClick,
                             exitWithoutSave = exitWithoutSave,
-                            dialogRestUiState = dialogRestUiState
+                            dialogRestUiState = dialogRestUiState,
+                            salaryForRouteState = salaryForRouteState,
+                            onSalarySettingClick = onSalarySettingClick
                         )
                     }
                 }
@@ -277,6 +294,8 @@ private fun RouteFormScreenContent(
     onSaveClick: () -> Unit,
     exitWithoutSave: () -> Unit,
     dialogRestUiState: DialogRestUiState,
+    salaryForRouteState: SalaryForRouteState,
+    onSalarySettingClick: () -> Unit
 ) {
     val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
     val hintStyle = AppTypography.getType().titleLarge
@@ -409,6 +428,10 @@ private fun RouteFormScreenContent(
         BottomShadow()
     }
 
+    var isVisibleDetailMoney by remember {
+        mutableStateOf(false)
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -425,7 +448,7 @@ private fun RouteFormScreenContent(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 24.dp),
+                    .padding(bottom = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 errorMessage?.let { message ->
@@ -486,6 +509,213 @@ private fun RouteFormScreenContent(
                                 color = MaterialTheme.colorScheme.primary
                             )
                         }
+                    }
+                }
+            }
+        }
+
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 6.dp)
+                    .clickable {
+                        isVisibleDetailMoney = !isVisibleDetailMoney
+                    },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            )
+            {
+                Text(text = "Заработано", style = hintStyle)
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        text = salaryForRouteState.totalPayment.toMoneyString(),
+                        style = hintStyle
+                    )
+
+                    AnimatedContent(
+                        targetState = isVisibleDetailMoney,
+
+                        label = ""
+                    ) {
+                        val icon = if (it) {
+                            Icons.Default.KeyboardArrowUp
+                        } else {
+                            Icons.Default.KeyboardArrowDown
+                        }
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            AnimatedVisibility(visible = isVisibleDetailMoney) {
+                if (salaryForRouteState.isCalculated) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (salaryForRouteState.paymentAtTariffRate == 0.0) {
+                            val link = buildAnnotatedString {
+                                val text = "Установите значение тарифной ставки в настройках."
+
+                                val endIndex = text.length - 1
+                                val startIndex = startIndexLastWord(text)
+
+                                append(text)
+                                addStyle(
+                                    style = SpanStyle(
+                                        color = MaterialTheme.colorScheme.tertiary,
+                                        textDecoration = TextDecoration.Underline
+                                    ), start = startIndex, end = endIndex
+                                )
+
+                                addStringAnnotation(
+                                    tag = LINK_TO_SALARY_SETTING,
+                                    annotation = LINK_TO_SALARY_SETTING,
+                                    start = startIndex,
+                                    end = endIndex
+                                )
+                            }
+
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                ClickableText(
+                                    text = link,
+                                    style = AppTypography.getType().bodyMedium.copy(
+                                        fontStyle = FontStyle.Italic,
+                                        fontWeight = FontWeight.Light,
+                                        color = MaterialTheme.colorScheme.primary
+                                    ),
+                                ) {
+                                    link.getStringAnnotations(LINK_TO_SALARY_SETTING, it, it).firstOrNull()?.let {
+                                        onSalarySettingClick()
+                                    }
+                                }
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(text = "Почасовая оплата", style = hintStyle)
+                                Text(
+                                    text = salaryForRouteState.paymentAtTariffRate.toMoneyString(),
+                                    style = hintStyle
+                                )
+                            }
+
+                        }
+
+                        if (salaryForRouteState.paymentHolidayMoney != 0.0) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(text = "Праздничные", style = hintStyle)
+                                Text(
+                                    text = salaryForRouteState.paymentHolidayMoney.toMoneyString(),
+                                    style = hintStyle
+                                )
+                            }
+                        }
+
+                        if (salaryForRouteState.zonalSurchargeMoney != 0.0) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(text = "Зональная надбавка", style = hintStyle)
+                                Text(
+                                    text = salaryForRouteState.zonalSurchargeMoney.toMoneyString(),
+                                    style = hintStyle
+                                )
+                            }
+                        }
+
+                        if (salaryForRouteState.paymentAtNightTime != 0.0) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(text = "Ночные", style = hintStyle)
+                                Text(
+                                    text = salaryForRouteState.paymentAtNightTime.toMoneyString(),
+                                    style = hintStyle
+                                )
+                            }
+                        }
+
+                        if (salaryForRouteState.paymentAtPassengerTime != 0.0) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(text = "Пассажиром", style = hintStyle)
+                                Text(
+                                    text = salaryForRouteState.paymentAtPassengerTime.toMoneyString(),
+                                    style = hintStyle
+                                )
+                            }
+                        }
+
+                        if (salaryForRouteState.paymentAtOnePerson != 0.0) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(text = "Одно лицо", style = hintStyle)
+                                Text(
+                                    text = salaryForRouteState.paymentAtOnePerson.toMoneyString(),
+                                    style = hintStyle
+                                )
+                            }
+                        }
+
+                        if (salaryForRouteState.surchargesAtTrain != 0.0) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(text = "Доплаты за поезд", style = hintStyle)
+                                Text(
+                                    text = salaryForRouteState.surchargesAtTrain.toMoneyString(),
+                                    style = hintStyle
+                                )
+                            }
+                        }
+
+                        if (salaryForRouteState.otherSurcharge != 0.0) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(text = "Прочие доплаты", style = hintStyle)
+                                Text(
+                                    text = salaryForRouteState.otherSurcharge.toMoneyString(),
+                                    style = hintStyle
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = "Укажите начало и окончание рабочего времени для расчета заработной платы за поездку",
+                            style = hintStyle
+                        )
                     }
                 }
             }

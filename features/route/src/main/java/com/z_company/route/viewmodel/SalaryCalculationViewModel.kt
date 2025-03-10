@@ -20,7 +20,6 @@ import com.z_company.domain.entities.route.UtilsForEntities.getTimeInServicePhas
 import com.z_company.domain.entities.route.UtilsForEntities.setWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.timeFollowingSingleLocomotive
-import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -39,7 +38,6 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val salarySettingUseCase: SalarySettingUseCase by inject()
-    private val calendarUseCase: CalendarUseCase by inject ()
 
     private var userSettings: UserSettings? = null
     private var salarySetting: SalarySetting? = null
@@ -86,7 +84,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                             setToTariffTimeData(routeList, userSettings, salarySetting)
                             setNightTimeData(routeList, userSettings, salarySetting)
                             setSingleLocomotiveData(routeList, userSettings)
-                            setPassengerData(routeList, userSettings, salarySetting)
+                            setPassengerData(routeList, userSettings)
                             setHolidayData(routeList, userSettings, salarySetting)
                             setQualificationClassSurchargeData(
                                 routeList,
@@ -567,7 +565,6 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
     private fun setPassengerData(
         routeList: List<Route>,
         userSettings: UserSettings,
-        salarySetting: SalarySetting
     ) {
         val currentMonthOfYear = userSettings.selectMonthOfYear
         val passengerTime = getPassengerTime(routeList, userSettings, currentMonthOfYear)
@@ -880,7 +877,6 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         }
         return timeList
     }
-
 
     private fun getMoneyListSurchargeExtendedServicePhase(
         routeList: List<Route>,

@@ -23,6 +23,7 @@ fun FormDestination(
     )
     val formUiState by viewModel.uiState.collectAsState()
     val dialogRestUiState by viewModel.dialogRestUiState.collectAsState()
+    val salaryState by viewModel.salaryForRouteState.collectAsState()
 
     FormScreen(
         formUiState = formUiState,
@@ -61,5 +62,7 @@ fun FormDestination(
         nightTime = formUiState.nightTime,
         changeShowConfirmExitDialog = viewModel::changeShowConfirmDialog,
         exitWithoutSave = viewModel::exitWithoutSaving,
+        salaryForRouteState = salaryState,
+        onSalarySettingClick = router::showSettingSalary
     )
 }
