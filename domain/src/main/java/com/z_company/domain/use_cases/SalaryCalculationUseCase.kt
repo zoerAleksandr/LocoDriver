@@ -314,7 +314,6 @@ class SalaryCalculationUseCase : KoinComponent {
         routeList: List<Route>,
         userSettings: UserSettings,
     ): Double {
-        val salarySetting = salarySettingUseCase.getSalarySetting()
         val paymentAtTariffMoney =
             getMoneyAtWorkTimeAtTariff(routeList, userSettings)
         val paymentAtPassengerMoney = getMoneyAtPassenger(routeList, userSettings)
@@ -347,6 +346,16 @@ class SalaryCalculationUseCase : KoinComponent {
         val harmfulnessSurchargePercent = salarySetting.harmfulnessPercent
         val basicForCalculation = getBasicTimeForCalculationSurcharge(routeList, userSettings)
         return basicForCalculation.times(userSettings.selectMonthOfYear.tariffRate * (harmfulnessSurchargePercent / 100))
+    }
+
+    fun getOtherSurchargeMoney(
+        routeList: List<Route>,
+        userSettings: UserSettings,
+    ): Double{
+        val salarySetting = salarySettingUseCase.getSalarySetting()
+        val otherSurchargePercent = salarySetting.otherSurcharge
+        val baseForZonalSurcharge = getBasicTimeForCalculationSurcharge(routeList, userSettings)
+        return baseForZonalSurcharge.times(userSettings.selectMonthOfYear.tariffRate * (otherSurchargePercent / 100))
     }
 
     private fun getBaseMoney(
@@ -386,6 +395,8 @@ class SalaryCalculationUseCase : KoinComponent {
 
         val surchargeHeavyTrains = getMoneyListSurchargeHeavyTrains(routeList, userSettings).sum()
 
+        val otherSurcharge = getOtherSurchargeMoney(routeList, userSettings)
+
         return paymentAtTariffMoney + paymentAtPassengerMoney +
                 paymentAtSingleLocomotiveMoney + paymentAtOvertimeMoney +
                 surchargeAtOvertime05Money + surchargeAtOvertimeMoney +
@@ -393,6 +404,6 @@ class SalaryCalculationUseCase : KoinComponent {
                 zonalSurchargeMoney + paymentNightTimeMoney +
                 surchargeQualificationClassMoney + surchargeExtendedServicePhaseMoney +
                 surchargeOnePersonOperationMoney + surchargeHarmfulnessSurchargeMoney +
-                surchargeLongDistanceTrainsMoney + surchargeHeavyTrains
+                surchargeLongDistanceTrainsMoney + surchargeHeavyTrains + otherSurcharge
     }
 }

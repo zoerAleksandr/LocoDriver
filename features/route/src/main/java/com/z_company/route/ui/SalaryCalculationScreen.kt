@@ -35,12 +35,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
@@ -80,6 +80,7 @@ fun SalaryCalculationScreen(
 
     val verticalPaddingSmall = 6.dp
     val verticalPaddingLarge = 18.dp
+    val maxTextSize = 18.sp
 
     var infoBlockVisible by remember {
         mutableStateOf(true)
@@ -147,8 +148,9 @@ fun SalaryCalculationScreen(
                         horizontalAlignment = Alignment.End,
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
+                        AutoSizeText(
                             modifier = Modifier,
+                            maxTextSize = maxTextSize,
                             style = styleHint.copy(fontWeight = FontWeight.Light),
                             text = "Данный расчет носит информационный характер, некоторые виды выплат могут отличаться в зависимости от внутренних нормативных документов вашего депо."
                         )
@@ -156,9 +158,10 @@ fun SalaryCalculationScreen(
                             shape = Shapes.medium,
                             onClick = { infoBlockVisible = false }
                         ) {
-                            Text(
+                            AutoSizeText(
                                 modifier = Modifier,
                                 style = styleHint,
+                                maxTextSize = maxTextSize,
                                 text = "Понятно"
                             )
                         }
@@ -179,9 +182,10 @@ fun SalaryCalculationScreen(
                         horizontalAlignment = Alignment.End,
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
+                        AutoSizeText(
                             modifier = Modifier.fillMaxWidth(),
                             overflow = TextOverflow.Visible,
+                            maxTextSize = maxTextSize,
                             style = styleHint.copy(fontWeight = FontWeight.Light),
                             text = "Установите значение часовой ставки."
                         )
@@ -189,10 +193,11 @@ fun SalaryCalculationScreen(
                             shape = Shapes.medium,
                             onClick = onSettingsSalaryClick
                         ) {
-                            Text(
+                            AutoSizeText(
                                 modifier = Modifier,
                                 overflow = TextOverflow.Visible,
                                 style = styleHint,
+                                maxTextSize = maxTextSize,
                                 text = "Настройки"
                             )
                         }
@@ -206,12 +211,14 @@ fun SalaryCalculationScreen(
                         .fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
+                    AutoSizeText(
                         overflow = TextOverflow.Visible,
                         style = styleHint,
+                        maxTextSize = maxTextSize,
                         text = "Месяц"
                     )
-                    Text(
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
                         overflow = TextOverflow.Visible,
                         style = styleHint,
                         text = uiState.month
@@ -225,15 +232,17 @@ fun SalaryCalculationScreen(
                         .padding(top = verticalPaddingSmall),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
                         overflow = TextOverflow.Visible,
                         style = styleHint,
                         text = "Всего отработано часов за месяц"
                     )
-                    Text(
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
                         overflow = TextOverflow.Visible,
                         style = styleDataLight.copy(fontWeight = FontWeight.Medium),
-                        textAlign = TextAlign.Center,
+                        alignment = Alignment.Center,
                         text = ConverterLongToTime.getTimeInHourDecimal(uiState.totalWorkTime)
                     )
                 }
@@ -245,15 +254,17 @@ fun SalaryCalculationScreen(
                         .padding(top = verticalPaddingSmall),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
                         overflow = TextOverflow.Visible,
                         style = styleHint,
                         text = "Норма часов(по закону)"
                     )
-                    Text(
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
                         overflow = TextOverflow.Visible,
                         style = styleDataLight.copy(fontWeight = FontWeight.Medium),
-                        textAlign = TextAlign.Center,
+                        alignment = Alignment.Center,
                         text = uiState.normaHours.str()
                     )
                 }
@@ -265,15 +276,17 @@ fun SalaryCalculationScreen(
                         .padding(top = verticalPaddingSmall),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
                         overflow = TextOverflow.Visible,
                         style = styleHint,
                         text = "Тариф"
                     )
-                    Text(
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
                         overflow = TextOverflow.Visible,
                         style = styleDataLight.copy(fontWeight = FontWeight.Medium),
-                        textAlign = TextAlign.Center,
+                        alignment = Alignment.Center,
                         text = uiState.tariffRate.str()
                     )
                 }
@@ -284,31 +297,35 @@ fun SalaryCalculationScreen(
                         .fillMaxWidth()
                         .padding(top = verticalPaddingLarge)
                 ) {
-                    Text(
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
                         modifier = Modifier.weight(widthColumn1),
                         overflow = TextOverflow.Visible,
-                        textAlign = TextAlign.Start,
+                        alignment = Alignment.CenterStart,
                         style = styleHint,
                         text = "Вид оплаты"
                     )
-                    Text(
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
                         modifier = Modifier.weight(widthColumn2),
                         overflow = TextOverflow.Visible,
-                        textAlign = TextAlign.Center,
+                        alignment = Alignment.Center,
                         style = styleHint,
                         text = "Часы"
                     )
-                    Text(
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
                         modifier = Modifier.weight(widthColumn3),
                         overflow = TextOverflow.Visible,
-                        textAlign = TextAlign.Center,
+                        alignment = Alignment.Center,
                         style = styleHint,
                         text = "Процент"
                     )
-                    Text(
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
                         modifier = Modifier.weight(widthColumn4),
                         overflow = TextOverflow.Visible,
-                        textAlign = TextAlign.End,
+                        alignment = Alignment.CenterEnd,
                         style = styleHint,
                         text = "Сумма"
                     )
@@ -322,27 +339,30 @@ fun SalaryCalculationScreen(
                                 .fillMaxWidth()
                                 .padding(top = verticalPaddingSmall)
                         ) {
-                            Text(
+                            AutoSizeText(
                                 modifier = Modifier.weight(widthColumn1),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
+                                maxTextSize = maxTextSize,
                                 text = "ПоврОплатаПоТарифСтавкам"
                             )
-                            Text(
+                            AutoSizeText(
                                 modifier = Modifier.weight(widthColumn2),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.Center,
+                                maxTextSize = maxTextSize,
+                                alignment = Alignment.Center,
                                 text = ConverterLongToTime.getTimeInHourDecimal(uiState.paymentAtTariffHours)
                             )
                             Box(
                                 modifier = Modifier.weight(widthColumn3),
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn4),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.End,
+                                alignment = Alignment.CenterEnd,
                                 text = uiState.paymentAtTariffMoney.str2decimalSign()
                             )
                         }
@@ -357,27 +377,30 @@ fun SalaryCalculationScreen(
                                 .fillMaxWidth()
                                 .padding(top = verticalPaddingSmall)
                         ) {
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn1),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
                                 text = "ОплЗаРабНаОдиночСледЛоком"
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn2),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.Center,
+                                alignment = Alignment.Center,
                                 text = ConverterLongToTime.getTimeInHourDecimal(uiState.paymentAtSingleLocomotiveHours)
                             )
                             Box(
                                 modifier = Modifier.weight(widthColumn3),
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn4),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.End,
+                                alignment = Alignment.CenterEnd,
                                 text = uiState.paymentAtSingleLocomotiveMoney.str2decimalSign()
                             )
                         }
@@ -392,27 +415,30 @@ fun SalaryCalculationScreen(
                                 .fillMaxWidth()
                                 .padding(top = verticalPaddingSmall)
                         ) {
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn1),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
                                 text = "ОплЗаСледПасс"
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn2),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.Center,
+                                alignment = Alignment.Center,
                                 text = ConverterLongToTime.getTimeInHourDecimal(uiState.paymentAtPassengerHours)
                             )
                             Box(
                                 modifier = Modifier.weight(widthColumn3),
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn4),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.End,
+                                alignment = Alignment.CenterEnd,
                                 text = uiState.paymentAtPassengerMoney.str2decimalSign()
                             )
                         }
@@ -427,27 +453,30 @@ fun SalaryCalculationScreen(
                                 .fillMaxWidth()
                                 .padding(top = verticalPaddingSmall)
                         ) {
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn1),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
                                 text = "ОплРабСверУрочВр"
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn2),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.Center,
+                                alignment = Alignment.Center,
                                 text = ConverterLongToTime.getTimeInHourDecimal(uiState.paymentAtOvertimeHours)
                             )
                             Box(
                                 modifier = Modifier.weight(widthColumn3),
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn4),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.End,
+                                alignment = Alignment.CenterEnd,
                                 text = uiState.paymentAtOvertimeMoney.str2decimalSign()
                             )
                         }
@@ -462,27 +491,30 @@ fun SalaryCalculationScreen(
                                 .fillMaxWidth()
                                 .padding(top = verticalPaddingSmall)
                         ) {
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn1),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
                                 text = "ДоплСверхУрочнВр0,5размер"
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn2),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.Center,
+                                alignment = Alignment.Center,
                                 text = ConverterLongToTime.getTimeInHourDecimal(uiState.surchargeAtOvertime05Hours)
                             )
                             Box(
                                 modifier = Modifier.weight(widthColumn3),
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn4),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.End,
+                                alignment = Alignment.CenterEnd,
                                 text = uiState.surchargeAtOvertime05Money.str2decimalSign()
                             )
                         }
@@ -497,27 +529,30 @@ fun SalaryCalculationScreen(
                                 .fillMaxWidth()
                                 .padding(top = verticalPaddingSmall)
                         ) {
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn1),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
                                 text = "ДоплВыхПраздСверхНормВрем"
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn2),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.Center,
+                                alignment = Alignment.Center,
                                 text = ConverterLongToTime.getTimeInHourDecimal(uiState.surchargeAtOvertimeHours)
                             )
                             Box(
                                 modifier = Modifier.weight(widthColumn3),
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn4),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.End,
+                                alignment = Alignment.CenterEnd,
                                 text = uiState.surchargeAtOvertimeMoney.str2decimalSign()
                             )
                         }
@@ -532,27 +567,30 @@ fun SalaryCalculationScreen(
                                 .fillMaxWidth()
                                 .padding(top = verticalPaddingSmall)
                         ) {
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn1),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
                                 text = "ОплВыходДнСверхНорВрВед"
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn2),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.Center,
+                                alignment = Alignment.Center,
                                 text = ConverterLongToTime.getTimeInHourDecimal(uiState.paymentHolidayHours)
                             )
                             Box(
                                 modifier = Modifier.weight(widthColumn3),
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn4),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.End,
+                                alignment = Alignment.CenterEnd,
                                 text = uiState.paymentHolidayMoney.str2decimalSign()
                             )
                         }
@@ -567,27 +605,30 @@ fun SalaryCalculationScreen(
                                 .fillMaxWidth()
                                 .padding(top = verticalPaddingSmall)
                         ) {
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn1),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
                                 text = "ДопЗаРабВыходПразДниНорВр"
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn2),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.Center,
+                                alignment = Alignment.Center,
                                 text = ConverterLongToTime.getTimeInHourDecimal(uiState.surchargeHolidayHours)
                             )
                             Box(
                                 modifier = Modifier.weight(widthColumn3),
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn4),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.End,
+                                alignment = Alignment.CenterEnd,
                                 text = uiState.surchargeHolidayMoney.str2decimalSign()
                             )
                         }
@@ -602,7 +643,8 @@ fun SalaryCalculationScreen(
                                 .fillMaxWidth()
                                 .padding(top = verticalPaddingSmall)
                         ) {
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn1),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
@@ -611,18 +653,20 @@ fun SalaryCalculationScreen(
                             Box(
                                 modifier = Modifier.weight(widthColumn2),
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn3),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.Center,
+                                alignment = Alignment.Center,
                                 text = uiState.zonalSurchargePercent.str()
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn4),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.End,
+                                alignment = Alignment.CenterEnd,
                                 text = uiState.zonalSurchargeMoney.str2decimalSign()
                             )
                         }
@@ -637,31 +681,35 @@ fun SalaryCalculationScreen(
                                 .fillMaxWidth()
                                 .padding(top = verticalPaddingSmall)
                         ) {
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn1),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
                                 text = "ДоплатЗаРаботуНочноеВремя"
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn2),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.Center,
+                                alignment = Alignment.Center,
                                 text = ConverterLongToTime.getTimeInHourDecimal(uiState.paymentNightTimeHours)
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn3),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.Center,
+                                alignment = Alignment.Center,
                                 text = uiState.paymentNightTimePercent.str()
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn4),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.End,
+                                alignment = Alignment.CenterEnd,
                                 text = uiState.paymentNightTimeMoney.str2decimalSign()
                             )
                         }
@@ -676,7 +724,8 @@ fun SalaryCalculationScreen(
                                 .fillMaxWidth()
                                 .padding(top = verticalPaddingSmall)
                         ) {
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn1),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
@@ -685,18 +734,20 @@ fun SalaryCalculationScreen(
                             Box(
                                 modifier = Modifier.weight(widthColumn2),
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn3),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.Center,
+                                alignment = Alignment.Center,
                                 text = uiState.surchargeQualificationClassPercent.str()
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn4),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.End,
+                                alignment = Alignment.CenterEnd,
                                 text = uiState.surchargeQualificationClassMoney.str2decimalSign()
                             )
                         }
@@ -712,7 +763,8 @@ fun SalaryCalculationScreen(
                                 .fillMaxWidth()
                                 .padding(top = verticalPaddingSmall)
                         ) {
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn1),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
@@ -721,18 +773,20 @@ fun SalaryCalculationScreen(
                             Box(
                                 modifier = Modifier.weight(widthColumn2),
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn3),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.Center,
+                                alignment = Alignment.Center,
                                 text = uiState.onePersonOperationPercent.str()
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn4),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.End,
+                                alignment = Alignment.CenterEnd,
                                 text = uiState.onePersonOperationMoney.str2decimalSign()
                             )
                         }
@@ -748,7 +802,8 @@ fun SalaryCalculationScreen(
                                 .fillMaxWidth()
                                 .padding(top = verticalPaddingSmall)
                         ) {
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn1),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
@@ -757,18 +812,20 @@ fun SalaryCalculationScreen(
                             Box(
                                 modifier = Modifier.weight(widthColumn2),
                             )
-                            Text(
+                           AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn3),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.Center,
+                                alignment = Alignment.Center,
                                 text = uiState.harmfulnessSurchargePercent.str()
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn4),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.End,
+                                alignment = Alignment.CenterEnd,
                                 text = uiState.harmfulnessSurchargeMoney.str2decimalSign()
                             )
                         }
@@ -784,31 +841,35 @@ fun SalaryCalculationScreen(
                                 .fillMaxWidth()
                                 .padding(top = verticalPaddingSmall)
                         ) {
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn1),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
                                 text = "ДоплРабЛокомБрДлинПоез"
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn2),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.Center,
+                                alignment = Alignment.Center,
                                 text = ConverterLongToTime.getTimeInHourDecimal(uiState.surchargeLongDistanceTrainsHours)
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn3),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.Center,
+                                alignment = Alignment.Center,
                                 text = uiState.surchargeLongDistanceTrainsPercent.str()
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn4),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.End,
+                                alignment = Alignment.CenterEnd,
                                 text = uiState.surchargeLongDistanceTrainsMoney.str2decimalSign()
                             )
                         }
@@ -826,31 +887,35 @@ fun SalaryCalculationScreen(
                                 .fillMaxWidth()
                                 .padding(top = verticalPaddingSmall)
                         ) {
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn1),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
                                 text = "ДоплРабЛокомБрТяжПоез"
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn2),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.Center,
+                                alignment = Alignment.Center,
                                 text = ConverterLongToTime.getTimeInHourDecimal(uiState.surchargeHeavyTransHour[index])
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn3),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.Center,
+                                alignment = Alignment.Center,
                                 text = uiState.surchargeHeavyTransPercent[index] ?: ""
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn4),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.End,
+                                alignment = Alignment.CenterEnd,
                                 text = uiState.surchargeHeavyTransMoney[index].str2decimalSign()
                             )
                         }
@@ -868,31 +933,35 @@ fun SalaryCalculationScreen(
                                 .fillMaxWidth()
                                 .padding(top = verticalPaddingSmall)
                         ) {
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn1),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
                                 text = "ДоплРабЛокомБрУдлинУчОбсл"
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn2),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.Center,
+                                alignment = Alignment.Center,
                                 text = ConverterLongToTime.getTimeInHourDecimal(uiState.surchargeExtendedServicePhaseHour[index])
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn3),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.Center,
+                                alignment = Alignment.Center,
                                 text = uiState.surchargeExtendedServicePhasePercent[index] ?: ""
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn4),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.End,
+                                alignment = Alignment.CenterEnd,
                                 text = uiState.surchargeExtendedServicePhaseMoney[index].str2decimalSign()
                             )
                         }
@@ -908,7 +977,8 @@ fun SalaryCalculationScreen(
                                 .fillMaxWidth()
                                 .padding(top = verticalPaddingSmall)
                         ) {
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn1),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
@@ -917,18 +987,20 @@ fun SalaryCalculationScreen(
                             Box(
                                 modifier = Modifier.weight(widthColumn2),
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn3),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.Center,
+                                alignment = Alignment.Center,
                                 text = uiState.districtSurchargeCoefficient.str()
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn4),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.End,
+                                alignment = Alignment.CenterEnd,
                                 text = uiState.districtSurchargeMoney.str2decimalSign()
                             )
                         }
@@ -944,7 +1016,8 @@ fun SalaryCalculationScreen(
                                 .fillMaxWidth()
                                 .padding(top = verticalPaddingSmall)
                         ) {
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn1),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
@@ -953,18 +1026,20 @@ fun SalaryCalculationScreen(
                             Box(
                                 modifier = Modifier.weight(widthColumn2),
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn3),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.Center,
+                                alignment = Alignment.Center,
                                 text = uiState.nordicSurchargePercent.str()
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn4),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.End,
+                                alignment = Alignment.CenterEnd,
                                 text = uiState.nordicSurchargeMoney.str2decimalSign()
                             )
                         }
@@ -980,17 +1055,19 @@ fun SalaryCalculationScreen(
                                 .fillMaxWidth()
                                 .padding(top = verticalPaddingSmall)
                         ) {
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn1),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
                                 text = "ОплПоСреднему"
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn2),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.Center,
+                                alignment = Alignment.Center,
                                 text = String.format(
                                     "%.2f",
                                     uiState.averagePaymentHours?.toDouble() ?: 0.0
@@ -999,12 +1076,52 @@ fun SalaryCalculationScreen(
                             Box(
                                 modifier = Modifier.weight(widthColumn3),
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn4),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.End,
+                                alignment = Alignment.CenterEnd,
                                 text = String.format("%.2f", uiState.averagePaymentMoney)
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                uiState.otherSurchargeMoney?.let { value ->
+                    if (value != 0.0) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = verticalPaddingSmall)
+                        ) {
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
+                                modifier = Modifier.weight(widthColumn1),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                text = "ПрочиеНачисления"
+                            )
+                            Box(
+                                modifier = Modifier.weight(widthColumn2),
+                            )
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
+                                modifier = Modifier.weight(widthColumn3),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                alignment = Alignment.Center,
+                                text = uiState.otherSurchargePercent.str()
+                            )
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
+                                modifier = Modifier.weight(widthColumn4),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                alignment = Alignment.CenterEnd,
+                                text = uiState.otherSurchargeMoney.str2decimalSign()
                             )
                         }
                     }
@@ -1020,12 +1137,14 @@ fun SalaryCalculationScreen(
                                 .padding(top = verticalPaddingSmall),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 overflow = TextOverflow.Visible,
                                 style = styleHint,
                                 text = "Всего начислено"
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
                                 text = uiState.totalChargedMoney.str2decimalSign()
@@ -1041,12 +1160,14 @@ fun SalaryCalculationScreen(
                         .padding(top = verticalPaddingLarge),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
                         overflow = TextOverflow.Visible,
                         style = styleHint,
                         text = "Вид удержания"
                     )
-                    Text(
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
                         overflow = TextOverflow.Visible,
                         style = styleHint,
                         text = "Сумма"
@@ -1062,12 +1183,14 @@ fun SalaryCalculationScreen(
                                 .padding(top = verticalPaddingSmall),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
                                 text = "НалогНаДохФизЛицаУдер%"
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
                                 text = uiState.retentionNdfl.str2decimalSign()
@@ -1085,12 +1208,14 @@ fun SalaryCalculationScreen(
                                 .padding(top = verticalPaddingSmall),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
                                 text = "ПрофсоюзПервыйКредитор"
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
                                 text = uiState.unionistsRetention.str2decimalSign()
@@ -1109,12 +1234,14 @@ fun SalaryCalculationScreen(
                                 .padding(top = verticalPaddingSmall),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
                                 text = "Прочие удержания"
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
                                 text = uiState.otherRetention.str2decimalSign()
@@ -1132,15 +1259,17 @@ fun SalaryCalculationScreen(
                                 .padding(top = verticalPaddingSmall),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 overflow = TextOverflow.Visible,
                                 style = styleHint,
                                 text = "Всего удержано"
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight,
-                                textAlign = TextAlign.Center,
+                                alignment = Alignment.Center,
                                 text = uiState.totalRetention.str2decimalSign()
                             )
                         }
@@ -1156,15 +1285,17 @@ fun SalaryCalculationScreen(
                                 .padding(top = verticalPaddingLarge),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 overflow = TextOverflow.Visible,
                                 style = styleHint,
                                 text = "К выдаче"
                             )
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 overflow = TextOverflow.Visible,
                                 style = styleDataLight.copy(fontWeight = FontWeight.Medium),
-                                textAlign = TextAlign.Center,
+                                alignment = Alignment.Center,
                                 text = uiState.toBeCredited.str2decimalSign()
                             )
                         }

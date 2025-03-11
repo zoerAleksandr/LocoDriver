@@ -1,6 +1,5 @@
 package com.z_company.core.ui.component.customDatePicker
 
-import android.util.Log
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth

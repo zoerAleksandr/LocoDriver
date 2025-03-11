@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncDataValue
+import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
@@ -117,6 +118,7 @@ fun SettingSalaryScreen(
     saveTariffRateCurrentAndNextMonth: () -> Unit,
     currentMonth: ResultState<String>,
     currentYear: ResultState<String>,
+    setOtherSurcharge: (String) -> Unit
 ) {
     val styleDataLight = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
     val titleStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Medium)
@@ -130,6 +132,8 @@ fun SettingSalaryScreen(
     val scope = rememberCoroutineScope()
     val paddingLarge = 12.dp
     val paddingSmall = 6.dp
+
+    val maxTextSize = 18.sp
 
     if (saveSettingState is ResultState.Success) {
         LaunchedEffect(Unit) {
@@ -160,14 +164,16 @@ fun SettingSalaryScreen(
                     .padding(horizontal = 16.dp, vertical = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                Text(
+                AutoSizeText(
+                    maxTextSize = maxTextSize,
                     modifier = Modifier,
                     text = "Изменилась тарифная ставка",
                     overflow = TextOverflow.Visible,
                     style = styleDataLight.copy(color = MaterialTheme.colorScheme.primary),
-                    textAlign = TextAlign.End
+                    alignment = Alignment.CenterEnd
                 )
-                Text(
+                AutoSizeText(
+                    maxTextSize = maxTextSize,
                     text = "Для какого месяца сохранить тариф?",
                     overflow = TextOverflow.Visible,
                     style = styleDataMedium.copy(color = MaterialTheme.colorScheme.primary)
@@ -183,7 +189,8 @@ fun SettingSalaryScreen(
                         shape = Shapes.medium,
                         onClick = saveOnlyMonthTariffRate
                     ) {
-                        Text(
+                        AutoSizeText(
+                            maxTextSize = maxTextSize,
                             modifier = Modifier,
                             style = styleDataMedium,
                             text = "Только для этого"
@@ -194,7 +201,8 @@ fun SettingSalaryScreen(
                         shape = Shapes.medium,
                         onClick = saveTariffRateCurrentAndNextMonth
                     ) {
-                        Text(
+                        AutoSizeText(
+                            maxTextSize = maxTextSize,
                             modifier = Modifier,
                             style = styleDataMedium,
                             text = "Для этого и следующих"
@@ -207,7 +215,8 @@ fun SettingSalaryScreen(
                         shape = Shapes.medium,
                         onClick = onHideDialogChangeTariffRate
                     ) {
-                        Text(
+                        AutoSizeText(
+                            maxTextSize = maxTextSize,
                             modifier = Modifier,
                             style = styleDataMedium,
                             text = "Отмена"
@@ -294,29 +303,34 @@ fun SettingSalaryScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
+                        AutoSizeText(
+                            maxTextSize = maxTextSize,
                             text = "Тарифная ставка, руб. на",
                             overflow = TextOverflow.Visible,
                             style = styleDataMedium
                         )
-                        AsyncDataValue(resultState = currentMonth){ month ->
-                            month?.let{
-                                Text(
-                                    text = month,
-                                    overflow = TextOverflow.Visible,
-                                    style = styleDataMedium
-                                )
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            AsyncDataValue(resultState = currentMonth) { month ->
+                                month?.let {
+                                    AutoSizeText(
+                                        maxTextSize = maxTextSize,
+                                        text = month,
+                                        overflow = TextOverflow.Visible,
+                                        style = styleDataMedium
+                                    )
+                                }
                             }
-                        }
-                        AsyncDataValue(resultState = currentYear){ year ->
-                            year?.let{
-                                Text(
-                                    text = year,
-                                    overflow = TextOverflow.Visible,
-                                    style = styleDataMedium
-                                )
+                            AsyncDataValue(resultState = currentYear) { year ->
+                                year?.let {
+                                    AutoSizeText(
+                                        maxTextSize = maxTextSize,
+                                        text = year,
+                                        overflow = TextOverflow.Visible,
+                                        style = styleDataMedium
+                                    )
+                                }
                             }
                         }
                     }
@@ -359,8 +373,9 @@ fun SettingSalaryScreen(
                         .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
-                    Text(
-                        "Средний час, руб.",
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
+                        text = "Средний час, руб.",
                         overflow = TextOverflow.Visible,
                         style = styleDataMedium
                     )
@@ -403,8 +418,9 @@ fun SettingSalaryScreen(
                         .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
-                    Text(
-                        "Зональная надбавка, %",
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
+                        text = "Зональная надбавка, %",
                         overflow = TextOverflow.Visible,
                         style = styleDataMedium
                     )
@@ -446,8 +462,9 @@ fun SettingSalaryScreen(
                         .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
-                    Text(
-                        "Доплаты за класс и права, %",
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
+                        text = "Доплаты за класс и права, %",
                         overflow = TextOverflow.Visible,
                         style = styleDataMedium
                     )
@@ -490,8 +507,9 @@ fun SettingSalaryScreen(
                         .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
-                    Text(
-                        "Работа в одно лицо, %",
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
+                        text = "Работа в одно лицо, %",
                         overflow = TextOverflow.Visible,
                         style = styleDataMedium
                     )
@@ -534,8 +552,9 @@ fun SettingSalaryScreen(
                         .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
-                    Text(
-                        "Доплата за вредность, %",
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
+                        text = "Доплата за вредность, %",
                         overflow = TextOverflow.Visible,
                         style = styleDataMedium
                     )
@@ -578,8 +597,9 @@ fun SettingSalaryScreen(
                         .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
-                    Text(
-                        "Северная надбавка, %",
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
+                        text = "Северная надбавка, %",
                         overflow = TextOverflow.Visible,
                         style = styleDataMedium
                     )
@@ -622,8 +642,9 @@ fun SettingSalaryScreen(
                         .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
-                    Text(
-                        "Районный коэффициент",
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
+                        text = "Районный коэффициент",
                         overflow = TextOverflow.Visible,
                         style = styleDataMedium
                     )
@@ -666,8 +687,9 @@ fun SettingSalaryScreen(
                         .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
-                    Text(
-                        "Доплата за длинносоставные поезда",
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
+                        text = "Доплата за длинносоставные поезда",
                         overflow = TextOverflow.Visible,
                         style = styleDataMedium
                     )
@@ -760,16 +782,18 @@ fun SettingSalaryScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
-                        text = "Доплата за тяжеловесные поезда",
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
+                        text =  "Доплата за тяж. поезда",
                         overflow = TextOverflow.Visible,
                         style = styleDataMedium
                     )
                     TextButton(
                         onClick = addSurchargeHeavyTran
                     ) {
-                        Text(
-                            text = "Добавить",
+                        AutoSizeText(
+                            maxTextSize = maxTextSize,
+                            text =  "Добавить",
                             style = styleDataMedium.copy(color = MaterialTheme.colorScheme.tertiary)
                         )
                     }
@@ -879,7 +903,8 @@ fun SettingSalaryScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
                         text = "Доплата за удлиненное плечо",
                         overflow = TextOverflow.Visible,
                         style = styleDataMedium
@@ -887,8 +912,9 @@ fun SettingSalaryScreen(
                     TextButton(
                         onClick = addServicePhase
                     ) {
-                        Text(
-                            text = "Добавить",
+                        AutoSizeText(
+                            maxTextSize = maxTextSize,
+                            text =  "Добавить",
                             style = styleDataMedium.copy(color = MaterialTheme.colorScheme.tertiary)
                         )
                     }
@@ -995,6 +1021,51 @@ fun SettingSalaryScreen(
             }
 
             item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = paddingLarge),
+                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
+                ) {
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
+                        text = "Другие надбавки, %",
+                        overflow = TextOverflow.Visible,
+                        style = styleDataMedium
+                    )
+                    AsyncDataValue(resultState = uiState.otherSurchargeState) { otherSurcharge ->
+                        otherSurcharge?.let {
+                            OutlinedTextField(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                value = otherSurcharge,
+                                onValueChange = { value ->
+                                    setOtherSurcharge(value)
+                                },
+                                isError = uiState.isErrorInputOtherSurcharge,
+                                supportingText = {
+                                    if (uiState.isErrorInputOtherSurcharge) {
+                                        Text(text = "Некорректные данные")
+                                    }
+                                },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent
+                                ),
+                                shape = Shapes.medium,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Decimal
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
                 Text(
                     "Удержания",
                     overflow = TextOverflow.Visible,
@@ -1013,8 +1084,9 @@ fun SettingSalaryScreen(
                         .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
-                    Text(
-                        "Подоходный налог, %",
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
+                        text = "Подоходный налог, %",
                         overflow = TextOverflow.Visible,
                         style = styleDataMedium
                     )
@@ -1057,8 +1129,9 @@ fun SettingSalaryScreen(
                         .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
-                    Text(
-                        "Профсоюз, %",
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
+                        text = "Профсоюз, %",
                         overflow = TextOverflow.Visible,
                         style = styleDataMedium
                     )
@@ -1101,8 +1174,9 @@ fun SettingSalaryScreen(
                         .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
-                    Text(
-                        "Прочие удержания, %",
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
+                        text = "Прочие удержания, %",
                         overflow = TextOverflow.Visible,
                         style = styleDataMedium
                     )

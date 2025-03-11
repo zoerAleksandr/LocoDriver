@@ -188,7 +188,12 @@ class FormViewModel(
                                 userSettings = setting
                             )
 
-                            val otherSurcharge = moneyAtQualificationClass + nordicSurcharge + districtSurcharge + moneyAtHarmfulness
+                            val otherSurchargeMoney = salaryCalculationUseCase.getOtherSurchargeMoney(
+                                routeList = listOf(route),
+                                userSettings = setting
+                            )
+
+                            val otherSurcharge = moneyAtQualificationClass + nordicSurcharge + districtSurcharge + moneyAtHarmfulness + otherSurchargeMoney
 
                             val totalMoney =
                                 moneyAtTariffRate + moneyAtNightHours + zonalSurchargeMoney + moneyAtPassengerTime + moneyAtHoliday + surchargeAtTrains + moneyAtOnePerson + otherSurcharge

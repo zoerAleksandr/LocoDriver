@@ -11,7 +11,6 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -29,6 +28,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.z_company.core.ui.component.AutoSizeText
 import kotlin.math.absoluteValue
 
 @Composable
@@ -112,12 +112,11 @@ fun MyWheelPicker(
                         .fillMaxWidth(),
                     contentAlignment = contentAlignment
                 ) {
-                    Text(
+                    AutoSizeText(
                         text = texts[index],
-                        style = style,
+                        minTextSize = 10.sp,
+                        maxTextSize = 18.sp,
                         color = if (calculateSnappedItemIndex(snapperLayoutInfo) == index) color else MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        fontSize = if (calculateSnappedItemIndex(snapperLayoutInfo) == index) 18.sp else 18.sp
                     )
                 }
             }

@@ -1,6 +1,5 @@
 package com.z_company.route.ui
 
-import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -48,7 +47,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -86,9 +84,7 @@ import com.z_company.domain.util.CalculationEnergy
 import com.z_company.domain.util.str
 import com.z_company.core.R as CoreR
 import com.z_company.route.component.BottomShadow
-import com.z_company.route.component.CustomDatePickerDialog
 import com.z_company.route.component.DieselSectionItem
-import com.z_company.core.ui.component.TimePickerDialog
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.component.WheelDateTimePicker
 import com.z_company.route.extention.isScrollInInitialState
@@ -97,7 +93,6 @@ import java.util.Calendar
 import com.z_company.domain.util.*
 import com.z_company.route.component.ConfirmExitDialog
 import com.z_company.route.component.ElectricSectionItem
-import com.z_company.route.component.rememberDatePickerStateInLocale
 import com.z_company.route.viewmodel.DieselSectionFormState
 import com.z_company.route.viewmodel.DieselSectionType
 import com.z_company.route.viewmodel.ElectricSectionFormState

@@ -70,6 +70,7 @@ fun SettingSalaryDestination(
         saveOnlyMonthTariffRate = viewModel::saveSettingAndOnlyMonthTariffRate,
         saveTariffRateCurrentAndNextMonth = viewModel::saveSettingAndTariffRateCurrentAndNextMonth,
         currentMonth = uiState.currentMonth,
-        currentYear = uiState.currentYear
+        currentYear = uiState.currentYear,
+        setOtherSurcharge = viewModel::setOtherSurcharge
     )
 }

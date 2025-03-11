@@ -71,6 +71,7 @@ import com.z_company.settings.viewmodel.TimeZoneRussia
 import kotlinx.coroutines.launch
 import com.z_company.core.R as CoreR
 import androidx.compose.ui.text.style.TextOverflow
+import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.domain.entities.ServicePhase
 import com.z_company.domain.util.toIntOrZero
 import com.z_company.route.component.AnimationDialog
@@ -467,6 +468,9 @@ fun SettingScreenContent(
             fontWeight = FontWeight.Light
         )
 
+    val maxTextSizeHint = 18.sp
+    val maxTextSize = 24.sp
+
     var showNightTimeStartDialog by remember {
         mutableStateOf(false)
     }
@@ -624,7 +628,11 @@ fun SettingScreenContent(
                         ) {
                             val currentMonth =
                                 currentSettings.selectMonthOfYear.month.getMonthFullText()
-                            Text(text = currentMonth, style = styleData)
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
+                                text = currentMonth,
+                                style = styleData
+                            )
 
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(
@@ -719,7 +727,8 @@ fun SettingScreenContent(
                                 }
                             }
                         }
-                        Text(
+                        AutoSizeText(
+                            maxTextSize = maxTextSizeHint,
                             modifier = Modifier.padding(start = 16.dp, top = 8.dp),
                             text = "Установите местный часовой пояс. Будет учитываться при расчете ночных, праздничных часов и переходных поездках.",
                             style = styleHint
@@ -753,9 +762,14 @@ fun SettingScreenContent(
                                     .fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(text = "Ночь", style = styleData)
+                                AutoSizeText(
+                                    maxTextSize = maxTextSize,
+                                    text = "Ночь",
+                                    style = styleData
+                                )
                                 val text = currentSettings.nightTime.toString()
-                                Text(
+                                AutoSizeText(
+                                    maxTextSize = maxTextSize,
                                     modifier = Modifier
                                         .clickable {
                                             showNightTimeStartDialog = true
@@ -771,10 +785,15 @@ fun SettingScreenContent(
                                     .fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(text = "Отдых в ПО", style = styleData)
+                                AutoSizeText(
+                                    maxTextSize = maxTextSize,
+                                    text = "Отдых в ПО",
+                                    style = styleData
+                                )
                                 val text =
                                     ConverterLongToTime.getTimeInStringFormat(currentSettings.minTimeRestPointOfTurnover)
-                                Text(
+                                AutoSizeText(
+                                    maxTextSize = maxTextSize,
                                     modifier = Modifier
                                         .clickable { showRestDialog = true },
                                     text = text,
@@ -788,10 +807,15 @@ fun SettingScreenContent(
                                     .fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(text = "Домашний отдых", style = styleData)
+                                AutoSizeText(
+                                    maxTextSize = maxTextSize,
+                                    text = "Домашний отдых",
+                                    style = styleData
+                                )
                                 val text =
                                     ConverterLongToTime.getTimeInStringFormat(currentSettings.minTimeHomeRest)
-                                Text(
+                                AutoSizeText(
+                                    maxTextSize = maxTextSize,
                                     modifier = Modifier
                                         .clickable { showHomeRestDialog = true },
                                     text = text,
@@ -800,7 +824,8 @@ fun SettingScreenContent(
                             }
                         }
                     }
-                    Text(
+                    AutoSizeText(
+                        maxTextSize = maxTextSizeHint,
                         modifier = Modifier.padding(start = 16.dp, top = 8.dp),
                         text = "Установите время минимального отдыха. Это значение будет использовано при расчете отдыха после поездки.",
                         style = styleHint
@@ -817,7 +842,7 @@ fun SettingScreenContent(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "ПЛЕЧИ ОБСЛУЖИВАНИЯ",
+                        text = "ПЛЕЧИ",
                         overflow = TextOverflow.Ellipsis,
                         style = styleTitle
                     )
@@ -899,12 +924,14 @@ fun SettingScreenContent(
                             },
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Text(
+                        AutoSizeText(
+                            maxTextSize = maxTextSize,
                             text = "${item.departureStation} - ${item.arrivalStation}",
                             overflow = TextOverflow.Ellipsis,
                             style = styleData
                         )
-                        Text(
+                        AutoSizeText(
+                            maxTextSize = maxTextSize,
                             text = "${item.distance} км",
                             overflow = TextOverflow.Visible,
                             style = styleData
@@ -936,12 +963,17 @@ fun SettingScreenContent(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(text = "Локомотив", style = styleData)
+                                AutoSizeText(
+                                    maxTextSize = maxTextSize,
+                                    text = "Локомотив",
+                                    style = styleData
+                                )
                                 val textLocoType = when (currentSettings.defaultLocoType) {
                                     LocoType.ELECTRIC -> "Электровоз"
                                     LocoType.DIESEL -> "Тепловоз"
                                 }
-                                Text(
+                                AutoSizeText(
+                                    maxTextSize = maxTextSize,
                                     modifier = Modifier.clickable {
                                         showLocoTypeSelectedDialog = true
                                     },
@@ -957,7 +989,8 @@ fun SettingScreenContent(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
+                                AutoSizeText(
+                                    maxTextSize = maxTextSize,
                                     modifier = Modifier
                                         .padding(end = 16.dp)
                                         .weight(0.8f),
@@ -981,13 +1014,15 @@ fun SettingScreenContent(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(
+                                    AutoSizeText(
+                                        maxTextSize = maxTextSize,
                                         text = "Время работы",
                                         style = styleData
                                     )
                                     val text =
                                         ConverterLongToTime.getTimeInStringFormat(currentSettings.defaultWorkTime)
-                                    Text(
+                                    AutoSizeText(
+                                        maxTextSize = maxTextSize,
                                         modifier = Modifier
                                             .padding(end = 12.dp)
                                             .clickable { showWorkTimeDialog = true },
@@ -998,7 +1033,8 @@ fun SettingScreenContent(
                             }
                         }
                     }
-                    Text(
+                    AutoSizeText(
+                        maxTextSize = maxTextSizeHint,
                         modifier = Modifier.padding(start = 16.dp, top = 8.dp),
                         text = "Эти значения будут установлены по умолчанию при создании нового маршрута.",
                         style = styleHint
@@ -1025,7 +1061,8 @@ fun SettingScreenContent(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier
                                     .padding(end = 16.dp)
                                     .weight(0.8f),
@@ -1039,7 +1076,8 @@ fun SettingScreenContent(
                                 })
                         }
                     }
-                    Text(
+                    AutoSizeText(
+                        maxTextSize = maxTextSizeHint,
                         modifier = Modifier.padding(start = 16.dp, top = 8.dp),
                         text = "Маршруты, время явки которых не наступило, будут учитываться при подсчете отработаного времени.",
                         style = styleHint
@@ -1072,7 +1110,7 @@ fun SettingScreenContent(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
 
-                            Text(text = "E-mail", style = styleData)
+                            AutoSizeText(maxTextSize =  maxTextSize, text = "E-mail", style = styleData)
                             AsyncData(
                                 resultState = currentUserState,
                                 loadingContent = {
@@ -1082,13 +1120,13 @@ fun SettingScreenContent(
                                     )
                                 },
                                 errorContent = {
-                                    Text(
+                                    AutoSizeText(maxTextSize =  maxTextSize,
                                         text = "Ошибка синхронизации",
                                         style = styleData
                                     )
                                 }) { user ->
                                 user?.let {
-                                    Text(
+                                    AutoSizeText(maxTextSize =  maxTextSize,
                                         text = user.email,
                                         style = styleData
                                     )
@@ -1102,7 +1140,7 @@ fun SettingScreenContent(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(text = "Статус", style = styleData)
+                            AutoSizeText(maxTextSize =  maxTextSize, text = "Статус", style = styleData)
                             AsyncData(
                                 resultState = currentUserState,
                                 loadingContent = {
@@ -1111,7 +1149,7 @@ fun SettingScreenContent(
                                         strokeWidth = 2.dp
                                     )
                                 }, errorContent = {
-                                    Text(
+                                    AutoSizeText(maxTextSize =  maxTextSize,
                                         text = "Ошибка синхронизации",
                                         style = styleData
                                     )
@@ -1123,7 +1161,7 @@ fun SettingScreenContent(
                                         "Не подтвержден"
                                     }
 
-                                    Text(
+                                    AutoSizeText(maxTextSize =  maxTextSize,
                                         modifier = Modifier.clickable(enabled = !user.isVerification) {
                                             showConfirmEmailDialog = true
                                         },
@@ -1143,7 +1181,7 @@ fun SettingScreenContent(
                                 .clickable { onBillingClick() },
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(text = "Подписка", style = styleData)
+                            AutoSizeText(maxTextSize =  maxTextSize, text = "Подписка", style = styleData)
                             AsyncData(
                                 resultState = purchasesState,
                                 loadingContent = {
@@ -1153,19 +1191,19 @@ fun SettingScreenContent(
                                     )
                                 },
                                 errorContent = {
-                                    Text(
+                                    AutoSizeText(maxTextSize =  maxTextSize,
                                         text = "Ошибка синхронизации",
                                         style = styleData
                                     )
                                 }
                             ) { purchaseInfo ->
                                 if (purchaseInfo.isNullOrEmpty()) {
-                                    Text(
+                                    AutoSizeText(maxTextSize =  maxTextSize,
                                         text = "Отсутствует",
                                         style = styleData
                                     )
                                 } else {
-                                    Text(
+                                    AutoSizeText(maxTextSize =  maxTextSize,
                                         text = "до $purchaseInfo",
                                         style = styleData
                                     )
@@ -1174,7 +1212,7 @@ fun SettingScreenContent(
                         }
                     }
                 }
-                Text(
+                AutoSizeText(maxTextSize =  maxTextSizeHint,
                     modifier = Modifier.padding(start = 16.dp, top = 8.dp),
                     text = "Подтверждение e-mail нужно для синхронизации с облачным хранилищем.",
                     style = styleHint
@@ -1218,7 +1256,7 @@ fun SettingScreenContent(
                                                     timeInMillis
                                                 )
 
-                                            Text(
+                                            AutoSizeText(maxTextSize =  maxTextSize,
                                                 text = "Последнее обновление $textSyncDate",
                                                 style = styleData,
                                                 overflow = TextOverflow.Visible
@@ -1233,7 +1271,7 @@ fun SettingScreenContent(
                                             .clickable { onUploadToRemote() },
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Text(text = "Отправить в облако", style = styleData)
+                                        AutoSizeText(maxTextSize =  maxTextSize, text = "Отправить в облако", style = styleData)
                                         AsyncData(
                                             resultState = uploadRepoState,
                                             loadingContent = {
@@ -1259,7 +1297,7 @@ fun SettingScreenContent(
                                             .clickable { onDownloadFromRemote() },
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Text(text = "Загрузить из облака", style = styleData)
+                                        AutoSizeText(maxTextSize =  maxTextSize, text = "Загрузить из облака", style = styleData)
                                         AsyncData(
                                             resultState = downloadRepoState,
                                             loadingContent = {
@@ -1283,7 +1321,7 @@ fun SettingScreenContent(
                     }
                 }
 
-                Text(
+                AutoSizeText(maxTextSize =  maxTextSizeHint,
                     modifier = Modifier.padding(start = 16.dp, top = 8.dp),
                     text = "Выгрузка на сервер маршрутных листов выполняется автоматически при наличии подписки и с подтвержденным e-mail",
                     style = styleHint

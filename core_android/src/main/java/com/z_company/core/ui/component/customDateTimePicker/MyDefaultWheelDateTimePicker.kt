@@ -5,11 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -79,9 +77,9 @@ internal fun MyDefaultWheelDateTimePicker(
                     .height(heightSelectLine)
             )
         }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             MyDefaultWheelDatePicker(
-                modifier = Modifier.weight(0.65f).padding(start = 8.dp),
+                modifier = Modifier.weight(0.7f).padding(start = 8.dp),
                 startDate = startDateTime.date,
                 yearsRange = yearsRange,
                 height = height,
@@ -148,7 +146,7 @@ internal fun MyDefaultWheelDateTimePicker(
                 }
             }
             MyDefaultWheelTimePicker(
-                modifier = Modifier.weight(0.35f).padding(end = 8.dp),
+                modifier = Modifier.weight(0.3f).padding(end = 8.dp),
                 startTime = startDateTime.time,
                 timeFormat = timeFormat,
                 height = height,

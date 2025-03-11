@@ -24,7 +24,6 @@ import com.z_company.core.ui.component.toDp
 import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
 import com.z_company.core.util.DateAndTimeConverter.getMonthShortText
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.Month
 
 @Composable
 fun MyDefaultWheelDatePicker(
@@ -92,7 +91,7 @@ fun MyDefaultWheelDatePicker(
                     height = height,
                     texts = years.map { it.text },
                     rowCount = rowCount,
-                    style = textStyle,
+                    style = MaterialTheme.typography.labelMedium,
                     color = textColor,
                     contentAlignment = Alignment.CenterEnd,
                 ) { snappedIndex ->
@@ -133,7 +132,7 @@ fun MyDefaultWheelDatePicker(
                 height = height,
                 texts = months.map { it.text },
                 rowCount = rowCount,
-                style = textStyle,
+                style = MaterialTheme.typography.labelMedium,
                 color = textColor,
                 contentAlignment = Alignment.Center,
             ) { snappedIndex ->
@@ -171,7 +170,7 @@ fun MyDefaultWheelDatePicker(
                 height = height,
                 texts = dayOfMonths.map { it.text },
                 rowCount = rowCount,
-                style = textStyle,
+                style = MaterialTheme.typography.labelMedium,
                 color = textColor,
                 contentAlignment = Alignment.CenterStart,
             ) { snappedIndex ->
