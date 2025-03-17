@@ -7,9 +7,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.parse.ParseUser
 import com.z_company.core.ResultState
-import com.z_company.data_local.SharedPreferenceStorage
 import com.z_company.domain.entities.Day
 import com.z_company.domain.entities.MonthOfYear
+import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.LoadCalendarFromStorage
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
@@ -40,7 +40,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private val calendarUseCase: CalendarUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val remoteRouteUseCase: RemoteRouteUseCase by inject()
-    private val sharedPreferenceStorage: SharedPreferenceStorage by inject()
+    private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val billingClient: RuStoreBillingClient by inject()
     private val ruStoreUseCase: RuStoreUseCase by inject()
 

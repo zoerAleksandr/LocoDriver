@@ -1,9 +1,15 @@
 package com.z_company.core.ui.component.customDateTimePicker
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -70,16 +76,17 @@ object MyWheelDateTimePickerComponent {
         selectorProperties: SelectorProperties = MyWheelPickerDefaults.selectorProperties(),
         onDoneClick: (snappedDate: LocalDateTime) -> Unit = {},
         onDateChangeListener: (snappedDate: LocalDateTime) -> Unit = {},
+        onSettingClick: () -> Unit
     ) {
         val titleStyle: TextStyle = AppTypography.getType().titleLarge.copy(
-        color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.primary
         )
 
         val doneLabelStyle: TextStyle = AppTypography.getType().titleMedium
-        .copy(
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.tertiary
-        )
+            .copy(
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.tertiary
+            )
 
         var selectedDate by remember { mutableStateOf(LocalDateTime.now()) }
 
@@ -92,7 +99,9 @@ object MyWheelDateTimePickerComponent {
         Column(modifier) {
             if (!hideHeader) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
@@ -128,6 +137,16 @@ object MyWheelDateTimePickerComponent {
                     snappedDateTime.snappedIndex
                 }
             )
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+                Text(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .noRippleEffect { onSettingClick() },
+                    text = "Изменить интерфейс",
+                    color = MaterialTheme.colorScheme.tertiary,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
         }
     }
 

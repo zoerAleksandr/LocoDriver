@@ -46,6 +46,7 @@ fun MyWheelDateTimePickerBottomSheet(
     onDoneClick: (snappedDate: LocalDateTime) -> Unit = {},
     onDateChangeListener: (snappedDate: LocalDateTime) -> Unit = {},
     onDismiss: () -> Unit = {},
+    onSettingClick: () -> Unit,
 ) {
     if (showDatePicker) {
         val modalBottomSheetState = rememberModalBottomSheetState()
@@ -76,7 +77,8 @@ fun MyWheelDateTimePickerBottomSheet(
                 onDoneClick = {
                     onDoneClick(it)
                 },
-                onDateChangeListener = onDateChangeListener
+                onDateChangeListener = onDateChangeListener,
+                onSettingClick = onSettingClick
             )
         }
     }

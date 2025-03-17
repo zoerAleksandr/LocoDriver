@@ -5,7 +5,7 @@ import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.z_company.core.ResultState
-import com.z_company.data_local.SharedPreferenceStorage
+import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.repository.Back4AppManager
 import kotlinx.coroutines.Dispatchers
@@ -21,7 +21,7 @@ class SynchronizedWorker(context: Context, params: WorkerParameters) :
     KoinComponent {
     private val back4AppManager: Back4AppManager by inject()
     private val settingsUseCase: SettingsUseCase by inject()
-    private val sharedPreferenceStorage: SharedPreferenceStorage by inject()
+    private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         try {
             var result: Result = Result.failure()

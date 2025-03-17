@@ -15,7 +15,8 @@ fun WheelDateTimePicker(
     titleText: String,
     initDateTime: Long,
     onDismiss: () -> Unit,
-    onDoneClick: (LocalDateTime) -> Unit
+    onDoneClick: (LocalDateTime) -> Unit,
+    onSettingClick: () -> Unit = {}
 ) {
 
     MyWheelDateTimePickerView(
@@ -28,6 +29,7 @@ fun WheelDateTimePicker(
         dateTimePickerView = DateTimePickerView.DIALOG_VIEW,
         showMonthAsNumber = false,
         onDoneClick = onDoneClick,
-        onDismiss = onDismiss
+        onDismiss = onDismiss,
+        onSettingClick = onSettingClick
     )
 }

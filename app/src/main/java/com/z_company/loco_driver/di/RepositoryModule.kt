@@ -16,6 +16,7 @@ import com.z_company.domain.repositories.CalendarRepositories
 import com.z_company.domain.repositories.HistoryResponseRepository
 import com.z_company.domain.repositories.SalarySettingRepository
 import com.z_company.domain.repositories.SettingsRepository
+import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.repository.Back4AppManager
 import com.z_company.repository.ru_store_api.RuStoreRepositoryKtor
 import org.koin.android.ext.koin.androidApplication
@@ -45,7 +46,7 @@ val repositoryModule = module {
     single<HistoryResponseRepository> {
         RoomHistoryResponseRepository()
     }
-    single { SharedPreferenceStorage(application = androidApplication()) }
+    single<SharedPreferencesRepositories> { SharedPreferenceStorage(application = androidApplication()) }
 
     single { Back4AppManager() }
     single<SalarySettingRepository> { RoomSalarySettingRepository() }

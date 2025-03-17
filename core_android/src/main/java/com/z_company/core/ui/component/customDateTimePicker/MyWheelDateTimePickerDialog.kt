@@ -5,10 +5,14 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -55,6 +59,7 @@ fun MyWheelDateTimePickerDialog(
     onDoneClick: (snappedDate: LocalDateTime) -> Unit = {},
     onDateChangeListener: (snappedDate: LocalDateTime) -> Unit = {},
     onDismiss: () -> Unit = {},
+    onSettingClick: () -> Unit
 ) {
     if (showDatePicker) {
         Dialog(
@@ -98,7 +103,8 @@ fun MyWheelDateTimePickerDialog(
                         onDoneClick = {
                             onDoneClick(it)
                         },
-                        onDateChangeListener = onDateChangeListener
+                        onDateChangeListener = onDateChangeListener,
+                        onSettingClick = onSettingClick
                     )
                 }
             }

@@ -47,6 +47,7 @@ fun MyWheelDateTimePickerView(
     onDoneClick: (snappedDate: LocalDateTime) -> Unit = {},
     onDateChangeListener: (snappedDate: LocalDateTime) -> Unit = {},
     onDismiss: () -> Unit = {},
+    onSettingClick: () -> Unit
 ) {
     if (dateTimePickerView == DateTimePickerView.BOTTOM_SHEET_VIEW) {
         MyWheelDateTimePickerBottomSheet(
@@ -71,7 +72,8 @@ fun MyWheelDateTimePickerView(
             dragHandle = dragHandle,
             onDoneClick = onDoneClick,
             onDateChangeListener = onDateChangeListener,
-            onDismiss = onDismiss
+            onDismiss = onDismiss,
+            onSettingClick = onSettingClick
         )
     } else {
         MyWheelDateTimePickerDialog(
@@ -95,7 +97,8 @@ fun MyWheelDateTimePickerView(
             selectorProperties = selectorProperties,
             onDoneClick = onDoneClick,
             onDateChangeListener = onDateChangeListener,
-            onDismiss = onDismiss
+            onDismiss = onDismiss,
+            onSettingClick = onSettingClick
         )
     }
 }

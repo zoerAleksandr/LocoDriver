@@ -8,12 +8,12 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
-import com.z_company.data_local.SharedPreferenceStorage
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.NightTime
 import com.z_company.domain.entities.route.*
 import com.z_company.domain.entities.route.UtilsForEntities.getHomeRest
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
+import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.*
 import com.z_company.domain.util.CalculateNightTime
 import com.z_company.domain.util.minus
@@ -47,7 +47,7 @@ class FormViewModel(
     private val passengerUseCase: PassengerUseCase by inject()
     private val photoUseCase: PhotoUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
-    private val sharedPreferenceStorage: SharedPreferenceStorage by inject()
+    private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val salaryCalculationUseCase: SalaryCalculationUseCase by inject()
 
     val reviewManager = RuStoreReviewManagerFactory.create(application.applicationContext)

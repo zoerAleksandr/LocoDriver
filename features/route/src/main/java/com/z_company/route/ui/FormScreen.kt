@@ -72,6 +72,7 @@ import androidx.compose.ui.zIndex
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.CustomSnackBar
+import com.z_company.core.ui.component.SelectableDateTimePicker
 import com.z_company.core.ui.component.WheelDateTimePicker
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
@@ -336,7 +337,7 @@ private fun RouteFormScreenContent(
         mutableStateOf(startOfWorkTime)
     }
 
-    WheelDateTimePicker(
+    SelectableDateTimePicker(
         titleText = "Явка",
         isShowPicker = showStartDatePicker,
         initDateTime = startCalendar.timeInMillis,
