@@ -53,6 +53,8 @@ fun SettingDestination(
         hideDialogAddServicePhase = settingsViewModel::hideDialogAddServicePhase,
         addServicePhase = settingsViewModel::addServicePhase,
         deleteServicePhase = settingsViewModel::deleteServicePhase,
-        updateServicePhase = settingsViewModel::selectToUpdateServicePhase
+        updateServicePhase = settingsViewModel::selectToUpdateServicePhase,
+        setInputDateTimeType = settingsViewModel::setInputDateTimeType,
+        inputDateTimeType = uiState.inputDateTimeType
     )
 }

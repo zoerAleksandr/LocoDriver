@@ -44,7 +44,7 @@ fun RoundDateTimePicker(
     initDateTime: Long,
     onDismiss: () -> Unit,
     onDoneClick: (LocalDateTime) -> Unit,
-    onSettingClick: () -> Unit
+    onSettingClick: () -> Unit,
 ) {
     val calendar = Calendar.getInstance().also {
         it.timeInMillis = initDateTime

@@ -1,6 +1,7 @@
 package com.z_company.core.ui.component
 
 import androidx.compose.runtime.Composable
+import com.z_company.domain.entities.TypeDateTimePicker
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import kotlinx.datetime.LocalDateTime
 import org.koin.compose.koinInject
@@ -12,18 +13,19 @@ fun SelectableDateTimePicker(
     initDateTime: Long,
     onDismiss: () -> Unit,
     onDoneClick: (LocalDateTime) -> Unit,
+    onSettingClick: () -> Unit
 ) {
     val preferences = koinInject<SharedPreferencesRepositories>()
     val token = preferences.tokenDateTimePickerType()
 
     val type = when(token){
-        TypeDateTimePicker.ROUND.name -> {
+        TypeDateTimePicker.ROUND.text -> {
             TypeDateTimePicker.ROUND
         }
-        TypeDateTimePicker.INPUT.name -> {
+        TypeDateTimePicker.INPUT.text -> {
             TypeDateTimePicker.INPUT
         }
-        TypeDateTimePicker.WHEEL.name -> {
+        TypeDateTimePicker.WHEEL.text -> {
             TypeDateTimePicker.WHEEL
         }
         else -> {
@@ -40,7 +42,7 @@ fun SelectableDateTimePicker(
                 initDateTime = initDateTime,
                 onDismiss = { onDismiss() },
                 onDoneClick = onDoneClick,
-                onSettingClick = {}
+                onSettingClick = onSettingClick
             )
         }
 
@@ -51,7 +53,7 @@ fun SelectableDateTimePicker(
                 initDateTime = initDateTime,
                 onDismiss = { onDismiss() },
                 onDoneClick = onDoneClick,
-                onSettingClick = {}
+                onSettingClick = onSettingClick
             )
         }
 
@@ -62,12 +64,8 @@ fun SelectableDateTimePicker(
                 initDateTime = initDateTime,
                 onDismiss = { onDismiss() },
                 onDoneClick = onDoneClick,
-                onSettingClick = {}
+                onSettingClick = onSettingClick
             )
         }
     }
-}
-
-enum class TypeDateTimePicker {
-     ROUND, INPUT, WHEEL
 }

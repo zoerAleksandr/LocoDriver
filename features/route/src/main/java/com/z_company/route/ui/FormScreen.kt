@@ -349,7 +349,8 @@ private fun RouteFormScreenContent(
         },
         onDismiss = {
             showStartDatePicker = false
-        }
+        },
+        onSettingClick = onSettingClick
     )
 
     val endOfWorkTime by remember {

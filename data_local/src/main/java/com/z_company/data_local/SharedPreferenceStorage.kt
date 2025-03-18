@@ -3,7 +3,7 @@ package com.z_company.data_local
 import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
-import com.z_company.core.ui.component.TypeDateTimePicker
+import com.z_company.domain.entities.TypeDateTimePicker
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import org.koin.core.component.KoinComponent
 
@@ -64,7 +64,7 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
     }
 
     override fun tokenDateTimePickerType(): String =
-        sharedpref.getString(TOKEN_DATE_TIME_PICKER_TYPE, TypeDateTimePicker.INPUT.name)!!
+        sharedpref.getString(TOKEN_DATE_TIME_PICKER_TYPE, TypeDateTimePicker.WHEEL.text)!!
 
 
     override fun setTokenDateTimePickerType(type: String) {

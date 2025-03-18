@@ -48,9 +48,9 @@ internal data class UserSettings(
     @ColumnInfo(defaultValue = "[]")
     val locomotiveSeriesList: List<String> = listOf(),
     @ColumnInfo(defaultValue = "[]")
-    val servicePhases: List<ServicePhase> = listOf()
-//    @ColumnInfo(defaultValue = "1")
-//    var timeInputKeyboard: Boolean = true
+    val servicePhases: List<ServicePhase> = listOf(),
+    @ColumnInfo(defaultValue = "Барабан")
+    var dateTimePickerType: String
 )
 
 data class ServicePhase(

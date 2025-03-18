@@ -31,6 +31,9 @@ import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.R
 import com.z_company.core.ui.theme.custom.AppTypography
+import com.z_company.domain.entities.TypeDateTimePicker
+import com.z_company.domain.repositories.SharedPreferencesRepositories
+import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,6 +44,8 @@ fun TimePickerDialog(
     isPicker: Boolean = true,
     header: String? = null
 ) {
+    val preferences = koinInject<SharedPreferencesRepositories>()
+
     val configuration = LocalConfiguration.current
     val showingPicker = remember { mutableStateOf(isPicker) }
 
@@ -85,7 +90,16 @@ fun TimePickerDialog(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 if (configuration.screenHeightDp > 400) {
-                    IconButton(onClick = { showingPicker.value = !showingPicker.value }) {
+                    IconButton(
+                        onClick = {
+                            showingPicker.value = !showingPicker.value
+                            if (showingPicker.value){
+                                preferences.setTokenDateTimePickerType(TypeDateTimePicker.ROUND.text)
+                            } else {
+                                preferences.setTokenDateTimePickerType(TypeDateTimePicker.INPUT.text)
+                            }
+                        }
+                    ) {
                         val icon = painterResource(
                             id =
                             if (showingPicker.value) {
