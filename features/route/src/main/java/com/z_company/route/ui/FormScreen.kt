@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import android.util.Log
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -73,7 +74,6 @@ import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.component.SelectableDateTimePicker
-import com.z_company.core.ui.component.WheelDateTimePicker
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
@@ -366,11 +366,12 @@ private fun RouteFormScreenContent(
         mutableStateOf(endOfWorkTime)
     }
 
-    WheelDateTimePicker(
+    SelectableDateTimePicker(
         titleText = "Сдача",
         isShowPicker = showEndDatePicker,
         initDateTime = endCalendar.timeInMillis,
         onDoneClick = { localDateTime ->
+            Log.d("ZZZ", "localDateTime $localDateTime")
             val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
             val millis = instant.toEpochMilliseconds()
             onTimeEndWorkChanged(millis)
@@ -378,7 +379,8 @@ private fun RouteFormScreenContent(
         },
         onDismiss = {
             showEndDatePicker = false
-        }
+        },
+        onSettingClick = onSettingClick
     )
 
     LaunchedEffect(isCopy) {
@@ -588,7 +590,8 @@ private fun RouteFormScreenContent(
                                         color = MaterialTheme.colorScheme.primary
                                     ),
                                 ) {
-                                    link.getStringAnnotations(LINK_TO_SALARY_SETTING, it, it).firstOrNull()?.let {
+                                    link.getStringAnnotations(LINK_TO_SALARY_SETTING, it, it)
+                                        .firstOrNull()?.let {
                                         onSalarySettingClick()
                                     }
                                 }
@@ -844,10 +847,10 @@ private fun RouteFormScreenContent(
                     )
                     .padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 val textRest =
-                    if (route.basicData.restPointOfTurnover) "Отдых в ПО" else "Домашний отдых"
+                    if (route.basicData.restPointOfTurnover) "Отдых в ПО " else "Домашний отдых "
                 Text(
                     modifier = Modifier.wrapContentHeight(),
                     text = textRest,
@@ -863,6 +866,8 @@ private fun RouteFormScreenContent(
                         },
                     text = textHint,
                     style = hintStyle,
+                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 1,
                     color = MaterialTheme.colorScheme.tertiary
                 )
             }

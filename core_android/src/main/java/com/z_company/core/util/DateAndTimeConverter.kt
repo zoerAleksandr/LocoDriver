@@ -167,6 +167,18 @@ object DateAndTimeConverter {
         }
     }
 
+    fun getTime(value: Long?): String {
+        return if (value != null) {
+            SimpleDateFormat(
+                DateAndTimeFormat.TIME_FORMAT, Locale.getDefault()
+            ).format(
+                value
+            )
+        } else {
+            ""
+        }
+    }
+
     fun getDateMiniAndTime(value: Long?): String {
         return if (value != null) {
             val time = value.let { millis ->
@@ -230,19 +242,22 @@ object DateAndTimeConverter {
         } ?: ""
     }
 
-    fun isDifferenceDate(first: Long, second: Long): Boolean {
-        val firstDate = SimpleDateFormat(
-            DateAndTimeFormat.DATE_FORMAT_ONLY_DAY_OF_MONTH, Locale.getDefault()
-        ).format(
-            first
-        )
+    fun isDifferenceDate(first: Long?, second: Long?): Boolean {
+        return if (first != null && second != null) {
+            val firstDate = SimpleDateFormat(
+                DateAndTimeFormat.DATE_FORMAT_ONLY_DAY_OF_MONTH, Locale.getDefault()
+            ).format(
+                first
+            )
 
-        val secondDate = SimpleDateFormat(
-            DateAndTimeFormat.DATE_FORMAT_ONLY_DAY_OF_MONTH, Locale.getDefault()
-        ).format(
-            second
-        )
-
-        return firstDate != secondDate
+            val secondDate = SimpleDateFormat(
+                DateAndTimeFormat.DATE_FORMAT_ONLY_DAY_OF_MONTH, Locale.getDefault()
+            ).format(
+                second
+            )
+            return firstDate != secondDate
+        } else {
+            false
+        }
     }
 }

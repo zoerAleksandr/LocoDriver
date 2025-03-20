@@ -1,19 +1,15 @@
 package com.z_company.core.ui.component
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DatePickerState
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -24,11 +20,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.z_company.core.R
 import com.z_company.core.ui.component.customDateTimePicker.noRippleEffect
 import com.z_company.core.ui.theme.Shapes
@@ -46,8 +43,12 @@ fun RoundDateTimePicker(
     onDoneClick: (LocalDateTime) -> Unit,
     onSettingClick: () -> Unit,
 ) {
-    val calendar = Calendar.getInstance().also {
-        it.timeInMillis = initDateTime
+    val calendar by remember {
+       mutableStateOf(
+           Calendar.getInstance().also {
+               it.timeInMillis = initDateTime
+           }
+       )
     }
 
     val titleStyle: TextStyle = AppTypography.getType().titleLarge.copy(
@@ -95,15 +96,24 @@ fun RoundDateTimePicker(
                 title = {
                     Row(
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
 
-                        Text(modifier = Modifier.padding(16.dp), text = titleText, style = titleStyle)
+                        Text(
+                            modifier = Modifier.padding(16.dp),
+                            text = titleText,
+                            style = titleStyle,
+                            overflow = TextOverflow.Ellipsis,
+                            maxLines = 1,
+                        )
                         Text(
                             modifier = Modifier
                                 .padding(16.dp)
                                 .noRippleEffect { onSettingClick() },
                             text = "Изменить интерфейс",
+                            overflow = TextOverflow.Ellipsis,
+                            maxLines = 1,
                             color = MaterialTheme.colorScheme.tertiary,
                             style = MaterialTheme.typography.bodyMedium
                         )

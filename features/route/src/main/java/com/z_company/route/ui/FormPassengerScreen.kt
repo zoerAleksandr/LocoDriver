@@ -76,7 +76,7 @@ import com.z_company.route.component.BottomShadow
 import com.z_company.route.extention.isScrollInInitialState
 import kotlinx.coroutines.launch
 import com.z_company.core.ui.component.CustomSnackBar
-import com.z_company.core.ui.component.WheelDateTimePicker
+import com.z_company.core.ui.component.SelectableDateTimePicker
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.route.component.ConfirmExitDialog
 import kotlinx.datetime.TimeZone
@@ -117,7 +117,8 @@ fun FormPassengerScreen(
     changeExpandMenuArrivalStation: (Boolean) -> Unit,
     onDeleteStationName: (String) -> Unit,
     onChangedDropDownContentDepartureStation: (String) -> Unit,
-    onChangedDropDownContentArrivalStation: (String) -> Unit
+    onChangedDropDownContentArrivalStation: (String) -> Unit,
+    onSettingClick: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -245,7 +246,8 @@ fun FormPassengerScreen(
                             isExpandedMenuDepartureStation = isExpandedMenuDepartureStation,
                             onDeleteStationName = onDeleteStationName,
                             onChangedDropDownContentDepartureStation = onChangedDropDownContentDepartureStation,
-                            onChangedDropDownContentArrivalStation = onChangedDropDownContentArrivalStation
+                            onChangedDropDownContentArrivalStation = onChangedDropDownContentArrivalStation,
+                            onSettingClick = onSettingClick
                         )
                     }
 
@@ -273,7 +275,8 @@ fun PassengerFormScreenContent(
     changeExpandMenuArrivalStation: (Boolean) -> Unit,
     onDeleteStationName: (String) -> Unit,
     onChangedDropDownContentDepartureStation: (String) -> Unit,
-    onChangedDropDownContentArrivalStation: (String) -> Unit
+    onChangedDropDownContentArrivalStation: (String) -> Unit,
+    onSettingClick: () -> Unit
 ) {
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
@@ -470,7 +473,7 @@ fun PassengerFormScreenContent(
                 }
             }
 
-            WheelDateTimePicker(
+            SelectableDateTimePicker(
                 titleText = "Отправление",
                 isShowPicker = showDepartureDatePicker,
                 initDateTime = departureTime.timeInMillis,
@@ -482,7 +485,8 @@ fun PassengerFormScreenContent(
                 },
                 onDismiss = {
                     showDepartureDatePicker = false
-                }
+                },
+                onSettingClick = onSettingClick
             )
 
             Row(
@@ -625,7 +629,7 @@ fun PassengerFormScreenContent(
                 }
             }
 
-            WheelDateTimePicker(
+            SelectableDateTimePicker(
                 titleText = "Прибытие",
                 isShowPicker = showArrivalDatePicker,
                 initDateTime = arrivalTime.timeInMillis,
@@ -637,7 +641,8 @@ fun PassengerFormScreenContent(
                 },
                 onDismiss = {
                     showArrivalDatePicker = false
-                }
+                },
+                onSettingClick = onSettingClick
             )
 
             Row(

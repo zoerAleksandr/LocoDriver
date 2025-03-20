@@ -56,6 +56,7 @@ fun FormPassengerDestination(
         isExpandedMenuArrivalStation = formUiState.isExpandMenuArrivalStation,
         onDeleteStationName = viewModel::removeStationName,
         onChangedDropDownContentDepartureStation = viewModel::onChangedDropDownContentDepartureStation,
-        onChangedDropDownContentArrivalStation = viewModel::onChangedDropDownContentArrivalStation
+        onChangedDropDownContentArrivalStation = viewModel::onChangedDropDownContentArrivalStation,
+        onSettingClick = router::showSettings
     )
 }

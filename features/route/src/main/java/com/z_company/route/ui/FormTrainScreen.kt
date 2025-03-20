@@ -723,7 +723,8 @@ fun TrainFormScreenContent(
                     onStationNameChanged = onStationNameChanged,
                     onArrivalTimeChanged = onArrivalTimeChanged,
                     onDepartureTimeChanged = onDepartureTimeChanged,
-                    onDeleteStationName = onDeleteStationName
+                    onDeleteStationName = onDeleteStationName,
+                    onSettingClick = onSettingClick
                 )
             }
         }

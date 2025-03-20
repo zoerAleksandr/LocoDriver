@@ -86,6 +86,7 @@ import com.z_company.core.R as CoreR
 import com.z_company.route.component.BottomShadow
 import com.z_company.route.component.DieselSectionItem
 import com.z_company.core.ui.component.CustomSnackBar
+import com.z_company.core.ui.component.SelectableDateTimePicker
 import com.z_company.core.ui.component.WheelDateTimePicker
 import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.route.viewmodel.LocoFormUiState
@@ -142,7 +143,8 @@ fun FormLocoScreen(
     isExpandedMenu: Boolean,
     onExpandedMenuChange: (Boolean) -> Unit,
     onChangedContentMenu: (String) -> Unit,
-    onDeleteSeries: (String) -> Unit
+    onDeleteSeries: (String) -> Unit,
+    onSettingClick: () -> Unit
 
 ) {
     val scope = rememberCoroutineScope()
@@ -262,7 +264,8 @@ fun FormLocoScreen(
                             isExpandedMenu = isExpandedMenu,
                             onExpandedMenuChange = onExpandedMenuChange,
                             onChangedContentMenu = onChangedContentMenu,
-                            onDeleteSeries = onDeleteSeries
+                            onDeleteSeries = onDeleteSeries,
+                            onSettingClick = onSettingClick
                         )
                     }
 
@@ -308,7 +311,8 @@ private fun LocoFormScreenContent(
     isExpandedMenu: Boolean,
     onExpandedMenuChange: (Boolean) -> Unit,
     onChangedContentMenu: (String) -> Unit,
-    onDeleteSeries: (String) -> Unit
+    onDeleteSeries: (String) -> Unit,
+    onSettingClick: () -> Unit
 ) {
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
@@ -533,7 +537,7 @@ private fun LocoFormScreenContent(
                     }
                 }
 
-            WheelDateTimePicker(
+            SelectableDateTimePicker(
                 titleText = "Начало приемки",
                 isShowPicker = showStartAcceptedDatePicker,
                 initDateTime = startAcceptedCalendar.timeInMillis,
@@ -545,7 +549,8 @@ private fun LocoFormScreenContent(
                 },
                 onDismiss = {
                     showStartAcceptedDatePicker = false
-                }
+                },
+                onSettingClick = onSettingClick
             )
 
             var showEndAcceptedDatePicker by remember {
@@ -560,7 +565,7 @@ private fun LocoFormScreenContent(
                 }
 
 
-            WheelDateTimePicker(
+            SelectableDateTimePicker(
                 titleText = "Окончание приемки",
                 isShowPicker = showEndAcceptedDatePicker,
                 initDateTime = endAcceptedCalendar.timeInMillis,
@@ -572,7 +577,8 @@ private fun LocoFormScreenContent(
                 },
                 onDismiss = {
                     showEndAcceptedDatePicker = false
-                }
+                },
+                onSettingClick = onSettingClick
             )
 
             Column(
@@ -602,18 +608,10 @@ private fun LocoFormScreenContent(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         val dateStartText = locomotive.timeStartOfAcceptance?.let {
-                            DateAndTimeConverter.getDateFromDateLong(it)
+                            DateAndTimeConverter.getDateMiniAndTime(it)
                         } ?: "Начало"
-                        val timeStartText = locomotive.timeStartOfAcceptance?.let {
-                            DateAndTimeConverter.getTimeFromDateLong(it)
-                        } ?: ""
                         Text(
                             text = dateStartText,
-                            style = dataTextStyle,
-                        )
-
-                        Text(
-                            text = " $timeStartText",
                             style = dataTextStyle,
                         )
                     }
@@ -632,18 +630,11 @@ private fun LocoFormScreenContent(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         val dateEndText = locomotive.timeEndOfAcceptance?.let {
-                            DateAndTimeConverter.getDateFromDateLong(it)
+                            DateAndTimeConverter.getDateMiniAndTime(it)
                         } ?: "Окончание"
-                        val timeEndText = locomotive.timeEndOfAcceptance?.let {
-                            DateAndTimeConverter.getTimeFromDateLong(it)
-                        } ?: ""
-                        Text(
-                            text = dateEndText,
-                            style = dataTextStyle,
-                        )
 
                         Text(
-                            text = " $timeEndText",
+                            text = dateEndText,
                             style = dataTextStyle,
                         )
                     }
@@ -662,7 +653,7 @@ private fun LocoFormScreenContent(
                     }
                 }
 
-            WheelDateTimePicker(
+            SelectableDateTimePicker(
                 titleText = "Начало сдачи",
                 isShowPicker = showStartDeliveryDatePicker,
                 initDateTime = startDeliveryCalendar.timeInMillis,
@@ -674,7 +665,8 @@ private fun LocoFormScreenContent(
                 },
                 onDismiss = {
                     showStartDeliveryDatePicker = false
-                }
+                },
+                onSettingClick = onSettingClick
             )
 
             var showEndDeliveryDatePicker by remember {
@@ -688,7 +680,7 @@ private fun LocoFormScreenContent(
                     }
                 }
 
-            WheelDateTimePicker(
+            SelectableDateTimePicker(
                 titleText = "Окончание сдачи",
                 isShowPicker = showEndDeliveryDatePicker,
                 initDateTime = endDeliveryCalendar.timeInMillis,
@@ -700,7 +692,8 @@ private fun LocoFormScreenContent(
                 },
                 onDismiss = {
                     showEndDeliveryDatePicker = false
-                }
+                },
+                onSettingClick = onSettingClick
             )
 
             Column(
@@ -730,19 +723,11 @@ private fun LocoFormScreenContent(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         val dateStartText = locomotive.timeStartOfDelivery?.let {
-                            DateAndTimeConverter.getDateFromDateLong(it)
+                            DateAndTimeConverter.getDateMiniAndTime(it)
                         } ?: "Начало"
-                        val timeStartText = locomotive.timeStartOfDelivery?.let {
-                            DateAndTimeConverter.getTimeFromDateLong(it)
-                        } ?: ""
 
                         Text(
                             text = dateStartText,
-                            style = dataTextStyle,
-                        )
-
-                        Text(
-                            text = " $timeStartText",
                             style = dataTextStyle,
                         )
                     }
@@ -761,18 +746,10 @@ private fun LocoFormScreenContent(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         val dateEndText = locomotive.timeEndOfDelivery?.let {
-                            DateAndTimeConverter.getDateFromDateLong(it)
+                            DateAndTimeConverter.getDateMiniAndTime(it)
                         } ?: "Окончание"
-                        val timeEndText = locomotive.timeEndOfDelivery?.let {
-                            DateAndTimeConverter.getTimeFromDateLong(it)
-                        } ?: ""
                         Text(
                             text = dateEndText,
-                            style = dataTextStyle,
-                        )
-
-                        Text(
-                            text = " $timeEndText",
                             style = dataTextStyle,
                         )
                     }

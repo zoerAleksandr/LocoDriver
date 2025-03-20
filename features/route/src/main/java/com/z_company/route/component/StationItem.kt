@@ -48,6 +48,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
+import com.z_company.core.ui.component.SelectableDateTimePicker
 import com.z_company.core.ui.component.WheelDateTimePicker
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
@@ -77,7 +78,8 @@ fun StationItem(
     onArrivalTimeChanged: (Int, Long?) -> Unit,
     onDepartureTimeChanged: (Int, Long?) -> Unit,
     onDelete: (StationFormState) -> Unit,
-    onDeleteStationName: (String) -> Unit
+    onDeleteStationName: (String) -> Unit,
+    onSettingClick: () -> Unit
 ) {
     val focusManager = LocalFocusManager.current
     val revealState = rememberRevealState()
@@ -311,7 +313,7 @@ fun StationItem(
         }
     }
 
-    WheelDateTimePicker(
+    SelectableDateTimePicker(
         titleText = "Прибытие",
         isShowPicker = showArrivalDatePicker,
         initDateTime = arrivalDateTime,
@@ -323,10 +325,11 @@ fun StationItem(
         },
         onDismiss = {
             showArrivalDatePicker = false
-        }
+        },
+        onSettingClick = onSettingClick
     )
 
-    WheelDateTimePicker(
+    SelectableDateTimePicker(
         titleText = "Отправление",
         isShowPicker = showDepartureDatePicker,
         initDateTime = departureDateTime,
@@ -338,6 +341,7 @@ fun StationItem(
         },
         onDismiss = {
             showDepartureDatePicker = false
-        }
+        },
+        onSettingClick = onSettingClick
     )
 }
