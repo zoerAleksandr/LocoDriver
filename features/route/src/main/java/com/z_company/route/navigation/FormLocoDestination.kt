@@ -61,7 +61,8 @@ fun FormLocoDestination(
         isExpandedMenu = formUiState.isExpandedDropDownMenuSeries,
         onExpandedMenuChange = viewModel::changeExpandedMenu,
         onChangedContentMenu = viewModel::onChangedDropDownContent,
-        onDeleteSeries = viewModel::removeSeries
+        onDeleteSeries = viewModel::removeSeries,
+        onSettingClick = router::showSettings
     )
 
 }

@@ -2,24 +2,31 @@ package com.z_company.settings.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -37,7 +44,9 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.AnnotatedString
@@ -71,7 +80,10 @@ import com.z_company.settings.viewmodel.TimeZoneRussia
 import kotlinx.coroutines.launch
 import com.z_company.core.R as CoreR
 import androidx.compose.ui.text.style.TextOverflow
+import com.z_company.core.ui.component.AutoSizeText
+import com.z_company.core.ui.component.customDateTimePicker.noRippleEffect
 import com.z_company.domain.entities.ServicePhase
+import com.z_company.domain.entities.TypeDateTimePicker
 import com.z_company.domain.util.toIntOrZero
 import com.z_company.route.component.AnimationDialog
 
@@ -91,13 +103,15 @@ fun SettingsScreen(
     homeRestTimeChanged: (Long) -> Unit,
     onLogOut: () -> Unit,
     logOut: () -> Unit,
-    onSync: () -> Unit,
+    onDownloadFromRemote: () -> Unit,
+    onUploadToRemote: () -> Unit,
     showReleaseDaySelectScreen: () -> Unit,
     onResentVerificationEmail: () -> Unit,
     emailForConfirm: String,
     onChangeEmail: (String) -> Unit,
     enableButtonConfirmVerification: Boolean,
-    resetRepositoryState: () -> Unit,
+    resetUploadState: () -> Unit,
+    resetDownloadState: () -> Unit,
     changeStartNightTime: (Int, Int) -> Unit,
     changeEndNightTime: (Int, Int) -> Unit,
     changeUsingDefaultWorkTime: (Boolean) -> Unit,
@@ -114,8 +128,9 @@ fun SettingsScreen(
     hideDialogAddServicePhase: () -> Unit,
     addServicePhase: (ServicePhase, Int) -> Unit,
     deleteServicePhase: (Int) -> Unit,
-    updateServicePhase: (ServicePhase, Int) -> Unit
-
+    updateServicePhase: (ServicePhase, Int) -> Unit,
+    setInputDateTimeType: (String) -> Unit,
+    inputDateTimeType: String
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -156,14 +171,25 @@ fun SettingsScreen(
                 )
             )
         }) {
-        LaunchedEffect(settingsUiState.updateRepositoryState) {
-            if (settingsUiState.updateRepositoryState is ResultState.Error) {
+        LaunchedEffect(settingsUiState.uploadState) {
+            if (settingsUiState.uploadState is ResultState.Error) {
                 scope.launch {
-                    snackbarHostState.showSnackbar("Ошибка синхронизации. \n${settingsUiState.updateRepositoryState.entity.message}.")
+                    snackbarHostState.showSnackbar("Ошибка выгрузки данных. \n${settingsUiState.uploadState.entity.message}.")
                 }
-                resetRepositoryState()
+                resetUploadState()
             }
         }
+
+        LaunchedEffect(settingsUiState.downloadState) {
+            if (settingsUiState.downloadState is ResultState.Error) {
+                scope.launch {
+                    snackbarHostState.showSnackbar("Ошибка загрузки данных. \n${settingsUiState.downloadState.entity.message}.")
+                }
+                resetDownloadState()
+            }
+        }
+
+
 
         AnimationDialog(
             showDialog = settingsUiState.showDialogAddServicePhase,
@@ -364,8 +390,10 @@ fun SettingsScreen(
                             SettingScreenContent(
                                 currentSettings = setting,
                                 onLogOut = onLogOut,
-                                onSync = onSync,
-                                updateRepoState = settingsUiState.updateRepositoryState,
+                                onDownloadFromRemote = onDownloadFromRemote,
+                                onUploadToRemote = onUploadToRemote,
+                                uploadRepoState = settingsUiState.uploadState,
+                                downloadRepoState = settingsUiState.downloadState,
                                 currentUserState = currentUserState,
                                 updateAtState = settingsUiState.updateAt,
                                 workTimeChanged = workTimeChanged,
@@ -393,7 +421,9 @@ fun SettingsScreen(
                                 servicePhases = servicePhases
                                     ?: emptyList<ServicePhase>().toMutableStateList(),
                                 updateServicePhase = updateServicePhase,
-                                deleteServicePhase = deleteServicePhase
+                                deleteServicePhase = deleteServicePhase,
+                                setInputDateTimeType = setInputDateTimeType,
+                                inputDateTimeType = inputDateTimeType
                             )
                         }
                     }
@@ -412,8 +442,10 @@ fun SettingScreenContent(
     restTimeChanged: (Long) -> Unit,
     homeRestTimeChanged: (Long) -> Unit,
     onLogOut: () -> Unit,
-    onSync: () -> Unit,
-    updateRepoState: ResultState<Long>?,
+    onDownloadFromRemote: () -> Unit,
+    onUploadToRemote: () -> Unit,
+    uploadRepoState: ResultState<Unit>?,
+    downloadRepoState: ResultState<Unit>?,
     currentUserState: ResultState<User?>,
     updateAtState: Long?,
     showReleaseDaySelectScreen: () -> Unit,
@@ -437,6 +469,8 @@ fun SettingScreenContent(
     servicePhases: SnapshotStateList<ServicePhase>,
     updateServicePhase: (ServicePhase, Int) -> Unit,
     deleteServicePhase: (Int) -> Unit,
+    setInputDateTimeType: (String) -> Unit,
+    inputDateTimeType: String
 ) {
     val styleTitle = AppTypography.getType().titleLarge
         .copy(
@@ -449,6 +483,9 @@ fun SettingScreenContent(
             fontSize = 18.sp,
             fontWeight = FontWeight.Light
         )
+
+    val maxTextSizeHint = 18.sp
+    val maxTextSize = 24.sp
 
     var showNightTimeStartDialog by remember {
         mutableStateOf(false)
@@ -571,6 +608,131 @@ fun SettingScreenContent(
         }
     }
 
+    var isShowSelectTimePickerDialog by remember {
+        mutableStateOf(false)
+    }
+
+    AnimationDialog(
+        showDialog = isShowSelectTimePickerDialog,
+        onDismissRequest = { isShowSelectTimePickerDialog = false })
+    {
+        val items = listOf(
+            TypeDateTimePicker.WHEEL.text,
+            TypeDateTimePicker.ROUND.text,
+            TypeDateTimePicker.INPUT.text,
+        )
+
+        var selectType by remember {
+            mutableStateOf(
+                inputDateTimeType
+            )
+        }
+
+        val image = when (selectType) {
+            TypeDateTimePicker.INPUT.text -> {
+                CoreR.drawable.input_picker
+            }
+
+            TypeDateTimePicker.ROUND.text -> {
+                CoreR.drawable.round_picker
+            }
+
+            TypeDateTimePicker.WHEEL.text -> {
+                CoreR.drawable.wheel_picker
+            }
+            else -> {
+                CoreR.drawable.wheel_picker
+            }
+        }
+
+        Surface(
+            modifier = Modifier.padding(16.dp),
+            shape = Shapes.medium
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalAlignment = Alignment.End
+            ) {
+                Image(
+                    modifier = Modifier.fillMaxWidth(),
+                    painter = painterResource(id = image),
+                    contentScale = ContentScale.Fit,
+                    contentDescription = null
+                )
+                Column(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .noRippleEffect {
+                                selectType = items[0]
+                            },
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = selectType == items[0],
+                            onClick = { selectType = items[0] })
+                        Text(text = items[0])
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .noRippleEffect {
+                                selectType = items[1]
+                            },
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = selectType == items[1],
+                            onClick = { selectType = items[1] })
+                        Text(text = items[1])
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .noRippleEffect {
+                                selectType = items[2]
+                            },
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = selectType == items[2],
+                            onClick = { selectType = items[2] })
+                        Text(text = items[2])
+                    }
+                }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    TextButton(onClick = { isShowSelectTimePickerDialog = false }) {
+                        Text(text = "Отмена", color = MaterialTheme.colorScheme.error)
+                    }
+                    TextButton(
+                        shape = Shapes.medium,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                        onClick = {
+                            setInputDateTimeType(selectType)
+                            isShowSelectTimePickerDialog = false
+                        }) {
+                        Text(text = "Применить")
+                    }
+
+                }
+            }
+        }
+    }
+
+
     SwipeRefresh(
         state = rememberSwipeRefreshState(isRefreshing = isRefreshing),
         onRefresh = onRefresh,
@@ -607,7 +769,11 @@ fun SettingScreenContent(
                         ) {
                             val currentMonth =
                                 currentSettings.selectMonthOfYear.month.getMonthFullText()
-                            Text(text = currentMonth, style = styleData)
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
+                                text = currentMonth,
+                                style = styleData
+                            )
 
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(
@@ -702,7 +868,8 @@ fun SettingScreenContent(
                                 }
                             }
                         }
-                        Text(
+                        AutoSizeText(
+                            maxTextSize = maxTextSizeHint,
                             modifier = Modifier.padding(start = 16.dp, top = 8.dp),
                             text = "Установите местный часовой пояс. Будет учитываться при расчете ночных, праздничных часов и переходных поездках.",
                             style = styleHint
@@ -712,9 +879,68 @@ fun SettingScreenContent(
             }
 
             item {
-                Column(modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp)) {
+                val image = when (inputDateTimeType) {
+                    TypeDateTimePicker.INPUT.text -> {
+                        CoreR.drawable.input_picker
+                    }
+
+                    TypeDateTimePicker.ROUND.text -> {
+                        CoreR.drawable.round_picker
+                    }
+
+                    TypeDateTimePicker.WHEEL.text -> {
+                        CoreR.drawable.wheel_picker
+                    }
+                    else -> {
+                        CoreR.drawable.wheel_picker
+                    }
+                }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp)
+                ) {
+                    Text(
+                        modifier = Modifier
+                            .padding(start = 16.dp, bottom = 6.dp),
+                        text = "ВЫБОР ВРЕМЕНИ",
+                        style = styleTitle
+                    )
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .height(IntrinsicSize.Min)
+                                .fillMaxWidth()
+                                .background(
+                                    color = MaterialTheme.colorScheme.surface,
+                                    shape = Shapes.medium
+                                )
+                                .padding(16.dp)
+                                .clickable {
+                                    isShowSelectTimePickerDialog = true
+                                },
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(text = inputDateTimeType, style = styleData)
+                            Image(modifier = Modifier.height(70.dp), painter = painterResource(id = image), contentScale = ContentScale.FillHeight, contentDescription = null)
+                        }
+                        AutoSizeText(
+                            maxTextSize = maxTextSizeHint,
+                            modifier = Modifier.padding(start = 16.dp, top = 8.dp),
+                            text = "Выберите вариант интерфейса для выбора времени.",
+                            style = styleHint
+                        )
+                    }
+                }
+            }
+
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp)
+                ) {
                     Box(
                         modifier = Modifier
                             .padding(top = 8.dp)
@@ -734,9 +960,14 @@ fun SettingScreenContent(
                                     .fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(text = "Ночь", style = styleData)
+                                AutoSizeText(
+                                    maxTextSize = maxTextSize,
+                                    text = "Ночь",
+                                    style = styleData
+                                )
                                 val text = currentSettings.nightTime.toString()
-                                Text(
+                                AutoSizeText(
+                                    maxTextSize = maxTextSize,
                                     modifier = Modifier
                                         .clickable {
                                             showNightTimeStartDialog = true
@@ -747,16 +978,20 @@ fun SettingScreenContent(
                             }
                             HorizontalDivider()
 
-
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(text = "Отдых в ПО", style = styleData)
+                                AutoSizeText(
+                                    maxTextSize = maxTextSize,
+                                    text = "Отдых в ПО",
+                                    style = styleData
+                                )
                                 val text =
                                     ConverterLongToTime.getTimeInStringFormat(currentSettings.minTimeRestPointOfTurnover)
-                                Text(
+                                AutoSizeText(
+                                    maxTextSize = maxTextSize,
                                     modifier = Modifier
                                         .clickable { showRestDialog = true },
                                     text = text,
@@ -770,10 +1005,15 @@ fun SettingScreenContent(
                                     .fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(text = "Домашний отдых", style = styleData)
+                                AutoSizeText(
+                                    maxTextSize = maxTextSize,
+                                    text = "Домашний отдых",
+                                    style = styleData
+                                )
                                 val text =
                                     ConverterLongToTime.getTimeInStringFormat(currentSettings.minTimeHomeRest)
-                                Text(
+                                AutoSizeText(
+                                    maxTextSize = maxTextSize,
                                     modifier = Modifier
                                         .clickable { showHomeRestDialog = true },
                                     text = text,
@@ -782,7 +1022,8 @@ fun SettingScreenContent(
                             }
                         }
                     }
-                    Text(
+                    AutoSizeText(
+                        maxTextSize = maxTextSizeHint,
                         modifier = Modifier.padding(start = 16.dp, top = 8.dp),
                         text = "Установите время минимального отдыха. Это значение будет использовано при расчете отдыха после поездки.",
                         style = styleHint
@@ -799,7 +1040,7 @@ fun SettingScreenContent(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "ПЛЕЧИ ОБСЛУЖИВАНИЯ",
+                        text = "ПЛЕЧИ",
                         overflow = TextOverflow.Ellipsis,
                         style = styleTitle
                     )
@@ -881,12 +1122,14 @@ fun SettingScreenContent(
                             },
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Text(
+                        AutoSizeText(
+                            maxTextSize = maxTextSize,
                             text = "${item.departureStation} - ${item.arrivalStation}",
                             overflow = TextOverflow.Ellipsis,
                             style = styleData
                         )
-                        Text(
+                        AutoSizeText(
+                            maxTextSize = maxTextSize,
                             text = "${item.distance} км",
                             overflow = TextOverflow.Visible,
                             style = styleData
@@ -918,12 +1161,17 @@ fun SettingScreenContent(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(text = "Локомотив", style = styleData)
+                                AutoSizeText(
+                                    maxTextSize = maxTextSize,
+                                    text = "Локомотив",
+                                    style = styleData
+                                )
                                 val textLocoType = when (currentSettings.defaultLocoType) {
                                     LocoType.ELECTRIC -> "Электровоз"
                                     LocoType.DIESEL -> "Тепловоз"
                                 }
-                                Text(
+                                AutoSizeText(
+                                    maxTextSize = maxTextSize,
                                     modifier = Modifier.clickable {
                                         showLocoTypeSelectedDialog = true
                                     },
@@ -939,7 +1187,8 @@ fun SettingScreenContent(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
+                                AutoSizeText(
+                                    maxTextSize = maxTextSize,
                                     modifier = Modifier
                                         .padding(end = 16.dp)
                                         .weight(0.8f),
@@ -963,13 +1212,15 @@ fun SettingScreenContent(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(
+                                    AutoSizeText(
+                                        maxTextSize = maxTextSize,
                                         text = "Время работы",
                                         style = styleData
                                     )
                                     val text =
                                         ConverterLongToTime.getTimeInStringFormat(currentSettings.defaultWorkTime)
-                                    Text(
+                                    AutoSizeText(
+                                        maxTextSize = maxTextSize,
                                         modifier = Modifier
                                             .padding(end = 12.dp)
                                             .clickable { showWorkTimeDialog = true },
@@ -980,7 +1231,8 @@ fun SettingScreenContent(
                             }
                         }
                     }
-                    Text(
+                    AutoSizeText(
+                        maxTextSize = maxTextSizeHint,
                         modifier = Modifier.padding(start = 16.dp, top = 8.dp),
                         text = "Эти значения будут установлены по умолчанию при создании нового маршрута.",
                         style = styleHint
@@ -989,9 +1241,11 @@ fun SettingScreenContent(
             }
 
             item {
-                Column(modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp)
+                ) {
                     Box(
                         modifier = Modifier
                             .padding(top = 8.dp)
@@ -1005,7 +1259,8 @@ fun SettingScreenContent(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
                                 modifier = Modifier
                                     .padding(end = 16.dp)
                                     .weight(0.8f),
@@ -1019,7 +1274,8 @@ fun SettingScreenContent(
                                 })
                         }
                     }
-                    Text(
+                    AutoSizeText(
+                        maxTextSize = maxTextSizeHint,
                         modifier = Modifier.padding(start = 16.dp, top = 8.dp),
                         text = "Маршруты, время явки которых не наступило, будут учитываться при подсчете отработаного времени.",
                         style = styleHint
@@ -1052,7 +1308,11 @@ fun SettingScreenContent(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
 
-                            Text(text = "E-mail", style = styleData)
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
+                                text = "E-mail",
+                                style = styleData
+                            )
                             AsyncData(
                                 resultState = currentUserState,
                                 loadingContent = {
@@ -1062,13 +1322,15 @@ fun SettingScreenContent(
                                     )
                                 },
                                 errorContent = {
-                                    Text(
+                                    AutoSizeText(
+                                        maxTextSize = maxTextSize,
                                         text = "Ошибка синхронизации",
                                         style = styleData
                                     )
                                 }) { user ->
                                 user?.let {
-                                    Text(
+                                    AutoSizeText(
+                                        maxTextSize = maxTextSize,
                                         text = user.email,
                                         style = styleData
                                     )
@@ -1082,7 +1344,11 @@ fun SettingScreenContent(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(text = "Статус", style = styleData)
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
+                                text = "Статус",
+                                style = styleData
+                            )
                             AsyncData(
                                 resultState = currentUserState,
                                 loadingContent = {
@@ -1091,7 +1357,8 @@ fun SettingScreenContent(
                                         strokeWidth = 2.dp
                                     )
                                 }, errorContent = {
-                                    Text(
+                                    AutoSizeText(
+                                        maxTextSize = maxTextSize,
                                         text = "Ошибка синхронизации",
                                         style = styleData
                                     )
@@ -1103,7 +1370,8 @@ fun SettingScreenContent(
                                         "Не подтвержден"
                                     }
 
-                                    Text(
+                                    AutoSizeText(
+                                        maxTextSize = maxTextSize,
                                         modifier = Modifier.clickable(enabled = !user.isVerification) {
                                             showConfirmEmailDialog = true
                                         },
@@ -1115,68 +1383,19 @@ fun SettingScreenContent(
                                 }
                             }
                         }
-                        AsyncData(
-                            resultState = currentUserState,
-                            loadingContent = {},
-                            errorContent = {}
-                        ) { user ->
-                            user?.let {
-                                if (user.isVerification) {
-                                    HorizontalDivider()
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(text = "Синхронизация", style = styleData)
-                                        Row(
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        ) {
-//                                            AsyncData(resultState = updateAtState) { updateAt ->
-                                            updateAtState?.let { timeInMillis ->
-                                                val textSyncDate =
-                                                    DateAndTimeConverter.getDateAndTime(
-                                                        timeInMillis
-                                                    )
-
-                                                Text(
-                                                    text = textSyncDate,
-                                                    style = styleData
-                                                )
-                                            }
-//                                            }
-                                            AsyncData(
-                                                resultState = updateRepoState,
-                                                loadingContent = {
-                                                    CircularProgressIndicator(
-                                                        modifier = Modifier.size(24.dp),
-                                                        strokeWidth = 2.dp
-                                                    )
-                                                },
-                                                errorContent = {}
-                                            ) {
-                                                Icon(
-                                                    modifier = Modifier.clickable { onSync() },
-                                                    imageVector = Icons.Default.Refresh,
-                                                    contentDescription = null
-                                                )
-                                            }
-                                        }
-                                    }
-
-                                }
-                            }
-
-                        }
-
                         HorizontalDivider()
+
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { onBillingClick() },
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(text = "Подписка", style = styleData)
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
+                                text = "Подписка",
+                                style = styleData
+                            )
                             AsyncData(
                                 resultState = purchasesState,
                                 loadingContent = {
@@ -1186,19 +1405,22 @@ fun SettingScreenContent(
                                     )
                                 },
                                 errorContent = {
-                                    Text(
+                                    AutoSizeText(
+                                        maxTextSize = maxTextSize,
                                         text = "Ошибка синхронизации",
                                         style = styleData
                                     )
                                 }
                             ) { purchaseInfo ->
                                 if (purchaseInfo.isNullOrEmpty()) {
-                                    Text(
+                                    AutoSizeText(
+                                        maxTextSize = maxTextSize,
                                         text = "Отсутствует",
                                         style = styleData
                                     )
                                 } else {
-                                    Text(
+                                    AutoSizeText(
+                                        maxTextSize = maxTextSize,
                                         text = "до $purchaseInfo",
                                         style = styleData
                                     )
@@ -1207,12 +1429,133 @@ fun SettingScreenContent(
                         }
                     }
                 }
-                Text(
+                AutoSizeText(
+                    maxTextSize = maxTextSizeHint,
                     modifier = Modifier.padding(start = 16.dp, top = 8.dp),
                     text = "Подтверждение e-mail нужно для синхронизации с облачным хранилищем.",
                     style = styleHint
                 )
             }
+
+            item {
+                Text(
+                    modifier = Modifier
+                        .padding(start = 16.dp, bottom = 6.dp, top = 16.dp),
+                    text = "СИНХРОНИЗАЦИЯ",
+                    style = styleTitle
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            color = MaterialTheme.colorScheme.surface,
+                            shape = Shapes.medium
+                        )
+                        .padding(16.dp)
+                ) {
+                    AsyncData(
+                        resultState = currentUserState,
+                        loadingContent = {},
+                        errorContent = {}
+                    ) { user ->
+                        user?.let {
+                            if (user.isVerification) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        updateAtState?.let { timeInMillis ->
+                                            val textSyncDate =
+                                                DateAndTimeConverter.getDateAndTime(
+                                                    timeInMillis
+                                                )
+
+                                            AutoSizeText(
+                                                maxTextSize = maxTextSize,
+                                                text = "Последнее обновление $textSyncDate",
+                                                style = styleData,
+                                                overflow = TextOverflow.Visible
+                                            )
+                                        }
+                                    }
+                                    HorizontalDivider()
+
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { onUploadToRemote() },
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        AutoSizeText(
+                                            maxTextSize = maxTextSize,
+                                            text = "Отправить в облако",
+                                            style = styleData
+                                        )
+                                        AsyncData(
+                                            resultState = uploadRepoState,
+                                            loadingContent = {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(24.dp),
+                                                    strokeWidth = 2.dp
+                                                )
+                                            },
+                                            errorContent = {}
+                                        ) {
+                                            Icon(
+                                                tint = MaterialTheme.colorScheme.tertiary,
+                                                painter = painterResource(id = CoreR.drawable.rounded_cloud_upload_24),
+                                                contentDescription = null
+                                            )
+                                        }
+                                    }
+                                    HorizontalDivider()
+
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { onDownloadFromRemote() },
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        AutoSizeText(
+                                            maxTextSize = maxTextSize,
+                                            text = "Загрузить из облака",
+                                            style = styleData
+                                        )
+                                        AsyncData(
+                                            resultState = downloadRepoState,
+                                            loadingContent = {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(24.dp),
+                                                    strokeWidth = 2.dp
+                                                )
+                                            },
+                                            errorContent = {}
+                                        ) {
+                                            Icon(
+                                                tint = MaterialTheme.colorScheme.tertiary,
+                                                painter = painterResource(id = CoreR.drawable.rounded_cloud_download_24),
+                                                contentDescription = null
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                AutoSizeText(
+                    maxTextSize = maxTextSizeHint,
+                    modifier = Modifier.padding(start = 16.dp, top = 8.dp),
+                    text = "Выгрузка на сервер маршрутных листов выполняется автоматически при наличии подписки и с подтвержденным e-mail",
+                    style = styleHint
+                )
+            }
+
 
             item {
                 Button(

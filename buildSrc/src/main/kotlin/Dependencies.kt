@@ -16,6 +16,7 @@ import Versions.datastore_pref_ver
 import Versions.desugaring_ver
 import Versions.gson_version
 import Versions.koin_version
+import Versions.kotlinx_date_time_ver
 import Versions.lifecycle_runtime_version
 import Versions.lifecycle_viewmodel_version
 import Versions.material_compose3
@@ -23,11 +24,13 @@ import Versions.maxkeppeler_sheets_ver
 import Versions.mockito_core_ver
 import Versions.mockito_inline_ver
 import Versions.mockito_kotlin_ver
+import Versions.ozcanalasalvar_ver
 import Versions.parse_sdk_android_ver
 import Versions.permission_accompanist_ver
 import Versions.rebugger_ver
 import Versions.reveal_swipe_version
 import Versions.room_version
+import Versions.rustore_bom_ver
 import Versions.splash_screen_ver
 import Versions.test_ext_version
 import Versions.test_runner_version
@@ -52,8 +55,8 @@ object Apps {
     const val min_sdk_version = 26
     const val target_sdk_version = 34
 
-    const val version_code = 36
-    const val version_name = "1.2.19.1"
+    const val version_code = 39
+    const val version_name = "1.2.4"
 
     const val jvm_target_version = "17"
     val java_compatibility_version = JavaVersion.VERSION_17
@@ -63,8 +66,8 @@ object Apps {
 
 object Versions {
     const val android_plugin_id = "8.1.1"
-    const val accompanist_navigation_animation_version = "0.32.0"
-    const val accompanist_swiperefresh_version = "0.32.0"
+    const val accompanist_navigation_animation_version = "0.34.0"
+    const val accompanist_swiperefresh_version = "0.34.0"
     const val activity_compose_version = "1.9.0"
     const val app_compat_version = "1.7.0-alpha02"
     const val coil_version = "2.4.0"
@@ -82,7 +85,7 @@ object Versions {
     const val test_ext_version = "1.1.5"
     const val test_runner_version = "1.6.0-alpha01"
     const val koin_version = "3.5.6"
-    const val accompanist_pager_version = "0.32.0"
+    const val accompanist_pager_version = "0.34.0"
     const val gson_version = "2.9.0"
     const val constraint_layout_ver = "1.0.1"
     const val datastore_pref_ver = "1.0.0"
@@ -96,12 +99,15 @@ object Versions {
     const val vkid_ver = "1.3.2"
     const val parse_sdk_android_ver = "4.3.0"
     const val work_manager_version = "2.9.0"
+    const val ozcanalasalvar_ver = "2.0.7"
+    const val rustore_bom_ver = "7.0.0"
     const val accompanist_ui_controller_version = "0.32.0"
     const val rebugger_ver = "1.0.0-rc03"
     const val desugaring_ver = "2.0.4"
     const val mockito_core_ver= "3.10.0"
     const val mockito_inline_ver= "2.8.9"
     const val mockito_kotlin_ver= "1.5.0"
+    const val kotlinx_date_time_ver = "0.6.2"
 }
 
 object Libs {
@@ -116,6 +122,7 @@ object Libs {
     const val project_feature_settings = ":features:settings"
 
     // Libs
+    const val kotlinx_date_time = "org.jetbrains.kotlinx:kotlinx-datetime:$kotlinx_date_time_ver"
     const val desugaring = "com.android.tools:desugar_jdk_libs:$desugaring_ver"
     const val rebugger = "io.github.theapache64:rebugger:$rebugger_ver"
     const val datastore_pref = "androidx.datastore:datastore-preferences:$datastore_pref_ver"
@@ -183,6 +190,12 @@ object Libs {
     const val parse_sdk_android = "com.github.parse-community.Parse-SDK-Android:parse:$parse_sdk_android_ver"
     const val parse_sdk_android_coroutine = "com.github.parse-community.Parse-SDK-Android:coroutines:$parse_sdk_android_ver"
     const val work_manager = "androidx.work:work-runtime-ktx:$work_manager_version"
+    const val ozcanalasalvar_datepicker = "com.github.ozcanalasalvar.picker:datepicker:$ozcanalasalvar_ver"
+    const val ozcanalasalvar_wheelview = "com.github.ozcanalasalvar.picker:wheelview:$ozcanalasalvar_ver"
+
+    const val rustore_bom = "ru.rustore.sdk:bom:$rustore_bom_ver"
+    const val rustore_bulling = "ru.rustore.sdk:billingclient"
+    const val rustore_review = "ru.rustore.sdk:review"
     //     Debug
     const val ui_tooling =
         "androidx.compose.ui:ui-tooling:$compose_ui_version"

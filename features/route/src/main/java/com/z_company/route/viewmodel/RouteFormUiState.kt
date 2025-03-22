@@ -14,3 +14,16 @@ data class RouteFormUiState(
     val passengerTime: Long? = null,
     val isCopy: Boolean = false
 )
+
+data class SalaryForRouteState(
+    val isCalculated: Boolean = false,
+    val totalPayment: Double? = null,
+    val paymentAtTariffRate: Double? = null,
+    val zonalSurchargeMoney: Double? = null,
+    val paymentAtNightTime: Double? = null,
+    val paymentAtPassengerTime: Double? = null,
+    val paymentHolidayMoney: Double? = null,
+    val surchargesAtTrain: Double? = null,
+    val paymentAtOnePerson: Double? = null,
+    val otherSurcharge: Double? = null
+)

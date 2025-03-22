@@ -47,7 +47,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -85,22 +84,23 @@ import com.z_company.domain.util.CalculationEnergy
 import com.z_company.domain.util.str
 import com.z_company.core.R as CoreR
 import com.z_company.route.component.BottomShadow
-import com.z_company.route.component.CustomDatePickerDialog
 import com.z_company.route.component.DieselSectionItem
-import com.z_company.core.ui.component.TimePickerDialog
 import com.z_company.core.ui.component.CustomSnackBar
+import com.z_company.core.ui.component.SelectableDateTimePicker
+import com.z_company.core.ui.component.WheelDateTimePicker
 import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.route.viewmodel.LocoFormUiState
 import java.util.Calendar
 import com.z_company.domain.util.*
 import com.z_company.route.component.ConfirmExitDialog
 import com.z_company.route.component.ElectricSectionItem
-import com.z_company.route.component.rememberDatePickerStateInLocale
 import com.z_company.route.viewmodel.DieselSectionFormState
 import com.z_company.route.viewmodel.DieselSectionType
 import com.z_company.route.viewmodel.ElectricSectionFormState
 import com.z_company.route.viewmodel.ElectricSectionType
 import kotlinx.coroutines.launch
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 import java.math.BigDecimal
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -143,7 +143,8 @@ fun FormLocoScreen(
     isExpandedMenu: Boolean,
     onExpandedMenuChange: (Boolean) -> Unit,
     onChangedContentMenu: (String) -> Unit,
-    onDeleteSeries: (String) -> Unit
+    onDeleteSeries: (String) -> Unit,
+    onSettingClick: () -> Unit
 
 ) {
     val scope = rememberCoroutineScope()
@@ -263,7 +264,8 @@ fun FormLocoScreen(
                             isExpandedMenu = isExpandedMenu,
                             onExpandedMenuChange = onExpandedMenuChange,
                             onChangedContentMenu = onChangedContentMenu,
-                            onDeleteSeries = onDeleteSeries
+                            onDeleteSeries = onDeleteSeries,
+                            onSettingClick = onSettingClick
                         )
                     }
 
@@ -309,7 +311,8 @@ private fun LocoFormScreenContent(
     isExpandedMenu: Boolean,
     onExpandedMenuChange: (Boolean) -> Unit,
     onChangedContentMenu: (String) -> Unit,
-    onDeleteSeries: (String) -> Unit
+    onDeleteSeries: (String) -> Unit,
+    onSettingClick: () -> Unit
 ) {
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
@@ -523,131 +526,60 @@ private fun LocoFormScreenContent(
             }
         }
         item {
-            val startAcceptedTime = locomotive.timeStartOfAcceptance
-            val endAcceptedTime = locomotive.timeEndOfAcceptance
-
-            val startAcceptedCalendar by remember {
-                mutableStateOf(Calendar.getInstance().also { calendar ->
-                    startAcceptedTime?.let { millis ->
-                        calendar.timeInMillis = millis
-                    }
-                })
-            }
-
-            val startAcceptedTimePickerState = rememberTimePickerState(
-                initialHour = startAcceptedCalendar.get(Calendar.HOUR_OF_DAY),
-                initialMinute = startAcceptedCalendar.get(Calendar.MINUTE),
-                is24Hour = true
-            )
-
-            val startAcceptedDatePickerState =
-                rememberDatePickerStateInLocale(
-                    initialSelectedDateMillis = startAcceptedTime
-                        ?: startAcceptedCalendar.timeInMillis
-                )
-
-            var showStartAcceptedTimePicker by remember {
-                mutableStateOf(false)
-            }
-
             var showStartAcceptedDatePicker by remember {
                 mutableStateOf(false)
             }
 
-            if (showStartAcceptedDatePicker) {
-                CustomDatePickerDialog(
-                    datePickerState = startAcceptedDatePickerState,
-                    onDismissRequest = {
-                        showStartAcceptedDatePicker = false
-                    },
-                    onConfirmRequest = {
-                        showStartAcceptedDatePicker = false
-                        showStartAcceptedTimePicker = true
-                        startAcceptedCalendar.timeInMillis =
-                            startAcceptedDatePickerState.selectedDateMillis!!
-                    }
-                )
-            }
-
-            if (showStartAcceptedTimePicker) {
-                TimePickerDialog(
-                    timePickerState = startAcceptedTimePickerState,
-                    onDismissRequest = { showStartAcceptedTimePicker = false },
-                    onConfirmRequest = {
-                        showStartAcceptedTimePicker = false
-                        startAcceptedCalendar.set(
-                            Calendar.HOUR_OF_DAY,
-                            startAcceptedTimePickerState.hour
-                        )
-                        startAcceptedCalendar.set(
-                            Calendar.MINUTE,
-                            startAcceptedTimePickerState.minute
-                        )
-                        onStartAcceptedTimeChanged(startAcceptedCalendar.timeInMillis)
-                    }
-                )
-            }
-
-            val endAcceptedCalendar by remember {
-                mutableStateOf(Calendar.getInstance().also { calendar ->
-                    endAcceptedTime?.let { millis ->
+            val startAcceptedCalendar =
+                Calendar.getInstance().also { calendar ->
+                    locomotive.timeStartOfAcceptance?.let { millis ->
                         calendar.timeInMillis = millis
                     }
-                })
-            }
+                }
 
-            val endAcceptedTimePickerState = rememberTimePickerState(
-                initialHour = endAcceptedCalendar.get(Calendar.HOUR_OF_DAY),
-                initialMinute = endAcceptedCalendar.get(Calendar.MINUTE),
-                is24Hour = true
+            SelectableDateTimePicker(
+                titleText = "Начало приемки",
+                isShowPicker = showStartAcceptedDatePicker,
+                initDateTime = startAcceptedCalendar.timeInMillis,
+                onDoneClick = { localDateTime ->
+                    val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+                    val millis = instant.toEpochMilliseconds()
+                    onStartAcceptedTimeChanged(millis)
+                    showStartAcceptedDatePicker = false
+                },
+                onDismiss = {
+                    showStartAcceptedDatePicker = false
+                },
+                onSettingClick = onSettingClick
             )
-
-            val endAcceptedDatePickerState =
-                rememberDatePickerStateInLocale(
-                    initialSelectedDateMillis = endAcceptedTime ?: endAcceptedCalendar.timeInMillis
-                )
-
-            var showEndAcceptedTimePicker by remember {
-                mutableStateOf(false)
-            }
 
             var showEndAcceptedDatePicker by remember {
                 mutableStateOf(false)
             }
 
-            if (showEndAcceptedDatePicker) {
-                CustomDatePickerDialog(
-                    datePickerState = endAcceptedDatePickerState,
-                    onDismissRequest = {
-                        showEndAcceptedDatePicker = false
-                    },
-                    onConfirmRequest = {
-                        showEndAcceptedDatePicker = false
-                        showEndAcceptedTimePicker = true
-                        endAcceptedCalendar.timeInMillis =
-                            endAcceptedDatePickerState.selectedDateMillis!!
+            val endAcceptedCalendar =
+                Calendar.getInstance().also { calendar ->
+                    locomotive.timeEndOfAcceptance?.let { millis ->
+                        calendar.timeInMillis = millis
                     }
-                )
-            }
+                }
 
-            if (showEndAcceptedTimePicker) {
-                TimePickerDialog(
-                    timePickerState = endAcceptedTimePickerState,
-                    onDismissRequest = { showEndAcceptedTimePicker = false },
-                    onConfirmRequest = {
-                        showEndAcceptedTimePicker = false
-                        endAcceptedCalendar.set(
-                            Calendar.HOUR_OF_DAY,
-                            endAcceptedTimePickerState.hour
-                        )
-                        endAcceptedCalendar.set(
-                            Calendar.MINUTE,
-                            endAcceptedTimePickerState.minute
-                        )
-                        onEndAcceptedTimeChanged(endAcceptedCalendar.timeInMillis)
-                    }
-                )
-            }
+
+            SelectableDateTimePicker(
+                titleText = "Окончание приемки",
+                isShowPicker = showEndAcceptedDatePicker,
+                initDateTime = endAcceptedCalendar.timeInMillis,
+                onDoneClick = { localDateTime ->
+                    val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+                    val millis = instant.toEpochMilliseconds()
+                    onEndAcceptedTimeChanged(millis)
+                    showEndAcceptedDatePicker = false
+                },
+                onDismiss = {
+                    showEndAcceptedDatePicker = false
+                },
+                onSettingClick = onSettingClick
+            )
 
             Column(
                 modifier = Modifier
@@ -675,19 +607,11 @@ private fun LocoFormScreenContent(
                             .padding(16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        val dateStartText = startAcceptedTime?.let {
-                            DateAndTimeConverter.getDateFromDateLong(startAcceptedTime)
+                        val dateStartText = locomotive.timeStartOfAcceptance?.let {
+                            DateAndTimeConverter.getDateMiniAndTime(it)
                         } ?: "Начало"
-                        val timeStartText = startAcceptedTime?.let {
-                            DateAndTimeConverter.getTimeFromDateLong(startAcceptedTime)
-                        } ?: ""
                         Text(
                             text = dateStartText,
-                            style = dataTextStyle,
-                        )
-
-                        Text(
-                            text = " $timeStartText",
                             style = dataTextStyle,
                         )
                     }
@@ -705,19 +629,12 @@ private fun LocoFormScreenContent(
                             .padding(16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        val dateEndText = endAcceptedTime?.let {
-                            DateAndTimeConverter.getDateFromDateLong(endAcceptedTime)
+                        val dateEndText = locomotive.timeEndOfAcceptance?.let {
+                            DateAndTimeConverter.getDateMiniAndTime(it)
                         } ?: "Окончание"
-                        val timeEndText = endAcceptedTime?.let {
-                            DateAndTimeConverter.getTimeFromDateLong(endAcceptedTime)
-                        } ?: ""
-                        Text(
-                            text = dateEndText,
-                            style = dataTextStyle,
-                        )
 
                         Text(
-                            text = " $timeEndText",
+                            text = dateEndText,
                             style = dataTextStyle,
                         )
                     }
@@ -725,130 +642,59 @@ private fun LocoFormScreenContent(
             }
         }
         item {
-            val startDeliveryTime = locomotive.timeStartOfDelivery
-            val endDeliveryTime = locomotive.timeEndOfDelivery
-            val startDeliveryCalendar by remember {
-                mutableStateOf(Calendar.getInstance().also { calendar ->
-                    startDeliveryTime?.let { millis ->
-                        calendar.timeInMillis = millis
-                    }
-                })
-            }
-
-            val startDeliveryTimePickerState = rememberTimePickerState(
-                initialHour = startDeliveryCalendar.get(Calendar.HOUR_OF_DAY),
-                initialMinute = startDeliveryCalendar.get(Calendar.MINUTE),
-                is24Hour = true
-            )
-
-            val startDeliveryDatePickerState =
-                rememberDatePickerStateInLocale(
-                    initialSelectedDateMillis = startDeliveryTime
-                        ?: startDeliveryCalendar.timeInMillis
-                )
-
-            var showStartDeliveryTimePicker by remember {
-                mutableStateOf(false)
-            }
-
             var showStartDeliveryDatePicker by remember {
                 mutableStateOf(false)
             }
 
-            if (showStartDeliveryDatePicker) {
-                CustomDatePickerDialog(
-                    datePickerState = startDeliveryDatePickerState,
-                    onDismissRequest = {
-                        showStartDeliveryDatePicker = false
-                    },
-                    onConfirmRequest = {
-                        showStartDeliveryDatePicker = false
-                        showStartDeliveryTimePicker = true
-                        startDeliveryCalendar.timeInMillis =
-                            startDeliveryDatePickerState.selectedDateMillis!!
-                    }
-                )
-            }
-
-            if (showStartDeliveryTimePicker) {
-                TimePickerDialog(
-                    timePickerState = startDeliveryTimePickerState,
-                    onDismissRequest = { showStartDeliveryTimePicker = false },
-                    onConfirmRequest = {
-                        showStartDeliveryTimePicker = false
-                        startDeliveryCalendar.set(
-                            Calendar.HOUR_OF_DAY,
-                            startDeliveryTimePickerState.hour
-                        )
-                        startDeliveryCalendar.set(
-                            Calendar.MINUTE,
-                            startDeliveryTimePickerState.minute
-                        )
-                        onStartDeliveryTimeChanged(startDeliveryCalendar.timeInMillis)
-                    }
-                )
-            }
-
-            val endDeliveryCalendar by remember {
-                mutableStateOf(Calendar.getInstance().also { calendar ->
-                    endDeliveryTime?.let { millis ->
+            val startDeliveryCalendar =
+                Calendar.getInstance().also { calendar ->
+                    locomotive.timeStartOfDelivery?.let { millis ->
                         calendar.timeInMillis = millis
                     }
-                })
-            }
+                }
 
-            val endDeliveryTimePickerState = rememberTimePickerState(
-                initialHour = endDeliveryCalendar.get(Calendar.HOUR_OF_DAY),
-                initialMinute = endDeliveryCalendar.get(Calendar.MINUTE),
-                is24Hour = true
+            SelectableDateTimePicker(
+                titleText = "Начало сдачи",
+                isShowPicker = showStartDeliveryDatePicker,
+                initDateTime = startDeliveryCalendar.timeInMillis,
+                onDoneClick = { localDateTime ->
+                    val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+                    val millis = instant.toEpochMilliseconds()
+                    onStartDeliveryTimeChanged(millis)
+                    showStartDeliveryDatePicker = false
+                },
+                onDismiss = {
+                    showStartDeliveryDatePicker = false
+                },
+                onSettingClick = onSettingClick
             )
-
-            val endDeliveryDatePickerState =
-                rememberDatePickerStateInLocale(
-                    initialSelectedDateMillis = endDeliveryTime ?: endDeliveryCalendar.timeInMillis
-                )
-
-            var showEndDeliveryTimePicker by remember {
-                mutableStateOf(false)
-            }
 
             var showEndDeliveryDatePicker by remember {
                 mutableStateOf(false)
             }
 
-            if (showEndDeliveryDatePicker) {
-                CustomDatePickerDialog(
-                    datePickerState = endDeliveryDatePickerState,
-                    onDismissRequest = {
-                        showEndDeliveryDatePicker = false
-                    },
-                    onConfirmRequest = {
-                        showEndDeliveryDatePicker = false
-                        showEndDeliveryTimePicker = true
-                        endDeliveryCalendar.timeInMillis =
-                            endDeliveryDatePickerState.selectedDateMillis!!
+            val endDeliveryCalendar =
+                Calendar.getInstance().also { calendar ->
+                    locomotive.timeEndOfDelivery?.let { millis ->
+                        calendar.timeInMillis = millis
                     }
-                )
-            }
+                }
 
-            if (showEndDeliveryTimePicker) {
-                TimePickerDialog(
-                    timePickerState = endDeliveryTimePickerState,
-                    onDismissRequest = { showEndDeliveryTimePicker = false },
-                    onConfirmRequest = {
-                        showEndDeliveryTimePicker = false
-                        endDeliveryCalendar.set(
-                            Calendar.HOUR_OF_DAY,
-                            endDeliveryTimePickerState.hour
-                        )
-                        endDeliveryCalendar.set(
-                            Calendar.MINUTE,
-                            endDeliveryTimePickerState.minute
-                        )
-                        onEndDeliveryTimeChanged(endDeliveryCalendar.timeInMillis)
-                    }
-                )
-            }
+            SelectableDateTimePicker(
+                titleText = "Окончание сдачи",
+                isShowPicker = showEndDeliveryDatePicker,
+                initDateTime = endDeliveryCalendar.timeInMillis,
+                onDoneClick = { localDateTime ->
+                    val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+                    val millis = instant.toEpochMilliseconds()
+                    onEndDeliveryTimeChanged(millis)
+                    showEndDeliveryDatePicker = false
+                },
+                onDismiss = {
+                    showEndDeliveryDatePicker = false
+                },
+                onSettingClick = onSettingClick
+            )
 
             Column(
                 modifier = Modifier
@@ -876,20 +722,12 @@ private fun LocoFormScreenContent(
                             .padding(16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        val dateStartText = startDeliveryTime?.let {
-                            DateAndTimeConverter.getDateFromDateLong(startDeliveryTime)
+                        val dateStartText = locomotive.timeStartOfDelivery?.let {
+                            DateAndTimeConverter.getDateMiniAndTime(it)
                         } ?: "Начало"
-                        val timeStartText = startDeliveryTime?.let {
-                            DateAndTimeConverter.getTimeFromDateLong(startDeliveryTime)
-                        } ?: ""
 
                         Text(
                             text = dateStartText,
-                            style = dataTextStyle,
-                        )
-
-                        Text(
-                            text = " $timeStartText",
                             style = dataTextStyle,
                         )
                     }
@@ -907,19 +745,11 @@ private fun LocoFormScreenContent(
                             .padding(16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        val dateEndText = endDeliveryTime?.let {
-                            DateAndTimeConverter.getDateFromDateLong(endDeliveryTime)
+                        val dateEndText = locomotive.timeEndOfDelivery?.let {
+                            DateAndTimeConverter.getDateMiniAndTime(it)
                         } ?: "Окончание"
-                        val timeEndText = endDeliveryTime?.let {
-                            DateAndTimeConverter.getTimeFromDateLong(endDeliveryTime)
-                        } ?: ""
                         Text(
                             text = dateEndText,
-                            style = dataTextStyle,
-                        )
-
-                        Text(
-                            text = " $timeEndText",
                             style = dataTextStyle,
                         )
                     }

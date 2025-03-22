@@ -27,8 +27,14 @@ data class UserSettings(
     val stationList: List<String> = listOf(),
     val locomotiveSeriesList: List<String> = listOf(),
     val timeZone: Long = 0L,
-    var servicePhases: List<ServicePhase> = listOf()
+    var servicePhases: List<ServicePhase> = listOf(),
+    var dateTimePickerType: String = TypeDateTimePicker.WHEEL.text
 )
+
+
+enum class TypeDateTimePicker(val text: String) {
+    ROUND("Круглые часы"), INPUT("Ввод цифр"), WHEEL("Барабан")
+}
 
 data class ServicePhase(
     val id: String = UUID.randomUUID().toString(),

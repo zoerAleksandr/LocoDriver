@@ -29,7 +29,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -49,7 +48,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
-import com.z_company.core.ui.component.TimePickerDialog
+import com.z_company.core.ui.component.SelectableDateTimePicker
+import com.z_company.core.ui.component.WheelDateTimePicker
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.DateAndTimeFormat
@@ -59,6 +59,8 @@ import de.charlex.compose.RevealSwipe
 import de.charlex.compose.RevealValue
 import de.charlex.compose.rememberRevealState
 import kotlinx.coroutines.launch
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -76,22 +78,15 @@ fun StationItem(
     onArrivalTimeChanged: (Int, Long?) -> Unit,
     onDepartureTimeChanged: (Int, Long?) -> Unit,
     onDelete: (StationFormState) -> Unit,
-    onDeleteStationName: (String) -> Unit
+    onDeleteStationName: (String) -> Unit,
+    onSettingClick: () -> Unit
 ) {
     val focusManager = LocalFocusManager.current
     val revealState = rememberRevealState()
     val scope = rememberCoroutineScope()
     val isFirst = index == 0
 
-    var showArrivalTimePicker by remember {
-        mutableStateOf(false)
-    }
-
     var showArrivalDatePicker by remember {
-        mutableStateOf(false)
-    }
-
-    var showDepartureTimePicker by remember {
         mutableStateOf(false)
     }
 
@@ -111,31 +106,9 @@ fun StationItem(
         }
     }
 
-    val arrivalCalendar by remember {
-        mutableStateOf(arrivalTime)
-    }
+    val arrivalDateTime = arrivalTime.timeInMillis
 
-    val departureCalendar by remember {
-        mutableStateOf(departureTime)
-    }
-
-    val arrivalTimePickerState = rememberTimePickerState(
-        initialHour = arrivalCalendar.get(Calendar.HOUR_OF_DAY),
-        initialMinute = arrivalCalendar.get(Calendar.MINUTE),
-        is24Hour = true
-    )
-
-    val arrivalDatePickerState =
-        rememberDatePickerStateInLocale(initialSelectedDateMillis = arrivalCalendar.timeInMillis)
-
-    val departureTimePickerState = rememberTimePickerState(
-        initialHour = departureCalendar.get(Calendar.HOUR_OF_DAY),
-        initialMinute = departureCalendar.get(Calendar.MINUTE),
-        is24Hour = true
-    )
-
-    val departureDatePickerState =
-        rememberDatePickerStateInLocale(initialSelectedDateMillis = departureCalendar.timeInMillis)
+    val departureDateTime = departureTime.timeInMillis
 
     val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
 
@@ -340,54 +313,35 @@ fun StationItem(
         }
     }
 
-    if (showArrivalDatePicker) {
-        CustomDatePickerDialog(
-            datePickerState = arrivalDatePickerState,
-            onDismissRequest = {
-                showArrivalDatePicker = false
-            },
-            onConfirmRequest = {
-                showArrivalDatePicker = false
-                showArrivalTimePicker = true
-                arrivalCalendar.timeInMillis = arrivalDatePickerState.selectedDateMillis!!
-            })
-    }
+    SelectableDateTimePicker(
+        titleText = "Прибытие",
+        isShowPicker = showArrivalDatePicker,
+        initDateTime = arrivalDateTime,
+        onDoneClick = { localDateTime ->
+            val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+            val millis = instant.toEpochMilliseconds()
+            onArrivalTimeChanged(index, millis)
+            showArrivalDatePicker = false
+        },
+        onDismiss = {
+            showArrivalDatePicker = false
+        },
+        onSettingClick = onSettingClick
+    )
 
-    if (showArrivalTimePicker) {
-        TimePickerDialog(
-            timePickerState = arrivalTimePickerState,
-            onDismissRequest = { showArrivalTimePicker = false },
-            onConfirmRequest = {
-                showArrivalTimePicker = false
-                arrivalCalendar.set(Calendar.HOUR_OF_DAY, arrivalTimePickerState.hour)
-                arrivalCalendar.set(Calendar.MINUTE, arrivalTimePickerState.minute)
-                onArrivalTimeChanged(index, arrivalCalendar.timeInMillis)
-            }
-        )
-    }
-
-    if (showDepartureDatePicker) {
-        CustomDatePickerDialog(
-            datePickerState = departureDatePickerState,
-            onDismissRequest = { showDepartureDatePicker = false },
-            onConfirmRequest = {
-                showDepartureDatePicker = false
-                showDepartureTimePicker = true
-                departureCalendar.timeInMillis = departureDatePickerState.selectedDateMillis!!
-            }
-        )
-    }
-
-    if (showDepartureTimePicker) {
-        TimePickerDialog(
-            timePickerState = departureTimePickerState,
-            onDismissRequest = { showDepartureTimePicker = false },
-            onConfirmRequest = {
-                showDepartureTimePicker = false
-                departureCalendar.set(Calendar.HOUR_OF_DAY, departureTimePickerState.hour)
-                departureCalendar.set(Calendar.MINUTE, departureTimePickerState.minute)
-                onDepartureTimeChanged(index, departureCalendar.timeInMillis)
-            }
-        )
-    }
+    SelectableDateTimePicker(
+        titleText = "Отправление",
+        isShowPicker = showDepartureDatePicker,
+        initDateTime = departureDateTime,
+        onDoneClick = { localDateTime ->
+            val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+            val millis = instant.toEpochMilliseconds()
+            onDepartureTimeChanged(index, millis)
+            showDepartureDatePicker = false
+        },
+        onDismiss = {
+            showDepartureDatePicker = false
+        },
+        onSettingClick = onSettingClick
+    )
 }

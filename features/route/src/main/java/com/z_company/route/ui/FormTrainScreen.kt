@@ -200,14 +200,23 @@ fun FormTrainScreen(
             )
         }
     ) { paddingValues ->
-        if (formUiState.saveTrainState is ResultState.Error) {
-            LaunchedEffect(Unit) {
-                scope.launch {
-                    snackbarHostState.showSnackbar("Ошибка: ${formUiState.saveTrainState.entity.message}")
+        when(formUiState.saveTrainState){
+            is ResultState.Success -> {
+                LaunchedEffect(formUiState.saveTrainState) {
+                    onTrainSaved()
                 }
-                resetSaveState()
             }
+            is ResultState.Error -> {
+                LaunchedEffect(Unit) {
+                    scope.launch {
+                        snackbarHostState.showSnackbar("Ошибка: ${formUiState.saveTrainState.entity.message}")
+                    }
+                    resetSaveState()
+                }
+            }
+            else -> {}
         }
+
         if (formUiState.exitFromScreen) {
             LaunchedEffect(Unit) {
                 exitScreen()
@@ -216,42 +225,36 @@ fun FormTrainScreen(
         Box(modifier = Modifier.padding(paddingValues)) {
             AsyncData(resultState = formUiState.trainDetailState) {
                 currentTrain?.let { train ->
-                    if (formUiState.saveTrainState is ResultState.Success) {
-                        LaunchedEffect(formUiState.saveTrainState) {
-                            onTrainSaved()
-                        }
-                    } else {
-                        TrainFormScreenContent(
-                            train = train,
-                            onNumberChanged = onNumberChanged,
-                            onDistanceChange = onDistanceChange,
-                            onWeightChanged = onWeightChanged,
-                            onAxleChanged = onAxleChanged,
-                            onLengthChanged = onLengthChanged,
-                            onAddingStation = onAddingStation,
-                            onDeleteStation = onDeleteStation,
-                            onStationNameChanged = onStationNameChanged,
-                            onDepartureTimeChanged = onDepartureTimeChanged,
-                            onArrivalTimeChanged = onArrivalTimeChanged,
-                            stationListState = stationListState,
-                            changeShowConfirmExitDialog = changeShowConfirmExitDialog,
-                            onSaveClick = onSaveClick,
-                            exitWithoutSave = exitWithoutSave,
-                            showConfirmExitDialog = formUiState.confirmExitDialogShow,
-                            menuList = menuList,
-                            isExpandedMenu = isExpandedMenu,
-                            onChangedContentMenu = onChangedContentMenu,
-                            onExpandedMenuChange = onExpandedMenuChange,
-                            onDeleteStationName = onDeleteStationName,
-                            servicePhaseList = servicePhaseList,
-                            isShowDialogSelectServicePhase = isShowDialogSelectServicePhase,
-                            onShowDialogSelectServicePhase = onShowDialogSelectServicePhase,
-                            onHideDialogSelectServicePhase = onHideDialogSelectServicePhase,
-                            onSelectServicePhase = onSelectServicePhase,
-                            selectedServicePhase = selectedServicePhase,
-                            onSettingClick = onSettingClick
-                        )
-                    }
+                    TrainFormScreenContent(
+                        train = train,
+                        onNumberChanged = onNumberChanged,
+                        onDistanceChange = onDistanceChange,
+                        onWeightChanged = onWeightChanged,
+                        onAxleChanged = onAxleChanged,
+                        onLengthChanged = onLengthChanged,
+                        onAddingStation = onAddingStation,
+                        onDeleteStation = onDeleteStation,
+                        onStationNameChanged = onStationNameChanged,
+                        onDepartureTimeChanged = onDepartureTimeChanged,
+                        onArrivalTimeChanged = onArrivalTimeChanged,
+                        stationListState = stationListState,
+                        changeShowConfirmExitDialog = changeShowConfirmExitDialog,
+                        onSaveClick = onSaveClick,
+                        exitWithoutSave = exitWithoutSave,
+                        showConfirmExitDialog = formUiState.confirmExitDialogShow,
+                        menuList = menuList,
+                        isExpandedMenu = isExpandedMenu,
+                        onChangedContentMenu = onChangedContentMenu,
+                        onExpandedMenuChange = onExpandedMenuChange,
+                        onDeleteStationName = onDeleteStationName,
+                        servicePhaseList = servicePhaseList,
+                        isShowDialogSelectServicePhase = isShowDialogSelectServicePhase,
+                        onShowDialogSelectServicePhase = onShowDialogSelectServicePhase,
+                        onHideDialogSelectServicePhase = onHideDialogSelectServicePhase,
+                        onSelectServicePhase = onSelectServicePhase,
+                        selectedServicePhase = selectedServicePhase,
+                        onSettingClick = onSettingClick
+                    )
                 }
             }
         }
@@ -720,7 +723,8 @@ fun TrainFormScreenContent(
                     onStationNameChanged = onStationNameChanged,
                     onArrivalTimeChanged = onArrivalTimeChanged,
                     onDepartureTimeChanged = onDepartureTimeChanged,
-                    onDeleteStationName = onDeleteStationName
+                    onDeleteStationName = onDeleteStationName,
+                    onSettingClick = onSettingClick
                 )
             }
         }

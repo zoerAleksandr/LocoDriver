@@ -5,6 +5,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ServicePhase
+import com.z_company.domain.entities.TypeDateTimePicker
 import com.z_company.domain.entities.User
 import com.z_company.domain.entities.UserSettings
 
@@ -13,7 +14,8 @@ data class SettingsUiState(
     val userDetailsState: ResultState<User?> = ResultState.Loading,
     val calendarState: ResultState<MonthOfYear?> = ResultState.Loading,
     val saveSettingsState: ResultState<Unit>? = null,
-    val updateRepositoryState: ResultState<Long>? = null,
+    val uploadState: ResultState<Unit>? = null,
+    val downloadState: ResultState<Unit>? = null,
     val updateAt: Long? = null,
     val monthList: List<Int> = listOf(),
     val yearList: List<Int> = listOf(),
@@ -24,4 +26,5 @@ data class SettingsUiState(
     val showDialogAddServicePhase: Boolean = false,
     val selectedServicePhase: Pair<ServicePhase, Int>? = null,
     val servicePhases: SnapshotStateList<ServicePhase>? = mutableStateListOf(),
+    val inputDateTimeType: String = TypeDateTimePicker.WHEEL.text
 )

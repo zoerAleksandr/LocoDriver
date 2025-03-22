@@ -23,7 +23,8 @@ fun SettingDestination(
         onBack = router::back,
         onSettingSaved = router::back,
         onLogOut = settingsViewModel::logOut,
-        onSync = settingsViewModel::onSync,
+        onDownloadFromRemote = settingsViewModel::onDownloadFromRemote,
+        onUploadToRemote = settingsViewModel::onUploadToServer,
         workTimeChanged = settingsViewModel::changeDefaultWorkTime,
         locoTypeChanged = settingsViewModel::changeDefaultLocoType,
         restTimeChanged = settingsViewModel::changeMinTimeRest,
@@ -34,7 +35,8 @@ fun SettingDestination(
         emailForConfirm = settingsViewModel.currentEmail,
         onChangeEmail = settingsViewModel::setEmail,
         enableButtonConfirmVerification = uiState.resentVerificationEmailButton,
-        resetRepositoryState = settingsViewModel::resetRepositoryState,
+        resetUploadState = settingsViewModel::resetUploadState,
+        resetDownloadState = settingsViewModel::resetDownloadState,
         changeStartNightTime = settingsViewModel::changeStartNightTime,
         changeEndNightTime = settingsViewModel::changeEndNightTime,
         changeUsingDefaultWorkTime = settingsViewModel::changeUsingDefaultWorkTime,
@@ -51,6 +53,8 @@ fun SettingDestination(
         hideDialogAddServicePhase = settingsViewModel::hideDialogAddServicePhase,
         addServicePhase = settingsViewModel::addServicePhase,
         deleteServicePhase = settingsViewModel::deleteServicePhase,
-        updateServicePhase = settingsViewModel::selectToUpdateServicePhase
+        updateServicePhase = settingsViewModel::selectToUpdateServicePhase,
+        setInputDateTimeType = settingsViewModel::setInputDateTimeType,
+        inputDateTimeType = uiState.inputDateTimeType
     )
 }

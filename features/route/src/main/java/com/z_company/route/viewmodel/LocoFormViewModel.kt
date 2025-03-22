@@ -223,6 +223,22 @@ class LocoFormViewModel(
                     basicId = basicId,
                     type = currentSetting?.defaultLocoType ?: LocoType.ELECTRIC
                 )
+                electricSectionListState.add(
+                    ElectricSectionFormState(
+                        sectionId = SectionElectric().sectionId
+                    )
+                )
+
+                val coefficient = currentSetting?.lastEnteredDieselCoefficient
+                dieselSectionListState.add(
+                    DieselSectionFormState(
+                        sectionId = SectionDiesel().sectionId,
+                        coefficient = DieselSectionFieldState(
+                            coefficient.str(),
+                            DieselSectionType.COEFFICIENT
+                        )
+                    )
+                )
             } else {
                 isNewLoco = false
                 loadLoco(locoId!!)

@@ -1,5 +1,6 @@
 package com.z_company.route.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
@@ -20,7 +21,6 @@ import com.z_company.domain.entities.route.UtilsForEntities.getTimeInServicePhas
 import com.z_company.domain.entities.route.UtilsForEntities.setWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.timeFollowingSingleLocomotive
-import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -39,7 +39,6 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val salarySettingUseCase: SalarySettingUseCase by inject()
-    private val calendarUseCase: CalendarUseCase by inject ()
 
     private var userSettings: UserSettings? = null
     private var salarySetting: SalarySetting? = null
@@ -86,7 +85,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                             setToTariffTimeData(routeList, userSettings, salarySetting)
                             setNightTimeData(routeList, userSettings, salarySetting)
                             setSingleLocomotiveData(routeList, userSettings)
-                            setPassengerData(routeList, userSettings, salarySetting)
+                            setPassengerData(routeList, userSettings)
                             setHolidayData(routeList, userSettings, salarySetting)
                             setQualificationClassSurchargeData(
                                 routeList,
@@ -108,6 +107,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                             setDistrictSurchargeData(routeList, userSettings, salarySetting)
                             setNordicSurchargeData(routeList, userSettings, salarySetting)
                             setAveragePaymentData(userSettings, salarySetting)
+                            setOtherSurchargeData(routeList, userSettings, salarySetting)
                             setTotalCharged(routeList, userSettings, salarySetting)
                             setRetentionData(routeList, userSettings, salarySetting)
                         }
@@ -247,6 +247,8 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
 
         val surchargeHeavyTrains = getMoneyListSurchargeHeavyTrains(routeList, salarySetting, userSettings.selectMonthOfYear.tariffRate).sum()
 
+        val otherSurcharge = getOtherSurchargeMoney(routeList, userSettings, salarySetting)
+
         return paymentAtTariffMoney + paymentAtPassengerMoney +
                 paymentAtSingleLocomotiveMoney + paymentAtOvertimeMoney +
                 surchargeAtOvertime05Money + surchargeAtOvertimeMoney +
@@ -254,7 +256,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                 zonalSurchargeMoney + paymentNightTimeMoney +
                 surchargeQualificationClassMoney + surchargeExtendedServicePhaseMoney +
                 surchargeOnePersonOperationMoney + surchargeHarmfulnessSurchargeMoney +
-                surchargeLongDistanceTrainsMoney + surchargeHeavyTrains
+                surchargeLongDistanceTrainsMoney + surchargeHeavyTrains + otherSurcharge
     }
 
     private fun setAveragePaymentData(userSettings: UserSettings, salarySetting: SalarySetting) {
@@ -274,6 +276,31 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         val dayoffHours = currentMonthOfYear.getDayoffHours()
         val averagePaymentHour = salarySetting.averagePaymentHour
         return averagePaymentHour.times(dayoffHours.toDouble())
+    }
+
+    private fun setOtherSurchargeData(
+        routeList: List<Route>,
+        userSettings: UserSettings,
+        salarySetting: SalarySetting
+    ){
+        val otherSurchargeMoney = getOtherSurchargeMoney(routeList, userSettings, salarySetting)
+        Log.d("ZZZ", "otherSurchargeMoney $otherSurchargeMoney")
+        _uiState.update {
+            it.copy(
+                otherSurchargeMoney = otherSurchargeMoney,
+                otherSurchargePercent = salarySetting.otherSurcharge
+            )
+        }
+    }
+
+    private fun getOtherSurchargeMoney(
+        routeList: List<Route>,
+        userSettings: UserSettings,
+        salarySetting: SalarySetting
+    ): Double{
+        val otherSurchargePercent = salarySetting.otherSurcharge
+        val baseForZonalSurcharge = getBasicTimeForCalculationSurcharge(routeList, userSettings)
+        return baseForZonalSurcharge.times(userSettings.selectMonthOfYear.tariffRate * (otherSurchargePercent / 100))
     }
 
     private fun setSurchargeHeavyTransData(routeList: List<Route>, salarySetting: SalarySetting, tariffRateToCurrentMonth: Double) {
@@ -567,7 +594,6 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
     private fun setPassengerData(
         routeList: List<Route>,
         userSettings: UserSettings,
-        salarySetting: SalarySetting
     ) {
         val currentMonthOfYear = userSettings.selectMonthOfYear
         val passengerTime = getPassengerTime(routeList, userSettings, currentMonthOfYear)
@@ -880,7 +906,6 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         }
         return timeList
     }
-
 
     private fun getMoneyListSurchargeExtendedServicePhase(
         routeList: List<Route>,

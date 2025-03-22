@@ -456,17 +456,17 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
         }
     }
 
-//    fun setSurchargeHeavyLongDistanceTrains(value: String) {
-//        currentSalarySetting = currentSalarySetting?.copy(
-//            surchargeHeavyLongDistanceTrains = value.toDoubleOrZero()
-//        )
-//        _uiState.update {
-//            it.copy(
-//                surchargeHeavyLongDistanceTrains = ResultState.Success(value),
-//                isErrorInputSurchargeHeavyLongDistanceTrains = isErrorInputDouble(value)
-//            )
-//        }
-//    }
+    fun setOtherSurcharge(value: String) {
+        currentSalarySetting = currentSalarySetting?.copy(
+            otherSurcharge = value.toDoubleOrZero()
+        )
+        _uiState.update {
+            it.copy(
+                otherSurchargeState = ResultState.Success(value),
+                isErrorInputOtherSurcharge = isErrorInputDouble(value)
+            )
+        }
+    }
 
     fun setNDFL(value: String) {
         currentSalarySetting = currentSalarySetting?.copy(

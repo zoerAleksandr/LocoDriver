@@ -10,6 +10,8 @@ import com.z_company.domain.entities.route.UtilsForEntities.isTimeWorkValid
 import com.z_company.domain.entities.route.UtilsForEntities.shortRest
 import com.z_company.domain.repositories.RouteRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.launch
@@ -58,6 +60,7 @@ class RouteUseCase(private val repository: RouteRepository) {
                         }
                 }
             }
+            awaitClose()
         }
 
     fun listRouteWithDeleting(): List<Route> {

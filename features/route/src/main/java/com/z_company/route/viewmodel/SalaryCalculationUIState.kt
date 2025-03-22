@@ -54,6 +54,8 @@ data class SalaryCalculationUIState(
     val totalChargedMoney: Double? = null,
     val retentionNdfl: Double? = null,
     val unionistsRetention: Double? = null,
+    val otherSurchargeMoney: Double? = null,
+    val otherSurchargePercent: Double? = null,
     val otherRetention: Double? = null,
     val totalRetention: Double? = null,
     val toBeCredited: Double? = null

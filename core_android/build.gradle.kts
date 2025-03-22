@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 plugins {
     id(Plugins.android_lib)
     id(Plugins.kotlin_android)
@@ -51,6 +53,8 @@ dependencies {
     implementation(Libs.koin_core)
     implementation(Libs.koin_android)
     implementation(Libs.koin_androidx_compose)
+    implementation(Libs.kotlinx_date_time)
+
     coreLibraryDesugaring(Libs.desugaring)
 
     testImplementation(TestLibs.kotlin_test)

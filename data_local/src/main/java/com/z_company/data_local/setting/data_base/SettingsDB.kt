@@ -26,6 +26,8 @@ import com.z_company.data_local.setting.entity.UserSettings
  * add field tariffRate in MonthOfYear
  * version 8
  * add field servicePhases in UserSettings
+ * version 9
+ * add field servicePhases in UserSettings
  */
 
 @Database(
@@ -33,7 +35,7 @@ import com.z_company.data_local.setting.entity.UserSettings
         UserSettings::class,
         MonthOfYear::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -43,6 +45,7 @@ import com.z_company.data_local.setting.entity.UserSettings
         AutoMigration(from = 5, to = 6),
         AutoMigration(from = 6, to = 7),
         AutoMigration(from = 7, to = 8),
+        AutoMigration(from = 8, to = 9),
     ]
 )
 internal abstract class SettingsDB : RoomDatabase() {

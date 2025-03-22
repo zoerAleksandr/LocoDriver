@@ -1,6 +1,5 @@
 package com.z_company.settings.viewmodel
 
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -13,12 +12,12 @@ import com.parse.ParseUser
 import com.z_company.core.ResultState
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.isEmailValid
-import com.z_company.data_local.SharedPreferenceStorage
 import com.z_company.domain.entities.ServicePhase
 import com.z_company.use_case.LoginUseCase
 import com.z_company.domain.entities.User
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.route.LocoType
+import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -33,6 +32,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.zip
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -45,7 +45,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private val calendarUseCase: CalendarUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
     private val back4AppManager: Back4AppManager by inject()
-    private val sharedPreferenceStorage: SharedPreferenceStorage by inject()
+    private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState = _uiState.asStateFlow()
@@ -154,6 +154,17 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         showDialogAddServicePhase(phase)
     }
 
+    fun setInputDateTimeType(value: String){
+        viewModelScope.launch(Dispatchers.IO) {
+            sharedPreferenceStorage.setTokenDateTimePickerType(value)
+            _uiState.update {
+                it.copy(
+                    inputDateTimeType = value
+                )
+            }
+        }
+    }
+
     fun setEmail(value: String) {
         currentEmail = value
         if (value.isEmailValid()) {
@@ -237,10 +248,16 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     }
 
     private fun loadSettings() {
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    inputDateTimeType = sharedPreferenceStorage.tokenDateTimePickerType()
+                )
+            }
+        }
         loadSettingsJob?.cancel()
         loadSettingsJob = viewModelScope.launch {
             settingsUseCase.getFlowCurrentSettingsState().collect { result ->
-                Log.d("ZZZ", "userSetting in ViewModel $result")
                 _uiState.update {
                     it.copy(
                         settingDetails = result,
@@ -339,31 +356,42 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun onSync() {
+    fun onDownloadFromRemote() {
         viewModelScope.launch {
             back4AppManager.loadRouteListFromRemote().collect { loadResult ->
                 _uiState.update {
                     it.copy(
-                        updateRepositoryState = ResultState.Loading,
+                        downloadState = loadResult,
                     )
-                }
-                if (loadResult is ResultState.Success) {
-                    back4AppManager.synchronizedStorage().collect { syncResult ->
-                        _uiState.update {
-                            it.copy(
-                                updateRepositoryState = syncResult,
-                            )
-                        }
-                    }
                 }
             }
         }
     }
 
-    fun resetRepositoryState() {
+    fun onUploadToServer() {
+        viewModelScope.launch {
+            back4AppManager.synchronizedStorage().collect { syncResult ->
+                _uiState.update {
+                    it.copy(
+                        uploadState = syncResult,
+                    )
+                }
+            }
+        }
+    }
+
+
+    fun resetUploadState() {
         _uiState.update {
             it.copy(
-                updateRepositoryState = null
+                uploadState = null
+            )
+        }
+    }
+    fun resetDownloadState() {
+        _uiState.update {
+            it.copy(
+                downloadState = null
             )
         }
     }

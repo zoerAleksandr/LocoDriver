@@ -1,12 +1,10 @@
 package com.z_company.route.viewmodel
 
-import android.os.Build
 import android.util.Log
-import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.z_company.data_local.SharedPreferenceStorage
 import com.z_company.domain.entities.SubscriptionDetails
+import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.repository.ru_store_api.DTO.JWEAnswerDTO
 import com.z_company.repository.ru_store_api.DTO.SubscriptionAnswerDTO
 import com.z_company.route.Const.LOCO_DRIVER_ANNUAL_SUBSCRIPTION
@@ -32,10 +30,9 @@ import ru.rustore.sdk.billingclient.model.product.Product
 import ru.rustore.sdk.billingclient.model.purchase.PaymentResult
 import ru.rustore.sdk.billingclient.model.purchase.PurchaseState
 
-@RequiresApi(Build.VERSION_CODES.O)
 class PurchasesViewModel : ViewModel(), KoinComponent {
     private val billingClient: RuStoreBillingClient by inject()
-    private val sharedPreferenceStorage: SharedPreferenceStorage by inject()
+    private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val ruStoreUseCase: RuStoreUseCase by inject()
 
     private val availableProductIds = listOf(

@@ -20,6 +20,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeWithoutHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.setWorkTime
+import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -49,7 +50,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     private val routeUseCase: RouteUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
-    private val sharedPreferenceStorage: SharedPreferenceStorage by inject()
+    private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val billingClient: RuStoreBillingClient by inject()
     private val ruStoreUseCase: RuStoreUseCase by inject()
     var timeWithoutHoliday by mutableLongStateOf(0L)
@@ -190,7 +191,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
             )
         }
         val currentTime = getInstance().timeInMillis
-        val endTimeSubscription = sharedPreferenceStorage.getSubscriptionExpiration()
+        val gracePeriod = 24 * 3_600_000 // 1 day grace period
+        val endTimeSubscription = sharedPreferenceStorage.getSubscriptionExpiration() + gracePeriod
         viewModelScope.launch {
             var routesSize: Int
             withContext(Dispatchers.IO) {

@@ -19,7 +19,6 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
@@ -238,7 +237,7 @@ class Back4AppManager : KoinComponent {
         }
     }
 
-    suspend fun synchronizedStorage(): Flow<ResultState<Long>> {
+    suspend fun synchronizedStorage(): Flow<ResultState<Unit>> {
         return channelFlow {
             trySend(ResultState.Loading)
             CoroutineScope(Dispatchers.IO).launch {
@@ -274,9 +273,12 @@ class Back4AppManager : KoinComponent {
                     if (parseObjects.isEmpty()) {
                         trySend(ResultState.Success(Unit))
                     } else {
+                        parseObjects.sortBy {
+                            it.updatedAt
+                        }
                         parseObjects.forEachIndexed { index, parseObject ->
                             CoroutineScope(Dispatchers.IO).launch {
-                                this.launch {
+                                val saveRouteJob = this.launch {
                                     parseObject.getString(RouteFieldName.DATA_FIELD_NAME)
                                         ?.let { data ->
                                             var route = RouteJSONConverter.fromString(data)
@@ -303,7 +305,8 @@ class Back4AppManager : KoinComponent {
                                                     }
                                                 }
                                         }
-                                }.join()
+                                }
+                                saveRouteJob.join()
                             }
                         }
                     }
@@ -316,18 +319,18 @@ class Back4AppManager : KoinComponent {
     }
 
     /* Выгрузка на сервер несинхронизированных маршрутов */
-    private fun saveRouteToRemoteStorage(): Flow<ResultState<Long>> =
+    private fun saveRouteToRemoteStorage(): Flow<ResultState<Unit>> =
         channelFlow {
             trySend(ResultState.Loading)
             withContext(Dispatchers.IO) {
                 val notSynchronizedList = routeUseCase.getListRoutes().filter {
                     !it.basicData.isSynchronizedRoute
                 }
-
                 var timestamp: Long
                 if (notSynchronizedList.isEmpty()) {
                     timestamp = Calendar.getInstance().timeInMillis
-                    trySend(ResultState.Success(timestamp))
+                    settingsUseCase.setUpdateAt(timestamp).collect()
+                    trySend(ResultState.Success(Unit))
                 } else {
                     var syncRouteCount = 0
                     notSynchronizedList.forEach { route ->
@@ -336,19 +339,31 @@ class Back4AppManager : KoinComponent {
                                 if (result is ResultState.Success) {
                                     result.data.getString(ROUTE_DATA_OBJECT_ID_KEY)
                                         ?.let { remoteId ->
-                                            routeUseCase.setRemoteObjectIdRoute(
-                                                route.basicData.id, remoteId
-                                            ).launchIn(this).join()
+                                            this.launch {
+                                                routeUseCase.setRemoteObjectIdRoute(
+                                                    route.basicData.id, remoteId
+                                                ).collect {
+                                                    if (it is ResultState.Success) {
+                                                        this.cancel()
+                                                    }
+                                                }
+                                            }.join()
 
-                                            routeUseCase.setSynchronizedRoute(route.basicData.id)
-                                                .launchIn(this).join()
-
+                                            this.launch {
+                                                routeUseCase.setSynchronizedRoute(route.basicData.id)
+                                                    .collect {
+                                                        if (it is ResultState.Success) {
+                                                            this.cancel()
+                                                        }
+                                                    }
+                                            }.join()
                                         }
 
                                     syncRouteCount += 1
                                     if (syncRouteCount == notSynchronizedList.size) {
                                         timestamp = Calendar.getInstance().timeInMillis
-                                        trySend(ResultState.Success(timestamp))
+                                        settingsUseCase.setUpdateAt(timestamp).collect()
+                                        trySend(ResultState.Success(Unit))
                                         this@withContext.cancel()
                                     }
                                     this@launch.cancel()
