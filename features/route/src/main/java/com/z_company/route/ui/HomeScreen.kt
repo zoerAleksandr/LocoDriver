@@ -4,6 +4,7 @@ import android.app.Activity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -156,6 +157,9 @@ fun HomeScreen(
     showConfirmDialogRemoveRoute: Boolean,
     changeShowConfirmExitDialog: (Boolean) -> Unit,
     offsetInMoscow: Long,
+    syncRouteState: ResultState<String>?,
+    resetSyncRouteState: () -> Unit,
+    syncRoute: (Route) -> Unit
 ) {
     val view = LocalView.current
     val backgroundColor = MaterialTheme.colorScheme.background
@@ -224,6 +228,15 @@ fun HomeScreen(
             }
         }
         resetSubscriptionState()
+    }
+
+    AsyncData(resultState = syncRouteState) {message ->
+        message?.let {
+            scope.launch {
+                scaffoldState.snackbarHostState.showSnackbar(message)
+            }
+        }
+        resetSyncRouteState()
     }
 
     AnimationDialog(
@@ -388,6 +401,7 @@ fun HomeScreen(
             }
         }
     }
+
     var routeForPreview by remember {
         mutableStateOf<Route?>(null)
     }
@@ -490,6 +504,30 @@ fun HomeScreen(
                     .fillMaxWidth(0.6f)
                     .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
             ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .clickable {
+                            showContextDialog = false
+                            routeForPreview?.let { route ->
+                                syncRoute(route)
+                            }
+                        },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Сохранить в облаке",
+                        style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
+                    )
+                    Image(
+                        modifier = Modifier.size(25.dp),
+                        painter = painterResource(id = R.drawable.sync_on_icon),
+                        contentDescription = null,
+                    )
+                }
+                HorizontalDivider()
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()

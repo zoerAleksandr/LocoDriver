@@ -379,4 +379,39 @@ class Back4AppManager : KoinComponent {
             }
             awaitClose()
         }
-}
+
+    fun saveOneRouteToRemoteStorage(route: Route): Flow<ResultState<Unit>> =
+        channelFlow {
+            remoteRepository.saveRouteVer2(route).collect { result ->
+                if (result is ResultState.Success) {
+                    result.data.getString(ROUTE_DATA_OBJECT_ID_KEY)
+                        ?.let { remoteId ->
+                            this.launch {
+                                routeUseCase.setRemoteObjectIdRoute(
+                                    route.basicData.id, remoteId
+                                ).collect {
+                                    if (it is ResultState.Success) {
+                                        this.cancel()
+                                    }
+                                }
+                            }.join()
+
+                            this.launch {
+                                routeUseCase.setSynchronizedRoute(route.basicData.id)
+                                    .collect {
+                                        if (it is ResultState.Success) {
+                                            this.cancel()
+                                        }
+                                    }
+                            }.join()
+
+                            trySend(ResultState.Success(Unit))
+                        }
+                }
+                if (result is ResultState.Error) {
+                    trySend(ResultState.Error(result.entity))
+                }
+            }
+            awaitClose()
+        }
+    }

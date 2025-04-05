@@ -58,6 +58,9 @@ fun HomeDestination(
         resetSubscriptionState = homeViewModel::resetSubscriptionState,
         showConfirmDialogRemoveRoute = uiState.showConfirmRemoveRoute,
         changeShowConfirmExitDialog = homeViewModel::isShowConfirmRemoveRoute,
-        offsetInMoscow = uiState.offsetInMoscow
+        offsetInMoscow = uiState.offsetInMoscow,
+        syncRouteState = uiState.syncRouteState,
+        resetSyncRouteState = homeViewModel::resetSyncRouteState,
+        syncRoute = homeViewModel::syncRoute
     )
 }

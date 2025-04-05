@@ -25,5 +25,6 @@ data class HomeUiState(
     val isLoadingStateAddButton: Boolean = false,
     val restoreSubscriptionState: ResultState<String>? = null,
     val showConfirmRemoveRoute: Boolean = false,
-    val offsetInMoscow: Long = 0L
+    val offsetInMoscow: Long = 0L,
+    val syncRouteState: ResultState<String>? = null,
 )

@@ -24,6 +24,7 @@ import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.repository.Back4AppManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -53,6 +54,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val billingClient: RuStoreBillingClient by inject()
     private val ruStoreUseCase: RuStoreUseCase by inject()
+    private val back4AppManager: Back4AppManager by inject()
+
     var timeWithoutHoliday by mutableLongStateOf(0L)
         private set
 
@@ -449,6 +452,35 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         }
     }
 
+    fun syncRoute(route: Route) {
+        viewModelScope.launch {
+            back4AppManager.saveOneRouteToRemoteStorage(route).collect{ result ->
+                if (result is ResultState.Success){
+                    _uiState.update {
+                        it.copy(
+                            syncRouteState = ResultState.Success("Маршрут сохранен в облаке")
+                        )
+                    }
+                }
+                if (result is ResultState.Error){
+                    _uiState.update {
+                        it.copy(
+                            syncRouteState = ResultState.Success("Ошибка сохранения ${result.entity.message}")
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun resetSyncRouteState() {
+        _uiState.update {
+            it.copy(
+                syncRouteState = null
+            )
+        }
+    }
+
     private fun calculationTotalTime(routes: List<Route>, offsetInMoscow: Long) {
         _uiState.update {
             it.copy(
@@ -497,8 +529,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     private fun saveCurrentMonthInLocal(monthOfYear: MonthOfYear) {
         saveCurrentMonthJob?.cancel()
         saveCurrentMonthJob =
-            settingsUseCase.setCurrentMonthOfYear(monthOfYear).onEach{
-                if (it is ResultState.Success){
+            settingsUseCase.setCurrentMonthOfYear(monthOfYear).onEach {
+                if (it is ResultState.Success) {
                     loadSetting()
                     saveCurrentMonthJob?.cancel()
                 }

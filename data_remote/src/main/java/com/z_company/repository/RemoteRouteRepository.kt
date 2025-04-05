@@ -11,7 +11,6 @@ import kotlinx.coroutines.flow.Flow
 
 interface RemoteRouteRepository {
     suspend fun loadBasicDataFromRemote(id: String): Flow<ResultState<BasicDataRemote?>>
-    suspend fun saveRoute(route: Route): Flow<ResultState<Data>>
     suspend fun saveRouteVer2(route: Route): Flow<ResultState<Data>>
     suspend fun getAllBasicDataId(): Flow<ResultState<List<String>?>>
     suspend fun removeRoute(remoteRouteId: String): Flow<ResultState<Data>>

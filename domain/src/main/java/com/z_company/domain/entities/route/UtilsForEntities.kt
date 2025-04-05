@@ -12,18 +12,39 @@ import com.z_company.domain.util.minus
 import com.z_company.domain.util.moreThan
 import com.z_company.domain.util.plus
 import com.z_company.domain.util.toIntOrZero
+import org.koin.core.component.KoinComponent
 import java.util.Calendar
 import java.util.TimeZone
 
-object UtilsForEntities {
+object UtilsForEntities : KoinComponent {
     fun Route.getWorkTime(): Long? {
         val timeEnd = this.basicData.timeEndWork
         val timeStart = this.basicData.timeStartWork
         return if (timeEnd != null && timeStart != null) {
-            timeEnd - timeStart
+            val timeWork = timeEnd - timeStart
+            val passengerTimeNotIncluded = this.notIncludedPassengerTime()
+            timeWork.plus(passengerTimeNotIncluded)
         } else {
             null
         }
+    }
+
+    private fun Route.notIncludedPassengerTime(): Long {
+        var resultTime = 0L
+        val startWork = this.basicData.timeStartWork
+        val endWork = this.basicData.timeEndWork
+        if (startWork == null || endWork == null) {
+            return 0L
+        }
+        this.passengers.forEach { passenger ->
+            passenger.timeArrival?.let { arrival ->
+                if (endWork < arrival) {
+                    val time = arrival.minus(endWork)
+                    resultTime = resultTime.plus(time)
+                }
+            }
+        }
+        return resultTime
     }
 
     fun Route.isTimeWorkValid(): Boolean {
@@ -290,7 +311,10 @@ object UtilsForEntities {
                         0L
                     }
                 } else {
-                    passengerTime.plus(((passenger.timeArrival + offsetInMoscow) - (passenger.timeDeparture + offsetInMoscow)) ?: 0L)
+                    passengerTime.plus(
+                        ((passenger.timeArrival + offsetInMoscow) - (passenger.timeDeparture + offsetInMoscow))
+                            ?: 0L
+                    )
                 }
             }
         }
@@ -343,7 +367,10 @@ object UtilsForEntities {
         return holidayTime
     }
 
-    fun List<Route>.getWorkTimeWithoutHoliday(monthOfYear: MonthOfYear, offsetInMoscow: Long): Long {
+    fun List<Route>.getWorkTimeWithoutHoliday(
+        monthOfYear: MonthOfYear,
+        offsetInMoscow: Long
+    ): Long {
         val totalWorkTime = this.setWorkTime(monthOfYear, offsetInMoscow)
         val holidayWorkTime = this.getWorkingTimeOnAHoliday(monthOfYear, offsetInMoscow)
         return totalWorkTime - holidayWorkTime
@@ -498,7 +525,10 @@ object UtilsForEntities {
         }
     }
 
-    fun List<Route>.getOnePersonOperationTime(monthOfYear: MonthOfYear, offsetInMoscow: Long): Long {
+    fun List<Route>.getOnePersonOperationTime(
+        monthOfYear: MonthOfYear,
+        offsetInMoscow: Long
+    ): Long {
         var resultTime = 0L
         this.forEach { route ->
             if (route.basicData.isOnePersonOperation) {

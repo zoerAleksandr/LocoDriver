@@ -15,6 +15,9 @@ import com.z_company.work_manager.RouteFieldName.DATA_FIELD_NAME
 import com.z_company.work_manager.RouteFieldName.ROUTE_CLASS_NAME_REMOTE
 import kotlinx.coroutines.coroutineScope
 import org.koin.core.component.KoinComponent
+import ru.ok.tracer.Tracer
+import ru.ok.tracer.crash.report.TracerCrashReport
+import java.io.NotActiveException
 
 const val ROUTE_DATA_INPUT_KEY = "ROUTE_DATA_INPUT_KEY"
 const val ROUTE_DATA_OBJECT_ID_KEY = "ROUTE_DATA_OBJECT_ID_KEY"
@@ -42,6 +45,9 @@ class SaveRouteWorker(context: Context, params: WorkerParameters) :
             return@coroutineScope Result.success(data)
         } catch (e: Exception) {
             Log.d("ZZZ", "failure ${e.message}")
+            val value = inputData.getString(ROUTE_DATA_INPUT_KEY)
+            val route = RouteJSONConverter.fromString(value!!)
+            TracerCrashReport.report(NotActiveException("$e \n${e.message} \n$route"))
             return@coroutineScope Result.failure()
         }
     }

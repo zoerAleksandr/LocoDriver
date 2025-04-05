@@ -1,6 +1,8 @@
 package com.z_company.route.component
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
@@ -8,10 +10,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material.ExperimentalMaterialApi
@@ -25,17 +32,24 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.maxkeppeker.sheets.core.utils.BaseModifiers.dynamicContentWrapOrMaxHeight
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.entities.route.Route
 import de.charlex.compose.RevealDirection
@@ -49,7 +63,9 @@ import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.DateAndTimeConverter.getDateMiniAndTime
 import com.z_company.core.util.DateAndTimeConverter.getTime
 import com.z_company.core.util.DateAndTimeFormat
+import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
+import com.z_company.route.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import java.text.SimpleDateFormat
@@ -89,7 +105,6 @@ fun ItemHomeScreen(
                 is PressInteraction.Release -> {
                     if (isLongClick.not()) {
                     }
-
                 }
             }
         }
@@ -103,10 +118,14 @@ fun ItemHomeScreen(
         }
     }
 
+    var itemHeightDp by remember {
+        mutableStateOf(0.dp)
+    }
+
     RevealSwipe(
         modifier = modifier
             .fillMaxWidth()
-            .height(80.dp),
+            .defaultMinSize(minHeight = 65.dp),
         enableSwipe = isExpand,
         state = revealState,
         directions = setOf(
@@ -115,7 +134,7 @@ fun ItemHomeScreen(
         hiddenContentEnd = {
             Box(
                 modifier = Modifier
-                    .width(75.dp),
+                    .defaultMinSize(minHeight = itemHeightDp, minWidth = 75.dp),
                 contentAlignment = Alignment.Center
             ) {
                 IconButton(onClick = {
@@ -135,15 +154,19 @@ fun ItemHomeScreen(
         backgroundCardEndColor = MaterialTheme.colorScheme.error.copy(alpha = 0.2f),
         shape = Shapes.medium
     ) {
+        val localDensity = LocalDensity.current
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .wrapContentHeight()
-                .height(80.dp)
+                .defaultMinSize(minHeight = 65.dp)
                 .combinedClickable(
                     onClick = onClick,
                     onLongClick = onLongClick
-                ),
+                )
+                .onGloballyPositioned { coordinates ->
+                    itemHeightDp = with(localDensity) { coordinates.size.height.toDp() }
+            },
             shape = Shapes.medium,
             colors = CardDefaults.cardColors(
                 containerColor = containerColor,
@@ -155,7 +178,7 @@ fun ItemHomeScreen(
                     .fillMaxSize()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)
             ) {
                 Row(
                     modifier = Modifier
@@ -163,101 +186,6 @@ fun ItemHomeScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-//                    Row(verticalAlignment = Alignment.CenterVertically) {
-//                        route.basicData.timeStartWork?.let { timeStartWork ->
-//                            AutoSizeText(
-//                                modifier = Modifier.padding(end = 8.dp),
-//                                text = SimpleDateFormat(
-//                                    DateAndTimeFormat.MINI_DATE_FORMAT,
-//                                    Locale.getDefault()
-//                                ).format(
-//                                    timeStartWork
-//                                ),
-//                                maxTextSize = requiredSizeText,
-//                                maxLines = 1,
-//                                style = AppTypography.getType().headlineSmall,
-//                                fontWeight = FontWeight.Normal,
-//                                onTextLayout = { textLayoutResult ->
-//                                    val size = textLayoutResult.layoutInput.style.fontSize
-//                                    changingTextSize(size)
-//                                }
-//                            )
-//                        }
-//                        route.basicData.timeStartWork?.let { timeStartWork ->
-//                            AutoSizeText(
-//                                text = SimpleDateFormat(
-//                                    DateAndTimeFormat.TIME_FORMAT, Locale.getDefault()
-//                                ).format(
-//                                    timeStartWork
-//                                ),
-//                                maxTextSize = requiredSizeText,
-//                                maxLines = 1,
-//                                style = AppTypography.getType().headlineSmall,
-//                                fontWeight = FontWeight.Normal,
-//                                onTextLayout = { textLayoutResult ->
-//                                    val size = textLayoutResult.layoutInput.style.fontSize
-//                                    changingTextSize(size)
-//                                }
-//                            )
-//                        }
-//                        AutoSizeText(
-//                            text = " - ",
-//                            maxTextSize = requiredSizeText,
-//                            style = AppTypography.getType().headlineSmall,
-//                            fontWeight = FontWeight.Light,
-//                            onTextLayout = { textLayoutResult ->
-//                                val size = textLayoutResult.layoutInput.style.fontSize
-//                                changingTextSize(size)
-//                            }
-//                        )
-//                        route.basicData.timeEndWork?.let { timeEndWork ->
-//                            route.basicData.timeStartWork?.let { timeStartWork ->
-//                                val isDifference = DateAndTimeConverter.isDifferenceDate(
-//                                    first = timeStartWork,
-//                                    second = timeEndWork
-//                                )
-//                                if (isDifference) {
-//                                    AutoSizeText(
-//                                        modifier = Modifier
-//                                            .padding(end = 8.dp),
-//                                        text = SimpleDateFormat(
-//                                            DateAndTimeFormat.MINI_DATE_FORMAT,
-//                                            Locale.getDefault()
-//                                        ).format(
-//                                            timeEndWork
-//                                        ),
-//                                        maxTextSize = requiredSizeText,
-//                                        maxLines = 1,
-//                                        style = AppTypography.getType().headlineSmall,
-//                                        fontWeight = FontWeight.Normal,
-//                                        onTextLayout = { textLayoutResult ->
-//                                            val size = textLayoutResult.layoutInput.style.fontSize
-//                                            changingTextSize(size)
-//                                        }
-//                                    )
-//                                }
-//                            }
-//                        }
-//                        route.basicData.timeEndWork?.let { timeEndWork ->
-//                            AutoSizeText(
-//                                text = SimpleDateFormat(
-//                                    DateAndTimeFormat.TIME_FORMAT, Locale.getDefault()
-//                                ).format(
-//                                    timeEndWork
-//                                ),
-//                                maxTextSize = requiredSizeText,
-//                                maxLines = 1,
-//                                style = AppTypography.getType().headlineSmall,
-//                                fontWeight = FontWeight.Normal,
-//                                onTextLayout = { textLayoutResult ->
-//                                    val size = textLayoutResult.layoutInput.style.fontSize
-//                                    changingTextSize(size)
-//                                }
-//                            )
-//                        }
-//                    }
-
-
                     val startWork = getDateMiniAndTime(route.basicData.timeStartWork)
 
                     val isDifference = DateAndTimeConverter.isDifferenceDate(
@@ -349,8 +277,47 @@ fun ItemHomeScreen(
                         )
                     }
                 }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
+                ) {
+                    route.getPassengerTime()?.let { time ->
+                        if (time > 0L) {
+                            Icon(
+                                modifier = Modifier.size(20.dp),
+                                painter = painterResource(id = R.drawable.passenger_24px),
+                                contentDescription = null
+                            )
+                        }
+                    }
+                    route.getWorkTime()?.let { time ->
+                        val oneHourInMillis = 3600000
+                        val normaHours = 12
+                        if (time > normaHours * oneHourInMillis) {
+                            Image(
+                                modifier = Modifier.size(20.dp),
+                                painter = painterResource(id = R.drawable.orden),
+                                contentDescription = null,
+                            )
+                        }
+                    }
+                    if (route.basicData.isSynchronizedRoute){
+                        Image(
+                            modifier = Modifier.size(20.dp),
+                            painter = painterResource(id = R.drawable.sync_on_icon),
+                            contentDescription = null,
+                        )
+                    } else {
+                        Icon(
+                            modifier = Modifier.size(20.dp),
+                            painter = painterResource(id = R.drawable.not_sync_icon),
+                            contentDescription = null,
+                        )
+                    }
+                }
             }
         }
-
     }
 }

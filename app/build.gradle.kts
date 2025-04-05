@@ -83,13 +83,13 @@ tracer {
 
 
 dependencies {
-    implementation ("com.my.tracker:mytracker-sdk:3.3.2")
-    implementation(platform("ru.rustore.sdk:bom:7.0.0"))
-    implementation("ru.rustore.sdk:billingclient")
+    implementation (Libs.mytracker_sdk)
+    implementation(platform(Libs.rustore_sdk_bom))
+    implementation(Libs.rustore_sdk_billingclient)
 
-    implementation(platform("ru.ok.tracer:tracer-platform:0.5.1"))
-    implementation("ru.ok.tracer:tracer-crash-report")
-    implementation("ru.ok.tracer:tracer-heap-dumps")
+    implementation(platform(Libs.ru_ok_tracer_platform))
+    implementation(Libs.ru_ok_tracer_tracer_crash_report)
+    implementation(Libs.ru_ok_tracer_tracer_heap_dumps)
 
     implementation(project(Libs.project_core_android))
     implementation(project(Libs.project_domain))

@@ -24,12 +24,14 @@ import Versions.maxkeppeler_sheets_ver
 import Versions.mockito_core_ver
 import Versions.mockito_inline_ver
 import Versions.mockito_kotlin_ver
+import Versions.mytracker_sdk_ver
 import Versions.ozcanalasalvar_ver
 import Versions.parse_sdk_android_ver
 import Versions.permission_accompanist_ver
 import Versions.rebugger_ver
 import Versions.reveal_swipe_version
 import Versions.room_version
+import Versions.ru_ok_tracer_platform_ver
 import Versions.rustore_bom_ver
 import Versions.splash_screen_ver
 import Versions.test_ext_version
@@ -108,6 +110,8 @@ object Versions {
     const val mockito_inline_ver= "2.8.9"
     const val mockito_kotlin_ver= "1.5.0"
     const val kotlinx_date_time_ver = "0.6.2"
+    const val ru_ok_tracer_platform_ver = "0.5.1"
+    const val mytracker_sdk_ver = "3.3.2"
 }
 
 object Libs {
@@ -122,6 +126,13 @@ object Libs {
     const val project_feature_settings = ":features:settings"
 
     // Libs
+    const val ru_ok_tracer_platform = "ru.ok.tracer:tracer-platform:$ru_ok_tracer_platform_ver"
+    const val ru_ok_tracer_tracer_crash_report = "ru.ok.tracer:tracer-crash-report"
+    const val ru_ok_tracer_tracer_heap_dumps = "ru.ok.tracer:tracer-heap-dumps"
+    const val mytracker_sdk = "com.my.tracker:mytracker-sdk:$mytracker_sdk_ver"
+    const val rustore_sdk_bom = "ru.rustore.sdk:bom:$rustore_bom_ver"
+    const val rustore_sdk_billingclient = "ru.rustore.sdk:billingclient"
+
     const val kotlinx_date_time = "org.jetbrains.kotlinx:kotlinx-datetime:$kotlinx_date_time_ver"
     const val desugaring = "com.android.tools:desugar_jdk_libs:$desugaring_ver"
     const val rebugger = "io.github.theapache64:rebugger:$rebugger_ver"
