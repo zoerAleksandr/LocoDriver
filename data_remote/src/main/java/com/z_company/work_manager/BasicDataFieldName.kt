@@ -4,6 +4,7 @@ object RouteFieldName {
     const val ROUTE_CLASS_NAME_REMOTE = "Route"
     const val USER_FIELD_NAME = "user"
     const val DATA_FIELD_NAME = "data"
+    const val USER_EMAIL_FIELD_NAME = "user_email"
 }
 object BasicDataFieldName {
     const val BASIC_DATA_CLASS_NAME_REMOTE = "BasicData"

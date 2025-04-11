@@ -9,10 +9,12 @@ import com.parse.ParseObject
 import com.parse.ParseRelation
 import com.parse.ParseUser
 import com.parse.coroutines.suspendSave
+import com.z_company.core.util.ConverterLongToTime
 import com.z_company.type_converter.RouteJSONConverter
 import com.z_company.work_manager.RouteFieldName.USER_FIELD_NAME
 import com.z_company.work_manager.RouteFieldName.DATA_FIELD_NAME
 import com.z_company.work_manager.RouteFieldName.ROUTE_CLASS_NAME_REMOTE
+import com.z_company.work_manager.RouteFieldName.USER_EMAIL_FIELD_NAME
 import kotlinx.coroutines.coroutineScope
 import org.koin.core.component.KoinComponent
 import ru.ok.tracer.Tracer
@@ -35,6 +37,7 @@ class SaveRouteWorker(context: Context, params: WorkerParameters) :
                 routeObject.objectId = route.basicData.remoteRouteId
             }
             routeObject.put(DATA_FIELD_NAME, value)
+            routeObject.put(USER_EMAIL_FIELD_NAME, currentUser.email)
 
             val relation: ParseRelation<ParseUser> = routeObject.getRelation(USER_FIELD_NAME)
             relation.add(currentUser)

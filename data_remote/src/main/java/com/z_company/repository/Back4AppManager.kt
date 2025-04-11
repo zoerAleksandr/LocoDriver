@@ -1,5 +1,6 @@
 package com.z_company.repository
 
+import android.util.Log
 import com.parse.ParseObject
 import com.parse.ParseQuery
 import com.parse.ParseUser
@@ -8,7 +9,13 @@ import com.z_company.core.ResultState
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.entity_converter.BasicDataConverter
+import com.z_company.entity_converter.LocomotiveConverter
+import com.z_company.entity_converter.PassengerConverter
+import com.z_company.entity_converter.PhotoConverter
+import com.z_company.entity_converter.TrainConverter
 import com.z_company.type_converter.RouteJSONConverter
+import com.z_company.work_manager.BasicDataFieldName
 import com.z_company.work_manager.ROUTE_DATA_OBJECT_ID_KEY
 import com.z_company.work_manager.RouteFieldName
 import kotlinx.coroutines.CoroutineScope
@@ -263,55 +270,16 @@ class Back4AppManager : KoinComponent {
 
     // загрузка из сервера
     fun loadRouteListFromRemote(): Flow<ResultState<Unit>> {
-        val parseQuery: ParseQuery<ParseObject> =
-            ParseQuery(RouteFieldName.ROUTE_CLASS_NAME_REMOTE)
-        parseQuery.whereEqualTo(RouteFieldName.USER_FIELD_NAME, ParseUser.getCurrentUser())
         return channelFlow {
             trySend(ResultState.Loading)
-            parseQuery.findInBackground { parseObjects, parseException ->
-                if (parseException == null) {
-                    if (parseObjects.isEmpty()) {
-                        trySend(ResultState.Success(Unit))
-                    } else {
-                        parseObjects.sortBy {
-                            it.updatedAt
-                        }
-                        parseObjects.forEachIndexed { index, parseObject ->
-                            CoroutineScope(Dispatchers.IO).launch {
-                                val saveRouteJob = this.launch {
-                                    parseObject.getString(RouteFieldName.DATA_FIELD_NAME)
-                                        ?.let { data ->
-                                            var route = RouteJSONConverter.fromString(data)
-                                            route = route.copy(
-                                                basicData = route.basicData.copy(
-                                                    isSynchronizedRoute = true,
-                                                    remoteRouteId = parseObject.objectId
-                                                )
-                                            )
-
-                                            routeUseCase.saveRouteAfterLoading(route)
-                                                .collect {
-                                                    if (it is ResultState.Success) {
-                                                        if (parseObjects.size == index + 1) {
-                                                            trySend(ResultState.Success(Unit))
-                                                            val timeInMillis =
-                                                                Calendar.getInstance().timeInMillis
-                                                            settingsUseCase.setUpdateAt(timeInMillis).collect()
-                                                        }
-                                                        this.cancel()
-                                                    }
-                                                    if (it is ResultState.Error) {
-                                                        trySend(ResultState.Error(it.entity))
-                                                    }
-                                                }
-                                        }
-                                }
-                                saveRouteJob.join()
-                            }
-                        }
+            loadRouteListFromRemoteOldVersion().collect { loadOldVersionResult ->
+                if (loadOldVersionResult is ResultState.Success) {
+                    loadRouteFromRemoteNewVersion().collect { loadNewVersionResult ->
+                        trySend(loadNewVersionResult)
                     }
-                } else {
-                    trySend(ResultState.Error(ErrorEntity(throwable = parseException)))
+                }
+                if (loadOldVersionResult is ResultState.Error) {
+                    trySend(ResultState.Error(loadOldVersionResult.entity))
                 }
             }
             awaitClose()
@@ -339,6 +307,7 @@ class Back4AppManager : KoinComponent {
                                 if (result is ResultState.Success) {
                                     result.data.getString(ROUTE_DATA_OBJECT_ID_KEY)
                                         ?.let { remoteId ->
+                                            Log.d("ZZZ", "remoteId $remoteId")
                                             this.launch {
                                                 routeUseCase.setRemoteObjectIdRoute(
                                                     route.basicData.id, remoteId
@@ -414,4 +383,189 @@ class Back4AppManager : KoinComponent {
             }
             awaitClose()
         }
+
+    private fun loadRouteFromRemoteNewVersion(): Flow<ResultState<Unit>> {
+        val parseQuery: ParseQuery<ParseObject> =
+            ParseQuery(RouteFieldName.ROUTE_CLASS_NAME_REMOTE)
+        parseQuery.whereEqualTo(RouteFieldName.USER_FIELD_NAME, ParseUser.getCurrentUser())
+        return channelFlow {
+            trySend(ResultState.Loading)
+            parseQuery.findInBackground { parseObjects, parseException ->
+                if (parseException == null) {
+                    if (parseObjects.isEmpty()) {
+                        trySend(ResultState.Success(Unit))
+                    } else {
+                        parseObjects.sortBy {
+                            it.updatedAt
+                        }
+                        parseObjects.forEachIndexed { index, parseObject ->
+                            CoroutineScope(Dispatchers.IO).launch {
+                                val saveRouteJob = this.launch {
+                                    parseObject.getString(RouteFieldName.DATA_FIELD_NAME)
+                                        ?.let { data ->
+                                            var route = RouteJSONConverter.fromString(data)
+                                            route = route.copy(
+                                                basicData = route.basicData.copy(
+                                                    isSynchronizedRoute = true,
+                                                    remoteRouteId = parseObject.objectId
+                                                )
+                                            )
+
+                                            routeUseCase.saveRouteAfterLoading(route)
+                                                .collect {
+                                                    if (it is ResultState.Success) {
+                                                        if (parseObjects.size == index + 1) {
+                                                            trySend(ResultState.Success(Unit))
+                                                            val timeInMillis =
+                                                                Calendar.getInstance().timeInMillis
+                                                            settingsUseCase.setUpdateAt(timeInMillis)
+                                                                .collect()
+                                                        }
+                                                        this.cancel()
+                                                    }
+                                                    if (it is ResultState.Error) {
+                                                        trySend(ResultState.Error(it.entity))
+                                                    }
+                                                }
+                                        }
+                                }
+                                saveRouteJob.join()
+                            }
+                        }
+                    }
+                } else {
+                    trySend(ResultState.Error(ErrorEntity(throwable = parseException)))
+                }
+            }
+            awaitClose()
+        }
     }
+
+    private fun loadRouteListFromRemoteOldVersion(): Flow<ResultState<Unit>> {
+        val parseQuery: ParseQuery<ParseObject> =
+            ParseQuery(BasicDataFieldName.BASIC_DATA_CLASS_NAME_REMOTE)
+        parseQuery.whereEqualTo(BasicDataFieldName.USER_FIELD_NAME, ParseUser.getCurrentUser())
+        parseQuery.orderByDescending(BasicDataFieldName.BASIC_DATA_UID_FIELD_NAME)
+        return channelFlow {
+            trySend(ResultState.Loading)
+            parseQuery.findInBackground { parseObjects, parseException ->
+                if (parseException == null) {
+                    if (parseObjects.isEmpty()) {
+                        trySend(ResultState.Success(Unit))
+                    } else {
+                        parseObjects.forEachIndexed { index, parseObject ->
+                            parseObject.apply {
+                                getString(BasicDataFieldName.BASIC_DATA_UID_FIELD_NAME)?.let { id ->
+                                    CoroutineScope(Dispatchers.IO).launch {
+                                        loadRouteFromRemote(id).collect { loadRouteResult ->
+                                            if (loadRouteResult is ResultState.Success) {
+                                                saveOneRouteToRemoteStorage(loadRouteResult.data).collect { saveResult ->
+                                                    if (saveResult is ResultState.Success) {
+                                                        removeRouteFromRemoteRepositoryOldMethod(
+                                                            loadRouteResult.data
+                                                        ).collect{}
+                                                    }
+                                                }
+                                            }
+                                            if (loadRouteResult is ResultState.Success && parseObjects.size == index + 1) {
+                                                val timeInMillis =
+                                                    Calendar.getInstance().timeInMillis
+                                                settingsUseCase.setUpdateAt(timeInMillis)
+                                                    .collect()
+                                                trySend(ResultState.Success(Unit))
+                                            }
+                                            if (loadRouteResult is ResultState.Error) {
+                                                trySend(ResultState.Error(loadRouteResult.entity))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    trySend(ResultState.Error(ErrorEntity(throwable = parseException)))
+                }
+            }
+            awaitClose()
+        }
+    }
+
+    private fun loadRouteFromRemote(id: String): Flow<ResultState<Route>> {
+        return channelFlow {
+            trySend(ResultState.Loading)
+
+            var route = Route()
+            CoroutineScope(Dispatchers.IO).launch {
+                this.launch {
+                    remoteRepository.loadBasicDataFromRemote(id).collect { result ->
+                        if (result is ResultState.Success) {
+                            result.data?.let {
+                                route =
+                                    route.copy(
+                                        basicData = BasicDataConverter.toData(
+                                            it.copy(
+                                                isSynchronized = true
+                                            )
+                                        ),
+                                    )
+                            }
+                            this.cancel()
+                        }
+                    }
+                }.join()
+
+                this.launch {
+                    remoteRepository.loadLocomotiveFromRemote(id).collect { result ->
+                        if (result is ResultState.Success) {
+                            result.data?.let { locomotives ->
+                                route = route.copy(
+                                    locomotives = LocomotiveConverter.toDataList(locomotives)
+                                )
+                            }
+                            this.cancel()
+                        }
+                    }
+                }.join()
+
+                this.launch {
+                    remoteRepository.loadTrainFromRemote(id).collect { result ->
+                        if (result is ResultState.Success) {
+                            result.data?.let { trains ->
+                                route = route.copy(
+                                    trains = TrainConverter.fromRemoteList(trains)
+                                )
+                            }
+                            this.cancel()
+                        }
+                    }
+                }.join()
+
+                this.launch {
+                    remoteRepository.loadPassengerFromRemote(id).collect { result ->
+                        if (result is ResultState.Success) {
+                            result.data?.let { passengers ->
+                                route = route.copy(
+                                    passengers = PassengerConverter.fromRemoteList(
+                                        passengers
+                                    )
+                                )
+                            }
+                            this.cancel()
+                        }
+                    }
+                }.join()
+
+                this.launch {
+                    routeUseCase.saveRouteAfterLoading(route).collect {
+                        if (it is ResultState.Success) {
+                            trySend(ResultState.Success(route))
+                            this.cancel()
+                        }
+                    }
+                }.join()
+            }
+            awaitClose()
+        }
+    }
+}
