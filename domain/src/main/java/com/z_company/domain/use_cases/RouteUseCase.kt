@@ -10,7 +10,6 @@ import com.z_company.domain.entities.route.UtilsForEntities.isTimeWorkValid
 import com.z_company.domain.entities.route.UtilsForEntities.shortRest
 import com.z_company.domain.repositories.RouteRepository
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
@@ -101,11 +100,11 @@ class RouteUseCase(private val repository: RouteRepository) {
         return repository.setSynchronizedRoute(basicId)
     }
 
-    fun setRemoteObjectIdRoute(
+    fun setRemoteRouteIdRoute(
         basicId: String,
-        remoteObjectId: String?
+        remoteRouteId: String?
     ): Flow<ResultState<Unit>> {
-        return repository.setRemoteObjectIdRoute(basicId, remoteObjectId)
+        return repository.setRemoteObjectIdRoute(basicId, remoteRouteId)
     }
 
     fun setRemoteObjectIdBasicData(

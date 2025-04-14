@@ -12,7 +12,6 @@ import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.entity_converter.BasicDataConverter
 import com.z_company.entity_converter.LocomotiveConverter
 import com.z_company.entity_converter.PassengerConverter
-import com.z_company.entity_converter.PhotoConverter
 import com.z_company.entity_converter.TrainConverter
 import com.z_company.type_converter.RouteJSONConverter
 import com.z_company.work_manager.BasicDataFieldName
@@ -23,6 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.collect
@@ -303,14 +303,13 @@ class Back4AppManager : KoinComponent {
                     var syncRouteCount = 0
                     notSynchronizedList.forEach { route ->
                         this.launch {
+                            Log.d("ZZZ", "route for save $route")
                             remoteRepository.saveRouteVer2(route).collect { result ->
                                 if (result is ResultState.Success) {
-                                    result.data.getString(ROUTE_DATA_OBJECT_ID_KEY)
-                                        ?.let { remoteId ->
-                                            Log.d("ZZZ", "remoteId $remoteId")
+                                    result.data.let { remoteId ->
                                             this.launch {
-                                                routeUseCase.setRemoteObjectIdRoute(
-                                                    route.basicData.id, remoteId
+                                                routeUseCase.setRemoteRouteIdRoute(
+                                                    basicId = route.basicData.id, remoteRouteId = remoteId
                                                 ).collect {
                                                     if (it is ResultState.Success) {
                                                         this.cancel()
@@ -353,10 +352,9 @@ class Back4AppManager : KoinComponent {
         channelFlow {
             remoteRepository.saveRouteVer2(route).collect { result ->
                 if (result is ResultState.Success) {
-                    result.data.getString(ROUTE_DATA_OBJECT_ID_KEY)
-                        ?.let { remoteId ->
+                    result.data.let { remoteId ->
                             this.launch {
-                                routeUseCase.setRemoteObjectIdRoute(
+                                routeUseCase.setRemoteRouteIdRoute(
                                     route.basicData.id, remoteId
                                 ).collect {
                                     if (it is ResultState.Success) {

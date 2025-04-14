@@ -104,6 +104,6 @@ internal interface RouteDao {
 //    fun setSchemaVersion(version: Int, id: String)
     @Query("DELETE FROM BasicData")
     suspend fun clearRepository()
-    @Query("UPDATE BasicData SET remoteRouteId =:remoteObjectId WHERE id =:basicId")
-    fun setRemoteObjectIdRoute(basicId: String, remoteObjectId: String?)
+    @Query("UPDATE BasicData SET remoteRouteId =:remoteRouteId WHERE id =:basicId")
+    fun setRemoteObjectIdRoute(basicId: String, remoteRouteId: String?)
 }

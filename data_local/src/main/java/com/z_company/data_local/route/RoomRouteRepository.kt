@@ -174,10 +174,10 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
 
     override fun setRemoteObjectIdRoute(
         basicId: String,
-        remoteObjectId: String?
+        remoteRouteId: String?
     ): Flow<ResultState<Unit>> {
         return flowRequest {
-            dao.setRemoteObjectIdRoute(basicId, remoteObjectId)
+            dao.setRemoteObjectIdRoute(basicId, remoteRouteId)
         }
     }
 

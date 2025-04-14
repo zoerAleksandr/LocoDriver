@@ -8,6 +8,8 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.parse.ParseUser
+import com.z_company.ParseHelper
 import com.z_company.type_converter.BasicDataJSONConverter
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.route.Route
@@ -39,22 +41,26 @@ import com.z_company.work_manager.REMOVE_PASSENGER_OBJECT_ID_KEY
 import com.z_company.work_manager.REMOVE_PHOTO_OBJECT_ID_KEY
 import com.z_company.work_manager.REMOVE_ROUTE_OBJECT_ID_KEY
 import com.z_company.work_manager.REMOVE_TRAIN_OBJECT_ID_KEY
-import com.z_company.work_manager.ROUTE_DATA_INPUT_KEY
 import com.z_company.work_manager.RemoveBasicDataWorker
 import com.z_company.work_manager.RemoveLocomotiveWorker
 import com.z_company.work_manager.RemovePassengerWorker
 import com.z_company.work_manager.RemovePhotoWorker
 import com.z_company.work_manager.RemoveRouteWorker
 import com.z_company.work_manager.RemoveTrainWorker
+import com.z_company.work_manager.RouteFieldName
 import com.z_company.work_manager.SaveLocomotiveListWorker
-import com.z_company.work_manager.SaveRouteWorker
 import com.z_company.work_manager.SynchronizedWorker
 import com.z_company.work_manager.WorkManagerState
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
+import ru.ok.tracer.crash.report.TracerCrashReport
+import java.io.NotActiveException
 import java.util.concurrent.TimeUnit
 
 private const val SAVE_ROUTE_WORKER_TAG = "SAVE_ROUTE_WORKER_TAG"
@@ -114,21 +120,32 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
         }
     }
 
-    override suspend fun saveRouteVer2(route: Route): Flow<ResultState<Data>> {
-        val routeJSON = RouteJSONConverter.toString(route)
-        val routeDataInput = Data.Builder()
-            .putString(ROUTE_DATA_INPUT_KEY, routeJSON)
-            .build()
-
-        val routeSaveWorker = OneTimeWorkRequestBuilder<SaveRouteWorker>()
-            .setInputData(routeDataInput)
-            .addTag(SAVE_ROUTE_WORKER_TAG)
-            .setConstraints(constraints)
-            .build()
-
-        WorkManager.getInstance(context).enqueue(routeSaveWorker)
-        return WorkManagerState.state(context, routeSaveWorker.id)
-    }
+    override suspend fun saveRouteVer2(route: Route): Flow<ResultState<String>> =
+        channelFlow {
+            trySend(ResultState.Loading)
+            val currentUser = ParseUser.getCurrentUser()
+            val routeJSON = RouteJSONConverter.toString(route)
+            ParseHelper.saveOrUpdateObjectAsync(
+                className = RouteFieldName.ROUTE_CLASS_NAME_REMOTE,
+                uniqueKey = "objectId",
+                uniqueValue = route.basicData.remoteRouteId,
+                fieldsToUpdate = mapOf(
+                    Pair(RouteFieldName.DATA_FIELD_NAME, routeJSON),
+                    Pair(RouteFieldName.USER_EMAIL_FIELD_NAME, currentUser.email)
+                )
+            ).collect { saveResult ->
+                if (saveResult is ResultState.Success) {
+                    trySend(ResultState.Success(saveResult.data))
+                    this.cancel()
+                }
+                if (saveResult is ResultState.Error) {
+                    trySend(ResultState.Error(saveResult.entity))
+                    TracerCrashReport.report(NotActiveException("${saveResult.entity.throwable} \n$route"))
+                    this.cancel()
+                }
+            }
+            awaitClose()
+        }
 
     override suspend fun getAllBasicDataId(): Flow<ResultState<List<String>?>> {
         val worker = OneTimeWorkRequestBuilder<LoadBasicDataListWorker>()
