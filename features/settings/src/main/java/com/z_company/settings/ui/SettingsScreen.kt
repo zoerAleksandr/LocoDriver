@@ -2,7 +2,6 @@ package com.z_company.settings.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -13,14 +12,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.ClickableText
@@ -178,6 +174,16 @@ fun SettingsScreen(
                 }
                 resetUploadState()
             }
+            if (settingsUiState.uploadState is ResultState.Success) {
+                scope.launch {
+                    if (settingsUiState.uploadState.data == 0) {
+                        snackbarHostState.showSnackbar("Все маршруты синхронизированы")
+                    } else {
+                        snackbarHostState.showSnackbar("Маршруты успешно сохранены на сервере. (${settingsUiState.uploadState.data})")
+                    }
+                }
+                resetUploadState()
+            }
         }
 
         LaunchedEffect(settingsUiState.downloadState) {
@@ -186,6 +192,12 @@ fun SettingsScreen(
                     snackbarHostState.showSnackbar("Ошибка загрузки данных. \n${settingsUiState.downloadState.entity.message}.")
                 }
                 resetDownloadState()
+            }
+            if (settingsUiState.downloadState is ResultState.Success) {
+                scope.launch {
+                    snackbarHostState.showSnackbar("Маршруты загружены. (${settingsUiState.downloadState.data})")
+                }
+                resetUploadState()
             }
         }
 
@@ -444,8 +456,8 @@ fun SettingScreenContent(
     onLogOut: () -> Unit,
     onDownloadFromRemote: () -> Unit,
     onUploadToRemote: () -> Unit,
-    uploadRepoState: ResultState<Unit>?,
-    downloadRepoState: ResultState<Unit>?,
+    uploadRepoState: ResultState<Int>?,
+    downloadRepoState: ResultState<Int>?,
     currentUserState: ResultState<User?>,
     updateAtState: Long?,
     showReleaseDaySelectScreen: () -> Unit,
@@ -640,6 +652,7 @@ fun SettingScreenContent(
             TypeDateTimePicker.WHEEL.text -> {
                 CoreR.drawable.wheel_picker
             }
+
             else -> {
                 CoreR.drawable.wheel_picker
             }
@@ -891,6 +904,7 @@ fun SettingScreenContent(
                     TypeDateTimePicker.WHEEL.text -> {
                         CoreR.drawable.wheel_picker
                     }
+
                     else -> {
                         CoreR.drawable.wheel_picker
                     }
@@ -923,7 +937,12 @@ fun SettingScreenContent(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(text = inputDateTimeType, style = styleData)
-                            Image(modifier = Modifier.height(70.dp), painter = painterResource(id = image), contentScale = ContentScale.FillHeight, contentDescription = null)
+                            Image(
+                                modifier = Modifier.height(70.dp),
+                                painter = painterResource(id = image),
+                                contentScale = ContentScale.FillHeight,
+                                contentDescription = null
+                            )
                         }
                         AutoSizeText(
                             maxTextSize = maxTextSizeHint,

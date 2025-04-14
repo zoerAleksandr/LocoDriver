@@ -244,7 +244,7 @@ class Back4AppManager : KoinComponent {
         }
     }
 
-    suspend fun synchronizedStorage(): Flow<ResultState<Unit>> {
+    suspend fun synchronizedStorage(): Flow<ResultState<Int>> {
         return channelFlow {
             trySend(ResultState.Loading)
             CoroutineScope(Dispatchers.IO).launch {
@@ -269,13 +269,20 @@ class Back4AppManager : KoinComponent {
     }
 
     // загрузка из сервера
-    fun loadRouteListFromRemote(): Flow<ResultState<Unit>> {
+    fun loadRouteListFromRemote(): Flow<ResultState<Int>> {
         return channelFlow {
             trySend(ResultState.Loading)
             loadRouteListFromRemoteOldVersion().collect { loadOldVersionResult ->
                 if (loadOldVersionResult is ResultState.Success) {
+                    val countOldRoutes = loadOldVersionResult.data
                     loadRouteFromRemoteNewVersion().collect { loadNewVersionResult ->
-                        trySend(loadNewVersionResult)
+                        if (loadNewVersionResult is ResultState.Success) {
+                            val allRoutes = countOldRoutes + loadNewVersionResult.data
+                            trySend(ResultState.Success(allRoutes))
+                        }
+                        if (loadNewVersionResult is ResultState.Error) {
+                            trySend(ResultState.Error(loadNewVersionResult.entity))
+                        }
                     }
                 }
                 if (loadOldVersionResult is ResultState.Error) {
@@ -286,8 +293,9 @@ class Back4AppManager : KoinComponent {
         }
     }
 
-    /* Выгрузка на сервер несинхронизированных маршрутов */
-    private fun saveRouteToRemoteStorage(): Flow<ResultState<Unit>> =
+    /* Выгрузка на сервер несинхронизированных маршрутов
+    * возвращает количество синхронизированных маршрутов*/
+    private fun saveRouteToRemoteStorage(): Flow<ResultState<Int>> =
         channelFlow {
             trySend(ResultState.Loading)
             withContext(Dispatchers.IO) {
@@ -298,7 +306,7 @@ class Back4AppManager : KoinComponent {
                 if (notSynchronizedList.isEmpty()) {
                     timestamp = Calendar.getInstance().timeInMillis
                     settingsUseCase.setUpdateAt(timestamp).collect()
-                    trySend(ResultState.Success(Unit))
+                    trySend(ResultState.Success(0))
                 } else {
                     var syncRouteCount = 0
                     notSynchronizedList.forEach { route ->
@@ -307,31 +315,32 @@ class Back4AppManager : KoinComponent {
                             remoteRepository.saveRouteVer2(route).collect { result ->
                                 if (result is ResultState.Success) {
                                     result.data.let { remoteId ->
-                                            this.launch {
-                                                routeUseCase.setRemoteRouteIdRoute(
-                                                    basicId = route.basicData.id, remoteRouteId = remoteId
-                                                ).collect {
+                                        this.launch {
+                                            routeUseCase.setRemoteRouteIdRoute(
+                                                basicId = route.basicData.id,
+                                                remoteRouteId = remoteId
+                                            ).collect {
+                                                if (it is ResultState.Success) {
+                                                    this.cancel()
+                                                }
+                                            }
+                                        }.join()
+
+                                        this.launch {
+                                            routeUseCase.setSynchronizedRoute(route.basicData.id)
+                                                .collect {
                                                     if (it is ResultState.Success) {
                                                         this.cancel()
                                                     }
                                                 }
-                                            }.join()
-
-                                            this.launch {
-                                                routeUseCase.setSynchronizedRoute(route.basicData.id)
-                                                    .collect {
-                                                        if (it is ResultState.Success) {
-                                                            this.cancel()
-                                                        }
-                                                    }
-                                            }.join()
-                                        }
+                                        }.join()
+                                    }
 
                                     syncRouteCount += 1
                                     if (syncRouteCount == notSynchronizedList.size) {
                                         timestamp = Calendar.getInstance().timeInMillis
                                         settingsUseCase.setUpdateAt(timestamp).collect()
-                                        trySend(ResultState.Success(Unit))
+                                        trySend(ResultState.Success(syncRouteCount))
                                         this@withContext.cancel()
                                     }
                                     this@launch.cancel()
@@ -353,27 +362,27 @@ class Back4AppManager : KoinComponent {
             remoteRepository.saveRouteVer2(route).collect { result ->
                 if (result is ResultState.Success) {
                     result.data.let { remoteId ->
-                            this.launch {
-                                routeUseCase.setRemoteRouteIdRoute(
-                                    route.basicData.id, remoteId
-                                ).collect {
+                        this.launch {
+                            routeUseCase.setRemoteRouteIdRoute(
+                                route.basicData.id, remoteId
+                            ).collect {
+                                if (it is ResultState.Success) {
+                                    this.cancel()
+                                }
+                            }
+                        }.join()
+
+                        this.launch {
+                            routeUseCase.setSynchronizedRoute(route.basicData.id)
+                                .collect {
                                     if (it is ResultState.Success) {
                                         this.cancel()
                                     }
                                 }
-                            }.join()
+                        }.join()
 
-                            this.launch {
-                                routeUseCase.setSynchronizedRoute(route.basicData.id)
-                                    .collect {
-                                        if (it is ResultState.Success) {
-                                            this.cancel()
-                                        }
-                                    }
-                            }.join()
-
-                            trySend(ResultState.Success(Unit))
-                        }
+                        trySend(ResultState.Success(Unit))
+                    }
                 }
                 if (result is ResultState.Error) {
                     trySend(ResultState.Error(result.entity))
@@ -382,7 +391,7 @@ class Back4AppManager : KoinComponent {
             awaitClose()
         }
 
-    private fun loadRouteFromRemoteNewVersion(): Flow<ResultState<Unit>> {
+    private fun loadRouteFromRemoteNewVersion(): Flow<ResultState<Int>> {
         val parseQuery: ParseQuery<ParseObject> =
             ParseQuery(RouteFieldName.ROUTE_CLASS_NAME_REMOTE)
         parseQuery.whereEqualTo(RouteFieldName.USER_FIELD_NAME, ParseUser.getCurrentUser())
@@ -391,7 +400,7 @@ class Back4AppManager : KoinComponent {
             parseQuery.findInBackground { parseObjects, parseException ->
                 if (parseException == null) {
                     if (parseObjects.isEmpty()) {
-                        trySend(ResultState.Success(Unit))
+                        trySend(ResultState.Success(0))
                     } else {
                         parseObjects.sortBy {
                             it.updatedAt
@@ -413,7 +422,7 @@ class Back4AppManager : KoinComponent {
                                                 .collect {
                                                     if (it is ResultState.Success) {
                                                         if (parseObjects.size == index + 1) {
-                                                            trySend(ResultState.Success(Unit))
+                                                            trySend(ResultState.Success(parseObjects.size))
                                                             val timeInMillis =
                                                                 Calendar.getInstance().timeInMillis
                                                             settingsUseCase.setUpdateAt(timeInMillis)
@@ -439,7 +448,7 @@ class Back4AppManager : KoinComponent {
         }
     }
 
-    private fun loadRouteListFromRemoteOldVersion(): Flow<ResultState<Unit>> {
+    private fun loadRouteListFromRemoteOldVersion(): Flow<ResultState<Int>> {
         val parseQuery: ParseQuery<ParseObject> =
             ParseQuery(BasicDataFieldName.BASIC_DATA_CLASS_NAME_REMOTE)
         parseQuery.whereEqualTo(BasicDataFieldName.USER_FIELD_NAME, ParseUser.getCurrentUser())
@@ -449,7 +458,7 @@ class Back4AppManager : KoinComponent {
             parseQuery.findInBackground { parseObjects, parseException ->
                 if (parseException == null) {
                     if (parseObjects.isEmpty()) {
-                        trySend(ResultState.Success(Unit))
+                        trySend(ResultState.Success(0))
                     } else {
                         parseObjects.forEachIndexed { index, parseObject ->
                             parseObject.apply {
@@ -461,7 +470,7 @@ class Back4AppManager : KoinComponent {
                                                     if (saveResult is ResultState.Success) {
                                                         removeRouteFromRemoteRepositoryOldMethod(
                                                             loadRouteResult.data
-                                                        ).collect{}
+                                                        ).collect {}
                                                     }
                                                 }
                                             }
@@ -470,7 +479,7 @@ class Back4AppManager : KoinComponent {
                                                     Calendar.getInstance().timeInMillis
                                                 settingsUseCase.setUpdateAt(timeInMillis)
                                                     .collect()
-                                                trySend(ResultState.Success(Unit))
+                                                trySend(ResultState.Success(parseObjects.size))
                                             }
                                             if (loadRouteResult is ResultState.Error) {
                                                 trySend(ResultState.Error(loadRouteResult.entity))
