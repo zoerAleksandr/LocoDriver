@@ -102,7 +102,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         ruStoreAppUpdateManager.unregisterListener(installStateUpdateListener)
     }
 
-    private fun initUpdateManager(){
+    private fun initUpdateManager() {
         ruStoreAppUpdateManager.getAppUpdateInfo()
             .addOnSuccessListener { appUpdateInfo ->
                 if (appUpdateInfo.updateAvailability == UpdateAvailability.UPDATE_AVAILABLE) {
@@ -114,6 +114,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                                 Activity.RESULT_CANCELED -> {
                                     // Пользователь отказался от скачивания
                                 }
+
                                 Activity.RESULT_OK -> {
                                     // Пользователь согласился на скачивание
                                 }
@@ -136,11 +137,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
             InstallStatus.DOWNLOADED -> {
                 _updateEvents.tryEmit(UpdateEvent.UpdateCompleted)
             }
+
             InstallStatus.DOWNLOADING -> {
                 val totalBytes = installState.totalBytesToDownload
                 val bytesDownloaded = installState.bytesDownloaded
                 // Здесь можно отобразить прогресс скачивания
             }
+
             InstallStatus.FAILED -> {
                 Log.e("ZZZ", "Downloading error")
             }
@@ -148,11 +151,20 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     }
 
     fun completeUpdateRequested() {
-        ruStoreAppUpdateManager.completeUpdate(AppUpdateOptions.Builder().appUpdateType(
-            AppUpdateType.FLEXIBLE).build())
+        ruStoreAppUpdateManager.completeUpdate(
+            AppUpdateOptions.Builder().appUpdateType(
+                AppUpdateType.FLEXIBLE
+            ).build()
+        )
             .addOnFailureListener { throwable ->
                 Log.e("ZZZ", "completeUpdate error", throwable)
             }
+    }
+
+    fun setFavoriteRoute(route: Route) {
+        viewModelScope.launch {
+            routeUseCase.setFavoriteRoute(routeId = route.basicData.id, isFavorite = !route.basicData.isFavorite).collect{}
+        }
     }
 
     fun checkPurchasesAvailability() {
@@ -525,15 +537,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
 
     fun syncRoute(route: Route) {
         viewModelScope.launch {
-            back4AppManager.saveOneRouteToRemoteStorage(route).collect{ result ->
-                if (result is ResultState.Success){
+            back4AppManager.saveOneRouteToRemoteStorage(route).collect { result ->
+                if (result is ResultState.Success) {
                     _uiState.update {
                         it.copy(
                             syncRouteState = ResultState.Success("Маршрут сохранен в облаке")
                         )
                     }
                 }
-                if (result is ResultState.Error){
+                if (result is ResultState.Error) {
                     _uiState.update {
                         it.copy(
                             syncRouteState = ResultState.Success("Ошибка сохранения ${result.entity.message}")

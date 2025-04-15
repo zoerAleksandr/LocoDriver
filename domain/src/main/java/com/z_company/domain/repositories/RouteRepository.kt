@@ -41,4 +41,5 @@ interface RouteRepository {
     fun markAsRemoved(route: Route): Flow<ResultState<Unit>>
     fun setSynchronizedRoute(basicId: String): Flow<ResultState<Unit>>
     fun clearRepository(): Flow<ResultState<Unit>>
+    fun setFavoriteRoute(basicId: String, isFavorite: Boolean): Flow<ResultState<Boolean>>
 }

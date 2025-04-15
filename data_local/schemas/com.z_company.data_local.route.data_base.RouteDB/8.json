@@ -1,0 +1,485 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 8,
+    "identityHash": "508e93f4a5f0f87603206c3e1a10a738",
+    "entities": [
+      {
+        "tableName": "BasicData",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `isSynchronizedRoute` INTEGER NOT NULL DEFAULT 0, `remoteRouteId` TEXT DEFAULT NULL, `isOnePersonOperation` INTEGER NOT NULL DEFAULT 0, `isSynchronized` INTEGER NOT NULL, `remoteObjectId` TEXT, `isDeleted` INTEGER NOT NULL, `updatedAt` TEXT NOT NULL, `number` TEXT, `timeStartWork` INTEGER, `timeEndWork` INTEGER, `restPointOfTurnover` INTEGER NOT NULL, `notes` TEXT, `isFavorite` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isSynchronizedRoute",
+            "columnName": "isSynchronizedRoute",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "remoteRouteId",
+            "columnName": "remoteRouteId",
+            "affinity": "TEXT",
+            "notNull": false,
+            "defaultValue": "NULL"
+          },
+          {
+            "fieldPath": "isOnePersonOperation",
+            "columnName": "isOnePersonOperation",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "isSynchronized",
+            "columnName": "isSynchronized",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "remoteObjectId",
+            "columnName": "remoteObjectId",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "isDeleted",
+            "columnName": "isDeleted",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "number",
+            "columnName": "number",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "timeStartWork",
+            "columnName": "timeStartWork",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "timeEndWork",
+            "columnName": "timeEndWork",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "restPointOfTurnover",
+            "columnName": "restPointOfTurnover",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "isFavorite",
+            "columnName": "isFavorite",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "Locomotive",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`locoId` TEXT NOT NULL, `basicId` TEXT NOT NULL, `removeObjectId` TEXT NOT NULL, `series` TEXT, `number` TEXT, `type` INTEGER NOT NULL, `electricSectionList` TEXT NOT NULL, `dieselSectionList` TEXT NOT NULL, `timeStartOfAcceptance` INTEGER, `timeEndOfAcceptance` INTEGER, `timeStartOfDelivery` INTEGER, `timeEndOfDelivery` INTEGER, PRIMARY KEY(`locoId`), FOREIGN KEY(`basicId`) REFERENCES `BasicData`(`id`) ON UPDATE CASCADE ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "locoId",
+            "columnName": "locoId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "basicId",
+            "columnName": "basicId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "removeObjectId",
+            "columnName": "removeObjectId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "series",
+            "columnName": "series",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "number",
+            "columnName": "number",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "electricSectionList",
+            "columnName": "electricSectionList",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dieselSectionList",
+            "columnName": "dieselSectionList",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timeStartOfAcceptance",
+            "columnName": "timeStartOfAcceptance",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "timeEndOfAcceptance",
+            "columnName": "timeEndOfAcceptance",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "timeStartOfDelivery",
+            "columnName": "timeStartOfDelivery",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "timeEndOfDelivery",
+            "columnName": "timeEndOfDelivery",
+            "affinity": "INTEGER",
+            "notNull": false
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "locoId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_Locomotive_basicId",
+            "unique": false,
+            "columnNames": [
+              "basicId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_Locomotive_basicId` ON `${TABLE_NAME}` (`basicId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "BasicData",
+            "onDelete": "CASCADE",
+            "onUpdate": "CASCADE",
+            "columns": [
+              "basicId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "Train",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`trainId` TEXT NOT NULL, `basicId` TEXT NOT NULL, `remoteObjectId` TEXT NOT NULL, `number` TEXT, `distance` TEXT DEFAULT '', `weight` TEXT, `axle` TEXT, `conditionalLength` TEXT, `isHeavyLongDistance` INTEGER NOT NULL DEFAULT 0, `stations` TEXT NOT NULL, `servicePhase` TEXT DEFAULT NULL, PRIMARY KEY(`trainId`), FOREIGN KEY(`basicId`) REFERENCES `BasicData`(`id`) ON UPDATE CASCADE ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "trainId",
+            "columnName": "trainId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "basicId",
+            "columnName": "basicId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "remoteObjectId",
+            "columnName": "remoteObjectId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "number",
+            "columnName": "number",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "distance",
+            "columnName": "distance",
+            "affinity": "TEXT",
+            "notNull": false,
+            "defaultValue": "''"
+          },
+          {
+            "fieldPath": "weight",
+            "columnName": "weight",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "axle",
+            "columnName": "axle",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "conditionalLength",
+            "columnName": "conditionalLength",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "isHeavyLongDistance",
+            "columnName": "isHeavyLongDistance",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "stations",
+            "columnName": "stations",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "servicePhase",
+            "columnName": "servicePhase",
+            "affinity": "TEXT",
+            "notNull": false,
+            "defaultValue": "NULL"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "trainId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_Train_basicId",
+            "unique": false,
+            "columnNames": [
+              "basicId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_Train_basicId` ON `${TABLE_NAME}` (`basicId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "BasicData",
+            "onDelete": "CASCADE",
+            "onUpdate": "CASCADE",
+            "columns": [
+              "basicId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "Passenger",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`passengerId` TEXT NOT NULL, `basicId` TEXT NOT NULL, `remoteObjectId` TEXT, `trainNumber` TEXT, `stationDeparture` TEXT, `stationArrival` TEXT, `timeArrival` INTEGER, `timeDeparture` INTEGER, `notes` TEXT, PRIMARY KEY(`passengerId`), FOREIGN KEY(`basicId`) REFERENCES `BasicData`(`id`) ON UPDATE CASCADE ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "passengerId",
+            "columnName": "passengerId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "basicId",
+            "columnName": "basicId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "remoteObjectId",
+            "columnName": "remoteObjectId",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "trainNumber",
+            "columnName": "trainNumber",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "stationDeparture",
+            "columnName": "stationDeparture",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "stationArrival",
+            "columnName": "stationArrival",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "timeArrival",
+            "columnName": "timeArrival",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "timeDeparture",
+            "columnName": "timeDeparture",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT",
+            "notNull": false
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "passengerId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_Passenger_basicId",
+            "unique": false,
+            "columnNames": [
+              "basicId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_Passenger_basicId` ON `${TABLE_NAME}` (`basicId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "BasicData",
+            "onDelete": "CASCADE",
+            "onUpdate": "CASCADE",
+            "columns": [
+              "basicId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "Photo",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`photoId` TEXT NOT NULL, `basicId` TEXT NOT NULL, `remoteObjectId` TEXT, `url` TEXT NOT NULL, `dateOfCreate` INTEGER NOT NULL, PRIMARY KEY(`photoId`), FOREIGN KEY(`basicId`) REFERENCES `BasicData`(`id`) ON UPDATE CASCADE ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "photoId",
+            "columnName": "photoId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "basicId",
+            "columnName": "basicId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "remoteObjectId",
+            "columnName": "remoteObjectId",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "url",
+            "columnName": "url",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dateOfCreate",
+            "columnName": "dateOfCreate",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "photoId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_Photo_basicId",
+            "unique": false,
+            "columnNames": [
+              "basicId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_Photo_basicId` ON `${TABLE_NAME}` (`basicId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "BasicData",
+            "onDelete": "CASCADE",
+            "onUpdate": "CASCADE",
+            "columns": [
+              "basicId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '508e93f4a5f0f87603206c3e1a10a738')"
+    ]
+  }
+}

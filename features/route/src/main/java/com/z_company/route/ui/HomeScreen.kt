@@ -24,6 +24,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -163,7 +165,8 @@ fun HomeScreen(
     resetSyncRouteState: () -> Unit,
     syncRoute: (Route) -> Unit,
     updateEvent: SharedFlow<UpdateEvent>,
-    completeUpdateRequested: () -> Unit
+    completeUpdateRequested: () -> Unit,
+    setFavoriteState: (Route) -> Unit
 ) {
     val view = LocalView.current
     val backgroundColor = MaterialTheme.colorScheme.background
@@ -549,6 +552,35 @@ fun HomeScreen(
                     )
                 }
                 HorizontalDivider()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .clickable {
+                            showContextDialog = false
+                            routeForPreview?.let { route ->
+                                setFavoriteState(route)
+                            }
+                        },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val text = if (routeForPreview!!.basicData.isFavorite) "Убрать из избранного" else "В избранное"
+                    val icon = if (routeForPreview!!.basicData.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder
+
+                    Text(
+                        text = text,
+                        style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
+                    )
+                    Icon(
+                        modifier = Modifier.size(25.dp),
+                        imageVector = icon,
+                        tint = MaterialTheme.colorScheme.primary,
+                        contentDescription = null,
+                    )
+                }
+                HorizontalDivider()
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()

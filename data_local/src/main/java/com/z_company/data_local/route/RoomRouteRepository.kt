@@ -1,5 +1,6 @@
 package com.z_company.data_local.route
 
+import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.ResultState.Companion.flowMap
 import com.z_company.core.ResultState.Companion.flowRequest
@@ -7,7 +8,11 @@ import com.z_company.data_local.route.dao.RouteDao
 import com.z_company.data_local.route.entity_converters.*
 import com.z_company.domain.entities.route.*
 import com.z_company.domain.repositories.RouteRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -315,5 +320,15 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
         return flowRequest {
             dao.clearRepository()
         }
+    }
+
+    override fun setFavoriteRoute(basicId: String, isFavorite: Boolean): Flow<ResultState<Boolean>> {
+        return flow {
+            emit(ResultState.Loading)
+            dao.setFavorite(basicId, isFavorite)
+            emit(ResultState.Success(isFavorite))
+        }.catch {
+            emit(ResultState.Error(ErrorEntity(it)))
+        }.flowOn(Dispatchers.IO)
     }
 }

@@ -28,5 +28,7 @@ internal data class BasicData(
     var timeStartWork: Long?,
     var timeEndWork: Long?,
     var restPointOfTurnover: Boolean,
-    var notes: String?
+    var notes: String?,
+    @ColumnInfo(defaultValue = "0")
+    var isFavorite: Boolean
 )

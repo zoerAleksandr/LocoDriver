@@ -24,6 +24,7 @@ import com.z_company.data_local.route.entity.Train
 
 /** version 6 add field isOnePersonOperation in BasicData */
 /** version 7 add field servicePhase in Train*/
+/** version 8 add field isFavorite in BasicData*/
 
 @Database(
     entities = [
@@ -33,7 +34,7 @@ import com.z_company.data_local.route.entity.Train
         Passenger::class,
         Photo::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -41,7 +42,8 @@ import com.z_company.data_local.route.entity.Train
         AutoMigration(from = 3, to = 4),
         AutoMigration(from = 4, to = 5, spec = DeleteOldColumn::class),
         AutoMigration(from = 5, to = 6),
-        AutoMigration(from = 6, to = 7)
+        AutoMigration(from = 6, to = 7),
+        AutoMigration(from = 7, to = 8),
     ]
 )
 internal abstract class RouteDB : RoomDatabase() {

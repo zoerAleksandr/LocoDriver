@@ -1,5 +1,6 @@
 package com.z_company
 
+import android.util.Log
 import com.parse.ParseException
 import com.parse.ParseObject
 import com.parse.ParseQuery
@@ -32,6 +33,7 @@ object ParseHelper {
         val query = ParseQuery.getQuery<ParseObject>(className!!)
         query.whereEqualTo(uniqueKey!!, uniqueValue)
         query.getFirstInBackground { parseObject: ParseObject?, e: ParseException? ->
+            Log.d("ZZZ", "parseObject $parseObject e $e")
             var parseObject = parseObject
             if (e != null && e.code != ParseException.OBJECT_NOT_FOUND) {
                 // An error occurred that is not the object not being found
@@ -42,6 +44,7 @@ object ParseHelper {
 
             // If object doesn't exist, create a new one
             if (parseObject == null) {
+                Log.d("ZZZ", "parseObject == null")
                 parseObject = ParseObject(className)
 //                parseObject.put(uniqueKey, uniqueValue!!)
                 TracerCrashReport.log("Info fun ParseHelper.saveOrUpdateObjectAsync 50 Create New object")
@@ -55,6 +58,7 @@ object ParseHelper {
             // Save the object
             parseObject.saveInBackground(SaveCallback { e2: ParseException? ->
                 if (e2 == null) {
+                    Log.d("ZZZ", "saveInBackground ${parseObject.objectId}")
                     // Successfully saved or updated
                     TracerCrashReport.log("Info fun ParseHelper.saveOrUpdateObjectAsync 63 save Successfully ${parseObject.objectId}")
                     trySend(ResultState.Success(parseObject.objectId))

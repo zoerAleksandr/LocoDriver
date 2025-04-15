@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -301,6 +302,13 @@ fun ItemHomeScreen(
                         Icon(
                             modifier = Modifier.size(20.dp),
                             painter = painterResource(id = R.drawable.not_sync_icon),
+                            contentDescription = null,
+                        )
+                    }
+                    if (route.basicData.isFavorite) {
+                        Icon(
+                            modifier = Modifier.size(20.dp),
+                            imageVector = Icons.Default.Favorite,
                             contentDescription = null,
                         )
                     }

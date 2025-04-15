@@ -156,4 +156,8 @@ class RouteUseCase(private val repository: RouteRepository) {
     fun clearLocalRouteRepository(): Flow<ResultState<Unit>> {
         return repository.clearRepository()
     }
+
+    fun setFavoriteRoute(routeId: String, isFavorite: Boolean): Flow<ResultState<Boolean>> {
+        return repository.setFavoriteRoute(routeId, isFavorite)
+    }
 }

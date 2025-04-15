@@ -18,7 +18,8 @@ internal object BasicDataConverter {
         timeStartWork = basicData.timeStartWork,
         timeEndWork = basicData.timeEndWork,
         restPointOfTurnover = basicData.restPointOfTurnover,
-        notes = basicData.notes
+        notes = basicData.notes,
+        isFavorite = basicData.isFavorite
     )
 
     fun toData(entity: BasicDataEntity) = BasicData(
@@ -34,6 +35,7 @@ internal object BasicDataConverter {
         timeStartWork = entity.timeStartWork,
         timeEndWork = entity.timeEndWork,
         restPointOfTurnover = entity.restPointOfTurnover,
-        notes = entity.notes
+        notes = entity.notes,
+        isFavorite = entity.isFavorite
     )
 }

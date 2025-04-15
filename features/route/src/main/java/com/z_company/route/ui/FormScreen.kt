@@ -27,6 +27,8 @@ import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Warning
@@ -42,6 +44,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -57,6 +60,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
@@ -70,6 +74,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.lifecycle.flowWithLifecycle
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.CustomSnackBar
@@ -93,8 +98,11 @@ import com.z_company.route.component.CustomDatePickerDialog
 import com.z_company.route.component.rememberDatePickerStateInLocale
 import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.route.viewmodel.DialogRestUiState
+import com.z_company.route.viewmodel.FormScreenEvent
 import com.z_company.route.viewmodel.RouteFormUiState
 import com.z_company.route.viewmodel.SalaryForRouteState
+import com.z_company.route.viewmodel.UpdateEvent
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
@@ -135,7 +143,9 @@ fun FormScreen(
     nightTime: Long?,
     changeShowConfirmExitDialog: (Boolean) -> Unit,
     exitWithoutSave: () -> Unit,
-    onSalarySettingClick: () -> Unit
+    onSalarySettingClick: () -> Unit,
+    event: SharedFlow<FormScreenEvent>,
+    setFavoriteState: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -145,6 +155,22 @@ fun FormScreen(
             fontWeight = FontWeight.Light
         )
     val titleStyle = AppTypography.getType().headlineMedium.copy(fontWeight = FontWeight.Light)
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+
+    LaunchedEffect(Unit) {
+        scope.launch {
+            event.flowWithLifecycle(lifecycle).collect { event ->
+                when (event) {
+                    FormScreenEvent.ActivatedFavoriteRoute -> {
+                        snackbarHostState.showSnackbar(message = "Добавлен в избранное")
+                    }
+
+                    FormScreenEvent.DeactivatedFavoriteRoute -> {}
+                }
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -163,6 +189,16 @@ fun FormScreen(
                         )
                     }
                 }, actions = {
+                    currentRoute?.let { route ->
+                        IconButton(onClick = setFavoriteState) {
+                            AnimatedContent(targetState = route.basicData.isFavorite, label = "") {
+                                Icon(
+                                    imageVector = if (it) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                    contentDescription = null
+                                )
+                            }
+                        }
+                    }
                     AsyncData(
                         resultState = formUiState.saveRouteState,
                         loadingContent = {
@@ -173,19 +209,25 @@ fun FormScreen(
                         },
                         errorContent = {}
                     ) {
-                        TextButton(
-                            modifier = Modifier
-                                .padding(end = 16.dp),
-                            enabled = formUiState.changesHaveState,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.Transparent,
-                                disabledContainerColor = Color.Transparent,
-                                contentColor = MaterialTheme.colorScheme.tertiary
-                            ),
-                            onClick = { onSaveClick() }
-                        ) {
-                            Text(text = "Сохранить", style = hintStyle)
+                        IconButton(
+                            onClick = onSaveClick,
+                            enabled = formUiState.changesHaveState
+                            ) {
+                            Icon(painter = painterResource(id = R.drawable.outline_save_24), contentDescription = null)
                         }
+//                        TextButton(
+//                            modifier = Modifier
+//                                .padding(end = 16.dp),
+//                            enabled = formUiState.changesHaveState,
+//                            colors = ButtonDefaults.buttonColors(
+//                                containerColor = Color.Transparent,
+//                                disabledContainerColor = Color.Transparent,
+//                                contentColor = MaterialTheme.colorScheme.tertiary
+//                            ),
+//                            onClick = { onSaveClick() }
+//                        ) {
+//                            Text(text = "Сохранить", style = hintStyle)
+//                        }
                     }
                 }, colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
@@ -592,8 +634,8 @@ private fun RouteFormScreenContent(
                                 ) {
                                     link.getStringAnnotations(LINK_TO_SALARY_SETTING, it, it)
                                         .firstOrNull()?.let {
-                                        onSalarySettingClick()
-                                    }
+                                            onSalarySettingClick()
+                                        }
                                 }
                             }
                         } else {

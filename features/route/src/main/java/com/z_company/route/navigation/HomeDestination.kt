@@ -63,6 +63,7 @@ fun HomeDestination(
         resetSyncRouteState = homeViewModel::resetSyncRouteState,
         syncRoute = homeViewModel::syncRoute,
         completeUpdateRequested = homeViewModel::completeUpdateRequested,
-        updateEvent = homeViewModel.updateEvents
+        updateEvent = homeViewModel.updateEvents,
+        setFavoriteState = homeViewModel::setFavoriteRoute
     )
 }

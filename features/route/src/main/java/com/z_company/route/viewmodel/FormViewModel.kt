@@ -24,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
@@ -60,6 +61,13 @@ class FormViewModel(
 
     private val _dialogRestUiState = MutableStateFlow(DialogRestUiState())
     val dialogRestUiState = _dialogRestUiState.asStateFlow()
+
+    private val _events = MutableSharedFlow<FormScreenEvent>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    val events = _events.asSharedFlow()
+
 
     private var loadRouteJob: Job? = null
     private var saveRouteJob: Job? = null
@@ -188,12 +196,14 @@ class FormViewModel(
                                 userSettings = setting
                             )
 
-                            val otherSurchargeMoney = salaryCalculationUseCase.getOtherSurchargeMoney(
-                                routeList = listOf(route),
-                                userSettings = setting
-                            )
+                            val otherSurchargeMoney =
+                                salaryCalculationUseCase.getOtherSurchargeMoney(
+                                    routeList = listOf(route),
+                                    userSettings = setting
+                                )
 
-                            val otherSurcharge = moneyAtQualificationClass + nordicSurcharge + districtSurcharge + moneyAtHarmfulness + otherSurchargeMoney
+                            val otherSurcharge =
+                                moneyAtQualificationClass + nordicSurcharge + districtSurcharge + moneyAtHarmfulness + otherSurchargeMoney
 
                             val totalMoney =
                                 moneyAtTariffRate + moneyAtNightHours + zonalSurchargeMoney + moneyAtPassengerTime + moneyAtHoliday + surchargeAtTrains + moneyAtOnePerson + otherSurcharge
@@ -277,6 +287,40 @@ class FormViewModel(
 
     private fun isShowReviewDialog(count: Int): Boolean {
         return (count > 10 && count % 5 == 0)
+    }
+
+    fun setFavoriteRoute() {
+        currentRoute = currentRoute?.copy(
+            basicData = currentRoute!!.basicData.copy(
+                isFavorite = !currentRoute!!.basicData.isFavorite
+            )
+        )
+        if (currentRoute!!.basicData.isFavorite){
+            _events.tryEmit(FormScreenEvent.ActivatedFavoriteRoute)
+        } else {
+            _events.tryEmit(FormScreenEvent.DeactivatedFavoriteRoute)
+        }
+        changesHave()
+//
+//
+//        viewModelScope.launch {
+//            currentRoute?.let { route ->
+//                routeUseCase.setFavoriteRoute(
+//                    routeId = route.basicData.id,
+//                    isFavorite = !route.basicData.isFavorite
+//                ).collect { result ->
+//                    if (result is ResultState.Success) {
+//                        if (result.data) {
+//                            _events.tryEmit(FormScreenEvent.ActivatedFavoriteRoute)
+//                            changesHave()
+//                        } else {
+//                            _events.tryEmit(FormScreenEvent.DeactivatedFavoriteRoute)
+//                            changesHave()
+//                        }
+//                    }
+//                }
+//            }
+//        }
     }
 
     private suspend fun prepareReviewDialog() = coroutineScope {

@@ -63,6 +63,8 @@ fun FormDestination(
         changeShowConfirmExitDialog = viewModel::changeShowConfirmDialog,
         exitWithoutSave = viewModel::exitWithoutSaving,
         salaryForRouteState = salaryState,
-        onSalarySettingClick = router::showSettingSalary
+        onSalarySettingClick = router::showSettingSalary,
+        event = viewModel.events,
+        setFavoriteState = viewModel::setFavoriteRoute
     )
 }
