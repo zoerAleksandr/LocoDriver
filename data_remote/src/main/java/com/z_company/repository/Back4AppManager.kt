@@ -15,14 +15,12 @@ import com.z_company.entity_converter.PassengerConverter
 import com.z_company.entity_converter.TrainConverter
 import com.z_company.type_converter.RouteJSONConverter
 import com.z_company.work_manager.BasicDataFieldName
-import com.z_company.work_manager.ROUTE_DATA_OBJECT_ID_KEY
 import com.z_company.work_manager.RouteFieldName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.collect

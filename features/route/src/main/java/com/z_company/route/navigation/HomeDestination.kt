@@ -61,6 +61,8 @@ fun HomeDestination(
         offsetInMoscow = uiState.offsetInMoscow,
         syncRouteState = uiState.syncRouteState,
         resetSyncRouteState = homeViewModel::resetSyncRouteState,
-        syncRoute = homeViewModel::syncRoute
+        syncRoute = homeViewModel::syncRoute,
+        completeUpdateRequested = homeViewModel::completeUpdateRequested,
+        updateEvent = homeViewModel.updateEvents
     )
 }

@@ -1,5 +1,6 @@
 package com.z_company.route.viewmodel
 
+import android.app.Activity
 import android.app.Application
 import android.util.Log
 import androidx.compose.runtime.getValue
@@ -9,7 +10,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
-import com.z_company.data_local.SharedPreferenceStorage
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHours
@@ -45,6 +45,12 @@ import kotlinx.coroutines.withContext
 import ru.rustore.sdk.billingclient.RuStoreBillingClient
 import ru.rustore.sdk.billingclient.model.purchase.PurchaseState
 import ru.rustore.sdk.billingclient.utils.pub.checkPurchasesAvailability
+import ru.rustore.sdk.appupdate.listener.InstallStateUpdateListener
+import ru.rustore.sdk.appupdate.manager.RuStoreAppUpdateManager
+import ru.rustore.sdk.appupdate.model.AppUpdateOptions
+import ru.rustore.sdk.appupdate.model.AppUpdateType
+import ru.rustore.sdk.appupdate.model.InstallStatus
+import ru.rustore.sdk.appupdate.model.UpdateAvailability
 
 class HomeViewModel(application: Application) : AndroidViewModel(application = application),
     KoinComponent {
@@ -55,6 +61,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     private val billingClient: RuStoreBillingClient by inject()
     private val ruStoreUseCase: RuStoreUseCase by inject()
     private val back4AppManager: Back4AppManager by inject()
+    private val ruStoreAppUpdateManager: RuStoreAppUpdateManager by inject()
 
     var timeWithoutHoliday by mutableLongStateOf(0L)
         private set
@@ -83,6 +90,70 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     )
 
     val alertBeforePurchasesEvent = _alertBeforePurchasesEvent.asSharedFlow()
+
+    private val _updateEvents = MutableSharedFlow<UpdateEvent>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    val updateEvents = _updateEvents.asSharedFlow()
+
+    override fun onCleared() {
+        super.onCleared()
+        ruStoreAppUpdateManager.unregisterListener(installStateUpdateListener)
+    }
+
+    private fun initUpdateManager(){
+        ruStoreAppUpdateManager.getAppUpdateInfo()
+            .addOnSuccessListener { appUpdateInfo ->
+                if (appUpdateInfo.updateAvailability == UpdateAvailability.UPDATE_AVAILABLE) {
+                    ruStoreAppUpdateManager.registerListener(installStateUpdateListener)
+                    ruStoreAppUpdateManager
+                        .startUpdateFlow(appUpdateInfo, AppUpdateOptions.Builder().build())
+                        .addOnSuccessListener { resultCode ->
+                            when (resultCode) {
+                                Activity.RESULT_CANCELED -> {
+                                    // Пользователь отказался от скачивания
+                                }
+                                Activity.RESULT_OK -> {
+                                    // Пользователь согласился на скачивание
+                                }
+                            }
+
+
+                        }
+                        .addOnFailureListener { throwable ->
+                            Log.e("ZZZ", "startUpdateFlow error", throwable)
+                        }
+                }
+            }
+            .addOnFailureListener { throwable ->
+                Log.e("ZZZ", "getAppUpdateInfo error", throwable)
+            }
+    }
+
+    private val installStateUpdateListener = InstallStateUpdateListener { installState ->
+        when (installState.installStatus) {
+            InstallStatus.DOWNLOADED -> {
+                _updateEvents.tryEmit(UpdateEvent.UpdateCompleted)
+            }
+            InstallStatus.DOWNLOADING -> {
+                val totalBytes = installState.totalBytesToDownload
+                val bytesDownloaded = installState.bytesDownloaded
+                // Здесь можно отобразить прогресс скачивания
+            }
+            InstallStatus.FAILED -> {
+                Log.e("ZZZ", "Downloading error")
+            }
+        }
+    }
+
+    fun completeUpdateRequested() {
+        ruStoreAppUpdateManager.completeUpdate(AppUpdateOptions.Builder().appUpdateType(
+            AppUpdateType.FLEXIBLE).build())
+            .addOnFailureListener { throwable ->
+                Log.e("ZZZ", "completeUpdate error", throwable)
+            }
+    }
 
     fun checkPurchasesAvailability() {
         RuStoreBillingClient.checkPurchasesAvailability()
@@ -689,5 +760,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         checkLoginToAccount()
         initListStationAndLocomotiveSeries()
         sharedPreferenceStorage.enableShowingUpdatePresentation()
+        initUpdateManager()
     }
 }

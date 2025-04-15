@@ -132,6 +132,7 @@ object Libs {
     const val mytracker_sdk = "com.my.tracker:mytracker-sdk:$mytracker_sdk_ver"
     const val rustore_sdk_bom = "ru.rustore.sdk:bom:$rustore_bom_ver"
     const val rustore_sdk_billingclient = "ru.rustore.sdk:billingclient"
+    const val rustore_sdk_appupdate = "ru.rustore.sdk:appupdate"
 
     const val kotlinx_date_time = "org.jetbrains.kotlinx:kotlinx-datetime:$kotlinx_date_time_ver"
     const val desugaring = "com.android.tools:desugar_jdk_libs:$desugaring_ver"

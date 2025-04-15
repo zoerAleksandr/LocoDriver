@@ -205,8 +205,8 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
 
     override suspend fun synchronizedRoutePeriodic(): Flow<ResultState<Unit>> {
         val worker = PeriodicWorkRequestBuilder<SynchronizedWorker>(
-            15,
-            TimeUnit.MINUTES,
+            36,
+            TimeUnit.HOURS,
         )
             .setConstraints(constraints)
             .addTag(SYNC_DATA_PERIODIC_WORKER_TAG)

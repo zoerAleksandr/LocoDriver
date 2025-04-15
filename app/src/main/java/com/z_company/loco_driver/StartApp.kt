@@ -10,6 +10,7 @@ import com.z_company.data_local.setting.di.roomSettingsModule
 import com.z_company.loco_driver.di.paymentsModule
 import com.z_company.loco_driver.di.repositoryModule
 import com.z_company.loco_driver.di.resourcesModule
+import com.z_company.loco_driver.di.updateModule
 import com.z_company.loco_driver.di.useCaseModule
 import com.z_company.loco_driver.di.viewModelModule
 import org.koin.android.ext.koin.androidContext
@@ -60,7 +61,8 @@ class StartApp : Application(), HasTracerConfiguration {
                 repositoryModule,
                 useCaseModule,
                 resourcesModule,
-                paymentsModule
+                paymentsModule,
+                updateModule
             )
         }
     }

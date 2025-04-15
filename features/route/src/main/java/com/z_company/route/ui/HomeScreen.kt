@@ -39,6 +39,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetScaffoldState
@@ -109,6 +110,7 @@ import com.z_company.route.component.HomeBottomSheetContent
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.route.viewmodel.AlertBeforePurchasesEvent
 import com.z_company.route.viewmodel.StartPurchasesEvent
+import com.z_company.route.viewmodel.UpdateEvent
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import ru.rustore.sdk.core.feature.model.FeatureAvailabilityResult
@@ -159,7 +161,9 @@ fun HomeScreen(
     offsetInMoscow: Long,
     syncRouteState: ResultState<String>?,
     resetSyncRouteState: () -> Unit,
-    syncRoute: (Route) -> Unit
+    syncRoute: (Route) -> Unit,
+    updateEvent: SharedFlow<UpdateEvent>,
+    completeUpdateRequested: () -> Unit
 ) {
     val view = LocalView.current
     val backgroundColor = MaterialTheme.colorScheme.background
@@ -189,6 +193,23 @@ fun HomeScreen(
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    LaunchedEffect(Unit) {
+        scope.launch {
+            updateEvent.flowWithLifecycle(lifecycle).collect { event ->
+                when (event) {
+                    UpdateEvent.UpdateCompleted -> {
+                        val result = scaffoldState.snackbarHostState
+                            .showSnackbar(message = "Обновление загружено", actionLabel = "Установить")
+                        if (result == SnackbarResult.ActionPerformed){
+                            completeUpdateRequested()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     DisposableEffect(key1 = lifecycleOwner, effect = {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_START) {
@@ -230,7 +251,7 @@ fun HomeScreen(
         resetSubscriptionState()
     }
 
-    AsyncData(resultState = syncRouteState) {message ->
+    AsyncData(resultState = syncRouteState) { message ->
         message?.let {
             scope.launch {
                 scaffoldState.snackbarHostState.showSnackbar(message)
