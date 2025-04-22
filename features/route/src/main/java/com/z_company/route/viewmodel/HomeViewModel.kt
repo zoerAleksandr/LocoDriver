@@ -285,7 +285,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                 routesSize = routeUseCase.listRouteWithDeleting().size
             }
             withContext(Dispatchers.Main) {
-                if (endTimeSubscription < currentTime && endTimeSubscription != 0L) {
+                if (endTimeSubscription < currentTime && sharedPreferenceStorage.getSubscriptionExpiration() != 0L) {
                     _alertBeforePurchasesEvent.tryEmit(
                         AlertBeforePurchasesEvent.ShowDialogNeedSubscribe
                     )
@@ -294,7 +294,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                             isLoadingStateAddButton = false
                         )
                     }
-                } else if (routesSize >= 10 && endTimeSubscription == 0L) {
+                } else if (routesSize > 10 && sharedPreferenceStorage.getSubscriptionExpiration() == 0L) {
                     _alertBeforePurchasesEvent.tryEmit(
                         AlertBeforePurchasesEvent.ShowDialogNeedSubscribe
                     )
@@ -303,7 +303,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                             isLoadingStateAddButton = false
                         )
                     }
-                } else if (routesSize < 10 && endTimeSubscription == 0L) {
+                } else if (routesSize <= 10 && sharedPreferenceStorage.getSubscriptionExpiration() == 0L) {
                     _alertBeforePurchasesEvent.tryEmit(
                         AlertBeforePurchasesEvent.ShowDialogAlertSubscribe
                     )
