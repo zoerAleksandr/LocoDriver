@@ -12,4 +12,4 @@ data class Passenger(
     var timeArrival: Long? = null,
     var timeDeparture: Long? = null,
     var notes: String? = null
-)
+): java.io.Serializable

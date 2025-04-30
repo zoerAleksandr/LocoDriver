@@ -1,6 +1,7 @@
 plugins {
     id(Plugins.android_lib)
     id(Plugins.kotlin_android)
+    id(Plugins.compose_compiler)
 }
 
 android {
@@ -33,9 +34,9 @@ android {
     buildFeatures {
         compose = true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = Versions.kotlin_compiler_ext_version
-    }
+//    composeOptions {
+//        kotlinCompilerExtensionVersion = Versions.kotlin_compiler_ext_version
+//    }
 }
 
 dependencies {
@@ -43,6 +44,7 @@ dependencies {
     implementation(Libs.rustore_bulling)
     implementation(Libs.rustore_review)
     implementation(Libs.rustore_sdk_appupdate)
+    implementation(Libs.gson)
 
     implementation(project(Libs.project_core_android))
     implementation(project(Libs.project_domain))
@@ -83,6 +85,6 @@ dependencies {
     implementation(Libs.camera_view)
     implementation(Libs.permission_accompanist)
     implementation(project(mapOf("path" to ":data_local")))
-    debugImplementation("androidx.compose.ui:ui-tooling:1.6.6")
+//    debugImplementation("androidx.compose.ui:ui-tooling:1.6.6")
     debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
 }

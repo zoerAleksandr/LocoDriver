@@ -5,6 +5,7 @@ plugins {
     id(Plugins.kotlin_android)
     kotlin(Plugins.kotlin_kapt)
     id("ru.ok.tracer").version("0.5.1")
+    id(Plugins.compose_compiler)
 }
 
 android {
@@ -57,6 +58,7 @@ android {
     compileOptions {
         sourceCompatibility = Apps.java_compatibility_version
         targetCompatibility = Apps.java_compatibility_version
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions {
         jvmTarget = Apps.jvm_target_version
@@ -65,9 +67,10 @@ android {
         buildConfig = true
         compose = true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = Versions.kotlin_compiler_ext_version
-    }
+
+//    composeOptions {
+//        kotlinCompilerExtensionVersion = Versions.kotlin_compiler_ext_version
+//    }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -81,9 +84,12 @@ tracer {
     }
 }
 
-
 dependencies {
-    implementation (Libs.mytracker_sdk)
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    implementation ("com.google.devtools.ksp:symbol-processing-api:2.1.20-2.0.0")
+
+//    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:${Versions.kotlin_version}")
+    implementation(Libs.mytracker_sdk)
     implementation(platform(Libs.rustore_sdk_bom))
     implementation(Libs.rustore_sdk_billingclient)
     implementation(Libs.rustore_sdk_appupdate)
@@ -116,8 +122,14 @@ dependencies {
     implementation(Libs.koin_core)
     implementation(Libs.koin_android)
     implementation(Libs.koin_androidx_compose)
+    implementation(platform("com.squareup.okhttp3:okhttp-bom:4.12.0"))
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
     debugImplementation(Libs.ui_tooling)
     debugImplementation(Libs.ui_test_manifest)
     debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
+}
+configurations.all {
+    exclude (group = "com.squareup.okhttp3", module = "okhttp-bom")
 }

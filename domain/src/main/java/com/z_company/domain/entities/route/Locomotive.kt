@@ -16,7 +16,7 @@ data class Locomotive(
     var timeEndOfAcceptance: Long? = null,
     var timeStartOfDelivery: Long? = null,
     var timeEndOfDelivery: Long? = null
-)
+): java.io.Serializable
 
 data class SectionElectric(
     var sectionId: String = UUID.randomUUID().toString(),
@@ -26,7 +26,7 @@ data class SectionElectric(
     var deliveryEnergy: BigDecimal? = null,
     var acceptedRecovery: BigDecimal? = null,
     var deliveryRecovery: BigDecimal? = null
-)
+): java.io.Serializable
 data class SectionDiesel(
     var sectionId: String = UUID.randomUUID().toString(),
     var locoId: String = "",
@@ -36,4 +36,4 @@ data class SectionDiesel(
     var coefficient: Double? = null,
     var fuelSupply: Double? = null,
     var coefficientSupply: Double? = null,
-)
+): java.io.Serializable

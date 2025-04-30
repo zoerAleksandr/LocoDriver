@@ -8,4 +8,4 @@ data class Photo(
     var remoteObjectId: String? = null,
     var url: String,
     var dateOfCreate: Long
-)
+): java.io.Serializable

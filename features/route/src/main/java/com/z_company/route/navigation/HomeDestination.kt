@@ -64,6 +64,7 @@ fun HomeDestination(
         syncRoute = homeViewModel::syncRoute,
         completeUpdateRequested = homeViewModel::completeUpdateRequested,
         updateEvent = homeViewModel.updateEvents,
-        setFavoriteState = homeViewModel::setFavoriteRoute
+        setFavoriteState = homeViewModel::setFavoriteRoute,
+        getUriToRoute = homeViewModel::getUriToRoute
     )
 }

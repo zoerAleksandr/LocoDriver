@@ -18,4 +18,4 @@ data class BasicData(
     var restPointOfTurnover: Boolean = false,
     var notes: String? = null,
     var isFavorite: Boolean = false
-)
+): java.io.Serializable

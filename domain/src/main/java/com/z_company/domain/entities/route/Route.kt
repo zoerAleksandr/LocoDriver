@@ -6,4 +6,4 @@ data class Route(
     var trains: MutableList<Train> = mutableListOf(),
     var passengers: MutableList<Passenger> = mutableListOf(),
     var photos: MutableList<Photo> = mutableListOf()
-)
+): java.io.Serializable

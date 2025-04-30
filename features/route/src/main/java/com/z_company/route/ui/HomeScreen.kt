@@ -1,6 +1,11 @@
 package com.z_company.route.ui
 
 import android.app.Activity
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.util.Log
+import android.webkit.MimeTypeMap
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -29,6 +34,7 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
@@ -83,12 +89,13 @@ import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.AsyncDataValue
 import com.z_company.core.ui.component.AutoSizeText
+import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
-import com.z_company.core.util.DateAndTimeConverter.getDateMiniAndTime
 import com.z_company.core.util.DateAndTimeConverter.getDateFromDateLong
+import com.z_company.core.util.DateAndTimeConverter.getDateMiniAndTime
 import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
 import com.z_company.core.util.DateAndTimeConverter.getTimeFromDateLong
 import com.z_company.domain.entities.MonthOfYear
@@ -104,12 +111,12 @@ import com.z_company.domain.util.CalculationEnergy.rounding
 import com.z_company.domain.util.ifNullOrBlank
 import com.z_company.domain.util.str
 import com.z_company.domain.util.times
+import com.z_company.repository.ShareManager
 import com.z_company.route.R
 import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.ButtonLocoDriver
 import com.z_company.route.component.DialogSelectMonthOfYear
 import com.z_company.route.component.HomeBottomSheetContent
-import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.route.viewmodel.AlertBeforePurchasesEvent
 import com.z_company.route.viewmodel.StartPurchasesEvent
 import com.z_company.route.viewmodel.UpdateEvent
@@ -117,6 +124,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import ru.rustore.sdk.core.feature.model.FeatureAvailabilityResult
 import com.z_company.core.R as CoreR
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -166,7 +174,8 @@ fun HomeScreen(
     syncRoute: (Route) -> Unit,
     updateEvent: SharedFlow<UpdateEvent>,
     completeUpdateRequested: () -> Unit,
-    setFavoriteState: (Route) -> Unit
+    setFavoriteState: (Route) -> Unit,
+    getUriToRoute: (Route) -> Uri
 ) {
     val view = LocalView.current
     val backgroundColor = MaterialTheme.colorScheme.background
@@ -203,8 +212,11 @@ fun HomeScreen(
                 when (event) {
                     UpdateEvent.UpdateCompleted -> {
                         val result = scaffoldState.snackbarHostState
-                            .showSnackbar(message = "Обновление загружено", actionLabel = "Установить")
-                        if (result == SnackbarResult.ActionPerformed){
+                            .showSnackbar(
+                                message = "Обновление загружено",
+                                actionLabel = "Установить"
+                            )
+                        if (result == SnackbarResult.ActionPerformed) {
                             completeUpdateRequested()
                         }
                     }
@@ -493,6 +505,8 @@ fun HomeScreen(
         showDialog = showContextDialog,
         onDismissRequest = { showContextDialog = false }
     ) {
+        val shareManager = rememberShareManager()
+        val scope = rememberCoroutineScope()
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -559,14 +573,60 @@ fun HomeScreen(
                         .clickable {
                             showContextDialog = false
                             routeForPreview?.let { route ->
+                                val uri = getUriToRoute(route)
+                                Log.d("ZZZ", "uri $uri")
+                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "application/vnd.com.z_company.loco_driver.route"
+                                    putExtra(Intent.EXTRA_STREAM, uri)
+                                    putExtra(Intent.EXTRA_TEXT, "message")
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                Log.d("ZZZ", "type ${shareIntent.type}")
+                                context.startActivity(Intent.createChooser(shareIntent, "title"))
+                                // Убедитесь, что у приложения есть необходимые разрешения
+                                val resolveInfoList = context.packageManager.queryIntentActivities(
+                                    shareIntent,
+                                    PackageManager.MATCH_DEFAULT_ONLY
+                                )
+                                resolveInfoList.forEach { resolveInfo ->
+                                    Log.d(
+                                        "ShareDebug",
+                                        "Resolved activity: ${resolveInfo.activityInfo.packageName}"
+                                    )
+                                }
+                            }
+                        },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Поделиться",
+                        style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
+                    )
+                    Image(
+                        modifier = Modifier.size(25.dp),
+                        imageVector = Icons.Outlined.Share,
+                        contentDescription = null,
+                    )
+                }
+                HorizontalDivider()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .clickable {
+                            showContextDialog = false
+                            routeForPreview?.let { route ->
                                 setFavoriteState(route)
                             }
                         },
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val text = if (routeForPreview!!.basicData.isFavorite) "Убрать из избранного" else "В избранное"
-                    val icon = if (routeForPreview!!.basicData.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder
+                    val text =
+                        if (routeForPreview!!.basicData.isFavorite) "Убрать из избранного" else "В избранное"
+                    val icon =
+                        if (routeForPreview!!.basicData.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder
 
                     Text(
                         text = text,
@@ -2076,6 +2136,12 @@ fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: ResultState<Long?>
             }
         }
     }
+}
+
+@Composable
+fun rememberShareManager(): ShareManager {
+    val context = LocalContext.current
+    return remember { ShareManager(context) }
 }
 
 

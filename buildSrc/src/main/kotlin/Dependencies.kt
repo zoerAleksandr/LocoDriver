@@ -48,47 +48,47 @@ object Plugins {
     const val kotlin_kapt = "kapt"
     const val java_lib = "java-library"
     const val google_relay = "com.google.relay"
-    const val kotlinx_serialization = "kotlinx-serialization"
+    const val compose_compiler = "org.jetbrains.kotlin.plugin.compose"
 }
 
 object Apps {
     const val application_id = "com.z_company.loco_driver"
-    const val compile_sdk_version = 34
+    const val compile_sdk_version = 35
     const val min_sdk_version = 26
-    const val target_sdk_version = 34
+    const val target_sdk_version = 35
 
     const val version_code = 42
     const val version_name = "1.2.6.1"
 
-    const val jvm_target_version = "17"
-    val java_compatibility_version = JavaVersion.VERSION_17
+    const val jvm_target_version = "21"
+    val java_compatibility_version = JavaVersion.VERSION_21
 
     const val test_instrumentation_runner = "androidx.test.runner.AndroidJUnitRunner"
 }
 
 object Versions {
-    const val android_plugin_id = "8.1.1"
+    const val android_plugin_id = "8.9.2"
+    const val kotlin_version = "2.1.20"
     const val accompanist_navigation_animation_version = "0.34.0"
     const val accompanist_swiperefresh_version = "0.34.0"
     const val activity_compose_version = "1.9.0"
     const val app_compat_version = "1.7.0-alpha02"
     const val coil_version = "2.4.0"
-    const val compose_ui_version = "1.5.1"
-    const val core_ktx_version = "1.12.0"
+    const val compose_ui_version = "1.5.15"
+    const val core_ktx_version = "1.16.0"
     const val core_testing_version = "2.2.0"
     const val coroutines_version = "1.7.1"
-    const val kotlin_version = "1.8.21"
     const val kotlin_compiler_ext_version = "1.4.7"
     const val lifecycle_runtime_version = "2.6.1"
     const val lifecycle_viewmodel_version = "2.6.1"
     const val material_compose3 = "1.2.1"
     const val reveal_swipe_version = "1.2.0"
-    const val room_version = "2.6.0"
+    const val room_version = "2.7.1"
     const val test_ext_version = "1.1.5"
     const val test_runner_version = "1.6.0-alpha01"
     const val koin_version = "3.5.6"
     const val accompanist_pager_version = "0.34.0"
-    const val gson_version = "2.9.0"
+    const val gson_version = "2.11.0"
     const val constraint_layout_ver = "1.0.1"
     const val datastore_pref_ver = "1.0.0"
     const val maxkeppeler_sheets_ver = "1.1.1"

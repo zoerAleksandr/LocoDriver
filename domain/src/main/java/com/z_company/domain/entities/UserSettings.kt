@@ -41,7 +41,7 @@ data class ServicePhase(
     val departureStation: String,
     val arrivalStation: String,
     val distance: Int
-)
+): java.io.Serializable
 
 data class NightTime(
     val startNightHour: Int = 22,

@@ -1,8 +1,8 @@
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     id(Plugins.android_lib)
     id(Plugins.kotlin_android)
+    id(Plugins.compose_compiler)
 }
 
 android {
@@ -36,9 +36,9 @@ android {
     buildFeatures {
         compose = true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = Versions.kotlin_compiler_ext_version
-    }
+//    composeOptions {
+//        kotlinCompilerExtensionVersion = Versions.kotlin_compiler_ext_version
+//    }
 }
 
 dependencies {

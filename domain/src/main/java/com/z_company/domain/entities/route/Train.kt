@@ -15,7 +15,7 @@ data class Train(
     var isHeavyLongDistance: Boolean = false,
     var stations: MutableList<Station> = mutableListOf(),
     var servicePhase: ServicePhase? = null
-)
+): java.io.Serializable
 
 data class Station(
     var stationId: String = UUID.randomUUID().toString(),
@@ -23,4 +23,4 @@ data class Station(
     var stationName: String? = null,
     var timeArrival: Long? = null,
     var timeDeparture: Long? = null
-)
+): java.io.Serializable

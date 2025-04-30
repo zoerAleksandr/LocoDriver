@@ -1,6 +1,7 @@
 plugins {
     id(Plugins.android_lib)
     id(Plugins.kotlin_android)
+    id(Plugins.compose_compiler)
 }
 
 android {
@@ -33,9 +34,9 @@ android {
     buildFeatures {
         compose = true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = Versions.kotlin_compiler_ext_version
-    }
+//    composeOptions {
+//        kotlinCompilerExtensionVersion = Versions.kotlin_compiler_ext_version
+//    }
 }
 
 dependencies {
@@ -47,6 +48,7 @@ dependencies {
     implementation(project(Libs.project_domain))
     implementation(project(Libs.project_data_remote))
     implementation(project(Libs.project_data_local))
+    implementation(project(":features:route"))
     implementation(Libs.parse_sdk_android)
 
     implementation(Libs.activity_compose)
@@ -62,6 +64,5 @@ dependencies {
     implementation(Libs.koin_androidx_compose)
 
     implementation(Libs.accompanist_navigation_animation)
-    implementation(project(":features:route"))
     debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
 }

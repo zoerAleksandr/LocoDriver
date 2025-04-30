@@ -2,15 +2,17 @@ plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
 }
+//    id(Plugins.android_lib)
+//    id(Plugins.kotlin_android)
 
 android {
     namespace = "com.z_company.data_remote"
-    compileSdk = 34
+    compileSdk = Apps.compile_sdk_version
 
     defaultConfig {
-        minSdk = 24
+        minSdk = Apps.min_sdk_version
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = Apps.test_instrumentation_runner
         consumerProguardFiles("consumer-rules.pro")
     }
 
@@ -24,11 +26,11 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = Apps.java_compatibility_version
+        targetCompatibility = Apps.java_compatibility_version
     }
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = Apps.jvm_target_version
     }
 }
 
@@ -49,14 +51,15 @@ dependencies {
     implementation(Libs.koin_core)
     implementation(Libs.koin_android)
     implementation(Libs.koin_androidx_compose)
+    implementation(Libs.gson)
     implementation ("io.ktor:ktor-client-core:3.0.1")
     implementation ("io.ktor:ktor-client-okhttp:3.0.1")
     implementation ("io.ktor:ktor-client-auth:3.0.1")
     implementation ("io.ktor:ktor-client-content-negotiation:3.0.1")
     implementation ("io.ktor:ktor-serialization-gson:3.0.1")
     implementation ("com.squareup.okhttp3:logging-interceptor:4.12.0")
+//    implementation(platform("com.squareup.okhttp3:okhttp-bom:4.12.0"))
 
-    implementation("com.google.code.gson:gson:2.11.0")
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
     implementation("com.squareup.retrofit2:converter-jackson:2.11.0")

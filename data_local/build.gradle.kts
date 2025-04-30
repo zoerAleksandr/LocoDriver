@@ -1,7 +1,9 @@
+import Versions.kotlin_version
+
 plugins {
     id(Plugins.android_lib)
     id(Plugins.kotlin_android)
-    kotlin(Plugins.kotlin_kapt)
+    id("com.google.devtools.ksp")
 }
 
 android {
@@ -23,10 +25,8 @@ android {
                 "proguard-rules.pro"
             )
         }
-        kapt {
-            arguments {
-                arg("room.schemaLocation", "$projectDir/schemas")
-            }
+        ksp {
+            arg("room.schemaLocation", "$projectDir/schemas")
         }
     }
     compileOptions {
@@ -41,15 +41,16 @@ android {
 dependencies {
     implementation(project(Libs.project_domain))
     implementation(project(Libs.project_core_android))
-
     implementation(Libs.koin_core)
     implementation(Libs.koin_android)
     implementation(Libs.koin_androidx_compose)
-
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:$kotlin_version")
     implementation(Libs.room_runtime)
     implementation(Libs.room_ktx)
     implementation(Libs.gson)
-    kapt(Libs.room_compiler)
+    ksp(Libs.room_compiler)
+    implementation("com.google.devtools.ksp:symbol-processing-api:2.1.20-2.0.0")
 
     implementation(Libs.datastore_pref)
     androidTestImplementation(TestLibs.ext_junit)

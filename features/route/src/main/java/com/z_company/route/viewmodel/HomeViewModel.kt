@@ -2,6 +2,7 @@ package com.z_company.route.viewmodel
 
 import android.app.Activity
 import android.app.Application
+import android.net.Uri
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -25,6 +26,7 @@ import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.repository.Back4AppManager
+import com.z_company.repository.ShareManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -62,6 +64,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     private val ruStoreUseCase: RuStoreUseCase by inject()
     private val back4AppManager: Back4AppManager by inject()
     private val ruStoreAppUpdateManager: RuStoreAppUpdateManager by inject()
+    private val shareManager: ShareManager by inject()
 
     var timeWithoutHoliday by mutableLongStateOf(0L)
         private set
@@ -163,7 +166,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
 
     fun setFavoriteRoute(route: Route) {
         viewModelScope.launch {
-            routeUseCase.setFavoriteRoute(routeId = route.basicData.id, isFavorite = !route.basicData.isFavorite).collect{}
+            routeUseCase.setFavoriteRoute(
+                routeId = route.basicData.id,
+                isFavorite = !route.basicData.isFavorite
+            ).collect {}
         }
     }
 
@@ -765,6 +771,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
 
     fun loadData() {
         loadSetting()
+    }
+
+    fun getUriToRoute(route: Route): Uri {
+        return shareManager.shareSerializableObject(serializableObject = route)
     }
 
     init {
