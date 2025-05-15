@@ -2,6 +2,7 @@ package com.z_company.route.viewmodel
 
 import android.app.Activity
 import android.app.Application
+import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import androidx.compose.runtime.getValue
@@ -9,6 +10,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.gson.Gson
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.MonthOfYear
@@ -773,8 +775,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         loadSetting()
     }
 
-    fun getUriToRoute(route: Route): Uri {
-        return shareManager.shareSerializableObject(serializableObject = route)
+    fun getUriToRoute(route: Route): Intent {
+        return shareManager.createShareIntent(route)
     }
 
     init {

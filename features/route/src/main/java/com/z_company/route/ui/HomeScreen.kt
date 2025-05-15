@@ -2,10 +2,7 @@ package com.z_company.route.ui
 
 import android.app.Activity
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.net.Uri
 import android.util.Log
-import android.webkit.MimeTypeMap
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -34,7 +31,6 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
@@ -175,7 +171,7 @@ fun HomeScreen(
     updateEvent: SharedFlow<UpdateEvent>,
     completeUpdateRequested: () -> Unit,
     setFavoriteState: (Route) -> Unit,
-    getUriToRoute: (Route) -> Uri
+    getSharedIntent: (Route) -> Intent
 ) {
     val view = LocalView.current
     val backgroundColor = MaterialTheme.colorScheme.background
@@ -566,50 +562,38 @@ fun HomeScreen(
                     )
                 }
                 HorizontalDivider()
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .clickable {
-                            showContextDialog = false
-                            routeForPreview?.let { route ->
-                                val uri = getUriToRoute(route)
-                                Log.d("ZZZ", "uri $uri")
-                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "application/vnd.com.z_company.loco_driver.route"
-                                    putExtra(Intent.EXTRA_STREAM, uri)
-                                    putExtra(Intent.EXTRA_TEXT, "message")
-                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                }
-                                Log.d("ZZZ", "type ${shareIntent.type}")
-                                context.startActivity(Intent.createChooser(shareIntent, "title"))
-                                // Убедитесь, что у приложения есть необходимые разрешения
-                                val resolveInfoList = context.packageManager.queryIntentActivities(
-                                    shareIntent,
-                                    PackageManager.MATCH_DEFAULT_ONLY
-                                )
-                                resolveInfoList.forEach { resolveInfo ->
-                                    Log.d(
-                                        "ShareDebug",
-                                        "Resolved activity: ${resolveInfo.activityInfo.packageName}"
-                                    )
-                                }
-                            }
-                        },
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Поделиться",
-                        style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
-                    )
-                    Image(
-                        modifier = Modifier.size(25.dp),
-                        imageVector = Icons.Outlined.Share,
-                        contentDescription = null,
-                    )
-                }
-                HorizontalDivider()
+//                Row(
+//                    modifier = Modifier
+//                        .fillMaxWidth()
+//                        .padding(horizontal = 16.dp, vertical = 8.dp)
+//                        .clickable {
+//                            showContextDialog = false
+//                            routeForPreview?.let { route ->
+//                                val intent = getSharedIntent(route)
+//                                val type = intent.type
+//                                Log.d("ZZZ", "type = $type")
+//                                context.startActivity(
+//                                    Intent.createChooser(
+//                                        intent,
+//                                        "Поделиться маршрутом"
+//                                    )
+//                                )
+//                            }
+//                        },
+//                    horizontalArrangement = Arrangement.SpaceBetween,
+//                    verticalAlignment = Alignment.CenterVertically
+//                ) {
+//                    Text(
+//                        text = "Поделиться",
+//                        style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
+//                    )
+//                    Image(
+//                        modifier = Modifier.size(25.dp),
+//                        imageVector = Icons.Outlined.Share,
+//                        contentDescription = null,
+//                    )
+//                }
+//                HorizontalDivider()
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -893,6 +877,7 @@ fun HomeScreen(
                     )
                 }
             }
+
             Spacer(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -944,7 +929,8 @@ fun HomeScreen(
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary
                     )
-                    AsyncData(resultState = nightTime,
+                    AsyncData(
+                        resultState = nightTime,
                         loadingContent = {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(24.dp),
@@ -973,7 +959,8 @@ fun HomeScreen(
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary
                     )
-                    AsyncData(resultState = passengerTime,
+                    AsyncData(
+                        resultState = passengerTime,
                         loadingContent = {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(24.dp),
@@ -998,7 +985,8 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.Top
             ) {
-                AsyncData(resultState = dayoffHours,
+                AsyncData(
+                    resultState = dayoffHours,
                     loadingContent = {
                         CircularProgressIndicator(
                             modifier = Modifier.size(24.dp),

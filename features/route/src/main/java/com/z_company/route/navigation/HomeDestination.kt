@@ -65,6 +65,6 @@ fun HomeDestination(
         completeUpdateRequested = homeViewModel::completeUpdateRequested,
         updateEvent = homeViewModel.updateEvents,
         setFavoriteState = homeViewModel::setFavoriteRoute,
-        getUriToRoute = homeViewModel::getUriToRoute
+        getSharedIntent = homeViewModel::getUriToRoute
     )
 }

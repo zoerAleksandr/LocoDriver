@@ -19,16 +19,24 @@ import com.z_company.work_manager.RouteFieldName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.util.Calendar
+
+const val TIMEOUT_LOADING = 120_000L
 
 class Back4AppManager : KoinComponent {
 
@@ -36,8 +44,12 @@ class Back4AppManager : KoinComponent {
     private val remoteRepository: RemoteRouteRepository by inject()
     private val settingsUseCase: SettingsUseCase by inject()
 
+    val pageSize = 100
+    private var totalLoadOldRoutes = 0
+    private val allNewRoutes: MutableList<Route> = mutableListOf<Route>()
+
     /* Удаляет данные одного Route из B4A Repository в таблицах BasicData Train Locomotive Passenger*/
-    private suspend fun removeRouteFromRemoteRepositoryOldMethod(route: Route): Flow<ResultState<Unit>> =
+    private fun removeRouteFromRemoteRepositoryOldMethod(route: Route): Flow<ResultState<Unit>> =
         channelFlow {
             withContext(Dispatchers.IO) {
                 trySend(ResultState.Loading)
@@ -130,7 +142,7 @@ class Back4AppManager : KoinComponent {
         }
 
     /* Удаляет данные одного Route из B4A Repository в таблице Route*/
-    private suspend fun removeRouteFromRemoteRepositoryNewMethod(route: Route): Flow<ResultState<Unit>> =
+    private fun removeRouteFromRemoteRepositoryNewMethod(route: Route): Flow<ResultState<Unit>> =
         channelFlow {
             withContext(Dispatchers.IO) {
                 trySend(ResultState.Loading)
@@ -154,7 +166,7 @@ class Back4AppManager : KoinComponent {
         }
 
     /* Удаляет список Route из B4A Repository и Room repository */
-    private suspend fun removeRouteList(routeList: List<Route>): Flow<ResultState<Unit>> =
+    private fun removeRouteList(routeList: List<Route>): Flow<ResultState<Unit>> =
         channelFlow {
             withContext(Dispatchers.IO) {
                 trySend(ResultState.Loading)
@@ -216,7 +228,7 @@ class Back4AppManager : KoinComponent {
         }
 
     /* Поиск маршрутов помеченых для удаления */
-    private suspend fun searchRemovedRoute(): Flow<ResultState<Unit>> {
+    private fun searchRemovedRoute(): Flow<ResultState<Unit>> {
         return channelFlow {
             withContext(Dispatchers.IO) {
                 trySend(ResultState.Loading)
@@ -242,7 +254,7 @@ class Back4AppManager : KoinComponent {
         }
     }
 
-    suspend fun synchronizedStorage(): Flow<ResultState<Int>> {
+    fun synchronizedStorage(): Flow<ResultState<Int>> {
         return channelFlow {
             trySend(ResultState.Loading)
             CoroutineScope(Dispatchers.IO).launch {
@@ -268,25 +280,34 @@ class Back4AppManager : KoinComponent {
 
     // загрузка из сервера
     fun loadRouteListFromRemote(): Flow<ResultState<Int>> {
+        totalLoadOldRoutes = 0
+        allNewRoutes.clear()
         return channelFlow {
             trySend(ResultState.Loading)
-            loadRouteListFromRemoteOldVersion().collect { loadOldVersionResult ->
-                if (loadOldVersionResult is ResultState.Success) {
-                    val countOldRoutes = loadOldVersionResult.data
-                    loadRouteFromRemoteNewVersion().collect { loadNewVersionResult ->
-                        if (loadNewVersionResult is ResultState.Success) {
-                            val allRoutes = countOldRoutes + loadNewVersionResult.data
-                            trySend(ResultState.Success(allRoutes))
+            val flows = listOf(loadRouteListFromRemoteOldVersion(), loadRouteFromRemoteNewVersion())
+            try {
+                var totalCount = 0
+                val result = withTimeout(TIMEOUT_LOADING) {
+                    flows.map { flow ->
+                        async {
+                            flow.first {
+                                it is ResultState.Success
+                            }
                         }
-                        if (loadNewVersionResult is ResultState.Error) {
-                            trySend(ResultState.Error(loadNewVersionResult.entity))
-                        }
+                    }.awaitAll()
+                }
+                result.forEach {
+                    if (it is ResultState.Success) {
+                        totalCount += it.data
                     }
                 }
-                if (loadOldVersionResult is ResultState.Error) {
-                    trySend(ResultState.Error(loadOldVersionResult.entity))
-                }
+                trySend(ResultState.Success(totalCount))
+            } catch (e: TimeoutCancellationException) {
+                trySend(ResultState.Error(ErrorEntity(message = "TimeOut: Время ожидания истекло")))
+            } catch (e: Exception) {
+                trySend(ResultState.Error(ErrorEntity(message = "Произошла ошибка: ${e.message}")))
             }
+
             awaitClose()
         }
     }
@@ -390,52 +411,119 @@ class Back4AppManager : KoinComponent {
         }
 
     private fun loadRouteFromRemoteNewVersion(): Flow<ResultState<Int>> {
-        val parseQuery: ParseQuery<ParseObject> =
-            ParseQuery(RouteFieldName.ROUTE_CLASS_NAME_REMOTE)
-        parseQuery.whereEqualTo(RouteFieldName.USER_FIELD_NAME, ParseUser.getCurrentUser())
         return channelFlow {
             trySend(ResultState.Loading)
-            parseQuery.findInBackground { parseObjects, parseException ->
+            val flows = listOf(loadBathRouteNewVersionByUser(0), loadBathRouteNewVersionByEmail(0))
+            try {
+                withTimeout(TIMEOUT_LOADING) {
+                    flows.map { flow ->
+                        async {
+                            flow.first {
+                                it is ResultState.Success
+                            }
+                        }
+                    }.awaitAll()
+                    saveRouteListAfterLoading().collect { saveListResult ->
+                        when (saveListResult) {
+                            is ResultState.Success -> {
+                                trySend(ResultState.Success(allNewRoutes.size))
+                            }
+
+                            is ResultState.Error -> {
+                                trySend(ResultState.Error(ErrorEntity(saveListResult.entity.throwable)))
+                                return@collect // Terminate the flow on error
+                            }
+
+                            is ResultState.Loading -> {
+                                trySend(ResultState.Loading) // Propagate the loading state
+                            }
+                        }
+                    }
+                }
+
+            } catch (e: TimeoutCancellationException) {
+                trySend(ResultState.Error(ErrorEntity(message = "TimeOut: Время ожидания истекло")))
+            } catch (e: Exception) {
+                trySend(ResultState.Error(ErrorEntity(message = "Произошла ошибка: ${e.message}")))
+            }
+            awaitClose()
+        }
+    }
+
+    private fun saveRouteListAfterLoading(): Flow<ResultState<Unit>> = channelFlow {
+        trySend(ResultState.Loading)
+        for (route in allNewRoutes) {
+            try {
+                withTimeout(TIMEOUT_LOADING) {
+                    withContext(Dispatchers.IO) {
+                        routeUseCase.saveRouteAfterLoading(route).collect { result ->
+                            when (result) {
+                                is ResultState.Success -> {}
+
+                                is ResultState.Error -> {
+                                    trySend(ResultState.Error(ErrorEntity(result.entity.throwable)))
+                                    return@collect // Terminate the flow on error
+                                }
+
+                                is ResultState.Loading -> {
+                                    trySend(ResultState.Loading) // Propagate the loading state
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e: TimeoutCancellationException) {
+                trySend(ResultState.Error(ErrorEntity(message = "TimeOut: Время ожидания истекло")))
+                return@channelFlow // Terminate the flow on timeout
+            }
+
+        }
+        trySend(ResultState.Success(Unit))
+    }
+
+    private fun loadBathRouteNewVersionByUser(skip: Int): Flow<ResultState<Unit>> {
+        return channelFlow {
+            trySend(ResultState.Loading)
+            val parseUserQuery: ParseQuery<ParseObject> =
+                ParseQuery(RouteFieldName.ROUTE_CLASS_NAME_REMOTE)
+            parseUserQuery.whereEqualTo(
+                RouteFieldName.USER_FIELD_NAME,
+                ParseUser.getCurrentUser()
+            )
+
+            parseUserQuery.setLimit(pageSize)
+            parseUserQuery.setSkip(skip)
+
+            parseUserQuery.findInBackground { parseObjects, parseException ->
                 if (parseException == null) {
                     if (parseObjects.isEmpty()) {
-                        trySend(ResultState.Success(0))
+                        trySend(ResultState.Success(Unit))
                     } else {
-                        parseObjects.sortBy {
-                            it.updatedAt
-                        }
                         parseObjects.forEachIndexed { index, parseObject ->
-                            CoroutineScope(Dispatchers.IO).launch {
-                                val saveRouteJob = this.launch {
-                                    parseObject.getString(RouteFieldName.DATA_FIELD_NAME)
-                                        ?.let { data ->
-                                            var route = RouteJSONConverter.fromString(data)
-                                            route = route.copy(
-                                                basicData = route.basicData.copy(
-                                                    isSynchronizedRoute = true,
-                                                    remoteRouteId = parseObject.objectId
-                                                )
-                                            )
-
-                                            routeUseCase.saveRouteAfterLoading(route)
-                                                .collect {
-                                                    if (it is ResultState.Success) {
-                                                        if (parseObjects.size == index + 1) {
-                                                            trySend(ResultState.Success(parseObjects.size))
-                                                            val timeInMillis =
-                                                                Calendar.getInstance().timeInMillis
-                                                            settingsUseCase.setUpdateAt(timeInMillis)
-                                                                .collect()
-                                                        }
-                                                        this.cancel()
-                                                    }
-                                                    if (it is ResultState.Error) {
-                                                        trySend(ResultState.Error(it.entity))
-                                                    }
-                                                }
-                                        }
+                            parseObject.getString(RouteFieldName.DATA_FIELD_NAME)
+                                ?.let { data ->
+                                    var route = RouteJSONConverter.fromString(data)
+                                    route = route.copy(
+                                        basicData = route.basicData.copy(
+                                            isSynchronizedRoute = true,
+                                            remoteRouteId = parseObject.objectId
+                                        )
+                                    )
+                                    allNewRoutes.add(route)
                                 }
-                                saveRouteJob.join()
+                        }
+                        if (parseObjects.size == pageSize) {
+                            Log.d("ZZZ", "next page load all route by user ${parseObjects.size}")
+                            CoroutineScope(Dispatchers.IO).launch {
+                                loadBathRouteNewVersionByUser(skip + pageSize).collect {
+                                    if (it is ResultState.Success) {
+                                        trySend(ResultState.Success(Unit))
+                                    }
+                                }
                             }
+                        } else {
+                            Log.d("ZZZ", "load all route by user ${parseObjects.size}")
+                            trySend(ResultState.Success(Unit))
                         }
                     }
                 } else {
@@ -446,7 +534,81 @@ class Back4AppManager : KoinComponent {
         }
     }
 
-    private fun loadRouteListFromRemoteOldVersion(): Flow<ResultState<Int>> {
+    private fun loadBathRouteNewVersionByEmail(skip: Int): Flow<ResultState<Unit>> {
+        return channelFlow {
+            trySend(ResultState.Loading)
+            val parseEmailQuery: ParseQuery<ParseObject> =
+                ParseQuery(RouteFieldName.ROUTE_CLASS_NAME_REMOTE)
+            parseEmailQuery.whereEqualTo(
+                RouteFieldName.USER_EMAIL_FIELD_NAME,
+                ParseUser.getCurrentUser().email
+            )
+
+            parseEmailQuery.setLimit(pageSize)
+            parseEmailQuery.setSkip(skip)
+
+            parseEmailQuery.findInBackground { parseObjects, parseException ->
+                if (parseException == null) {
+                    if (parseObjects.isEmpty()) {
+                        trySend(ResultState.Success(Unit))
+                    } else {
+                        parseObjects.forEachIndexed { index, parseObject ->
+                            parseObject.getString(RouteFieldName.DATA_FIELD_NAME)
+                                ?.let { data ->
+                                    var route = RouteJSONConverter.fromString(data)
+                                    route = route.copy(
+                                        basicData = route.basicData.copy(
+                                            isSynchronizedRoute = true,
+                                            remoteRouteId = parseObject.objectId
+                                        )
+                                    )
+                                    allNewRoutes.add(route)
+                                }
+                        }
+
+                        if (parseObjects.size == pageSize) {
+                            Log.d("ZZZ", "next page load all route by email ${parseObjects.size}")
+                            CoroutineScope(Dispatchers.IO).launch {
+                                loadBathRouteNewVersionByEmail(skip + pageSize).collect {
+                                    if (it is ResultState.Success) {
+                                        trySend(ResultState.Success(Unit))
+                                    }
+                                }
+                            }
+                        } else {
+                            Log.d("ZZZ", "load all route by email ${parseObjects.size}")
+                            trySend(ResultState.Success(Unit))
+                        }
+                    }
+                } else {
+                    trySend(ResultState.Error(ErrorEntity(throwable = parseException)))
+                }
+            }
+            awaitClose()
+        }
+    }
+
+    private fun loadRouteListFromRemoteOldVersion(): Flow<ResultState<Int>> = flow {
+        totalLoadOldRoutes = 0
+        emit(ResultState.Loading)
+        loadBathRouteOldVersion(0).collect {
+            when (it) {
+                is ResultState.Loading -> {
+                    emit(ResultState.Loading)
+                }
+
+                is ResultState.Error -> {
+                    emit(ResultState.Error(ErrorEntity(throwable = it.entity.throwable)))
+                }
+
+                is ResultState.Success -> {
+                    emit(ResultState.Success(totalLoadOldRoutes))
+                }
+            }
+        }
+    }
+
+    private fun loadBathRouteOldVersion(skip: Int): Flow<ResultState<Unit>> {
         val parseQuery: ParseQuery<ParseObject> =
             ParseQuery(BasicDataFieldName.BASIC_DATA_CLASS_NAME_REMOTE)
         parseQuery.whereEqualTo(BasicDataFieldName.USER_FIELD_NAME, ParseUser.getCurrentUser())
@@ -456,7 +618,7 @@ class Back4AppManager : KoinComponent {
             parseQuery.findInBackground { parseObjects, parseException ->
                 if (parseException == null) {
                     if (parseObjects.isEmpty()) {
-                        trySend(ResultState.Success(0))
+                        trySend(ResultState.Success(Unit))
                     } else {
                         parseObjects.forEachIndexed { index, parseObject ->
                             parseObject.apply {
@@ -472,13 +634,6 @@ class Back4AppManager : KoinComponent {
                                                     }
                                                 }
                                             }
-                                            if (loadRouteResult is ResultState.Success && parseObjects.size == index + 1) {
-                                                val timeInMillis =
-                                                    Calendar.getInstance().timeInMillis
-                                                settingsUseCase.setUpdateAt(timeInMillis)
-                                                    .collect()
-                                                trySend(ResultState.Success(parseObjects.size))
-                                            }
                                             if (loadRouteResult is ResultState.Error) {
                                                 trySend(ResultState.Error(loadRouteResult.entity))
                                             }
@@ -487,7 +642,20 @@ class Back4AppManager : KoinComponent {
                                 }
                             }
                         }
+                        totalLoadOldRoutes += parseObjects.size
+                        if (parseObjects.size == pageSize) {
+                            totalLoadOldRoutes += parseObjects.size
+                            CoroutineScope(Dispatchers.IO).launch {
+                                loadBathRouteOldVersion(skip + pageSize).collect {
+                                    trySend(ResultState.Success(Unit))
+                                }
+                            }
+                        } else {
+                            totalLoadOldRoutes += parseObjects.size
+                            trySend(ResultState.Success(Unit))
+                        }
                     }
+
                 } else {
                     trySend(ResultState.Error(ErrorEntity(throwable = parseException)))
                 }
