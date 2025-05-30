@@ -1,5 +1,6 @@
 package com.z_company.data_local.route.entity
 
+import androidx.room.BuiltInTypeConverters
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
@@ -9,7 +10,8 @@ import java.util.Date
 
 @Entity
 @TypeConverters(
-    DateTypeConverter::class
+    DateTypeConverter::class,
+    builtInTypeConverters = BuiltInTypeConverters()
 )
 internal data class BasicData(
     @PrimaryKey

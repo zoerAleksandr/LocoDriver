@@ -24,6 +24,8 @@ fun SettingSalaryDestination(
         isEnableSaveButton = uiState.isEnableSaveButton,
         tariffRateValueState = uiState.tariffRate,
         setTariffRate = viewModel::setTariffRate,
+        oldTariffRateValueState = uiState.oldTariffRate,
+        setOldTariffRate = viewModel::setOldTariffRate,
         isErrorInputTariffRate = uiState.isErrorInputTariffRate,
         setAveragePaymentHour = viewModel::setAveragePaymentHour,
         setDistrictCoefficient = viewModel::setDistrictCoefficient,
@@ -69,8 +71,8 @@ fun SettingSalaryDestination(
         onHideDialogChangeTariffRate = viewModel::hideDialogTariffRate,
         saveOnlyMonthTariffRate = viewModel::saveSettingAndOnlyMonthTariffRate,
         saveTariffRateCurrentAndNextMonth = viewModel::saveSettingAndTariffRateCurrentAndNextMonth,
-        currentMonth = uiState.currentMonth,
-        currentYear = uiState.currentYear,
-        setOtherSurcharge = viewModel::setOtherSurcharge
+        setOtherSurcharge = viewModel::setOtherSurcharge,
+        currentMonthOfYear = uiState.currentMonthOfYear,
+        setDateNewTariffRate = viewModel::setDateSetTariffRate
     )
 }

@@ -1,7 +1,10 @@
 package com.z_company.route.ui
 
+import android.util.Log
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DatePicker
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,8 +40,11 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,13 +59,20 @@ import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncDataValue
 import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.ui.component.CustomSnackBar
+import com.z_company.core.ui.component.customDateTimePicker.noRippleEffect
+import com.z_company.core.ui.component.rememberDatePickerStateInLocale
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
+import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
+import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.SurchargeExtendedServicePhase
 import com.z_company.domain.entities.SurchargeHeavyTrains
+import com.z_company.domain.entities.timestamp
 import com.z_company.route.component.AnimationDialog
+import com.z_company.route.component.CustomDatePickerDialog
 import com.z_company.route.viewmodel.SettingSalaryUIState
 import kotlinx.coroutines.launch
+import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,6 +85,8 @@ fun SettingSalaryScreen(
     resetSaveState: () -> Unit,
     tariffRateValueState: ResultState<String>,
     setTariffRate: (String) -> Unit,
+    oldTariffRateValueState: ResultState<String>,
+    setOldTariffRate: (String) -> Unit,
     isErrorInputTariffRate: Boolean,
     setAveragePaymentHour: (String) -> Unit,
     setNordicCoefficient: (String) -> Unit,
@@ -116,9 +132,9 @@ fun SettingSalaryScreen(
     onHideDialogChangeTariffRate: () -> Unit,
     saveOnlyMonthTariffRate: () -> Unit,
     saveTariffRateCurrentAndNextMonth: () -> Unit,
-    currentMonth: ResultState<String>,
-    currentYear: ResultState<String>,
-    setOtherSurcharge: (String) -> Unit
+    setOtherSurcharge: (String) -> Unit,
+    currentMonthOfYear: MonthOfYear?,
+    setDateNewTariffRate: (Int) -> Unit
 ) {
     val styleDataLight = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
     val titleStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Medium)
@@ -148,10 +164,61 @@ fun SettingSalaryScreen(
             resetSaveState()
         }
     }
+
+    var isShowSetDateTariffRateDialog by remember { mutableStateOf(false) }
+
+    AnimationDialog(
+        showDialog = isShowSetDateTariffRateDialog,
+        onDismissRequest = { isShowSetDateTariffRateDialog = false }
+    ) {
+        Log.d("ZZZ", "currentMonthOfYear in UI ${currentMonthOfYear?.dateSetTariffRate}")
+
+        val currentCalendar = Calendar.getInstance()
+        currentMonthOfYear?.let {
+            currentCalendar.apply {
+                set(Calendar.YEAR, it.year)
+                set(Calendar.MONTH, it.month)
+                set(Calendar.DAY_OF_MONTH, 1)
+            }
+            it.dateSetTariffRate?.let { date ->
+                currentCalendar.set(Calendar.DAY_OF_MONTH, date.dateNewRate)
+            }
+        }
+
+        val datePickerState = rememberDatePickerStateInLocale(currentCalendar.timeInMillis)
+
+        CustomDatePickerDialog(
+            datePickerState = datePickerState,
+            title = {
+                Text(
+                    modifier = Modifier.padding(16.dp),
+                    text = "Дата начала действия нового тарифа",
+                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 1,
+                    style = hintStyle
+                )
+            },
+            onDismissRequest = {
+                isShowSetDateTariffRateDialog = false
+            },
+            onConfirmRequest = {
+                val date = Calendar.getInstance().also {
+                    it.timeInMillis = datePickerState.selectedDateMillis!!
+                }.get(Calendar.DAY_OF_MONTH)
+
+                setDateNewTariffRate(date)
+                isShowSetDateTariffRateDialog = false
+            }
+        )
+    }
+
     AnimationDialog(
         showDialog = isShowDialogChangeTariffRate,
         onDismissRequest = onHideDialogChangeTariffRate
     ) {
+        val currentDateSetTariffRate = currentMonthOfYear?.dateSetTariffRate?.dateNewRate ?: 1
+        Log.d("ZZZ", "currentDateSetTariffRate $currentDateSetTariffRate")
+
         Box(
             modifier = Modifier
                 .padding(16.dp)
@@ -162,26 +229,36 @@ fun SettingSalaryScreen(
                     .fillMaxWidth()
                     .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
                     .padding(horizontal = 16.dp, vertical = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
+                verticalArrangement = Arrangement.spacedBy(18.dp)
             ) {
                 AutoSizeText(
                     maxTextSize = maxTextSize,
                     modifier = Modifier,
                     text = "Изменилась тарифная ставка",
                     overflow = TextOverflow.Visible,
-                    style = styleDataLight.copy(color = MaterialTheme.colorScheme.primary),
+                    style = styleDataMedium.copy(color = MaterialTheme.colorScheme.primary),
                     alignment = Alignment.CenterEnd
                 )
                 AutoSizeText(
                     maxTextSize = maxTextSize,
                     text = "Для какого месяца сохранить тариф?",
                     overflow = TextOverflow.Visible,
-                    style = styleDataMedium.copy(color = MaterialTheme.colorScheme.primary)
+                    style = styleDataLight.copy(color = MaterialTheme.colorScheme.primary)
                 )
+                TextButton(
+                    onClick = { isShowSetDateTariffRateDialog = true }
+                ) {
+                    AutoSizeText(
+                        maxTextSize = maxTextSize,
+                        text = "Новый тариф начнет действовать с $currentDateSetTariffRate ${currentMonthOfYear?.month?.getMonthFullText()} ${currentMonthOfYear?.year.toString()}",
+                        overflow = TextOverflow.Visible,
+                        style = styleDataLight.copy(color = MaterialTheme.colorScheme.tertiary)
+                    )
+                }
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 24.dp),
+                        .padding(top = 18.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Button(
@@ -294,6 +371,10 @@ fun SettingSalaryScreen(
                 )
             }
             item {
+                var dateSetTariffRate = 1
+                currentMonthOfYear?.dateSetTariffRate?.let {
+                    dateSetTariffRate = it.dateNewRate
+                }
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -307,34 +388,43 @@ fun SettingSalaryScreen(
                     ) {
                         AutoSizeText(
                             maxTextSize = maxTextSize,
-                            text = "Тарифная ставка, руб. на",
+                            text = "Тарифная ставка, руб. ",
                             overflow = TextOverflow.Visible,
                             style = styleDataMedium
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            AsyncDataValue(resultState = currentMonth) { month ->
-                                month?.let {
-                                    AutoSizeText(
-                                        maxTextSize = maxTextSize,
-                                        text = month,
-                                        overflow = TextOverflow.Visible,
-                                        style = styleDataMedium
-                                    )
+                        Row(
+                            modifier = Modifier.clickable(
+                                onClick = {
+                                    isShowSetDateTariffRateDialog = true
                                 }
-                            }
-                            AsyncDataValue(resultState = currentYear) { year ->
-                                year?.let {
-                                    AutoSizeText(
-                                        maxTextSize = maxTextSize,
-                                        text = year,
-                                        overflow = TextOverflow.Visible,
-                                        style = styleDataMedium
-                                    )
-                                }
-                            }
+                            ),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
+                                text = "на $dateSetTariffRate",
+                                overflow = TextOverflow.Visible,
+                                style = styleDataMedium,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
+
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
+                                text = currentMonthOfYear?.month?.getMonthFullText() ?: "",
+                                overflow = TextOverflow.Visible,
+                                style = styleDataMedium,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
+
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
+                                text = currentMonthOfYear?.year.toString(),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataMedium,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
                         }
                     }
-
                     AsyncDataValue(resultState = tariffRateValueState) { tariffRateValue ->
                         tariffRateValue?.let {
                             OutlinedTextField(
@@ -362,6 +452,82 @@ fun SettingSalaryScreen(
                                     keyboardType = KeyboardType.Decimal
                                 )
                             )
+                        }
+                    }
+
+                    if (currentMonthOfYear?.dateSetTariffRate != null) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
+                                text = "Тарифная ставка, руб. ",
+                                overflow = TextOverflow.Visible,
+                                style = styleDataMedium
+                            )
+                            Row(
+                                modifier = Modifier.clickable(
+                                    onClick = {
+                                        isShowSetDateTariffRateDialog = true
+                                    }
+                                ),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                AutoSizeText(
+                                    maxTextSize = maxTextSize,
+                                    text = "до $dateSetTariffRate",
+                                    overflow = TextOverflow.Visible,
+                                    style = styleDataMedium,
+                                    color = MaterialTheme.colorScheme.tertiary
+                                )
+
+                                AutoSizeText(
+                                    maxTextSize = maxTextSize,
+                                    text = currentMonthOfYear.month.getMonthFullText(),
+                                    overflow = TextOverflow.Visible,
+                                    style = styleDataMedium,
+                                    color = MaterialTheme.colorScheme.tertiary
+                                )
+
+                                AutoSizeText(
+                                    maxTextSize = maxTextSize,
+                                    text = currentMonthOfYear.year.toString(),
+                                    overflow = TextOverflow.Visible,
+                                    style = styleDataMedium,
+                                    color = MaterialTheme.colorScheme.tertiary
+                                )
+                            }
+                        }
+                        AsyncDataValue(resultState = oldTariffRateValueState) { oldTariffRateValue ->
+                            oldTariffRateValue?.let {
+                                OutlinedTextField(
+                                    modifier = Modifier
+                                        .fillMaxWidth(),
+                                    value = oldTariffRateValue,
+                                    onValueChange = { value ->
+                                        setOldTariffRate(value)
+                                    },
+                                    isError = isErrorInputTariffRate,
+                                    supportingText = {
+                                        if (isErrorInputTariffRate) {
+                                            Text(text = "Некорректные данные")
+                                        }
+                                    },
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                        focusedBorderColor = Color.Transparent,
+                                        unfocusedBorderColor = Color.Transparent
+                                    ),
+                                    shape = Shapes.medium,
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Decimal
+                                    )
+                                )
+                            }
                         }
                     }
                 }
@@ -784,7 +950,7 @@ fun SettingSalaryScreen(
                 ) {
                     AutoSizeText(
                         maxTextSize = maxTextSize,
-                        text =  "Доплата за тяж. поезда",
+                        text = "Доплата за тяж. поезда",
                         overflow = TextOverflow.Visible,
                         style = styleDataMedium
                     )
@@ -793,7 +959,7 @@ fun SettingSalaryScreen(
                     ) {
                         AutoSizeText(
                             maxTextSize = maxTextSize,
-                            text =  "Добавить",
+                            text = "Добавить",
                             style = styleDataMedium.copy(color = MaterialTheme.colorScheme.tertiary)
                         )
                     }
@@ -914,7 +1080,7 @@ fun SettingSalaryScreen(
                     ) {
                         AutoSizeText(
                             maxTextSize = maxTextSize,
-                            text =  "Добавить",
+                            text = "Добавить",
                             style = styleDataMedium.copy(color = MaterialTheme.colorScheme.tertiary)
                         )
                     }

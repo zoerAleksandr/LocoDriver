@@ -4,11 +4,14 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.TypeConverters
+import com.z_company.data_local.route.type_converters.DateSetTariffRateConverter
 import com.z_company.data_local.route.type_converters.DaysTypeConverters
+import com.z_company.domain.entities.DateSetTariffRate
 import com.z_company.domain.entities.Day
 
 @TypeConverters(
-    DaysTypeConverters::class
+    DaysTypeConverters::class,
+    DateSetTariffRateConverter::class,
 )
 @Entity
 data class MonthOfYear(
@@ -18,5 +21,7 @@ data class MonthOfYear(
     val month: Int,
     val days: List<Day>,
     @ColumnInfo(defaultValue = "0.0")
-    val tariffRate: Double
+    val tariffRate: Double,
+    @ColumnInfo(defaultValue = "NULL")
+    val dateSetTariffRate: DateSetTariffRate?
 )

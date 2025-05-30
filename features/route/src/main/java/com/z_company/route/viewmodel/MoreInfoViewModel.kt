@@ -10,7 +10,7 @@ import com.z_company.domain.entities.UtilForMonthOfYear.getTodayNormaHours
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getOnePersonOperationTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
-import com.z_company.domain.entities.route.UtilsForEntities.setWorkTime
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeWithoutHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
 import com.z_company.domain.use_cases.RouteUseCase
@@ -66,7 +66,7 @@ class MoreInfoViewModel: ViewModel(), KoinComponent {
                                 }
 
                                 val totalWorkTime =
-                                    routeList.setWorkTime(
+                                    routeList.getWorkTime(
                                         settings.selectMonthOfYear,
                                         settings.timeZone
                                     )

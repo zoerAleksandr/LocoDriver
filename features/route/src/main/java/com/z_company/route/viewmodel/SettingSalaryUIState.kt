@@ -3,18 +3,20 @@ package com.z_company.route.viewmodel
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.z_company.core.ResultState
+import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.SalarySetting
 import com.z_company.domain.entities.SurchargeExtendedServicePhase
 import com.z_company.domain.entities.SurchargeHeavyTrains
 
 data class SettingSalaryUIState(
+    val currentMonthOfYear: MonthOfYear? = null,
     val saveSettingState: ResultState<Unit>? = null,
     val isEnableSaveButton: Boolean = true,
     val settingSalaryState: ResultState<SalarySetting?> = ResultState.Loading,
     val tariffRate: ResultState<String> = ResultState.Loading,
-    val currentMonth: ResultState<String> = ResultState.Loading,
-    val currentYear: ResultState<String> = ResultState.Loading,
     val isErrorInputTariffRate: Boolean = false,
+    val oldTariffRate: ResultState<String> = ResultState.Loading,
+    val isErrorInputOldTariffRate: Boolean = false,
     val averagePaymentHour: ResultState<String> = ResultState.Loading,
     val isErrorInputAveragePayment: Boolean = false,
     val districtCoefficient: ResultState<String> = ResultState.Loading,
@@ -46,5 +48,4 @@ data class SettingSalaryUIState(
     val otherRetention: ResultState<String> = ResultState.Loading,
     val isErrorInputOtherRetention: Boolean = false,
     val isShowDialogChangeTariffRate: Boolean = false,
-
 )

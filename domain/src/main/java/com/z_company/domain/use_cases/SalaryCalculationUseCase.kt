@@ -12,7 +12,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getTimeInHeavyTrain
 import com.z_company.domain.entities.route.UtilsForEntities.getTimeInServicePhase
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
-import com.z_company.domain.entities.route.UtilsForEntities.setWorkTime
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.timeFollowingSingleLocomotive
 import com.z_company.domain.util.sum
 import com.z_company.domain.util.toDoubleOrZero
@@ -112,7 +112,7 @@ class SalaryCalculationUseCase : KoinComponent {
         routeList: List<Route>,
         userSettings: UserSettings,
         currentMonthOfYear: MonthOfYear
-    ) = routeList.setWorkTime(currentMonthOfYear, userSettings.timeZone)
+    ) = routeList.getWorkTime(currentMonthOfYear, userSettings.timeZone)
 
     fun getMoneyAtWorkTimeAtTariff(
         routeList: List<Route>,

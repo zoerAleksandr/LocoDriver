@@ -13,6 +13,8 @@ import com.z_company.domain.util.moreThan
 import com.z_company.domain.util.plus
 import com.z_company.domain.util.toIntOrZero
 import org.koin.core.component.KoinComponent
+import java.time.Period
+import java.time.Year
 import java.util.Calendar
 import java.util.TimeZone
 
@@ -240,7 +242,94 @@ object UtilsForEntities : KoinComponent {
         }
     }
 
-    fun List<Route>.setWorkTime(monthOfYear: MonthOfYear, offsetInMoscow: Long): Long {
+    fun List<Route>.getNewRoutesToDayRange(
+        days: IntRange,
+        monthOfYear: MonthOfYear,
+        offsetInMoscow: Long
+    ): List<Route> {
+        val firstData = Calendar.getInstance().also {
+            it.set(Calendar.YEAR, monthOfYear.year)
+            it.set(Calendar.MONTH, monthOfYear.month)
+            it.set(Calendar.DAY_OF_MONTH, days.first)
+            it.set(Calendar.HOUR_OF_DAY, 0)
+            it.set(Calendar.MINUTE, 0)
+            it.set(Calendar.SECOND, 0)
+            it.set(Calendar.MILLISECOND, 0)
+        }.timeInMillis + offsetInMoscow
+
+        val secondData = Calendar.getInstance().also {
+            it.set(Calendar.YEAR, monthOfYear.year)
+            it.set(Calendar.MONTH, monthOfYear.month)
+            it.set(Calendar.DAY_OF_MONTH, days.last)
+            it.set(Calendar.HOUR_OF_DAY, 23)
+            it.set(Calendar.MINUTE, 59)
+            it.set(Calendar.SECOND, 59)
+            it.set(Calendar.MILLISECOND, 99)
+        }.timeInMillis + offsetInMoscow
+
+        val newRouteList = mutableListOf<Route>()
+
+        this.forEach { route ->
+            if (route.inTimePeriod(period = TimePeriod(startDate = firstData, endDate = secondData))) {
+                route.basicData.timeStartWork?.let { timeStart ->
+                    route.basicData.timeEndWork?.let { timeEnd ->
+                        if (timeStart < firstData) {
+                            route.basicData.copy(
+                                timeStartWork = firstData
+                            )
+                        }
+                        if (timeEnd > secondData) {
+                            route.basicData.copy(
+                                timeEndWork = secondData
+                            )
+                        }
+                    }
+                }
+                newRouteList.add(route)
+            }
+        }
+        return newRouteList
+    }
+
+    // TODO Проверить на других часовых поясах
+
+    fun List<Route>.getTimeToDaysPeriod(
+        days: IntRange,
+        monthOfYear: MonthOfYear,
+        offsetInMoscow: Long
+    ): Long {
+        val firstData = Calendar.getInstance().also {
+            it.set(Calendar.YEAR, monthOfYear.year)
+            it.set(Calendar.MONTH, monthOfYear.month)
+            it.set(Calendar.DAY_OF_MONTH, days.first)
+            it.set(Calendar.HOUR_OF_DAY, 0)
+            it.set(Calendar.MINUTE, 0)
+            it.set(Calendar.SECOND, 0)
+            it.set(Calendar.MILLISECOND, 0)
+        }.timeInMillis + offsetInMoscow
+
+        val secondData = Calendar.getInstance().also {
+            it.set(Calendar.YEAR, monthOfYear.year)
+            it.set(Calendar.MONTH, monthOfYear.month)
+            it.set(Calendar.DAY_OF_MONTH, days.last)
+            it.set(Calendar.HOUR_OF_DAY, 23)
+            it.set(Calendar.MINUTE, 59)
+            it.set(Calendar.SECOND, 59)
+            it.set(Calendar.MILLISECOND, 99)
+        }.timeInMillis + offsetInMoscow
+
+        var totalTime = 0L
+        this.forEach { route ->
+            route.timeInLongInPeriod(firstData, secondData)?.let { time ->
+                if (time > 0) {
+                    totalTime += time
+                }
+            }
+        }
+        return totalTime
+    }
+
+    fun List<Route>.getWorkTime(monthOfYear: MonthOfYear, offsetInMoscow: Long): Long {
         var totalTime = 0L
         this.forEach { route ->
             if (route.isTransition(offsetInMoscow)) {
@@ -371,7 +460,7 @@ object UtilsForEntities : KoinComponent {
         monthOfYear: MonthOfYear,
         offsetInMoscow: Long
     ): Long {
-        val totalWorkTime = this.setWorkTime(monthOfYear, offsetInMoscow)
+        val totalWorkTime = this.getWorkTime(monthOfYear, offsetInMoscow)
         val holidayWorkTime = this.getWorkingTimeOnAHoliday(monthOfYear, offsetInMoscow)
         return totalWorkTime - holidayWorkTime
     }

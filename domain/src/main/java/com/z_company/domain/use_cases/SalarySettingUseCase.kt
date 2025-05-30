@@ -26,6 +26,9 @@ class SalarySettingUseCase(
     fun saveSalarySetting(setting: SalarySetting): Flow<ResultState<Unit>> =
         repository.saveSalarySetting(setting)
 
+    fun updateMonthOfYear(monthOfYear: MonthOfYear): Flow<ResultState<Unit>> =
+        calendarUseCase.updateMonthOfYear(monthOfYear)
+
     suspend fun updateTariffRateOnlyInOneMonthOfYear(
         newTariffRate: Double,
         monthId: String

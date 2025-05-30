@@ -25,7 +25,6 @@
             "fieldPath": "remoteRouteId",
             "columnName": "remoteRouteId",
             "affinity": "TEXT",
-            "notNull": false,
             "defaultValue": "NULL"
           },
           {
@@ -44,8 +43,7 @@
           {
             "fieldPath": "remoteObjectId",
             "columnName": "remoteObjectId",
-            "affinity": "TEXT",
-            "notNull": false
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "isDeleted",
@@ -62,20 +60,17 @@
           {
             "fieldPath": "number",
             "columnName": "number",
-            "affinity": "TEXT",
-            "notNull": false
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "timeStartWork",
             "columnName": "timeStartWork",
-            "affinity": "INTEGER",
-            "notNull": false
+            "affinity": "INTEGER"
           },
           {
             "fieldPath": "timeEndWork",
             "columnName": "timeEndWork",
-            "affinity": "INTEGER",
-            "notNull": false
+            "affinity": "INTEGER"
           },
           {
             "fieldPath": "restPointOfTurnover",
@@ -86,8 +81,7 @@
           {
             "fieldPath": "notes",
             "columnName": "notes",
-            "affinity": "TEXT",
-            "notNull": false
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "isFavorite",
@@ -102,9 +96,7 @@
           "columnNames": [
             "id"
           ]
-        },
-        "indices": [],
-        "foreignKeys": []
+        }
       },
       {
         "tableName": "Locomotive",
@@ -131,14 +123,12 @@
           {
             "fieldPath": "series",
             "columnName": "series",
-            "affinity": "TEXT",
-            "notNull": false
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "number",
             "columnName": "number",
-            "affinity": "TEXT",
-            "notNull": false
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "type",
@@ -161,26 +151,22 @@
           {
             "fieldPath": "timeStartOfAcceptance",
             "columnName": "timeStartOfAcceptance",
-            "affinity": "INTEGER",
-            "notNull": false
+            "affinity": "INTEGER"
           },
           {
             "fieldPath": "timeEndOfAcceptance",
             "columnName": "timeEndOfAcceptance",
-            "affinity": "INTEGER",
-            "notNull": false
+            "affinity": "INTEGER"
           },
           {
             "fieldPath": "timeStartOfDelivery",
             "columnName": "timeStartOfDelivery",
-            "affinity": "INTEGER",
-            "notNull": false
+            "affinity": "INTEGER"
           },
           {
             "fieldPath": "timeEndOfDelivery",
             "columnName": "timeEndOfDelivery",
-            "affinity": "INTEGER",
-            "notNull": false
+            "affinity": "INTEGER"
           }
         ],
         "primaryKey": {
@@ -239,33 +225,28 @@
           {
             "fieldPath": "number",
             "columnName": "number",
-            "affinity": "TEXT",
-            "notNull": false
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "distance",
             "columnName": "distance",
             "affinity": "TEXT",
-            "notNull": false,
             "defaultValue": "''"
           },
           {
             "fieldPath": "weight",
             "columnName": "weight",
-            "affinity": "TEXT",
-            "notNull": false
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "axle",
             "columnName": "axle",
-            "affinity": "TEXT",
-            "notNull": false
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "conditionalLength",
             "columnName": "conditionalLength",
-            "affinity": "TEXT",
-            "notNull": false
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "isHeavyLongDistance",
@@ -284,7 +265,6 @@
             "fieldPath": "servicePhase",
             "columnName": "servicePhase",
             "affinity": "TEXT",
-            "notNull": false,
             "defaultValue": "NULL"
           }
         ],
@@ -338,44 +318,37 @@
           {
             "fieldPath": "remoteObjectId",
             "columnName": "remoteObjectId",
-            "affinity": "TEXT",
-            "notNull": false
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "trainNumber",
             "columnName": "trainNumber",
-            "affinity": "TEXT",
-            "notNull": false
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "stationDeparture",
             "columnName": "stationDeparture",
-            "affinity": "TEXT",
-            "notNull": false
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "stationArrival",
             "columnName": "stationArrival",
-            "affinity": "TEXT",
-            "notNull": false
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "timeArrival",
             "columnName": "timeArrival",
-            "affinity": "INTEGER",
-            "notNull": false
+            "affinity": "INTEGER"
           },
           {
             "fieldPath": "timeDeparture",
             "columnName": "timeDeparture",
-            "affinity": "INTEGER",
-            "notNull": false
+            "affinity": "INTEGER"
           },
           {
             "fieldPath": "notes",
             "columnName": "notes",
-            "affinity": "TEXT",
-            "notNull": false
+            "affinity": "TEXT"
           }
         ],
         "primaryKey": {
@@ -428,8 +401,7 @@
           {
             "fieldPath": "remoteObjectId",
             "columnName": "remoteObjectId",
-            "affinity": "TEXT",
-            "notNull": false
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "url",
@@ -476,7 +448,6 @@
         ]
       }
     ],
-    "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
       "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '508e93f4a5f0f87603206c3e1a10a738')"

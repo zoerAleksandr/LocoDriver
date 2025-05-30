@@ -1,10 +1,11 @@
 package com.z_company.route.viewmodel
 
+import android.util.Log
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
-import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
+import com.z_company.domain.entities.DateSetTariffRate
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.SalarySetting
 import com.z_company.domain.entities.SurchargeExtendedServicePhase
@@ -99,11 +100,12 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                 this.async { salarySettingUseCase.getTariffRateFromCurrentMonthOfYear(userSettings.selectMonthOfYear) }
                     .await()
             withContext(Dispatchers.Main) {
+                Log.d("ZZZ", "before loading ${userSettings.selectMonthOfYear.dateSetTariffRate}")
                 _uiState.update {
                     it.copy(
+                        oldTariffRate = ResultState.Success(userSettings.selectMonthOfYear.dateSetTariffRate?.oldRate.str()),
                         tariffRate = ResultState.Success(tariffRate.str()),
-                        currentMonth = ResultState.Success(userSettings.selectMonthOfYear.month.getMonthFullText()),
-                        currentYear = ResultState.Success(userSettings.selectMonthOfYear.year.toString())
+                        currentMonthOfYear = userSettings.selectMonthOfYear
                     )
                 }
             }
@@ -229,12 +231,13 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
 
                         if (saveResult is ResultState.Success) {
                             currentMonthOfYear?.let { month ->
+                                salarySettingUseCase.updateMonthOfYear(month).collect {}
                                 var userSettings =
                                     this.async { userSettingUseCase.getUserSetting() }.await()
                                 userSettings = userSettings.copy(
                                     selectMonthOfYear = month
                                 )
-                                userSettingUseCase.saveSetting(userSettings).collect{}
+                                userSettingUseCase.saveSetting(userSettings).collect {}
                             }
                         }
                     }
@@ -274,6 +277,45 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
             it.copy(
                 tariffRate = ResultState.Success(value),
                 isErrorInputTariffRate = isErrorInputDouble(value)
+            )
+        }
+    }
+
+    fun setOldTariffRate(value: String) {
+        currentMonthOfYear = currentMonthOfYear?.copy(
+            dateSetTariffRate = currentMonthOfYear!!.dateSetTariffRate?.copy(
+                oldRate = value.toDoubleOrZero()
+            )
+        )
+
+        _uiState.update {
+            it.copy(
+                oldTariffRate = ResultState.Success(value),
+                isErrorInputOldTariffRate = isErrorInputDouble(value)
+            )
+        }
+    }
+
+    fun setDateSetTariffRate(dayOfMonth: Int) {
+        val currentDateSetTariffRate = currentMonthOfYear?.dateSetTariffRate
+        currentMonthOfYear = if (currentDateSetTariffRate == null) {
+            currentMonthOfYear?.copy(
+                dateSetTariffRate = DateSetTariffRate(
+                    dateNewRate = dayOfMonth,
+                    oldRate = 0.0,
+                )
+            )
+        } else {
+            currentMonthOfYear?.copy(
+                dateSetTariffRate = currentMonthOfYear!!.dateSetTariffRate?.copy(
+                    dateNewRate = dayOfMonth,
+                )
+            )
+        }
+        _uiState.update {
+            it.copy(
+                currentMonthOfYear = currentMonthOfYear,
+                oldTariffRate = ResultState.Success(currentMonthOfYear!!.dateSetTariffRate!!.oldRate.toString()),
             )
         }
     }

@@ -3,7 +3,7 @@ import java.util.Properties
 plugins {
     id(Plugins.android_app)
     id(Plugins.kotlin_android)
-    kotlin(Plugins.kotlin_kapt)
+    id(Plugins.ksp)
     id("ru.ok.tracer").version("0.5.1")
     id(Plugins.compose_compiler)
 }
@@ -86,7 +86,7 @@ tracer {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
-    implementation ("com.google.devtools.ksp:symbol-processing-api:2.1.20-2.0.0")
+    implementation (Libs.ksp_api)
 
 //    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:${Versions.kotlin_version}")
     implementation(Libs.mytracker_sdk)

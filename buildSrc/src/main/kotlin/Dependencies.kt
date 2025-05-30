@@ -17,6 +17,7 @@ import Versions.desugaring_ver
 import Versions.gson_version
 import Versions.koin_version
 import Versions.kotlinx_date_time_ver
+import Versions.ksp_ver
 import Versions.lifecycle_runtime_version
 import Versions.lifecycle_viewmodel_version
 import Versions.material_compose3
@@ -49,6 +50,7 @@ object Plugins {
     const val java_lib = "java-library"
     const val google_relay = "com.google.relay"
     const val compose_compiler = "org.jetbrains.kotlin.plugin.compose"
+    const val ksp = "com.google.devtools.ksp"
 }
 
 object Apps {
@@ -57,8 +59,8 @@ object Apps {
     const val min_sdk_version = 26
     const val target_sdk_version = 35
 
-    const val version_code = 42
-    const val version_name = "1.2.6.1"
+    const val version_code = 43
+    const val version_name = "1.2.6.2"
 
     const val jvm_target_version = "21"
     val java_compatibility_version = JavaVersion.VERSION_21
@@ -67,8 +69,9 @@ object Apps {
 }
 
 object Versions {
+    const val ksp_ver = "2.1.21-2.0.1"
     const val android_plugin_id = "8.9.2"
-    const val kotlin_version = "2.1.20"
+    const val kotlin_version = "2.1.21"
     const val accompanist_navigation_animation_version = "0.34.0"
     const val accompanist_swiperefresh_version = "0.34.0"
     const val activity_compose_version = "1.9.0"
@@ -126,6 +129,7 @@ object Libs {
     const val project_feature_settings = ":features:settings"
 
     // Libs
+    const val ksp_api = "com.google.devtools.ksp:symbol-processing-api:$ksp_ver"
     const val ru_ok_tracer_platform = "ru.ok.tracer:tracer-platform:$ru_ok_tracer_platform_ver"
     const val ru_ok_tracer_tracer_crash_report = "ru.ok.tracer:tracer-crash-report"
     const val ru_ok_tracer_tracer_heap_dumps = "ru.ok.tracer:tracer-heap-dumps"

@@ -3,14 +3,12 @@ package com.z_company.route.viewmodel
 import android.app.Activity
 import android.app.Application
 import android.content.Intent
-import android.net.Uri
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.gson.Gson
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.MonthOfYear
@@ -22,7 +20,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeWithoutHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
-import com.z_company.domain.entities.route.UtilsForEntities.setWorkTime
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.CalendarUseCase
@@ -582,7 +580,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
             val stateSettings = uiState.value.settingState
             if (stateSettings is ResultState.Success) {
                 stateSettings.data?.let { settings ->
-                    val totalTime = routes.setWorkTime(settings.selectMonthOfYear, offsetInMoscow)
+                    val totalTime = routes.getWorkTime(settings.selectMonthOfYear, offsetInMoscow)
                     _uiState.update {
                         it.copy(
                             totalTimeWithHoliday = ResultState.Success(totalTime)

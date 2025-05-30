@@ -26,6 +26,7 @@ import java.util.Calendar
 @Composable
 fun CustomDatePickerDialog(
     datePickerState: DatePickerState,
+    title: (@Composable () -> Unit)? = null,
     onDismissRequest: () -> Unit,
     onConfirmRequest: () -> Unit,
 ) {
@@ -57,7 +58,7 @@ fun CustomDatePickerDialog(
         colors = DatePickerDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
         shape = Shapes.medium
     ) {
-        DatePicker(state = datePickerState)
+        DatePicker(state = datePickerState, title = title)
     }
 }
 
