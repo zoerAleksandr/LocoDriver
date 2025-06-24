@@ -10,9 +10,9 @@ import com.z_company.domain.entities.User
 import com.z_company.domain.entities.UserSettings
 
 data class SettingsUiState(
-    val settingDetails: ResultState<UserSettings?> = ResultState.Loading,
-    val userDetailsState: ResultState<User?> = ResultState.Loading,
-    val calendarState: ResultState<MonthOfYear?> = ResultState.Loading,
+    val settingDetails: ResultState<UserSettings?> = ResultState.Loading(),
+    val userDetailsState: ResultState<User?> = ResultState.Loading(),
+    val calendarState: ResultState<MonthOfYear?> = ResultState.Loading(),
     val saveSettingsState: ResultState<Unit>? = null,
     val uploadState: ResultState<Int>? = null,
     val downloadState: ResultState<Int>? = null,
@@ -21,7 +21,7 @@ data class SettingsUiState(
     val yearList: List<Int> = listOf(),
     val logOutState: ResultState<Unit>? = null,
     val resentVerificationEmailButton: Boolean = true,
-    var purchasesEndTime: ResultState<String> = ResultState.Loading,
+    var purchasesEndTime: ResultState<String> = ResultState.Loading(),
     val isRefreshing: Boolean = false,
     val showDialogAddServicePhase: Boolean = false,
     val selectedServicePhase: Pair<ServicePhase, Int>? = null,

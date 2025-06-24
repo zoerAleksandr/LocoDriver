@@ -23,7 +23,7 @@ class PasswordRecoveryViewModel : ViewModel() {
     fun requestPasswordReset(email: String) {
         val emailWithoutWhitespace = email.filterNot { it.isWhitespace() }
         _uiState.update {
-            it.copy(resultState = ResultState.Loading)
+            it.copy(resultState = ResultState.Loading())
         }
         requestJob?.cancel()
         requestJob = viewModelScope.launch {

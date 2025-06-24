@@ -12,6 +12,7 @@ import com.z_company.domain.repositories.RouteRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -19,9 +20,48 @@ import java.util.Calendar
 import java.util.Calendar.*
 
 class RouteUseCase(private val repository: RouteRepository) {
-    suspend fun listRoutesByMonth(monthOfYear: MonthOfYear, offsetInMoscow: Long): Flow<ResultState<List<Route>>> =
+    fun routeListByMonthFlow(monthOfYear: MonthOfYear, offsetInMoscow: Long): Flow<List<Route>> {
+        return callbackFlow {
+            val startMonth: Calendar = getInstance().also {
+                it.set(YEAR, monthOfYear.year)
+                it.set(MONTH, monthOfYear.month)
+                it.set(DAY_OF_MONTH, 1)
+                it.set(HOUR_OF_DAY, 0)
+                it.set(MINUTE, 0)
+                it.set(SECOND, 0)
+                it.set(MILLISECOND, 0)
+            }
+            val startMonthInLong: Long = startMonth.timeInMillis - offsetInMoscow
+            val maxDayOfMonth = startMonth.getActualMaximum(DAY_OF_MONTH)
+
+            val endMonth: Calendar = getInstance().also {
+                it.set(YEAR, monthOfYear.year)
+                it.set(MONTH, monthOfYear.month)
+                it.set(DAY_OF_MONTH, maxDayOfMonth)
+                it.set(HOUR_OF_DAY, 23)
+                it.set(MINUTE, 59)
+                it.set(SECOND, 0)
+                it.set(MILLISECOND, 0)
+            }
+            val endMonthInLong = endMonth.timeInMillis - offsetInMoscow
+
+            repository.loadRouteByPeriodFlow(
+                startPeriod = startMonthInLong,
+                endPeriod = endMonthInLong
+            ).collect { routes ->
+                trySend(routes)
+            }
+            awaitClose()
+        }
+    }
+
+
+    fun listRoutesByMonth(
+        monthOfYear: MonthOfYear,
+        offsetInMoscow: Long
+    ): Flow<ResultState<List<Route>>> =
         channelFlow {
-            trySend(ResultState.Loading)
+            trySend(ResultState.Loading())
 
             val startMonth: Calendar = getInstance().also {
                 it.set(YEAR, monthOfYear.year)
@@ -86,7 +126,14 @@ class RouteUseCase(private val repository: RouteRepository) {
     fun saveRoute(route: Route): Flow<ResultState<Unit>> {
         return if (route.basicData.timeStartWork == null) {
             val currentTimeInMillis = getInstance().timeInMillis
-            repository.saveRoute(route.copy(basicData = route.basicData.copy(timeStartWork = currentTimeInMillis, isSynchronizedRoute = false)))
+            repository.saveRoute(
+                route.copy(
+                    basicData = route.basicData.copy(
+                        timeStartWork = currentTimeInMillis,
+                        isSynchronizedRoute = false
+                    )
+                )
+            )
         } else {
             repository.saveRoute(route.copy(basicData = route.basicData.copy(isSynchronizedRoute = false)))
         }

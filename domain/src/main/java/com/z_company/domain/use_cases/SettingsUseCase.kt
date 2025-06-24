@@ -10,6 +10,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 
 class SettingsUseCase(private val settingsRepository: SettingsRepository) {
@@ -57,6 +58,14 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
 
     fun getFlowCurrentSettingsState(): Flow<ResultState<UserSettings?>> {
         return settingsRepository.getFlowSettingsState()
+    }
+
+    fun getUserSettingFlow(): Flow<UserSettings> {
+        return flow {
+            settingsRepository.getUserSettingFlow().collect {
+                emit(it)
+            }
+        }
     }
 
     fun getUserSetting(): UserSettings {
@@ -142,6 +151,7 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
             }
         }
     }
+
     suspend fun setLocomotiveSeriesList(series: List<String>) {
         coroutineScope {
             withContext(Dispatchers.IO) {

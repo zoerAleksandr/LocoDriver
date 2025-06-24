@@ -57,12 +57,12 @@ fun Double?.str(): String {
     }
 }
 
+@Suppress("DefaultLocale")
 fun Double?.str2decimalSign(): String {
     return if (this == null) {
         ""
     } else {
-        val hour = this / 3_600_000.toDouble()
-        String.format("%.2f", hour)
+        String.format("%.2f", this)
     }
 }
 

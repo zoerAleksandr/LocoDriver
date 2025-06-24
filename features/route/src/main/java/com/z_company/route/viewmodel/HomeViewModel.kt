@@ -196,7 +196,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     fun restorePurchases() {
         _uiState.update {
             it.copy(
-                restoreSubscriptionState = ResultState.Loading
+                restoreSubscriptionState = ResultState.Loading()
             )
         }
         viewModelScope.launch {
@@ -423,7 +423,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         try {
             _uiState.update {
                 it.copy(
-                    dayOffHours = ResultState.Loading
+                    dayOffHours = ResultState.Loading()
                 )
             }
             val dayOffHours = currentMonthOfYear.getDayoffHours()
@@ -444,7 +444,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     private fun calculationPassengerTime(routes: List<Route>, offsetInMoscow: Long) {
         _uiState.update {
             it.copy(
-                passengerTimeInRouteList = ResultState.Loading
+                passengerTimeInRouteList = ResultState.Loading()
             )
         }
         try {
@@ -468,7 +468,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     private fun calculationOfNightTime(routes: List<Route>, settings: UserSettings) {
         _uiState.update {
             it.copy(
-                nightTimeInRouteList = ResultState.Loading
+                nightTimeInRouteList = ResultState.Loading()
             )
         }
         try {
@@ -490,7 +490,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     private fun calculationHolidayTime(routes: List<Route>, offsetInMoscow: Long) {
         _uiState.update {
             it.copy(
-                holidayHours = ResultState.Loading
+                holidayHours = ResultState.Loading()
             )
         }
         try {
@@ -573,7 +573,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     private fun calculationTotalTime(routes: List<Route>, offsetInMoscow: Long) {
         _uiState.update {
             it.copy(
-                totalTimeWithHoliday = ResultState.Loading
+                totalTimeWithHoliday = ResultState.Loading()
             )
         }
         try {

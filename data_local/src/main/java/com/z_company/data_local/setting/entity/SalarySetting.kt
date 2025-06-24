@@ -16,6 +16,8 @@ internal data class SalarySetting(
     @PrimaryKey
     val salarySettingKey: String,
     var tariffRate: Double,
+    @ColumnInfo(defaultValue = "40.0")
+    var nightTimePercent: Double,
     var zonalSurcharge: Double,
     @ColumnInfo(defaultValue = "0.0")
     val averagePaymentHour: Double,

@@ -6,7 +6,7 @@ import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
-import com.z_company.domain.entities.UtilForMonthOfYear.getTodayNormaHours
+import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHoursInDate
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getOnePersonOperationTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
@@ -117,7 +117,7 @@ class MoreInfoViewModel: ViewModel(), KoinComponent {
                                             onePersonTimeState = ResultState.Success(
                                                 onePersonTime
                                             ),
-                                            todayNormaHours = ResultState.Success(settings.selectMonthOfYear.getTodayNormaHours()),
+                                            todayNormaHours = ResultState.Success(settings.selectMonthOfYear.getNormaHoursInDate(currentTimeInMillis)),
                                             currentMonthOfYearState = ResultState.Success(settings.selectMonthOfYear)
                                         )
                                     }

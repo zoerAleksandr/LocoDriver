@@ -7,7 +7,7 @@ import com.z_company.domain.entities.ServicePhase
 import com.z_company.domain.entities.route.Train
 
 data class TrainFormUiState(
-    val trainDetailState: ResultState<Train?> = ResultState.Loading,
+    val trainDetailState: ResultState<Train?> = ResultState.Loading(),
     val saveTrainState: ResultState<Unit>? = null,
     val stationsListState: SnapshotStateList<StationFormState>? = mutableStateListOf(),
     val errorMessage: String? = null,

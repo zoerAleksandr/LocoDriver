@@ -8,4 +8,6 @@ interface SalarySettingRepository {
     fun getSalarySetting(): SalarySetting
     fun getSalarySettingState(): Flow<ResultState<SalarySetting?>>
     fun saveSalarySetting(setting: SalarySetting): Flow<ResultState<Unit>>
+
+    fun getSalarySettingFlow(): Flow<SalarySetting>
 }

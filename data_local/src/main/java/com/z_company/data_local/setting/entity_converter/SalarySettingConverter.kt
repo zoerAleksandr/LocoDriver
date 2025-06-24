@@ -7,6 +7,7 @@ internal object SalarySettingConverter {
     fun fromData(salarySetting: SalarySetting) = SalarySettingEntity(
         salarySettingKey = salarySetting.key,
         tariffRate = salarySetting.tariffRate,
+        nightTimePercent = salarySetting.nightTimePercent,
         averagePaymentHour = salarySetting.averagePaymentHour,
         districtCoefficient = salarySetting.districtCoefficient,
         nordicCoefficient = salarySetting.nordicPercent,
@@ -18,7 +19,7 @@ internal object SalarySettingConverter {
         harmfulnessPercent = salarySetting.harmfulnessPercent,
         onePersonOperationPercent = salarySetting.onePersonOperationPercent,
         surchargeHeavyTrainsList = SurchargeHeavyTrainsConverter.fromDataList(salarySetting.surchargeHeavyTrainsList),
-        surchargeLongTrain = salarySetting.surchargeLongDistanceTrain,
+        surchargeLongTrain = salarySetting.percentLongDistanceTrain,
         lengthLongDistanceTrain = salarySetting.lengthLongDistanceTrain,
         otherSurcharge = salarySetting.otherSurcharge,
         ndfl = salarySetting.ndfl,
@@ -29,6 +30,7 @@ internal object SalarySettingConverter {
     fun toData(entity: SalarySettingEntity) = SalarySetting(
         key = entity.salarySettingKey,
         tariffRate = entity.tariffRate,
+        nightTimePercent = entity.nightTimePercent,
         averagePaymentHour = entity.averagePaymentHour,
         districtCoefficient = entity.districtCoefficient,
         nordicPercent = entity.nordicCoefficient,
@@ -37,7 +39,7 @@ internal object SalarySettingConverter {
         harmfulnessPercent = entity.harmfulnessPercent,
         onePersonOperationPercent = entity.onePersonOperationPercent,
         surchargeHeavyTrainsList = SurchargeHeavyTrainsConverter.toDataList(entity.surchargeHeavyTrainsList),
-        surchargeLongDistanceTrain = entity.surchargeLongTrain,
+        percentLongDistanceTrain = entity.surchargeLongTrain,
         lengthLongDistanceTrain = entity.lengthLongDistanceTrain,
         surchargeExtendedServicePhaseList = SurchargeExtendedServicePhaseConverter.toDataList(entity.surchargeExtendedServicePhaseList),
         otherSurcharge = entity.otherSurcharge,

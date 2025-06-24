@@ -171,7 +171,6 @@ fun SettingSalaryScreen(
         showDialog = isShowSetDateTariffRateDialog,
         onDismissRequest = { isShowSetDateTariffRateDialog = false }
     ) {
-        Log.d("ZZZ", "currentMonthOfYear in UI ${currentMonthOfYear?.dateSetTariffRate}")
 
         val currentCalendar = Calendar.getInstance()
         currentMonthOfYear?.let {
@@ -217,7 +216,6 @@ fun SettingSalaryScreen(
         onDismissRequest = onHideDialogChangeTariffRate
     ) {
         val currentDateSetTariffRate = currentMonthOfYear?.dateSetTariffRate?.dateNewRate ?: 1
-        Log.d("ZZZ", "currentDateSetTariffRate $currentDateSetTariffRate")
 
         Box(
             modifier = Modifier

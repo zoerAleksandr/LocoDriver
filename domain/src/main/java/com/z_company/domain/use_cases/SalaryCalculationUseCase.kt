@@ -50,7 +50,10 @@ class SalaryCalculationUseCase : KoinComponent {
         var singleLocoTimeFollowing = 0L
         routeList.forEach { route ->
             route.trains.forEach { train ->
-                singleLocoTimeFollowing += train.timeFollowingSingleLocomotive()
+                singleLocoTimeFollowing += train.timeFollowingSingleLocomotive(
+                    startWork = route.basicData.timeStartWork,
+                    endWork = route.basicData.timeEndWork
+                )
             }
         }
         return singleLocoTimeFollowing
@@ -143,7 +146,7 @@ class SalaryCalculationUseCase : KoinComponent {
         return totalWorkTime - passengerTime
     }
 
-    fun getMoneyListSurchargeExtendedServicePhase(
+     fun getMoneyListSurchargeExtendedServicePhase(
         routeList: List<Route>,
         userSettings: UserSettings
     ): MutableList<Double> {
@@ -174,7 +177,7 @@ class SalaryCalculationUseCase : KoinComponent {
         userSettings: UserSettings
     ): Double {
         val salarySetting = salarySettingUseCase.getSalarySetting()
-        val surchargeLongDistanceTrainsPercent = salarySetting.surchargeLongDistanceTrain
+        val surchargeLongDistanceTrainsPercent = salarySetting.percentLongDistanceTrain
         val timeLongDistanceTrain =
             routeList.getLongDistanceTime(salarySetting.lengthLongDistanceTrain)
         return timeLongDistanceTrain.times(userSettings.selectMonthOfYear.tariffRate * (surchargeLongDistanceTrainsPercent / 100))

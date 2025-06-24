@@ -20,7 +20,7 @@ internal interface SettingsDao {
     suspend fun saveSettings(userSettings: UserSettings)
 
     @Query("SELECT * FROM UserSettings")
-    fun getFlowSettings(): Flow<UserSettings?>
+    fun getFlowSettings(): Flow<UserSettings>
     @Query("SELECT * FROM UserSettings")
     fun getUserSettings(): UserSettings
 

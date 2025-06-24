@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.flow
 class LoginUseCase {
     suspend fun getUser(): Flow<ResultState<User>> {
         return flow {
-            emit(ResultState.Loading)
+            emit(ResultState.Loading())
             try {
                 val parseUser = ParseUser.getCurrentUser().fetch()
                 val isVerification =

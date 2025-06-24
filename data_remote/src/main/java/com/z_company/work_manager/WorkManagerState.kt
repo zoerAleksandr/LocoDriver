@@ -29,11 +29,11 @@ object WorkManagerState {
                         }
 
                         WorkInfo.State.RUNNING -> {
-                            emit(ResultState.Loading)
+                            emit(ResultState.Loading())
                         }
 
                         WorkInfo.State.ENQUEUED -> {
-                            emit(ResultState.Loading)
+                            emit(ResultState.Loading())
                         }
 
                         WorkInfo.State.BLOCKED -> {
@@ -63,11 +63,11 @@ object WorkManagerState {
                             }
 
                             WorkInfo.State.RUNNING -> {
-                                emit(ResultState.Loading)
+                                emit(ResultState.Loading())
                             }
 
                             WorkInfo.State.ENQUEUED -> {
-                                emit(ResultState.Loading)
+                                emit(ResultState.Loading())
                             }
 
                             WorkInfo.State.BLOCKED -> {
@@ -91,7 +91,7 @@ object WorkManagerState {
         worksId: List<UUID>,
         basicDataWorkId: UUID
     ): Flow<ResultState<String>> {
-        val state: MutableStateFlow<ResultState<String>> = MutableStateFlow(ResultState.Loading)
+        val state: MutableStateFlow<ResultState<String>> = MutableStateFlow(ResultState.Loading())
         var basicDataObjectId = ""
         var countSuccess = 0
 

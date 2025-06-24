@@ -20,6 +20,17 @@ import java.util.UUID
 
 class RoomRouteRepository : RouteRepository, KoinComponent {
     private val dao: RouteDao by inject()
+    override fun loadRouteByPeriodFlow(
+        startPeriod: Long,
+        endPeriod: Long
+    ): Flow<List<Route>> {
+        return dao.getAllRouteByPeriod(startPeriod, endPeriod).map { routes ->
+            routes.map { route ->
+                RouteConverter.toData(route)
+            }
+        }
+    }
+
     override fun loadRoutesByPeriod(
         startPeriod: Long,
         endPeriod: Long
@@ -322,9 +333,12 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
         }
     }
 
-    override fun setFavoriteRoute(basicId: String, isFavorite: Boolean): Flow<ResultState<Boolean>> {
+    override fun setFavoriteRoute(
+        basicId: String,
+        isFavorite: Boolean
+    ): Flow<ResultState<Boolean>> {
         return flow {
-            emit(ResultState.Loading)
+            emit(ResultState.Loading())
             dao.setFavorite(basicId, isFavorite)
             emit(ResultState.Success(isFavorite))
         }.catch {

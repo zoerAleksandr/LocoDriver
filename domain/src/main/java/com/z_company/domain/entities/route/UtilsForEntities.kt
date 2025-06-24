@@ -13,8 +13,6 @@ import com.z_company.domain.util.moreThan
 import com.z_company.domain.util.plus
 import com.z_company.domain.util.toIntOrZero
 import org.koin.core.component.KoinComponent
-import java.time.Period
-import java.time.Year
 import java.util.Calendar
 import java.util.TimeZone
 
@@ -261,72 +259,51 @@ object UtilsForEntities : KoinComponent {
             it.set(Calendar.YEAR, monthOfYear.year)
             it.set(Calendar.MONTH, monthOfYear.month)
             it.set(Calendar.DAY_OF_MONTH, days.last)
-            it.set(Calendar.HOUR_OF_DAY, 23)
-            it.set(Calendar.MINUTE, 59)
-            it.set(Calendar.SECOND, 59)
-            it.set(Calendar.MILLISECOND, 99)
-        }.timeInMillis + offsetInMoscow
-
-        val newRouteList = mutableListOf<Route>()
-
-        this.forEach { route ->
-            if (route.inTimePeriod(period = TimePeriod(startDate = firstData, endDate = secondData))) {
-                route.basicData.timeStartWork?.let { timeStart ->
-                    route.basicData.timeEndWork?.let { timeEnd ->
-                        if (timeStart < firstData) {
-                            route.basicData.copy(
-                                timeStartWork = firstData
-                            )
-                        }
-                        if (timeEnd > secondData) {
-                            route.basicData.copy(
-                                timeEndWork = secondData
-                            )
-                        }
-                    }
-                }
-                newRouteList.add(route)
-            }
-        }
-        return newRouteList
-    }
-
-    // TODO Проверить на других часовых поясах
-
-    fun List<Route>.getTimeToDaysPeriod(
-        days: IntRange,
-        monthOfYear: MonthOfYear,
-        offsetInMoscow: Long
-    ): Long {
-        val firstData = Calendar.getInstance().also {
-            it.set(Calendar.YEAR, monthOfYear.year)
-            it.set(Calendar.MONTH, monthOfYear.month)
-            it.set(Calendar.DAY_OF_MONTH, days.first)
             it.set(Calendar.HOUR_OF_DAY, 0)
             it.set(Calendar.MINUTE, 0)
             it.set(Calendar.SECOND, 0)
             it.set(Calendar.MILLISECOND, 0)
         }.timeInMillis + offsetInMoscow
 
-        val secondData = Calendar.getInstance().also {
-            it.set(Calendar.YEAR, monthOfYear.year)
-            it.set(Calendar.MONTH, monthOfYear.month)
-            it.set(Calendar.DAY_OF_MONTH, days.last)
-            it.set(Calendar.HOUR_OF_DAY, 23)
-            it.set(Calendar.MINUTE, 59)
-            it.set(Calendar.SECOND, 59)
-            it.set(Calendar.MILLISECOND, 99)
-        }.timeInMillis + offsetInMoscow
+        val newRouteList = mutableListOf<Route>()
 
-        var totalTime = 0L
         this.forEach { route ->
-            route.timeInLongInPeriod(firstData, secondData)?.let { time ->
-                if (time > 0) {
-                    totalTime += time
+            var newRoute = Route()
+            route.basicData.timeStartWork?.let { timeStart ->
+                route.basicData.timeEndWork?.let { timeEnd ->
+                    if (timeEnd < firstData || timeStart > secondData) return@forEach
+                    if (firstData > timeStart) {
+                        if (secondData > timeEnd) {
+                            newRoute = route.copy(
+                                basicData = route.basicData.copy(
+                                    timeStartWork = firstData
+                                )
+                            )
+                        } else {
+                            newRoute = route.copy(
+                                basicData = route.basicData.copy(
+                                    timeStartWork = firstData,
+                                    timeEndWork = secondData
+                                )
+                            )
+                        }
+                    } else {
+                        if (secondData > timeEnd) {
+                            newRoute = route
+
+                        } else {
+                            newRoute = route.copy(
+                                basicData = route.basicData.copy(
+                                    timeEndWork = secondData
+                                )
+                            )
+                        }
+                    }
+                    newRouteList.add(newRoute)
                 }
             }
         }
-        return totalTime
+        return newRouteList
     }
 
     fun List<Route>.getWorkTime(monthOfYear: MonthOfYear, offsetInMoscow: Long): Long {
@@ -388,26 +365,28 @@ object UtilsForEntities : KoinComponent {
         var passengerTime = 0L
         this.forEach { route ->
             route.passengers.forEach { passenger ->
-                passengerTime = if (passenger.isTransition(offsetInMoscow)) {
-                    if (passenger.timeDeparture != null && passenger.timeArrival != null) {
-                        passengerTime.plus(
-                            monthOfYear.getTimeInCurrentMonth(
-                                passenger.timeDeparture!! + offsetInMoscow,
-                                passenger.timeArrival!! + offsetInMoscow,
-                            )
-                        )
-                    } else {
-                        0L
-                    }
-                } else {
-                    passengerTime.plus(
-                        ((passenger.timeArrival + offsetInMoscow) - (passenger.timeDeparture + offsetInMoscow))
-                            ?: 0L
-                    )
-                }
+                passengerTime = passenger.getTimeFollowing(
+                    startWork = route.basicData.timeStartWork,
+                    endWork = route.basicData.timeEndWork,
+                    offsetInMoscow = offsetInMoscow,
+                    monthOfYear = monthOfYear
+                )
             }
         }
         return passengerTime
+    }
+
+    fun List<Route>.getSingleLocomotiveTime(): Long {
+        var singleLocoTimeFollowing = 0L
+        this.forEach { route ->
+            route.trains.forEach { train ->
+                singleLocoTimeFollowing += train.timeFollowingSingleLocomotive(
+                    startWork = route.basicData.timeStartWork,
+                    endWork = route.basicData.timeEndWork
+                )
+            }
+        }
+        return singleLocoTimeFollowing
     }
 
     fun List<Route>.getWorkingTimeOnAHoliday(monthOfYear: MonthOfYear, offsetInMoscow: Long): Long {
@@ -448,7 +427,6 @@ object UtilsForEntities : KoinComponent {
                             holidayTime += timeInPeriod
                         }
                     }
-
                 }
             }
         }
@@ -549,7 +527,40 @@ object UtilsForEntities : KoinComponent {
         }
     }
 
-    fun Train.timeFollowingSingleLocomotive(): Long {
+    fun Passenger.getTimeFollowing(
+        startWork: Long?,
+        endWork: Long?,
+        offsetInMoscow: Long,
+        monthOfYear: MonthOfYear
+    ): Long {
+        var timeStartFollowing: Long? = this.timeDeparture
+        var timeEndFollowing: Long? = this.timeArrival
+        timeStartFollowing?.let { timeStart ->
+            timeEndFollowing?.let { timeEnd ->
+                if (startWork != null) {
+                    if (endWork != null) {
+                        if (endWork < timeStart) return 0
+                        if (startWork > timeEnd) return 0
+                        if (startWork > timeStart) {
+                            timeStartFollowing = startWork
+                        }
+                        if (endWork < timeEnd) {
+                            timeEndFollowing = endWork
+                        }
+                        if (this.isTransition(offsetInMoscow)) {
+                            return monthOfYear.getTimeInCurrentMonth(
+                                timeStart + offsetInMoscow,
+                                timeEnd + offsetInMoscow
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        return ((timeEndFollowing + offsetInMoscow) - (timeStartFollowing + offsetInMoscow)) ?: 0L
+    }
+
+    fun Train.timeFollowingSingleLocomotive(startWork: Long?, endWork: Long?): Long {
         return if (
             this.number?.toIntOrNull() in 4001..4148 ||
             this.number?.toIntOrNull() in 4151..4188 ||
@@ -562,8 +573,24 @@ object UtilsForEntities : KoinComponent {
             this.number?.toIntOrNull() in 4701..4778 ||
             this.number?.toIntOrNull() in 4801..4898
         ) {
-            val timeStartFollowing: Long? = this.stations.firstOrNull()?.timeDeparture
-            val timeEndFollowing: Long? = this.stations.lastOrNull()?.timeArrival
+            var timeStartFollowing: Long? = this.stations.firstOrNull()?.timeDeparture
+            var timeEndFollowing: Long? = this.stations.lastOrNull()?.timeArrival
+            timeStartFollowing?.let { timeStart ->
+                timeEndFollowing?.let { timeEnd ->
+                    if (startWork != null) {
+                        if (endWork != null) {
+                            if (endWork < timeStart) return 0
+                            if (startWork > timeEnd) return 0
+                            if (startWork > timeStart) {
+                                timeStartFollowing = startWork
+                            }
+                            if (endWork < timeEnd) {
+                                timeEndFollowing = endWork
+                            }
+                        }
+                    }
+                }
+            }
             (timeEndFollowing - timeStartFollowing) ?: 0L
         } else {
             0L
@@ -571,19 +598,60 @@ object UtilsForEntities : KoinComponent {
     }
 
     fun Route.getTimeInServicePhase(listDistance: List<Int>, index: Int): Long {
-        val startInterval = listDistance[index]
-        val endInterval =
-            if (index + 1 < listDistance.size) listDistance[index + 1] else Int.MAX_VALUE
-        val searchIntervalDistance = startInterval until endInterval
-        var distance = 0
-        this.trains.forEach {
-            distance += it.distance?.toIntOrNull() ?: 0
-        }
-        return if (searchIntervalDistance.contains(distance)) {
-            this.getWorkTime() ?: 0L
+        val startWork = this.basicData.timeStartWork
+        val endWork = this.basicData.timeEndWork
+        if (startWork == null || endWork == null) {
+            return 0L
         } else {
-            0L
+            val startInterval = listDistance[index]
+            val endInterval =
+                if (index + 1 < listDistance.size) listDistance[index + 1] else Int.MAX_VALUE
+
+            val searchIntervalDistance = startInterval until endInterval
+            val workInterval = startWork until endWork
+            val result = this.trains.getTimeInServicePhase(
+                distanceInterval = searchIntervalDistance,
+                workInterval = workInterval
+            )
+            return result
         }
+    }
+
+    fun List<Train>.getTimeInServicePhase(
+        distanceInterval: IntRange,
+        workInterval: LongRange
+    ): Long {
+        var summaryDistance = 0
+        var summaryTimeFollowing = 0L
+        val trainsWithDistance = mutableListOf<Train>()
+        this.forEach { train ->
+            if (train.distance.toIntOrZero() > 0) {
+                trainsWithDistance.add(train)
+                summaryDistance += train.distance.toIntOrZero()
+            }
+        }
+        if (distanceInterval.contains(summaryDistance)) {
+            trainsWithDistance.forEach { train ->
+                var timeDeparture = train.stations.first().timeDeparture
+                var timeArrival = train.stations.last().timeArrival
+                if (timeDeparture == null || timeArrival == null || timeDeparture > timeArrival) {
+                    return@forEach
+                } else {
+                    val startWork = workInterval.first
+                    val endWork = workInterval.last
+                    if (endWork < timeDeparture) return@forEach
+                    if (startWork > timeArrival) return@forEach
+                    if (startWork > timeDeparture) {
+                        timeDeparture = startWork
+                    }
+                    if (endWork < timeArrival) {
+                        timeArrival = endWork
+                    }
+                    summaryTimeFollowing += timeArrival - timeDeparture
+                }
+            }
+        }
+        return summaryTimeFollowing
     }
 
     fun Route.getTimeInHeavyTrain(listWeight: List<Int>, index: Int): Long {
@@ -595,23 +663,59 @@ object UtilsForEntities : KoinComponent {
         this.trains.forEach { train ->
             val weight = train.weight.toIntOrZero()
             if (searchIntervalWeight.contains(weight)) {
-                val timeStartFollowing: Long? = train.stations.firstOrNull()?.timeDeparture
-                val timeEndFollowing: Long? = train.stations.lastOrNull()?.timeArrival
-                resultTime += (timeEndFollowing - timeStartFollowing) ?: 0L
+                var timeDeparture: Long? = train.stations.first().timeDeparture
+                var timeArrival: Long? = train.stations.last().timeArrival
+                val startWork = this.basicData.timeStartWork
+                val endWork = this.basicData.timeEndWork
+                if (startWork == null || endWork == null) {
+                    return@forEach
+                }
+                if (timeDeparture == null || timeArrival == null || timeDeparture > timeArrival) {
+                    return@forEach
+                } else {
+
+                    if (endWork < timeDeparture) 0L
+                    if (startWork > timeArrival) 0L
+                    if (startWork > timeDeparture) {
+                        timeDeparture = startWork
+                    }
+                    if (endWork < timeArrival) {
+                        timeArrival = endWork
+                    }
+                    resultTime += (timeArrival - timeDeparture)
+                }
             }
         }
 
         return resultTime
     }
 
-    private fun Train.getTimeInLongDistance(lengthIsLongDistance: Int): Long {
-        return if (this.conditionalLength.toIntOrZero() > lengthIsLongDistance) {
-            val timeStartFollowing: Long? = this.stations.firstOrNull()?.timeDeparture
-            val timeEndFollowing: Long? = this.stations.lastOrNull()?.timeArrival
-            (timeEndFollowing - timeStartFollowing) ?: 0L
+    private fun Train.getTimeInLongDistance(
+        lengthIsLongDistance: Int,
+        workInterval: LongRange
+    ): Long {
+        val time = if (this.conditionalLength.toIntOrZero() > lengthIsLongDistance) {
+            var timeDeparture = this.stations.first().timeDeparture
+            var timeArrival = this.stations.last().timeArrival
+            if (timeDeparture == null || timeArrival == null || timeDeparture > timeArrival) {
+                0L
+            } else {
+                val startWork = workInterval.first
+                val endWork = workInterval.last
+                if (endWork < timeDeparture) 0L
+                if (startWork > timeArrival) 0L
+                if (startWork > timeDeparture) {
+                    timeDeparture = startWork
+                }
+                if (endWork < timeArrival) {
+                    timeArrival = endWork
+                }
+                timeArrival - timeDeparture
+            }
         } else {
             0L
         }
+        return time
     }
 
     fun List<Route>.getOnePersonOperationTime(
@@ -638,7 +742,15 @@ object UtilsForEntities : KoinComponent {
         var resultTime = 0L
         this.forEach { route ->
             route.trains.forEach { train ->
-                resultTime += train.getTimeInLongDistance(lengthIsLongDistance)
+                val startWork = route.basicData.timeStartWork
+                val endWork = route.basicData.timeEndWork
+                if (startWork != null && endWork != null) {
+                    val workInterval = startWork until endWork
+                    resultTime += train.getTimeInLongDistance(
+                        lengthIsLongDistance = lengthIsLongDistance,
+                        workInterval = workInterval
+                    )
+                }
             }
         }
         return resultTime

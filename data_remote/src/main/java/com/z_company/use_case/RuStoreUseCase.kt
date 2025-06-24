@@ -65,7 +65,7 @@ class RuStoreUseCase(val ruStoreRepositoryKtor: RuStoreRepositoryKtor) {
         subscriptionToken: String
     ): Flow<ResultState<Long>> {
         return channelFlow {
-            trySend(ResultState.Loading)
+            trySend(ResultState.Loading())
             withContext(Dispatchers.IO) {
                 getJWE()
                     .onSuccess { answer ->

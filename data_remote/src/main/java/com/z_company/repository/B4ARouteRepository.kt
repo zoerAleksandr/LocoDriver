@@ -122,7 +122,7 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
 
     override suspend fun saveRouteVer2(route: Route): Flow<ResultState<String>> =
         channelFlow {
-            trySend(ResultState.Loading)
+            trySend(ResultState.Loading())
             val currentUser = ParseUser.getCurrentUser()
             val routeJSON = RouteJSONConverter.toString(route)
             ParseHelper.saveOrUpdateObjectAsync(

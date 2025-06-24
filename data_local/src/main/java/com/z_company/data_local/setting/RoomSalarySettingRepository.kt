@@ -39,4 +39,12 @@ class RoomSalarySettingRepository : SalarySettingRepository, KoinComponent {
             salarySettingDao.saveSalarySetting(SalarySettingConverter.fromData(setting))
         }
     }
+
+    override fun getSalarySettingFlow(): Flow<SalarySetting> {
+        return salarySettingDao.getFlowSalarySetting().map { setting ->
+            setting?.let {
+                SalarySettingConverter.toData(setting)
+            } ?: SalarySetting()
+        }
+    }
 }

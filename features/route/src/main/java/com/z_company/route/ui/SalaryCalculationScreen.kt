@@ -1,13 +1,16 @@
 package com.z_company.route.ui
 
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -15,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,6 +30,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,13 +45,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.domain.util.str
 import com.z_company.domain.util.str2decimalSign
+import com.z_company.domain.util.toDoubleOrZero
+import com.z_company.route.viewmodel.SalaryCalculationTestViewModel
 import com.z_company.route.viewmodel.SalaryCalculationUIState
+import com.z_company.route.viewmodel.SalaryCalculationViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,6 +66,11 @@ fun SalaryCalculationScreen(
     onSettingsSalaryClick: () -> Unit,
     updateData: () -> Unit
 ) {
+//    val viewModel: SalaryCalculationTestViewModel = viewModel()
+//    val uiState by viewModel.uiState.collectAsState()
+//    val isLoading by viewModel.isLoading.collectAsState()
+//    val loadingMessage by viewModel.loadingMessage.collectAsState()
+
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(key1 = lifecycleOwner, effect = {
         val observer = LifecycleEventObserver { _, event ->
@@ -90,7 +105,7 @@ fun SalaryCalculationScreen(
     }
 
     LaunchedEffect(uiState.tariffRate) {
-        infoSetTariffRate = uiState.tariffRate == 0.0 || uiState.tariffRate == null
+        infoSetTariffRate = uiState.tariffRate == "0 ₽" || uiState.tariffRate == null
     }
     Scaffold(
         topBar = {
@@ -129,6 +144,16 @@ fun SalaryCalculationScreen(
             )
         },
     ) {
+        if (uiState.screenState is ResultState.Loading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.height(16.dp))
+                    val text = uiState.screenState.message
+                    Text(text)
+                }
+            }
+        } else {
         LazyColumn(
             modifier = Modifier
                 .padding(it)
@@ -287,7 +312,7 @@ fun SalaryCalculationScreen(
                         overflow = TextOverflow.Visible,
                         style = styleDataLight.copy(fontWeight = FontWeight.Medium),
                         alignment = Alignment.Center,
-                        text = uiState.tariffRate.str()
+                        text = uiState.tariffRate ?: ""
                     )
                 }
             }
@@ -319,7 +344,7 @@ fun SalaryCalculationScreen(
                         overflow = TextOverflow.Visible,
                         alignment = Alignment.Center,
                         style = styleHint,
-                        text = "Процент"
+                        text = "%"
                     )
                     AutoSizeText(
                         maxTextSize = maxTextSize,
@@ -754,7 +779,6 @@ fun SalaryCalculationScreen(
                     }
                 }
             }
-
             item {
                 uiState.onePersonOperationMoney?.let { value ->
                     if (value != 0.0) {
@@ -793,7 +817,6 @@ fun SalaryCalculationScreen(
                     }
                 }
             }
-
             item {
                 uiState.harmfulnessSurchargeMoney?.let { value ->
                     if (value != 0.0) {
@@ -812,7 +835,7 @@ fun SalaryCalculationScreen(
                             Box(
                                 modifier = Modifier.weight(widthColumn2),
                             )
-                           AutoSizeText(
+                            AutoSizeText(
                                 maxTextSize = maxTextSize,
                                 modifier = Modifier.weight(widthColumn3),
                                 overflow = TextOverflow.Visible,
@@ -832,7 +855,6 @@ fun SalaryCalculationScreen(
                     }
                 }
             }
-
             item {
                 uiState.surchargeLongDistanceTrainsMoney?.let { value ->
                     if (value != 0.0) {
@@ -876,7 +898,6 @@ fun SalaryCalculationScreen(
                     }
                 }
             }
-
             itemsIndexed(
                 items = uiState.surchargeHeavyTransMoney,
             ) { index, item ->
@@ -968,7 +989,6 @@ fun SalaryCalculationScreen(
                     }
                 }
             }
-
             item {
                 uiState.districtSurchargeMoney?.let { value ->
                     if (value != 0.0 && !value.isNaN()) {
@@ -1007,7 +1027,6 @@ fun SalaryCalculationScreen(
                     }
                 }
             }
-
             item {
                 uiState.nordicSurchargeMoney?.let { value ->
                     if (value != 0.0 && !value.isNaN()) {
@@ -1046,7 +1065,6 @@ fun SalaryCalculationScreen(
                     }
                 }
             }
-
             item {
                 uiState.averagePaymentMoney?.let { value ->
                     if (value != 0.0) {
@@ -1088,7 +1106,6 @@ fun SalaryCalculationScreen(
                     }
                 }
             }
-
             item {
                 uiState.otherSurchargeMoney?.let { value ->
                     if (value != 0.0) {
@@ -1127,7 +1144,6 @@ fun SalaryCalculationScreen(
                     }
                 }
             }
-
             item {
                 uiState.totalChargedMoney?.let { value ->
                     if (value != 0.0 && !value.isNaN()) {
@@ -1224,7 +1240,6 @@ fun SalaryCalculationScreen(
                     }
                 }
             }
-
             item {
                 uiState.otherRetention?.let { value ->
                     if (value != 0.0 && !value.isNaN()) {
@@ -1303,5 +1318,6 @@ fun SalaryCalculationScreen(
                 }
             }
         }
+    }
     }
 }

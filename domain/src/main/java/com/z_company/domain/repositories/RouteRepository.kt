@@ -9,6 +9,7 @@ import com.z_company.domain.entities.route.Train
 import kotlinx.coroutines.flow.Flow
 
 interface RouteRepository {
+    fun loadRouteByPeriodFlow(startPeriod: Long, endPeriod: Long): Flow<List<Route>>
     fun loadRoutesByPeriod(startPeriod: Long, endPeriod: Long): Flow<ResultState<List<Route>>>
     fun loadRoutesAsFlow(): Flow<ResultState<List<Route>>>
     fun loadRoutes(): List<Route>

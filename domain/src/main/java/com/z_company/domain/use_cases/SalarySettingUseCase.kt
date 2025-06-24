@@ -19,6 +19,14 @@ class SalarySettingUseCase(
     val repository: SalarySettingRepository,
 ) : KoinComponent {
     private val calendarUseCase: CalendarUseCase by inject()
+    fun salarySettingFlow(): Flow<SalarySetting> {
+        return flow {
+            repository.getSalarySettingFlow().collect{
+                emit(it)
+            }
+        }
+    }
+
     fun getSalarySetting(): SalarySetting = repository.getSalarySetting()
     fun getFlowSalarySetting(): Flow<ResultState<SalarySetting?>> =
         repository.getSalarySettingState()
@@ -37,7 +45,7 @@ class SalarySettingUseCase(
         val scope = CoroutineScope(dispatcher)
 
         return flow {
-            emit(ResultState.Loading)
+            emit(ResultState.Loading())
             val oldMonth = scope.async { calendarUseCase.loadMonthOfYearById(monthId) }.await()
             val newMonth = oldMonth.copy(tariffRate = newTariffRate)
             calendarUseCase.updateMonthOfYear(newMonth).collect {
@@ -61,7 +69,7 @@ class SalarySettingUseCase(
         val scope = CoroutineScope(dispatcher)
 
         return flow {
-            emit(ResultState.Loading)
+            emit(ResultState.Loading())
             val currentMonth =
                 scope.async { calendarUseCase.loadMonthOfYearById(currentMonthId) }.await()
             val allMonthOfYear = scope.async { calendarUseCase.loadMonthOfYearList() }.await()

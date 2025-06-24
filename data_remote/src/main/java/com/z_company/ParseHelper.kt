@@ -28,7 +28,7 @@ object ParseHelper {
         uniqueValue: String?,
         fieldsToUpdate: Map<String?, Any?>
     ): Flow<ResultState<String>> = channelFlow {
-        trySend(ResultState.Loading)
+        trySend(ResultState.Loading())
         // Query for the object based on a unique attribute
         val query = ParseQuery.getQuery<ParseObject>(className!!)
         query.whereEqualTo(uniqueKey!!, uniqueValue)

@@ -36,7 +36,7 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.util.Calendar
 
-const val TIMEOUT_LOADING = 120_000L
+const val TIMEOUT_LOADING = 360_000L
 
 class Back4AppManager : KoinComponent {
 
@@ -52,7 +52,7 @@ class Back4AppManager : KoinComponent {
     private fun removeRouteFromRemoteRepositoryOldMethod(route: Route): Flow<ResultState<Unit>> =
         channelFlow {
             withContext(Dispatchers.IO) {
-                trySend(ResultState.Loading)
+                trySend(ResultState.Loading())
                 if (route.basicData.remoteObjectId == null) {
                     trySend(ResultState.Success(Unit))
                 } else {
@@ -145,7 +145,7 @@ class Back4AppManager : KoinComponent {
     private fun removeRouteFromRemoteRepositoryNewMethod(route: Route): Flow<ResultState<Unit>> =
         channelFlow {
             withContext(Dispatchers.IO) {
-                trySend(ResultState.Loading)
+                trySend(ResultState.Loading())
                 val routeId = route.basicData.remoteRouteId
                 if (routeId == null) {
                     trySend(ResultState.Success(Unit))
@@ -169,7 +169,7 @@ class Back4AppManager : KoinComponent {
     private fun removeRouteList(routeList: List<Route>): Flow<ResultState<Unit>> =
         channelFlow {
             withContext(Dispatchers.IO) {
-                trySend(ResultState.Loading)
+                trySend(ResultState.Loading())
                 var deleteJob: Job? = null
                 deleteJob = this.launch {
                     routeList.forEach { route ->
@@ -231,7 +231,7 @@ class Back4AppManager : KoinComponent {
     private fun searchRemovedRoute(): Flow<ResultState<Unit>> {
         return channelFlow {
             withContext(Dispatchers.IO) {
-                trySend(ResultState.Loading)
+                trySend(ResultState.Loading())
                 val allRouteList = routeUseCase.listRouteWithDeleting()
 
                 val listToDelete = allRouteList.filter { route ->
@@ -256,7 +256,7 @@ class Back4AppManager : KoinComponent {
 
     fun synchronizedStorage(): Flow<ResultState<Int>> {
         return channelFlow {
-            trySend(ResultState.Loading)
+            trySend(ResultState.Loading())
             CoroutineScope(Dispatchers.IO).launch {
                 searchRemovedRoute().collect { resultRemote ->
                     if (resultRemote is ResultState.Success) {
@@ -283,7 +283,7 @@ class Back4AppManager : KoinComponent {
         totalLoadOldRoutes = 0
         allNewRoutes.clear()
         return channelFlow {
-            trySend(ResultState.Loading)
+            trySend(ResultState.Loading())
             val flows = listOf(loadRouteListFromRemoteOldVersion(), loadRouteFromRemoteNewVersion())
             try {
                 var totalCount = 0
@@ -316,7 +316,7 @@ class Back4AppManager : KoinComponent {
     * возвращает количество синхронизированных маршрутов*/
     private fun saveRouteToRemoteStorage(): Flow<ResultState<Int>> =
         channelFlow {
-            trySend(ResultState.Loading)
+            trySend(ResultState.Loading())
             withContext(Dispatchers.IO) {
                 val notSynchronizedList = routeUseCase.getListRoutes().filter {
                     !it.basicData.isSynchronizedRoute
@@ -412,7 +412,7 @@ class Back4AppManager : KoinComponent {
 
     private fun loadRouteFromRemoteNewVersion(): Flow<ResultState<Int>> {
         return channelFlow {
-            trySend(ResultState.Loading)
+            trySend(ResultState.Loading())
             val flows = listOf(loadBathRouteNewVersionByUser(0), loadBathRouteNewVersionByEmail(0))
             try {
                 withTimeout(TIMEOUT_LOADING) {
@@ -435,7 +435,7 @@ class Back4AppManager : KoinComponent {
                             }
 
                             is ResultState.Loading -> {
-                                trySend(ResultState.Loading) // Propagate the loading state
+                                trySend(ResultState.Loading()) // Propagate the loading state
                             }
                         }
                     }
@@ -451,7 +451,7 @@ class Back4AppManager : KoinComponent {
     }
 
     private fun saveRouteListAfterLoading(): Flow<ResultState<Unit>> = channelFlow {
-        trySend(ResultState.Loading)
+        trySend(ResultState.Loading())
         for (route in allNewRoutes) {
             try {
                 withTimeout(TIMEOUT_LOADING) {
@@ -466,7 +466,7 @@ class Back4AppManager : KoinComponent {
                                 }
 
                                 is ResultState.Loading -> {
-                                    trySend(ResultState.Loading) // Propagate the loading state
+                                    trySend(ResultState.Loading()) // Propagate the loading state
                                 }
                             }
                         }
@@ -483,7 +483,7 @@ class Back4AppManager : KoinComponent {
 
     private fun loadBathRouteNewVersionByUser(skip: Int): Flow<ResultState<Unit>> {
         return channelFlow {
-            trySend(ResultState.Loading)
+            trySend(ResultState.Loading())
             val parseUserQuery: ParseQuery<ParseObject> =
                 ParseQuery(RouteFieldName.ROUTE_CLASS_NAME_REMOTE)
             parseUserQuery.whereEqualTo(
@@ -536,7 +536,7 @@ class Back4AppManager : KoinComponent {
 
     private fun loadBathRouteNewVersionByEmail(skip: Int): Flow<ResultState<Unit>> {
         return channelFlow {
-            trySend(ResultState.Loading)
+            trySend(ResultState.Loading())
             val parseEmailQuery: ParseQuery<ParseObject> =
                 ParseQuery(RouteFieldName.ROUTE_CLASS_NAME_REMOTE)
             parseEmailQuery.whereEqualTo(
@@ -590,11 +590,11 @@ class Back4AppManager : KoinComponent {
 
     private fun loadRouteListFromRemoteOldVersion(): Flow<ResultState<Int>> = flow {
         totalLoadOldRoutes = 0
-        emit(ResultState.Loading)
+        emit(ResultState.Loading())
         loadBathRouteOldVersion(0).collect {
             when (it) {
                 is ResultState.Loading -> {
-                    emit(ResultState.Loading)
+                    emit(ResultState.Loading())
                 }
 
                 is ResultState.Error -> {
@@ -614,7 +614,7 @@ class Back4AppManager : KoinComponent {
         parseQuery.whereEqualTo(BasicDataFieldName.USER_FIELD_NAME, ParseUser.getCurrentUser())
         parseQuery.orderByDescending(BasicDataFieldName.BASIC_DATA_UID_FIELD_NAME)
         return channelFlow {
-            trySend(ResultState.Loading)
+            trySend(ResultState.Loading())
             parseQuery.findInBackground { parseObjects, parseException ->
                 if (parseException == null) {
                     if (parseObjects.isEmpty()) {
@@ -666,7 +666,7 @@ class Back4AppManager : KoinComponent {
 
     private fun loadRouteFromRemote(id: String): Flow<ResultState<Route>> {
         return channelFlow {
-            trySend(ResultState.Loading)
+            trySend(ResultState.Loading())
 
             var route = Route()
             CoroutineScope(Dispatchers.IO).launch {

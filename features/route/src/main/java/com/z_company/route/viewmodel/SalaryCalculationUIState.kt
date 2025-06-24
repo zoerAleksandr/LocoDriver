@@ -1,8 +1,11 @@
 package com.z_company.route.viewmodel
 
+import com.z_company.core.ResultState
+
 data class SalaryCalculationUIState(
+    val screenState: ResultState<Unit> = ResultState.Loading(),
     val month: String = "",
-    val tariffRate: Double? = null,
+    val tariffRate: String? = null,
     val normaHours: Int? = null,
     val totalWorkTime: Long? = null,
     val paymentAtTariffHours: Long? = null,

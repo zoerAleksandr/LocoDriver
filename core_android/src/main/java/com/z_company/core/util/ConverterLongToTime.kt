@@ -1,5 +1,6 @@
 package com.z_company.core.util
 
+import android.annotation.SuppressLint
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -38,6 +39,7 @@ object ConverterLongToTime {
         }
     }
 
+    @SuppressLint("DefaultLocale")
     fun getTimeInHourDecimal(long: Long?): String {
         return if (long == null) {
             "0,00"
