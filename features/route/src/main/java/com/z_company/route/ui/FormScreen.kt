@@ -899,7 +899,7 @@ private fun RouteFormScreenContent(
                     style = dataTextStyle
                 )
 
-                val textHint = if (!moreInfoRestVisible) "Подробнее" else "Скрыть"
+                val textHint = if (!moreInfoRestVisible) "Рассчитать" else "Скрыть"
                 Text(
                     modifier = Modifier
                         .background(color = Color.Transparent, shape = Shapes.medium)

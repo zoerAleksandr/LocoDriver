@@ -1,6 +1,5 @@
 package com.z_company.repository
 
-import android.util.Log
 import com.parse.ParseObject
 import com.parse.ParseQuery
 import com.parse.ParseUser
@@ -307,7 +306,6 @@ class Back4AppManager : KoinComponent {
             } catch (e: Exception) {
                 trySend(ResultState.Error(ErrorEntity(message = "Произошла ошибка: ${e.message}")))
             }
-
             awaitClose()
         }
     }
@@ -330,7 +328,6 @@ class Back4AppManager : KoinComponent {
                     var syncRouteCount = 0
                     notSynchronizedList.forEach { route ->
                         this.launch {
-                            Log.d("ZZZ", "route for save $route")
                             remoteRepository.saveRouteVer2(route).collect { result ->
                                 if (result is ResultState.Success) {
                                     result.data.let { remoteId ->
@@ -451,6 +448,7 @@ class Back4AppManager : KoinComponent {
     }
 
     private fun saveRouteListAfterLoading(): Flow<ResultState<Unit>> = channelFlow {
+
         trySend(ResultState.Loading())
         for (route in allNewRoutes) {
             try {
@@ -458,7 +456,9 @@ class Back4AppManager : KoinComponent {
                     withContext(Dispatchers.IO) {
                         routeUseCase.saveRouteAfterLoading(route).collect { result ->
                             when (result) {
-                                is ResultState.Success -> {}
+                                is ResultState.Success -> {
+
+                                }
 
                                 is ResultState.Error -> {
                                     trySend(ResultState.Error(ErrorEntity(result.entity.throwable)))
@@ -513,7 +513,6 @@ class Back4AppManager : KoinComponent {
                                 }
                         }
                         if (parseObjects.size == pageSize) {
-                            Log.d("ZZZ", "next page load all route by user ${parseObjects.size}")
                             CoroutineScope(Dispatchers.IO).launch {
                                 loadBathRouteNewVersionByUser(skip + pageSize).collect {
                                     if (it is ResultState.Success) {
@@ -522,7 +521,6 @@ class Back4AppManager : KoinComponent {
                                 }
                             }
                         } else {
-                            Log.d("ZZZ", "load all route by user ${parseObjects.size}")
                             trySend(ResultState.Success(Unit))
                         }
                     }
@@ -567,7 +565,6 @@ class Back4AppManager : KoinComponent {
                         }
 
                         if (parseObjects.size == pageSize) {
-                            Log.d("ZZZ", "next page load all route by email ${parseObjects.size}")
                             CoroutineScope(Dispatchers.IO).launch {
                                 loadBathRouteNewVersionByEmail(skip + pageSize).collect {
                                     if (it is ResultState.Success) {
@@ -576,7 +573,6 @@ class Back4AppManager : KoinComponent {
                                 }
                             }
                         } else {
-                            Log.d("ZZZ", "load all route by email ${parseObjects.size}")
                             trySend(ResultState.Success(Unit))
                         }
                     }

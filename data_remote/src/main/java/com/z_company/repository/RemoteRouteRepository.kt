@@ -25,4 +25,5 @@ interface RemoteRouteRepository {
     suspend fun loadLocomotiveFromRemote(basicId: String): Flow<ResultState<List<LocomotiveRemote>?>>
     suspend fun loadTrainFromRemote(basicId: String): Flow<ResultState<List<TrainRemote>?>>
     suspend fun loadPassengerFromRemote(basicId: String): Flow<ResultState<List<PassengerRemote>?>>
+    fun startLoadWorkManager()
 }

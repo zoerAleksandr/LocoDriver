@@ -34,6 +34,7 @@ import com.z_company.work_manager.LOAD_TRAIN_WORKER_OUTPUT_KEY
 import com.z_company.work_manager.LoadBasicDataWorker
 import com.z_company.work_manager.LoadLocomotiveFromRemoteWorker
 import com.z_company.work_manager.LoadPassengerRemoteWorker
+import com.z_company.work_manager.LoadRoutesWorker
 import com.z_company.work_manager.LoadTrainFromRemoteWorker
 import com.z_company.work_manager.REMOVE_BASIC_DATA_OBJECT_ID_KEY
 import com.z_company.work_manager.REMOVE_LOCOMOTIVE_OBJECT_ID_KEY
@@ -85,6 +86,16 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
     private val constraints = Constraints.Builder()
         .setRequiredNetworkType(NetworkType.CONNECTED)
         .build()
+
+    override fun startLoadWorkManager(){
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+        val worker = OneTimeWorkRequestBuilder<LoadRoutesWorker>()
+            .setConstraints(constraints)
+            .build()
+        WorkManager.getInstance(context).enqueue(worker)
+    }
 
     override suspend fun loadBasicDataFromRemote(id: String): Flow<ResultState<BasicData?>> {
         val inputData = Data.Builder()

@@ -781,7 +781,7 @@ class SalaryCalculationHelper(
 
     fun getPercentNDFLRetentionFlow(): Flow<Double> {
         return flow {
-            val percent = salarySetting.otherSurcharge
+            val percent = salarySetting.ndfl
             emit(percent)
         }
     }

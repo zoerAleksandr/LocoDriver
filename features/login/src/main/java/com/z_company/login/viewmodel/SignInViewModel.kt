@@ -1,5 +1,6 @@
 package com.z_company.login.viewmodel
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -10,12 +11,17 @@ import com.z_company.core.ResultState
 import com.z_company.core.util.isEmailValid
 import com.z_company.login.ui.getMessageThrowable
 import com.z_company.repository.Back4AppManager
+import com.z_company.repository.RemoteRouteRepository
 import com.z_company.use_case.AuthUseCase
 import com.z_company.use_case.LoginUseCase
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
@@ -27,6 +33,7 @@ const val MIN_LENGTH_PASSWORD = 4
 const val TIME_OUT: Long = 15_000L
 
 class SignInViewModel : ViewModel(), KoinComponent {
+    private val remoteRouteRepository: RemoteRouteRepository by inject()
     private val back4AppManager: Back4AppManager by inject()
     private val authUseCase: AuthUseCase by inject()
     private val loginUseCase: LoginUseCase by inject()
@@ -104,7 +111,7 @@ class SignInViewModel : ViewModel(), KoinComponent {
 
     private fun loadDataFromRemote() {
         viewModelScope.launch {
-            back4AppManager.loadRouteListFromRemote().launchIn(viewModelScope)
+            remoteRouteRepository.startLoadWorkManager()
         }
     }
 
