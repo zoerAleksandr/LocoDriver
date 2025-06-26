@@ -2,7 +2,6 @@ package com.z_company.route.ui
 
 import android.app.Activity
 import android.content.Intent
-import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -881,7 +880,7 @@ fun HomeScreen(
             Spacer(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(heightScreen.times(0.14f).dp)
+                    .height(heightScreen.times(0.08f).dp)
             )
             currentMonthOfYear?.let { monthOfYear ->
                 Row(
