@@ -7,7 +7,9 @@ import androidx.navigation.NavBackStackEntry
 import com.z_company.domain.navigation.Router
 import com.z_company.route.Const.NULLABLE_ID
 import com.z_company.route.ui.FormScreen
+import com.z_company.route.ui.TestFormScreen
 import com.z_company.route.viewmodel.FormViewModel
+import com.z_company.route.viewmodel.TestFormViewModel
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -24,6 +26,13 @@ fun FormDestination(
     val formUiState by viewModel.uiState.collectAsState()
     val dialogRestUiState by viewModel.dialogRestUiState.collectAsState()
     val salaryState by viewModel.salaryForRouteState.collectAsState()
+
+//    TestFormScreen(
+//        uiState = formUiState,
+//        onBack = router::back,
+//        setFavoriteState = viewModel::setFavoriteState,
+//        onNumberChanged = viewModel::setNumber
+//    )
 
     FormScreen(
         formUiState = formUiState,
@@ -65,6 +74,7 @@ fun FormDestination(
         salaryForRouteState = salaryState,
         onSalarySettingClick = router::showSettingSalary,
         event = viewModel.events,
-        setFavoriteState = viewModel::setFavoriteRoute
+        setFavoriteState = viewModel::setFavoriteRoute,
+        checkIsCorrectTime = viewModel::isValidTime
     )
 }

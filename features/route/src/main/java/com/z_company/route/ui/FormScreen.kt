@@ -34,6 +34,8 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -51,6 +53,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -74,6 +77,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.flowWithLifecycle
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
@@ -107,7 +112,6 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import java.util.Calendar
-
 
 const val LINK_TO_SETTING = "LINK_TO_SETTING"
 const val LINK_TO_SALARY_SETTING = "LINK_TO_SALARY_SETTING"
@@ -145,17 +149,27 @@ fun FormScreen(
     exitWithoutSave: () -> Unit,
     onSalarySettingClick: () -> Unit,
     event: SharedFlow<FormScreenEvent>,
-    setFavoriteState: () -> Unit
+    setFavoriteState: () -> Unit,
+    checkIsCorrectTime: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
-    val hintStyle = AppTypography.getType().titleLarge
-        .copy(
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Light
-        )
+
     val titleStyle = AppTypography.getType().headlineMedium.copy(fontWeight = FontWeight.Light)
     val lifecycle = LocalLifecycleOwner.current.lifecycle
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(key1 = lifecycleOwner, effect = {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_START) {
+                checkIsCorrectTime()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose { }
+    })
 
     LaunchedEffect(Unit) {
         scope.launch {
@@ -165,7 +179,9 @@ fun FormScreen(
                         snackbarHostState.showSnackbar(message = "Добавлен в избранное")
                     }
 
-                    FormScreenEvent.DeactivatedFavoriteRoute -> {}
+                    FormScreenEvent.DeactivatedFavoriteRoute -> {
+                        snackbarHostState.showSnackbar(message = "Удален из избранного")
+                    }
                 }
             }
         }
@@ -212,8 +228,11 @@ fun FormScreen(
                         IconButton(
                             onClick = onSaveClick,
                             enabled = formUiState.changesHaveState
-                            ) {
-                            Icon(painter = painterResource(id = R.drawable.outline_save_24), contentDescription = null)
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.outline_save_24),
+                                contentDescription = null
+                            )
                         }
 //                        TextButton(
 //                            modifier = Modifier
@@ -335,6 +354,7 @@ private fun RouteFormScreenContent(
     onSalarySettingClick: () -> Unit
 ) {
     val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
+    val errorTextStyle = AppTypography.getType().titleSmall.copy(fontWeight = FontWeight.SemiBold)
     val hintStyle = AppTypography.getType().titleLarge
         .copy(
             fontSize = 18.sp,
@@ -492,16 +512,34 @@ private fun RouteFormScreenContent(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 errorMessage?.let { message ->
-                    Icon(
-                        modifier = Modifier.size(48.dp),
-                        imageVector = Icons.Default.Warning,
-                        tint = MaterialTheme.colorScheme.error,
-                        contentDescription = "Ошибка"
-                    )
-                    Text(
-                        text = message,
-                        style = dataTextStyle
-                    )
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        ),
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .padding(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                modifier = Modifier
+                                    .size(48.dp),
+                                painter = painterResource(R.drawable.dangerous_24px),
+                                tint = MaterialTheme.colorScheme.error,
+                                contentDescription = "Ошибка"
+                            )
+                            Text(
+                                text = message,
+                                style = errorTextStyle
+                            )
+                        }
+                    }
                 }
                 if (workTimeInLong != null && errorMessage == null) {
                     Text(

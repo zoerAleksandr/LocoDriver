@@ -41,7 +41,7 @@ fun FormPassengerDestination(
         onTimeArrivalChanged = viewModel::setTimeArrival,
         onNotesChanged = viewModel::setNotes,
         resultTime = formUiState.resultTime,
-        errorState = formUiState.errorTimeState,
+        errorMessage = formUiState.errorMessage,
         resetError = viewModel::resetErrorState,
         formValid = formUiState.formValid,
         changeShowConfirmExitDialog = viewModel::changeShowConfirmDialog,

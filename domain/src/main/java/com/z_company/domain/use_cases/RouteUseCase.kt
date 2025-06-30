@@ -9,6 +9,8 @@ import com.z_company.domain.entities.route.UtilsForEntities.fullRest
 import com.z_company.domain.entities.route.UtilsForEntities.isTimeWorkValid
 import com.z_company.domain.entities.route.UtilsForEntities.shortRest
 import com.z_company.domain.repositories.RouteRepository
+import com.z_company.domain.util.lessThan
+import com.z_company.domain.util.moreThan
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -184,12 +186,56 @@ class RouteUseCase(private val repository: RouteRepository) {
         return repository.loadPhoto(photoId)
     }
 
-    private fun isRouteValid(route: Route): Boolean {
-        return route.basicData.timeStartWork != null
+    fun isRouteValid(route: Route): ResultState<Unit> {
+        val startTime = route.basicData.timeStartWork
+        val endTime = route.basicData.timeEndWork
+
+        route.passengers.forEach { passenger ->
+            println("zzz startTime $startTime")
+            println("zzz endTime $endTime")
+            println("zzz timeDeparture ${passenger.timeDeparture}")
+            println("zzz timeArrival ${passenger.timeArrival}")
+            if (passenger.timeDeparture.moreThan(endTime)) {
+                return ResultState.Error(
+                    ErrorEntity(message = "Отправление пассажиром позже окончания работы. Невозможно сохранить маршрут.")
+                )
+            }
+            if (passenger.timeDeparture.lessThan(startTime)) {
+                return ResultState.Error(
+                    ErrorEntity(message = "Отправление пассажиром раньше начала работы. Невозможно сохранить маршрут.")
+                )
+            }
+            if (passenger.timeArrival.moreThan(endTime)) {
+                return ResultState.Error(
+                    ErrorEntity(message = "Прибытие пассажиром позже окончания работы. Невозможно сохранить маршрут.")
+                )
+            }
+            if (passenger.timeArrival.lessThan(startTime)) {
+                return ResultState.Error(
+                    ErrorEntity(message = "Прибытие пассажиром раньше начала работы. Невозможно сохранить маршрут.")
+                )
+            }
+            if (passenger.timeArrival.lessThan(passenger.timeDeparture)) {
+                return ResultState.Error(
+                    ErrorEntity(message = "Прибытие пассажиром раньше отправления. Невозможно сохранить маршрут.")
+                )
+            }
+        }
+
+        if (startTime.moreThan(endTime)) {
+            return ResultState.Error(
+                ErrorEntity(message = "Проверьте начало и окончание работы. Невозможно сохранить маршрут.")
+            )
+        } else {
+            return ResultState.Success(Unit)
+        }
     }
 
     fun isTimeWorkValid(route: Route): Boolean {
-        return route.isTimeWorkValid()
+        val startTime = route.basicData.timeStartWork
+        val endTime = route.basicData.timeEndWork
+
+        return !startTime.moreThan(endTime)
     }
 
     fun getMinRest(route: Route, minTimeRest: Long?): Long? {

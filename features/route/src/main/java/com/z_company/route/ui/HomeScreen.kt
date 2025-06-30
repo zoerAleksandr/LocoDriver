@@ -1134,7 +1134,7 @@ fun TotalTime(
             }
         },
         maxTextSize = 70.sp,
-        fontFamily = AppTypography.Companion.AppFontFamilies.RobotoConsed
+//        fontFamily = AppTypography.Companion.AppFontFamilies.RobotoConsed
     )
 }
 

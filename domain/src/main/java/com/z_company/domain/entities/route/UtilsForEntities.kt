@@ -22,8 +22,9 @@ object UtilsForEntities : KoinComponent {
         val timeStart = this.basicData.timeStartWork
         return if (timeEnd != null && timeStart != null) {
             val timeWork = timeEnd - timeStart
-            val passengerTimeNotIncluded = this.notIncludedPassengerTime()
-            timeWork.plus(passengerTimeNotIncluded)
+            timeWork
+//            val passengerTimeNotIncluded = this.notIncludedPassengerTime()
+//            timeWork.plus(passengerTimeNotIncluded)
         } else {
             null
         }
@@ -365,12 +366,13 @@ object UtilsForEntities : KoinComponent {
         var passengerTime = 0L
         this.forEach { route ->
             route.passengers.forEach { passenger ->
-                passengerTime = passenger.getTimeFollowing(
+                val time = passenger.getTimeFollowing(
                     startWork = route.basicData.timeStartWork,
                     endWork = route.basicData.timeEndWork,
                     offsetInMoscow = offsetInMoscow,
                     monthOfYear = monthOfYear
                 )
+                passengerTime += time
             }
         }
         return passengerTime
@@ -632,8 +634,8 @@ object UtilsForEntities : KoinComponent {
         }
         if (distanceInterval.contains(summaryDistance)) {
             trainsWithDistance.forEach { train ->
-                var timeDeparture = train.stations.first().timeDeparture
-                var timeArrival = train.stations.last().timeArrival
+                var timeDeparture = train.stations.firstOrNull()?.timeDeparture
+                var timeArrival = train.stations.lastOrNull()?.timeArrival
                 if (timeDeparture == null || timeArrival == null || timeDeparture > timeArrival) {
                     return@forEach
                 } else {
@@ -663,8 +665,8 @@ object UtilsForEntities : KoinComponent {
         this.trains.forEach { train ->
             val weight = train.weight.toIntOrZero()
             if (searchIntervalWeight.contains(weight)) {
-                var timeDeparture: Long? = train.stations.first().timeDeparture
-                var timeArrival: Long? = train.stations.last().timeArrival
+                var timeDeparture: Long? = train.stations.firstOrNull()?.timeDeparture
+                var timeArrival: Long? = train.stations.lastOrNull()?.timeArrival
                 val startWork = this.basicData.timeStartWork
                 val endWork = this.basicData.timeEndWork
                 if (startWork == null || endWork == null) {
@@ -695,8 +697,8 @@ object UtilsForEntities : KoinComponent {
         workInterval: LongRange
     ): Long {
         val time = if (this.conditionalLength.toIntOrZero() > lengthIsLongDistance) {
-            var timeDeparture = this.stations.first().timeDeparture
-            var timeArrival = this.stations.last().timeArrival
+            var timeDeparture = this.stations.firstOrNull()?.timeDeparture
+            var timeArrival = this.stations.lastOrNull()?.timeArrival
             if (timeDeparture == null || timeArrival == null || timeDeparture > timeArrival) {
                 0L
             } else {

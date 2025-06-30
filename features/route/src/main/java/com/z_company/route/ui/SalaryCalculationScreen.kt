@@ -54,7 +54,6 @@ import com.z_company.core.util.ConverterLongToTime
 import com.z_company.domain.util.str
 import com.z_company.domain.util.str2decimalSign
 import com.z_company.domain.util.toDoubleOrZero
-import com.z_company.route.viewmodel.SalaryCalculationTestViewModel
 import com.z_company.route.viewmodel.SalaryCalculationUIState
 import com.z_company.route.viewmodel.SalaryCalculationViewModel
 
@@ -66,11 +65,6 @@ fun SalaryCalculationScreen(
     onSettingsSalaryClick: () -> Unit,
     updateData: () -> Unit
 ) {
-//    val viewModel: SalaryCalculationTestViewModel = viewModel()
-//    val uiState by viewModel.uiState.collectAsState()
-//    val isLoading by viewModel.isLoading.collectAsState()
-//    val loadingMessage by viewModel.loadingMessage.collectAsState()
-
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(key1 = lifecycleOwner, effect = {
         val observer = LifecycleEventObserver { _, event ->

@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,6 +24,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -58,6 +61,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -78,6 +82,7 @@ import kotlinx.coroutines.launch
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.component.SelectableDateTimePicker
 import com.z_company.core.util.DateAndTimeConverter
+import com.z_company.route.R
 import com.z_company.route.component.ConfirmExitDialog
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
@@ -102,7 +107,7 @@ fun FormPassengerScreen(
     onTimeArrivalChanged: (Long?) -> Unit,
     onNotesChanged: (String) -> Unit,
     resultTime: Long?,
-    errorState: ResultState<Unit>?,
+    errorMessage: String?,
     resetError: () -> Unit,
     formValid: Boolean,
     exitScreen: () -> Unit,
@@ -128,24 +133,24 @@ fun FormPassengerScreen(
             fontWeight = FontWeight.Light
         )
     val titleStyle = AppTypography.getType().headlineMedium.copy(fontWeight = FontWeight.Light)
-    val scaffoldState = rememberBottomSheetScaffoldState(
-        bottomSheetState = rememberStandardBottomSheetState(
-            confirmValueChange = {
-                it != SheetValue.Hidden
-            }
-        )
-    )
+//    val scaffoldState = rememberBottomSheetScaffoldState(
+//        bottomSheetState = rememberStandardBottomSheetState(
+//            confirmValueChange = {
+//                it != SheetValue.Hidden
+//            }
+//        )
+//    )
 
-    if (errorState is ResultState) {
-        LaunchedEffect(errorState) {
-            scope.launch {
-                scaffoldState.snackbarHostState.showSnackbar(
-                    message = "Нарушена последовательность времени"
-                )
-            }
-            resetError()
-        }
-    }
+//    if (!errorMessage.isNullOrEmpty()) {
+//        LaunchedEffect(errorMessage) {
+//            scope.launch {
+//                scaffoldState.snackbarHostState.showSnackbar(
+//                    message = errorMessage
+//                )
+//            }
+//            resetError()
+//        }
+//    }
 
     Scaffold(
         modifier = Modifier
@@ -231,6 +236,7 @@ fun FormPassengerScreen(
                         }
                     } else {
                         PassengerFormScreenContent(
+                            errorMessage = errorMessage,
                             passenger = passenger,
                             onNumberChanged = onNumberChanged,
                             onStationDepartureChanged = onStationDepartureChanged,
@@ -260,6 +266,7 @@ fun FormPassengerScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PassengerFormScreenContent(
+    errorMessage: String?,
     passenger: Passenger,
     onNumberChanged: (String) -> Unit,
     onStationDepartureChanged: (String) -> Unit,
@@ -282,6 +289,7 @@ fun PassengerFormScreenContent(
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
     val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
+    val errorTextStyle = AppTypography.getType().titleSmall.copy(fontWeight = FontWeight.SemiBold)
 
     AnimatedVisibility(
         modifier = Modifier
@@ -298,25 +306,55 @@ fun PassengerFormScreenContent(
         contentPadding = PaddingValues(16.dp)
     ) {
         item {
-            val timeResultInFormatted = ConverterLongToTime.getTimeInStringFormat(resultTime)
-
-            AnimatedVisibility(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 20.dp),
-                visible = resultTime != null && resultTime > 0,
-                enter = slideInVertically(animationSpec = tween(durationMillis = 500))
-                        + fadeIn(animationSpec = tween(durationMillis = 300)),
-                exit = slideOutVertically(animationSpec = tween(durationMillis = 500))
-                        + fadeOut(animationSpec = tween(durationMillis = 150))
-            ) {
-                Box(
-                    contentAlignment = Alignment.Center
+            if (errorMessage == null) {
+                val timeResultInFormatted = ConverterLongToTime.getTimeInStringFormat(resultTime)
+                AnimatedVisibility(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 20.dp),
+                    visible = resultTime != null && resultTime > 0,
+                    enter = slideInVertically(animationSpec = tween(durationMillis = 500))
+                            + fadeIn(animationSpec = tween(durationMillis = 300)),
+                    exit = slideOutVertically(animationSpec = tween(durationMillis = 500))
+                            + fadeOut(animationSpec = tween(durationMillis = 150))
                 ) {
-                    Text(
-                        text = timeResultInFormatted,
-                        style = AppTypography.getType().headlineLarge
-                    )
+                    Box(
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = timeResultInFormatted,
+                            style = AppTypography.getType().headlineLarge
+                        )
+                    }
+                }
+            } else {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            modifier = Modifier
+                                .size(48.dp),
+                            painter = painterResource(R.drawable.dangerous_24px),
+                            tint = MaterialTheme.colorScheme.error,
+                            contentDescription = "Ошибка"
+                        )
+                        Text(
+                            text = errorMessage,
+                            style = errorTextStyle
+                        )
+                    }
                 }
             }
         }

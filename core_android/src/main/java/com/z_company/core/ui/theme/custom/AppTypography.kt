@@ -59,49 +59,49 @@ data class AppTypography(
 
     companion object {
         fun getType(): AppTypography {
-            val fontFamily = AppFontFamilies.RobotoConsed
+//            val fontFamily = AppFontFamilies.RobotoConsed
             val defaultTypography = Typography()
             return AppTypography(
                 materialTypography = Typography(
-                    displayLarge = defaultTypography.displayLarge.copy(fontFamily = fontFamily),
-                    displayMedium = defaultTypography.displayMedium.copy(fontFamily = fontFamily),
-                    displaySmall = defaultTypography.displaySmall.copy(fontFamily = fontFamily),
-                    headlineLarge = defaultTypography.headlineLarge.copy(fontFamily = fontFamily),
-                    headlineMedium = defaultTypography.headlineMedium.copy(fontFamily = fontFamily),
-                    headlineSmall = defaultTypography.headlineSmall.copy(fontFamily = fontFamily),
-                    titleLarge = defaultTypography.titleLarge.copy(fontFamily = fontFamily),
-                    titleMedium = defaultTypography.titleMedium.copy(fontFamily = fontFamily),
-                    titleSmall = defaultTypography.titleSmall.copy(fontFamily = fontFamily),
-                    bodyLarge = defaultTypography.bodyLarge.copy(fontFamily = fontFamily),
-                    bodyMedium = defaultTypography.bodyMedium.copy(fontFamily = fontFamily),
-                    bodySmall = defaultTypography.bodySmall.copy(fontFamily = fontFamily),
-                    labelLarge = defaultTypography.labelLarge.copy(fontFamily = fontFamily),
-                    labelMedium = defaultTypography.labelMedium.copy(fontFamily = fontFamily),
-                    labelSmall = defaultTypography.labelSmall.copy(fontFamily = fontFamily)
+//                    displayLarge = defaultTypography.displayLarge.copy(fontFamily = fontFamily),
+//                    displayMedium = defaultTypography.displayMedium.copy(fontFamily = fontFamily),
+//                    displaySmall = defaultTypography.displaySmall.copy(fontFamily = fontFamily),
+//                    headlineLarge = defaultTypography.headlineLarge.copy(fontFamily = fontFamily),
+//                    headlineMedium = defaultTypography.headlineMedium.copy(fontFamily = fontFamily),
+//                    headlineSmall = defaultTypography.headlineSmall.copy(fontFamily = fontFamily),
+//                    titleLarge = defaultTypography.titleLarge.copy(fontFamily = fontFamily),
+//                    titleMedium = defaultTypography.titleMedium.copy(fontFamily = fontFamily),
+//                    titleSmall = defaultTypography.titleSmall.copy(fontFamily = fontFamily),
+//                    bodyLarge = defaultTypography.bodyLarge.copy(fontFamily = fontFamily),
+//                    bodyMedium = defaultTypography.bodyMedium.copy(fontFamily = fontFamily),
+//                    bodySmall = defaultTypography.bodySmall.copy(fontFamily = fontFamily),
+//                    labelLarge = defaultTypography.labelLarge.copy(fontFamily = fontFamily),
+//                    labelMedium = defaultTypography.labelMedium.copy(fontFamily = fontFamily),
+//                    labelSmall = defaultTypography.labelSmall.copy(fontFamily = fontFamily)
                 )
             )
         }
 
-        @Immutable
-        object AppFontFamilies {
-            @Stable
-            val RobotoConsed = FontFamily(
-                Font(
-                    resId = R.font.roboto_condensed_regular,
-                    weight = FontWeight.Normal,
-                    style = FontStyle.Normal
-                ),
-                Font(
-                    resId = R.font.roboto_condensed_bold,
-                    weight = FontWeight.Bold,
-                    style = FontStyle.Normal
-                ),
-                Font(
-                    resId = R.font.roboto_condensed_light,
-                    weight = FontWeight.Light,
-                    style = FontStyle.Normal
-                ),
-            )
-        }
+//        @Immutable
+//        object AppFontFamilies {
+//            @Stable
+//            val RobotoConsed = FontFamily(
+//                Font(
+//                    resId = R.font.montserrat_regular,
+//                    weight = FontWeight.Normal,
+//                    style = FontStyle.Normal
+//                ),
+//                Font(
+//                    resId = R.font.montserrat_regular,
+//                    weight = FontWeight.Bold,
+//                    style = FontStyle.Normal
+//                ),
+//                Font(
+//                    resId = R.font.montserrat_regular,
+//                    weight = FontWeight.Light,
+//                    style = FontStyle.Normal
+//                ),
+//            )
+//        }
     }
 }

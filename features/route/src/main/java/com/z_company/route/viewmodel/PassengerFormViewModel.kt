@@ -6,7 +6,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.route.Passenger
+import com.z_company.domain.entities.route.Route
 import com.z_company.domain.use_cases.PassengerUseCase
+import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.util.addAllOrSkip
 import com.z_company.domain.util.compareWithNullable
@@ -21,7 +23,12 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import com.z_company.domain.util.minus
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.properties.Delegates
 
@@ -31,9 +38,12 @@ class PassengerFormViewModel(
 ) : ViewModel(), KoinComponent {
     private val passengerUseCase: PassengerUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
+    private val routeUseCase: RouteUseCase by inject()
 
     private val _uiState = MutableStateFlow(PassengerFormUiState())
     val uiState = _uiState.asStateFlow()
+
+    private var route: Route = Route()
 
     private var loadPassengerJob: Job? = null
     private var savePassengerJob: Job? = null
@@ -63,22 +73,47 @@ class PassengerFormViewModel(
             loadPassenger(passengerId!!)
         }
         viewModelScope.launch {
-            loadSetting().join()
+            combine(
+                settingsUseCase.getFlowCurrentSettingsState(),
+                routeUseCase.routeDetails(basicId)
+            ) { settingState, routeState ->
+                if (settingState is ResultState.Success) {
+                    settingState.data?.let { settings ->
+                        initStationList = settings.stationList.toMutableStateList()
+                    }
+                }
+
+                if (routeState is ResultState.Success) {
+                    routeState.data?.let {
+                        route = it
+                    }
+                }
+
+            }.collect {}
+//            val flows = listOf(loadSetting(),
+//                routeUseCase.routeDetails(basicId))
+//            flows.map { flow ->
+//                async {
+//                    flow.first {
+//                        it is ResultState.Success
+//                    }
+//                }
+//            }.awaitAll()
         }
     }
 
-    private suspend fun loadSetting(): Job {
-        return viewModelScope.launch {
-            settingsUseCase.getFlowCurrentSettingsState().collect {
-                if (it is ResultState.Success) {
-                    it.data?.let { settings ->
-                        initStationList = settings.stationList.toMutableStateList()
-                    }
-                    this.cancel()
-                }
-            }
-        }
-    }
+//    private suspend fun loadSetting(): Flow<ResultState<Unit>> {
+////        return viewModelScope.launch {
+//        settingsUseCase.getFlowCurrentSettingsState().collect {
+//            if (it is ResultState.Success) {
+//                it.data?.let { settings ->
+//                    initStationList = settings.stationList.toMutableStateList()
+//                }
+////                    this.cancel()
+//            }
+//        }
+////        }
+//    }
 
     private fun loadPassenger(passengerId: String) {
         loadPassengerJob?.cancel()
@@ -151,19 +186,21 @@ class PassengerFormViewModel(
     }
 
     fun savePassenger() {
-        val state = _uiState.value.passengerDetailState
-        if (state is ResultState.Success) {
-            state.data?.let { passenger ->
-                savePassengerJob?.cancel()
-                savePassengerJob =
-                    passengerUseCase.savePassenger(passenger).onEach { resultState ->
-                        saveStationsName(passenger.stationDeparture, passenger.stationArrival)
-                        _uiState.update {
-                            it.copy(
-                                savePassengerState = resultState
-                            )
-                        }
-                    }.launchIn(viewModelScope)
+        if (uiState.value.errorMessage == null) {
+            val state = _uiState.value.passengerDetailState
+            if (state is ResultState.Success) {
+                state.data?.let { passenger ->
+                    savePassengerJob?.cancel()
+                    savePassengerJob =
+                        passengerUseCase.savePassenger(passenger).onEach { resultState ->
+                            saveStationsName(passenger.stationDeparture, passenger.stationArrival)
+                            _uiState.update {
+                                it.copy(
+                                    savePassengerState = resultState
+                                )
+                            }
+                        }.launchIn(viewModelScope)
+                }
             }
         }
     }
@@ -176,7 +213,7 @@ class PassengerFormViewModel(
 
     fun resetErrorState() {
         _uiState.update {
-            it.copy(errorTimeState = null)
+            it.copy(errorMessage = null)
         }
     }
 
@@ -238,26 +275,63 @@ class PassengerFormViewModel(
     }
 
     private fun formValidTime() {
-        val timeValid = isTimeValid()
-        if (!timeValid) {
-            _uiState.update {
-                it.copy(
+        route = route.copy(
+            passengers = mutableListOf(
+                Passenger(
+                    timeArrival = currentPassenger?.timeArrival,
+                    timeDeparture = currentPassenger?.timeDeparture
+                )
+            )
+        )
+        val validState = routeUseCase.isRouteValid(route)
+
+        if (validState is ResultState.Error) {
+            _uiState.update { formState ->
+                formState.copy(
                     resultTime = null,
-                    errorTimeState = ResultState.Success(Unit),
-                    formValid = false
+                    formValid = false,
+                    errorMessage = validState.entity.message
                 )
             }
-        } else {
+
+//            _uiState.update { formState ->
+//                formState.copy(errorMessage = validState.entity.message)
+//            }
+        }
+        if (validState is ResultState.Success) {
             val arrivalTime = currentPassenger?.timeArrival
             val departureTime = currentPassenger?.timeDeparture
             val resultTime = arrivalTime - departureTime
-            _uiState.update {
-                it.copy(
+
+            _uiState.update { formState ->
+                formState.copy(
                     resultTime = resultTime,
-                    formValid = true
+                    formValid = true,
+                    errorMessage = null
                 )
             }
         }
+
+//        val timeValid = isTimeValid()
+//        if (!timeValid) {
+//            _uiState.update {
+//                it.copy(
+//                    resultTime = null,
+//                    errorTimeState = ResultState.Success(Unit),
+//                    formValid = false
+//                )
+//            }
+//        } else {
+//            val arrivalTime = currentPassenger?.timeArrival
+//            val departureTime = currentPassenger?.timeDeparture
+//            val resultTime = arrivalTime - departureTime
+//            _uiState.update {
+//                it.copy(
+//                    resultTime = resultTime,
+//                    formValid = true
+//                )
+//            }
+//        }
     }
 
     private fun isTimeValid(): Boolean {

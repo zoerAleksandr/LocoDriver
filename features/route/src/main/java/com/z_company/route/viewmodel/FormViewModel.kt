@@ -232,11 +232,6 @@ class FormViewModel(
     }
 
     init {
-        if (routeId == NULLABLE_ID) {
-            currentRoute = Route()
-        } else {
-            loadRoute(routeId!!, isCopy)
-        }
         viewModelScope.launch(Dispatchers.IO) {
             prepareReviewDialog()
         }
@@ -249,6 +244,11 @@ class FormViewModel(
         }
 
         loadSettings()
+        if (routeId == NULLABLE_ID) {
+            currentRoute = Route()
+        } else {
+            loadRoute(routeId!!, isCopy)
+        }
     }
 
     fun resetSaveState() {
@@ -259,24 +259,24 @@ class FormViewModel(
 
     private fun loadRoute(id: String, isCopy: Boolean) {
         if (routeId == currentRoute?.basicData?.id) return
-        loadRouteJob?.cancel()
-        loadRouteJob = routeUseCase.routeDetails(id).onEach { routeState ->
-            if (routeState is ResultState.Success) {
-                currentRoute = routeState.data
-                currentRoute?.let { route ->
-                    calculateRestTime(route)
-                    getNightTimeInRoute(route)
-                    calculationPassengerTime(route)
+        viewModelScope.launch {
+            routeUseCase.routeDetails(id).collect { routeState ->
+                if (routeState is ResultState.Success) {
+                    currentRoute = routeState.data
+                    currentRoute?.let { route ->
+                        calculateRestTime(route)
+                        getNightTimeInRoute(route)
+                        calculationPassengerTime(route)
+                    }
+                }
+                _uiState.update {
+                    it.copy(
+                        routeDetailState = routeState,
+                        isCopy = isCopy
+                    )
                 }
             }
-            _uiState.update {
-                it.copy(
-                    routeDetailState = routeState,
-                    isCopy = isCopy
-                )
-            }
-            loadRouteJob?.cancel()
-        }.launchIn(viewModelScope)
+        }
     }
 
     private var reviewInfo: ReviewInfo? = null
@@ -295,7 +295,7 @@ class FormViewModel(
                 isFavorite = !currentRoute!!.basicData.isFavorite
             )
         )
-        if (currentRoute!!.basicData.isFavorite){
+        if (currentRoute!!.basicData.isFavorite) {
             _events.tryEmit(FormScreenEvent.ActivatedFavoriteRoute)
         } else {
             _events.tryEmit(FormScreenEvent.DeactivatedFavoriteRoute)
@@ -371,6 +371,7 @@ class FormViewModel(
     }
 
     fun saveRoute() {
+        isValidTime()
         if (uiState.value.errorMessage == null) {
             val state = _uiState.value.routeDetailState
             if (state is ResultState.Success) {
@@ -733,18 +734,22 @@ class FormViewModel(
         }
     }
 
-    private fun isValidTime() {
+    fun isValidTime() {
         val routeDetailState = _uiState.value.routeDetailState
 
         if (routeDetailState is ResultState.Success) {
             routeDetailState.data?.let {
-                val errorMessage = if (!routeUseCase.isTimeWorkValid(it)) {
-                    "Проверьте начало и окончание работы"
-                } else {
-                    null
+                val isRouteValid = routeUseCase.isRouteValid(it)
+
+                if (isRouteValid is ResultState.Error) {
+                    _uiState.update { formState ->
+                        formState.copy(errorMessage = isRouteValid.entity.message)
+                    }
                 }
-                _uiState.update { formState ->
-                    formState.copy(errorMessage = errorMessage)
+                if (isRouteValid is ResultState.Success) {
+                    _uiState.update { formState ->
+                        formState.copy(errorMessage = null)
+                    }
                 }
             }
         }
