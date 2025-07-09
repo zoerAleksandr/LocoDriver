@@ -39,7 +39,7 @@ fun MyWheelDateTimePickerBottomSheet(
     dateTextColor: Color = LocalContentColor.current,
     hideHeader: Boolean = false,
     showMonthAsNumber: Boolean = false,
-    containerColor: Color = Color.White,
+    containerColor: Color = MaterialTheme.colorScheme.surface,
     shape: Shape = BottomSheetDefaults.ExpandedShape,
     dragHandle: @Composable (() -> Unit)? = { BottomSheetDefaults.DragHandle() },
     selectorProperties: SelectorProperties = MyWheelPickerDefaults.selectorProperties(),

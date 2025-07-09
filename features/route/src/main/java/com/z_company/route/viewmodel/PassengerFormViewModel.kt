@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.properties.Delegates
 
 class PassengerFormViewModel(
@@ -90,30 +91,8 @@ class PassengerFormViewModel(
                 }
 
             }.collect {}
-//            val flows = listOf(loadSetting(),
-//                routeUseCase.routeDetails(basicId))
-//            flows.map { flow ->
-//                async {
-//                    flow.first {
-//                        it is ResultState.Success
-//                    }
-//                }
-//            }.awaitAll()
         }
     }
-
-//    private suspend fun loadSetting(): Flow<ResultState<Unit>> {
-////        return viewModelScope.launch {
-//        settingsUseCase.getFlowCurrentSettingsState().collect {
-//            if (it is ResultState.Success) {
-//                it.data?.let { settings ->
-//                    initStationList = settings.stationList.toMutableStateList()
-//                }
-////                    this.cancel()
-//            }
-//        }
-////        }
-//    }
 
     private fun loadPassenger(passengerId: String) {
         loadPassengerJob?.cancel()
@@ -275,69 +254,45 @@ class PassengerFormViewModel(
     }
 
     private fun formValidTime() {
-        route = route.copy(
-            passengers = mutableListOf(
-                Passenger(
-                    timeArrival = currentPassenger?.timeArrival,
-                    timeDeparture = currentPassenger?.timeDeparture
+        viewModelScope.launch {
+            route = route.copy(
+                passengers = mutableListOf(
+                    Passenger(
+                        timeArrival = currentPassenger?.timeArrival,
+                        timeDeparture = currentPassenger?.timeDeparture
+                    )
                 )
             )
-        )
-        val validState = routeUseCase.isRouteValid(route)
+            val validState = routeUseCase.isValidPassenger(route).first()
 
-        if (validState is ResultState.Error) {
-            _uiState.update { formState ->
-                formState.copy(
-                    resultTime = null,
-                    formValid = false,
-                    errorMessage = validState.entity.message
-                )
+            if (validState is ResultState.Error) {
+                withContext(Dispatchers.Main) {
+                    _uiState.update { formState ->
+                        formState.copy(
+                            resultTime = null,
+                            formValid = false,
+                            errorMessage = validState.entity.message
+                        )
+                    }
+                }
+
             }
+            if (validState is ResultState.Success) {
+                val arrivalTime = currentPassenger?.timeArrival
+                val departureTime = currentPassenger?.timeDeparture
+                val resultTime = arrivalTime - departureTime
 
-//            _uiState.update { formState ->
-//                formState.copy(errorMessage = validState.entity.message)
-//            }
-        }
-        if (validState is ResultState.Success) {
-            val arrivalTime = currentPassenger?.timeArrival
-            val departureTime = currentPassenger?.timeDeparture
-            val resultTime = arrivalTime - departureTime
-
-            _uiState.update { formState ->
-                formState.copy(
-                    resultTime = resultTime,
-                    formValid = true,
-                    errorMessage = null
-                )
+                withContext(Dispatchers.Main) {
+                    _uiState.update { formState ->
+                        formState.copy(
+                            resultTime = resultTime,
+                            formValid = true,
+                            errorMessage = null
+                        )
+                    }
+                }
             }
         }
-
-//        val timeValid = isTimeValid()
-//        if (!timeValid) {
-//            _uiState.update {
-//                it.copy(
-//                    resultTime = null,
-//                    errorTimeState = ResultState.Success(Unit),
-//                    formValid = false
-//                )
-//            }
-//        } else {
-//            val arrivalTime = currentPassenger?.timeArrival
-//            val departureTime = currentPassenger?.timeDeparture
-//            val resultTime = arrivalTime - departureTime
-//            _uiState.update {
-//                it.copy(
-//                    resultTime = resultTime,
-//                    formValid = true
-//                )
-//            }
-//        }
-    }
-
-    private fun isTimeValid(): Boolean {
-        val arrivalTime = currentPassenger?.timeArrival
-        val departureTime = currentPassenger?.timeDeparture
-        return departureTime.compareWithNullable(arrivalTime)
     }
 
     private var initStationList = mutableListOf<String>()

@@ -7,19 +7,22 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.ServicePhase
+import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
+import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.use_cases.TrainUseCase
 import com.z_company.domain.util.addAllOrSkip
 import com.z_company.domain.util.addOrReplace
-import com.z_company.domain.util.compareWithNullable
 import com.z_company.route.Const.NULLABLE_ID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
@@ -27,6 +30,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import kotlin.collections.toMutableList
 import kotlin.properties.Delegates
 
 class TrainFormViewModel(
@@ -35,6 +39,8 @@ class TrainFormViewModel(
 ) : ViewModel(), KoinComponent {
     private val trainUseCase: TrainUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
+    private val routeUseCase: RouteUseCase by inject()
+    private var route: Route = Route()
 
     private val _uiState = MutableStateFlow(TrainFormUiState())
     val uiState = _uiState.asStateFlow()
@@ -102,7 +108,7 @@ class TrainFormViewModel(
 
     fun showDialogSelectServicePhase() {
         viewModelScope.launch(Dispatchers.IO) {
-            loadSetting().join()
+//            loadSetting().join()
             withContext(Dispatchers.Main) {
                 _uiState.update {
                     it.copy(
@@ -130,7 +136,24 @@ class TrainFormViewModel(
             loadTrain(trainId!!)
         }
         viewModelScope.launch {
-            loadSetting().join()
+//            loadSetting().join()
+            combine(
+                settingsUseCase.getFlowCurrentSettingsState(),
+                routeUseCase.routeDetails(basicId)
+            ) { settingState, routeState ->
+                if (settingState is ResultState.Success) {
+                    settingState.data?.let { settings ->
+                        stationNameList.addAllOrSkip(settings.stationList.toMutableStateList())
+                        servicePhaseList.clear()
+                        servicePhaseList.addAllOrSkip(settings.servicePhases.toMutableStateList())
+                    }
+                }
+                if (routeState is ResultState.Success) {
+                    routeState.data?.let {
+                        route = it
+                    }
+                }
+            }.collect {}
         }
     }
 
@@ -223,24 +246,26 @@ class TrainFormViewModel(
     }
 
     fun saveTrain() {
-        val state = _uiState.value.trainDetailState
-        if (state is ResultState.Success) {
-            state.data?.let { train ->
-                train.servicePhase = uiState.value.selectedServicePhase
-                train.stations = stationsListState.map { state ->
-                    Station(
-                        stationId = state.id,
-                        stationName = state.station.data,
-                        timeArrival = state.arrival.data,
-                        timeDeparture = state.departure.data
-                    )
-                }.toMutableList()
-                saveStationsName(train)
-                saveTrainJob?.cancel()
-                saveTrainJob = viewModelScope.launch {
-                    trainUseCase.saveTrain(train).collect { resultState ->
-                        _uiState.update {
-                            it.copy(saveTrainState = resultState)
+        if (uiState.value.errorMessage == null) {
+            val state = _uiState.value.trainDetailState
+            if (state is ResultState.Success) {
+                state.data?.let { train ->
+                    train.servicePhase = uiState.value.selectedServicePhase
+                    train.stations = stationsListState.map { state ->
+                        Station(
+                            stationId = state.id,
+                            stationName = state.station.data,
+                            timeArrival = state.arrival.data,
+                            timeDeparture = state.departure.data
+                        )
+                    }.toMutableList()
+                    saveStationsName(train)
+                    saveTrainJob?.cancel()
+                    saveTrainJob = viewModelScope.launch {
+                        trainUseCase.saveTrain(train).collect { resultState ->
+                            _uiState.update {
+                                it.copy(saveTrainState = resultState)
+                            }
                         }
                     }
                 }
@@ -308,7 +333,6 @@ class TrainFormViewModel(
 
     private fun setStations(stations: MutableList<Station>) {
         stations.forEach { station ->
-            val formValid = formValidStation(station)
             stationsListState.addOrReplace(
                 StationFormState(
                     id = station.stationId,
@@ -323,9 +347,6 @@ class TrainFormViewModel(
                     departure = StationFieldDate(
                         data = station.timeDeparture,
                         type = StationDataType.DEPARTURE
-                    ),
-                    formValid = StationIsValidField(
-                        data = formValid
                     )
                 )
             )
@@ -343,6 +364,7 @@ class TrainFormViewModel(
     }
 
     fun deleteStation(stationFormState: StationFormState) {
+        checkFormValidStation()
         stationsListState.remove(stationFormState)
         changesHave()
     }
@@ -374,19 +396,7 @@ class TrainFormViewModel(
             }
 
             is StationEvent.FocusChange -> {
-                val formValid = formValidStation(stationsListState[event.index])
-                stationsListState[event.index] = stationsListState[event.index].copy(
-                    formValid = stationsListState[event.index].formValid.copy(
-                        data = formValid
-                    )
-                )
-                if (!formValid) {
-                    _uiState.update {
-                        it.copy(
-                            errorMessage = "Некорректное время"
-                        )
-                    }
-                }
+                checkFormValidStation()
             }
         }
     }
@@ -399,21 +409,50 @@ class TrainFormViewModel(
         }
     }
 
-    private fun formValidStation(
-        station: StationFormState
-    ): Boolean {
-        val departure = station.departure.data
-        val arrival = station.arrival.data
-        return arrival.compareWithNullable(departure)
+    private fun checkFormValidStation() {
+        viewModelScope.launch {
+            route = route.copy(
+                trains = mutableListOf(
+                    currentTrain!!.copy(
+                        stations = stationsListState.map { state ->
+                            Station(
+                                stationId = state.id,
+                                stationName = state.station.data,
+                                timeArrival = state.arrival.data,
+                                timeDeparture = state.departure.data
+                            )
+                        }.toMutableList()
+                    )
+                )
+            )
+
+            val validState = routeUseCase.isValidTrain(route).first()
+            if (validState is ResultState.Error) {
+                _uiState.update {
+                    it.copy(
+                        errorMessage = validState.entity.message
+                    )
+                }
+            }
+            if (validState is ResultState.Success) {
+                _uiState.update {
+                    it.copy(
+                        errorMessage = null
+                    )
+                }
+            }
+        }
     }
 
-    private fun formValidStation(
-        station: Station
-    ): Boolean {
-        val departure = station.timeDeparture
-        val arrival = station.timeArrival
-        return arrival.compareWithNullable(departure)
-    }
+//    private fun formValidStation(
+//        station: Station
+//    ): Boolean {
+//
+//        routeUseCase.isValidTrain(route)
+//        val departure = station.timeDeparture
+//        val arrival = station.timeArrival
+//        return arrival.compareWithNullable(departure)
+//    }
 
     fun setStationName(index: Int, s: String?) {
         onStationEvent(

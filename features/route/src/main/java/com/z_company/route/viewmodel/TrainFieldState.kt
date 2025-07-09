@@ -25,7 +25,7 @@ data class StationFormState(
     val station: StationField = StationField(type = StationDataType.NAME),
     val arrival: StationFieldDate = StationFieldDate(type = StationDataType.ARRIVAL),
     val departure: StationFieldDate = StationFieldDate(type = StationDataType.DEPARTURE),
-    val formValid: StationIsValidField = StationIsValidField(),
+//    val formValid: StationIsValidField = StationIsValidField(),
     val errorMessage: String = ""
 )
 

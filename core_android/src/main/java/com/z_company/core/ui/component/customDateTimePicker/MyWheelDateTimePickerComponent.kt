@@ -5,7 +5,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
@@ -24,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ui.component.customDatePicker.MAX
@@ -102,20 +105,23 @@ object MyWheelDateTimePickerComponent {
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement
+                        .spacedBy(space = 4.dp)
                 ) {
                     Text(
                         text = title,
                         style = titleStyle,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = doneLabel,
-                        style = doneLabelStyle,
                         modifier = Modifier
-                            .noRippleEffect {
-                                onDoneClick(selectedDate)
-                            }
+                            .noRippleEffect { onSettingClick() },
+                        text = "Изменить интерфейс",
+                        color = MaterialTheme.colorScheme.tertiary,
+                        style = MaterialTheme.typography.bodyMedium
                     )
                 }
             }
@@ -137,14 +143,16 @@ object MyWheelDateTimePickerComponent {
                     snappedDateTime.snappedIndex
                 }
             )
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+            Spacer(Modifier.height(12.dp))
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
                 Text(
+                    text = doneLabel,
+                    style = doneLabelStyle,
                     modifier = Modifier
                         .padding(16.dp)
-                        .noRippleEffect { onSettingClick() },
-                    text = "Изменить интерфейс",
-                    color = MaterialTheme.colorScheme.tertiary,
-                    style = MaterialTheme.typography.bodyMedium
+                        .noRippleEffect {
+                            onDoneClick(selectedDate)
+                        }
                 )
             }
         }

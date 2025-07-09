@@ -1,5 +1,6 @@
 package com.z_company.route.viewmodel
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -16,10 +17,13 @@ import com.z_company.domain.entities.route.SearchResponse
 import com.z_company.domain.repositories.HistoryResponseRepository
 import com.z_company.data_local.route.SearchRouteUseCase
 import com.z_company.domain.util.safetySubList
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -44,46 +48,61 @@ class SearchViewModel : ViewModel(), KoinComponent {
     }
 
     fun sendRequest(value: String) {
-        val correctValue = value.trim()
-        if (correctValue.isNotEmpty()) {
-            viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
+            val correctValue = value.trim()
+            if (correctValue.isNotEmpty()) {
                 searchRouteUseCase.searchRoute(
                     correctValue,
                     uiState.value.searchFilter,
                     uiState.value.preliminarySearch
                 ).collect { result ->
+                    Log.d("ZZZ", "search result -> $result")
+                    if (result is SearchStateScreen.Loading){
+                        _uiState.update {
+                            it.copy(
+                                searchState = result,
+                            )
+                        }
+                    }
+//                    delay(500L)
                     if (result is SearchStateScreen.Input) {
                         val resultList: MutableList<String> = result.hints
                             .toMutableList()
                         resultList.removeAll { it.isBlank() }
                         val newList = resultList.safetySubList(0, COUNT_HINTS)
-                        _uiState.update {
-                            it.copy(
-                                isVisibleHistory = true,
-                                isVisibleHints = true,
-                                searchState = result,
-                                hints = newList
-                            )
+                        withContext(Dispatchers.Main) {
+                            _uiState.update {
+                                it.copy(
+                                    isVisibleHistory = true,
+                                    isVisibleHints = true,
+                                    searchState = result,
+                                    hints = newList
+                                )
+                            }
                         }
                     }
                     if (result is SearchStateScreen.Success) {
-                        _uiState.update {
-                            it.copy(
-                                isVisibleHistory = false,
-                                isVisibleHints = false,
-                                isVisibleResult = true,
-                                searchState = result
-                            )
+                        withContext(Dispatchers.Main) {
+                            _uiState.update {
+                                it.copy(
+                                    isVisibleHistory = false,
+                                    isVisibleHints = false,
+                                    isVisibleResult = true,
+                                    searchState = result
+                                )
+                            }
                         }
                     }
                 }
-            }
-        } else {
-            _uiState.update {
-                it.copy(
-                    searchState = SearchStateScreen.Success(null),
-                    isVisibleHistory = true
-                )
+            } else {
+                withContext(Dispatchers.Main) {
+                    _uiState.update {
+                        it.copy(
+                            searchState = SearchStateScreen.Success(null),
+                            isVisibleHistory = true
+                        )
+                    }
+                }
             }
         }
     }
@@ -160,7 +179,7 @@ class SearchViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun onSearch(){
+    fun onSearch() {
         setPreliminarySearch(false)
         sendRequest(query.text)
         addResponse(query.text)

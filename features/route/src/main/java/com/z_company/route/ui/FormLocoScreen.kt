@@ -133,7 +133,7 @@ fun FormLocoScreen(
     onDeleteSectionElectric: (ElectricSectionFormState) -> Unit,
     addingSectionElectric: () -> Unit,
     focusChangedElectricSection: (Int, ElectricSectionType) -> Unit,
-    onExpandStateElectricSection: (Int, Boolean) -> Unit,
+    onExpandStateElectricSection: (Boolean) -> Unit,
     onRefuelValueChanged: (Int, String?) -> Unit,
     onCoefficientValueChanged: (Int, String?) -> Unit,
     exitScreen: () -> Unit,
@@ -300,7 +300,7 @@ private fun LocoFormScreenContent(
     onDeleteSectionElectric: (ElectricSectionFormState) -> Unit,
     addingSectionElectric: () -> Unit,
     focusChangedElectricSection: (Int, ElectricSectionType) -> Unit,
-    onExpandStateElectricSection: (Int, Boolean) -> Unit,
+    onExpandStateElectricSection: (Boolean) -> Unit,
     onRefuelValueChanged: (Int, String?) -> Unit,
     onCoefficientValueChanged: (Int, String?) -> Unit,
     showConfirmExitDialog: Boolean,
@@ -356,7 +356,7 @@ private fun LocoFormScreenContent(
                 modifier = Modifier
                     .fillMaxWidth()
             ) {
-                val focusRequester = remember { FocusRequester() }
+//                val focusRequester = remember { FocusRequester() }
                 ExposedDropdownMenuBox(
                     modifier = Modifier
                         .weight(1f),
@@ -371,13 +371,13 @@ private fun LocoFormScreenContent(
                             )
                         )
                     }
-                    LaunchedEffect(Unit) {
-                        focusRequester.requestFocus()
-                    }
+//                    LaunchedEffect(Unit) {
+//                        focusRequester.requestFocus()
+//                    }
                     OutlinedTextField(
                         modifier = Modifier
                             .menuAnchor()
-                            .focusRequester(focusRequester)
+//                            .focusRequester(focusRequester)
                             .padding(end = 8.dp),
                         value = series,
                         textStyle = dataTextStyle,

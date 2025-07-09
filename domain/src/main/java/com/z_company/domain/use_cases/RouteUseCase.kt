@@ -6,20 +6,25 @@ import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.route.Photo
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.fullRest
-import com.z_company.domain.entities.route.UtilsForEntities.isTimeWorkValid
 import com.z_company.domain.entities.route.UtilsForEntities.shortRest
 import com.z_company.domain.repositories.RouteRepository
 import com.z_company.domain.util.lessThan
 import com.z_company.domain.util.moreThan
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Calendar
 import java.util.Calendar.*
+import kotlinx.coroutines.async
+
 
 class RouteUseCase(private val repository: RouteRepository) {
     fun routeListByMonthFlow(monthOfYear: MonthOfYear, offsetInMoscow: Long): Flow<List<Route>> {
@@ -186,48 +191,147 @@ class RouteUseCase(private val repository: RouteRepository) {
         return repository.loadPhoto(photoId)
     }
 
-    fun isRouteValid(route: Route): ResultState<Unit> {
-        val startTime = route.basicData.timeStartWork
-        val endTime = route.basicData.timeEndWork
-
-        route.passengers.forEach { passenger ->
-            println("zzz startTime $startTime")
-            println("zzz endTime $endTime")
-            println("zzz timeDeparture ${passenger.timeDeparture}")
-            println("zzz timeArrival ${passenger.timeArrival}")
-            if (passenger.timeDeparture.moreThan(endTime)) {
-                return ResultState.Error(
-                    ErrorEntity(message = "Отправление пассажиром позже окончания работы. Невозможно сохранить маршрут.")
-                )
-            }
-            if (passenger.timeDeparture.lessThan(startTime)) {
-                return ResultState.Error(
-                    ErrorEntity(message = "Отправление пассажиром раньше начала работы. Невозможно сохранить маршрут.")
-                )
-            }
-            if (passenger.timeArrival.moreThan(endTime)) {
-                return ResultState.Error(
-                    ErrorEntity(message = "Прибытие пассажиром позже окончания работы. Невозможно сохранить маршрут.")
-                )
-            }
-            if (passenger.timeArrival.lessThan(startTime)) {
-                return ResultState.Error(
-                    ErrorEntity(message = "Прибытие пассажиром раньше начала работы. Невозможно сохранить маршрут.")
-                )
-            }
-            if (passenger.timeArrival.lessThan(passenger.timeDeparture)) {
-                return ResultState.Error(
-                    ErrorEntity(message = "Прибытие пассажиром раньше отправления. Невозможно сохранить маршрут.")
-                )
-            }
-        }
-
-        if (startTime.moreThan(endTime)) {
-            return ResultState.Error(
-                ErrorEntity(message = "Проверьте начало и окончание работы. Невозможно сохранить маршрут.")
+    fun isRouteValid(route: Route): Flow<ResultState<Unit>> {
+        return channelFlow {
+            val flows = listOf(
+                isValidBasicData(route),
+                isValidTrain(route),
+                isValidPassenger(route),
             )
-        } else {
-            return ResultState.Success(Unit)
+            combine(
+                isValidBasicData(route),
+                isValidTrain(route),
+                isValidPassenger(route)
+            ) { arrayResult ->
+                arrayResult.map { result ->
+                    println("ZZZ result $result")
+                    if (result is ResultState.Error) {
+                        trySend(ResultState.Error(result.entity))
+                    }
+                }
+            }.collect {}
+            trySend(ResultState.Success(Unit))
+            awaitClose()
+        }
+    }
+
+    fun isValidBasicData(route: Route): Flow<ResultState<Unit>> {
+        return channelFlow {
+            val startTime = route.basicData.timeStartWork
+            val endTime = route.basicData.timeEndWork
+            if (startTime.moreThan(endTime)) {
+                trySend(
+                    ResultState.Error(
+                        ErrorEntity(message = "Начало работы позже окончания. Невозможно сохранить маршрут.")
+                    )
+                )
+            }
+            trySend(ResultState.Success(Unit))
+            awaitClose()
+        }
+    }
+
+    fun isValidPassenger(route: Route): Flow<ResultState<Unit>> {
+        return channelFlow {
+            val startTime = route.basicData.timeStartWork
+            val endTime = route.basicData.timeEndWork
+
+            route.passengers.forEach { passenger ->
+                if (passenger.timeArrival.lessThan(passenger.timeDeparture)) {
+                    trySend(
+                        ResultState.Error(
+                            ErrorEntity(message = "Прибытие пассажиром раньше отправления. Невозможно сохранить данные.")
+                        )
+                    )
+                }
+                if (passenger.timeDeparture.moreThan(endTime)) {
+                    trySend(
+                        ResultState.Error(
+                            ErrorEntity(message = "Отправление пассажиром позже окончания работы. Невозможно сохранить данные.")
+                        )
+                    )
+                }
+                if (passenger.timeDeparture.lessThan(startTime)) {
+                    trySend(
+                        ResultState.Error(
+                            ErrorEntity(message = "Отправление пассажиром раньше начала работы. Невозможно сохранить данные.")
+                        )
+                    )
+                }
+                if (passenger.timeArrival.moreThan(endTime)) {
+                    trySend(
+                        ResultState.Error(
+                            ErrorEntity(message = "Прибытие пассажиром позже окончания работы. Невозможно сохранить данные.")
+                        )
+                    )
+                }
+                if (passenger.timeArrival.lessThan(startTime)) {
+                    trySend(
+                        ResultState.Error(
+                            ErrorEntity(message = "Прибытие пассажиром раньше начала работы. Невозможно сохранить данные.")
+                        )
+                    )
+                }
+            }
+            trySend(ResultState.Success(Unit))
+            awaitClose()
+        }
+    }
+
+    fun isValidTrain(route: Route): Flow<ResultState<Unit>> {
+        return channelFlow {
+            route.trains.forEach { train ->
+                train.stations.forEachIndexed { index, station ->
+                    val name = station.stationName ?: (index + 1)
+                    if (station.timeDeparture.lessThan(route.basicData.timeStartWork)) {
+                        trySend(
+                            ResultState.Error(
+                                ErrorEntity(message = "Станция $name. Отправление раньше начала работы. Невозможно сохранить данные.")
+                            )
+                        )
+                    }
+                    if (station.timeArrival.lessThan(route.basicData.timeStartWork)) {
+                        trySend(
+                            ResultState.Error(
+                                ErrorEntity(message = "Станция $name. Прибытие раньше начала работы. Невозможно сохранить данные.")
+                            )
+                        )
+                    }
+                    if (station.timeDeparture.moreThan(route.basicData.timeEndWork)) {
+                        trySend(
+                            ResultState.Error(
+                                ErrorEntity(message = "Станция $name. Отправление позже окончания работы. Невозможно сохранить данные.")
+                            )
+                        )
+                    }
+                    if (station.timeArrival.moreThan(route.basicData.timeEndWork)) {
+                        trySend(
+                            ResultState.Error(
+                                ErrorEntity(message = "Станция $name. Прибытие позже окончания работы. Невозможно сохранить данные.")
+                            )
+                        )
+                    }
+                    if (station.timeArrival.moreThan(station.timeDeparture)) {
+                        trySend(
+                            ResultState.Error(
+                                ErrorEntity(message = "Станция $name. Прибытие позже отправления. Невозможно сохранить данные.")
+                            )
+                        )
+                    }
+                    if (index != 0) {
+                        val previousStation = train.stations[index - 1]
+                        if (station.timeDeparture.lessThan(previousStation.timeArrival)) {
+                            trySend(
+                                ResultState.Error(
+                                    ErrorEntity(message = "Отправление со станции $name раньше прибытия на станцию ${previousStation.stationName}. Невозможно сохранить данные.")
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+            trySend(ResultState.Success(Unit))
+            awaitClose()
         }
     }
 

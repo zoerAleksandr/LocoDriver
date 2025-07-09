@@ -617,10 +617,12 @@ class LocoFormViewModel(
         return (acceptedRecovery != null || deliveryRecovery != null)
     }
 
-    fun isExpandElectricItem(index: Int, isExpand: Boolean) {
-        electricSectionListState[index] = electricSectionListState[index].copy(
-            expandItemState = isExpand
-        )
+    fun isExpandElectricItem(isExpand: Boolean) {
+        electricSectionListState.forEachIndexed { index, _ ->
+            electricSectionListState[index] = electricSectionListState[index].copy(
+                expandItemState = isExpand
+            )
+        }
     }
 
     private fun onElectricSectionEvent(event: ElectricSectionEvent) {

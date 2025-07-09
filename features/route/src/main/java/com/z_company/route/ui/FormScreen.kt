@@ -31,22 +31,20 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Clear
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -62,7 +60,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -106,7 +107,6 @@ import com.z_company.route.viewmodel.DialogRestUiState
 import com.z_company.route.viewmodel.FormScreenEvent
 import com.z_company.route.viewmodel.RouteFormUiState
 import com.z_company.route.viewmodel.SalaryForRouteState
-import com.z_company.route.viewmodel.UpdateEvent
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
@@ -209,6 +209,7 @@ fun FormScreen(
                         IconButton(onClick = setFavoriteState) {
                             AnimatedContent(targetState = route.basicData.isFavorite, label = "") {
                                 Icon(
+                                    tint = if (it) MaterialTheme.colorScheme.error else LocalContentColor.current,
                                     imageVector = if (it) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                                     contentDescription = null
                                 )
@@ -354,7 +355,7 @@ private fun RouteFormScreenContent(
     onSalarySettingClick: () -> Unit
 ) {
     val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
-    val errorTextStyle = AppTypography.getType().titleSmall.copy(fontWeight = FontWeight.SemiBold)
+    val errorTextStyle = AppTypography.getType().titleMedium.copy(fontWeight = FontWeight.Normal, color = MaterialTheme.colorScheme.onError)
     val hintStyle = AppTypography.getType().titleLarge
         .copy(
             fontSize = 18.sp,
@@ -505,6 +506,15 @@ private fun RouteFormScreenContent(
         val workTimeInFormatted = ConverterLongToTime.getTimeInStringFormat(workTimeInLong)
 
         item {
+            val widthScreen = LocalConfiguration.current.screenWidthDp.toFloat()
+            val gradient  = Brush.radialGradient(
+                colors = listOf(
+                    MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
+                    MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                ),
+                center = Offset(Float.POSITIVE_INFINITY, 0f),
+                radius = widthScreen * 2
+            )
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -514,26 +524,22 @@ private fun RouteFormScreenContent(
                 errorMessage?.let { message ->
                     Card(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surface
-                        ),
-                        shape = MaterialTheme.shapes.medium
+                            .fillMaxWidth(),
+                        shape = MaterialTheme.shapes.medium,
+                        elevation = CardDefaults.elevatedCardElevation(
+                            defaultElevation = 3.dp,
+                            pressedElevation = 0.dp
+                        )
                     ) {
                         Column(
                             modifier = Modifier
-                                .padding(12.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
+                                .background(
+                                    brush = gradient,
+                                    shape = MaterialTheme.shapes.medium
+                                )
+                                .padding(start = 12.dp,end = 12.dp, bottom = 12.dp, top = 24.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Icon(
-                                modifier = Modifier
-                                    .size(48.dp),
-                                painter = painterResource(R.drawable.dangerous_24px),
-                                tint = MaterialTheme.colorScheme.error,
-                                contentDescription = "Ошибка"
-                            )
                             Text(
                                 text = message,
                                 style = errorTextStyle
@@ -632,6 +638,36 @@ private fun RouteFormScreenContent(
                     }
                 }
             }
+        }
+
+        item {
+            OutlinedTextField(
+                modifier = Modifier
+                    .padding(top = 12.dp)
+                    .fillMaxWidth(),
+                value = route.basicData.number ?: "",
+                onValueChange = onNumberChanged,
+                placeholder = {
+                    Text(text = "маршрута", style = dataTextStyle)
+                },
+                prefix = {
+                    Text(text = "№ ", style = dataTextStyle)
+                },
+                singleLine = true,
+                textStyle = dataTextStyle.copy(
+                    color = MaterialTheme.colorScheme.primary,
+                ),
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent
+                ),
+                shape = Shapes.medium,
+                keyboardOptions = KeyboardOptions.Default.copy(
+                    keyboardType = KeyboardType.Number
+                )
+            )
         }
 
         item {
@@ -804,7 +840,7 @@ private fun RouteFormScreenContent(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 12.dp),
+                    .padding(vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Row(
@@ -882,36 +918,6 @@ private fun RouteFormScreenContent(
                     }
                 }
             }
-        }
-
-        item {
-            OutlinedTextField(
-                modifier = Modifier
-                    .padding(vertical = 16.dp)
-                    .fillMaxWidth(),
-                value = route.basicData.number ?: "",
-                onValueChange = onNumberChanged,
-                placeholder = {
-                    Text(text = "маршрута", style = dataTextStyle)
-                },
-                prefix = {
-                    Text(text = "№ ", style = dataTextStyle)
-                },
-                singleLine = true,
-                textStyle = dataTextStyle.copy(
-                    color = MaterialTheme.colorScheme.primary,
-                ),
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    focusedBorderColor = Color.Transparent,
-                    unfocusedBorderColor = Color.Transparent
-                ),
-                shape = Shapes.medium,
-                keyboardOptions = KeyboardOptions.Default.copy(
-                    keyboardType = KeyboardType.Number
-                )
-            )
         }
 
         item {

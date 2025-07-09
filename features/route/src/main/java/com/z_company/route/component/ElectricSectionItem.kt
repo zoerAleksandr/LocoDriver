@@ -60,7 +60,7 @@ fun ElectricSectionItem(
     onRecoveryAcceptedChanged: (Int, String?) -> Unit,
     onRecoveryDeliveryChanged: (Int, String?) -> Unit,
     focusChangedElectricSection: (Int, ElectricSectionType) -> Unit,
-    onExpandStateChanged: (Int, Boolean) -> Unit
+    onExpandStateChanged: (Boolean) -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
@@ -136,7 +136,6 @@ fun ElectricSectionItem(
                     Icon(
                         modifier = Modifier.clickable {
                             onExpandStateChanged(
-                                index,
                                 !item.expandItemState
                             )
                         },

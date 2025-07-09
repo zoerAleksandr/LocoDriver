@@ -82,6 +82,8 @@ class FormViewModel(
     private val deletedPassengerList = mutableListOf<Passenger>()
     private val deletedPhotoList = mutableListOf<Photo>()
 
+    private var countLoadRoute = 0
+
     private var isNewRoute = if (routeId == NULLABLE_ID) {
         true
     } else {
@@ -262,6 +264,10 @@ class FormViewModel(
         viewModelScope.launch {
             routeUseCase.routeDetails(id).collect { routeState ->
                 if (routeState is ResultState.Success) {
+                    countLoadRoute += 1
+                    if (countLoadRoute > 1) {
+                        changesHave()
+                    }
                     currentRoute = routeState.data
                     currentRoute?.let { route ->
                         calculateRestTime(route)
@@ -449,6 +455,7 @@ class FormViewModel(
                     }
                 }
                 sharedPreferenceStorage.setTokenIsChangeHave(false)
+                countLoadRoute = 0
             }
         }
     }
@@ -504,6 +511,7 @@ class FormViewModel(
                 )
             }
         }
+        countLoadRoute = 0
         sharedPreferenceStorage.setTokenIsChangeHave(false)
     }
 
@@ -735,20 +743,27 @@ class FormViewModel(
     }
 
     fun isValidTime() {
-        val routeDetailState = _uiState.value.routeDetailState
+        viewModelScope.launch {
+            val routeDetailState = _uiState.value.routeDetailState
 
-        if (routeDetailState is ResultState.Success) {
-            routeDetailState.data?.let {
-                val isRouteValid = routeUseCase.isRouteValid(it)
+            if (routeDetailState is ResultState.Success) {
+                routeDetailState.data?.let {
+                    val isRouteValid = routeUseCase.isValidBasicData(it).first()
+                    Log.d("ZZZ", "isValidBasicData $isRouteValid")
 
-                if (isRouteValid is ResultState.Error) {
-                    _uiState.update { formState ->
-                        formState.copy(errorMessage = isRouteValid.entity.message)
+                    if (isRouteValid is ResultState.Error) {
+                        withContext(Dispatchers.Main) {
+                            _uiState.update { formState ->
+                                formState.copy(errorMessage = isRouteValid.entity.message)
+                            }
+                        }
                     }
-                }
-                if (isRouteValid is ResultState.Success) {
-                    _uiState.update { formState ->
-                        formState.copy(errorMessage = null)
+                    if (isRouteValid is ResultState.Success) {
+                        withContext(Dispatchers.Main) {
+                            _uiState.update { formState ->
+                                formState.copy(errorMessage = null)
+                            }
+                        }
                     }
                 }
             }

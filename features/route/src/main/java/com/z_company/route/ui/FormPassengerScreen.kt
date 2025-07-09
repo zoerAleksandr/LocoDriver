@@ -59,7 +59,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextRange
@@ -133,24 +136,6 @@ fun FormPassengerScreen(
             fontWeight = FontWeight.Light
         )
     val titleStyle = AppTypography.getType().headlineMedium.copy(fontWeight = FontWeight.Light)
-//    val scaffoldState = rememberBottomSheetScaffoldState(
-//        bottomSheetState = rememberStandardBottomSheetState(
-//            confirmValueChange = {
-//                it != SheetValue.Hidden
-//            }
-//        )
-//    )
-
-//    if (!errorMessage.isNullOrEmpty()) {
-//        LaunchedEffect(errorMessage) {
-//            scope.launch {
-//                scaffoldState.snackbarHostState.showSnackbar(
-//                    message = errorMessage
-//                )
-//            }
-//            resetError()
-//        }
-//    }
 
     Scaffold(
         modifier = Modifier
@@ -289,7 +274,7 @@ fun PassengerFormScreenContent(
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
     val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
-    val errorTextStyle = AppTypography.getType().titleSmall.copy(fontWeight = FontWeight.SemiBold)
+    val errorTextStyle = AppTypography.getType().titleMedium.copy(fontWeight = FontWeight.Normal, color = MaterialTheme.colorScheme.onError)
 
     AnimatedVisibility(
         modifier = Modifier
@@ -327,29 +312,38 @@ fun PassengerFormScreenContent(
                         )
                     }
                 }
-            } else {
+            }
+        }
+
+        item {
+            errorMessage?.let {
+                val widthScreen = LocalConfiguration.current.screenWidthDp.toFloat()
+                val gradient = Brush.radialGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
+                        MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                    ),
+                    center = Offset(Float.POSITIVE_INFINITY, 0f),
+                    radius = widthScreen * 2
+                )
                 Card(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    ),
-                    shape = MaterialTheme.shapes.medium
+                        .fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium,
+                    elevation = CardDefaults.elevatedCardElevation(
+                        defaultElevation = 3.dp,
+                        pressedElevation = 0.dp
+                    )
                 ) {
                     Column(
                         modifier = Modifier
-                            .padding(12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
+                            .background(
+                                brush = gradient,
+                                shape = MaterialTheme.shapes.medium
+                            )
+                            .padding(start = 12.dp, end = 12.dp, bottom = 12.dp, top = 24.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Icon(
-                            modifier = Modifier
-                                .size(48.dp),
-                            painter = painterResource(R.drawable.dangerous_24px),
-                            tint = MaterialTheme.colorScheme.error,
-                            contentDescription = "Ошибка"
-                        )
                         Text(
                             text = errorMessage,
                             style = errorTextStyle

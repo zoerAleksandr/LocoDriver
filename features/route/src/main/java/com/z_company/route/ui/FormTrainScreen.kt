@@ -30,6 +30,8 @@ import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -56,8 +58,11 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.text.AnnotatedString
@@ -133,16 +138,16 @@ fun FormTrainScreen(
             fontSize = 18.sp,
             fontWeight = FontWeight.Light
         )
-    if (formUiState.errorMessage != null) {
-        LaunchedEffect(Unit) {
-            scope.launch {
-                snackbarHostState.showSnackbar(
-                    message = formUiState.errorMessage
-                )
-                resetErrorMessage()
-            }
-        }
-    }
+//    if (formUiState.errorMessage != null) {
+//        LaunchedEffect(Unit) {
+//            scope.launch {
+//                snackbarHostState.showSnackbar(
+//                    message = formUiState.errorMessage
+//                )
+//                resetErrorMessage()
+//            }
+//        }
+//    }
 
     Scaffold(
         modifier = Modifier
@@ -253,7 +258,8 @@ fun FormTrainScreen(
                         onHideDialogSelectServicePhase = onHideDialogSelectServicePhase,
                         onSelectServicePhase = onSelectServicePhase,
                         selectedServicePhase = selectedServicePhase,
-                        onSettingClick = onSettingClick
+                        onSettingClick = onSettingClick,
+                        errorMessage = formUiState.errorMessage
                     )
                 }
             }
@@ -290,7 +296,8 @@ fun TrainFormScreenContent(
     onHideDialogSelectServicePhase: () -> Unit,
     onSelectServicePhase: (ServicePhase?) -> Unit,
     selectedServicePhase: ServicePhase?,
-    onSettingClick: () -> Unit
+    onSettingClick: () -> Unit,
+    errorMessage: String?
 ) {
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
@@ -442,11 +449,51 @@ fun TrainFormScreenContent(
         horizontalAlignment = Alignment.End,
         contentPadding = PaddingValues(16.dp)
     ) {
+        item {
+            errorMessage?.let {
+                val errorTextStyle = AppTypography.getType().titleMedium.copy(fontWeight = FontWeight.Normal, color = MaterialTheme.colorScheme.onError)
+                val widthScreen = LocalConfiguration.current.screenWidthDp.toFloat()
+                val gradient = Brush.radialGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
+                        MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                    ),
+                    center = Offset(Float.POSITIVE_INFINITY, 0f),
+                    radius = widthScreen * 2
+                )
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium,
+                    elevation = CardDefaults.elevatedCardElevation(
+                        defaultElevation = 3.dp,
+                        pressedElevation = 0.dp
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                brush = gradient,
+                                shape = MaterialTheme.shapes.medium
+                            )
+                            .padding(start = 12.dp, end = 12.dp, bottom = 12.dp, top = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = errorMessage,
+                            style = errorTextStyle
+                        )
+                    }
+                }
+            }
+        }
 
         item {
             Column(
                 modifier = Modifier
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(
