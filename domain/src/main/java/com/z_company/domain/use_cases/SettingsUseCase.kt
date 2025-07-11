@@ -5,18 +5,29 @@ import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.NightTime
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.repositories.SettingsRepository
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class SettingsUseCase(private val settingsRepository: SettingsRepository) {
+
+    fun getTimeZone(timeZoneInMillis: Long = 0L): String {
+            val offsetInMillis = timeZoneInMillis + 10_800_000
+            val offset = offsetInMillis.div(3_600_000L)
+            return "GMT+$offset"
+    }
+
     fun updateMonthOfYearInUserSetting(monthOfYear: MonthOfYear): Flow<ResultState<Unit>> {
         return settingsRepository.updateMonthOfYearInUserSetting(monthOfYear)
     }
+
     fun saveNightTime(nightTime: NightTime): Flow<ResultState<Unit>> {
         return settingsRepository.updateNightTime(nightTime)
     }

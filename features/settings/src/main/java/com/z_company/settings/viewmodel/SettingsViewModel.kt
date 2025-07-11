@@ -86,7 +86,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         TimeZoneRussia("Москва (UTC+3)", oneHourInMillis * 0),
         TimeZoneRussia("Самара (MSK+1, UTC+4)", oneHourInMillis * 1),
         TimeZoneRussia("Екатеринбург (MSK+2, UTC+5)", oneHourInMillis * 2),
-        TimeZoneRussia("Омск (MSK+3, UTC+6),)", oneHourInMillis * 3),
+        TimeZoneRussia("Омск (MSK+3, UTC+6)", oneHourInMillis * 3),
         TimeZoneRussia("Красноярск (MSK+4, UTC+7)", oneHourInMillis * 4),
         TimeZoneRussia("Иркутск (MSK+5, UTC+8)", oneHourInMillis * 5),
         TimeZoneRussia("Якутск (MSK+6, UTC+9)", oneHourInMillis * 6),

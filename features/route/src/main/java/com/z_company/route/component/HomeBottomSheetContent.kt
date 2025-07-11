@@ -29,6 +29,7 @@ import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.isTransition
 import com.z_company.route.R
+import kotlinx.coroutines.flow.StateFlow
 import java.util.Calendar
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -41,6 +42,7 @@ fun HomeBottomSheetContent(
     onRouteLongClick: (Route) -> Unit,
     isExpand: Boolean,
     offsetInMoscow: Long,
+    getTextWorkTime: (Route) -> String
 ) {
     var requiredSize by remember {
         mutableStateOf(22.sp)
@@ -85,7 +87,8 @@ fun HomeBottomSheetContent(
                             changingTextSize = ::changingTextSize,
                             onLongClick = { onRouteLongClick(route) },
                             containerColor = background,
-                            onClick = { onRouteClick(route.basicData.id) }
+                            onClick = { onRouteClick(route.basicData.id) },
+                            getTextWorkTime = getTextWorkTime
                         )
                     }
                     item { Spacer(modifier = Modifier.height(24.dp)) }

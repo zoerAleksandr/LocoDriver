@@ -214,7 +214,7 @@ fun SelectReleaseDaysContent(
                         modifier = Modifier.clickable {
                             showMonthSelectorDialog.value = true
                         },
-                        text = monthOfYear?.month?.getMonthFullText() ?: "",
+                        text = getMonthFullText(monthOfYear?.month),
                         style = styleData
                     )
                     Text(

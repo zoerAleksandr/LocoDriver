@@ -781,7 +781,7 @@ fun SettingScreenContent(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             val currentMonth =
-                                currentSettings.selectMonthOfYear.month.getMonthFullText()
+                                getMonthFullText(currentSettings.selectMonthOfYear.month)
                             AutoSizeText(
                                 maxTextSize = maxTextSize,
                                 text = currentMonth,

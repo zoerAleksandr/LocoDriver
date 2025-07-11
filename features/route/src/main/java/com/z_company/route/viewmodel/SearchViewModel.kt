@@ -18,6 +18,7 @@ import com.z_company.domain.repositories.HistoryResponseRepository
 import com.z_company.data_local.route.SearchRouteUseCase
 import com.z_company.domain.util.safetySubList
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -56,15 +57,15 @@ class SearchViewModel : ViewModel(), KoinComponent {
                     uiState.value.searchFilter,
                     uiState.value.preliminarySearch
                 ).collect { result ->
-                    Log.d("ZZZ", "search result -> $result")
-                    if (result is SearchStateScreen.Loading){
-                        _uiState.update {
-                            it.copy(
-                                searchState = result,
-                            )
+                    if (result is SearchStateScreen.Loading) {
+                        withContext(Dispatchers.Main) {
+                            _uiState.update {
+                                it.copy(
+                                    searchState = result,
+                                )
+                            }
                         }
                     }
-//                    delay(500L)
                     if (result is SearchStateScreen.Input) {
                         val resultList: MutableList<String> = result.hints
                             .toMutableList()
@@ -82,6 +83,7 @@ class SearchViewModel : ViewModel(), KoinComponent {
                         }
                     }
                     if (result is SearchStateScreen.Success) {
+                        Log.d("ZZZ", "$result")
                         withContext(Dispatchers.Main) {
                             _uiState.update {
                                 it.copy(

@@ -90,7 +90,6 @@ import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.DateAndTimeConverter.getDateFromDateLong
-import com.z_company.core.util.DateAndTimeConverter.getDateMiniAndTime
 import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
 import com.z_company.core.util.DateAndTimeConverter.getTimeFromDateLong
 import com.z_company.domain.entities.MonthOfYear
@@ -170,7 +169,9 @@ fun HomeScreen(
     updateEvent: SharedFlow<UpdateEvent>,
     completeUpdateRequested: () -> Unit,
     setFavoriteState: (Route) -> Unit,
-    getSharedIntent: (Route) -> Intent
+    getSharedIntent: (Route) -> Intent,
+    getTextWorkTime: (Route) -> String,
+    getDateMiniAndTime: (Long?) -> String
 ) {
     val view = LocalView.current
     val backgroundColor = MaterialTheme.colorScheme.background
@@ -521,14 +522,14 @@ fun HomeScreen(
                     .fillMaxWidth()
                     .requiredHeightIn(
                         min = heightScreen.times(0.3f).dp,
-                        max = heightScreen.times(0.7f).dp
+                        max = heightScreen.times(0.65f).dp
                     )
                     .padding(start = 12.dp, end = 12.dp, top = 30.dp, bottom = 12.dp)
                     .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
                     .clickable {}
             ) {
                 calculationHomeRest(routeForPreview)
-                PreviewRoute(routeForPreview, minTimeRest, homeRestValue)
+                PreviewRoute(routeForPreview, minTimeRest, homeRestValue, getDateMiniAndTime)
             }
 
             Column(
@@ -784,7 +785,8 @@ fun HomeScreen(
                     routeForPreview = route
                 },
                 isExpand = isExpand,
-                offsetInMoscow = offsetInMoscow
+                offsetInMoscow = offsetInMoscow,
+                getTextWorkTime = getTextWorkTime
             )
         },
         containerColor = MaterialTheme.colorScheme.background,
@@ -852,10 +854,11 @@ fun HomeScreen(
                     onClick = {
                         showMonthSelectorDialog.value = true
                     }) {
+                    val text = currentMonthOfYear?.month?.let {
+                        getMonthFullText(it)
+                    }
                     AutoSizeText(
-                        text = "${
-                            currentMonthOfYear?.month?.getMonthFullText()
-                        } ${currentMonthOfYear?.year}",
+                        text = "$text ${currentMonthOfYear?.year}",
                         style = AppTypography.getType().headlineSmall,
                         maxTextSize = 24.sp,
                         color = MaterialTheme.colorScheme.primary
@@ -1140,7 +1143,12 @@ fun TotalTime(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun PreviewRoute(route: Route?, minTimeRest: Long?, homeRest: ResultState<Long?>) {
+fun PreviewRoute(
+    route: Route?,
+    minTimeRest: Long?,
+    homeRest: ResultState<Long?>,
+    getDateMiniAndTime: (Long?) -> String
+    ) {
     val styleTitle = AppTypography.getType().titleSmall.copy(
         fontWeight = FontWeight.W600,
         color = MaterialTheme.colorScheme.primary

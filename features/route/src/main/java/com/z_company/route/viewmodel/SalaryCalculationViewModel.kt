@@ -121,7 +121,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
             withContext(Dispatchers.Main) {
                 _uiState.update {
                     it.copy(
-                        month = currentMonthOfYear.month.getMonthFullText(),
+                        month = getMonthFullText(currentMonthOfYear.month),
                         normaHours = normaHours,
                         totalWorkTime = totalWorkTime,
                         tariffRate = tariffText

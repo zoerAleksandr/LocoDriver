@@ -63,6 +63,7 @@ import com.z_company.core.ui.component.customDateTimePicker.noRippleEffect
 import com.z_company.core.ui.component.rememberDatePickerStateInLocale
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
+import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.SurchargeExtendedServicePhase
@@ -248,7 +249,7 @@ fun SettingSalaryScreen(
                 ) {
                     AutoSizeText(
                         maxTextSize = maxTextSize,
-                        text = "Новый тариф начнет действовать с $currentDateSetTariffRate ${currentMonthOfYear?.month?.getMonthFullText()} ${currentMonthOfYear?.year.toString()}",
+                        text = "Новый тариф начнет действовать с $currentDateSetTariffRate ${getMonthFullText(currentMonthOfYear?.month)} ${currentMonthOfYear?.year.toString()}",
                         overflow = TextOverflow.Visible,
                         style = styleDataLight.copy(color = MaterialTheme.colorScheme.tertiary)
                     )
@@ -408,7 +409,7 @@ fun SettingSalaryScreen(
 
                             AutoSizeText(
                                 maxTextSize = maxTextSize,
-                                text = currentMonthOfYear?.month?.getMonthFullText() ?: "",
+                                text = getMonthFullText(currentMonthOfYear?.month),
                                 overflow = TextOverflow.Visible,
                                 style = styleDataMedium,
                                 color = MaterialTheme.colorScheme.tertiary
@@ -483,7 +484,7 @@ fun SettingSalaryScreen(
 
                                 AutoSizeText(
                                     maxTextSize = maxTextSize,
-                                    text = currentMonthOfYear.month.getMonthFullText(),
+                                    text = getMonthFullText(currentMonthOfYear.month),
                                     overflow = TextOverflow.Visible,
                                     style = styleDataMedium,
                                     color = MaterialTheme.colorScheme.tertiary

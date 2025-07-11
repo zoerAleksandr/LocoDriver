@@ -26,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -52,8 +53,6 @@ import kotlinx.coroutines.launch
 import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.ui.theme.custom.AppTypography
-import com.z_company.core.util.DateAndTimeConverter.getDateMiniAndTime
-import com.z_company.core.util.DateAndTimeConverter.getTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.route.R
@@ -71,7 +70,8 @@ fun ItemHomeScreen(
     changingTextSize: (TextUnit) -> Unit,
     onLongClick: () -> Unit,
     containerColor: Color,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    getTextWorkTime: (Route) -> String
 ) {
     val revealState = rememberRevealState()
     val scope = rememberCoroutineScope()
@@ -175,20 +175,21 @@ fun ItemHomeScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    val startWork = getDateMiniAndTime(route.basicData.timeStartWork)
+//                    val startWork = getDateMiniAndTime(route.basicData.timeStartWork)
+//
+//                    val isDifference = DateAndTimeConverter.isDifferenceDate(
+//                        first = route.basicData.timeStartWork,
+//                        second = route.basicData.timeEndWork
+//                    )
+//
+//                    val endWork = if (isDifference) {
+//                        getDateMiniAndTime(route.basicData.timeEndWork)
+//                    } else {
+//                        getTime(route.basicData.timeEndWork)
+//                    }
 
-                    val isDifference = DateAndTimeConverter.isDifferenceDate(
-                        first = route.basicData.timeStartWork,
-                        second = route.basicData.timeEndWork
-                    )
-
-                    val endWork = if (isDifference) {
-                        getDateMiniAndTime(route.basicData.timeEndWork)
-                    } else {
-                        getTime(route.basicData.timeEndWork)
-                    }
-
-                    val timeText = "$startWork - $endWork"
+                    val timeText = getTextWorkTime(route)
+//                        "$startWork - $endWork"
 
                     Box(
                         modifier = Modifier
@@ -251,19 +252,20 @@ fun ItemHomeScreen(
                             } else {
                                 ""
                             }
-
-                        AutoSizeText(
-                            text = "$trainNumber$stationStart$stationEnd",
-                            maxTextSize = requiredSizeText,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            style = AppTypography.getType().headlineSmall,
-                            fontWeight = FontWeight.Light,
-                            onTextLayout = { textLayoutResult ->
-                                val size = textLayoutResult.layoutInput.style.fontSize
-                                changingTextSize(size)
-                            }
-                        )
+                        if (!"$trainNumber$stationStart$stationEnd".isBlank()) {
+                            AutoSizeText(
+                                text = "$trainNumber$stationStart$stationEnd",
+                                maxTextSize = requiredSizeText,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = AppTypography.getType().headlineSmall,
+                                fontWeight = FontWeight.Light,
+                                onTextLayout = { textLayoutResult ->
+                                    val size = textLayoutResult.layoutInput.style.fontSize
+                                    changingTextSize(size)
+                                }
+                            )
+                        }
                     }
                 }
 

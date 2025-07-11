@@ -127,7 +127,7 @@ fun DialogSelectMonthOfYear(
                     OutlinedTextField(
                         modifier = Modifier.menuAnchor(),
                         readOnly = true,
-                        value = selectedMonth.getMonthFullText(),
+                        value = getMonthFullText(selectedMonth),
                         onValueChange = { },
                         trailingIcon = {
                             ExposedDropdownMenuDefaults.TrailingIcon(
@@ -150,7 +150,7 @@ fun DialogSelectMonthOfYear(
                     ) {
                         monthList.forEach { month ->
                             DropdownMenuItem(
-                                text = { Text(text = month.getMonthFullText(), style = dataTextStyle) },
+                                text = { Text(text = getMonthFullText(month), style = dataTextStyle) },
                                 onClick = {
                                     selectedMonth = month
                                     expandedMonthMenu = false

@@ -6,6 +6,7 @@ import androidx.compose.runtime.toMutableStateList
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
+import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Locomotive
@@ -982,5 +983,13 @@ class LocoFormViewModel(
                 true
             }
         }
+    }
+
+    fun getDateAndTimeText(long: Long?): String {
+        return DateAndTimeConverter.getDateMiniAndTime(value = long)
+//        return currentSetting?.timeZone?.let { timeZone ->
+//            val timeZoneText = settingsUseCase.getTimeZone(timeZone)
+//            getDateMiniAndTime(value = long, timeZone = timeZoneText)
+//        } ?: ""
     }
 }

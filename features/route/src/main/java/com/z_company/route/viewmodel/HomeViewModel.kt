@@ -11,6 +11,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
+import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHours
@@ -775,6 +776,31 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
 
     fun getUriToRoute(route: Route): Intent {
         return shareManager.createShareIntent(route)
+    }
+
+    fun getTextWorkTime(route: Route): String {
+//        val dateTimeConverter = DateAndTimeConverter()
+        return currentUserSetting?.timeZone?.let { timeZone ->
+        val timeZoneText = settingsUseCase.getTimeZone(timeZone)
+            val startWork =
+                DateAndTimeConverter.getDateMiniAndTime(value = route.basicData.timeStartWork)
+
+            val isDifference = DateAndTimeConverter.isDifferenceDate(
+                first = route.basicData.timeStartWork,
+                second = route.basicData.timeEndWork
+            )
+
+            val endWork = if (isDifference) {
+                DateAndTimeConverter.getDateMiniAndTime(value = route.basicData.timeEndWork)
+            } else {
+                DateAndTimeConverter.getTime(route.basicData.timeEndWork)
+            }
+            return "$startWork - $endWork"
+        } ?: ""
+    }
+
+    fun getDateAndTimeText(long: Long?): String {
+            return DateAndTimeConverter.getDateMiniAndTime(value = long)
     }
 
     init {

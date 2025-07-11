@@ -1,31 +1,33 @@
 package com.z_company.core.util
 
+import com.z_company.domain.use_cases.SettingsUseCase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import java.text.SimpleDateFormat
-import java.util.Calendar
+import java.time.Instant
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.getValue
 
-object DateAndTimeConverter {
-    private val currentTimeInLong = Calendar.getInstance().timeInMillis
-    fun getDayOfMonth(date: Long?): String {
-        val day = Calendar.getInstance().apply {
-            timeInMillis = date ?: currentTimeInLong
-        }.get(Calendar.DAY_OF_MONTH).toString()
+object DateAndTimeConverter : KoinComponent {
+    lateinit var timeZoneText: String
+    private val settingsUseCase: SettingsUseCase by inject()
 
-        return if (day.length == 1) {
-            "0$day"
-        } else {
-            day
+    init {
+        CoroutineScope(Dispatchers.IO).launch {
+            settingsUseCase.getUserSettingFlow().collect { setting ->
+                timeZoneText = settingsUseCase.getTimeZone(setting.timeZone)
+            }
         }
     }
 
-    fun getMonthShorthand(date: Long?): String {
-        return Calendar.getInstance().apply {
-            timeInMillis = date ?: currentTimeInLong
-        }.get(Calendar.MONTH).getMonthShortText()
-    }
-
-    fun Int.getMonthShortText(): String {
-        return when (this) {
+    fun getMonthShortText(value: Int?): String {
+        return when (value) {
             0 -> {
                 MonthShortenedText.JANUARY
             }
@@ -80,8 +82,8 @@ object DateAndTimeConverter {
         }
     }
 
-    fun Int.getMonthFullText(): String {
-        return when (this) {
+    fun getMonthFullText(value: Int?): String {
+        return when (value) {
             0 -> {
                 MonthFullText.JANUARY
             }
@@ -136,7 +138,6 @@ object DateAndTimeConverter {
         }
     }
 
-
     fun getHourInDate(date: Long): Int {
         val totalMinute = date / 60_000
         return (totalMinute / 60).toInt()
@@ -168,77 +169,54 @@ object DateAndTimeConverter {
     }
 
     fun getTime(value: Long?): String {
-        return if (value != null) {
-            SimpleDateFormat(
-                DateAndTimeFormat.TIME_FORMAT, Locale.getDefault()
-            ).format(
-                value
-            )
-        } else {
-            ""
-        }
+        return value?.let { millis ->
+            val instant = Instant.ofEpochMilli(millis)
+            val time = OffsetDateTime.ofInstant(instant, ZoneId.of(timeZoneText))
+            val formatterWithThreeDecimals =
+                DateTimeFormatter.ofPattern(DateAndTimeFormat.TIME_FORMAT)
+            "${time.format(formatterWithThreeDecimals)}"
+        } ?: ""
     }
 
     fun getDateMiniAndTime(value: Long?): String {
-        return if (value != null) {
-            val time = value.let { millis ->
-                SimpleDateFormat(
-                    DateAndTimeFormat.TIME_FORMAT,
-                    Locale.getDefault()
-                ).format(
-                    millis
-                )
+        if (value != null) {
+            value.let { millis ->
+                val instant = Instant.ofEpochMilli(millis)
+                val time = OffsetDateTime.ofInstant(instant, ZoneId.of(timeZoneText))
+                val formatterWithThreeDecimals =
+                    DateTimeFormatter.ofPattern("dd.MM HH:mm")
+                return ("${time.format(formatterWithThreeDecimals)}")
             }
-            val date = value.let { millis ->
-                SimpleDateFormat(
-                    DateAndTimeFormat.MINI_DATE_FORMAT, Locale.getDefault()
-                ).format(
-                    millis
-                )
-            }
-            "$date $time"
         } else {
-            ""
+            return ("")
         }
     }
 
     fun getDateAndTime(value: Long): String {
-        val time = value.let { millis ->
-            SimpleDateFormat(
-                DateAndTimeFormat.TIME_FORMAT,
-                Locale.getDefault()
-            ).format(
-                millis
-            )
-        }
-        val date = value.let { millis ->
-            SimpleDateFormat(
-                DateAndTimeFormat.DATE_FORMAT, Locale.getDefault()
-            ).format(
-                millis
-            )
-        }
-        return "$date $time"
+        val instant = Instant.ofEpochMilli(value)
+        val time = OffsetDateTime.ofInstant(instant, ZoneId.of(timeZoneText))
+        val formatterWithThreeDecimals =
+            DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
+        return ("${time.format(formatterWithThreeDecimals)}")
     }
 
     fun getTimeFromDateLong(value: Long?): String {
         return value?.let { millis ->
-            SimpleDateFormat(
-                DateAndTimeFormat.TIME_FORMAT,
-                Locale.getDefault()
-            ).format(
-                millis
-            )
+            val instant = Instant.ofEpochMilli(value)
+            val time = OffsetDateTime.ofInstant(instant, ZoneId.of(timeZoneText))
+            val formatterWithThreeDecimals =
+                DateTimeFormatter.ofPattern(DateAndTimeFormat.TIME_FORMAT)
+            time.format(formatterWithThreeDecimals)
         } ?: ""
     }
 
     fun getDateFromDateLong(value: Long?): String {
         return value?.let { millis ->
-            SimpleDateFormat(
-                DateAndTimeFormat.DATE_FORMAT, Locale.getDefault()
-            ).format(
-                millis
-            )
+            val instant = Instant.ofEpochMilli(value)
+            val time = OffsetDateTime.ofInstant(instant, ZoneId.of(timeZoneText))
+            val formatterWithThreeDecimals =
+                DateTimeFormatter.ofPattern(DateAndTimeFormat.DATE_FORMAT)
+            time.format(formatterWithThreeDecimals)
         } ?: ""
     }
 

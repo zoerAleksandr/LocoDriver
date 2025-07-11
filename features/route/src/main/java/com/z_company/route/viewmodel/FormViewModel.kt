@@ -30,6 +30,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import ru.rustore.sdk.review.RuStoreReviewManagerFactory
@@ -749,7 +752,6 @@ class FormViewModel(
             if (routeDetailState is ResultState.Success) {
                 routeDetailState.data?.let {
                     val isRouteValid = routeUseCase.isValidBasicData(it).first()
-                    Log.d("ZZZ", "isValidBasicData $isRouteValid")
 
                     if (isRouteValid is ResultState.Error) {
                         withContext(Dispatchers.Main) {

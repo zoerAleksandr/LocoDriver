@@ -58,8 +58,6 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.dimensionResource
@@ -87,7 +85,6 @@ import com.z_company.route.component.BottomShadow
 import com.z_company.route.component.DieselSectionItem
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.component.SelectableDateTimePicker
-import com.z_company.core.ui.component.WheelDateTimePicker
 import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.route.viewmodel.LocoFormUiState
 import java.util.Calendar
@@ -144,7 +141,8 @@ fun FormLocoScreen(
     onExpandedMenuChange: (Boolean) -> Unit,
     onChangedContentMenu: (String) -> Unit,
     onDeleteSeries: (String) -> Unit,
-    onSettingClick: () -> Unit
+    onSettingClick: () -> Unit,
+    getDateMiniAndTime: (Long) -> String
 
 ) {
     val scope = rememberCoroutineScope()
@@ -265,7 +263,8 @@ fun FormLocoScreen(
                             onExpandedMenuChange = onExpandedMenuChange,
                             onChangedContentMenu = onChangedContentMenu,
                             onDeleteSeries = onDeleteSeries,
-                            onSettingClick = onSettingClick
+                            onSettingClick = onSettingClick,
+                            getDateMiniAndTime = getDateMiniAndTime
                         )
                     }
 
@@ -312,7 +311,8 @@ private fun LocoFormScreenContent(
     onExpandedMenuChange: (Boolean) -> Unit,
     onChangedContentMenu: (String) -> Unit,
     onDeleteSeries: (String) -> Unit,
-    onSettingClick: () -> Unit
+    onSettingClick: () -> Unit,
+    getDateMiniAndTime: (Long) -> String
 ) {
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
@@ -356,7 +356,6 @@ private fun LocoFormScreenContent(
                 modifier = Modifier
                     .fillMaxWidth()
             ) {
-//                val focusRequester = remember { FocusRequester() }
                 ExposedDropdownMenuBox(
                     modifier = Modifier
                         .weight(1f),
@@ -371,13 +370,9 @@ private fun LocoFormScreenContent(
                             )
                         )
                     }
-//                    LaunchedEffect(Unit) {
-//                        focusRequester.requestFocus()
-//                    }
                     OutlinedTextField(
                         modifier = Modifier
                             .menuAnchor()
-//                            .focusRequester(focusRequester)
                             .padding(end = 8.dp),
                         value = series,
                         textStyle = dataTextStyle,
@@ -608,7 +603,7 @@ private fun LocoFormScreenContent(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         val dateStartText = locomotive.timeStartOfAcceptance?.let {
-                            DateAndTimeConverter.getDateMiniAndTime(it)
+                            getDateMiniAndTime(it)
                         } ?: "Начало"
                         Text(
                             text = dateStartText,
@@ -630,7 +625,7 @@ private fun LocoFormScreenContent(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         val dateEndText = locomotive.timeEndOfAcceptance?.let {
-                            DateAndTimeConverter.getDateMiniAndTime(it)
+                            getDateMiniAndTime(it)
                         } ?: "Окончание"
 
                         Text(
@@ -723,7 +718,7 @@ private fun LocoFormScreenContent(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         val dateStartText = locomotive.timeStartOfDelivery?.let {
-                            DateAndTimeConverter.getDateMiniAndTime(it)
+                            getDateMiniAndTime(it)
                         } ?: "Начало"
 
                         Text(
@@ -746,7 +741,7 @@ private fun LocoFormScreenContent(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         val dateEndText = locomotive.timeEndOfDelivery?.let {
-                            DateAndTimeConverter.getDateMiniAndTime(it)
+                            getDateMiniAndTime(it)
                         } ?: "Окончание"
                         Text(
                             text = dateEndText,

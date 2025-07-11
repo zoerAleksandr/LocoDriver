@@ -1,5 +1,6 @@
 package com.z_company.data_local.route
 
+import android.util.Log
 import com.z_company.core.ResultState
 import com.z_company.core.util.str
 import com.z_company.domain.entities.FilterSearch
@@ -13,8 +14,10 @@ import com.z_company.domain.util.addAllOrSkip
 import com.z_company.domain.util.addOrReplace
 import com.z_company.domain.util.addOrSkip
 import com.z_company.domain.util.splitBySpaceAndComma
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.channelFlow
 
 class SearchRouteUseCase(val repository: RouteRepository) {
     fun searchRoute(
@@ -22,7 +25,7 @@ class SearchRouteUseCase(val repository: RouteRepository) {
         filter: FilterSearch,
         preliminarySearch: Boolean
     ): Flow<SearchStateScreen<List<RouteWithTag>>> =
-        callbackFlow {
+        channelFlow {
             repository.loadRoutesAsFlow().collect { result ->
                 when (result) {
                     is ResultState.Loading -> trySend(SearchStateScreen.Loading())
@@ -48,67 +51,69 @@ class SearchRouteUseCase(val repository: RouteRepository) {
                                     sortedList.addAllOrSkip(searchInNotes(route, value))
                                 }
                             }
-                            if (preliminarySearch) {
-                                val hintsList = mutableListOf<String>()
+                        }
+                        if (preliminarySearch) {
+                            val hintsList = mutableListOf<String>()
 
-                                sortedList.forEach { routeWithTag: RouteWithTag ->
-                                    val text = when (routeWithTag.tag) {
-                                        SearchTag.BASIC_DATA -> {
-                                            StringBuilder(routeWithTag.route.basicData.str())
-                                        }
-
-                                        SearchTag.LOCO -> {
-                                            val text = StringBuilder()
-                                            routeWithTag.route.locomotives.forEach { loco ->
-                                                text.append("${loco.str()} ")
-                                            }
-                                            text
-                                        }
-
-                                        SearchTag.TRAIN -> {
-                                            val text = StringBuilder()
-                                            routeWithTag.route.trains.forEach { train ->
-                                                text.append("${train.str()} ")
-                                            }
-                                            text
-                                        }
-
-                                        SearchTag.PASSENGER -> {
-                                            val text = StringBuilder()
-                                            routeWithTag.route.passengers.forEach { passenger ->
-                                                text.append(passenger.str())
-                                            }
-                                            text
-                                        }
-
-                                        SearchTag.NOTES -> {
-                                            StringBuilder(routeWithTag.route.basicData.notes.toString())
-                                        }
+                            sortedList.forEach { routeWithTag: RouteWithTag ->
+                                val text = when (routeWithTag.tag) {
+                                    SearchTag.BASIC_DATA -> {
+                                        StringBuilder(routeWithTag.route.basicData.str())
                                     }
 
-                                    val listStrings = text.toString().splitBySpaceAndComma()
-                                    val valueString = value.splitBySpaceAndComma().last()
-
-                                    listStrings.forEachIndexed { index, s ->
-                                        if (s == valueString && index != listStrings.lastIndex) {
-                                            hintsList.addOrSkip(listStrings[index + 1])
-                                        } else if (s.contains(value)) {
-                                            hintsList.addOrSkip(s)
+                                    SearchTag.LOCO -> {
+                                        val text = StringBuilder()
+                                        routeWithTag.route.locomotives.forEach { loco ->
+                                            text.append("${loco.str()} ")
                                         }
+                                        text
+                                    }
+
+                                    SearchTag.TRAIN -> {
+                                        val text = StringBuilder()
+                                        routeWithTag.route.trains.forEach { train ->
+                                            text.append("${train.str()} ")
+                                        }
+                                        text
+                                    }
+
+                                    SearchTag.PASSENGER -> {
+                                        val text = StringBuilder()
+                                        routeWithTag.route.passengers.forEach { passenger ->
+                                            text.append(passenger.str())
+                                        }
+                                        text
+                                    }
+
+                                    SearchTag.NOTES -> {
+                                        StringBuilder(routeWithTag.route.basicData.notes.toString())
                                     }
                                 }
-                                trySend(
-                                    SearchStateScreen.Input(hintsList)
-                                )
-                            } else {
-                                trySend(SearchStateScreen.Success(sortedList.sortedBy { it.route.basicData.timeStartWork }))
+
+                                val listStrings = text.toString().splitBySpaceAndComma()
+                                val valueString = value.splitBySpaceAndComma().last()
+
+                                listStrings.forEachIndexed { index, s ->
+                                    if (s == valueString && index != listStrings.lastIndex) {
+                                        hintsList.addOrSkip(listStrings[index + 1])
+                                    } else if (s.contains(value)) {
+                                        hintsList.addOrSkip(s)
+                                    }
+                                }
                             }
+                            trySend(
+                                SearchStateScreen.Input(hintsList)
+                            )
+                        } else {
+                            Log.d("ZZZ", "result $sortedList")
+                            trySend(SearchStateScreen.Success(sortedList.sortedBy { it.route.basicData.timeStartWork }))
                         }
                     }
 
                     is ResultState.Error -> trySend(SearchStateScreen.Failure(result.entity))
                 }
             }
+            awaitClose()
         }
 }
 

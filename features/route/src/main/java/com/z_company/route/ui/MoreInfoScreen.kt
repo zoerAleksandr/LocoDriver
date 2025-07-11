@@ -125,7 +125,7 @@ fun MoreInfoScreen(
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Text(
-                                text = monthOfYear.month.getMonthFullText(),
+                                text = getMonthFullText(monthOfYear.month),
                                 style = styleDataLight
                             )
                             Text(

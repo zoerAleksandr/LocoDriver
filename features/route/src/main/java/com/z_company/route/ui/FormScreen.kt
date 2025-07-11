@@ -109,6 +109,7 @@ import com.z_company.route.viewmodel.RouteFormUiState
 import com.z_company.route.viewmodel.SalaryForRouteState
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
+import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import java.util.Calendar
@@ -235,19 +236,6 @@ fun FormScreen(
                                 contentDescription = null
                             )
                         }
-//                        TextButton(
-//                            modifier = Modifier
-//                                .padding(end = 16.dp),
-//                            enabled = formUiState.changesHaveState,
-//                            colors = ButtonDefaults.buttonColors(
-//                                containerColor = Color.Transparent,
-//                                disabledContainerColor = Color.Transparent,
-//                                contentColor = MaterialTheme.colorScheme.tertiary
-//                            ),
-//                            onClick = { onSaveClick() }
-//                        ) {
-//                            Text(text = "Сохранить", style = hintStyle)
-//                        }
                     }
                 }, colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
@@ -537,7 +525,7 @@ private fun RouteFormScreenContent(
                                     brush = gradient,
                                     shape = MaterialTheme.shapes.medium
                                 )
-                                .padding(start = 12.dp,end = 12.dp, bottom = 12.dp, top = 24.dp),
+                                .padding(start = 12.dp, end = 12.dp, bottom = 12.dp, top = 24.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Text(
@@ -641,37 +629,11 @@ private fun RouteFormScreenContent(
         }
 
         item {
-            OutlinedTextField(
-                modifier = Modifier
-                    .padding(top = 12.dp)
-                    .fillMaxWidth(),
-                value = route.basicData.number ?: "",
-                onValueChange = onNumberChanged,
-                placeholder = {
-                    Text(text = "маршрута", style = dataTextStyle)
-                },
-                prefix = {
-                    Text(text = "№ ", style = dataTextStyle)
-                },
-                singleLine = true,
-                textStyle = dataTextStyle.copy(
-                    color = MaterialTheme.colorScheme.primary,
-                ),
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    focusedBorderColor = Color.Transparent,
-                    unfocusedBorderColor = Color.Transparent
-                ),
-                shape = Shapes.medium,
-                keyboardOptions = KeyboardOptions.Default.copy(
-                    keyboardType = KeyboardType.Number
-                )
-            )
-        }
-
-        item {
-            AnimatedVisibility(visible = isVisibleDetailMoney) {
+            AnimatedVisibility(
+                visible = isVisibleDetailMoney,
+                enter = fadeIn(animationSpec = tween(durationMillis = 200)),
+                exit = fadeOut(animationSpec = tween(durationMillis = 200))
+                ) {
                 if (salaryForRouteState.isCalculated) {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         if (salaryForRouteState.paymentAtTariffRate == 0.0) {
@@ -834,6 +796,36 @@ private fun RouteFormScreenContent(
                     }
                 }
             }
+        }
+
+        item {
+            OutlinedTextField(
+                modifier = Modifier
+                    .padding(top = 12.dp)
+                    .fillMaxWidth(),
+                value = route.basicData.number ?: "",
+                onValueChange = onNumberChanged,
+                placeholder = {
+                    Text(text = "маршрута", style = dataTextStyle)
+                },
+                prefix = {
+                    Text(text = "№ ", style = dataTextStyle)
+                },
+                singleLine = true,
+                textStyle = dataTextStyle.copy(
+                    color = MaterialTheme.colorScheme.primary,
+                ),
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent
+                ),
+                shape = Shapes.medium,
+                keyboardOptions = KeyboardOptions.Default.copy(
+                    keyboardType = KeyboardType.Number
+                )
+            )
         }
 
         item {
