@@ -24,10 +24,12 @@ object CalculateNightTime {
         }
         val startLocalDateTime = getInstance().also {
             it.timeInMillis = startMillis + offsetInMoscow
+//            + 3_600_000L
         }
 
         val endLocalDateTime = getInstance().also {
             it.timeInMillis = endMillis + offsetInMoscow
+//            + 3_600_000L
         }
         val dateList = mutableListOf<Calendar>()
         dateList.add(startLocalDateTime)

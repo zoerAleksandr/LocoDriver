@@ -343,7 +343,10 @@ private fun RouteFormScreenContent(
     onSalarySettingClick: () -> Unit
 ) {
     val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
-    val errorTextStyle = AppTypography.getType().titleMedium.copy(fontWeight = FontWeight.Normal, color = MaterialTheme.colorScheme.onError)
+    val errorTextStyle = AppTypography.getType().titleMedium.copy(
+        fontWeight = FontWeight.Normal,
+        color = MaterialTheme.colorScheme.onError
+    )
     val hintStyle = AppTypography.getType().titleLarge
         .copy(
             fontSize = 18.sp,
@@ -393,7 +396,7 @@ private fun RouteFormScreenContent(
         isShowPicker = showStartDatePicker,
         initDateTime = startCalendar.timeInMillis,
         onDoneClick = { localDateTime ->
-            val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+            val instant = localDateTime.toInstant(TimeZone.of("GMT+6"))
             val millis = instant.toEpochMilliseconds()
             onTimeStartWorkChanged(millis)
             showStartDatePicker = false
@@ -422,8 +425,7 @@ private fun RouteFormScreenContent(
         isShowPicker = showEndDatePicker,
         initDateTime = endCalendar.timeInMillis,
         onDoneClick = { localDateTime ->
-            Log.d("ZZZ", "localDateTime $localDateTime")
-            val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+            val instant = localDateTime.toInstant(TimeZone.of("GMT+6"))
             val millis = instant.toEpochMilliseconds()
             onTimeEndWorkChanged(millis)
             showEndDatePicker = false
@@ -495,7 +497,7 @@ private fun RouteFormScreenContent(
 
         item {
             val widthScreen = LocalConfiguration.current.screenWidthDp.toFloat()
-            val gradient  = Brush.radialGradient(
+            val gradient = Brush.radialGradient(
                 colors = listOf(
                     MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
                     MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
@@ -633,7 +635,7 @@ private fun RouteFormScreenContent(
                 visible = isVisibleDetailMoney,
                 enter = fadeIn(animationSpec = tween(durationMillis = 200)),
                 exit = fadeOut(animationSpec = tween(durationMillis = 200))
-                ) {
+            ) {
                 if (salaryForRouteState.isCalculated) {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         if (salaryForRouteState.paymentAtTariffRate == 0.0) {

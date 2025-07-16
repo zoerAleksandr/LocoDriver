@@ -23,29 +23,9 @@ object UtilsForEntities : KoinComponent {
         return if (timeEnd != null && timeStart != null) {
             val timeWork = timeEnd - timeStart
             timeWork
-//            val passengerTimeNotIncluded = this.notIncludedPassengerTime()
-//            timeWork.plus(passengerTimeNotIncluded)
         } else {
             null
         }
-    }
-
-    private fun Route.notIncludedPassengerTime(): Long {
-        var resultTime = 0L
-        val startWork = this.basicData.timeStartWork
-        val endWork = this.basicData.timeEndWork
-        if (startWork == null || endWork == null) {
-            return 0L
-        }
-        this.passengers.forEach { passenger ->
-            passenger.timeArrival?.let { arrival ->
-                if (endWork < arrival) {
-                    val time = arrival.minus(endWork)
-                    resultTime = resultTime.plus(time)
-                }
-            }
-        }
-        return resultTime
     }
 
     fun Route.isTimeWorkValid(): Boolean {

@@ -140,28 +140,29 @@ fun SettingsScreen(
             }
         },
         topBar = {
-            TopAppBar(navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        imageVector = ImageVector.vectorResource(id = CoreR.drawable.ic_arrow_back),
-                        contentDescription = stringResource(id = CoreR.string.cd_back)
-                    )
-                }
-            }, title = {
-                Text(text = stringResource(id = CoreR.string.settings), style = titleStyle)
-            }, actions = {
-                TextButton(onClick = onSaveClick) {
-                    Text(
-                        text = "Сохранить",
-                        style = AppTypography.getType().titleLarge
-                            .copy(
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Light,
-                                color = MaterialTheme.colorScheme.tertiary
-                            ),
-                    )
-                }
-            },
+            TopAppBar(
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = ImageVector.vectorResource(id = CoreR.drawable.ic_arrow_back),
+                            contentDescription = stringResource(id = CoreR.string.cd_back)
+                        )
+                    }
+                }, title = {
+                    Text(text = stringResource(id = CoreR.string.settings), style = titleStyle)
+                }, actions = {
+                    TextButton(onClick = onSaveClick) {
+                        Text(
+                            text = "Сохранить",
+                            style = AppTypography.getType().titleLarge
+                                .copy(
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Light,
+                                    color = MaterialTheme.colorScheme.tertiary
+                                ),
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors().copy(
                     containerColor = Color.Transparent,
                 )
@@ -819,8 +820,9 @@ fun SettingScreenContent(
                     Text(
                         modifier = Modifier
                             .padding(start = 16.dp, bottom = 6.dp),
-                        text = "ЧАСОВОЙ ПОЯС",
-                        style = styleTitle
+                        text = "ДОМАШНИЙ ЧАСОВОЙ ПОЯС",
+                        style = styleTitle,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Box(

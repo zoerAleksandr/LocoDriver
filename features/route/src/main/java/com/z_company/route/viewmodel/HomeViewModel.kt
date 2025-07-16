@@ -779,9 +779,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     }
 
     fun getTextWorkTime(route: Route): String {
-//        val dateTimeConverter = DateAndTimeConverter()
         return currentUserSetting?.timeZone?.let { timeZone ->
-        val timeZoneText = settingsUseCase.getTimeZone(timeZone)
             val startWork =
                 DateAndTimeConverter.getDateMiniAndTime(value = route.basicData.timeStartWork)
 
@@ -800,7 +798,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     }
 
     fun getDateAndTimeText(long: Long?): String {
-            return DateAndTimeConverter.getDateMiniAndTime(value = long)
+        return DateAndTimeConverter.getDateMiniAndTime(value = long)
     }
 
     init {
