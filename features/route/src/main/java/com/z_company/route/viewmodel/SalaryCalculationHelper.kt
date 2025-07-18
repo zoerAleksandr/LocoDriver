@@ -911,8 +911,8 @@ class SalaryCalculationHelper(
     private fun getSingleLocomotiveTime(routeList: List<Route>) =
         routeList.getSingleLocomotiveTime()
 
-    private fun getHolidayTime(routeList: List<Route>) =
-        routeList.getWorkingTimeOnAHoliday(currentMonthOfYear, userSettings.timeZone)
+    private suspend fun getHolidayTime(routeList: List<Route>) =
+        routeList.getWorkingTimeOnAHoliday(currentMonthOfYear, userSettings.timeZone).first()
 
     private fun getOvertime(totalWorkTime: Long, personalNormaHoursInLong: Int) =
         if (totalWorkTime > personalNormaHoursInLong) totalWorkTime - personalNormaHoursInLong else 0L

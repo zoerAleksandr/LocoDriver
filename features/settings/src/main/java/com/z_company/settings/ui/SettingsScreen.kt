@@ -64,8 +64,6 @@ import com.z_company.settings.component.SelectedDialog
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
-import com.z_company.core.util.DateAndTimeConverter
-import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
 import com.z_company.domain.entities.User
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
@@ -78,6 +76,8 @@ import com.z_company.core.R as CoreR
 import androidx.compose.ui.text.style.TextOverflow
 import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.ui.component.customDateTimePicker.noRippleEffect
+import com.z_company.core.util.DateAndTimeConverter
+import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
 import com.z_company.domain.entities.ServicePhase
 import com.z_company.domain.entities.TypeDateTimePicker
 import com.z_company.domain.util.toIntOrZero

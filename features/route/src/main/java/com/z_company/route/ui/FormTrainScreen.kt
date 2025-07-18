@@ -128,7 +128,8 @@ fun FormTrainScreen(
     onHideDialogSelectServicePhase: () -> Unit,
     onSelectServicePhase: (ServicePhase?) -> Unit,
     selectedServicePhase: ServicePhase?,
-    onSettingClick: () -> Unit
+    onSettingClick: () -> Unit,
+    timeZoneText: String
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -259,7 +260,8 @@ fun FormTrainScreen(
                         onSelectServicePhase = onSelectServicePhase,
                         selectedServicePhase = selectedServicePhase,
                         onSettingClick = onSettingClick,
-                        errorMessage = formUiState.errorMessage
+                        errorMessage = formUiState.errorMessage,
+                        timeZoneText = timeZoneText
                     )
                 }
             }
@@ -297,7 +299,8 @@ fun TrainFormScreenContent(
     onSelectServicePhase: (ServicePhase?) -> Unit,
     selectedServicePhase: ServicePhase?,
     onSettingClick: () -> Unit,
-    errorMessage: String?
+    errorMessage: String?,
+    timeZoneText: String
 ) {
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
@@ -771,7 +774,8 @@ fun TrainFormScreenContent(
                     onArrivalTimeChanged = onArrivalTimeChanged,
                     onDepartureTimeChanged = onDepartureTimeChanged,
                     onDeleteStationName = onDeleteStationName,
-                    onSettingClick = onSettingClick
+                    onSettingClick = onSettingClick,
+                    timeZoneText = timeZoneText
                 )
             }
         }

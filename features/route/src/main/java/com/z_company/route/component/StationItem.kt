@@ -49,9 +49,9 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
 import com.z_company.core.ui.component.SelectableDateTimePicker
-import com.z_company.core.ui.component.WheelDateTimePicker
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
+import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.DateAndTimeFormat
 import com.z_company.route.viewmodel.StationFormState
 import de.charlex.compose.RevealDirection
@@ -61,9 +61,7 @@ import de.charlex.compose.rememberRevealState
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
-import java.text.SimpleDateFormat
 import java.util.Calendar
-import java.util.Locale
 
 @OptIn(ExperimentalMaterialApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -79,7 +77,8 @@ fun StationItem(
     onDepartureTimeChanged: (Int, Long?) -> Unit,
     onDelete: (StationFormState) -> Unit,
     onDeleteStationName: (String) -> Unit,
-    onSettingClick: () -> Unit
+    onSettingClick: () -> Unit,
+    timeZoneText: String
 ) {
     val focusManager = LocalFocusManager.current
     val revealState = rememberRevealState()
@@ -264,13 +263,8 @@ fun StationItem(
                     contentAlignment = Alignment.Center
                 ) {
                     if (!isFirst) {
-                        val textTimeArrival = stationFormState.arrival.data?.let { millis ->
-                            SimpleDateFormat(
-                                DateAndTimeFormat.TIME_FORMAT,
-                                Locale.getDefault()
-                            ).format(
-                                millis
-                            )
+                        val textTimeArrival = stationFormState.arrival.data?.let {
+                            DateAndTimeConverter.getTimeFromDateLong(it)
                         } ?: DateAndTimeFormat.DEFAULT_TIME_TEXT
 
                         Text(
@@ -293,13 +287,8 @@ fun StationItem(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    val textTimeDeparture = stationFormState.departure.data?.let { millis ->
-                        SimpleDateFormat(
-                            DateAndTimeFormat.TIME_FORMAT,
-                            Locale.getDefault()
-                        ).format(
-                            millis
-                        )
+                    val textTimeDeparture = stationFormState.departure.data?.let {
+                        DateAndTimeConverter.getTimeFromDateLong(it)
                     } ?: DateAndTimeFormat.DEFAULT_TIME_TEXT
 
                     Text(
@@ -318,7 +307,7 @@ fun StationItem(
         isShowPicker = showArrivalDatePicker,
         initDateTime = arrivalDateTime,
         onDoneClick = { localDateTime ->
-            val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+            val instant = localDateTime.toInstant(TimeZone.of(timeZoneText))
             val millis = instant.toEpochMilliseconds()
             onArrivalTimeChanged(index, millis)
             showArrivalDatePicker = false
@@ -334,7 +323,7 @@ fun StationItem(
         isShowPicker = showDepartureDatePicker,
         initDateTime = departureDateTime,
         onDoneClick = { localDateTime ->
-            val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+            val instant = localDateTime.toInstant(TimeZone.of(timeZoneText))
             val millis = instant.toEpochMilliseconds()
             onDepartureTimeChanged(index, millis)
             showDepartureDatePicker = false

@@ -75,6 +75,7 @@ fun FormDestination(
         onSalarySettingClick = router::showSettingSalary,
         event = viewModel.events,
         setFavoriteState = viewModel::setFavoriteRoute,
-        checkIsCorrectTime = viewModel::isValidTime
+        checkIsCorrectTime = viewModel::isValidTime,
+        timeZoneText = viewModel.timeZoneText
     )
 }

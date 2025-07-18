@@ -44,6 +44,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import ru.rustore.sdk.billingclient.RuStoreBillingClient
 import ru.rustore.sdk.billingclient.model.purchase.PurchaseState
@@ -467,47 +468,64 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     }
 
     private fun calculationOfNightTime(routes: List<Route>, settings: UserSettings) {
-        _uiState.update {
-            it.copy(
-                nightTimeInRouteList = ResultState.Loading()
-            )
-        }
-        try {
-            val nightTimeState = routes.getNightTime(settings)
-            _uiState.update {
-                it.copy(
-                    nightTimeInRouteList = ResultState.Success(nightTimeState)
-                )
+        viewModelScope.launch(Dispatchers.IO) {
+            withContext(Dispatchers.Main) {
+                _uiState.update {
+                    it.copy(
+                        nightTimeInRouteList = ResultState.Loading()
+                    )
+                }
             }
-        } catch (e: Exception) {
-            _uiState.update {
-                it.copy(
-                    nightTimeInRouteList = ResultState.Error(ErrorEntity(e))
-                )
+            try {
+                val nightTimeState = routes.getNightTime(settings)
+                withContext(Dispatchers.Main) {
+                    _uiState.update {
+                        it.copy(
+                            nightTimeInRouteList = ResultState.Success(nightTimeState)
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    _uiState.update {
+                        it.copy(
+                            nightTimeInRouteList = ResultState.Error(ErrorEntity(e))
+                        )
+                    }
+                }
             }
         }
     }
 
     private fun calculationHolidayTime(routes: List<Route>, offsetInMoscow: Long) {
-        _uiState.update {
-            it.copy(
-                holidayHours = ResultState.Loading()
-            )
-        }
-        try {
-            currentMonthOfYear?.let { monthOfYear ->
-                val holidayTime = routes.getWorkingTimeOnAHoliday(monthOfYear, offsetInMoscow)
+        viewModelScope.launch(Dispatchers.IO) {
+            withContext(Dispatchers.Main) {
                 _uiState.update {
                     it.copy(
-                        holidayHours = ResultState.Success(holidayTime)
+                        holidayHours = ResultState.Loading()
                     )
                 }
             }
-        } catch (e: Exception) {
-            _uiState.update {
-                it.copy(
-                    nightTimeInRouteList = ResultState.Error(ErrorEntity(e))
-                )
+            try {
+                currentMonthOfYear?.let { monthOfYear ->
+                    val holidayTime =
+                        routes.getWorkingTimeOnAHoliday(monthOfYear, offsetInMoscow).first()
+                    withContext(Dispatchers.Main) {
+                        _uiState.update {
+                            it.copy(
+                                holidayHours = ResultState.Success(holidayTime)
+                            )
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    _uiState.update {
+                        it.copy(
+                            nightTimeInRouteList = ResultState.Error(ErrorEntity(e))
+                        )
+                    }
+                }
             }
         }
     }
@@ -536,7 +554,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         }
     }
 
-    private fun calculationOfTimeWithoutHoliday(routes: List<Route>, offsetInMoscow: Long) {
+    private suspend fun calculationOfTimeWithoutHoliday(routes: List<Route>, offsetInMoscow: Long) {
         currentMonthOfYear?.let { monthOfYear ->
             timeWithoutHoliday = routes.getWorkTimeWithoutHoliday(monthOfYear, offsetInMoscow)
         }

@@ -38,15 +38,12 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import com.z_company.core.ui.theme.Shapes
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberBottomSheetScaffoldState
-import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -64,7 +61,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -85,7 +81,6 @@ import kotlinx.coroutines.launch
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.component.SelectableDateTimePicker
 import com.z_company.core.util.DateAndTimeConverter
-import com.z_company.route.R
 import com.z_company.route.component.ConfirmExitDialog
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
@@ -126,7 +121,8 @@ fun FormPassengerScreen(
     onDeleteStationName: (String) -> Unit,
     onChangedDropDownContentDepartureStation: (String) -> Unit,
     onChangedDropDownContentArrivalStation: (String) -> Unit,
-    onSettingClick: () -> Unit
+    onSettingClick: () -> Unit,
+    timeZoneText: String
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -238,7 +234,8 @@ fun FormPassengerScreen(
                             onDeleteStationName = onDeleteStationName,
                             onChangedDropDownContentDepartureStation = onChangedDropDownContentDepartureStation,
                             onChangedDropDownContentArrivalStation = onChangedDropDownContentArrivalStation,
-                            onSettingClick = onSettingClick
+                            onSettingClick = onSettingClick,
+                            timeZoneText = timeZoneText
                         )
                     }
 
@@ -268,7 +265,8 @@ fun PassengerFormScreenContent(
     onDeleteStationName: (String) -> Unit,
     onChangedDropDownContentDepartureStation: (String) -> Unit,
     onChangedDropDownContentArrivalStation: (String) -> Unit,
-    onSettingClick: () -> Unit
+    onSettingClick: () -> Unit,
+    timeZoneText: String
 ) {
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
@@ -510,7 +508,7 @@ fun PassengerFormScreenContent(
                 isShowPicker = showDepartureDatePicker,
                 initDateTime = departureTime.timeInMillis,
                 onDoneClick = { localDateTime ->
-                    val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+                    val instant = localDateTime.toInstant(TimeZone.of(timeZoneText))
                     val millis = instant.toEpochMilliseconds()
                     onTimeDepartureChanged(millis)
                     showDepartureDatePicker = false
@@ -666,7 +664,7 @@ fun PassengerFormScreenContent(
                 isShowPicker = showArrivalDatePicker,
                 initDateTime = arrivalTime.timeInMillis,
                 onDoneClick = { localDateTime ->
-                    val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+                    val instant = localDateTime.toInstant(TimeZone.of(timeZoneText))
                     val millis = instant.toEpochMilliseconds()
                     onTimeArrivalChanged(millis)
                     showArrivalDatePicker = false

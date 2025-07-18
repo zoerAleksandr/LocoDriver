@@ -1,0 +1,211 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 10,
+    "identityHash": "a1e356b258a0161fc2e605d0612b7ad0",
+    "entities": [
+      {
+        "tableName": "UserSettings",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`settingsKey` TEXT NOT NULL, `minTimeRest` INTEGER NOT NULL, `minTimeHomeRest` INTEGER NOT NULL, `lastEnteredDieselCoefficient` REAL NOT NULL, `nightTime` TEXT NOT NULL, `updateAt` INTEGER NOT NULL, `defaultLocoType` TEXT NOT NULL, `defaultWorkTime` INTEGER NOT NULL, `usingDefaultWorkTime` INTEGER NOT NULL, `isConsiderFutureRoute` INTEGER NOT NULL DEFAULT 1, `monthOfYear` TEXT NOT NULL, `isVisibleNightTime` INTEGER NOT NULL DEFAULT 1, `isVisiblePassengerTime` INTEGER NOT NULL DEFAULT 1, `isVisibleRelationTime` INTEGER NOT NULL DEFAULT 1, `isVisibleHolidayTime` INTEGER NOT NULL DEFAULT 1, `isVisibleExtendedServicePhase` INTEGER NOT NULL DEFAULT 1, `stationList` TEXT NOT NULL DEFAULT '[]', `timeZone` INTEGER NOT NULL DEFAULT 0, `locomotiveSeriesList` TEXT NOT NULL DEFAULT '[]', `servicePhases` TEXT NOT NULL DEFAULT '[]', `dateTimePickerType` TEXT NOT NULL DEFAULT 'Барабан', PRIMARY KEY(`settingsKey`))",
+        "fields": [
+          {
+            "fieldPath": "settingsKey",
+            "columnName": "settingsKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "minTimeRest",
+            "columnName": "minTimeRest",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "minTimeHomeRest",
+            "columnName": "minTimeHomeRest",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastEnteredDieselCoefficient",
+            "columnName": "lastEnteredDieselCoefficient",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nightTime",
+            "columnName": "nightTime",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updateAt",
+            "columnName": "updateAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "defaultLocoType",
+            "columnName": "defaultLocoType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "defaultWorkTime",
+            "columnName": "defaultWorkTime",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "usingDefaultWorkTime",
+            "columnName": "usingDefaultWorkTime",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isConsiderFutureRoute",
+            "columnName": "isConsiderFutureRoute",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "monthOfYear",
+            "columnName": "monthOfYear",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isVisibleNightTime",
+            "columnName": "isVisibleNightTime",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "isVisiblePassengerTime",
+            "columnName": "isVisiblePassengerTime",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "isVisibleRelationTime",
+            "columnName": "isVisibleRelationTime",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "isVisibleHolidayTime",
+            "columnName": "isVisibleHolidayTime",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "isVisibleExtendedServicePhase",
+            "columnName": "isVisibleExtendedServicePhase",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "stationList",
+            "columnName": "stationList",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'[]'"
+          },
+          {
+            "fieldPath": "timeZone",
+            "columnName": "timeZone",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "locomotiveSeriesList",
+            "columnName": "locomotiveSeriesList",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'[]'"
+          },
+          {
+            "fieldPath": "servicePhases",
+            "columnName": "servicePhases",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'[]'"
+          },
+          {
+            "fieldPath": "dateTimePickerType",
+            "columnName": "dateTimePickerType",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'Барабан'"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "settingsKey"
+          ]
+        }
+      },
+      {
+        "tableName": "MonthOfYear",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `year` INTEGER NOT NULL, `month` INTEGER NOT NULL, `days` TEXT NOT NULL, `tariffRate` REAL NOT NULL DEFAULT 0.0, `dateSetTariffRate` TEXT DEFAULT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "year",
+            "columnName": "year",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "month",
+            "columnName": "month",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "days",
+            "columnName": "days",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tariffRate",
+            "columnName": "tariffRate",
+            "affinity": "REAL",
+            "notNull": true,
+            "defaultValue": "0.0"
+          },
+          {
+            "fieldPath": "dateSetTariffRate",
+            "columnName": "dateSetTariffRate",
+            "affinity": "TEXT",
+            "defaultValue": "NULL"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'a1e356b258a0161fc2e605d0612b7ad0')"
+    ]
+  }
+}

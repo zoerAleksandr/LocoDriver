@@ -74,7 +74,6 @@ import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
-import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.LocoTypeHelper.converterLocoTypeToString
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Locomotive
@@ -142,8 +141,8 @@ fun FormLocoScreen(
     onChangedContentMenu: (String) -> Unit,
     onDeleteSeries: (String) -> Unit,
     onSettingClick: () -> Unit,
-    getDateMiniAndTime: (Long) -> String
-
+    getDateMiniAndTime: (Long) -> String,
+    timeZoneText: String
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -264,10 +263,10 @@ fun FormLocoScreen(
                             onChangedContentMenu = onChangedContentMenu,
                             onDeleteSeries = onDeleteSeries,
                             onSettingClick = onSettingClick,
-                            getDateMiniAndTime = getDateMiniAndTime
+                            getDateMiniAndTime = getDateMiniAndTime,
+                            timeZoneText = timeZoneText
                         )
                     }
-
                 }
             }
         }
@@ -312,7 +311,8 @@ private fun LocoFormScreenContent(
     onChangedContentMenu: (String) -> Unit,
     onDeleteSeries: (String) -> Unit,
     onSettingClick: () -> Unit,
-    getDateMiniAndTime: (Long) -> String
+    getDateMiniAndTime: (Long) -> String,
+    timeZoneText: String
 ) {
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
@@ -537,7 +537,7 @@ private fun LocoFormScreenContent(
                 isShowPicker = showStartAcceptedDatePicker,
                 initDateTime = startAcceptedCalendar.timeInMillis,
                 onDoneClick = { localDateTime ->
-                    val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+                    val instant = localDateTime.toInstant(TimeZone.of(timeZoneText))
                     val millis = instant.toEpochMilliseconds()
                     onStartAcceptedTimeChanged(millis)
                     showStartAcceptedDatePicker = false
@@ -565,7 +565,7 @@ private fun LocoFormScreenContent(
                 isShowPicker = showEndAcceptedDatePicker,
                 initDateTime = endAcceptedCalendar.timeInMillis,
                 onDoneClick = { localDateTime ->
-                    val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+                    val instant = localDateTime.toInstant(TimeZone.of(timeZoneText))
                     val millis = instant.toEpochMilliseconds()
                     onEndAcceptedTimeChanged(millis)
                     showEndAcceptedDatePicker = false
@@ -653,7 +653,7 @@ private fun LocoFormScreenContent(
                 isShowPicker = showStartDeliveryDatePicker,
                 initDateTime = startDeliveryCalendar.timeInMillis,
                 onDoneClick = { localDateTime ->
-                    val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+                    val instant = localDateTime.toInstant(TimeZone.of(timeZoneText))
                     val millis = instant.toEpochMilliseconds()
                     onStartDeliveryTimeChanged(millis)
                     showStartDeliveryDatePicker = false
@@ -680,7 +680,7 @@ private fun LocoFormScreenContent(
                 isShowPicker = showEndDeliveryDatePicker,
                 initDateTime = endDeliveryCalendar.timeInMillis,
                 onDoneClick = { localDateTime ->
-                    val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+                    val instant = localDateTime.toInstant(TimeZone.of(timeZoneText))
                     val millis = instant.toEpochMilliseconds()
                     onEndDeliveryTimeChanged(millis)
                     showEndDeliveryDatePicker = false

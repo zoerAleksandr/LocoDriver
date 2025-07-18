@@ -5,6 +5,7 @@ import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.TimePeriod
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getTimeInCurrentMonth
+import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.util.CalculateNightTime
 import com.z_company.domain.util.div
 import com.z_company.domain.util.lessThan
@@ -12,11 +13,18 @@ import com.z_company.domain.util.minus
 import com.z_company.domain.util.moreThan
 import com.z_company.domain.util.plus
 import com.z_company.domain.util.toIntOrZero
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.first
 import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import java.util.Calendar
 import java.util.TimeZone
+import kotlin.getValue
 
 object UtilsForEntities : KoinComponent {
+    private val settingsUseCase: SettingsUseCase by inject()
     fun Route.getWorkTime(): Long? {
         val timeEnd = this.basicData.timeEndWork
         val timeStart = this.basicData.timeStartWork
@@ -305,7 +313,7 @@ object UtilsForEntities : KoinComponent {
         return totalTime
     }
 
-    fun List<Route>.getNightTime(userSettings: UserSettings): Long {
+    suspend fun List<Route>.getNightTime(userSettings: UserSettings): Long {
         var nightTime = 0L
         val startNightHour = userSettings.nightTime.startNightHour
         val startNightMinute = userSettings.nightTime.startNightMinute
@@ -324,7 +332,7 @@ object UtilsForEntities : KoinComponent {
                         hourEnd = endNightHour,
                         minuteEnd = endNightMinute,
                         offsetInMoscow = userSettings.timeZone
-                    )
+                    ).first()
                 nightTime = nightTime.plus(nightTimeInRoute) ?: 0L
             } else {
                 val nightTimeInRoute = CalculateNightTime.getNightTime(
@@ -335,7 +343,7 @@ object UtilsForEntities : KoinComponent {
                     hourEnd = endNightHour,
                     minuteEnd = endNightMinute,
                     offsetInMoscow = userSettings.timeZone
-                )
+                ).first()
                 nightTime = nightTime.plus(nightTimeInRoute) ?: 0L
             }
         }
@@ -371,57 +379,63 @@ object UtilsForEntities : KoinComponent {
         return singleLocoTimeFollowing
     }
 
-    fun List<Route>.getWorkingTimeOnAHoliday(monthOfYear: MonthOfYear, offsetInMoscow: Long): Long {
-        var holidayTime = 0L
+    fun List<Route>.getWorkingTimeOnAHoliday(monthOfYear: MonthOfYear, offsetInMoscow: Long): Flow<Long> {
+        return channelFlow {
+            var holidayTime = 0L
 
-        val holidayList = monthOfYear.days.filter { it.tag == TagForDay.HOLIDAY }
-        if (holidayList.isNotEmpty()) {
-            holidayList.forEach { day ->
-                val startHolidayInLong = Calendar.getInstance().also {
-                    it.set(Calendar.YEAR, monthOfYear.year)
-                    it.set(Calendar.MONTH, monthOfYear.month)
-                    it.set(Calendar.DAY_OF_MONTH, day.dayOfMonth)
-                    it.set(Calendar.HOUR_OF_DAY, 0)
-                    it.set(Calendar.MINUTE, 0)
-                    it.set(Calendar.SECOND, 0)
-                    it.set(Calendar.MILLISECOND, 0)
-                }.timeInMillis
+            val setting = settingsUseCase.getUserSettingFlow().first()
+            val timeZoneText = async { settingsUseCase.getTimeZone(setting.timeZone) }
+            val timeZone = timeZoneText.await()
+            val holidayList = monthOfYear.days.filter { it.tag == TagForDay.HOLIDAY }
+            if (holidayList.isNotEmpty()) {
+                holidayList.forEach { day ->
+                    val startHolidayInLong =
+                        Calendar.getInstance(TimeZone.getTimeZone(timeZone)).also {
+                            it.set(Calendar.YEAR, monthOfYear.year)
+                            it.set(Calendar.MONTH, monthOfYear.month)
+                            it.set(Calendar.DAY_OF_MONTH, day.dayOfMonth)
+                            it.set(Calendar.HOUR_OF_DAY, 0)
+                            it.set(Calendar.MINUTE, 0)
+                            it.set(Calendar.SECOND, 0)
+                            it.set(Calendar.MILLISECOND, 0)
+                        }.timeInMillis
 
-                val endHoliday = Calendar.getInstance().also {
-                    it.set(Calendar.YEAR, monthOfYear.year)
-                    it.set(Calendar.MONTH, monthOfYear.month)
-                    it.set(Calendar.DAY_OF_MONTH, day.dayOfMonth)
-                    it.set(Calendar.HOUR_OF_DAY, 0)
-                    it.set(Calendar.MINUTE, 0)
-                    it.set(Calendar.SECOND, 0)
-                    it.set(Calendar.MILLISECOND, 0)
-                }
-                endHoliday.add(Calendar.DATE, 1)
+                    val endHoliday = Calendar.getInstance(TimeZone.getTimeZone(timeZone)).also {
+                        it.set(Calendar.YEAR, monthOfYear.year)
+                        it.set(Calendar.MONTH, monthOfYear.month)
+                        it.set(Calendar.DAY_OF_MONTH, day.dayOfMonth)
+                        it.set(Calendar.HOUR_OF_DAY, 0)
+                        it.set(Calendar.MINUTE, 0)
+                        it.set(Calendar.SECOND, 0)
+                        it.set(Calendar.MILLISECOND, 0)
+                    }
+                    endHoliday.add(Calendar.DATE, 1)
 
-                val endHolidayInLong = endHoliday.timeInMillis
+                    val endHolidayInLong = endHoliday.timeInMillis
 
-                this.forEach { route ->
-                    route.timeInLongInPeriod(
-                        startDate = startHolidayInLong - offsetInMoscow,
-                        endDate = endHolidayInLong - offsetInMoscow
-                    )?.let { timeInPeriod ->
-                        if (timeInPeriod > 0) {
-                            holidayTime += timeInPeriod
+                    this@getWorkingTimeOnAHoliday.forEach { route ->
+                        route.timeInLongInPeriod(
+                            startDate = startHolidayInLong - offsetInMoscow,
+                            endDate = endHolidayInLong - offsetInMoscow
+                        )?.let { timeInPeriod ->
+                            if (timeInPeriod > 0) {
+                                holidayTime += timeInPeriod
+                            }
                         }
                     }
                 }
             }
-        }
 
-        return holidayTime
+            trySend(holidayTime)
+        }
     }
 
-    fun List<Route>.getWorkTimeWithoutHoliday(
+    suspend fun List<Route>.getWorkTimeWithoutHoliday(
         monthOfYear: MonthOfYear,
         offsetInMoscow: Long
     ): Long {
         val totalWorkTime = this.getWorkTime(monthOfYear, offsetInMoscow)
-        val holidayWorkTime = this.getWorkingTimeOnAHoliday(monthOfYear, offsetInMoscow)
+        val holidayWorkTime = this.getWorkingTimeOnAHoliday(monthOfYear, offsetInMoscow).first()
         return totalWorkTime - holidayWorkTime
     }
 

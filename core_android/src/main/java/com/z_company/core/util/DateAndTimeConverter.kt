@@ -3,6 +3,9 @@ package com.z_company.core.util
 import com.z_company.domain.use_cases.SettingsUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -13,9 +16,10 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.getValue
+import kotlinx.coroutines.flow.channelFlow
 
 object DateAndTimeConverter : KoinComponent {
-    lateinit var timeZoneText: String
+    private lateinit var timeZoneText: String
     private val settingsUseCase: SettingsUseCase by inject()
 
     init {

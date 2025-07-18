@@ -1,7 +1,5 @@
 package com.z_company.route.ui
 
-import android.util.Log
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,7 +18,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DatePicker
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -40,7 +37,6 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -59,16 +55,13 @@ import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncDataValue
 import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.ui.component.CustomSnackBar
-import com.z_company.core.ui.component.customDateTimePicker.noRippleEffect
 import com.z_company.core.ui.component.rememberDatePickerStateInLocale
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
-import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.SurchargeExtendedServicePhase
 import com.z_company.domain.entities.SurchargeHeavyTrains
-import com.z_company.domain.entities.timestamp
 import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.CustomDatePickerDialog
 import com.z_company.route.viewmodel.SettingSalaryUIState

@@ -109,7 +109,6 @@ import com.z_company.route.viewmodel.RouteFormUiState
 import com.z_company.route.viewmodel.SalaryForRouteState
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
-import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import java.util.Calendar
@@ -151,7 +150,8 @@ fun FormScreen(
     onSalarySettingClick: () -> Unit,
     event: SharedFlow<FormScreenEvent>,
     setFavoriteState: () -> Unit,
-    checkIsCorrectTime: () -> Unit
+    checkIsCorrectTime: () -> Unit,
+    timeZoneText: String
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -299,7 +299,8 @@ fun FormScreen(
                             exitWithoutSave = exitWithoutSave,
                             dialogRestUiState = dialogRestUiState,
                             salaryForRouteState = salaryForRouteState,
-                            onSalarySettingClick = onSalarySettingClick
+                            onSalarySettingClick = onSalarySettingClick,
+                            timeZoneText = timeZoneText
                         )
                     }
                 }
@@ -340,7 +341,8 @@ private fun RouteFormScreenContent(
     exitWithoutSave: () -> Unit,
     dialogRestUiState: DialogRestUiState,
     salaryForRouteState: SalaryForRouteState,
-    onSalarySettingClick: () -> Unit
+    onSalarySettingClick: () -> Unit,
+    timeZoneText: String
 ) {
     val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
     val errorTextStyle = AppTypography.getType().titleMedium.copy(
@@ -396,7 +398,8 @@ private fun RouteFormScreenContent(
         isShowPicker = showStartDatePicker,
         initDateTime = startCalendar.timeInMillis,
         onDoneClick = { localDateTime ->
-            val instant = localDateTime.toInstant(TimeZone.of("GMT+6"))
+            Log.d("zzz", "in UI $timeZoneText")
+            val instant = localDateTime.toInstant(TimeZone.of(timeZoneText))
             val millis = instant.toEpochMilliseconds()
             onTimeStartWorkChanged(millis)
             showStartDatePicker = false
@@ -425,7 +428,7 @@ private fun RouteFormScreenContent(
         isShowPicker = showEndDatePicker,
         initDateTime = endCalendar.timeInMillis,
         onDoneClick = { localDateTime ->
-            val instant = localDateTime.toInstant(TimeZone.of("GMT+6"))
+            val instant = localDateTime.toInstant(TimeZone.of(timeZoneText))
             val millis = instant.toEpochMilliseconds()
             onTimeEndWorkChanged(millis)
             showEndDatePicker = false

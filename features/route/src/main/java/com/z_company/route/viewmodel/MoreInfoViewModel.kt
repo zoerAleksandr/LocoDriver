@@ -19,6 +19,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -106,7 +107,7 @@ class MoreInfoViewModel: ViewModel(), KoinComponent {
                                                 passengerTime
                                             ),
                                             holidayWorkTimeState = ResultState.Success(
-                                                holidayWorkTime
+                                                holidayWorkTime.first()
                                             ),
                                             workTimeWithHoliday = ResultState.Success(
                                                 workTimeWithHoliday

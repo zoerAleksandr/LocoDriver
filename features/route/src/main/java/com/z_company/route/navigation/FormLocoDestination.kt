@@ -63,7 +63,7 @@ fun FormLocoDestination(
         onChangedContentMenu = viewModel::onChangedDropDownContent,
         onDeleteSeries = viewModel::removeSeries,
         onSettingClick = router::showSettings,
-        getDateMiniAndTime = viewModel::getDateAndTimeText
+        getDateMiniAndTime = viewModel::getDateAndTimeText,
+        timeZoneText = viewModel.timeZoneText
     )
-
 }

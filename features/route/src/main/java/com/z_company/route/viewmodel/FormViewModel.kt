@@ -37,6 +37,7 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import ru.rustore.sdk.review.RuStoreReviewManagerFactory
 import ru.rustore.sdk.review.model.ReviewInfo
+import java.util.Calendar
 import java.util.UUID
 
 class FormViewModel(
@@ -86,6 +87,7 @@ class FormViewModel(
     private val deletedPhotoList = mutableListOf<Photo>()
 
     private var countLoadRoute = 0
+    var timeZoneText: String = "GMT+3"
 
     private var isNewRoute = if (routeId == NULLABLE_ID) {
         true
@@ -360,6 +362,9 @@ class FormViewModel(
         loadSettingsJob?.cancel()
         loadSettingsJob = settingsUseCase.getFlowCurrentSettingsState().onEach { result ->
             if (result is ResultState.Success) {
+                result.data?.let { setting ->
+                    timeZoneText = settingsUseCase.getTimeZone(setting.timeZone)
+                }
                 _dialogRestUiState.update {
                     it.copy(
                         minTimeRestPointOfTurnover = result.data?.minTimeRestPointOfTurnover,
@@ -577,36 +582,41 @@ class FormViewModel(
     }
 
     fun setTimeStartWork(timeInLong: Long?) {
-        currentRoute = currentRoute?.copy(
-            basicData = currentRoute!!.basicData.copy(
-                timeStartWork = timeInLong
-            )
-        )
-        if (currentRoute?.basicData?.timeEndWork == null && usingDefaultWorkTime) {
-
-            val endNightTime = timeInLong + defaultWorkTime
+        viewModelScope.launch {
             currentRoute = currentRoute?.copy(
                 basicData = currentRoute!!.basicData.copy(
-                    timeEndWork = endNightTime
+                    timeStartWork = timeInLong
                 )
             )
+            if (currentRoute?.basicData?.timeEndWork == null && usingDefaultWorkTime) {
+
+                val endNightTime = timeInLong + defaultWorkTime
+                currentRoute = currentRoute?.copy(
+                    basicData = currentRoute!!.basicData.copy(
+                        timeEndWork = endNightTime
+                    )
+                )
+            }
+            calculateRestTime(currentRoute!!)
+            getNightTimeInRoute(currentRoute!!)
+            isValidTime()
+            changesHave()
         }
-        calculateRestTime(currentRoute!!)
-        getNightTimeInRoute(currentRoute!!)
-        isValidTime()
-        changesHave()
     }
 
     fun setTimeEndWork(timeInLong: Long?) {
-        currentRoute = currentRoute?.copy(
-            basicData = currentRoute!!.basicData.copy(
-                timeEndWork = timeInLong
+        viewModelScope.launch {
+
+            currentRoute = currentRoute?.copy(
+                basicData = currentRoute!!.basicData.copy(
+                    timeEndWork = timeInLong
+                )
             )
-        )
-        calculateRestTime(currentRoute!!)
-        getNightTimeInRoute(currentRoute!!)
-        isValidTime()
-        changesHave()
+            calculateRestTime(currentRoute!!)
+            getNightTimeInRoute(currentRoute!!)
+            isValidTime()
+            changesHave()
+        }
     }
 
     fun setRestValue(value: Boolean) {
@@ -647,7 +657,7 @@ class FormViewModel(
         }
     }
 
-    private fun getNightTimeInRoute(route: Route) {
+    private suspend fun getNightTimeInRoute(route: Route) {
         nightTime?.let { time ->
             _uiState.update {
                 it.copy(
@@ -659,7 +669,7 @@ class FormViewModel(
                         hourEnd = time.endNightHour,
                         minuteEnd = time.endNightMinute,
                         offsetInMoscow = currentTimeZoneOffset ?: 0L
-                    )
+                    ).first()
                 )
             }
         }

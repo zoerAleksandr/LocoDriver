@@ -17,12 +17,16 @@ import com.z_company.domain.entities.route.UtilsForEntities.timeFollowingSingleL
 import com.z_company.domain.util.sum
 import com.z_company.domain.util.toDoubleOrZero
 import com.z_company.domain.util.toIntOrZero
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
 class SalaryCalculationUseCase : KoinComponent {
     private val salarySettingUseCase: SalarySettingUseCase by inject()
-    private fun getWorkTimeAtTariff(
+    private suspend fun getWorkTimeAtTariff(
         routeList: List<Route>,
         userSettings: UserSettings
     ): Long {
@@ -59,13 +63,13 @@ class SalaryCalculationUseCase : KoinComponent {
         return singleLocoTimeFollowing
     }
 
-    private fun getHolidayTime(
+    private suspend fun getHolidayTime(
         routeList: List<Route>,
         userSettings: UserSettings,
         currentMonthOfYear: MonthOfYear
-    ) = routeList.getWorkingTimeOnAHoliday(currentMonthOfYear, userSettings.timeZone)
+    ) = routeList.getWorkingTimeOnAHoliday(currentMonthOfYear, userSettings.timeZone).first()
 
-    fun getMoneyAtHoliday(
+    suspend fun getMoneyAtHoliday(
         routeList: List<Route>,
         userSettings: UserSettings,
     ): Double {
@@ -91,7 +95,7 @@ class SalaryCalculationUseCase : KoinComponent {
         return passengerTime.times(userSettings.selectMonthOfYear.tariffRate)
     }
 
-    fun getMoneyAtNightTime(
+    suspend fun getMoneyAtNightTime(
         routeList: List<Route>,
         userSettings: UserSettings,
     ): Double {
@@ -100,7 +104,7 @@ class SalaryCalculationUseCase : KoinComponent {
         return nightTimeHours.times(userSettings.selectMonthOfYear.tariffRate * (paymentNightTimePercent / 100))
     }
 
-    private fun getNightTime(
+    private suspend fun getNightTime(
         routeList: List<Route>,
         settings: UserSettings
     ) = routeList.getNightTime(settings)
@@ -117,7 +121,7 @@ class SalaryCalculationUseCase : KoinComponent {
         currentMonthOfYear: MonthOfYear
     ) = routeList.getWorkTime(currentMonthOfYear, userSettings.timeZone)
 
-    fun getMoneyAtWorkTimeAtTariff(
+    suspend fun getMoneyAtWorkTimeAtTariff(
         routeList: List<Route>,
         userSettings: UserSettings,
     ): Double {
@@ -146,7 +150,7 @@ class SalaryCalculationUseCase : KoinComponent {
         return totalWorkTime - passengerTime
     }
 
-     fun getMoneyListSurchargeExtendedServicePhase(
+    fun getMoneyListSurchargeExtendedServicePhase(
         routeList: List<Route>,
         userSettings: UserSettings
     ): MutableList<Double> {
@@ -220,7 +224,7 @@ class SalaryCalculationUseCase : KoinComponent {
         return onePersonOperationTime.times(userSettings.selectMonthOfYear.tariffRate * (salarySetting.onePersonOperationPercent / 100))
     }
 
-    fun getMoneyNordicSurcharge(
+    suspend fun getMoneyNordicSurcharge(
         routeList: List<Route>,
         userSettings: UserSettings
     ): Double {
@@ -231,7 +235,7 @@ class SalaryCalculationUseCase : KoinComponent {
     }
 
 
-    fun getMoneyDistrictSurcharge(
+    suspend fun getMoneyDistrictSurcharge(
         routeList: List<Route>,
         userSettings: UserSettings
     ): Double {
@@ -252,7 +256,7 @@ class SalaryCalculationUseCase : KoinComponent {
     }
 
 
-    private fun getMoneyAtPaymentOvertime(
+    private suspend fun getMoneyAtPaymentOvertime(
         routeList: List<Route>,
         userSettings: UserSettings,
     ): Double {
@@ -266,7 +270,7 @@ class SalaryCalculationUseCase : KoinComponent {
         return overTime.times(overtimeMoneyOfOneHour)
     }
 
-    private fun getMoneyAtSurchargeOvertime05(
+    private suspend fun getMoneyAtSurchargeOvertime05(
         routeList: List<Route>,
         userSettings: UserSettings,
         salarySetting: SalarySetting
@@ -292,7 +296,7 @@ class SalaryCalculationUseCase : KoinComponent {
         }
     }
 
-    private fun getMoneyAtSurchargeOvertime(
+    private suspend fun getMoneyAtSurchargeOvertime(
         routeList: List<Route>,
         userSettings: UserSettings,
         salarySetting: SalarySetting
@@ -313,7 +317,7 @@ class SalaryCalculationUseCase : KoinComponent {
         if (overTime > surchargeAtOvertime05Hour) overTime - surchargeAtOvertime05Hour else 0L
 
 
-    private fun getBasicMoneyForOvertimeCalculation(
+    private suspend fun getBasicMoneyForOvertimeCalculation(
         routeList: List<Route>,
         userSettings: UserSettings,
     ): Double {
@@ -354,14 +358,14 @@ class SalaryCalculationUseCase : KoinComponent {
     fun getOtherSurchargeMoney(
         routeList: List<Route>,
         userSettings: UserSettings,
-    ): Double{
+    ): Double {
         val salarySetting = salarySettingUseCase.getSalarySetting()
         val otherSurchargePercent = salarySetting.otherSurcharge
         val baseForZonalSurcharge = getBasicTimeForCalculationSurcharge(routeList, userSettings)
         return baseForZonalSurcharge.times(userSettings.selectMonthOfYear.tariffRate * (otherSurchargePercent / 100))
     }
 
-    private fun getBaseMoney(
+    private suspend fun getBaseMoney(
         routeList: List<Route>,
         userSettings: UserSettings,
         salarySetting: SalarySetting

@@ -22,8 +22,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ui.component.toDp
 import com.z_company.core.util.DateAndTimeConverter
-//import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
-//import com.z_company.core.util.DateAndTimeConverter.getMonthShortText
 import kotlinx.datetime.LocalDate
 
 @Composable

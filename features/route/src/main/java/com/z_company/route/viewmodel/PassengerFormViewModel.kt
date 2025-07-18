@@ -46,6 +46,8 @@ class PassengerFormViewModel(
 
     private var route: Route = Route()
 
+    var timeZoneText: String = "GMT+3"
+
     private var loadPassengerJob: Job? = null
     private var savePassengerJob: Job? = null
 
@@ -66,6 +68,7 @@ class PassengerFormViewModel(
         }
 
     init {
+        viewModelScope.launch {
         if (passengerId == NULLABLE_ID) {
             isNewPassenger = true
             currentPassenger = Passenger(basicId = basicId)
@@ -73,7 +76,12 @@ class PassengerFormViewModel(
             isNewPassenger = false
             loadPassenger(passengerId!!)
         }
-        viewModelScope.launch {
+        val initJob = this.launch {
+            val setting = settingsUseCase.getUserSettingFlow().first()
+            timeZoneText = settingsUseCase.getTimeZone(setting.timeZone)
+        }
+        initJob.join()
+
             combine(
                 settingsUseCase.getFlowCurrentSettingsState(),
                 routeUseCase.routeDetails(basicId)
