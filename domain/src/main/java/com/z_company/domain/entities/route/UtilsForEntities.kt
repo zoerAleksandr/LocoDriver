@@ -379,7 +379,10 @@ object UtilsForEntities : KoinComponent {
         return singleLocoTimeFollowing
     }
 
-    fun List<Route>.getWorkingTimeOnAHoliday(monthOfYear: MonthOfYear, offsetInMoscow: Long): Flow<Long> {
+    fun List<Route>.getWorkingTimeOnAHoliday(
+        monthOfYear: MonthOfYear,
+        offsetInMoscow: Long
+    ): Flow<Long> {
         return channelFlow {
             var holidayTime = 0L
 
@@ -627,25 +630,26 @@ object UtilsForEntities : KoinComponent {
             }
         }
         if (distanceInterval.contains(summaryDistance)) {
-            trainsWithDistance.forEach { train ->
-                var timeDeparture = train.stations.firstOrNull()?.timeDeparture
-                var timeArrival = train.stations.lastOrNull()?.timeArrival
-                if (timeDeparture == null || timeArrival == null || timeDeparture > timeArrival) {
-                    return@forEach
-                } else {
-                    val startWork = workInterval.first
-                    val endWork = workInterval.last
-                    if (endWork < timeDeparture) return@forEach
-                    if (startWork > timeArrival) return@forEach
-                    if (startWork > timeDeparture) {
-                        timeDeparture = startWork
-                    }
-                    if (endWork < timeArrival) {
-                        timeArrival = endWork
-                    }
-                    summaryTimeFollowing += timeArrival - timeDeparture
-                }
-            }
+            val startWork = workInterval.first
+            val endWork = workInterval.last
+            summaryTimeFollowing += endWork - startWork
+//            trainsWithDistance.forEach { train ->
+//                var timeDeparture = train.stations.firstOrNull()?.timeDeparture
+//                var timeArrival = train.stations.lastOrNull()?.timeArrival
+//                if (timeDeparture == null || timeArrival == null || timeDeparture > timeArrival) {
+//                    return@forEach
+//                } else {
+//                    if (endWork < timeDeparture) return@forEach
+//                    if (startWork > timeArrival) return@forEach
+//                    if (startWork > timeDeparture) {
+//                        timeDeparture = startWork
+//                    }
+//                    if (endWork < timeArrival) {
+//                        timeArrival = endWork
+//                    }
+//                    summaryTimeFollowing += timeArrival - timeDeparture
+//                }
+//            }
         }
         return summaryTimeFollowing
     }
@@ -659,27 +663,32 @@ object UtilsForEntities : KoinComponent {
         this.trains.forEach { train ->
             val weight = train.weight.toIntOrZero()
             if (searchIntervalWeight.contains(weight)) {
-                var timeDeparture: Long? = train.stations.firstOrNull()?.timeDeparture
-                var timeArrival: Long? = train.stations.lastOrNull()?.timeArrival
                 val startWork = this.basicData.timeStartWork
                 val endWork = this.basicData.timeEndWork
-                if (startWork == null || endWork == null) {
-                    return@forEach
+                if (startWork != null && endWork != null) {
+                    resultTime += endWork - startWork
                 }
-                if (timeDeparture == null || timeArrival == null || timeDeparture > timeArrival) {
-                    return@forEach
-                } else {
-
-                    if (endWork < timeDeparture) 0L
-                    if (startWork > timeArrival) 0L
-                    if (startWork > timeDeparture) {
-                        timeDeparture = startWork
-                    }
-                    if (endWork < timeArrival) {
-                        timeArrival = endWork
-                    }
-                    resultTime += (timeArrival - timeDeparture)
-                }
+//                var timeDeparture: Long? = train.stations.firstOrNull()?.timeDeparture
+//                var timeArrival: Long? = train.stations.lastOrNull()?.timeArrival
+//                val startWork = this.basicData.timeStartWork
+//                val endWork = this.basicData.timeEndWork
+//                if (startWork == null || endWork == null) {
+//                    return@forEach
+//                }
+//                if (timeDeparture == null || timeArrival == null || timeDeparture > timeArrival) {
+//                    return@forEach
+//                } else {
+//
+//                    if (endWork < timeDeparture) 0L
+//                    if (startWork > timeArrival) 0L
+//                    if (startWork > timeDeparture) {
+//                        timeDeparture = startWork
+//                    }
+//                    if (endWork < timeArrival) {
+//                        timeArrival = endWork
+//                    }
+//                    resultTime += (timeArrival - timeDeparture)
+//                }
             }
         }
 
@@ -691,23 +700,25 @@ object UtilsForEntities : KoinComponent {
         workInterval: LongRange
     ): Long {
         val time = if (this.conditionalLength.toIntOrZero() > lengthIsLongDistance) {
-            var timeDeparture = this.stations.firstOrNull()?.timeDeparture
-            var timeArrival = this.stations.lastOrNull()?.timeArrival
-            if (timeDeparture == null || timeArrival == null || timeDeparture > timeArrival) {
-                0L
-            } else {
+            // расчет времени от отправления для прибытия
+//            var timeDeparture = this.stations.firstOrNull()?.timeDeparture
+//            var timeArrival = this.stations.lastOrNull()?.timeArrival
+//            if (timeDeparture == null || timeArrival == null || timeDeparture > timeArrival) {
+//                0L
+//            } else {
                 val startWork = workInterval.first
                 val endWork = workInterval.last
-                if (endWork < timeDeparture) 0L
-                if (startWork > timeArrival) 0L
-                if (startWork > timeDeparture) {
-                    timeDeparture = startWork
-                }
-                if (endWork < timeArrival) {
-                    timeArrival = endWork
-                }
-                timeArrival - timeDeparture
-            }
+            endWork - startWork
+//                if (endWork < timeDeparture) 0L
+//                if (startWork > timeArrival) 0L
+//                if (startWork > timeDeparture) {
+//                    timeDeparture = startWork
+//                }
+//                if (endWork < timeArrival) {
+//                    timeArrival = endWork
+//                }
+//                timeArrival - timeDeparture
+//            }
         } else {
             0L
         }

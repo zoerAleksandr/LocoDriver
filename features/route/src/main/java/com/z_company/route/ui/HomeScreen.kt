@@ -1057,7 +1057,7 @@ fun HomeScreen(
             ) {
                 AsyncDataValue(resultState = totalTimeWithHoliday) { time ->
                     AutoSizeText(
-                        text = "Всего отработано: ${ConverterLongToTime.getTimeInStringFormat(time)}",
+                        text = "Всего: ${ConverterLongToTime.getTimeInStringFormat(time)}",
                         style = AppTypography.getType().headlineSmall,
                         maxTextSize = 24.sp,
                         fontWeight = FontWeight.Light,
@@ -1068,7 +1068,7 @@ fun HomeScreen(
             Spacer(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(heightScreen.times(0.12f).dp)
+                    .height(heightScreen.times(0.10f).dp)
             )
             ButtonLocoDriver(
                 modifier = Modifier
