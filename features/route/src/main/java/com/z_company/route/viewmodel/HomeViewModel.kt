@@ -13,19 +13,29 @@ import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.MonthOfYear
+import com.z_company.domain.entities.SalarySetting
+import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHours
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.UtilsForEntities
 import com.z_company.domain.entities.route.UtilsForEntities.getHomeRest
+import com.z_company.domain.entities.route.UtilsForEntities.getLongDistanceTime
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
+import com.z_company.domain.entities.route.UtilsForEntities.getTimeInHeavyTrain
+import com.z_company.domain.entities.route.UtilsForEntities.getTimeInServicePhase
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeWithoutHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
+import com.z_company.domain.entities.route.UtilsForEntities.timeInLongInPeriod
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.CalendarUseCase
+import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.domain.util.toIntOrZero
 import com.z_company.repository.Back4AppManager
 import com.z_company.repository.ShareManager
 import kotlinx.coroutines.Job
@@ -40,6 +50,7 @@ import org.koin.core.component.inject
 import java.util.Calendar.getInstance
 import com.z_company.use_case.RuStoreUseCase
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -55,12 +66,15 @@ import ru.rustore.sdk.appupdate.model.AppUpdateOptions
 import ru.rustore.sdk.appupdate.model.AppUpdateType
 import ru.rustore.sdk.appupdate.model.InstallStatus
 import ru.rustore.sdk.appupdate.model.UpdateAvailability
+import java.util.Calendar
+import java.util.TimeZone
 
 class HomeViewModel(application: Application) : AndroidViewModel(application = application),
     KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
+    private val salarySettingUseCase: SalarySettingUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val billingClient: RuStoreBillingClient by inject()
     private val ruStoreUseCase: RuStoreUseCase by inject()
@@ -79,6 +93,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState = _uiState.asStateFlow()
+
+    private lateinit var salarySetting: SalarySetting
 
     private val _previewRouteUiState = MutableStateFlow(PreviewRouteUiState())
     val previewRouteUiState = _previewRouteUiState.asStateFlow()
@@ -173,6 +189,91 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                 isFavorite = !route.basicData.isFavorite
             ).collect {}
         }
+    }
+
+    fun isHeavyTrains(route: Route): Boolean {
+        val surchargeListSorted = salarySetting.surchargeHeavyTrainsList.sortedBy {
+            it.weight
+        }
+        val timeList: MutableList<Long> = mutableListOf()
+        surchargeListSorted.forEachIndexed { index, _ ->
+            var totalTimeHeavyTrain = 0L
+            totalTimeHeavyTrain += route.getTimeInHeavyTrain(
+                surchargeListSorted.map { it.weight.toIntOrZero() },
+                index
+            )
+
+            timeList.add(totalTimeHeavyTrain)
+        }
+        return timeList.sum() > 0
+    }
+
+    fun isExtendedServicePhaseTrains(route: Route): Boolean {
+        val phaseList =
+            salarySetting.surchargeExtendedServicePhaseList.sortedBy {
+                it.distance
+            }
+
+        val timeList: MutableList<Long> = mutableListOf()
+        phaseList.forEachIndexed { index, _ ->
+            var totalTimeInServicePhase = 0L
+            val timeInRoute = route.getTimeInServicePhase(
+                phaseList.map { it.distance.toIntOrNull() ?: 0 },
+                index
+            )
+            totalTimeInServicePhase += timeInRoute
+
+            timeList.add(totalTimeInServicePhase)
+        }
+        timeList
+        return timeList.sum() > 0
+    }
+
+    fun isHolidayTimeInRoute(route: Route): Boolean {
+        var holidayTime = 0L
+        currentMonthOfYear?.let { monthOfYear ->
+            currentUserSetting?.let { userSetting ->
+                val timeZone = settingsUseCase.getTimeZone(userSetting.timeZone)
+                val holidayList = monthOfYear.days.filter { it.tag == TagForDay.HOLIDAY }
+                if (holidayList.isNotEmpty()) {
+                    holidayList.forEach { day ->
+                        val startHolidayInLong =
+                            getInstance(TimeZone.getTimeZone(timeZone)).also {
+                                it.set(Calendar.YEAR, monthOfYear.year)
+                                it.set(Calendar.MONTH, monthOfYear.month)
+                                it.set(Calendar.DAY_OF_MONTH, day.dayOfMonth)
+                                it.set(Calendar.HOUR_OF_DAY, 0)
+                                it.set(Calendar.MINUTE, 0)
+                                it.set(Calendar.SECOND, 0)
+                                it.set(Calendar.MILLISECOND, 0)
+                            }.timeInMillis
+
+                        val endHoliday = getInstance(TimeZone.getTimeZone(timeZone)).also {
+                            it.set(Calendar.YEAR, monthOfYear.year)
+                            it.set(Calendar.MONTH, monthOfYear.month)
+                            it.set(Calendar.DAY_OF_MONTH, day.dayOfMonth)
+                            it.set(Calendar.HOUR_OF_DAY, 0)
+                            it.set(Calendar.MINUTE, 0)
+                            it.set(Calendar.SECOND, 0)
+                            it.set(Calendar.MILLISECOND, 0)
+                        }
+                        endHoliday.add(Calendar.DATE, 1)
+
+                        val endHolidayInLong = endHoliday.timeInMillis
+
+                        route.timeInLongInPeriod(
+                            startDate = startHolidayInLong - userSetting.timeZone,
+                            endDate = endHolidayInLong - userSetting.timeZone
+                        )?.let { timeInPeriod ->
+                            if (timeInPeriod > 0) {
+                                holidayTime += timeInPeriod
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return holidayTime > 0
     }
 
     fun checkPurchasesAvailability() {
@@ -368,7 +469,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
             }
         }
 
-    private fun loadSetting() {
+    fun loadSetting() {
         loadSettingJob?.cancel()
         loadSettingJob = viewModelScope.launch {
             settingsUseCase.getFlowCurrentSettingsState().collect { result ->
@@ -788,10 +889,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         sharedPreferenceStorage.setTokenIsFirstAppEntry(false)
     }
 
-    fun loadData() {
-        loadSetting()
-    }
-
     fun getUriToRoute(route: Route): Intent {
         return shareManager.createShareIntent(route)
     }
@@ -819,8 +916,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         return DateAndTimeConverter.getDateMiniAndTime(value = long)
     }
 
+    private fun loadSalarySetting() {
+        viewModelScope.launch {
+            salarySetting = salarySettingUseCase.salarySettingFlow().first()
+        }
+    }
+
     init {
-        loadData()
+        loadSalarySetting()
+        loadSetting()
         checkLoginToAccount()
         initListStationAndLocomotiveSeries()
         sharedPreferenceStorage.enableShowingUpdatePresentation()

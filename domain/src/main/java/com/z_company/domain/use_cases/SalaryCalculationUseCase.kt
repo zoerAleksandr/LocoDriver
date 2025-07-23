@@ -8,6 +8,7 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.getLongDistanceTime
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getOnePersonOperationTime
+import com.z_company.domain.entities.route.UtilsForEntities.getOnePersonOperationTimePassengerTrain
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getTimeInHeavyTrain
 import com.z_company.domain.entities.route.UtilsForEntities.getTimeInServicePhase
@@ -224,12 +225,23 @@ class SalaryCalculationUseCase : KoinComponent {
         return onePersonOperationTime.times(userSettings.selectMonthOfYear.tariffRate * (salarySetting.onePersonOperationPercent / 100))
     }
 
+    fun getMoneyAtOnePersonOperationPassengerTrain(
+        routeList: List<Route>,
+        userSettings: UserSettings,
+    ): Double {
+        val salarySetting = salarySettingUseCase.getSalarySetting()
+        val currentMonthOfYear = userSettings.selectMonthOfYear
+        val onePersonOperationTimePassengerTrain =
+            routeList.getOnePersonOperationTimePassengerTrain(currentMonthOfYear, userSettings.timeZone)
+        return onePersonOperationTimePassengerTrain.times(userSettings.selectMonthOfYear.tariffRate * (salarySetting.onePersonOperationPassengerTrainPercent / 100))
+    }
+
     suspend fun getMoneyNordicSurcharge(
         routeList: List<Route>,
         userSettings: UserSettings
     ): Double {
         val salarySetting = salarySettingUseCase.getSalarySetting()
-        val baseForCalculation = getBaseMoney(routeList, userSettings, salarySetting)
+        val baseForCalculation = getBaseMoney(routeList, userSettings)
         val nordicSurchargePercent = salarySetting.nordicPercent
         return baseForCalculation.times(nordicSurchargePercent / 100)
     }
@@ -240,7 +252,7 @@ class SalaryCalculationUseCase : KoinComponent {
         userSettings: UserSettings
     ): Double {
         val salarySetting = salarySettingUseCase.getSalarySetting()
-        val baseForCalculation = getBaseMoney(routeList, userSettings, salarySetting)
+        val baseForCalculation = getBaseMoney(routeList, userSettings)
         val districtCoefficient = salarySetting.districtCoefficient
         return baseForCalculation.times(districtCoefficient / 100)
     }
@@ -273,7 +285,6 @@ class SalaryCalculationUseCase : KoinComponent {
     private suspend fun getMoneyAtSurchargeOvertime05(
         routeList: List<Route>,
         userSettings: UserSettings,
-        salarySetting: SalarySetting
     ): Double {
         val baseMoneyForOvertime =
             getBasicMoneyForOvertimeCalculation(routeList, userSettings)
@@ -299,7 +310,6 @@ class SalaryCalculationUseCase : KoinComponent {
     private suspend fun getMoneyAtSurchargeOvertime(
         routeList: List<Route>,
         userSettings: UserSettings,
-        salarySetting: SalarySetting
     ): Double {
         val baseMoneyForOvertime =
             getBasicMoneyForOvertimeCalculation(routeList, userSettings)
@@ -333,6 +343,8 @@ class SalaryCalculationUseCase : KoinComponent {
             getMoneyListSurchargeExtendedServicePhase(routeList, userSettings).sum()
         val surchargeOnePersonOperationMoney =
             getMoneyAtOnePersonOperation(routeList, userSettings)
+        val surchargeOnePersonOperationMoneyPassengerTrain =
+            getMoneyAtOnePersonOperationPassengerTrain(routeList, userSettings)
         val surchargeHarmfulnessSurchargeMoney =
             getMoneyAtHarmfulness(routeList, userSettings)
         val surchargeLongDistanceTrainsMoney = getMoneyAtLongDistanceTrain(routeList, userSettings)
@@ -341,6 +353,7 @@ class SalaryCalculationUseCase : KoinComponent {
                 paymentAtSingleLocomotiveMoney + zonalSurchargeMoney +
                 paymentNightTimeMoney + surchargeQualificationClassMoney +
                 surchargeExtendedServicePhaseMoney + surchargeOnePersonOperationMoney +
+                surchargeOnePersonOperationMoneyPassengerTrain +
                 surchargeHarmfulnessSurchargeMoney + surchargeLongDistanceTrainsMoney +
                 surchargeHeavyTrains
     }
@@ -368,7 +381,6 @@ class SalaryCalculationUseCase : KoinComponent {
     private suspend fun getBaseMoney(
         routeList: List<Route>,
         userSettings: UserSettings,
-        salarySetting: SalarySetting
     ): Double {
         val paymentAtTariffMoney =
             getMoneyAtWorkTimeAtTariff(routeList, userSettings)
@@ -387,13 +399,16 @@ class SalaryCalculationUseCase : KoinComponent {
             getMoneyAtPaymentOvertime(routeList, userSettings)
 
         val surchargeAtOvertime05Money =
-            getMoneyAtSurchargeOvertime05(routeList, userSettings, salarySetting)
+            getMoneyAtSurchargeOvertime05(routeList, userSettings)
 
         val surchargeAtOvertimeMoney =
-            getMoneyAtSurchargeOvertime(routeList, userSettings, salarySetting)
+            getMoneyAtSurchargeOvertime(routeList, userSettings)
 
         val surchargeOnePersonOperationMoney =
             getMoneyAtOnePersonOperation(routeList, userSettings)
+
+        val surchargeOnePersonOperationMoneyPassengerTrain =
+            getMoneyAtOnePersonOperationPassengerTrain(routeList, userSettings)
 
         val surchargeHarmfulnessSurchargeMoney =
             getMoneyAtHarmfulness(routeList, userSettings)
@@ -410,7 +425,8 @@ class SalaryCalculationUseCase : KoinComponent {
                 paymentHolidayMoney + surchargeHolidayMoney +
                 zonalSurchargeMoney + paymentNightTimeMoney +
                 surchargeQualificationClassMoney + surchargeExtendedServicePhaseMoney +
-                surchargeOnePersonOperationMoney + surchargeHarmfulnessSurchargeMoney +
-                surchargeLongDistanceTrainsMoney + surchargeHeavyTrains + otherSurcharge
+                surchargeOnePersonOperationMoney + surchargeOnePersonOperationMoneyPassengerTrain +
+                surchargeHarmfulnessSurchargeMoney + surchargeLongDistanceTrainsMoney +
+                surchargeHeavyTrains + otherSurcharge
     }
 }

@@ -55,6 +55,11 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private var loadLoginJob: Job? = null
     private var loadCalendarJob: Job? = null
 
+    fun getAllRouteRemote(){
+        viewModelScope.launch(Dispatchers.IO) {
+            back4AppManager.getAllRouteRemote()
+        }
+    }
 
     var currentSettings: UserSettings?
         get() {

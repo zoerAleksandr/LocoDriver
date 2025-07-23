@@ -9,6 +9,7 @@ import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHoursInDate
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getOnePersonOperationTime
+import com.z_company.domain.entities.route.UtilsForEntities.getOverOnePersonOperationTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeWithoutHoliday
@@ -91,7 +92,7 @@ class MoreInfoViewModel: ViewModel(), KoinComponent {
                                     workTimeWithHoliday - settings.selectMonthOfYear.getPersonalNormaHours()
                                         .times(3_600_000)
                                 val onePersonTime =
-                                    routeList.getOnePersonOperationTime(
+                                    routeList.getOverOnePersonOperationTime(
                                         settings.selectMonthOfYear,
                                         settings.timeZone
                                     )

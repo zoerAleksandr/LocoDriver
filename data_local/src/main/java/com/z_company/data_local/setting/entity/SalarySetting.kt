@@ -27,6 +27,8 @@ internal data class SalarySetting(
     val nordicCoefficient: Double,
     @ColumnInfo(defaultValue = "0.0")
     val onePersonOperationPercent: Double,
+    @ColumnInfo(defaultValue = "50.0")
+    val onePersonOperationPassengerTrainPercent: Double,
     @ColumnInfo(defaultValue = "0.0")
     val harmfulnessPercent: Double,
     var surchargeQualificationClass: Double,

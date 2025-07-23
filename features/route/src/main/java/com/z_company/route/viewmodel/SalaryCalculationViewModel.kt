@@ -88,6 +88,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                                     setQualificationClassSurchargeData(salarySetting)
                                     setSurchargeExtendedServicePhase()
                                     setSurchargeOnePersonOperationData()
+                                    setSurchargeOnePersonOperationPassengerTrainData()
                                     setSurchargeHarmfulnessData()
                                     setSurchargeLongDistanceData()
                                     setSurchargeHeavyTransData()
@@ -259,6 +260,22 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                     it.copy(
                         onePersonOperationPercent = percent,
                         onePersonOperationMoney = money
+                    )
+                }
+            }.collect()
+        }
+    }
+
+    private fun setSurchargeOnePersonOperationPassengerTrainData() {
+        viewModelScope.launch {
+            combine(
+                salaryCalculationHelper.getPercentOnePersonOperationPassengerTrainFlow(),
+                salaryCalculationHelper.getMoneyOnePersonOperationPassengerTrainFlow()
+            ) { percent, money ->
+                _uiState.update {
+                    it.copy(
+                        onePersonOperationPassengerTrainPercent = percent,
+                        onePersonOperationPassengerTrainMoney = money
                     )
                 }
             }.collect()

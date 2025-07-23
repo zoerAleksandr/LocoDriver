@@ -126,7 +126,8 @@ fun SettingsScreen(
     deleteServicePhase: (Int) -> Unit,
     updateServicePhase: (ServicePhase, Int) -> Unit,
     setInputDateTimeType: (String) -> Unit,
-    inputDateTimeType: String
+    inputDateTimeType: String,
+    getAllRouteRemote: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -436,7 +437,8 @@ fun SettingsScreen(
                                 updateServicePhase = updateServicePhase,
                                 deleteServicePhase = deleteServicePhase,
                                 setInputDateTimeType = setInputDateTimeType,
-                                inputDateTimeType = inputDateTimeType
+                                inputDateTimeType = inputDateTimeType,
+                                getAllRouteRemote = getAllRouteRemote
                             )
                         }
                     }
@@ -483,7 +485,8 @@ fun SettingScreenContent(
     updateServicePhase: (ServicePhase, Int) -> Unit,
     deleteServicePhase: (Int) -> Unit,
     setInputDateTimeType: (String) -> Unit,
-    inputDateTimeType: String
+    inputDateTimeType: String,
+    getAllRouteRemote: () -> Unit
 ) {
     val styleTitle = AppTypography.getType().titleLarge
         .copy(
@@ -1596,6 +1599,25 @@ fun SettingScreenContent(
                     )
                 }
             }
+
+//            item{
+//                Button(
+//                    modifier = Modifier
+//                        .padding(top = 16.dp)
+//                        .fillMaxWidth()
+//                        .background(
+//                            color = MaterialTheme.colorScheme.surface,
+//                            shape = Shapes.medium
+//                        ),
+//                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface),
+//                    onClick = { getAllRouteRemote() }) {
+//                    Text(
+//                        text = "Запрос",
+//                        color = MaterialTheme.colorScheme.error,
+//                        style = styleTitle
+//                    )
+//                }
+//            }
         }
     }
 }

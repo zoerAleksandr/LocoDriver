@@ -55,6 +55,7 @@ fun SettingDestination(
         deleteServicePhase = settingsViewModel::deleteServicePhase,
         updateServicePhase = settingsViewModel::selectToUpdateServicePhase,
         setInputDateTimeType = settingsViewModel::setInputDateTimeType,
-        inputDateTimeType = uiState.inputDateTimeType
+        inputDateTimeType = uiState.inputDateTimeType,
+        getAllRouteRemote = settingsViewModel::getAllRouteRemote
     )
 }

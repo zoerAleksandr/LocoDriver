@@ -171,7 +171,10 @@ fun HomeScreen(
     setFavoriteState: (Route) -> Unit,
     getSharedIntent: (Route) -> Intent,
     getTextWorkTime: (Route) -> String,
-    getDateMiniAndTime: (Long?) -> String
+    getDateMiniAndTime: (Long?) -> String,
+    isHeavyTrains: (Route) -> Boolean,
+    isExtendedServicePhaseTrains: (Route) -> Boolean,
+    isHolidayTimeInRoute: (Route) -> Boolean
 ) {
     val view = LocalView.current
     val backgroundColor = MaterialTheme.colorScheme.background
@@ -786,7 +789,10 @@ fun HomeScreen(
                 },
                 isExpand = isExpand,
                 offsetInMoscow = offsetInMoscow,
-                getTextWorkTime = getTextWorkTime
+                getTextWorkTime = getTextWorkTime,
+                isHeavyTrains = isHeavyTrains,
+                isExtendedServicePhaseTrains = isExtendedServicePhaseTrains,
+                isHolidayTimeInRoute = isHolidayTimeInRoute
             )
         },
         containerColor = MaterialTheme.colorScheme.background,
@@ -1050,19 +1056,21 @@ fun HomeScreen(
 
                 }
             }
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.CenterStart
-            ) {
-                AsyncDataValue(resultState = totalTimeWithHoliday) { time ->
-                    AutoSizeText(
-                        text = "Всего: ${ConverterLongToTime.getTimeInStringFormat(time)}",
-                        style = AppTypography.getType().headlineSmall,
-                        maxTextSize = 24.sp,
-                        fontWeight = FontWeight.Light,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+            AsyncDataValue(resultState = totalTimeWithHoliday) { time ->
+                if (time != totalTime) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        AutoSizeText(
+                            text = "Всего: ${ConverterLongToTime.getTimeInStringFormat(time)}",
+                            style = AppTypography.getType().headlineSmall,
+                            maxTextSize = 24.sp,
+                            fontWeight = FontWeight.Light,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
             Spacer(
@@ -1148,7 +1156,7 @@ fun PreviewRoute(
     minTimeRest: Long?,
     homeRest: ResultState<Long?>,
     getDateMiniAndTime: (Long?) -> String
-    ) {
+) {
     val styleTitle = AppTypography.getType().titleSmall.copy(
         fontWeight = FontWeight.W600,
         color = MaterialTheme.colorScheme.primary

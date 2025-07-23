@@ -1,5 +1,6 @@
 package com.z_company.route.component
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.combinedClickable
@@ -20,6 +21,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -70,7 +72,10 @@ fun ItemHomeScreen(
     onLongClick: () -> Unit,
     containerColor: Color,
     onClick: () -> Unit,
-    getTextWorkTime: (Route) -> String
+    getTextWorkTime: (Route) -> String,
+    isHeavyTrains: (Route) -> Boolean,
+    isExtendedServicePhaseTrains: (Route) -> Boolean,
+    isHolidayTimeInRoute: (Route) -> Boolean
 ) {
     val revealState = rememberRevealState()
     val scope = rememberCoroutineScope()
@@ -154,12 +159,13 @@ fun ItemHomeScreen(
                 )
                 .onGloballyPositioned { coordinates ->
                     itemHeightDp = with(localDensity) { coordinates.size.height.toDp() }
-            },
+                },
             shape = Shapes.medium,
             colors = CardDefaults.cardColors(
                 containerColor = containerColor,
                 contentColor = MaterialTheme.colorScheme.primary
-            )
+            ),
+            border = if (isHolidayTimeInRoute(route)) BorderStroke(0.5.dp, MaterialTheme.colorScheme.error) else null
         ) {
             Column(
                 modifier = Modifier
@@ -273,6 +279,34 @@ fun ItemHomeScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
                 ) {
+                    if(isHolidayTimeInRoute(route)){
+                        Icon(
+                            modifier = Modifier.size(20.dp),
+                            painter = painterResource(id = R.drawable.icon_holiday_hours),
+                            contentDescription = null
+                        )
+                    }
+                    if (isExtendedServicePhaseTrains(route)) {
+                        Icon(
+                            modifier = Modifier.size(20.dp),
+                            painter = painterResource(id = R.drawable.long_distance_24px),
+                            contentDescription = null
+                        )
+                    }
+                    if (isHeavyTrains(route)) {
+                        Icon(
+                            modifier = Modifier.size(20.dp),
+                            painter = painterResource(id = R.drawable.weight_24px),
+                            contentDescription = null
+                        )
+                    }
+                    if (route.basicData.isOnePersonOperation) {
+                        Icon(
+                            modifier = Modifier.size(20.dp),
+                            painter = painterResource(id = R.drawable.person_24px),
+                            contentDescription = null
+                        )
+                    }
                     route.getPassengerTime()?.let { time ->
                         if (time > 0L) {
                             Icon(
@@ -293,7 +327,15 @@ fun ItemHomeScreen(
                             )
                         }
                     }
-                    if (route.basicData.isSynchronizedRoute){
+                    if (route.basicData.isFavorite) {
+                        Icon(
+                            modifier = Modifier.size(20.dp),
+                            imageVector = Icons.Default.Favorite,
+                            contentDescription = null,
+                        )
+                    }
+
+                    if (route.basicData.isSynchronizedRoute) {
                         Image(
                             modifier = Modifier.size(20.dp),
                             painter = painterResource(id = R.drawable.sync_on_icon),
@@ -303,13 +345,6 @@ fun ItemHomeScreen(
                         Icon(
                             modifier = Modifier.size(20.dp),
                             painter = painterResource(id = R.drawable.not_sync_icon),
-                            contentDescription = null,
-                        )
-                    }
-                    if (route.basicData.isFavorite) {
-                        Icon(
-                            modifier = Modifier.size(20.dp),
-                            imageVector = Icons.Default.Favorite,
                             contentDescription = null,
                         )
                     }

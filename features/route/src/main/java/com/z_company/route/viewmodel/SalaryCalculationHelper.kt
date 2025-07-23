@@ -10,6 +10,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getLongDistanceTime
 import com.z_company.domain.entities.route.UtilsForEntities.getNewRoutesToDayRange
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getOnePersonOperationTime
+import com.z_company.domain.entities.route.UtilsForEntities.getOnePersonOperationTimePassengerTrain
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getSingleLocomotiveTime
 import com.z_company.domain.entities.route.UtilsForEntities.getTimeInHeavyTrain
@@ -355,6 +356,54 @@ class SalaryCalculationHelper(
         }
     }
 
+    fun getPercentOnePersonOperationPassengerTrainFlow(): Flow<Double> {
+        return flow {
+            val percent = salarySetting.onePersonOperationPassengerTrainPercent
+            emit(percent)
+        }
+    }
+
+    fun getTimeOnePersonOperationPassengerTrainFlow(routes: List<Route> = routeList): Flow<Long> {
+        return channelFlow {
+            val time = routes.getOnePersonOperationTimePassengerTrain(
+                currentMonthOfYear, userSettings.timeZone
+            )
+            trySend(time)
+            awaitClose()
+        }
+    }
+
+    fun getMoneyOnePersonOperationPassengerTrainFlow(): Flow<Double> {
+        return channelFlow {
+            val percent = getPercentOnePersonOperationPassengerTrainFlow().first()
+
+            if (dateSetTariffRate == null) {
+                getTimeOnePersonOperationPassengerTrainFlow().collect { time ->
+                    val money =
+                        time.times(currentMonthOfYear.tariffRate * (percent / 100)) / 3_600_000.toDouble()
+                    trySend(money)
+                }
+            } else {
+                val pairRoutes = getTwoRouteList(routeList).first()
+                val firstRoutes = pairRoutes.first
+                val secondRoutes = pairRoutes.second
+
+                combine(
+                    getTimeOnePersonOperationPassengerTrainFlow(firstRoutes),
+                    getTimeOnePersonOperationPassengerTrainFlow(secondRoutes)
+                ) { firstTime, secondTime ->
+                    val moneyFirstTime =
+                        firstTime.times(dateSetTariffRate.oldRate * (percent / 100))
+                    val moneySecondTime =
+                        secondTime.times(currentMonthOfYear.tariffRate * (percent / 100))
+                    val result = (moneyFirstTime + moneySecondTime) / 3_600_000.toDouble()
+                    trySend(result)
+                }.collect { }
+            }
+            awaitClose()
+        }
+    }
+
     fun getPercentOnePersonOperationFlow(): Flow<Double> {
         return flow {
             val percent = salarySetting.onePersonOperationPercent
@@ -372,6 +421,7 @@ class SalaryCalculationHelper(
         }
     }
 
+    // 2
     fun getMoneyOnePersonOperationFlow(): Flow<Double> {
         return channelFlow {
             val percent = getPercentOnePersonOperationFlow().first()
@@ -463,6 +513,7 @@ class SalaryCalculationHelper(
             awaitClose()
         }
     }
+
 
     fun getMoneyLongDistanceTrainFlow(): Flow<Double> {
         return channelFlow {
@@ -774,7 +825,8 @@ class SalaryCalculationHelper(
             val nordicSurcharge = getMoneyNordicSurcharge().first()
             val districtSurcharge = getMoneyDistrictSurcharge().first()
 
-            val totalMoney = baseMoney + holidayMoney + averageMoney + nordicSurcharge + districtSurcharge
+            val totalMoney =
+                baseMoney + holidayMoney + averageMoney + nordicSurcharge + districtSurcharge
             emit(totalMoney)
         }
     }
@@ -837,7 +889,7 @@ class SalaryCalculationHelper(
         }
     }
 
-    fun getMoneyToBeCredited(): Flow<Double>{
+    fun getMoneyToBeCredited(): Flow<Double> {
         return flow {
             val totalCharged = getMoneyTotalChargedFlow().first()
             val totalRetention = getMoneyTotalRetentionFlow().first()
@@ -886,6 +938,8 @@ class SalaryCalculationHelper(
             val surchargeExtendedServicePhaseMoney =
                 getMoneyListSurchargeExtendedServicePhaseFlow().first().sum()
             val surchargeOnePersonOperationMoney = getMoneyOnePersonOperationFlow().first()
+            val surchargeOnePersonOperationPassengerTrainFlow =
+                getMoneyOnePersonOperationPassengerTrainFlow().first()
             val surchargeHarmfulnessSurchargeMoney = getMoneyHarmfulnessFlow().first()
             val surchargeLongDistanceTrainsMoney = getMoneyLongDistanceTrainFlow().first()
             val surchargeHeavyTrains = getMoneyListSurchargeExtendedHeavyTrainsFlow().first().sum()
@@ -894,6 +948,7 @@ class SalaryCalculationHelper(
                     paymentAtSingleLocomotiveMoney + zonalSurchargeMoney +
                     paymentNightTimeMoney + surchargeQualificationClassMoney +
                     surchargeExtendedServicePhaseMoney + surchargeOnePersonOperationMoney +
+                    +surchargeOnePersonOperationPassengerTrainFlow +
                     surchargeHarmfulnessSurchargeMoney + surchargeLongDistanceTrainsMoney +
                     surchargeHeavyTrains + otherSurcharge
             emit(basicMoney)

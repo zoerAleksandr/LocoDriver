@@ -27,7 +27,7 @@ fun HomeDestination(
         onNewRouteClick = homeViewModel::newRouteClick,
         onDeleteRoute = homeViewModel::removeRoute,
         onDeleteRouteConfirmed = homeViewModel::resetRemoveRouteState,
-        reloadRoute = homeViewModel::loadData,
+        reloadRoute = homeViewModel::loadSetting,
         onSettingsClick = { router.showSettings() },
         onSearchClick = { router.showSearch() },
         totalTime = homeViewModel.timeWithoutHoliday,
@@ -67,6 +67,9 @@ fun HomeDestination(
         setFavoriteState = homeViewModel::setFavoriteRoute,
         getSharedIntent = homeViewModel::getUriToRoute,
         getTextWorkTime = homeViewModel::getTextWorkTime,
-        getDateMiniAndTime = homeViewModel::getDateAndTimeText
+        getDateMiniAndTime = homeViewModel::getDateAndTimeText,
+        isHeavyTrains = homeViewModel::isHeavyTrains,
+        isExtendedServicePhaseTrains = homeViewModel::isExtendedServicePhaseTrains,
+        isHolidayTimeInRoute = homeViewModel::isHolidayTimeInRoute
     )
 }

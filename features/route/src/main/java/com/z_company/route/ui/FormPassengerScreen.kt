@@ -6,8 +6,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,9 +22,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.ModalBottomSheetLayout
+import androidx.compose.material.ModalBottomSheetState
+import androidx.compose.material.ModalBottomSheetValue
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.rememberModalBottomSheetState
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -46,6 +53,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -82,11 +90,12 @@ import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.component.SelectableDateTimePicker
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.route.component.ConfirmExitDialog
+import com.z_company.route.component.RemoveTimeContent
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import java.util.Calendar
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
 fun FormPassengerScreen(
     currentPassenger: Passenger?,
@@ -208,44 +217,68 @@ fun FormPassengerScreen(
             )
         }
 
-        Box(modifier = Modifier.padding(paddingValues)) {
-            AsyncData(resultState = passengerDetailState) {
-                currentPassenger?.let { passenger ->
-                    if (savePassengerState is ResultState.Success) {
-                        LaunchedEffect(savePassengerState) {
-                            onPassengerSaved()
-                        }
-                    } else {
-                        PassengerFormScreenContent(
-                            errorMessage = errorMessage,
-                            passenger = passenger,
-                            onNumberChanged = onNumberChanged,
-                            onStationDepartureChanged = onStationDepartureChanged,
-                            onStationArrivalChanged = onStationArrivalChanged,
-                            onTimeDepartureChanged = onTimeDepartureChanged,
-                            onTimeArrivalChanged = onTimeArrivalChanged,
-                            onNotesChanged = onNotesChanged,
-                            resultTime = resultTime,
-                            menuList = dropDownMenuList,
-                            changeExpandMenuArrivalStation = changeExpandMenuArrivalStation,
-                            changeExpandMenuDepartureStation = changeExpandMenuDepartureStation,
-                            isExpandedMenuArrivalStation = isExpandedMenuArrivalStation,
-                            isExpandedMenuDepartureStation = isExpandedMenuDepartureStation,
-                            onDeleteStationName = onDeleteStationName,
-                            onChangedDropDownContentDepartureStation = onChangedDropDownContentDepartureStation,
-                            onChangedDropDownContentArrivalStation = onChangedDropDownContentArrivalStation,
-                            onSettingClick = onSettingClick,
-                            timeZoneText = timeZoneText
-                        )
-                    }
 
+        val bottomSheetState = rememberModalBottomSheetState(
+            initialValue = ModalBottomSheetValue.Hidden,
+        )
+        var bottomSheetContentState =
+            remember { mutableStateOf(BottomSheetRemoveTimeFormPassengerScreen.TIME_DEPARTURE) }
+
+        ModalBottomSheetLayout(
+            sheetState = bottomSheetState,
+            sheetShape = MaterialTheme.shapes.medium,
+            sheetContent = {
+                RemoveTimeBottomSheetContent(
+                    bottomSheetState = bottomSheetState,
+                    onTimeDepartureChanged = onTimeDepartureChanged,
+                    onTimeArrivalChanged = onTimeArrivalChanged,
+                    selectBottomSheetContent = bottomSheetContentState.value
+                )
+            }
+        ) {
+            Box(modifier = Modifier.padding(paddingValues)) {
+                AsyncData(resultState = passengerDetailState) {
+                    currentPassenger?.let { passenger ->
+                        if (savePassengerState is ResultState.Success) {
+                            LaunchedEffect(savePassengerState) {
+                                onPassengerSaved()
+                            }
+                        } else {
+                            PassengerFormScreenContent(
+                                errorMessage = errorMessage,
+                                passenger = passenger,
+                                onNumberChanged = onNumberChanged,
+                                onStationDepartureChanged = onStationDepartureChanged,
+                                onStationArrivalChanged = onStationArrivalChanged,
+                                onTimeDepartureChanged = onTimeDepartureChanged,
+                                onTimeArrivalChanged = onTimeArrivalChanged,
+                                onNotesChanged = onNotesChanged,
+                                resultTime = resultTime,
+                                menuList = dropDownMenuList,
+                                changeExpandMenuArrivalStation = changeExpandMenuArrivalStation,
+                                changeExpandMenuDepartureStation = changeExpandMenuDepartureStation,
+                                isExpandedMenuArrivalStation = isExpandedMenuArrivalStation,
+                                isExpandedMenuDepartureStation = isExpandedMenuDepartureStation,
+                                onDeleteStationName = onDeleteStationName,
+                                onChangedDropDownContentDepartureStation = onChangedDropDownContentDepartureStation,
+                                onChangedDropDownContentArrivalStation = onChangedDropDownContentArrivalStation,
+                                onSettingClick = onSettingClick,
+                                timeZoneText = timeZoneText,
+                                bottomSheetState = bottomSheetState,
+                                bottomSheetContentState = bottomSheetContentState
+                            )
+                        }
+
+                    }
                 }
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class,
+    ExperimentalFoundationApi::class
+)
 @Composable
 fun PassengerFormScreenContent(
     errorMessage: String?,
@@ -266,13 +299,18 @@ fun PassengerFormScreenContent(
     onChangedDropDownContentDepartureStation: (String) -> Unit,
     onChangedDropDownContentArrivalStation: (String) -> Unit,
     onSettingClick: () -> Unit,
-    timeZoneText: String
+    timeZoneText: String,
+    bottomSheetState: ModalBottomSheetState,
+    bottomSheetContentState: MutableState<BottomSheetRemoveTimeFormPassengerScreen>
 ) {
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
     val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
-    val errorTextStyle = AppTypography.getType().titleMedium.copy(fontWeight = FontWeight.Normal, color = MaterialTheme.colorScheme.onError)
+    val errorTextStyle = AppTypography.getType().titleMedium.copy(
+        fontWeight = FontWeight.Normal,
+        color = MaterialTheme.colorScheme.onError
+    )
 
     AnimatedVisibility(
         modifier = Modifier
@@ -527,9 +565,20 @@ fun PassengerFormScreenContent(
                         color = MaterialTheme.colorScheme.surface,
                         shape = Shapes.medium
                     )
-                    .clickable {
-                        showDepartureDatePicker = true
-                    }
+                    .combinedClickable(
+                        onClick = {
+                            showDepartureDatePicker = true
+                        },
+                        onLongClick = {
+                            passenger.timeDeparture?.let {
+                                scope.launch {
+                                    bottomSheetContentState.value =
+                                        BottomSheetRemoveTimeFormPassengerScreen.TIME_DEPARTURE
+                                    bottomSheetState.show()
+                                }
+                            }
+                        }
+                    )
                     .padding(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
@@ -586,13 +635,6 @@ fun PassengerFormScreenContent(
                         keyboardType = KeyboardType.Text,
                         imeAction = ImeAction.Next
                     ),
-//                    keyboardActions = KeyboardActions(
-//                        onNext = {
-//                            scope.launch {
-//                                focusManager.clearFocus()
-//                            }
-//                        }
-//                    ),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         unfocusedContainerColor = MaterialTheme.colorScheme.surface,
@@ -683,9 +725,21 @@ fun PassengerFormScreenContent(
                         color = MaterialTheme.colorScheme.surface,
                         shape = Shapes.medium
                     )
-                    .clickable {
-                        showArrivalDatePicker = true
-                    }
+
+                    .combinedClickable(
+                        onClick = {
+                            showArrivalDatePicker = true
+                        },
+                        onLongClick = {
+                            passenger.timeArrival?.let {
+                                scope.launch {
+                                    bottomSheetContentState.value =
+                                        BottomSheetRemoveTimeFormPassengerScreen.TIME_ARRIVAL
+                                    bottomSheetState.show()
+                                }
+                            }
+                        }
+                    )
                     .padding(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
@@ -739,4 +793,45 @@ fun PassengerFormScreenContent(
             )
         }
     }
+}
+
+
+@OptIn(ExperimentalMaterialApi::class)
+@Composable
+private fun RemoveTimeBottomSheetContent(
+    bottomSheetState: ModalBottomSheetState,
+    onTimeDepartureChanged: (Long?) -> Unit,
+    onTimeArrivalChanged: (Long?) -> Unit,
+    selectBottomSheetContent: BottomSheetRemoveTimeFormPassengerScreen
+) {
+    val scope = rememberCoroutineScope()
+    when (selectBottomSheetContent) {
+        BottomSheetRemoveTimeFormPassengerScreen.TIME_DEPARTURE -> {
+            RemoveTimeContent(
+                title = "Время отправления",
+                onRemoveTimeClick = {
+                    scope.launch {
+                        bottomSheetState.hide()
+                    }
+                    onTimeDepartureChanged(null)
+                }
+            )
+        }
+
+        BottomSheetRemoveTimeFormPassengerScreen.TIME_ARRIVAL -> {
+            RemoveTimeContent(
+                title = "Время прибытия",
+                onRemoveTimeClick = {
+                    scope.launch {
+                        bottomSheetState.hide()
+                    }
+                    onTimeArrivalChanged(null)
+                }
+            )
+        }
+    }
+}
+
+enum class BottomSheetRemoveTimeFormPassengerScreen() {
+    TIME_ARRIVAL, TIME_DEPARTURE
 }

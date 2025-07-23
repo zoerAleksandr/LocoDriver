@@ -8,8 +8,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +27,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.ModalBottomSheetLayout
+import androidx.compose.material.ModalBottomSheetState
+import androidx.compose.material.ModalBottomSheetValue
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
@@ -32,6 +38,8 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Clear
+import androidx.compose.material.rememberModalBottomSheetState
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -53,6 +61,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -101,6 +110,7 @@ import com.z_company.route.R
 import com.z_company.route.component.BottomShadow
 import com.z_company.route.component.ConfirmExitDialog
 import com.z_company.route.component.CustomDatePickerDialog
+import com.z_company.route.component.RemoveTimeContent
 import com.z_company.route.component.rememberDatePickerStateInLocale
 import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.route.viewmodel.DialogRestUiState
@@ -116,7 +126,7 @@ import java.util.Calendar
 const val LINK_TO_SETTING = "LINK_TO_SETTING"
 const val LINK_TO_SALARY_SETTING = "LINK_TO_SALARY_SETTING"
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
 fun FormScreen(
     formUiState: RouteFormUiState,
@@ -261,47 +271,68 @@ fun FormScreen(
             }
         }
 
-        Box(Modifier.padding(it)) {
-            AsyncData(resultState = formUiState.routeDetailState) {
-                currentRoute?.let { route ->
-                    if (formUiState.saveRouteState is ResultState.Success) {
-                        LaunchedEffect(formUiState.saveRouteState) {
-                            exitScreen()
+        val bottomSheetState = rememberModalBottomSheetState(
+            initialValue = ModalBottomSheetValue.Hidden,
+        )
+        var bottomSheetContent =
+            remember { mutableStateOf(BottomSheetRemoveTimeFormScreen.END_WORK) }
+
+        ModalBottomSheetLayout(
+            sheetState = bottomSheetState,
+            sheetShape = MaterialTheme.shapes.medium,
+            sheetContent = {
+                RemoveTimeBottomSheetContent(
+                    bottomSheetState = bottomSheetState,
+                    onTimeStartWorkChanged = onTimeStartWorkChanged,
+                    onTimeEndWorkChanged = onTimeEndWorkChanged,
+                    selectBottomSheetContent = bottomSheetContent.value
+                )
+            }
+        ) {
+            Box(Modifier.padding(it)) {
+                AsyncData(resultState = formUiState.routeDetailState) {
+                    currentRoute?.let { route ->
+                        if (formUiState.saveRouteState is ResultState.Success) {
+                            LaunchedEffect(formUiState.saveRouteState) {
+                                exitScreen()
+                            }
+                        } else {
+                            RouteFormScreenContent(
+                                route = route,
+                                isCopy = isCopy,
+                                onNumberChanged = onNumberChanged,
+                                checkedOnePersonOperation = checkedOnePersonOperation,
+                                onNotesChanged = onNotesChanged,
+                                errorMessage = formUiState.errorMessage,
+                                onTimeStartWorkChanged = onTimeStartWorkChanged,
+                                onTimeEndWorkChanged = onTimeEndWorkChanged,
+                                onRestChanged = onRestChanged,
+                                onSettingClick = onSettingClick,
+                                locoListState = route.locomotives,
+                                onChangeLocoClick = onChangedLocoClick,
+                                onNewLocoClick = onNewLocoClick,
+                                onDeleteLoco = onDeleteLoco,
+                                trainListState = route.trains,
+                                onChangeTrainClick = onChangeTrainClick,
+                                onNewTrainClick = onNewTrainClick,
+                                onDeleteTrain = onDeleteTrain,
+                                passengerListState = route.passengers,
+                                onChangePassengerClick = onChangePassengerClick,
+                                onNewPassengerClick = onNewPassengerClick,
+                                onDeletePassenger = onDeletePassenger,
+                                nightTime = nightTime,
+                                showConfirmExitDialog = formUiState.confirmExitDialogShow,
+                                changeShowConfirmExitDialog = changeShowConfirmExitDialog,
+                                onSaveClick = onSaveClick,
+                                exitWithoutSave = exitWithoutSave,
+                                dialogRestUiState = dialogRestUiState,
+                                salaryForRouteState = salaryForRouteState,
+                                onSalarySettingClick = onSalarySettingClick,
+                                timeZoneText = timeZoneText,
+                                bottomSheetState = bottomSheetState,
+                                bottomSheetContentState = bottomSheetContent
+                            )
                         }
-                    } else {
-                        RouteFormScreenContent(
-                            route = route,
-                            isCopy = isCopy,
-                            onNumberChanged = onNumberChanged,
-                            checkedOnePersonOperation = checkedOnePersonOperation,
-                            onNotesChanged = onNotesChanged,
-                            errorMessage = formUiState.errorMessage,
-                            onTimeStartWorkChanged = onTimeStartWorkChanged,
-                            onTimeEndWorkChanged = onTimeEndWorkChanged,
-                            onRestChanged = onRestChanged,
-                            onSettingClick = onSettingClick,
-                            locoListState = route.locomotives,
-                            onChangeLocoClick = onChangedLocoClick,
-                            onNewLocoClick = onNewLocoClick,
-                            onDeleteLoco = onDeleteLoco,
-                            trainListState = route.trains,
-                            onChangeTrainClick = onChangeTrainClick,
-                            onNewTrainClick = onNewTrainClick,
-                            onDeleteTrain = onDeleteTrain,
-                            passengerListState = route.passengers,
-                            onChangePassengerClick = onChangePassengerClick,
-                            onNewPassengerClick = onNewPassengerClick,
-                            onDeletePassenger = onDeletePassenger,
-                            nightTime = nightTime,
-                            showConfirmExitDialog = formUiState.confirmExitDialogShow,
-                            changeShowConfirmExitDialog = changeShowConfirmExitDialog,
-                            onSaveClick = onSaveClick,
-                            exitWithoutSave = exitWithoutSave,
-                            dialogRestUiState = dialogRestUiState,
-                            salaryForRouteState = salaryForRouteState,
-                            onSalarySettingClick = onSalarySettingClick,
-                            timeZoneText = timeZoneText
-                        )
                     }
                 }
             }
@@ -309,7 +340,10 @@ fun FormScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(
+    ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class,
+    ExperimentalMaterialApi::class
+)
 @Composable
 private fun RouteFormScreenContent(
     route: Route,
@@ -342,7 +376,9 @@ private fun RouteFormScreenContent(
     dialogRestUiState: DialogRestUiState,
     salaryForRouteState: SalaryForRouteState,
     onSalarySettingClick: () -> Unit,
-    timeZoneText: String
+    timeZoneText: String,
+    bottomSheetState: ModalBottomSheetState,
+    bottomSheetContentState: MutableState<BottomSheetRemoveTimeFormScreen>
 ) {
     val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
     val errorTextStyle = AppTypography.getType().titleMedium.copy(
@@ -355,6 +391,7 @@ private fun RouteFormScreenContent(
             fontWeight = FontWeight.Light
         )
     val scrollState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
 
     var showStartDatePickerCopyRoute by remember {
         mutableStateOf(false)
@@ -530,7 +567,12 @@ private fun RouteFormScreenContent(
                                     brush = gradient,
                                     shape = MaterialTheme.shapes.medium
                                 )
-                                .padding(start = 12.dp, end = 12.dp, bottom = 12.dp, top = 24.dp),
+                                .padding(
+                                    start = 12.dp,
+                                    end = 12.dp,
+                                    bottom = 12.dp,
+                                    top = 24.dp
+                                ),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Text(
@@ -608,10 +650,17 @@ private fun RouteFormScreenContent(
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Text(
-                        text = salaryForRouteState.totalPayment.toMoneyString(),
-                        style = hintStyle
-                    )
+                    if (salaryForRouteState.isCalculated) {
+                        Text(
+                            text = salaryForRouteState.totalPayment.toMoneyString(),
+                            style = hintStyle
+                        )
+                    } else {
+                        Text(
+                            text = null.toMoneyString(),
+                            style = hintStyle
+                        )
+                    }
 
                     AnimatedContent(
                         targetState = isVisibleDetailMoney,
@@ -847,9 +896,20 @@ private fun RouteFormScreenContent(
                             color = MaterialTheme.colorScheme.surface,
                             shape = Shapes.medium
                         )
-                        .clickable {
-                            showStartDatePicker = true
-                        }
+                        .combinedClickable(
+                            onClick = {
+                                showStartDatePicker = true
+                            },
+                            onLongClick = {
+                                startTimeInLong?.let {
+                                    scope.launch {
+                                        bottomSheetContentState.value =
+                                            BottomSheetRemoveTimeFormScreen.START_WORK
+                                        bottomSheetState.show()
+                                    }
+                                }
+                            }
+                        )
                         .padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -858,7 +918,8 @@ private fun RouteFormScreenContent(
                         style = dataTextStyle
                     )
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         val dateStartText = startTimeInLong?.let {
                             DateAndTimeConverter.getDateFromDateLong(startTimeInLong)
@@ -885,9 +946,20 @@ private fun RouteFormScreenContent(
                             color = MaterialTheme.colorScheme.surface,
                             shape = Shapes.medium
                         )
-                        .clickable {
-                            showEndDatePicker = true
-                        }
+                        .combinedClickable(
+                            onClick = {
+                                showEndDatePicker = true
+                            },
+                            onLongClick = {
+                                endTimeInLong?.let {
+                                    scope.launch {
+                                        bottomSheetContentState.value =
+                                            BottomSheetRemoveTimeFormScreen.END_WORK
+                                        bottomSheetState.show()
+                                    }
+                                }
+                            }
+                        )
                         .padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -1055,6 +1127,7 @@ private fun RouteFormScreenContent(
             }
         }
     }
+
 }
 
 @Composable
@@ -1208,7 +1281,10 @@ fun ItemNotes(
     notes: String?,
     onNotesChanged: (String) -> Unit,
 ) {
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         OutlinedTextField(
             modifier = Modifier
                 .heightIn(max = 105.dp)
@@ -1432,4 +1508,44 @@ fun InfoRestPointOfTurnoverTime(
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterialApi::class)
+@Composable
+private fun RemoveTimeBottomSheetContent(
+    bottomSheetState: ModalBottomSheetState,
+    onTimeStartWorkChanged: (Long?) -> Unit,
+    onTimeEndWorkChanged: (Long?) -> Unit,
+    selectBottomSheetContent: BottomSheetRemoveTimeFormScreen
+) {
+    val scope = rememberCoroutineScope()
+    when (selectBottomSheetContent) {
+        BottomSheetRemoveTimeFormScreen.START_WORK -> {
+            RemoveTimeContent(
+                title = "Время явки",
+                onRemoveTimeClick = {
+                    scope.launch {
+                        bottomSheetState.hide()
+                    }
+                    onTimeStartWorkChanged(null)
+                }
+            )
+        }
+
+        BottomSheetRemoveTimeFormScreen.END_WORK -> {
+            RemoveTimeContent(
+                title = "Время сдачи",
+                onRemoveTimeClick = {
+                    scope.launch {
+                        bottomSheetState.hide()
+                    }
+                    onTimeEndWorkChanged(null)
+                }
+            )
+        }
+    }
+}
+
+enum class BottomSheetRemoveTimeFormScreen() {
+    START_WORK, END_WORK
 }
