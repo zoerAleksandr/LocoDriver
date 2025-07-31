@@ -1,8 +1,7 @@
 package com.z_company.data_local.route
 
-import android.util.Log
 import com.z_company.core.ResultState
-import com.z_company.core.util.str
+import com.z_company.core.util.EntityString
 import com.z_company.domain.entities.FilterSearch
 import com.z_company.domain.entities.RouteWithTag
 import com.z_company.domain.entities.SearchStateScreen
@@ -16,14 +15,14 @@ import com.z_company.domain.util.addOrSkip
 import com.z_company.domain.util.splitBySpaceAndComma
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.channelFlow
 
 class SearchRouteUseCase(val repository: RouteRepository) {
     fun searchRoute(
         value: String,
         filter: FilterSearch,
-        preliminarySearch: Boolean
+        preliminarySearch: Boolean,
+        entityString: EntityString
     ): Flow<SearchStateScreen<List<RouteWithTag>>> =
         channelFlow {
             repository.loadRoutesAsFlow().collect { result ->
@@ -36,16 +35,16 @@ class SearchRouteUseCase(val repository: RouteRepository) {
                         resultList.forEach { route ->
                             if (route.inTimePeriod(filter.timePeriod)) {
                                 if (filter.generalData.second) {
-                                    sortedList.addAllOrSkip(searchInRouteData(route, value))
+                                    sortedList.addAllOrSkip(searchInRouteData(route, value, entityString))
                                 }
                                 if (filter.locoData.second) {
-                                    sortedList.addAllOrSkip(searchInLocoList(route, value))
+                                    sortedList.addAllOrSkip(searchInLocoList(route, value, entityString))
                                 }
                                 if (filter.trainData.second) {
-                                    sortedList.addAllOrSkip(searchInTrainList(route, value))
+                                    sortedList.addAllOrSkip(searchInTrainList(route, value, entityString))
                                 }
                                 if (filter.passengerData.second) {
-                                    sortedList.addAllOrSkip(searchInPassengerList(route, value))
+                                    sortedList.addAllOrSkip(searchInPassengerList(route, value, entityString))
                                 }
                                 if (filter.notesData.second) {
                                     sortedList.addAllOrSkip(searchInNotes(route, value))
@@ -58,13 +57,13 @@ class SearchRouteUseCase(val repository: RouteRepository) {
                             sortedList.forEach { routeWithTag: RouteWithTag ->
                                 val text = when (routeWithTag.tag) {
                                     SearchTag.BASIC_DATA -> {
-                                        StringBuilder(routeWithTag.route.basicData.str())
+                                        StringBuilder(entityString.basicDataStr(routeWithTag.route.basicData))
                                     }
 
                                     SearchTag.LOCO -> {
                                         val text = StringBuilder()
                                         routeWithTag.route.locomotives.forEach { loco ->
-                                            text.append("${loco.str()} ")
+                                            text.append("${entityString.locomotiveStr(loco)} ")
                                         }
                                         text
                                     }
@@ -72,7 +71,7 @@ class SearchRouteUseCase(val repository: RouteRepository) {
                                     SearchTag.TRAIN -> {
                                         val text = StringBuilder()
                                         routeWithTag.route.trains.forEach { train ->
-                                            text.append("${train.str()} ")
+                                            text.append("${entityString.trainStr(train)} ")
                                         }
                                         text
                                     }
@@ -80,7 +79,7 @@ class SearchRouteUseCase(val repository: RouteRepository) {
                                     SearchTag.PASSENGER -> {
                                         val text = StringBuilder()
                                         routeWithTag.route.passengers.forEach { passenger ->
-                                            text.append(passenger.str())
+                                            text.append(entityString.passengerStr(passenger))
                                         }
                                         text
                                     }
@@ -105,7 +104,6 @@ class SearchRouteUseCase(val repository: RouteRepository) {
                                 SearchStateScreen.Input(hintsList)
                             )
                         } else {
-                            Log.d("ZZZ", "result $sortedList")
                             trySend(SearchStateScreen.Success(sortedList.sortedBy { it.route.basicData.timeStartWork }))
                         }
                     }
@@ -115,119 +113,124 @@ class SearchRouteUseCase(val repository: RouteRepository) {
             }
             awaitClose()
         }
-}
 
-private fun searchInRouteData(
-    route: Route,
-    value: String,
-): MutableList<RouteWithTag> {
-    val filteredList = mutableListOf<RouteWithTag>()
 
-    val valueList = value.splitBySpaceAndComma()
-    var respond = true
-
-    valueList.forEach { s ->
-        if (!route.basicData.str().contains(s, ignoreCase = true)) {
-            respond = false
-        }
-    }
-
-    if (respond) {
-        filteredList.addOrReplace(RouteWithTag(SearchTag.BASIC_DATA, route))
-    }
-    return filteredList
-}
-
-private fun searchInLocoList(
-    route: Route,
-    value: String,
-): MutableList<RouteWithTag> {
-    val filteredList = mutableListOf<RouteWithTag>()
-    route.locomotives.forEach { loco ->
+    private fun searchInRouteData(
+        route: Route,
+        value: String,
+        entityString: EntityString
+    ): MutableList<RouteWithTag> {
+        val filteredList = mutableListOf<RouteWithTag>()
 
         val valueList = value.splitBySpaceAndComma()
         var respond = true
 
         valueList.forEach { s ->
-            if (!loco.str().contains(s, ignoreCase = true)) {
+            if (!entityString.basicDataStr(route.basicData).contains(s, ignoreCase = true)) {
                 respond = false
             }
         }
 
         if (respond) {
-            filteredList.addOrReplace(RouteWithTag(SearchTag.LOCO, route))
+            filteredList.addOrReplace(RouteWithTag(SearchTag.BASIC_DATA, route))
         }
+        return filteredList
     }
-    return filteredList
-}
 
-private fun searchInTrainList(
-    route: Route,
-    value: String
-): MutableList<RouteWithTag> {
-    val filteredList = mutableListOf<RouteWithTag>()
+    private fun searchInLocoList(
+        route: Route,
+        value: String,
+        entityString: EntityString
+    ): MutableList<RouteWithTag> {
+        val filteredList = mutableListOf<RouteWithTag>()
+        route.locomotives.forEach { loco ->
 
-    route.trains.forEach { train ->
-        val valueList = value.splitBySpaceAndComma()
-        var respond = true
+            val valueList = value.splitBySpaceAndComma()
+            var respond = true
 
-        valueList.forEach { s ->
-            if (!train.str().contains(s, ignoreCase = true)) {
-                respond = false
+            valueList.forEach { s ->
+                if (!entityString.locomotiveStr(loco).contains(s, ignoreCase = true)) {
+                    respond = false
+                }
+            }
+
+            if (respond) {
+                filteredList.addOrReplace(RouteWithTag(SearchTag.LOCO, route))
             }
         }
-
-        if (respond) {
-            filteredList.addOrReplace(RouteWithTag(SearchTag.TRAIN, route))
-        }
+        return filteredList
     }
-    return filteredList
-}
 
-private fun searchInPassengerList(
-    route: Route,
-    value: String
-): MutableList<RouteWithTag> {
-    val filteredList = mutableListOf<RouteWithTag>()
+    private fun searchInTrainList(
+        route: Route,
+        value: String,
+        entityString: EntityString
+    ): MutableList<RouteWithTag> {
+        val filteredList = mutableListOf<RouteWithTag>()
 
-    route.passengers.forEach { passenger ->
+        route.trains.forEach { train ->
+            val valueList = value.splitBySpaceAndComma()
+            var respond = true
 
-        val valueList = value.splitBySpaceAndComma()
-        var respond = true
+            valueList.forEach { s ->
+                if (!entityString.trainStr(train).contains(s, ignoreCase = true)) {
+                    respond = false
+                }
+            }
 
-        valueList.forEach { s ->
-            if (!passenger.str().contains(s, ignoreCase = true)) {
-                respond = false
+            if (respond) {
+                filteredList.addOrReplace(RouteWithTag(SearchTag.TRAIN, route))
             }
         }
-
-        if (respond) {
-            filteredList.addOrReplace(RouteWithTag(SearchTag.PASSENGER, route))
-        }
+        return filteredList
     }
-    return filteredList
-}
 
-private fun searchInNotes(
-    route: Route,
-    value: String
-): MutableList<RouteWithTag> {
-    val filteredList = mutableListOf<RouteWithTag>()
+    private fun searchInPassengerList(
+        route: Route,
+        value: String,
+        entityString: EntityString
+    ): MutableList<RouteWithTag> {
+        val filteredList = mutableListOf<RouteWithTag>()
 
-    route.basicData.notes?.let { note ->
+        route.passengers.forEach { passenger ->
 
-        val valueList = value.splitBySpaceAndComma()
-        var respond = true
+            val valueList = value.splitBySpaceAndComma()
+            var respond = true
 
-        valueList.forEach { s ->
-            if (!note.contains(s, ignoreCase = true)) {
-                respond = false
+            valueList.forEach { s ->
+                if (!entityString.passengerStr(passenger).contains(s, ignoreCase = true)) {
+                    respond = false
+                }
+            }
+
+            if (respond) {
+                filteredList.addOrReplace(RouteWithTag(SearchTag.PASSENGER, route))
             }
         }
-
-        if (respond) {
-            filteredList.addOrSkip(RouteWithTag(SearchTag.NOTES, route))
-        }
+        return filteredList
     }
-    return filteredList
+
+    private fun searchInNotes(
+        route: Route,
+        value: String
+    ): MutableList<RouteWithTag> {
+        val filteredList = mutableListOf<RouteWithTag>()
+
+        route.basicData.notes?.let { note ->
+
+            val valueList = value.splitBySpaceAndComma()
+            var respond = true
+
+            valueList.forEach { s ->
+                if (!note.contains(s, ignoreCase = true)) {
+                    respond = false
+                }
+            }
+
+            if (respond) {
+                filteredList.addOrSkip(RouteWithTag(SearchTag.NOTES, route))
+            }
+        }
+        return filteredList
+    }
 }

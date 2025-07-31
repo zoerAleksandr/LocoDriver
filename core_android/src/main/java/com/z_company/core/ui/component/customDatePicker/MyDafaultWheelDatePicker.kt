@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ui.component.toDp
 import com.z_company.core.util.DateAndTimeConverter
+import com.z_company.core.util.MonthFullText.getMonthFullText
+import com.z_company.core.util.MonthShortenedText.getMonthShortText
 import kotlinx.datetime.LocalDate
 
 @Composable
@@ -49,8 +51,8 @@ fun MyDefaultWheelDatePicker(
         Month(
             text = when {
                 showMonthAsNumber -> it.toString() // Show month as number
-                showShortMonths -> DateAndTimeConverter.getMonthShortText(it) // Show short month name
-                else -> DateAndTimeConverter.getMonthFullText(it).capitalize() // Show full month name
+                showShortMonths -> getMonthShortText(it) // Show short month name
+                else -> getMonthFullText(it).capitalize() // Show full month name
             },
             value = it,
             index = it - 1

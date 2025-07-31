@@ -88,6 +88,7 @@ import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
+import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.ServicePhase
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.trainCategory
@@ -137,7 +138,8 @@ fun FormTrainScreen(
     onSelectServicePhase: (ServicePhase?) -> Unit,
     selectedServicePhase: ServicePhase?,
     onSettingClick: () -> Unit,
-    timeZoneText: String
+    timeZoneText: String,
+    dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -286,7 +288,8 @@ fun FormTrainScreen(
                             timeZoneText = timeZoneText,
                             selectSectionIndexState = selectSectionIndexState,
                             bottomSheetState = bottomSheetState,
-                            bottomSheetContentState = bottomSheetContentState
+                            bottomSheetContentState = bottomSheetContentState,
+                            dateAndTimeConverter = dateAndTimeConverter
                         )
                     }
                 }
@@ -330,7 +333,8 @@ fun TrainFormScreenContent(
     timeZoneText: String,
     selectSectionIndexState: MutableState<Int>,
     bottomSheetState: ModalBottomSheetState,
-    bottomSheetContentState: MutableState<BottomSheetRemoveTimeFormTrainScreen>
+    bottomSheetContentState: MutableState<BottomSheetRemoveTimeFormTrainScreen>,
+    dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
@@ -811,7 +815,8 @@ fun TrainFormScreenContent(
                     timeZoneText = timeZoneText,
                     selectIndexState = selectSectionIndexState,
                     bottomSheetState = bottomSheetState,
-                    bottomSheetContentState = bottomSheetContentState
+                    bottomSheetContentState = bottomSheetContentState,
+                    dateAndTimeConverter = dateAndTimeConverter
                 )
             }
         }

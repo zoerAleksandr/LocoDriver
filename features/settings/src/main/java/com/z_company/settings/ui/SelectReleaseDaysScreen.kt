@@ -55,7 +55,7 @@ import com.z_company.core.ResultState
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
-import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
+import com.z_company.core.util.MonthFullText.getMonthFullText
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ReleasePeriod
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
@@ -76,6 +76,7 @@ fun SelectReleaseDaysScreen(
     yearList: List<Int>,
     monthList: List<Int>,
     selectMonthOfYear: (Pair<Int, Int>) -> Unit,
+    dateAndTimeConverter: DateAndTimeConverter
 ) {
     Scaffold(
         topBar = {
@@ -122,7 +123,8 @@ fun SelectReleaseDaysScreen(
                     removingReleasePeriod = removingReleasePeriod,
                     yearList = yearList,
                     monthList = monthList,
-                    selectMonthOfYear = selectMonthOfYear
+                    selectMonthOfYear = selectMonthOfYear,
+                    dateAndTimeConverter = dateAndTimeConverter
                 )
             }
         }
@@ -139,6 +141,7 @@ fun SelectReleaseDaysContent(
     yearList: List<Int>,
     monthList: List<Int>,
     selectMonthOfYear: (Pair<Int, Int>) -> Unit,
+    dateAndTimeConverter: DateAndTimeConverter
 ) {
     val dateRangePickerState = rememberDateRangePickerState()
     val scope = rememberCoroutineScope()
@@ -269,7 +272,7 @@ fun SelectReleaseDaysContent(
                                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                                         ) {
                                             Text(
-                                                text = DateAndTimeConverter.getDateFromDateLong(
+                                                text = dateAndTimeConverter.getDateFromDateLong(
                                                     period.days.first().timeInMillis
                                                 ),
                                                 style = styleData
@@ -278,7 +281,7 @@ fun SelectReleaseDaysContent(
                                                 period.days.last().let {
                                                     Text(text = " - ", style = styleData)
                                                     Text(
-                                                        text = DateAndTimeConverter.getDateFromDateLong(
+                                                        text = dateAndTimeConverter.getDateFromDateLong(
                                                             it.timeInMillis
                                                         ),
                                                         style = styleData

@@ -6,6 +6,8 @@ data class RouteRemote(
     val data: String,
     // userId - id пользователя
     val userId: String,
+    // createdAt - дата создания
     val createdAt: Long,
+    // updateAt - дата обновления
     val updateAt: Long,
 )

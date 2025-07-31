@@ -19,6 +19,7 @@ fun PurchasesDestination(
         billingState = state,
         onProductClick = viewModel::onProductClick,
         onBack = router::back,
-        eventSharedFlow = viewModel.event
+        eventSharedFlow = viewModel.event,
+        dateAndTimeConverter = state.dateAndTimeConverter
     )
 }

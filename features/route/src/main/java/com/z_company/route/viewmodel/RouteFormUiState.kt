@@ -1,6 +1,7 @@
 package com.z_company.route.viewmodel
 
 import com.z_company.core.ResultState
+import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.route.Route
 
 data class RouteFormUiState(
@@ -12,7 +13,8 @@ data class RouteFormUiState(
     val errorMessage: String? = null,
     val nightTime: Long? = null,
     val passengerTime: Long? = null,
-    val isCopy: Boolean = false
+    val isCopy: Boolean = false,
+    var dateAndTimeConverter: DateAndTimeConverter? = null
 )
 
 data class SalaryForRouteState(

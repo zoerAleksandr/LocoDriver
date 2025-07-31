@@ -256,6 +256,11 @@ class LocoFormViewModel(
                     currentSetting = it.data
                     currentSetting?.let { setting ->
                         currentSetting = setting
+                        _uiState.update {
+                            it.copy(
+                                dateAndTimeConverter = DateAndTimeConverter(setting)
+                            )
+                        }
                         timeZoneText = settingsUseCase.getTimeZone(setting.timeZone)
                         locomotiveSeriesList.addAllOrSkip(setting.locomotiveSeriesList.toMutableStateList())
                     }
@@ -986,9 +991,5 @@ class LocoFormViewModel(
                 true
             }
         }
-    }
-
-    fun getDateAndTimeText(long: Long?): String {
-        return DateAndTimeConverter.getDateMiniAndTime(value = long)
     }
 }

@@ -17,6 +17,7 @@ fun HomeDestination(
     val previewRouteUiState by homeViewModel.previewRouteUiState.collectAsState()
 
     HomeScreen(
+        listRouteState = uiState.listItemState,
         routeListState = uiState.routeListState,
         removeRouteState = uiState.removeRouteState,
         onRouteClick = {
@@ -67,9 +68,6 @@ fun HomeDestination(
         setFavoriteState = homeViewModel::setFavoriteRoute,
         getSharedIntent = homeViewModel::getUriToRoute,
         getTextWorkTime = homeViewModel::getTextWorkTime,
-        getDateMiniAndTime = homeViewModel::getDateAndTimeText,
-        isHeavyTrains = homeViewModel::isHeavyTrains,
-        isExtendedServicePhaseTrains = homeViewModel::isExtendedServicePhaseTrains,
-        isHolidayTimeInRoute = homeViewModel::isHolidayTimeInRoute
+        dateAndTimeConverter = uiState.dateAndTimeConverter
     )
 }

@@ -39,7 +39,6 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material.rememberModalBottomSheetState
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -161,7 +160,8 @@ fun FormScreen(
     event: SharedFlow<FormScreenEvent>,
     setFavoriteState: () -> Unit,
     checkIsCorrectTime: () -> Unit,
-    timeZoneText: String
+    timeZoneText: String,
+    dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -330,7 +330,8 @@ fun FormScreen(
                                 onSalarySettingClick = onSalarySettingClick,
                                 timeZoneText = timeZoneText,
                                 bottomSheetState = bottomSheetState,
-                                bottomSheetContentState = bottomSheetContent
+                                bottomSheetContentState = bottomSheetContent,
+                                dateAndTimeConverter = dateAndTimeConverter
                             )
                         }
                     }
@@ -378,7 +379,8 @@ private fun RouteFormScreenContent(
     onSalarySettingClick: () -> Unit,
     timeZoneText: String,
     bottomSheetState: ModalBottomSheetState,
-    bottomSheetContentState: MutableState<BottomSheetRemoveTimeFormScreen>
+    bottomSheetContentState: MutableState<BottomSheetRemoveTimeFormScreen>,
+    dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
     val errorTextStyle = AppTypography.getType().titleMedium.copy(
@@ -921,21 +923,13 @@ private fun RouteFormScreenContent(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val dateStartText = startTimeInLong?.let {
-                            DateAndTimeConverter.getDateFromDateLong(startTimeInLong)
+                        val dateAndTimeStartText = startTimeInLong?.let {
+                            dateAndTimeConverter?.getDateAndTime(startTimeInLong)
                         } ?: "укажите время"
-                        val timeStartText = startTimeInLong?.let {
-                            DateAndTimeConverter.getTimeFromDateLong(startTimeInLong)
-                        } ?: ""
 
                         Text(
-                            text = dateStartText,
+                            text = dateAndTimeStartText,
                             style = dataTextStyle
-                        )
-
-                        Text(
-                            text = " $timeStartText",
-                            style = dataTextStyle,
                         )
                     }
                 }
@@ -970,18 +964,11 @@ private fun RouteFormScreenContent(
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        val dateEndText = endTimeInLong?.let {
-                            DateAndTimeConverter.getDateFromDateLong(endTimeInLong)
+                        val dateAndTimeEndText = endTimeInLong?.let {
+                            dateAndTimeConverter?.getDateAndTime(endTimeInLong)
                         } ?: "укажите время"
-                        val timeEndText = endTimeInLong?.let {
-                            DateAndTimeConverter.getTimeFromDateLong(endTimeInLong)
-                        } ?: ""
                         Text(
-                            text = dateEndText,
-                            style = dataTextStyle,
-                        )
-                        Text(
-                            text = " $timeEndText",
+                            text = dateAndTimeEndText,
                             style = dataTextStyle,
                         )
                     }
@@ -1044,13 +1031,15 @@ private fun RouteFormScreenContent(
                         minUntilTimeRest = dialogRestUiState.minUntilTimeRestPointOfTurnover,
                         fullUntilTimeRest = dialogRestUiState.fullUntilTimeRestPointOfTurnover,
                         onSettingClick = onSettingClick,
-                        minTimeRest = dialogRestUiState.minTimeRestPointOfTurnover
+                        minTimeRest = dialogRestUiState.minTimeRestPointOfTurnover,
+                        dateAndTimeConverter = dateAndTimeConverter
                     )
                 } else {
                     InfoRestOfHmeOfTime(
                         untilTimeHomeRest = dialogRestUiState.untilTimeHomeRest,
                         minTimeRest = dialogRestUiState.minTimeHomeRest,
                         onSettingClick = onSettingClick,
+                        dateAndTimeConverter = dateAndTimeConverter
                     )
                 }
             }
@@ -1315,7 +1304,8 @@ fun ItemNotes(
 fun InfoRestOfHmeOfTime(
     minTimeRest: Long?,
     untilTimeHomeRest: ResultState<Long?>,
-    onSettingClick: () -> Unit
+    onSettingClick: () -> Unit,
+    dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val hintStyle = AppTypography.getType().titleLarge.copy(
         fontSize = 18.sp,
@@ -1369,7 +1359,7 @@ fun InfoRestOfHmeOfTime(
             }
         ) {
             val untilTimeHomeRestText =
-                ConverterLongToTime.getDateAndTimeStringFormat(it)
+                dateAndTimeConverter?.getDateMiniAndTime(it) ?: ""
             Text(text = "Отдых до $untilTimeHomeRestText", style = hintStyle)
         }
 
@@ -1403,7 +1393,8 @@ fun InfoRestPointOfTurnoverTime(
     minUntilTimeRest: ResultState<Long?>,
     fullUntilTimeRest: ResultState<Long?>,
     onSettingClick: () -> Unit,
-    minTimeRest: Long?
+    minTimeRest: Long?,
+    dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val hintStyle = AppTypography.getType().titleLarge
         .copy(
@@ -1459,7 +1450,7 @@ fun InfoRestPointOfTurnoverTime(
             }
         ) {
             val minUntilTimeRestText =
-                ConverterLongToTime.getDateAndTimeStringFormat(it)
+                dateAndTimeConverter?.getDateMiniAndTime(it) ?: ""
             Text(
                 modifier = Modifier.padding(horizontal = 16.dp), text = stringResource(
                     id = R.string.min_time_rest_text, minUntilTimeRestText
@@ -1480,7 +1471,7 @@ fun InfoRestPointOfTurnoverTime(
             }
         ) {
             val fullUntilTimeRestText =
-                ConverterLongToTime.getDateAndTimeStringFormat(it)
+                dateAndTimeConverter?.getDateMiniAndTime(it) ?: ""
 
             Text(
                 modifier = Modifier.padding(horizontal = 16.dp), text = stringResource(

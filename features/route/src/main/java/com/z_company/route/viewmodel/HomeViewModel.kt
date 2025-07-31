@@ -6,6 +6,7 @@ import android.content.Intent
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -53,6 +54,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
@@ -95,6 +97,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     val uiState = _uiState.asStateFlow()
 
     private lateinit var salarySetting: SalarySetting
+//    lateinit var dateAndTimeConverter: DateAndTimeConverter
 
     private val _previewRouteUiState = MutableStateFlow(PreviewRouteUiState())
     val previewRouteUiState = _previewRouteUiState.asStateFlow()
@@ -480,9 +483,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                 }
                 if (result is ResultState.Success) {
                     result.data?.let { setting ->
+                        val dateAndTimeConverter = DateAndTimeConverter(setting)
                         _uiState.update {
                             it.copy(
-                                offsetInMoscow = setting.timeZone
+                                offsetInMoscow = setting.timeZone,
+                                dateAndTimeConverter = dateAndTimeConverter
                             )
                         }
                         currentMonthOfYear = setting.selectMonthOfYear
@@ -512,6 +517,25 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                         } else {
                             result.data.filter { it.basicData.timeStartWork!! < currentTimeInMillis }
                         }
+                        val routeStateList = mutableListOf<ItemState>()
+                        routeList.forEach { route ->
+                            val routeState = ItemState(
+                                route = route,
+                                isHoliday = isHolidayTimeInRoute(route),
+                                isHeavyTrains = isHeavyTrains(route),
+                                isExtendedServicePhaseTrains = isExtendedServicePhaseTrains(route)
+                            )
+                            routeStateList.add(routeState)
+                        }
+
+                        withContext(Dispatchers.Main) {
+                            _uiState.update {
+                                it.copy(
+                                    listItemState = routeStateList
+                                )
+                            }
+                        }
+
                         calculationTotalTime(routeList, settings.timeZone)
                         calculationOfTimeWithoutHoliday(routeList, settings.timeZone)
                         calculationOfNightTime(routeList, settings)
@@ -895,26 +919,30 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
 
     fun getTextWorkTime(route: Route): String {
         return currentUserSetting?.timeZone?.let { timeZone ->
-            val startWork =
-                DateAndTimeConverter.getDateMiniAndTime(value = route.basicData.timeStartWork)
+            uiState.value.dateAndTimeConverter?.let { dateAndTimeConverter ->
+                val startWork =
+                    dateAndTimeConverter.getDateMiniAndTime(value = route.basicData.timeStartWork)
 
-            val isDifference = DateAndTimeConverter.isDifferenceDate(
-                first = route.basicData.timeStartWork,
-                second = route.basicData.timeEndWork
-            )
+                val isDifference = dateAndTimeConverter.isDifferenceDate(
+                    first = route.basicData.timeStartWork,
+                    second = route.basicData.timeEndWork
+                )
 
-            val endWork = if (isDifference) {
-                DateAndTimeConverter.getDateMiniAndTime(value = route.basicData.timeEndWork)
-            } else {
-                DateAndTimeConverter.getTime(route.basicData.timeEndWork)
-            }
-            return "$startWork - $endWork"
+                val endWork = if (isDifference) {
+                    dateAndTimeConverter.getDateMiniAndTime(value = route.basicData.timeEndWork)
+                } else {
+                    dateAndTimeConverter.getTime(route.basicData.timeEndWork)
+                }
+                return "$startWork - $endWork"
+            } ?: ""
         } ?: ""
     }
 
-    fun getDateAndTimeText(long: Long?): String {
-        return DateAndTimeConverter.getDateMiniAndTime(value = long)
-    }
+//    fun getDateAndTimeText(long: Long?): String {
+//        return uiState.value.dateAndTimeConverter?.let {
+//            return it.getDateMiniAndTime(value = long)
+//        } ?: ""
+//    }
 
     private fun loadSalarySetting() {
         viewModelScope.launch {
@@ -923,11 +951,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     }
 
     init {
-        loadSalarySetting()
-        loadSetting()
-        checkLoginToAccount()
-        initListStationAndLocomotiveSeries()
-        sharedPreferenceStorage.enableShowingUpdatePresentation()
-        initUpdateManager()
+        viewModelScope.launch(Dispatchers.IO) {
+            loadSalarySetting()
+            loadSetting()
+            checkLoginToAccount()
+            initListStationAndLocomotiveSeries()
+            sharedPreferenceStorage.enableShowingUpdatePresentation()
+            initUpdateManager()
+        }
     }
 }

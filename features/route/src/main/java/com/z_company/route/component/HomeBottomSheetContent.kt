@@ -81,21 +81,21 @@ fun HomeBottomSheetContent(
                             }
                         }
                         Spacer(modifier = Modifier.height(12.dp))
-                        ItemHomeScreen(
-                            modifier = Modifier.animateItemPlacement(),
-                            route = route,
-                            isExpand = isExpand,
-                            onDelete = onDeleteRoute,
-                            requiredSizeText = requiredSize,
-                            changingTextSize = ::changingTextSize,
-                            onLongClick = { onRouteLongClick(route) },
-                            containerColor = background,
-                            onClick = { onRouteClick(route.basicData.id) },
-                            getTextWorkTime = getTextWorkTime,
-                            isHeavyTrains = isHeavyTrains,
-                            isExtendedServicePhaseTrains = isExtendedServicePhaseTrains,
-                            isHolidayTimeInRoute = isHolidayTimeInRoute
-                        )
+//                        ItemHomeScreen(
+//                            modifier = Modifier.animateItemPlacement(),
+//                            route = route,
+//                            isExpand = isExpand,
+//                            onDelete = onDeleteRoute,
+//                            requiredSizeText = requiredSize,
+//                            changingTextSize = ::changingTextSize,
+//                            onLongClick = { onRouteLongClick(route) },
+//                            containerColor = background,
+//                            onClick = { onRouteClick(route.basicData.id) },
+//                            getTextWorkTime = getTextWorkTime,
+//                            isHeavyTrains = isHeavyTrains,
+//                            isExtendedServicePhaseTrains = isExtendedServicePhaseTrains,
+//                            isHolidayTimeInRoute = isHolidayTimeInRoute
+//                        )
                     }
                     item { Spacer(modifier = Modifier.height(24.dp)) }
                 }

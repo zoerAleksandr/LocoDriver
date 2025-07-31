@@ -1,7 +1,9 @@
 package com.z_company.route.ui
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -9,44 +11,64 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.requiredHeightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.BottomSheetValue
+import androidx.compose.material3.Card
+import androidx.compose.material3.FabPosition
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.BottomSheetDefaults
-import androidx.compose.material3.BottomSheetScaffold
+import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SheetValue
-import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.ProgressIndicatorDefaults
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.rememberBottomSheetScaffoldState
-import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -60,21 +82,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -83,46 +105,50 @@ import androidx.lifecycle.flowWithLifecycle
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.AsyncDataValue
-import com.z_company.core.ui.component.AutoSizeText
-import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
-import com.z_company.core.util.DateAndTimeConverter.getDateFromDateLong
-import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
-import com.z_company.core.util.DateAndTimeConverter.getTimeFromDateLong
+import com.z_company.core.util.MonthFullText.getMonthFullText
 import com.z_company.domain.entities.MonthOfYear
+import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHoursInDate
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
+import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.fullRest
 import com.z_company.domain.entities.route.UtilsForEntities.getFollowingTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
+import com.z_company.domain.entities.route.UtilsForEntities.isTransition
 import com.z_company.domain.entities.route.UtilsForEntities.shortRest
 import com.z_company.domain.util.CalculationEnergy
 import com.z_company.domain.util.CalculationEnergy.rounding
 import com.z_company.domain.util.ifNullOrBlank
+import com.z_company.domain.util.minus
 import com.z_company.domain.util.str
 import com.z_company.domain.util.times
 import com.z_company.repository.ShareManager
 import com.z_company.route.R
 import com.z_company.route.component.AnimationDialog
-import com.z_company.route.component.ButtonLocoDriver
 import com.z_company.route.component.DialogSelectMonthOfYear
-import com.z_company.route.component.HomeBottomSheetContent
+import com.z_company.route.component.ItemHomeScreen
 import com.z_company.route.viewmodel.AlertBeforePurchasesEvent
+import com.z_company.route.viewmodel.ItemState
 import com.z_company.route.viewmodel.StartPurchasesEvent
 import com.z_company.route.viewmodel.UpdateEvent
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import ru.rustore.sdk.core.feature.model.FeatureAvailabilityResult
-import com.z_company.core.R as CoreR
+import java.util.Calendar
 
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(
+    ExperimentalMaterial3Api::class,
+    ExperimentalFoundationApi::class
+)
 @Composable
 fun HomeScreen(
+    listRouteState: MutableList<ItemState>,
     routeListState: ResultState<List<Route>>,
     removeRouteState: ResultState<Unit>?,
     onRouteClick: (String) -> Unit,
@@ -171,10 +197,8 @@ fun HomeScreen(
     setFavoriteState: (Route) -> Unit,
     getSharedIntent: (Route) -> Intent,
     getTextWorkTime: (Route) -> String,
-    getDateMiniAndTime: (Long?) -> String,
-    isHeavyTrains: (Route) -> Boolean,
-    isExtendedServicePhaseTrains: (Route) -> Boolean,
-    isHolidayTimeInRoute: (Route) -> Boolean
+//    getDateMiniAndTime: (Long?) -> String,
+    dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val view = LocalView.current
     val backgroundColor = MaterialTheme.colorScheme.background
@@ -191,17 +215,9 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
-    val scaffoldState = rememberBottomSheetScaffoldState(
-        bottomSheetState = rememberStandardBottomSheetState(
-            confirmValueChange = {
-                it != SheetValue.Hidden
-            }
-        )
-    )
+    val scaffoldState = rememberBottomSheetScaffoldState()
     val heightScreen = LocalConfiguration.current.screenHeightDp
-    val sheetPeekHeight = remember {
-        heightScreen.times(0.25)
-    }
+    val widthScreen = LocalConfiguration.current.screenWidthDp
 
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -235,7 +251,6 @@ fun HomeScreen(
         onDispose { }
     })
 
-    val isExpand = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded
 
     if (isShowFormScreen) {
         showFormScreen()
@@ -532,7 +547,13 @@ fun HomeScreen(
                     .clickable {}
             ) {
                 calculationHomeRest(routeForPreview)
-                PreviewRoute(routeForPreview, minTimeRest, homeRestValue, getDateMiniAndTime)
+                PreviewRoute(
+                    routeForPreview,
+                    minTimeRest,
+                    homeRestValue,
+//                    getDateMiniAndTime,
+                    dateAndTimeConverter
+                )
             }
 
             Column(
@@ -758,46 +779,122 @@ fun HomeScreen(
             }
         )
     }
-
-    BottomSheetScaffold(
-        scaffoldState = scaffoldState,
-        snackbarHost = {
-            SnackbarHost(hostState = scaffoldState.snackbarHostState) { snackBarData ->
-                CustomSnackBar(snackBarData = snackBarData)
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(),
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent
+                ),
+                title = {},
+                actions = {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(
+                            shape = Shapes.medium,
+                            onClick = {
+                                showMonthSelectorDialog.value = true
+                            }) {
+                            val text = currentMonthOfYear?.month?.let {
+                                getMonthFullText(it)
+                            } ?: "загрузка"
+                            Text(
+                                text = "$text ${currentMonthOfYear?.year}",
+                                style = AppTypography.getType().headlineMedium,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                        }
+                        IconButton(
+                            modifier = Modifier
+                                .background(
+                                    color = Color.Transparent,
+                                    shape = Shapes.medium
+                                ),
+                            onClick = { onSearchClick() }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = onNewRouteClick) {
+                Icon(imageVector = Icons.Rounded.Add, contentDescription = null)
             }
         },
-        sheetPeekHeight = sheetPeekHeight.dp,
-        sheetContainerColor = MaterialTheme.colorScheme.background,
-        sheetDragHandle = {
-            BottomSheetDefaults.DragHandle(
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        },
-        sheetShadowElevation = 0.dp,
-        sheetContent = {
-            HomeBottomSheetContent(
-                routeListState = routeListState,
-                reloadRoute = reloadRoute,
-                onDeleteRoute = {
-                    routeForRemove = it
-                    changeShowConfirmExitDialog(true)
-                },
-                onRouteClick = onRouteClick,
-                onRouteLongClick = { route ->
-                    showContextDialog = true
-                    routeForPreview = route
-                },
-                isExpand = isExpand,
-                offsetInMoscow = offsetInMoscow,
-                getTextWorkTime = getTextWorkTime,
-                isHeavyTrains = isHeavyTrains,
-                isExtendedServicePhaseTrains = isExtendedServicePhaseTrains,
-                isHolidayTimeInRoute = isHolidayTimeInRoute
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background,
-        contentColor = MaterialTheme.colorScheme.primary
-    ) {
+        bottomBar = {
+            NavigationBar {
+                NavigationBarItem(
+                    selected = true,
+                    icon = {
+                        Icon(
+                            modifier = Modifier.size(24.dp),
+                            imageVector = Icons.Outlined.Home, contentDescription = null
+                        )
+                    },
+                    label = {
+                        Text(text = "Главная")
+                    },
+                    onClick = {}
+                )
+
+                NavigationBarItem(
+                    selected = false,
+                    icon = {
+                        Icon(
+                            modifier = Modifier.size(24.dp),
+                            painter = painterResource(R.drawable.rub),
+                            contentDescription = null
+                        )
+                    },
+                    label = {
+                        Text(text = "ЗП")
+                    },
+                    onClick = {}
+                )
+
+                NavigationBarItem(
+                    selected = false,
+                    icon = {
+                        Icon(
+                            modifier = Modifier.size(24.dp),
+                            imageVector = Icons.Outlined.Settings,
+                            contentDescription = null
+                        )
+                    },
+                    label = {
+                        Text(text = "Настройки")
+                    },
+                    onClick = onSettingsClick
+                )
+
+                NavigationBarItem(
+                    selected = false,
+                    icon = {
+                        Icon(
+                            modifier = Modifier.size(24.dp),
+                            imageVector = Icons.Outlined.Person,
+                            contentDescription = null
+                        )
+                    },
+                    label = {
+                        Text(text = "Профиль")
+                    },
+                    onClick = {}
+                )
+            }
+        }
+    ) { padding ->
         LaunchedEffect(purchasesEvent) {
             scope.launch {
                 purchasesEvent.flowWithLifecycle(lifecycle).collect { event ->
@@ -823,330 +920,388 @@ fun HomeScreen(
                 }
             }
         }
-        Column(
+        LazyColumn(
             Modifier
                 .fillMaxSize()
-                .padding(start = 32.dp, end = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(padding),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            Spacer(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(heightScreen.times(0.02f).dp)
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(heightScreen.times(0.07f).dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
+            item {
+                Card(
                     modifier = Modifier
-                        .background(
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                            shape = Shapes.medium
-                        ),
-                    onClick = { onSettingsClick() }) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
+                        .padding(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    elevation = CardDefaults.elevatedCardElevation(
+                        defaultElevation = 2.dp,
+                        pressedElevation = 0.dp
                     )
-                }
-                TextButton(
-                    modifier = Modifier,
-                    shape = Shapes.medium,
-                    onClick = {
-                        showMonthSelectorDialog.value = true
-                    }) {
-                    val text = currentMonthOfYear?.month?.let {
-                        getMonthFullText(it)
-                    }
-                    AutoSizeText(
-                        text = "$text ${currentMonthOfYear?.year}",
-                        style = AppTypography.getType().headlineSmall,
-                        maxTextSize = 24.sp,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-                IconButton(
-                    modifier = Modifier
-                        .background(
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                            shape = Shapes.medium
-                        ),
-                    onClick = { onSearchClick() }
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-
-            Spacer(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(heightScreen.times(0.08f).dp)
-            )
-            currentMonthOfYear?.let { monthOfYear ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    TotalTime(
-                        modifier = Modifier
-                            .background(color = Color.Transparent, shape = Shapes.medium)
-                            .height(heightScreen.times(0.13f).dp),
-                        valueTime = totalTime,
-                        normaHours = monthOfYear.getPersonalNormaHours(),
-                    )
-                    IconButton(onClick = { onMoreInfoClick(monthOfYear.id) }) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.rub),
-                                tint = MaterialTheme.colorScheme.primary,
-                                contentDescription = null
-                            )
-                        }
-                    }
-                }
-            }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(heightScreen.times(0.05f).dp),
-                horizontalArrangement = Arrangement.Start,
-                verticalAlignment = Alignment.Top
-            ) {
-
-                Row(
-                    modifier = Modifier.padding(end = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-
-                    Icon(
-                        modifier = Modifier.padding(end = 4.dp),
-                        painter = painterResource(id = R.drawable.dark_mode_24px),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    AsyncData(
-                        resultState = nightTime,
-                        loadingContent = {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp
-                            )
-                        }
-                    ) {
-                        AutoSizeText(
-                            text = ConverterLongToTime.getTimeInStringFormat(it),
-                            style = AppTypography.getType().headlineSmall,
-                            maxTextSize = 24.sp,
-                            fontWeight = FontWeight.Light,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-
-
-                Row(
-                    modifier = Modifier.padding(end = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        modifier = Modifier.padding(end = 4.dp),
-                        painter = painterResource(id = R.drawable.passenger_24px),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    AsyncData(
-                        resultState = passengerTime,
-                        loadingContent = {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp
-                            )
-                        }
-                    ) {
-                        AutoSizeText(
-                            text = ConverterLongToTime.getTimeInStringFormat(it),
-                            style = AppTypography.getType().headlineSmall,
-                            maxTextSize = 24.sp,
-                            fontWeight = FontWeight.Light,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(heightScreen.times(0.05f).dp),
-                horizontalArrangement = Arrangement.Start,
-                verticalAlignment = Alignment.Top
-            ) {
-                AsyncData(
-                    resultState = dayoffHours,
-                    loadingContent = {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
-                        )
-                    }
-                ) { hours ->
-                    hours?.let {
-                        if (it != 0) {
-                            Row(
-                                modifier = Modifier.padding(end = 16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .padding(end = 4.dp),
-                                    painter = painterResource(id = R.drawable.palma),
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                                AutoSizeText(
-                                    text = "$it:00",
-                                    style = AppTypography.getType().headlineSmall,
-                                    maxTextSize = 24.sp,
-                                    fontWeight = FontWeight.Light,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-                    }
-                }
-
-                AsyncDataValue(resultState = holidayHours) { hours ->
-                    hours?.let {
-                        if (it != 0L) {
-                            Row(
-                                modifier = Modifier.padding(end = 16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .padding(end = 4.dp),
-                                    painter = painterResource(id = R.drawable.icon_holiday_hours),
-                                    contentDescription = null,
-//                                    tint = Color.Red
-                                )
-                                AutoSizeText(
-                                    text = ConverterLongToTime.getTimeInStringFormat(hours),
-                                    style = AppTypography.getType().headlineSmall,
-                                    maxTextSize = 24.sp,
-                                    fontWeight = FontWeight.Light,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-                    }
-
-                }
-            }
-            AsyncDataValue(resultState = totalTimeWithHoliday) { time ->
-                if (time != totalTime) {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(),
-                        contentAlignment = Alignment.CenterStart
+                            .fillMaxWidth()
+                            .height(IntrinsicSize.Max)
                     ) {
-                        AutoSizeText(
-                            text = "Всего: ${ConverterLongToTime.getTimeInStringFormat(time)}",
-                            style = AppTypography.getType().headlineSmall,
-                            maxTextSize = 24.sp,
-                            fontWeight = FontWeight.Light,
-                            color = MaterialTheme.colorScheme.primary
+                        val image =
+                            if (isSystemInDarkTheme()) R.drawable.background_dark_gray else R.drawable.background_light_gray
+                        Image(
+                            modifier = Modifier.fillMaxHeight(),
+                            painter = painterResource(image),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop
                         )
+
+                        Column(
+                            modifier = Modifier
+                                .padding(12.dp)
+                                .fillMaxWidth(),
+                        ) {
+                            AsyncDataValue(resultState = totalTimeWithHoliday) { time ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = ConverterLongToTime.getTimeInStringFormat(time),
+                                        style = AppTypography.getType().headlineMedium,
+                                        color = MaterialTheme.colorScheme.onBackground
+                                    )
+                                    if (totalTime != time) {
+                                        val differenceTimeInLong = time.minus(totalTime)
+                                        val totalTime =
+                                            ConverterLongToTime.getTimeInStringFormat(totalTime)
+                                        val differenceTime =
+                                            ConverterLongToTime.getTimeInStringFormat(
+                                                differenceTimeInLong
+                                            )
+                                        Text(
+                                            text = " ($totalTime + $differenceTime)",
+                                            style = AppTypography.getType().titleMedium,
+                                            fontWeight = FontWeight.Light,
+                                            color = MaterialTheme.colorScheme.onBackground
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(10.dp))
+                            currentMonthOfYear?.let { month ->
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    val normaHoursInMonth = month.getPersonalNormaHours()
+                                    val percent =
+                                        ((totalTime * 100).toFloat() / (normaHoursInMonth * 3_600_000L).toFloat()) / 100f
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "норма на месяц",
+                                            style = AppTypography.getType().bodyMedium,
+                                            color = MaterialTheme.colorScheme.onBackground
+                                        )
+                                        Text(
+                                            text = "$normaHoursInMonth ч.",
+                                            style = AppTypography.getType().bodyMedium,
+                                            color = MaterialTheme.colorScheme.onBackground
+                                        )
+                                    }
+                                    LinearProgressIndicator(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(2.dp),
+                                        trackColor = MaterialTheme.colorScheme.onBackground.copy(
+                                            alpha = 0.2f
+                                        ),
+                                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                                        strokeCap = StrokeCap.Round,
+                                        progress = { percent.toFloat() },
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(7.dp))
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    val currentTime = Calendar.getInstance()
+                                    val normaHoursToday =
+                                        month.getNormaHoursInDate(currentTime.timeInMillis)
+                                    val percent =
+                                        ((totalTime * 100).toFloat() / (normaHoursToday * 3_600_000L).toFloat()) / 100f
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "норма на ${
+                                                dateAndTimeConverter?.getDate(
+                                                    currentTime.timeInMillis
+                                                ) ?: ""
+                                            }",
+                                            style = AppTypography.getType().bodyMedium,
+                                            color = MaterialTheme.colorScheme.onBackground
+                                        )
+                                        Text(
+                                            text = "$normaHoursToday ч.",
+                                            style = AppTypography.getType().bodyMedium,
+                                            color = MaterialTheme.colorScheme.onBackground
+                                        )
+                                    }
+                                    LinearProgressIndicator(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(2.dp),
+                                        trackColor = MaterialTheme.colorScheme.onBackground.copy(
+                                            alpha = 0.2f
+                                        ),
+                                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                                        strokeCap = StrokeCap.Round,
+                                        progress = { percent.toFloat() },
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
-            Spacer(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(heightScreen.times(0.10f).dp)
-            )
-            ButtonLocoDriver(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(heightScreen.times(0.08f).dp),
-                onClick = {
-                    onNewRouteClick()
+
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                ) {
+                    Text(
+                        modifier = Modifier
+                            .padding(horizontal = 24.dp),
+                        text = "Текущий маршрут"
+                    )
+                    LazyRow(
+                        modifier = Modifier.padding(top = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        item {
+                            Card(
+                                modifier = Modifier
+                                    .padding(start = 12.dp)
+                                    .size((widthScreen / 3).dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color.LightGray
+                                )
+                            ) {
+                                Text(
+                                    modifier = Modifier
+                                        .padding(8.dp),
+                                    text = "09:51"
+                                )
+                                Text(
+                                    modifier = Modifier
+                                        .padding(8.dp),
+                                    text = "на работе"
+                                )
+                            }
+                        }
+                        item {
+                            Card(
+                                modifier = Modifier.size((widthScreen / 3).dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color.LightGray
+                                )
+                            ) {
+
+                            }
+                        }
+                        item {
+                            Card(
+                                modifier = Modifier.size((widthScreen / 3).dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color.LightGray
+                                )
+                            ) {
+
+                            }
+                        }
+                        item {
+                            Card(
+                                modifier = Modifier
+                                    .padding(end = 12.dp)
+                                    .size((widthScreen / 3).dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color.LightGray
+                                )
+                            ) {
+
+                            }
+                        }
+                    }
                 }
-            ) {
-                if (isLoadingStateAddButton) {
+            }
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                ) {
                     Row(
                         modifier = Modifier
+                            .padding(horizontal = 24.dp)
                             .fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(36.dp),
-                            strokeWidth = 3.dp,
-                            color = MaterialTheme.colorScheme.onPrimary
+                        Text(
+                            text = "Маршруты"
                         )
-                        AutoSizeText(
-                            text = "Загрузка",
-                            style = AppTypography.getType().headlineSmall.copy(color = MaterialTheme.colorScheme.onPrimary),
-                            maxTextSize = 24.sp,
-                        )
+                        TextButton(onClick = {}) {
+                            Text(
+                                color = MaterialTheme.colorScheme.tertiary,
+                                text = "Все"
+                            )
+                        }
                     }
-                } else {
-                    AutoSizeText(
-                        text = stringResource(id = CoreR.string.adding),
-                        style = AppTypography.getType().headlineSmall.copy(color = MaterialTheme.colorScheme.onPrimary),
-                        maxTextSize = 24.sp,
-                    )
+                    Column(
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        var background = MaterialTheme.colorScheme.secondaryContainer
+
+                        if (Route(BasicData(timeStartWork = Calendar.getInstance().timeInMillis)).basicData.timeStartWork!! > Calendar.getInstance().timeInMillis) {
+                            background = MaterialTheme.colorScheme.surfaceBright
+                        } else {
+                            if (Route().isTransition(offsetInMoscow)) {
+                                background = MaterialTheme.colorScheme.surfaceDim
+                            }
+                        }
+                        var requiredSize by remember {
+                            mutableStateOf(22.sp)
+                        }
+
+                        fun changingTextSize(value: TextUnit) {
+                            if (requiredSize > value) {
+                                requiredSize = value
+                            }
+                        }
+
+                        if (listRouteState.isNotEmpty()) {
+                            val route = listRouteState.first().route
+                            ItemHomeScreen(
+                                modifier = Modifier.animateItemPlacement(),
+                                route = route,
+                                isExpand = true,
+                                onDelete = onDeleteRoute,
+                                requiredSizeText = requiredSize,
+                                changingTextSize = ::changingTextSize,
+                                onLongClick = {
+                                    showContextDialog = true
+                                    routeForPreview = route
+                                },
+                                containerColor = background,
+                                onClick = { onRouteClick(route.basicData.id) },
+                                getTextWorkTime = getTextWorkTime,
+                                isHeavyTrains = listRouteState[0].isHeavyTrains,
+                                isExtendedServicePhaseTrains = listRouteState[0].isExtendedServicePhaseTrains,
+                                isHolidayTimeInRoute = listRouteState[0].isHoliday
+                            )
+                        }
+                        if (listRouteState.size > 1) {
+                            val route = listRouteState[1].route
+                            ItemHomeScreen(
+                                modifier = Modifier.animateItemPlacement(),
+                                route = route,
+                                isExpand = true,
+                                onDelete = onDeleteRoute,
+                                requiredSizeText = requiredSize,
+                                changingTextSize = ::changingTextSize,
+                                onLongClick = {
+                                    showContextDialog = true
+                                    routeForPreview = route
+                                },
+                                containerColor = background,
+                                onClick = { onRouteClick(route.basicData.id) },
+                                getTextWorkTime = getTextWorkTime,
+                                isHeavyTrains = listRouteState[1].isHeavyTrains,
+                                isExtendedServicePhaseTrains = listRouteState[1].isExtendedServicePhaseTrains,
+                                isHolidayTimeInRoute = listRouteState[1].isHoliday
+                            )
+                        }
+                    }
                 }
+            }
+
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                ) {
+                    Text(
+                        modifier = Modifier
+                            .padding(horizontal = 24.dp),
+                        text = "Действия"
+                    )
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        item {
+                            Card(
+                                modifier = Modifier
+                                    .padding(start = 12.dp)
+                                    .size((widthScreen / 3).dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color.LightGray
+                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.holiday_icon),
+                                        contentDescription = null
+                                    )
+                                    Text(
+                                        modifier = Modifier.weight(1f),
+                                        text = "Создать график"
+                                    )
+                                }
+                            }
+                        }
+                        item {
+                            Card(
+                                modifier = Modifier
+                                    .padding(end = 12.dp)
+                                    .size((widthScreen / 3).dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color.LightGray
+                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.palma),
+                                        contentDescription = null
+                                    )
+                                    Text(
+                                        modifier = Modifier.weight(1f),
+                                        text = "Добавить отвлечение"
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(40.dp))
             }
         }
     }
-}
-
-@Composable
-fun TotalTime(
-    modifier: Modifier,
-    valueTime: Long,
-    normaHours: Int
-) {
-    AutoSizeText(
-        modifier = modifier,
-        alignment = Alignment.BottomStart,
-        text = buildAnnotatedString {
-            withStyle(
-                SpanStyle(
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            ) {
-                append(DateAndTimeConverter.getTimeInStringFormat(valueTime))
-            }
-            withStyle(
-                SpanStyle(
-                    fontWeight = FontWeight.Light,
-                    fontSize = 24.sp,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            ) {
-                append(" / $normaHours")
-            }
-        },
-        maxTextSize = 70.sp,
-//        fontFamily = AppTypography.Companion.AppFontFamilies.RobotoConsed
-    )
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -1155,7 +1310,7 @@ fun PreviewRoute(
     route: Route?,
     minTimeRest: Long?,
     homeRest: ResultState<Long?>,
-    getDateMiniAndTime: (Long?) -> String
+    dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val styleTitle = AppTypography.getType().titleSmall.copy(
         fontWeight = FontWeight.W600,
@@ -1215,7 +1370,7 @@ fun PreviewRoute(
                         contentAlignment = Alignment.CenterStart
                     ) {
                         Text(
-                            text = getDateFromDateLong(route.basicData.timeStartWork),
+                            text = dateAndTimeConverter?.getDateFromDateLong(route.basicData.timeStartWork) ?: "загрузка",
                             style = styleData,
                         )
                     }
@@ -1263,20 +1418,20 @@ fun PreviewRoute(
                         Column(modifier = Modifier.padding(start = paddingIcon)) {
                             Box {
                                 Text(
-                                    text = DateAndTimeConverter.getTimeInStringFormat(route.getWorkTime()),
+                                    text = ConverterLongToTime.getTimeInStringFormat(route.getWorkTime()),
                                     style = styleData,
                                     maxLines = 1
                                 )
                             }
                             Row {
                                 Text(
-                                    text = getTimeFromDateLong(route.basicData.timeStartWork),
+                                    text = dateAndTimeConverter?.getTimeFromDateLong(route.basicData.timeStartWork) ?: "загрузка",
                                     style = styleHint,
                                     maxLines = 1
                                 )
 
                                 Text(
-                                    text = " - ${getTimeFromDateLong(route.basicData.timeEndWork)}",
+                                    text = " - ${dateAndTimeConverter?.getTimeFromDateLong(route.basicData.timeEndWork)  ?: "загрузка"}",
                                     style = styleHint,
                                     maxLines = 1
                                 )
@@ -1333,12 +1488,12 @@ fun PreviewRoute(
                             )
                             if (route.basicData.restPointOfTurnover) {
                                 minTimeRest?.let {
-                                    val shortRestText = getDateMiniAndTime(
+                                    val shortRestText = dateAndTimeConverter?.getDateMiniAndTime(
                                         route.shortRest(minTimeRest)
-                                    )
-                                    val fullRestText = getDateMiniAndTime(
+                                    ) ?: "загрузка"
+                                    val fullRestText = dateAndTimeConverter?.getDateMiniAndTime(
                                         route.fullRest(minTimeRest)
-                                    )
+                                    ) ?: "загрузка"
                                     Text(
                                         text = "$shortRestText - $fullRestText",
                                         style = styleHint,
@@ -1357,7 +1512,7 @@ fun PreviewRoute(
                                     errorContent = {}
                                 ) { homeRestInLong ->
                                     homeRestInLong?.let {
-                                        val homeRestInLongText = getDateMiniAndTime(homeRestInLong)
+                                        val homeRestInLongText = dateAndTimeConverter?.getDateMiniAndTime(homeRestInLong) ?: "загрузка"
                                         Text(
                                             text = "до $homeRestInLongText",
                                             style = styleHint,
@@ -1399,13 +1554,13 @@ fun PreviewRoute(
                 val seriesText = locomotive.series.ifNullOrBlank { "" }
                 val numberText = locomotive.number.ifNullOrBlank { "" }
                 val timeStartAcceptedText =
-                    getTimeFromDateLong(locomotive.timeStartOfAcceptance)
+                    dateAndTimeConverter?.getTimeFromDateLong(locomotive.timeStartOfAcceptance) ?: "загрузка"
                 val timeEndAcceptedText =
-                    getTimeFromDateLong(locomotive.timeEndOfAcceptance)
+                    dateAndTimeConverter?.getTimeFromDateLong(locomotive.timeEndOfAcceptance) ?: "загрузка"
                 val timeStartDeliveryText =
-                    getTimeFromDateLong(locomotive.timeStartOfDelivery)
+                    dateAndTimeConverter?.getTimeFromDateLong(locomotive.timeStartOfDelivery) ?: "загрузка"
                 val timeEndDeliveryText =
-                    getTimeFromDateLong(locomotive.timeEndOfDelivery)
+                    dateAndTimeConverter?.getTimeFromDateLong(locomotive.timeEndOfDelivery) ?: "загрузка"
 
                 val rotationSectionButton =
                     animateFloatAsState(
@@ -1936,8 +2091,10 @@ fun PreviewRoute(
                         Column {
                             train.stations.forEachIndexed { _, station ->
                                 val stationNameText = station.stationName.ifNullOrBlank { "" }
-                                val timeArrival = getTimeFromDateLong(station.timeArrival)
-                                val timeDeparture = getTimeFromDateLong(station.timeDeparture)
+                                val timeArrival =
+                                    dateAndTimeConverter?.getTimeFromDateLong(station.timeArrival) ?: "загрузка"
+                                val timeDeparture =
+                                    dateAndTimeConverter?.getTimeFromDateLong(station.timeDeparture) ?: "загрузка"
                                 // Icon
                                 Row(
                                     modifier = Modifier
@@ -2001,10 +2158,11 @@ fun PreviewRoute(
                 val numberText = passenger.trainNumber.ifNullOrBlank { "" }
                 val stationDeparture = passenger.stationDeparture.ifNullOrBlank { "" }
                 val stationArrival = passenger.stationArrival.ifNullOrBlank { "" }
-                val timeDeparture = getTimeFromDateLong(passenger.timeDeparture)
-                val timeArrival = getTimeFromDateLong(passenger.timeArrival)
+                val timeDeparture =
+                    dateAndTimeConverter?.getTimeFromDateLong(passenger.timeDeparture) ?: "загрузка"
+                val timeArrival = dateAndTimeConverter?.getTimeFromDateLong(passenger.timeArrival) ?: "загрузка"
                 val timeFollowing =
-                    DateAndTimeConverter.getTimeInStringFormat(passenger.getFollowingTime())
+                    ConverterLongToTime.getTimeInStringFormat(passenger.getFollowingTime())
                         .ifNullOrBlank { "" }
                 val notesText = passenger.notes.ifNullOrBlank { "" }
 

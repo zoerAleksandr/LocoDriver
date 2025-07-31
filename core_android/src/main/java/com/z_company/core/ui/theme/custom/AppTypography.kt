@@ -1,6 +1,8 @@
 package com.z_company.core.ui.theme.custom
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -14,7 +16,7 @@ data class AppTypography(
     val titleMedium: TextStyle
         get() = materialTypography.titleMedium
     val titleSmall: TextStyle
-        get() = materialTypography.titleSmall.copy(fontWeight = FontWeight.Bold)
+        get() = materialTypography.titleSmall
 
     val displayLarge: TextStyle
         get() = materialTypography.displayLarge
@@ -53,26 +55,27 @@ data class AppTypography(
         get() = materialTypography.bodyLarge
 
     companion object {
+//        @Composable
         fun getType(): AppTypography {
 //            val fontFamily = AppFontFamilies.RobotoConsed
             val defaultTypography = Typography()
             return AppTypography(
                 materialTypography = Typography(
-//                    displayLarge = defaultTypography.displayLarge.copy(fontFamily = fontFamily),
-//                    displayMedium = defaultTypography.displayMedium.copy(fontFamily = fontFamily),
-//                    displaySmall = defaultTypography.displaySmall.copy(fontFamily = fontFamily),
-//                    headlineLarge = defaultTypography.headlineLarge.copy(fontFamily = fontFamily),
-//                    headlineMedium = defaultTypography.headlineMedium.copy(fontFamily = fontFamily),
-//                    headlineSmall = defaultTypography.headlineSmall.copy(fontFamily = fontFamily),
-//                    titleLarge = defaultTypography.titleLarge.copy(fontFamily = fontFamily),
-//                    titleMedium = defaultTypography.titleMedium.copy(fontFamily = fontFamily),
-//                    titleSmall = defaultTypography.titleSmall.copy(fontFamily = fontFamily),
-//                    bodyLarge = defaultTypography.bodyLarge.copy(fontFamily = fontFamily),
-//                    bodyMedium = defaultTypography.bodyMedium.copy(fontFamily = fontFamily),
-//                    bodySmall = defaultTypography.bodySmall.copy(fontFamily = fontFamily),
-//                    labelLarge = defaultTypography.labelLarge.copy(fontFamily = fontFamily),
-//                    labelMedium = defaultTypography.labelMedium.copy(fontFamily = fontFamily),
-//                    labelSmall = defaultTypography.labelSmall.copy(fontFamily = fontFamily)
+                    displayLarge = defaultTypography.displayLarge.copy(),
+                    displayMedium = defaultTypography.displayMedium.copy(),
+                    displaySmall = defaultTypography.displaySmall.copy(),
+                    headlineLarge = defaultTypography.headlineLarge.copy(),
+                    headlineMedium = defaultTypography.headlineMedium.copy(),
+                    headlineSmall = defaultTypography.headlineSmall.copy(),
+                    titleLarge = defaultTypography.titleLarge.copy(),
+                    titleMedium = defaultTypography.titleMedium.copy(),
+                    titleSmall = defaultTypography.titleSmall.copy(),
+                    bodyLarge = defaultTypography.bodyLarge.copy(),
+                    bodyMedium = defaultTypography.bodyMedium.copy(),
+                    bodySmall = defaultTypography.bodySmall.copy(),
+                    labelLarge = defaultTypography.labelLarge.copy(),
+                    labelMedium = defaultTypography.labelMedium.copy(),
+                    labelSmall = defaultTypography.labelSmall.copy()
                 )
             )
         }

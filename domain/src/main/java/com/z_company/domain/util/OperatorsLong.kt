@@ -8,6 +8,14 @@ operator fun Long?.minus(other: Long?): Long? {
     }
 }
 
+operator fun Long.minus(other: Long?): Long? {
+   return if (other != null) {
+        this - other
+    } else {
+        null
+    }
+}
+
 operator fun Long?.plus(other: Long): Long? {
    return if (this != null) {
         this + other

@@ -54,8 +54,9 @@ import androidx.compose.ui.zIndex
 import com.z_company.core.ui.component.SearchAsyncData
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
+import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.DateAndTimeFormat
-import com.z_company.core.util.str
+import com.z_company.core.util.EntityString
 import com.z_company.domain.entities.FilterSearch
 import com.z_company.domain.entities.RouteWithTag
 import com.z_company.domain.entities.SearchStateScreen
@@ -95,7 +96,9 @@ fun SearchScreen(
     onRouteClick: (String) -> Unit,
     searchHistoryList: List<SearchResponse>,
     removeHistoryResponse: (String) -> Unit,
-    onSearch: () -> Unit
+    onSearch: () -> Unit,
+    entityString: EntityString,
+    dateAndTimeConverter: DateAndTimeConverter
 ) {
     val scope = rememberCoroutineScope()
     var openBottomSheet by rememberSaveable { mutableStateOf(false) }
@@ -124,7 +127,8 @@ fun SearchScreen(
             clearFilter = clearFilter,
             filter = searchFilter,
             setFilter = setSearchFilter,
-            setPeriodFilter = setPeriodFilter
+            setPeriodFilter = setPeriodFilter,
+            dateAndTimeConverter = dateAndTimeConverter
         )
     }
 
@@ -201,7 +205,8 @@ fun SearchScreen(
                                 SearchListItem(
                                     route = route.route,
                                     searchTag = route.tag,
-                                    searchValue = query.text
+                                    searchValue = query.text,
+                                    entityString = entityString
                                 ) {
                                     onRouteClick(route.route.basicData.id)
                                 }
@@ -302,6 +307,7 @@ private fun SearchListItem(
     route: Route,
     searchTag: SearchTag,
     searchValue: String,
+    entityString: EntityString,
     onClick: () -> Unit
 ) {
     val date = SimpleDateFormat(
@@ -332,16 +338,16 @@ private fun SearchListItem(
         ) {
             val shownText = when (searchTag) {
                 SearchTag.BASIC_DATA -> {
-                    StringBuilder(route.basicData.str())
+                    StringBuilder(entityString.basicDataStr(route.basicData))
                 }
 
                 SearchTag.LOCO -> {
                     val text = StringBuilder()
                     route.locomotives.forEachIndexed { index, loco ->
                         if (index == 0) {
-                            text.append(loco.str())
+                            text.append(entityString.locomotiveStr(loco))
                         } else {
-                            text.append("\n\n${loco.str()}")
+                            text.append("\n\n${entityString.locomotiveStr(loco)}")
                         }
                     }
                     text
@@ -351,9 +357,9 @@ private fun SearchListItem(
                     val text = StringBuilder()
                     route.trains.forEachIndexed { index, train ->
                         if (index == 0) {
-                            text.append(train.str())
+                            text.append(entityString.trainStr(train))
                         } else {
-                            text.append("\n\n${train.str()}")
+                            text.append("\n\n${entityString.trainStr(train)}")
                         }
                     }
                     text
@@ -363,9 +369,9 @@ private fun SearchListItem(
                     val text = StringBuilder()
                     route.passengers.forEachIndexed { index, passenger ->
                         if (index == 0) {
-                            text.append(passenger.str())
+                            text.append(entityString.passengerStr(passenger))
                         } else {
-                            text.append("\n\n${passenger.str()}")
+                            text.append("\n\n${entityString.passengerStr(passenger)}")
                         }
                     }
                     text

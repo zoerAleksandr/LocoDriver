@@ -10,7 +10,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.parse.ParseUser
 import com.z_company.core.ResultState
-import com.z_company.core.util.ConverterLongToTime
+import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.isEmailValid
 import com.z_company.domain.entities.ServicePhase
 import com.z_company.use_case.LoginUseCase
@@ -46,6 +46,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private val back4AppManager: Back4AppManager by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
 
+    lateinit var dateAndTimeConverter: DateAndTimeConverter
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState = _uiState.asStateFlow()
 
@@ -188,7 +189,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             val textEndTime = if (maxEndTime == 0L) {
                 ""
             } else {
-                ConverterLongToTime.getDateAndTimeStringFormat(maxEndTime)
+                dateAndTimeConverter.getDateMiniAndTime(maxEndTime)
             }
             _uiState.update {
                 it.copy(
@@ -269,6 +270,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                 }
                 if (result is ResultState.Success) {
                     result.data?.let { userSettings ->
+                        dateAndTimeConverter = DateAndTimeConverter(userSettings)
                         _uiState.update {
                             it.copy(
                                 updateAt = userSettings.updateAt,

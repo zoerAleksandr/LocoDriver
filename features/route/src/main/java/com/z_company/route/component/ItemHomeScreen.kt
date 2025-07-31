@@ -1,6 +1,6 @@
 package com.z_company.route.component
 
-import androidx.compose.foundation.BorderStroke
+import android.annotation.SuppressLint
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.combinedClickable
@@ -21,7 +21,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -53,13 +52,14 @@ import de.charlex.compose.rememberRevealState
 import kotlinx.coroutines.launch
 import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.ui.theme.custom.AppTypography
-import com.z_company.core.util.DateAndTimeConverter
+import com.z_company.core.util.ConverterLongToTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.route.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 
+@SuppressLint("StateFlowValueCalledInComposition")
 @OptIn(ExperimentalMaterialApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun ItemHomeScreen(
@@ -73,9 +73,9 @@ fun ItemHomeScreen(
     containerColor: Color,
     onClick: () -> Unit,
     getTextWorkTime: (Route) -> String,
-    isHeavyTrains: (Route) -> Boolean,
-    isExtendedServicePhaseTrains: (Route) -> Boolean,
-    isHolidayTimeInRoute: (Route) -> Boolean
+    isHeavyTrains: Boolean,
+    isExtendedServicePhaseTrains: Boolean,
+    isHolidayTimeInRoute: Boolean
 ) {
     val revealState = rememberRevealState()
     val scope = rememberCoroutineScope()
@@ -165,7 +165,7 @@ fun ItemHomeScreen(
                 containerColor = containerColor,
                 contentColor = MaterialTheme.colorScheme.primary
             ),
-            border = if (isHolidayTimeInRoute(route)) BorderStroke(0.5.dp, MaterialTheme.colorScheme.error) else null
+//            border = if (isHolidayTimeInRoute(route)) BorderStroke(0.5.dp, MaterialTheme.colorScheme.error) else null
         ) {
             Column(
                 modifier = Modifier
@@ -222,7 +222,7 @@ fun ItemHomeScreen(
                         contentAlignment = Alignment.CenterEnd
                     ) {
                         AutoSizeText(
-                            text = DateAndTimeConverter.getTimeInStringFormat(workTimeValue),
+                            text = ConverterLongToTime.getTimeInStringFormat(workTimeValue),
                             style = AppTypography.getType().headlineSmall,
                             fontWeight = FontWeight.Normal,
                             maxTextSize = requiredSizeText,
@@ -279,21 +279,21 @@ fun ItemHomeScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
                 ) {
-                    if(isHolidayTimeInRoute(route)){
+                    if(isHolidayTimeInRoute){
                         Icon(
                             modifier = Modifier.size(20.dp),
                             painter = painterResource(id = R.drawable.icon_holiday_hours),
                             contentDescription = null
                         )
                     }
-                    if (isExtendedServicePhaseTrains(route)) {
+                    if (isExtendedServicePhaseTrains) {
                         Icon(
                             modifier = Modifier.size(20.dp),
                             painter = painterResource(id = R.drawable.long_distance_24px),
                             contentDescription = null
                         )
                     }
-                    if (isHeavyTrains(route)) {
+                    if (isHeavyTrains) {
                         Icon(
                             modifier = Modifier.size(20.dp),
                             painter = painterResource(id = R.drawable.weight_24px),

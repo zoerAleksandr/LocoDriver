@@ -76,6 +76,7 @@ fun FormDestination(
         event = viewModel.events,
         setFavoriteState = viewModel::setFavoriteRoute,
         checkIsCorrectTime = viewModel::isValidTime,
-        timeZoneText = viewModel.timeZoneText
+        timeZoneText = viewModel.timeZoneText,
+        dateAndTimeConverter = formUiState.dateAndTimeConverter
     )
 }

@@ -9,6 +9,8 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
+import com.z_company.core.util.DateAndTimeConverter
+import com.z_company.core.util.EntityString
 import com.z_company.domain.entities.FilterNames
 import com.z_company.domain.entities.FilterSearch
 import com.z_company.domain.entities.SearchStateScreen
@@ -16,8 +18,11 @@ import com.z_company.domain.entities.TimePeriod
 import com.z_company.domain.entities.route.SearchResponse
 import com.z_company.domain.repositories.HistoryResponseRepository
 import com.z_company.data_local.route.SearchRouteUseCase
+import com.z_company.domain.entities.UserSettings
+import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.util.safetySubList
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,12 +38,18 @@ private const val COUNT_HINTS = 5
 class SearchViewModel : ViewModel(), KoinComponent {
     private val searchRouteUseCase: SearchRouteUseCase by inject()
     private val historyRepository: HistoryResponseRepository by inject()
+    private val settingsUseCase: SettingsUseCase by inject()
+
+    private var loadSettingJob: Job? = null
 
     private val _uiState = MutableStateFlow(SearchUIState())
     val uiState = _uiState.asStateFlow()
 
     var query by mutableStateOf(TextFieldValue(""))
         private set
+
+    lateinit var entityString: EntityString
+    lateinit var dateAndTimeConverter: DateAndTimeConverter
 
     private fun setPreliminarySearch(value: Boolean) {
         _uiState.update {
@@ -55,7 +66,8 @@ class SearchViewModel : ViewModel(), KoinComponent {
                 searchRouteUseCase.searchRoute(
                     correctValue,
                     uiState.value.searchFilter,
-                    uiState.value.preliminarySearch
+                    uiState.value.preliminarySearch,
+                    entityString
                 ).collect { result ->
                     if (result is SearchStateScreen.Loading) {
                         withContext(Dispatchers.Main) {
@@ -217,7 +229,23 @@ class SearchViewModel : ViewModel(), KoinComponent {
         sendRequest(query.text)
     }
 
+    fun loadSetting() {
+        loadSettingJob?.cancel()
+        loadSettingJob = viewModelScope.launch {
+            settingsUseCase.getFlowCurrentSettingsState().collect { result ->
+                if (result is ResultState.Success) {
+                    result.data?.let { setting ->
+                        entityString = EntityString(setting)
+                        dateAndTimeConverter = DateAndTimeConverter(setting)
+                    }
+                    loadSettingJob?.cancel()
+                }
+            }
+        }
+    }
+
     init {
+        loadSetting()
         viewModelScope.launch {
             historyRepository.getAllResponse().collect { result ->
                 if (result is ResultState.Success) {

@@ -5,6 +5,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
+import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ReleasePeriod
 import com.z_company.domain.use_cases.CalendarUseCase
@@ -27,7 +28,7 @@ import java.util.Calendar.getInstance
 class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
     private val calendarUseCase: CalendarUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
-
+    lateinit var dateAndTimeConverter: DateAndTimeConverter
 
     private val _uiState = MutableStateFlow(SelectReleaseDaysUIState())
     val uiState = _uiState.asStateFlow()
@@ -185,7 +186,7 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
                             _uiState.update {
                                 it.copy(saveReleaseDaysState = resultState)
                             }
-                            if (resultState is ResultState.Success){
+                            if (resultState is ResultState.Success) {
                                 saveCurrentMonthJob?.cancel()
                             }
                         }.launchIn(viewModelScope)
@@ -204,8 +205,9 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
                             currentMonthOfYearState = ResultState.Success(result.data?.selectMonthOfYear)
                         )
                     }
-                    result.data?.selectMonthOfYear?.let {
-                        setReleasePeriodState(it)
+                    result.data?.let {
+                        dateAndTimeConverter = DateAndTimeConverter(it)
+                        setReleasePeriodState(it.selectMonthOfYear)
                     }
                 }
             }

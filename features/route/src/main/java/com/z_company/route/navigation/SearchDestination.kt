@@ -27,6 +27,8 @@ fun SearchDestination(router: Router) {
         onRouteClick = router::showRouteForm,
         searchHistoryList = uiState.searchHistoryList,
         removeHistoryResponse = viewModel::removeHistoryResponse,
-        onSearch = viewModel::onSearch
+        onSearch = viewModel::onSearch,
+        entityString = viewModel.entityString,
+        dateAndTimeConverter = viewModel.dateAndTimeConverter
     )
 }

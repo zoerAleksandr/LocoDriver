@@ -8,6 +8,7 @@ import androidx.core.content.FileProvider
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.z_company.core.util.ConverterLongToTime
+import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.route.Route
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -159,18 +160,18 @@ class ShareManager(val context: Context) {
         }
     }
 
-    fun getUri(file: Route): Uri {
-        val gson = GsonBuilder().setDateFormat("MMM dd, yyyy HH:mm:ss").create()
-        val savedFile = saveFile(
-            name = "Маршрут от ${ConverterLongToTime.getDateAndTimeStringFormat(file.basicData.timeStartWork)}",
-            data = gson.toJson(file).toByteArray()
-        )
-        return FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.provider",
-            savedFile
-        )
-    }
+//    fun getUri(file: Route): Uri {
+//        val gson = GsonBuilder().setDateFormat("MMM dd, yyyy HH:mm:ss").create()
+//        val savedFile = saveFile(
+//            name = "Маршрут от ${DateAndTimeConverter.getDateMiniAndTime(file.basicData.timeStartWork)}",
+//            data = gson.toJson(file).toByteArray()
+//        )
+//        return FileProvider.getUriForFile(
+//            context,
+//            "${context.packageName}.provider",
+//            savedFile
+//        )
+//    }
 
     suspend fun shareFile(file: Route): Result<Unit> {
         return runCatching {

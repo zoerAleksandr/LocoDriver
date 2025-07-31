@@ -6,6 +6,7 @@ import androidx.compose.runtime.toMutableStateList
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
+import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.ServicePhase
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Station
@@ -41,7 +42,6 @@ class TrainFormViewModel(
     private val settingsUseCase: SettingsUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
     private var route: Route = Route()
-
     private val _uiState = MutableStateFlow(TrainFormUiState())
     val uiState = _uiState.asStateFlow()
 
@@ -149,6 +149,11 @@ class TrainFormViewModel(
             ) { settingState, routeState ->
                 if (settingState is ResultState.Success) {
                     settingState.data?.let { settings ->
+                        _uiState.update {
+                            it.copy(
+                                dateAndTimeConverter = DateAndTimeConverter(settings)
+                            )
+                        }
                         stationNameList.addAllOrSkip(settings.stationList.toMutableStateList())
                         servicePhaseList.clear()
                         servicePhaseList.addAllOrSkip(settings.servicePhases.toMutableStateList())
@@ -162,21 +167,6 @@ class TrainFormViewModel(
             }.collect {}
         }
 
-    }
-
-    private fun loadSetting(): Job {
-        return viewModelScope.launch {
-            settingsUseCase.getFlowCurrentSettingsState().collect {
-                if (it is ResultState.Success) {
-                    it.data?.let { settings ->
-                        stationNameList.addAllOrSkip(settings.stationList.toMutableStateList())
-                        servicePhaseList.clear()
-                        servicePhaseList.addAllOrSkip(settings.servicePhases.toMutableStateList())
-                    }
-                    this.cancel()
-                }
-            }
-        }
     }
 
     private fun changesHave() {

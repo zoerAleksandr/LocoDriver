@@ -9,6 +9,12 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 
 object ConverterLongToTime {
+
+    fun getHourInDate(date: Long): Int {
+        val totalMinute = date / 60_000
+        return (totalMinute / 60).toInt()
+    }
+
     fun getHour(long: Long): Int {
         val totalMinute = long / 60_000
         return (totalMinute / 60).toInt()
@@ -47,15 +53,6 @@ object ConverterLongToTime {
             val hour = long / 3_600_000.toDouble()
             String.format("%.2f", hour)
         }
-    }
-
-    fun getDateAndTimeStringFormat(long: Long?): String {
-        return long?.let {
-            SimpleDateFormat(
-                "${DateAndTimeFormat.DATE_FORMAT} ${DateAndTimeFormat.TIME_FORMAT}",
-                Locale.getDefault()
-            ).format(it)
-        } ?: ""
     }
 
 

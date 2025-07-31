@@ -77,7 +77,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.ui.component.customDateTimePicker.noRippleEffect
 import com.z_company.core.util.DateAndTimeConverter
-import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
+import com.z_company.core.util.MonthFullText.getMonthFullText
 import com.z_company.domain.entities.ServicePhase
 import com.z_company.domain.entities.TypeDateTimePicker
 import com.z_company.domain.util.toIntOrZero
@@ -127,7 +127,8 @@ fun SettingsScreen(
     updateServicePhase: (ServicePhase, Int) -> Unit,
     setInputDateTimeType: (String) -> Unit,
     inputDateTimeType: String,
-    getAllRouteRemote: () -> Unit
+    getAllRouteRemote: () -> Unit,
+    dateAndTimeConverter: DateAndTimeConverter
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -438,7 +439,8 @@ fun SettingsScreen(
                                 deleteServicePhase = deleteServicePhase,
                                 setInputDateTimeType = setInputDateTimeType,
                                 inputDateTimeType = inputDateTimeType,
-                                getAllRouteRemote = getAllRouteRemote
+                                getAllRouteRemote = getAllRouteRemote,
+                                dateAndTimeConverter = dateAndTimeConverter
                             )
                         }
                     }
@@ -486,7 +488,8 @@ fun SettingScreenContent(
     deleteServicePhase: (Int) -> Unit,
     setInputDateTimeType: (String) -> Unit,
     inputDateTimeType: String,
-    getAllRouteRemote: () -> Unit
+    getAllRouteRemote: () -> Unit,
+    dateAndTimeConverter: DateAndTimeConverter
 ) {
     val styleTitle = AppTypography.getType().titleLarge
         .copy(
@@ -1494,7 +1497,7 @@ fun SettingScreenContent(
                                     ) {
                                         updateAtState?.let { timeInMillis ->
                                             val textSyncDate =
-                                                DateAndTimeConverter.getDateAndTime(
+                                                dateAndTimeConverter.getDateAndTime(
                                                     timeInMillis
                                                 )
 

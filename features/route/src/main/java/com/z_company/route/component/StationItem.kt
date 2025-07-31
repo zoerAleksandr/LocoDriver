@@ -89,7 +89,8 @@ fun StationItem(
     timeZoneText: String,
     selectIndexState: MutableState<Int>,
     bottomSheetState: ModalBottomSheetState,
-    bottomSheetContentState: MutableState<BottomSheetRemoveTimeFormTrainScreen>
+    bottomSheetContentState: MutableState<BottomSheetRemoveTimeFormTrainScreen>,
+    dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val focusManager = LocalFocusManager.current
     val revealState = rememberRevealState()
@@ -287,7 +288,7 @@ fun StationItem(
                 ) {
                     if (!isFirst) {
                         val textTimeArrival = stationFormState.arrival.data?.let {
-                            DateAndTimeConverter.getTimeFromDateLong(it)
+                            dateAndTimeConverter?.getTimeFromDateLong(it)
                         } ?: DateAndTimeFormat.DEFAULT_TIME_TEXT
 
                         Text(
@@ -324,7 +325,7 @@ fun StationItem(
                     contentAlignment = Alignment.Center
                 ) {
                     val textTimeDeparture = stationFormState.departure.data?.let {
-                        DateAndTimeConverter.getTimeFromDateLong(it)
+                        dateAndTimeConverter?.getTimeFromDateLong(it)
                     } ?: DateAndTimeFormat.DEFAULT_TIME_TEXT
 
                     Text(

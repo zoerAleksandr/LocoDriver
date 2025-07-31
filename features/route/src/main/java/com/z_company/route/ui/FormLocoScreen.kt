@@ -93,6 +93,7 @@ import com.z_company.route.component.BottomShadow
 import com.z_company.route.component.DieselSectionItem
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.component.SelectableDateTimePicker
+import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.route.viewmodel.LocoFormUiState
 import java.util.Calendar
@@ -151,8 +152,8 @@ fun FormLocoScreen(
     onChangedContentMenu: (String) -> Unit,
     onDeleteSeries: (String) -> Unit,
     onSettingClick: () -> Unit,
-    getDateMiniAndTime: (Long) -> String,
-    timeZoneText: String
+    timeZoneText: String,
+    dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -294,10 +295,10 @@ fun FormLocoScreen(
                                 onChangedContentMenu = onChangedContentMenu,
                                 onDeleteSeries = onDeleteSeries,
                                 onSettingClick = onSettingClick,
-                                getDateMiniAndTime = getDateMiniAndTime,
                                 timeZoneText = timeZoneText,
                                 bottomSheetState = bottomSheetState,
-                                bottomSheetContentState = bottomSheetContentState
+                                bottomSheetContentState = bottomSheetContentState,
+                                dateAndTimeConverter = dateAndTimeConverter,
                             )
                         }
                     }
@@ -307,7 +308,8 @@ fun FormLocoScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class,
+@OptIn(
+    ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class,
     ExperimentalMaterialApi::class
 )
 @Composable
@@ -347,10 +349,10 @@ private fun LocoFormScreenContent(
     onChangedContentMenu: (String) -> Unit,
     onDeleteSeries: (String) -> Unit,
     onSettingClick: () -> Unit,
-    getDateMiniAndTime: (Long) -> String,
     timeZoneText: String,
     bottomSheetState: ModalBottomSheetState,
-    bottomSheetContentState: MutableState<BottomSheetRemoveTimeFormLocoScreen>
+    bottomSheetContentState: MutableState<BottomSheetRemoveTimeFormLocoScreen>,
+    dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
@@ -652,7 +654,7 @@ private fun LocoFormScreenContent(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         val dateStartText = locomotive.timeStartOfAcceptance?.let {
-                            getDateMiniAndTime(it)
+                            dateAndTimeConverter?.getDateMiniAndTime(it)
                         } ?: "Начало"
                         Text(
                             text = dateStartText,
@@ -685,7 +687,7 @@ private fun LocoFormScreenContent(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         val dateEndText = locomotive.timeEndOfAcceptance?.let {
-                            getDateMiniAndTime(it)
+                            dateAndTimeConverter?.getDateMiniAndTime(it)
                         } ?: "Окончание"
 
                         Text(
@@ -789,7 +791,7 @@ private fun LocoFormScreenContent(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         val dateStartText = locomotive.timeStartOfDelivery?.let {
-                            getDateMiniAndTime(it)
+                            dateAndTimeConverter?.getDateMiniAndTime(it)
                         } ?: "Начало"
 
                         Text(
@@ -823,7 +825,7 @@ private fun LocoFormScreenContent(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         val dateEndText = locomotive.timeEndOfDelivery?.let {
-                            getDateMiniAndTime(it)
+                            dateAndTimeConverter?.getDateMiniAndTime(it)
                         } ?: "Окончание"
                         Text(
                             text = dateEndText,

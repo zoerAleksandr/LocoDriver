@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
+import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.NightTime
 import com.z_company.domain.entities.route.*
@@ -59,7 +60,6 @@ class FormViewModel(
     private val salaryCalculationUseCase: SalaryCalculationUseCase by inject()
 
     val reviewManager = RuStoreReviewManagerFactory.create(application.applicationContext)
-
     private val _uiState = MutableStateFlow(RouteFormUiState())
     val uiState = _uiState.asStateFlow()
 
@@ -368,6 +368,11 @@ class FormViewModel(
         loadSettingsJob = settingsUseCase.getFlowCurrentSettingsState().onEach { result ->
             if (result is ResultState.Success) {
                 result.data?.let { setting ->
+                    _uiState.update {
+                        it.copy(
+                            dateAndTimeConverter = DateAndTimeConverter(setting)
+                        )
+                    }
                     timeZoneText = settingsUseCase.getTimeZone(setting.timeZone)
                 }
                 _dialogRestUiState.update {

@@ -58,6 +58,7 @@ fun FormPassengerDestination(
         onChangedDropDownContentDepartureStation = viewModel::onChangedDropDownContentDepartureStation,
         onChangedDropDownContentArrivalStation = viewModel::onChangedDropDownContentArrivalStation,
         onSettingClick = router::showSettings,
-        timeZoneText = viewModel.timeZoneText
+        timeZoneText = viewModel.timeZoneText,
+        dateAndTimeConverter = formUiState.dateAndTimeConverter
     )
 }

@@ -131,7 +131,8 @@ fun FormPassengerScreen(
     onChangedDropDownContentDepartureStation: (String) -> Unit,
     onChangedDropDownContentArrivalStation: (String) -> Unit,
     onSettingClick: () -> Unit,
-    timeZoneText: String
+    timeZoneText: String,
+    dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -265,7 +266,8 @@ fun FormPassengerScreen(
                                 onSettingClick = onSettingClick,
                                 timeZoneText = timeZoneText,
                                 bottomSheetState = bottomSheetState,
-                                bottomSheetContentState = bottomSheetContentState
+                                bottomSheetContentState = bottomSheetContentState,
+                                dateAndTimeConverter = dateAndTimeConverter
                             )
                         }
 
@@ -301,7 +303,8 @@ fun PassengerFormScreenContent(
     onSettingClick: () -> Unit,
     timeZoneText: String,
     bottomSheetState: ModalBottomSheetState,
-    bottomSheetContentState: MutableState<BottomSheetRemoveTimeFormPassengerScreen>
+    bottomSheetContentState: MutableState<BottomSheetRemoveTimeFormPassengerScreen>,
+    dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
@@ -582,15 +585,11 @@ fun PassengerFormScreenContent(
                     .padding(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                val textDateDeparture = passenger.timeDeparture?.let {
-                    DateAndTimeConverter.getDateFromDateLong(passenger.timeDeparture)
+                val textDateAndTimeDeparture = passenger.timeDeparture?.let {
+                    dateAndTimeConverter?.getDateAndTime(it)
                 } ?: "Время отправления"
-                val textTimeDeparture = passenger.timeDeparture?.let {
-                    DateAndTimeConverter.getTimeFromDateLong(passenger.timeDeparture)
-                } ?: ""
 
-                Text(text = textDateDeparture, style = dataTextStyle)
-                Text(text = textTimeDeparture, style = dataTextStyle)
+                Text(text = textDateAndTimeDeparture, style = dataTextStyle)
             }
         }
 
@@ -743,18 +742,12 @@ fun PassengerFormScreenContent(
                     .padding(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                val textDateArrival =
+                val textDateAndTimeArrival =
                     passenger.timeArrival?.let {
-                        DateAndTimeConverter.getDateFromDateLong(passenger.timeArrival)
+                        dateAndTimeConverter?.getDateAndTime(it)
                     } ?: "Время прибытия"
 
-                val textTimeArrival =
-                    passenger.timeArrival?.let {
-                        DateAndTimeConverter.getTimeFromDateLong(passenger.timeArrival)
-                    } ?: ""
-
-                Text(text = textDateArrival, style = dataTextStyle)
-                Text(text = textTimeArrival, style = dataTextStyle)
+                Text(text = textDateAndTimeArrival, style = dataTextStyle)
             }
         }
 

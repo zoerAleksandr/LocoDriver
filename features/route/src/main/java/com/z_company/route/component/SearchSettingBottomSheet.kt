@@ -40,7 +40,8 @@ fun SearchSettingBottomSheet(
     bottomSheetState: SheetState,
     closeSheet: () -> Unit,
     clearFilter: () -> Unit,
-    setPeriodFilter: (TimePeriod) -> Unit
+    setPeriodFilter: (TimePeriod) -> Unit,
+    dateAndTimeConverter: DateAndTimeConverter
 ) {
     val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
     val subTitleTextStyle = AppTypography.getType().titleLarge
@@ -363,7 +364,7 @@ fun SearchSettingBottomSheet(
                         )
                         .padding(horizontal = 18.dp, vertical = 6.dp),
                 ) {
-                    val dateStartText = DateAndTimeConverter.getDateFromDateLong(startDate)
+                    val dateStartText = dateAndTimeConverter.getDateFromDateLong(startDate)
                     val startPeriodText = "c $dateStartText"
 
                     Text(
@@ -385,7 +386,7 @@ fun SearchSettingBottomSheet(
                         )
                         .padding(horizontal = 18.dp, vertical = 6.dp),
                 ) {
-                    val dateEndText = DateAndTimeConverter.getDateFromDateLong(endDate)
+                    val dateEndText = dateAndTimeConverter.getDateFromDateLong(endDate)
                     val endPeriodText = "по $dateEndText"
 
                     Text(
