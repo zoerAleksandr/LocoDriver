@@ -128,7 +128,7 @@ fun SettingsScreen(
     setInputDateTimeType: (String) -> Unit,
     inputDateTimeType: String,
     getAllRouteRemote: () -> Unit,
-    dateAndTimeConverter: DateAndTimeConverter
+    dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -489,7 +489,7 @@ fun SettingScreenContent(
     setInputDateTimeType: (String) -> Unit,
     inputDateTimeType: String,
     getAllRouteRemote: () -> Unit,
-    dateAndTimeConverter: DateAndTimeConverter
+    dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val styleTitle = AppTypography.getType().titleLarge
         .copy(
@@ -1497,9 +1497,9 @@ fun SettingScreenContent(
                                     ) {
                                         updateAtState?.let { timeInMillis ->
                                             val textSyncDate =
-                                                dateAndTimeConverter.getDateAndTime(
+                                                dateAndTimeConverter?.getDateAndTime(
                                                     timeInMillis
-                                                )
+                                                ) ?: ""
 
                                             AutoSizeText(
                                                 maxTextSize = maxTextSize,

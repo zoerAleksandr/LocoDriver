@@ -76,7 +76,7 @@ fun SelectReleaseDaysScreen(
     yearList: List<Int>,
     monthList: List<Int>,
     selectMonthOfYear: (Pair<Int, Int>) -> Unit,
-    dateAndTimeConverter: DateAndTimeConverter
+    dateAndTimeConverter: DateAndTimeConverter?
 ) {
     Scaffold(
         topBar = {
@@ -141,7 +141,7 @@ fun SelectReleaseDaysContent(
     yearList: List<Int>,
     monthList: List<Int>,
     selectMonthOfYear: (Pair<Int, Int>) -> Unit,
-    dateAndTimeConverter: DateAndTimeConverter
+    dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val dateRangePickerState = rememberDateRangePickerState()
     val scope = rememberCoroutineScope()
@@ -272,18 +272,18 @@ fun SelectReleaseDaysContent(
                                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                                         ) {
                                             Text(
-                                                text = dateAndTimeConverter.getDateFromDateLong(
+                                                text = dateAndTimeConverter?.getDateFromDateLong(
                                                     period.days.first().timeInMillis
-                                                ),
+                                                ) ?: "",
                                                 style = styleData
                                             )
                                             if (period.days.size > 1) {
                                                 period.days.last().let {
                                                     Text(text = " - ", style = styleData)
                                                     Text(
-                                                        text = dateAndTimeConverter.getDateFromDateLong(
+                                                        text = dateAndTimeConverter?.getDateFromDateLong(
                                                             it.timeInMillis
-                                                        ),
+                                                        ) ?: "",
                                                         style = styleData
                                                     )
                                                 }

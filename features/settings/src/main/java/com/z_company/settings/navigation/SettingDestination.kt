@@ -57,6 +57,6 @@ fun SettingDestination(
         setInputDateTimeType = settingsViewModel::setInputDateTimeType,
         inputDateTimeType = uiState.inputDateTimeType,
         getAllRouteRemote = settingsViewModel::getAllRouteRemote,
-        dateAndTimeConverter = settingsViewModel.dateAndTimeConverter
+        dateAndTimeConverter = uiState.dateAndTimeConverter
     )
 }

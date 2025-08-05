@@ -6,7 +6,6 @@ import android.content.Intent
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -19,17 +18,17 @@ import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHours
 import com.z_company.domain.entities.route.Route
-import com.z_company.domain.entities.route.UtilsForEntities
 import com.z_company.domain.entities.route.UtilsForEntities.getHomeRest
-import com.z_company.domain.entities.route.UtilsForEntities.getLongDistanceTime
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
+import com.z_company.domain.entities.route.UtilsForEntities.getOnePersonOperationTime
+import com.z_company.domain.entities.route.UtilsForEntities.getOnePersonOperationTimePassengerTrain
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
+import com.z_company.domain.entities.route.UtilsForEntities.getSingleLocomotiveTime
 import com.z_company.domain.entities.route.UtilsForEntities.getTimeInHeavyTrain
 import com.z_company.domain.entities.route.UtilsForEntities.getTimeInServicePhase
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeWithoutHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
-import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.timeInLongInPeriod
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.RouteUseCase
@@ -51,12 +50,12 @@ import org.koin.core.component.inject
 import java.util.Calendar.getInstance
 import com.z_company.use_case.RuStoreUseCase
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import ru.rustore.sdk.billingclient.RuStoreBillingClient
@@ -97,7 +96,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     val uiState = _uiState.asStateFlow()
 
     private lateinit var salarySetting: SalarySetting
-//    lateinit var dateAndTimeConverter: DateAndTimeConverter
 
     private val _previewRouteUiState = MutableStateFlow(PreviewRouteUiState())
     val previewRouteUiState = _previewRouteUiState.asStateFlow()
@@ -536,9 +534,21 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                             }
                         }
 
+                        val salaryCalculationHelper = SalaryCalculationHelper(
+                            userSettings = settings,
+                            salarySetting = salarySetting,
+                            routeList = routeList
+                        )
+
+                        calculationOfExtendedServicePhaseTime(salaryCalculationHelper)
+                        calculationOfLongDistanceTrainsTime(salaryCalculationHelper)
+                        calculationOfHeavyTrainsTime(salaryCalculationHelper)
+
+                        calculationOfOnePersonOperationTime(routeList, settings)
                         calculationTotalTime(routeList, settings.timeZone)
                         calculationOfTimeWithoutHoliday(routeList, settings.timeZone)
                         calculationOfNightTime(routeList, settings)
+                        calculationOfSingleLocomotiveTime(routeList)
                         calculationPassengerTime(routeList, settings.timeZone)
                         calculationHolidayTime(routeList, settings.timeZone)
                     }
@@ -621,6 +631,179 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
             }
         }
     }
+
+    private fun calculationOfSingleLocomotiveTime(routes: List<Route>) {
+        viewModelScope.launch(Dispatchers.IO) {
+            withContext(Dispatchers.Main) {
+                _uiState.update {
+                    it.copy(
+                        singleLocomotiveTimeState = ResultState.Loading()
+                    )
+                }
+            }
+            try {
+                val timeState = routes.getSingleLocomotiveTime()
+                withContext(Dispatchers.Main) {
+                    _uiState.update {
+                        it.copy(
+                            singleLocomotiveTimeState = ResultState.Success(timeState)
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    _uiState.update {
+                        it.copy(
+                            singleLocomotiveTimeState = ResultState.Error(ErrorEntity(e))
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun calculationOfLongDistanceTrainsTime(
+        salaryCalculationHelper: SalaryCalculationHelper
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            withContext(Dispatchers.Main) {
+                _uiState.update {
+                    it.copy(
+                        longDistanceTrainsTime = ResultState.Loading()
+                    )
+                }
+            }
+            try {
+                val timeState = salaryCalculationHelper.getTimeLongDistanceTrainFlow().first()
+                withContext(Dispatchers.Main) {
+                    _uiState.update {
+                        it.copy(
+                            longDistanceTrainsTime = ResultState.Success(timeState)
+                        )
+                    }
+                }
+
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    _uiState.update {
+                        it.copy(
+                            longDistanceTrainsTime = ResultState.Error(ErrorEntity(e))
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun calculationOfExtendedServicePhaseTime(
+        salaryCalculationHelper: SalaryCalculationHelper
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            withContext(Dispatchers.Main) {
+                _uiState.update {
+                    it.copy(
+                        extendedServicePhaseTime = ResultState.Loading()
+                    )
+                }
+            }
+            try {
+                val timeState =
+                    salaryCalculationHelper.getTimeListSurchargeServicePhaseFlow().first().sum()
+                withContext(Dispatchers.Main) {
+                    _uiState.update {
+                        it.copy(
+                            extendedServicePhaseTime = ResultState.Success(timeState)
+                        )
+                    }
+                }
+
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    _uiState.update {
+                        it.copy(
+                            extendedServicePhaseTime = ResultState.Error(ErrorEntity(e))
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun calculationOfOnePersonOperationTime(
+        routes: List<Route>, userSettings: UserSettings
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            withContext(Dispatchers.Main) {
+                _uiState.update {
+                    it.copy(
+                        onePersonOperationTime = ResultState.Loading()
+                    )
+                }
+            }
+            try {
+                currentMonthOfYear?.let { monthOfYear ->
+                    val passengerTime = routes.getOnePersonOperationTimePassengerTrain(
+                        monthOfYear, userSettings.timeZone
+                    )
+                    val time = routes.getOnePersonOperationTime(
+                        monthOfYear, userSettings.timeZone
+                    )
+                    val resultTIme = time + passengerTime
+                    withContext(Dispatchers.Main) {
+                        _uiState.update {
+                            it.copy(
+                                onePersonOperationTime = ResultState.Success(resultTIme)
+                            )
+                        }
+                    }
+                }
+
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    _uiState.update {
+                        it.copy(
+                            onePersonOperationTime = ResultState.Error(ErrorEntity(e))
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun calculationOfHeavyTrainsTime(
+        salaryCalculationHelper: SalaryCalculationHelper
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            withContext(Dispatchers.Main) {
+                _uiState.update {
+                    it.copy(
+                        heavyTrainsTime = ResultState.Loading()
+                    )
+                }
+            }
+            try {
+                val timeState =
+                    salaryCalculationHelper.getTimeListSurchargeHeavyTrainsFlow().first().sum()
+                withContext(Dispatchers.Main) {
+                    _uiState.update {
+                        it.copy(
+                            heavyTrainsTime = ResultState.Success(timeState)
+                        )
+                    }
+                }
+
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    _uiState.update {
+                        it.copy(
+                            heavyTrainsTime = ResultState.Error(ErrorEntity(e))
+                        )
+                    }
+                }
+            }
+        }
+    }
+
 
     private fun calculationHolidayTime(routes: List<Route>, offsetInMoscow: Long) {
         viewModelScope.launch(Dispatchers.IO) {

@@ -37,9 +37,10 @@ fun HomeDestination(
         monthList = uiState.monthList,
         selectYearAndMonth = homeViewModel::setCurrentMonth,
         minTimeRest = uiState.minTimeRest,
-        nightTime = uiState.nightTimeInRouteList,
+        nightTimeState = uiState.nightTimeInRouteList,
         totalTimeWithHoliday = uiState.totalTimeWithHoliday,
-        passengerTime = uiState.passengerTimeInRouteList,
+        passengerTimeState = uiState.passengerTimeInRouteList,
+        singleLocomotiveTimeState = uiState.singleLocomotiveTimeState,
         dayoffHours = uiState.dayOffHours,
         holidayHours = uiState.holidayHours,
         calculationHomeRest = homeViewModel::calculationHomeRest,
@@ -68,6 +69,10 @@ fun HomeDestination(
         setFavoriteState = homeViewModel::setFavoriteRoute,
         getSharedIntent = homeViewModel::getUriToRoute,
         getTextWorkTime = homeViewModel::getTextWorkTime,
-        dateAndTimeConverter = uiState.dateAndTimeConverter
+        dateAndTimeConverter = uiState.dateAndTimeConverter,
+        extendedServicePhaseTime = uiState.extendedServicePhaseTime,
+        longDistanceTrainsTime = uiState.longDistanceTrainsTime,
+        heavyTrainsTime = uiState.heavyTrainsTime,
+        onePersonOperationTime = uiState.onePersonOperationTime
     )
 }

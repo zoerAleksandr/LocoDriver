@@ -28,7 +28,6 @@ import java.util.Calendar.getInstance
 class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
     private val calendarUseCase: CalendarUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
-    lateinit var dateAndTimeConverter: DateAndTimeConverter
 
     private val _uiState = MutableStateFlow(SelectReleaseDaysUIState())
     val uiState = _uiState.asStateFlow()
@@ -200,14 +199,14 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
         viewModelScope.launch {
             settingsUseCase.getFlowCurrentSettingsState().collect { result ->
                 if (result is ResultState.Success) {
-                    _uiState.update {
-                        it.copy(
-                            currentMonthOfYearState = ResultState.Success(result.data?.selectMonthOfYear)
-                        )
-                    }
-                    result.data?.let {
-                        dateAndTimeConverter = DateAndTimeConverter(it)
-                        setReleasePeriodState(it.selectMonthOfYear)
+                    result.data?.let { setting ->
+                        _uiState.update {
+                            it.copy(
+                                currentMonthOfYearState = ResultState.Success(setting.selectMonthOfYear),
+                                dateAndTimeConverter = DateAndTimeConverter(setting)
+                            )
+                        }
+                        setReleasePeriodState(setting.selectMonthOfYear)
                     }
                 }
             }

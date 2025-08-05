@@ -1,29 +1,27 @@
 package com.z_company.route.ui
 
-import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
-import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.BasicTooltipBox
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.MutatePriority
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.requiredHeightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -31,24 +29,21 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.BottomSheetValue
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberBasicTooltipState
 import androidx.compose.material3.Card
-import androidx.compose.material3.FabPosition
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -60,14 +55,15 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.ProgressIndicatorDefaults
+import androidx.compose.material3.NavigationBarItemColors
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -81,14 +77,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
@@ -132,6 +131,8 @@ import com.z_company.route.R
 import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.DialogSelectMonthOfYear
 import com.z_company.route.component.ItemHomeScreen
+import com.z_company.route.component.LinearPagerIndicator
+import com.z_company.route.component.PieChart
 import com.z_company.route.viewmodel.AlertBeforePurchasesEvent
 import com.z_company.route.viewmodel.ItemState
 import com.z_company.route.viewmodel.StartPurchasesEvent
@@ -166,8 +167,9 @@ fun HomeScreen(
     yearList: List<Int>,
     selectYearAndMonth: (Pair<Int, Int>) -> Unit,
     minTimeRest: Long?,
-    nightTime: ResultState<Long>?,
-    passengerTime: ResultState<Long>?,
+    nightTimeState: ResultState<Long>?,
+    singleLocomotiveTimeState: ResultState<Long>?,
+    passengerTimeState: ResultState<Long>?,
     dayoffHours: ResultState<Int>?,
     holidayHours: ResultState<Long>?,
     totalTimeWithHoliday: ResultState<Long>?,
@@ -197,8 +199,11 @@ fun HomeScreen(
     setFavoriteState: (Route) -> Unit,
     getSharedIntent: (Route) -> Intent,
     getTextWorkTime: (Route) -> String,
-//    getDateMiniAndTime: (Long?) -> String,
-    dateAndTimeConverter: DateAndTimeConverter?
+    dateAndTimeConverter: DateAndTimeConverter?,
+    extendedServicePhaseTime: ResultState<Long>?,
+    longDistanceTrainsTime: ResultState<Long>?,
+    heavyTrainsTime: ResultState<Long>?,
+    onePersonOperationTime: ResultState<Long>?
 ) {
     val view = LocalView.current
     val backgroundColor = MaterialTheme.colorScheme.background
@@ -779,6 +784,18 @@ fun HomeScreen(
             }
         )
     }
+    val brushMain = Brush.linearGradient(
+        0.1f to MaterialTheme.colorScheme.surfaceVariant,
+        1500.0f to MaterialTheme.colorScheme.surface,
+        start = Offset.Zero,
+        end = Offset.Infinite
+    )
+    val brushSecondary = Brush.linearGradient(
+        0.1f to MaterialTheme.colorScheme.surfaceTint,
+        1500.0f to MaterialTheme.colorScheme.background,
+        start = Offset.Zero,
+        end = Offset.Infinite
+    )
     Scaffold(
         topBar = {
             TopAppBar(
@@ -828,13 +845,23 @@ fun HomeScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onNewRouteClick) {
+            FloatingActionButton(containerColor = Color(0xFFf56e0f), onClick = onNewRouteClick) {
                 Icon(imageVector = Icons.Rounded.Add, contentDescription = null)
             }
         },
         bottomBar = {
-            NavigationBar {
+            val colors: NavigationBarItemColors = NavigationBarItemDefaults.colors(
+                unselectedTextColor = MaterialTheme.colorScheme.background,
+                selectedTextColor = MaterialTheme.colorScheme.background,
+                unselectedIconColor = MaterialTheme.colorScheme.background,
+                selectedIconColor = MaterialTheme.colorScheme.primary,
+                indicatorColor = MaterialTheme.colorScheme.background
+            )
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.primary
+            ) {
                 NavigationBarItem(
+                    colors = colors,
                     selected = true,
                     icon = {
                         Icon(
@@ -849,6 +876,7 @@ fun HomeScreen(
                 )
 
                 NavigationBarItem(
+                    colors = colors,
                     selected = false,
                     icon = {
                         Icon(
@@ -864,6 +892,7 @@ fun HomeScreen(
                 )
 
                 NavigationBarItem(
+                    colors = colors,
                     selected = false,
                     icon = {
                         Icon(
@@ -879,6 +908,7 @@ fun HomeScreen(
                 )
 
                 NavigationBarItem(
+                    colors = colors,
                     selected = false,
                     icon = {
                         Icon(
@@ -908,8 +938,6 @@ fun HomeScreen(
                                 is FeatureAvailabilityResult.Unavailable -> {
                                     scaffoldState.snackbarHostState.showSnackbar("Ошибка: ${event.availability.cause.message}")
                                 }
-
-                                else -> {}
                             }
                         }
 
@@ -920,6 +948,7 @@ fun HomeScreen(
                 }
             }
         }
+        val pagerState = rememberPagerState(pageCount = { 3 })
         LazyColumn(
             Modifier
                 .fillMaxSize()
@@ -928,148 +957,55 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             item {
-                Card(
-                    modifier = Modifier
-                        .padding(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    ),
-                    elevation = CardDefaults.elevatedCardElevation(
-                        defaultElevation = 2.dp,
-                        pressedElevation = 0.dp
-                    )
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Box(
+                    HorizontalPager(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(IntrinsicSize.Max)
-                    ) {
-                        val image =
-                            if (isSystemInDarkTheme()) R.drawable.background_dark_gray else R.drawable.background_light_gray
-                        Image(
-                            modifier = Modifier.fillMaxHeight(),
-                            painter = painterResource(image),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop
-                        )
-
-                        Column(
-                            modifier = Modifier
-                                .padding(12.dp)
-                                .fillMaxWidth(),
-                        ) {
-                            AsyncDataValue(resultState = totalTimeWithHoliday) { time ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = ConverterLongToTime.getTimeInStringFormat(time),
-                                        style = AppTypography.getType().headlineMedium,
-                                        color = MaterialTheme.colorScheme.onBackground
-                                    )
-                                    if (totalTime != time) {
-                                        val differenceTimeInLong = time.minus(totalTime)
-                                        val totalTime =
-                                            ConverterLongToTime.getTimeInStringFormat(totalTime)
-                                        val differenceTime =
-                                            ConverterLongToTime.getTimeInStringFormat(
-                                                differenceTimeInLong
-                                            )
-                                        Text(
-                                            text = " ($totalTime + $differenceTime)",
-                                            style = AppTypography.getType().titleMedium,
-                                            fontWeight = FontWeight.Light,
-                                            color = MaterialTheme.colorScheme.onBackground
-                                        )
-                                    }
-                                }
+                            .animateItemPlacement(),
+                        state = pagerState
+                    ) { page ->
+                        when (page) {
+                            0 -> {
+                                MainInfo(
+                                    totalTime = totalTime,
+                                    totalTimeWithHoliday = totalTimeWithHoliday,
+                                    currentMonthOfYear = currentMonthOfYear,
+                                    dateAndTimeConverter = dateAndTimeConverter,
+                                    brush = brushMain
+                                )
                             }
-                            Spacer(modifier = Modifier.height(10.dp))
-                            currentMonthOfYear?.let { month ->
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                                ) {
-                                    val normaHoursInMonth = month.getPersonalNormaHours()
-                                    val percent =
-                                        ((totalTime * 100).toFloat() / (normaHoursInMonth * 3_600_000L).toFloat()) / 100f
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "норма на месяц",
-                                            style = AppTypography.getType().bodyMedium,
-                                            color = MaterialTheme.colorScheme.onBackground
-                                        )
-                                        Text(
-                                            text = "$normaHoursInMonth ч.",
-                                            style = AppTypography.getType().bodyMedium,
-                                            color = MaterialTheme.colorScheme.onBackground
-                                        )
-                                    }
-                                    LinearProgressIndicator(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(2.dp),
-                                        trackColor = MaterialTheme.colorScheme.onBackground.copy(
-                                            alpha = 0.2f
-                                        ),
-                                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                                        strokeCap = StrokeCap.Round,
-                                        progress = { percent.toFloat() },
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(7.dp))
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                                ) {
-                                    val currentTime = Calendar.getInstance()
-                                    val normaHoursToday =
-                                        month.getNormaHoursInDate(currentTime.timeInMillis)
-                                    val percent =
-                                        ((totalTime * 100).toFloat() / (normaHoursToday * 3_600_000L).toFloat()) / 100f
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "норма на ${
-                                                dateAndTimeConverter?.getDate(
-                                                    currentTime.timeInMillis
-                                                ) ?: ""
-                                            }",
-                                            style = AppTypography.getType().bodyMedium,
-                                            color = MaterialTheme.colorScheme.onBackground
-                                        )
-                                        Text(
-                                            text = "$normaHoursToday ч.",
-                                            style = AppTypography.getType().bodyMedium,
-                                            color = MaterialTheme.colorScheme.onBackground
-                                        )
-                                    }
-                                    LinearProgressIndicator(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(2.dp),
-                                        trackColor = MaterialTheme.colorScheme.onBackground.copy(
-                                            alpha = 0.2f
-                                        ),
-                                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                                        strokeCap = StrokeCap.Round,
-                                        progress = { percent.toFloat() },
-                                    )
-                                }
+
+                            1 -> {
+                                DetailWorkTimeCard(
+                                    totalTime = totalTime,
+                                    brush = brushMain,
+                                    totalTimeWithHoliday = totalTimeWithHoliday,
+                                    passengerTimeState = passengerTimeState,
+                                    singleLocomotiveTimeState = singleLocomotiveTimeState,
+                                    nightTimeState = nightTimeState
+                                )
+                            }
+
+                            2 -> {
+                                DetailTrainCard(
+                                    totalTime = totalTime,
+                                    brush = brushMain,
+                                    totalTimeWithHoliday = totalTimeWithHoliday,
+                                    extendedServicePhaseTime = extendedServicePhaseTime,
+                                    longDistanceTrainsTime = longDistanceTrainsTime,
+                                    heavyTrainsTime = heavyTrainsTime,
+                                    onePersonOperationTime = onePersonOperationTime
+                                )
                             }
                         }
                     }
+                    LinearPagerIndicator(
+                        modifier = Modifier
+                            .animateItemPlacement(),
+                        state = pagerState
+                    )
                 }
             }
 
@@ -1077,6 +1013,7 @@ fun HomeScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .animateItemPlacement()
                 ) {
                     Text(
                         modifier = Modifier
@@ -1092,52 +1029,81 @@ fun HomeScreen(
                                 modifier = Modifier
                                     .padding(start = 12.dp)
                                     .size((widthScreen / 3).dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = Color.LightGray
+                                elevation = CardDefaults.elevatedCardElevation(
+                                    defaultElevation = 2.dp,
+                                ),
+                                border = BorderStroke(
+                                    width = 1.dp,
+                                    color = MaterialTheme.colorScheme.secondary
                                 )
+
                             ) {
-                                Text(
+                                Box(
                                     modifier = Modifier
-                                        .padding(8.dp),
-                                    text = "09:51"
-                                )
-                                Text(
+                                        .fillMaxSize()
+                                        .background(MaterialTheme.colorScheme.background)
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(8.dp)
+                                    ) {
+                                        Text(
+//                                            modifier = Modifier
+//                                                .padding(8.dp),
+                                            text = "09:51",
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Text(
+//                                            modifier = Modifier
+//                                                .padding(8.dp),
+                                            text = "на работе",
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        item {
+                            Card(
+                                modifier = Modifier
+                                    .size((widthScreen / 3).dp),
+                            ) {
+                                Box(
                                     modifier = Modifier
-                                        .padding(8.dp),
-                                    text = "на работе"
-                                )
+                                        .fillMaxWidth()
+                                        .height(IntrinsicSize.Max)
+                                        .background(brushMain)
+                                ) {
+
+                                }
                             }
                         }
                         item {
                             Card(
                                 modifier = Modifier.size((widthScreen / 3).dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = Color.LightGray
-                                )
                             ) {
-
-                            }
-                        }
-                        item {
-                            Card(
-                                modifier = Modifier.size((widthScreen / 3).dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = Color.LightGray
-                                )
-                            ) {
-
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(IntrinsicSize.Max)
+                                        .background(brushMain)
+                                ) {}
                             }
                         }
                         item {
                             Card(
                                 modifier = Modifier
                                     .padding(end = 12.dp)
-                                    .size((widthScreen / 3).dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = Color.LightGray
-                                )
+                                    .size((widthScreen / 3).dp)
+                                    .background(brushMain),
                             ) {
-
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(IntrinsicSize.Max)
+                                        .background(brushMain)
+                                ) {}
                             }
                         }
                     }
@@ -1147,6 +1113,7 @@ fun HomeScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .animateItemPlacement()
                 ) {
                     Row(
                         modifier = Modifier
@@ -1233,11 +1200,11 @@ fun HomeScreen(
                     }
                 }
             }
-
             item {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .animateItemPlacement()
                 ) {
                     Text(
                         modifier = Modifier
@@ -1296,9 +1263,12 @@ fun HomeScreen(
                     }
                 }
             }
-
             item {
-                Spacer(modifier = Modifier.height(40.dp))
+                Spacer(
+                    modifier = Modifier
+                        .height(40.dp)
+                        .animateItemPlacement()
+                )
             }
         }
     }
@@ -1370,7 +1340,8 @@ fun PreviewRoute(
                         contentAlignment = Alignment.CenterStart
                     ) {
                         Text(
-                            text = dateAndTimeConverter?.getDateFromDateLong(route.basicData.timeStartWork) ?: "загрузка",
+                            text = dateAndTimeConverter?.getDateFromDateLong(route.basicData.timeStartWork)
+                                ?: "загрузка",
                             style = styleData,
                         )
                     }
@@ -1425,13 +1396,14 @@ fun PreviewRoute(
                             }
                             Row {
                                 Text(
-                                    text = dateAndTimeConverter?.getTimeFromDateLong(route.basicData.timeStartWork) ?: "загрузка",
+                                    text = dateAndTimeConverter?.getTimeFromDateLong(route.basicData.timeStartWork)
+                                        ?: "загрузка",
                                     style = styleHint,
                                     maxLines = 1
                                 )
 
                                 Text(
-                                    text = " - ${dateAndTimeConverter?.getTimeFromDateLong(route.basicData.timeEndWork)  ?: "загрузка"}",
+                                    text = " - ${dateAndTimeConverter?.getTimeFromDateLong(route.basicData.timeEndWork) ?: "загрузка"}",
                                     style = styleHint,
                                     maxLines = 1
                                 )
@@ -1512,7 +1484,9 @@ fun PreviewRoute(
                                     errorContent = {}
                                 ) { homeRestInLong ->
                                     homeRestInLong?.let {
-                                        val homeRestInLongText = dateAndTimeConverter?.getDateMiniAndTime(homeRestInLong) ?: "загрузка"
+                                        val homeRestInLongText =
+                                            dateAndTimeConverter?.getDateMiniAndTime(homeRestInLong)
+                                                ?: "загрузка"
                                         Text(
                                             text = "до $homeRestInLongText",
                                             style = styleHint,
@@ -1554,13 +1528,17 @@ fun PreviewRoute(
                 val seriesText = locomotive.series.ifNullOrBlank { "" }
                 val numberText = locomotive.number.ifNullOrBlank { "" }
                 val timeStartAcceptedText =
-                    dateAndTimeConverter?.getTimeFromDateLong(locomotive.timeStartOfAcceptance) ?: "загрузка"
+                    dateAndTimeConverter?.getTimeFromDateLong(locomotive.timeStartOfAcceptance)
+                        ?: "загрузка"
                 val timeEndAcceptedText =
-                    dateAndTimeConverter?.getTimeFromDateLong(locomotive.timeEndOfAcceptance) ?: "загрузка"
+                    dateAndTimeConverter?.getTimeFromDateLong(locomotive.timeEndOfAcceptance)
+                        ?: "загрузка"
                 val timeStartDeliveryText =
-                    dateAndTimeConverter?.getTimeFromDateLong(locomotive.timeStartOfDelivery) ?: "загрузка"
+                    dateAndTimeConverter?.getTimeFromDateLong(locomotive.timeStartOfDelivery)
+                        ?: "загрузка"
                 val timeEndDeliveryText =
-                    dateAndTimeConverter?.getTimeFromDateLong(locomotive.timeEndOfDelivery) ?: "загрузка"
+                    dateAndTimeConverter?.getTimeFromDateLong(locomotive.timeEndOfDelivery)
+                        ?: "загрузка"
 
                 val rotationSectionButton =
                     animateFloatAsState(
@@ -2092,9 +2070,11 @@ fun PreviewRoute(
                             train.stations.forEachIndexed { _, station ->
                                 val stationNameText = station.stationName.ifNullOrBlank { "" }
                                 val timeArrival =
-                                    dateAndTimeConverter?.getTimeFromDateLong(station.timeArrival) ?: "загрузка"
+                                    dateAndTimeConverter?.getTimeFromDateLong(station.timeArrival)
+                                        ?: "загрузка"
                                 val timeDeparture =
-                                    dateAndTimeConverter?.getTimeFromDateLong(station.timeDeparture) ?: "загрузка"
+                                    dateAndTimeConverter?.getTimeFromDateLong(station.timeDeparture)
+                                        ?: "загрузка"
                                 // Icon
                                 Row(
                                     modifier = Modifier
@@ -2160,7 +2140,8 @@ fun PreviewRoute(
                 val stationArrival = passenger.stationArrival.ifNullOrBlank { "" }
                 val timeDeparture =
                     dateAndTimeConverter?.getTimeFromDateLong(passenger.timeDeparture) ?: "загрузка"
-                val timeArrival = dateAndTimeConverter?.getTimeFromDateLong(passenger.timeArrival) ?: "загрузка"
+                val timeArrival =
+                    dateAndTimeConverter?.getTimeFromDateLong(passenger.timeArrival) ?: "загрузка"
                 val timeFollowing =
                     ConverterLongToTime.getTimeInStringFormat(passenger.getFollowingTime())
                         .ifNullOrBlank { "" }
@@ -2305,5 +2286,812 @@ fun rememberShareManager(): ShareManager {
     return remember { ShareManager(context) }
 }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+fun MainInfo(
+    totalTime: Long,
+    totalTimeWithHoliday: ResultState<Long>?,
+    currentMonthOfYear: MonthOfYear?,
+    dateAndTimeConverter: DateAndTimeConverter?,
+    brush: Brush
+) {
+    Card(
+        modifier = Modifier
+            .padding(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = 3.dp,
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Max)
+                .background(brush)
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp, vertical = 24.dp)
+                    .fillMaxWidth(),
+            ) {
+                AsyncDataValue(resultState = totalTimeWithHoliday) { time ->
+                    val tooltipPosition = TooltipDefaults.rememberPlainTooltipPositionProvider()
+                    val state = rememberBasicTooltipState(isPersistent = false)
+                    val scope = rememberCoroutineScope()
+                    var tooltipText by remember {
+                        mutableStateOf("")
+                    }
+                    BasicTooltipBox(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        positionProvider = tooltipPosition,
+                        tooltip = {
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        shape = Shapes.medium,
+                                        color = MaterialTheme.colorScheme.surface
+                                    )
+                                    .padding(12.dp)
+                            ) {
+                                Text(
+                                    text = tooltipText,
+                                )
+                            }
+                        },
+                        state = state
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                modifier = Modifier.pointerInput(Unit) {
+                                    detectTapGestures(
+                                        onPress = {
+                                            scope.launch {
+                                                tooltipText = "Общее отработанное время"
+                                                state.show(MutatePriority.Default)
+                                            }
+                                        }
+                                    )
+                                },
+                                text = ConverterLongToTime.getTimeInStringFormat(
+                                    time
+                                ),
+                                style = AppTypography.getType().headlineMedium.copy(
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                color = MaterialTheme.colorScheme.background
+                            )
+                            if (totalTime != time) {
+                                val differenceTimeInLong = time.minus(totalTime)
+                                val totalTime =
+                                    ConverterLongToTime.getTimeInStringFormat(
+                                        totalTime
+                                    )
+                                val differenceTime =
+                                    ConverterLongToTime.getTimeInStringFormat(
+                                        differenceTimeInLong
+                                    )
+                                Text(
+                                    modifier = Modifier.pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onPress = {
+                                                scope.launch {
+                                                    tooltipText = "Рабочие + праздничные часы"
+                                                    state.show(MutatePriority.Default)
+                                                }
+                                            }
+                                        )
+                                    },
+                                    text = " ($totalTime + $differenceTime)",
+                                    style = AppTypography.getType().titleMedium,
+                                    fontWeight = FontWeight.Light,
+                                    color = MaterialTheme.colorScheme.background
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(18.dp))
+                currentMonthOfYear?.let { month ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        val normaHoursInMonth =
+                            month.getPersonalNormaHours()
+                        val percent =
+                            ((totalTime * 100).toFloat() / (normaHoursInMonth * 3_600_000L).toFloat()) / 100f
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Норма на месяц",
+                                maxLines = 1,
+                                modifier = Modifier.weight(1f),
+                                overflow = TextOverflow.Ellipsis,
+                                style = AppTypography.getType().bodyMedium,
+                                color = MaterialTheme.colorScheme.background
+                            )
+                            Text(
+                                text = "$normaHoursInMonth ч.",
+                                style = AppTypography.getType().bodyLarge,
+                                color = MaterialTheme.colorScheme.background
+                            )
+                        }
+                        LinearProgressIndicator(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(2.dp),
+                            trackColor = MaterialTheme.colorScheme.primary.copy(
+                                alpha = 0.8f
+                            ),
+                            color = MaterialTheme.colorScheme.background,
+                            strokeCap = StrokeCap.Round,
+                            progress = { percent.toFloat() },
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(7.dp))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        val currentTime = Calendar.getInstance()
+                        val normaHoursToday =
+                            month.getNormaHoursInDate(currentTime.timeInMillis)
+                        val percent =
+                            ((totalTime * 100).toFloat() / (normaHoursToday * 3_600_000L).toFloat()) / 100f
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Норма на ${
+                                    dateAndTimeConverter?.getDate(
+                                        currentTime.timeInMillis
+                                    ) ?: ""
+                                }",
+                                maxLines = 1,
+                                modifier = Modifier.weight(1f),
+                                overflow = TextOverflow.Ellipsis,
+                                style = AppTypography.getType().bodyMedium,
+                                color = MaterialTheme.colorScheme.background
+                            )
+                            Text(
+                                text = "$normaHoursToday ч.",
+                                style = AppTypography.getType().bodyLarge,
+                                color = MaterialTheme.colorScheme.background
+                            )
+                        }
+                        LinearProgressIndicator(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(2.dp),
+                            trackColor = MaterialTheme.colorScheme.primary.copy(
+                                alpha = 0.8f
+                            ),
+                            color = MaterialTheme.colorScheme.background,
+                            strokeCap = StrokeCap.Round,
+                            progress = { percent.toFloat() },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+fun DetailWorkTimeCard(
+    brush: Brush,
+    totalTime: Long,
+    totalTimeWithHoliday: ResultState<Long>?,
+    passengerTimeState: ResultState<Long>?,
+    singleLocomotiveTimeState: ResultState<Long>?,
+    nightTimeState: ResultState<Long>?
+) {
+    Card(
+        modifier = Modifier
+            .padding(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = 3.dp,
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Max)
+                .background(brush)
+        ) {
+            AsyncDataValue(resultState = totalTimeWithHoliday) { totalTimeWithHoliday ->
+                totalTimeWithHoliday?.let {
+                    val tooltipPosition = TooltipDefaults.rememberPlainTooltipPositionProvider()
+                    val state = rememberBasicTooltipState(isPersistent = false)
+                    val scope = rememberCoroutineScope()
+                    var tooltipText by remember {
+                        mutableStateOf("")
+                    }
+                    BasicTooltipBox(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        positionProvider = tooltipPosition,
+                        tooltip = {
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        shape = Shapes.medium,
+                                        color = MaterialTheme.colorScheme.surface
+                                    )
+                                    .padding(12.dp)
+                            ) {
+                                Text(
+                                    text = tooltipText,
+                                )
+                            }
+                        },
+                        state = state
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp, vertical = 24.dp)
+                                .fillMaxWidth(),
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    modifier = Modifier.pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onPress = {
+                                                scope.launch {
+                                                    tooltipText = "Общее отработанное время"
+                                                    state.show(MutatePriority.Default)
+                                                }
+                                            }
+                                        )
+                                    },
+                                    text = ConverterLongToTime.getTimeInStringFormat(
+                                        totalTimeWithHoliday
+                                    ),
+                                    style = AppTypography.getType().headlineMedium.copy(
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    color = MaterialTheme.colorScheme.background
+                                )
+                                if (totalTime != totalTimeWithHoliday) {
+                                    val differenceTimeInLong = totalTimeWithHoliday.minus(totalTime)
+                                    val totalTime =
+                                        ConverterLongToTime.getTimeInStringFormat(
+                                            totalTime
+                                        )
+                                    val differenceTime =
+                                        ConverterLongToTime.getTimeInStringFormat(
+                                            differenceTimeInLong
+                                        )
+                                    Text(
+                                        modifier = Modifier.pointerInput(Unit) {
+                                            detectTapGestures(
+                                                onPress = {
+                                                    scope.launch {
+                                                        tooltipText = "Рабочие + праздничные часы"
+                                                        state.show(MutatePriority.Default)
+                                                    }
+                                                }
+                                            )
+                                        },
+                                        text = " ($totalTime + $differenceTime)",
+                                        style = AppTypography.getType().titleMedium,
+                                        fontWeight = FontWeight.Light,
+                                        color = MaterialTheme.colorScheme.background
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(18.dp))
+                            AsyncDataValue(nightTimeState) { nightTime ->
+                                nightTime?.let {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        val passengerTimeText =
+                                            ConverterLongToTime.getTimeInStringFormat(nightTime)
+                                        val percent =
+                                            ((nightTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "Ночные",
+                                                maxLines = 1,
+                                                modifier = Modifier.weight(1f),
+                                                overflow = TextOverflow.Ellipsis,
+                                                style = AppTypography.getType().bodyMedium,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                            Text(
+                                                text = passengerTimeText,
+                                                style = AppTypography.getType().bodyLarge,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                        }
+                                        LinearProgressIndicator(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(2.dp),
+                                            trackColor = MaterialTheme.colorScheme.primary.copy(
+                                                alpha = 0.8f
+                                            ),
+                                            color = MaterialTheme.colorScheme.background,
+                                            strokeCap = StrokeCap.Round,
+                                            progress = { percent.toFloat() },
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(7.dp))
+                            AsyncDataValue(passengerTimeState) { passengerTime ->
+                                passengerTime?.let {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        val passengerTimeText =
+                                            ConverterLongToTime.getTimeInStringFormat(passengerTime)
+                                        val percent =
+                                            ((passengerTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "Пассажиром",
+                                                maxLines = 1,
+                                                modifier = Modifier.weight(1f),
+                                                overflow = TextOverflow.Ellipsis,
+                                                style = AppTypography.getType().bodyMedium,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                            Text(
+                                                text = passengerTimeText,
+                                                style = AppTypography.getType().bodyLarge,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                        }
+                                        LinearProgressIndicator(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(2.dp),
+                                            trackColor = MaterialTheme.colorScheme.primary.copy(
+                                                alpha = 0.8f
+                                            ),
+                                            color = MaterialTheme.colorScheme.background,
+                                            strokeCap = StrokeCap.Round,
+                                            progress = { percent.toFloat() },
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(7.dp))
+                            AsyncDataValue(singleLocomotiveTimeState) { singleLocomotiveTime ->
+                                singleLocomotiveTime?.let {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        val passengerTimeText =
+                                            ConverterLongToTime.getTimeInStringFormat(
+                                                singleLocomotiveTime
+                                            )
+                                        val percent =
+                                            ((singleLocomotiveTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "Резервом",
+                                                maxLines = 1,
+                                                modifier = Modifier.weight(1f),
+                                                overflow = TextOverflow.Ellipsis,
+                                                style = AppTypography.getType().bodyMedium,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                            Text(
+                                                text = passengerTimeText,
+                                                style = AppTypography.getType().bodyLarge,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                        }
+                                        LinearProgressIndicator(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(2.dp),
+                                            trackColor = MaterialTheme.colorScheme.primary.copy(
+                                                alpha = 0.8f
+                                            ),
+                                            color = MaterialTheme.colorScheme.background,
+                                            strokeCap = StrokeCap.Round,
+                                            progress = { percent.toFloat() },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+fun DetailTrainCard(
+    brush: Brush,
+    totalTime: Long,
+    totalTimeWithHoliday: ResultState<Long>?,
+    extendedServicePhaseTime: ResultState<Long>?,
+    longDistanceTrainsTime: ResultState<Long>?,
+    heavyTrainsTime: ResultState<Long>?,
+    onePersonOperationTime: ResultState<Long>?,
+) {
+    Card(
+        modifier = Modifier
+            .padding(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = 3.dp,
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Max)
+                .background(brush)
+        ) {
+
+            AsyncDataValue(resultState = totalTimeWithHoliday) { totalTimeWithHoliday ->
+                totalTimeWithHoliday?.let {
+                    val tooltipPosition = TooltipDefaults.rememberPlainTooltipPositionProvider()
+                    val state = rememberBasicTooltipState(isPersistent = false)
+                    val scope = rememberCoroutineScope()
+                    var tooltipText by remember {
+                        mutableStateOf("")
+                    }
+                    BasicTooltipBox(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        positionProvider = tooltipPosition,
+                        tooltip = {
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        shape = Shapes.medium,
+                                        color = MaterialTheme.colorScheme.surface
+                                    )
+                                    .padding(12.dp)
+                            ) {
+                                Text(
+                                    text = tooltipText,
+                                )
+                            }
+                        },
+                        state = state
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp, vertical = 24.dp)
+                                .fillMaxWidth(),
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    modifier = Modifier.pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onPress = {
+                                                scope.launch {
+                                                    tooltipText = "Общее отработанное время"
+                                                    state.show(MutatePriority.Default)
+                                                }
+                                            }
+                                        )
+                                    },
+                                    text = ConverterLongToTime.getTimeInStringFormat(
+                                        totalTimeWithHoliday
+                                    ),
+                                    style = AppTypography.getType().headlineMedium.copy(
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    color = MaterialTheme.colorScheme.background
+                                )
+                                if (totalTime != totalTimeWithHoliday) {
+                                    val differenceTimeInLong = totalTimeWithHoliday.minus(totalTime)
+                                    val totalTime =
+                                        ConverterLongToTime.getTimeInStringFormat(
+                                            totalTime
+                                        )
+                                    val differenceTime =
+                                        ConverterLongToTime.getTimeInStringFormat(
+                                            differenceTimeInLong
+                                        )
+                                    Text(
+                                        modifier = Modifier.pointerInput(Unit) {
+                                            detectTapGestures(
+                                                onPress = {
+                                                    scope.launch {
+                                                        tooltipText = "Рабочие + праздничные часы"
+                                                        state.show(MutatePriority.Default)
+                                                    }
+                                                }
+                                            )
+                                        },
+                                        text = " ($totalTime + $differenceTime)",
+                                        style = AppTypography.getType().titleMedium,
+                                        fontWeight = FontWeight.Light,
+                                        color = MaterialTheme.colorScheme.background
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(18.dp))
+                            AsyncDataValue(extendedServicePhaseTime) { extendedServicePhaseTime ->
+                                extendedServicePhaseTime?.let {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        val extendedServicePhaseTimeText =
+                                            ConverterLongToTime.getTimeInStringFormat(
+                                                extendedServicePhaseTime
+                                            )
+                                        val percent =
+                                            ((extendedServicePhaseTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "Удл. плечи обслуживания",
+                                                modifier = Modifier.weight(1f),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                style = AppTypography.getType().bodyMedium,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                            Text(
+                                                text = extendedServicePhaseTimeText,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Visible,
+                                                style = AppTypography.getType().bodyLarge,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                        }
+                                        LinearProgressIndicator(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(2.dp),
+                                            trackColor = MaterialTheme.colorScheme.primary.copy(
+                                                alpha = 0.8f
+                                            ),
+                                            color = MaterialTheme.colorScheme.background,
+                                            strokeCap = StrokeCap.Round,
+                                            progress = { percent.toFloat() },
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(7.dp))
+                            AsyncDataValue(longDistanceTrainsTime) { longDistanceTrainsTime ->
+                                longDistanceTrainsTime?.let {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        val longDistanceTrainsTimeText =
+                                            ConverterLongToTime.getTimeInStringFormat(
+                                                longDistanceTrainsTime
+                                            )
+                                        val percent =
+                                            ((longDistanceTrainsTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "Длинносоставные",
+                                                modifier = Modifier.weight(1f),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                style = AppTypography.getType().bodyMedium,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                            Text(
+                                                text = longDistanceTrainsTimeText,
+                                                style = AppTypography.getType().bodyLarge,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                        }
+                                        LinearProgressIndicator(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(2.dp),
+                                            trackColor = MaterialTheme.colorScheme.primary.copy(
+                                                alpha = 0.8f
+                                            ),
+                                            color = MaterialTheme.colorScheme.background,
+                                            strokeCap = StrokeCap.Round,
+                                            progress = { percent.toFloat() },
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(7.dp))
+                            AsyncDataValue(heavyTrainsTime) { heavyTrainsTime ->
+                                heavyTrainsTime?.let {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        val heavyTrainsTimeText =
+                                            ConverterLongToTime.getTimeInStringFormat(
+                                                heavyTrainsTime
+                                            )
+                                        val percent =
+                                            ((heavyTrainsTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "Тяжелые",
+                                                maxLines = 1,
+                                                modifier = Modifier.weight(1f),
+                                                overflow = TextOverflow.Ellipsis,
+                                                style = AppTypography.getType().bodyMedium,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                            Text(
+                                                text = heavyTrainsTimeText,
+                                                style = AppTypography.getType().bodyLarge,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                        }
+                                        LinearProgressIndicator(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(2.dp),
+                                            trackColor = MaterialTheme.colorScheme.primary.copy(
+                                                alpha = 0.8f
+                                            ),
+                                            color = MaterialTheme.colorScheme.background,
+                                            strokeCap = StrokeCap.Round,
+                                            progress = { percent.toFloat() },
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(7.dp))
+                            AsyncDataValue(onePersonOperationTime) { onePersonOperationTime ->
+                                onePersonOperationTime?.let {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        val onePersonOperationTimeText =
+                                            ConverterLongToTime.getTimeInStringFormat(
+                                                onePersonOperationTime
+                                            )
+                                        val percent =
+                                            ((onePersonOperationTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "Одно лицо",
+                                                maxLines = 1,
+                                                modifier = Modifier.weight(1f),
+                                                overflow = TextOverflow.Ellipsis,
+                                                style = AppTypography.getType().bodyMedium,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                            Text(
+                                                text = onePersonOperationTimeText,
+                                                style = AppTypography.getType().bodyLarge,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                        }
+                                        LinearProgressIndicator(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(2.dp),
+                                            trackColor = MaterialTheme.colorScheme.primary.copy(
+                                                alpha = 0.8f
+                                            ),
+                                            color = MaterialTheme.colorScheme.background,
+                                            strokeCap = StrokeCap.Round,
+                                            progress = { percent.toFloat() },
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(7.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DetailInfo() {
+    val localDensity = LocalDensity.current
+    var cardWidthDp by remember {
+        mutableStateOf(0.dp)
+    }
+
+    Card(
+        modifier = Modifier
+            .padding(12.dp)
+            .onGloballyPositioned { coordinates ->
+                cardWidthDp = with(localDensity) { coordinates.size.width.toDp() }
+            },
+        colors = CardDefaults.cardColors(
+            containerColor = Color.Transparent
+        ),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Max),
+            contentAlignment = Alignment.Center
+        ) {
+            PieChart(
+                data = mapOf(
+                    Pair("Пассажиром", 19),
+                    Pair("Резервом", 8),
+                    Pair("Остальные", 220)
+                ),
+                centerText = "247:00",
+                radiusOuter = cardWidthDp * 0.18f,
+                nightTime = 80
+            )
+        }
+    }
+}

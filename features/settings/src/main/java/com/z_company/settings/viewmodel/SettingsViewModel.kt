@@ -46,7 +46,6 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private val back4AppManager: Back4AppManager by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
 
-    lateinit var dateAndTimeConverter: DateAndTimeConverter
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState = _uiState.asStateFlow()
 
@@ -56,7 +55,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private var loadLoginJob: Job? = null
     private var loadCalendarJob: Job? = null
 
-    fun getAllRouteRemote(){
+    fun getAllRouteRemote() {
         viewModelScope.launch(Dispatchers.IO) {
             back4AppManager.getAllRouteRemote()
         }
@@ -159,7 +158,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         showDialogAddServicePhase(phase)
     }
 
-    fun setInputDateTimeType(value: String){
+    fun setInputDateTimeType(value: String) {
         viewModelScope.launch(Dispatchers.IO) {
             sharedPreferenceStorage.setTokenDateTimePickerType(value)
             _uiState.update {
@@ -189,7 +188,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             val textEndTime = if (maxEndTime == 0L) {
                 ""
             } else {
-                dateAndTimeConverter.getDateMiniAndTime(maxEndTime)
+                uiState.value.dateAndTimeConverter?.getDateMiniAndTime(maxEndTime) ?: ""
             }
             _uiState.update {
                 it.copy(
@@ -270,9 +269,9 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                 }
                 if (result is ResultState.Success) {
                     result.data?.let { userSettings ->
-                        dateAndTimeConverter = DateAndTimeConverter(userSettings)
                         _uiState.update {
                             it.copy(
+                                dateAndTimeConverter = DateAndTimeConverter(userSettings),
                                 updateAt = userSettings.updateAt,
                                 servicePhases = userSettings.servicePhases.toMutableStateList()
                             )
@@ -394,6 +393,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             )
         }
     }
+
     fun resetDownloadState() {
         _uiState.update {
             it.copy(
