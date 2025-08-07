@@ -1,7 +1,9 @@
 package com.z_company.route.ui
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BasicTooltipBox
@@ -18,6 +20,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -70,6 +73,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -143,6 +147,7 @@ import ru.rustore.sdk.core.feature.model.FeatureAvailabilityResult
 import java.util.Calendar
 
 
+@SuppressLint("CoroutineCreationDuringComposition")
 @OptIn(
     ExperimentalMaterial3Api::class,
     ExperimentalFoundationApi::class
@@ -203,7 +208,9 @@ fun HomeScreen(
     extendedServicePhaseTime: ResultState<Long>?,
     longDistanceTrainsTime: ResultState<Long>?,
     heavyTrainsTime: ResultState<Long>?,
-    onePersonOperationTime: ResultState<Long>?
+    onePersonOperationTime: ResultState<Long>?,
+    currentRoute: Route?,
+    currentRouteTimeWork: SharedFlow<Long>
 ) {
     val view = LocalView.current
     val backgroundColor = MaterialTheme.colorScheme.background
@@ -468,6 +475,18 @@ fun HomeScreen(
     var showContextDialog by remember {
         mutableStateOf(false)
     }
+
+    var currentRouteWorkTime by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        scope.launch {
+            currentRouteTimeWork.flowWithLifecycle(lifecycle).collect { time ->
+                currentRouteWorkTime =
+                    ConverterLongToTime.getTimeInStringFormat(time)
+            }
+        }
+    }
+
     AnimationDialog(
         showDialog = firstEntryDialogState,
         onDismissRequest = resetStateFirstEntryDialog
@@ -1010,100 +1029,100 @@ fun HomeScreen(
             }
 
             item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .animateItemPlacement()
-                ) {
-                    Text(
+                currentRoute?.let {
+                    Column(
                         modifier = Modifier
-                            .padding(horizontal = 24.dp),
-                        text = "Текущий маршрут"
-                    )
-                    LazyRow(
-                        modifier = Modifier.padding(top = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            .fillMaxWidth()
+                            .animateItemPlacement()
                     ) {
-                        item {
-                            Card(
-                                modifier = Modifier
-                                    .padding(start = 12.dp)
-                                    .size((widthScreen / 3).dp),
-                                elevation = CardDefaults.elevatedCardElevation(
-                                    defaultElevation = 2.dp,
-                                ),
-                                border = BorderStroke(
-                                    width = 1.dp,
-                                    color = MaterialTheme.colorScheme.secondary
-                                )
-
-                            ) {
-                                Box(
+                        Text(
+                            modifier = Modifier
+                                .padding(horizontal = 24.dp),
+                            text = "Текущий маршрут",
+                            style = AppTypography.getType().titleMedium
+                        )
+                        LazyRow(
+                            modifier = Modifier.padding(top = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            item {
+                                Card(
                                     modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(MaterialTheme.colorScheme.background)
+                                        .padding(start = 12.dp)
+                                        .size((widthScreen / 3).dp),
+                                    elevation = CardDefaults.elevatedCardElevation(
+                                        defaultElevation = 2.dp,
+                                    ),
+                                    border = BorderStroke(
+                                        width = 1.dp,
+                                        color = MaterialTheme.colorScheme.secondary
+                                    )
                                 ) {
-                                    Column(
+                                    Box(
                                         modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(8.dp)
+                                            .fillMaxSize()
+                                            .background(MaterialTheme.colorScheme.background)
                                     ) {
-                                        Text(
-//                                            modifier = Modifier
-//                                                .padding(8.dp),
-                                            text = "09:51",
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                        Text(
-//                                            modifier = Modifier
-//                                                .padding(8.dp),
-                                            text = "на работе",
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .padding(8.dp),
+                                            verticalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                text = currentRouteWorkTime,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                style = AppTypography.getType().titleLarge
+                                            )
+                                            Text(
+                                                text = "На работе",
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
                                     }
                                 }
                             }
-                        }
-                        item {
-                            Card(
-                                modifier = Modifier
-                                    .size((widthScreen / 3).dp),
-                            ) {
-                                Box(
+                            item {
+                                Card(
                                     modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(IntrinsicSize.Max)
-                                        .background(brushMain)
+                                        .size((widthScreen / 3).dp),
                                 ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(IntrinsicSize.Max)
+                                            .background(brushMain)
+                                    ) {
 
+                                    }
                                 }
                             }
-                        }
-                        item {
-                            Card(
-                                modifier = Modifier.size((widthScreen / 3).dp),
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(IntrinsicSize.Max)
-                                        .background(brushMain)
-                                ) {}
+                            item {
+                                Card(
+                                    modifier = Modifier.size((widthScreen / 3).dp),
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(IntrinsicSize.Max)
+                                            .background(brushMain)
+                                    ) {}
+                                }
                             }
-                        }
-                        item {
-                            Card(
-                                modifier = Modifier
-                                    .padding(end = 12.dp)
-                                    .size((widthScreen / 3).dp)
-                                    .background(brushMain),
-                            ) {
-                                Box(
+                            item {
+                                Card(
                                     modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(IntrinsicSize.Max)
-                                        .background(brushMain)
-                                ) {}
+                                        .padding(end = 12.dp)
+                                        .size((widthScreen / 3).dp)
+                                        .background(brushMain),
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(IntrinsicSize.Max)
+                                            .background(brushMain)
+                                    ) {}
+                                }
                             }
                         }
                     }

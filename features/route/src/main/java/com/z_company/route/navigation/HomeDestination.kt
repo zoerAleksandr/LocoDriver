@@ -73,6 +73,8 @@ fun HomeDestination(
         extendedServicePhaseTime = uiState.extendedServicePhaseTime,
         longDistanceTrainsTime = uiState.longDistanceTrainsTime,
         heavyTrainsTime = uiState.heavyTrainsTime,
-        onePersonOperationTime = uiState.onePersonOperationTime
+        onePersonOperationTime = uiState.onePersonOperationTime,
+        currentRoute = homeViewModel.currentRoute,
+        currentRouteTimeWork = homeViewModel.workTimeInCurrentRoute
     )
 }

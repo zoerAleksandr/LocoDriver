@@ -6,11 +6,13 @@ import android.content.Intent
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
+import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.SalarySetting
@@ -29,6 +31,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getTimeInServicePhas
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeWithoutHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
+import com.z_company.domain.entities.route.UtilsForEntities.isCurrentRoute
 import com.z_company.domain.entities.route.UtilsForEntities.timeInLongInPeriod
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.RouteUseCase
@@ -52,11 +55,12 @@ import com.z_company.use_case.RuStoreUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 import ru.rustore.sdk.billingclient.RuStoreBillingClient
 import ru.rustore.sdk.billingclient.model.purchase.PurchaseState
@@ -69,6 +73,7 @@ import ru.rustore.sdk.appupdate.model.InstallStatus
 import ru.rustore.sdk.appupdate.model.UpdateAvailability
 import java.util.Calendar
 import java.util.TimeZone
+import java.util.Timer
 
 class HomeViewModel(application: Application) : AndroidViewModel(application = application),
     KoinComponent {
@@ -85,6 +90,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
 
     var timeWithoutHoliday by mutableLongStateOf(0L)
         private set
+
+    var currentRoute by mutableStateOf<Route?>(null)
+
+    private val _workTimeInCurrentRoute = MutableSharedFlow<Long>(replay = 1)
+    val workTimeInCurrentRoute = _workTimeInCurrentRoute.asSharedFlow()
 
     private var removeRouteJob: Job? = null
     private var loadCalendarJob: Job? = null
@@ -509,7 +519,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                         }
                     }
                     if (result is ResultState.Success) {
-                        val currentTimeInMillis = getInstance().timeInMillis
+                        val timeZone = uiState.value.dateAndTimeConverter?.timeZoneText ?: "GMT+3"
+                        val currentTimeCalendar = getInstance(TimeZone.getTimeZone(timeZone))
+                        val currentTimeInMillis = currentTimeCalendar.timeInMillis
                         val routeList = if (settings.isConsiderFutureRoute) {
                             result.data
                         } else {
@@ -524,6 +536,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                                 isExtendedServicePhaseTrains = isExtendedServicePhaseTrains(route)
                             )
                             routeStateList.add(routeState)
+                        }
+
+                        routeList.forEach { route ->
+                            if (route.isCurrentRoute(currentTimeInMillis)) {
+                                currentRoute = route
+                                route.basicData.timeStartWork?.let { startWork ->
+                                    workTimer(startWork)
+                                }
+                            }
                         }
 
                         withContext(Dispatchers.Main) {
@@ -553,6 +574,35 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                         calculationHolidayTime(routeList, settings.timeZone)
                     }
                 }
+        }
+    }
+
+    var timerJob: Job? = null
+
+    fun workTimer(startWork: Long) {
+        timerJob?.cancel()
+        timerJob = viewModelScope.launch {
+            val timeZone = uiState.value.dateAndTimeConverter?.timeZoneText ?: "GMT+3"
+            val currentTimeCalendar = getInstance(TimeZone.getTimeZone(timeZone))
+            val currentTime: Long = currentTimeCalendar.timeInMillis
+            val startWorkTime: Long = startWork
+
+            val second = currentTimeCalendar
+                .get(Calendar.SECOND)
+
+            val remainingSecond = 60 - second
+
+            val firstIncreasingTimeInMillis = remainingSecond * 1000L
+            var difference = currentTime - startWorkTime
+
+            _workTimeInCurrentRoute.tryEmit(difference)
+            delay(firstIncreasingTimeInMillis)
+            while (currentRoute != null) {
+                difference += 60_000L
+                _workTimeInCurrentRoute.tryEmit(difference)
+                delay(60_000L)
+            }
+
         }
     }
 

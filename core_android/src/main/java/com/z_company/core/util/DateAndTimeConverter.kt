@@ -13,7 +13,7 @@ import java.util.Locale
 import kotlin.getValue
 
 class DateAndTimeConverter(userSettings: UserSettings) : KoinComponent {
-    private var timeZoneText: String
+    var timeZoneText: String
     private val settingsUseCase: SettingsUseCase by inject()
 
     init {

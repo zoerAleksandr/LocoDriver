@@ -37,6 +37,18 @@ object UtilsForEntities : KoinComponent {
         801..898
     )
 
+    fun Route.isCurrentRoute(currentTimeInMillis: Long): Boolean {
+        val startWork = this.basicData.timeStartWork
+        val endWork = this.basicData.timeEndWork
+        return if (currentTimeInMillis.moreThan(startWork)){
+            if (endWork != null) {
+                currentTimeInMillis.lessThan(endWork)
+            } else {
+                true
+            }
+        } else false
+    }
+
     fun Route.getWorkTime(): Long? {
         val timeEnd = this.basicData.timeEndWork
         val timeStart = this.basicData.timeStartWork
