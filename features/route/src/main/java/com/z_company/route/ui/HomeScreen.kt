@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
 import android.util.Log
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BasicTooltipBox
@@ -27,7 +28,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeightIn
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -38,6 +41,7 @@ import androidx.compose.foundation.rememberBasicTooltipState
 import androidx.compose.material3.Card
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -54,30 +58,33 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemColors
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -118,7 +125,10 @@ import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHoursInDate
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.LocoType
+import com.z_company.domain.entities.route.Locomotive
+import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.fullRest
 import com.z_company.domain.entities.route.UtilsForEntities.getFollowingTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
@@ -132,22 +142,27 @@ import com.z_company.domain.util.str
 import com.z_company.domain.util.times
 import com.z_company.repository.ShareManager
 import com.z_company.route.R
+import com.z_company.route.component.AnimatedCounter
 import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.DialogSelectMonthOfYear
 import com.z_company.route.component.ItemHomeScreen
 import com.z_company.route.component.LinearPagerIndicator
 import com.z_company.route.component.PieChart
-import com.z_company.route.viewmodel.AlertBeforePurchasesEvent
-import com.z_company.route.viewmodel.ItemState
-import com.z_company.route.viewmodel.StartPurchasesEvent
-import com.z_company.route.viewmodel.UpdateEvent
+import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
+import com.z_company.route.viewmodel.home_view_model.ItemState
+import com.z_company.route.viewmodel.home_view_model.SetTimeInTrainEvent
+import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
+import com.z_company.route.viewmodel.home_view_model.UpdateEvent
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import ru.rustore.sdk.core.feature.model.FeatureAvailabilityResult
 import java.util.Calendar
 
-
-@SuppressLint("CoroutineCreationDuringComposition")
+@SuppressLint(
+    "CoroutineCreationDuringComposition",
+    "FlowOperatorInvokedInComposition",
+    "SuspiciousIndentation"
+)
 @OptIn(
     ExperimentalMaterial3Api::class,
     ExperimentalFoundationApi::class
@@ -210,10 +225,25 @@ fun HomeScreen(
     heavyTrainsTime: ResultState<Long>?,
     onePersonOperationTime: ResultState<Long>?,
     currentRoute: Route?,
-    currentRouteTimeWork: SharedFlow<Long>
+    currentRouteTimeWork: SharedFlow<Long>,
+    onNewLocoClick: (basicId: String) -> Unit,
+    onChangedLocoClick: (loco: Locomotive) -> Unit,
+    onNewTrainClick: (basicId: String) -> Unit,
+    onChangedTrainClick: (train: Train) -> Unit,
+    onNewPassengerClick: (basicId: String) -> Unit,
+    onChangedPassengerClick: (passenger: Passenger) -> Unit,
+    setTimeInTrain: () -> Unit,
+    isOnTheWayState: SharedFlow<SetTimeInTrainEvent>,
+    isShowSnackbar: Boolean,
+    resetStateShowSnackbar: () -> Unit,
+    resetStateIsLaunchedInitState: () -> Unit
 ) {
     val view = LocalView.current
     val backgroundColor = MaterialTheme.colorScheme.background
+
+    val redOrange = Color(0xFFf1642e)
+    val purple = Color(0xFF504e76)
+    val green = Color(0xFFa3b565)
 
     // для изменения color status bar после изменения в PresentationBlock
     if (!view.isInEditMode) {
@@ -227,7 +257,8 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
-    val scaffoldState = rememberBottomSheetScaffoldState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
     val heightScreen = LocalConfiguration.current.screenHeightDp
     val widthScreen = LocalConfiguration.current.screenWidthDp
 
@@ -238,7 +269,7 @@ fun HomeScreen(
             updateEvent.flowWithLifecycle(lifecycle).collect { event ->
                 when (event) {
                     UpdateEvent.UpdateCompleted -> {
-                        val result = scaffoldState.snackbarHostState
+                        val result = snackbarHostState
                             .showSnackbar(
                                 message = "Обновление загружено",
                                 actionLabel = "Установить"
@@ -256,6 +287,7 @@ fun HomeScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_START) {
                 reloadRoute()
+                resetStateIsLaunchedInitState()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -280,13 +312,13 @@ fun HomeScreen(
     AsyncData(resultState = restoreResultState, errorContent = {
         LaunchedEffect(Unit) {
             scope.launch {
-                scaffoldState.snackbarHostState.showSnackbar("Ошибка синхронизации. Проверьте интернет.")
+                snackbarHostState.showSnackbar("Ошибка синхронизации. Проверьте интернет.")
             }
         }
     }) { message ->
         message?.let {
             scope.launch {
-                scaffoldState.snackbarHostState.showSnackbar(message)
+                snackbarHostState.showSnackbar(message)
             }
         }
         resetSubscriptionState()
@@ -295,7 +327,7 @@ fun HomeScreen(
     AsyncData(resultState = syncRouteState) { message ->
         message?.let {
             scope.launch {
-                scaffoldState.snackbarHostState.showSnackbar(message)
+                snackbarHostState.showSnackbar(message)
             }
         }
         resetSyncRouteState()
@@ -456,7 +488,7 @@ fun HomeScreen(
     if (removeRouteState is ResultState.Success) {
         LaunchedEffect(removeRouteState) {
             scope.launch {
-                scaffoldState.snackbarHostState.showSnackbar(
+                snackbarHostState.showSnackbar(
                     message = context.getString(R.string.msg_route_deleted)
                 )
                 onDeleteRouteConfirmed()
@@ -478,11 +510,43 @@ fun HomeScreen(
 
     var currentRouteWorkTime by remember { mutableStateOf("") }
 
+    var onTheWay by rememberSaveable { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
         scope.launch {
             currentRouteTimeWork.flowWithLifecycle(lifecycle).collect { time ->
                 currentRouteWorkTime =
                     ConverterLongToTime.getTimeInStringFormat(time)
+            }
+        }
+    }
+
+
+
+    if (isShowSnackbar) {
+        LaunchedEffect(Unit) {
+            scope.launch {
+                isOnTheWayState.flowWithLifecycle(lifecycle).collect { state ->
+                    Log.d("zzz", "isShowSnackbar state $state")
+                    if (state is SetTimeInTrainEvent.SetTimeArrival) {
+                        state.message?.let { text ->
+                            scope.launch {
+                                snackbarHostState.showSnackbar(message = text)
+                            }
+                        }
+                        onTheWay = state.isOnTheWay
+                        resetStateShowSnackbar()
+                    }
+                    if (state is SetTimeInTrainEvent.SetTimeDeparture) {
+                        state.message?.let { text ->
+                            scope.launch {
+                                snackbarHostState.showSnackbar(message = text)
+                            }
+                        }
+                        onTheWay = state.isOnTheWay
+                        resetStateShowSnackbar()
+                    }
+                }
             }
         }
     }
@@ -575,7 +639,6 @@ fun HomeScreen(
                     routeForPreview,
                     minTimeRest,
                     homeRestValue,
-//                    getDateMiniAndTime,
                     dateAndTimeConverter
                 )
             }
@@ -803,15 +866,10 @@ fun HomeScreen(
             }
         )
     }
+
     val brushMain = Brush.linearGradient(
         0.1f to MaterialTheme.colorScheme.surfaceVariant,
         1500.0f to MaterialTheme.colorScheme.surface,
-        start = Offset.Zero,
-        end = Offset.Infinite
-    )
-    val brushSecondary = Brush.linearGradient(
-        0.1f to MaterialTheme.colorScheme.surfaceTint,
-        1500.0f to MaterialTheme.colorScheme.background,
         start = Offset.Zero,
         end = Offset.Infinite
     )
@@ -864,8 +922,11 @@ fun HomeScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(containerColor = Color(0xFFf56e0f), onClick = onNewRouteClick) {
-                Icon(imageVector = Icons.Rounded.Add, contentDescription = null)
+            FloatingActionButton(
+                containerColor = green,
+                onClick = onNewRouteClick
+            ) {
+                Icon(tint = MaterialTheme.colorScheme.background, imageVector = Icons.Rounded.Add, contentDescription = null)
             }
         },
         bottomBar = {
@@ -942,7 +1003,8 @@ fun HomeScreen(
                     onClick = {}
                 )
             }
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         LaunchedEffect(purchasesEvent) {
             scope.launch {
@@ -955,13 +1017,13 @@ fun HomeScreen(
                                 }
 
                                 is FeatureAvailabilityResult.Unavailable -> {
-                                    scaffoldState.snackbarHostState.showSnackbar("Ошибка: ${event.availability.cause.message}")
+                                    snackbarHostState.showSnackbar("Ошибка: ${event.availability.cause.message}")
                                 }
                             }
                         }
 
                         is StartPurchasesEvent.Error -> {
-                            scaffoldState.snackbarHostState.showSnackbar("Ошибка: ${event.throwable.message}")
+                            snackbarHostState.showSnackbar("Ошибка: ${event.throwable.message}")
                         }
                     }
                 }
@@ -981,8 +1043,7 @@ fun HomeScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     HorizontalPager(
-                        modifier = Modifier
-                            .animateItemPlacement(),
+                        modifier = Modifier.animateItemPlacement(),
                         state = pagerState
                     ) { page ->
                         when (page) {
@@ -1028,8 +1089,15 @@ fun HomeScreen(
                 }
             }
 
+            val brushSecondary = Brush.linearGradient(
+                0.1f to Color(0xFFefede3),
+                1500.0f to Color(0xFFFDFDFC),
+                start = Offset.Zero,
+                end = Offset.Infinite
+            )
+
             item {
-                currentRoute?.let {
+                currentRoute?.let { route ->
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1037,7 +1105,14 @@ fun HomeScreen(
                     ) {
                         Text(
                             modifier = Modifier
-                                .padding(horizontal = 24.dp),
+                                .padding(horizontal = 24.dp)
+                                .pointerInput(Unit) {
+                                    detectTapGestures(
+                                        onPress = {
+                                            onRouteClick(route.basicData.id)
+                                        }
+                                    )
+                                },
                             text = "Текущий маршрут",
                             style = AppTypography.getType().titleMedium
                         )
@@ -1049,7 +1124,54 @@ fun HomeScreen(
                                 Card(
                                     modifier = Modifier
                                         .padding(start = 12.dp)
-                                        .size((widthScreen / 3).dp),
+                                        .size((widthScreen / 3).dp)
+                                        .clickable {
+                                            onRouteClick(route.basicData.id)
+                                        },
+                                    elevation = CardDefaults.elevatedCardElevation(
+                                        defaultElevation = 2.dp,
+                                    ),
+                                    border = BorderStroke(
+                                        width = 1.dp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(brushMain)
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .padding(vertical = 8.dp, horizontal = 16.dp),
+                                            verticalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            AnimatedCounter(
+                                                count = currentRouteWorkTime,
+                                                style = AppTypography.getType().headlineMedium.copy(
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = MaterialTheme.colorScheme.background
+                                                )
+                                            )
+                                            Text(
+                                                text = "На работе",
+                                                color = MaterialTheme.colorScheme.background,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            item {
+                                Card(
+                                    modifier = Modifier
+                                        .height((widthScreen / 3).dp)
+                                        .widthIn(
+                                            min = (widthScreen / 3).dp,
+                                            max = (widthScreen * 0.8).dp
+                                        ),
                                     elevation = CardDefaults.elevatedCardElevation(
                                         defaultElevation = 2.dp,
                                     ),
@@ -1060,23 +1182,87 @@ fun HomeScreen(
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .fillMaxSize()
-                                            .background(MaterialTheme.colorScheme.background)
+                                            .height((widthScreen / 3).dp)
+                                            .widthIn(
+                                                min = (widthScreen / 3).dp,
+                                                max = (widthScreen * 0.8).dp
+                                            )
+                                            .background(Color(0xFFF6F5EF))
                                     ) {
                                         Column(
                                             modifier = Modifier
-                                                .fillMaxSize()
-                                                .padding(8.dp),
-                                            verticalArrangement = Arrangement.SpaceBetween
+                                                .height((widthScreen / 3).dp)
+                                                .widthIn(
+                                                    min = (widthScreen / 3).dp,
+                                                    max = (widthScreen * 0.8).dp
+                                                )
+                                                .padding(vertical = 8.dp, horizontal = 16.dp),
+                                            verticalArrangement = Arrangement.SpaceBetween,
                                         ) {
+                                            if (route.locomotives.isEmpty()) {
+                                                IconButton(
+                                                    modifier = Modifier.align(Alignment.End),
+                                                    colors = IconButtonDefaults.iconButtonColors(
+                                                        containerColor = green,
+                                                        contentColor = MaterialTheme.colorScheme.background
+                                                    ),
+                                                    onClick = {
+                                                        onNewLocoClick(route.basicData.id)
+                                                    }
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Add,
+                                                        contentDescription = null
+                                                    )
+                                                }
+                                            } else {
+                                                Column(
+                                                    modifier = Modifier
+                                                        .wrapContentWidth()
+                                                        .fillMaxHeight()
+                                                        .padding(bottom = 8.dp)
+                                                        .weight(1f),
+                                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                                ) {
+                                                    val loco = route.locomotives.last()
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .padding(4.dp)
+                                                            .pointerInput(Unit) {
+                                                                detectTapGestures(
+                                                                    onPress = {
+                                                                        onChangedLocoClick(
+                                                                            loco
+                                                                        )
+                                                                    }
+                                                                )
+                                                            }
+                                                    ) {
+                                                        Text(
+                                                            text = "${loco.series ?: ""} ${loco.number ?: ""}",
+                                                            color = MaterialTheme.colorScheme.primary,
+                                                            maxLines = 1,
+                                                            style = AppTypography.getType().titleLarge,
+                                                            overflow = TextOverflow.Ellipsis
+                                                        )
+                                                    }
+                                                    if (route.locomotives.size > 1) {
+                                                        Text(
+                                                            text = "... и ещё ${route.locomotives.size - 1}",
+                                                            color = MaterialTheme.colorScheme.primary,
+                                                            maxLines = 1,
+                                                            style = AppTypography.getType().bodyLarge,
+                                                            overflow = TextOverflow.Ellipsis
+                                                        )
+                                                    }
+                                                }
+                                            }
                                             Text(
-                                                text = currentRouteWorkTime,
+                                                text = "Локомотив",
                                                 color = MaterialTheme.colorScheme.primary,
-                                                style = AppTypography.getType().titleLarge
-                                            )
-                                            Text(
-                                                text = "На работе",
-                                                color = MaterialTheme.colorScheme.primary
+                                                maxLines = 1,
+                                                style = AppTypography.getType().bodyLarge,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                         }
                                     }
@@ -1085,43 +1271,274 @@ fun HomeScreen(
                             item {
                                 Card(
                                     modifier = Modifier
-                                        .size((widthScreen / 3).dp),
+                                        .height((widthScreen / 3).dp)
+                                        .widthIn(
+                                            min = (widthScreen / 3).dp,
+                                            max = (widthScreen * 0.8).dp
+                                        ),
+                                    elevation = CardDefaults.elevatedCardElevation(
+                                        defaultElevation = 2.dp,
+                                    ),
+                                    border = BorderStroke(
+                                        width = 1.dp,
+                                        color = MaterialTheme.colorScheme.secondary
+                                    )
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(IntrinsicSize.Max)
-                                            .background(brushMain)
+                                            .height((widthScreen / 3).dp)
+                                            .widthIn(
+                                                min = (widthScreen / 3).dp,
+                                                max = (widthScreen * 0.8).dp
+                                            )
+                                            .background(Color(0xFFF6F5EF))
                                     ) {
-
+                                        Column(
+                                            modifier = Modifier
+                                                .height((widthScreen / 3).dp)
+                                                .widthIn(
+                                                    min = (widthScreen / 3).dp,
+                                                    max = (widthScreen * 0.8).dp
+                                                )
+                                                .padding(vertical = 8.dp, horizontal = 16.dp),
+                                            verticalArrangement = Arrangement.SpaceBetween,
+                                        ) {
+                                            if (route.trains.isEmpty()) {
+                                                IconButton(
+                                                    modifier = Modifier.align(Alignment.End),
+                                                    colors = IconButtonDefaults.iconButtonColors(
+                                                        containerColor = green,
+                                                        contentColor = MaterialTheme.colorScheme.background
+                                                    ),
+                                                    onClick = {
+                                                        onNewTrainClick(route.basicData.id)
+                                                    }
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Add,
+                                                        contentDescription = null
+                                                    )
+                                                }
+                                            } else {
+                                                Column(
+                                                    modifier = Modifier
+                                                        .wrapContentWidth()
+                                                        .fillMaxHeight()
+                                                        .padding(bottom = 8.dp)
+                                                        .weight(1f),
+                                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                                ) {
+                                                    val train = route.trains.last()
+                                                    Column(
+                                                        modifier = Modifier
+                                                            .pointerInput(Unit) {
+                                                                detectTapGestures(
+                                                                    onPress = {
+                                                                        onChangedTrainClick(
+                                                                            train
+                                                                        )
+                                                                    }
+                                                                )
+                                                            }
+                                                    ) {
+                                                        train.number?.let {
+                                                            Text(
+                                                                text = "№ $it",
+                                                                color = MaterialTheme.colorScheme.primary,
+                                                                maxLines = 1,
+                                                                style = AppTypography.getType().titleLarge,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
+                                                        }
+                                                        Text(
+                                                            text = "${
+                                                                train.stations.firstOrNull()
+                                                                    ?.let { it.stationName ?: "" } ?: ""
+                                                            } ${
+                                                                train.stations.lastOrNull()
+                                                                    ?.let { " - ${it.stationName ?: ""}" } ?: ""
+                                                            } ",
+                                                            color = MaterialTheme.colorScheme.primary,
+                                                            maxLines = 1,
+                                                            style = AppTypography.getType().bodyLarge,
+                                                            overflow = TextOverflow.Ellipsis
+                                                        )
+                                                    }
+                                                    if (route.trains.size > 1) {
+                                                        Text(
+                                                            text = "... и ещё ${route.trains.size - 1}",
+                                                            color = MaterialTheme.colorScheme.primary,
+                                                            maxLines = 1,
+                                                            style = AppTypography.getType().bodyLarge,
+                                                            overflow = TextOverflow.Ellipsis
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                            Row(
+                                                modifier = Modifier.wrapContentWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                                verticalAlignment = Alignment.Bottom
+                                            ) {
+                                                Text(
+                                                    text = "Поезд",
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    maxLines = 1,
+                                                    style = AppTypography.getType().bodyLarge,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                if (route.trains.isNotEmpty()) {
+                                                    OutlinedButton(
+                                                        onClick = {
+                                                            setTimeInTrain()
+                                                        },
+                                                        border = BorderStroke(
+                                                            width = 1.dp,
+                                                            color = if (onTheWay) purple else green
+                                                        ),
+                                                    ) {
+                                                        AnimatedContent(targetState = onTheWay) {
+                                                            val icon = if (it) {
+                                                                R.drawable.pause_24px
+                                                            } else {
+                                                                R.drawable.play_arrow_24px
+                                                            }
+                                                            Icon(
+                                                                painter = painterResource(icon),
+                                                                contentDescription = null,
+                                                                tint = if (it) purple else green
+                                                            )
+                                                        }
+                                                        AnimatedContent(targetState = onTheWay) {
+                                                            val text = if (it) {
+                                                                "Остановка"
+                                                            } else {
+                                                                "Отправление"
+                                                            }
+                                                            Text(
+                                                                text = text,
+                                                                style = AppTypography.getType().bodyLarge,
+                                                                color = if (it) purple else green
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
                             item {
                                 Card(
-                                    modifier = Modifier.size((widthScreen / 3).dp),
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(IntrinsicSize.Max)
-                                            .background(brushMain)
-                                    ) {}
-                                }
-                            }
-                            item {
-                                Card(
                                     modifier = Modifier
-                                        .padding(end = 12.dp)
-                                        .size((widthScreen / 3).dp)
-                                        .background(brushMain),
+                                        .height((widthScreen / 3).dp)
+                                        .widthIn(
+                                            min = (widthScreen / 3).dp,
+                                            max = (widthScreen * 0.8).dp
+                                        )
+                                        .padding(end = 12.dp),
+                                    elevation = CardDefaults.elevatedCardElevation(
+                                        defaultElevation = 2.dp,
+                                    ),
+                                    border = BorderStroke(
+                                        width = 1.dp,
+                                        color = MaterialTheme.colorScheme.secondary
+                                    )
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(IntrinsicSize.Max)
-                                            .background(brushMain)
-                                    ) {}
+                                            .height((widthScreen / 3).dp)
+                                            .widthIn(
+                                                min = (widthScreen / 3).dp,
+                                                max = (widthScreen * 0.8).dp
+                                            )
+                                            .background(Color(0xFFF6F5EF))
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .height((widthScreen / 3).dp)
+                                                .widthIn(
+                                                    min = (widthScreen / 3).dp,
+                                                    max = (widthScreen * 0.8).dp
+                                                )
+                                                .padding(vertical = 8.dp, horizontal = 16.dp),
+                                            verticalArrangement = Arrangement.SpaceBetween,
+                                        ) {
+                                            if (route.passengers.isEmpty()) {
+                                                IconButton(
+                                                    modifier = Modifier.align(Alignment.End),
+                                                    colors = IconButtonDefaults.iconButtonColors(
+                                                        containerColor = green,
+                                                        contentColor = MaterialTheme.colorScheme.background
+                                                    ),
+                                                    onClick = {
+                                                        onNewPassengerClick(route.basicData.id)
+                                                    }
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Add,
+                                                        contentDescription = null
+                                                    )
+                                                }
+                                            } else {
+                                                Column(
+                                                    modifier = Modifier
+                                                        .wrapContentWidth()
+                                                        .fillMaxHeight()
+                                                        .padding(bottom = 8.dp)
+                                                        .weight(1f),
+                                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                                ) {
+                                                    val passenger = route.passengers.last()
+                                                    Column(
+                                                        modifier = Modifier
+                                                            .pointerInput(Unit) {
+                                                                detectTapGestures(
+                                                                    onPress = {
+                                                                        onChangedPassengerClick(
+                                                                            passenger
+                                                                        )
+                                                                    }
+                                                                )
+                                                            }
+                                                    ) {
+                                                        passenger.trainNumber?.let {
+                                                            Text(
+                                                                text = it,
+                                                                color = MaterialTheme.colorScheme.primary,
+                                                                maxLines = 1,
+                                                                style = AppTypography.getType().titleLarge,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
+                                                        }
+                                                        Text(
+                                                            text = "${passenger.stationDeparture ?: ""} ${passenger.stationArrival?.let { " - $it" } ?: ""} ",
+                                                            color = MaterialTheme.colorScheme.primary,
+                                                            maxLines = 1,
+                                                            style = AppTypography.getType().bodyLarge,
+                                                            overflow = TextOverflow.Ellipsis
+                                                        )
+                                                    }
+                                                    if (route.passengers.size > 1) {
+                                                        Text(
+                                                            text = "... и ещё ${route.passengers.size - 1}",
+                                                            color = MaterialTheme.colorScheme.primary,
+                                                            maxLines = 1,
+                                                            style = AppTypography.getType().bodyLarge,
+                                                            overflow = TextOverflow.Ellipsis
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                            Text(
+                                                text = "Пассажиром",
+                                                color = MaterialTheme.colorScheme.primary,
+                                                maxLines = 1,
+                                                style = AppTypography.getType().bodyLarge,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -1142,7 +1559,8 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Маршруты"
+                            text = "Маршруты",
+                            style = AppTypography.getType().titleMedium
                         )
                         TextButton(onClick = {}) {
                             Text(
@@ -1301,6 +1719,7 @@ fun PreviewRoute(
     homeRest: ResultState<Long?>,
     dateAndTimeConverter: DateAndTimeConverter?
 ) {
+    Log.d("zzz", "dateAndTimeConverter in preview ${dateAndTimeConverter.hashCode()}")
     val styleTitle = AppTypography.getType().titleSmall.copy(
         fontWeight = FontWeight.W600,
         color = MaterialTheme.colorScheme.primary

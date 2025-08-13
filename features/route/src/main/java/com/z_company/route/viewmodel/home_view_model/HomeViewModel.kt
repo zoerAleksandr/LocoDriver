@@ -1,4 +1,4 @@
-package com.z_company.route.viewmodel
+package com.z_company.route.viewmodel.home_view_model
 
 import android.app.Activity
 import android.app.Application
@@ -12,7 +12,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
-import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.SalarySetting
@@ -20,6 +19,8 @@ import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHours
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.Station
+import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.getHomeRest
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getOnePersonOperationTime
@@ -28,56 +29,58 @@ import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getSingleLocomotiveTime
 import com.z_company.domain.entities.route.UtilsForEntities.getTimeInHeavyTrain
 import com.z_company.domain.entities.route.UtilsForEntities.getTimeInServicePhase
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeWithoutHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
-import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.isCurrentRoute
 import com.z_company.domain.entities.route.UtilsForEntities.timeInLongInPeriod
 import com.z_company.domain.repositories.SharedPreferencesRepositories
-import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.CalendarUseCase
+import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.domain.use_cases.TrainUseCase
 import com.z_company.domain.util.toIntOrZero
 import com.z_company.repository.Back4AppManager
 import com.z_company.repository.ShareManager
+import com.z_company.route.viewmodel.PreviewRouteUiState
+import com.z_company.route.viewmodel.SalaryCalculationHelper
+import com.z_company.use_case.RuStoreUseCase
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import java.util.Calendar.getInstance
-import com.z_company.use_case.RuStoreUseCase
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.withContext
-import ru.rustore.sdk.billingclient.RuStoreBillingClient
-import ru.rustore.sdk.billingclient.model.purchase.PurchaseState
-import ru.rustore.sdk.billingclient.utils.pub.checkPurchasesAvailability
 import ru.rustore.sdk.appupdate.listener.InstallStateUpdateListener
 import ru.rustore.sdk.appupdate.manager.RuStoreAppUpdateManager
 import ru.rustore.sdk.appupdate.model.AppUpdateOptions
 import ru.rustore.sdk.appupdate.model.AppUpdateType
 import ru.rustore.sdk.appupdate.model.InstallStatus
 import ru.rustore.sdk.appupdate.model.UpdateAvailability
+import ru.rustore.sdk.billingclient.RuStoreBillingClient
+import ru.rustore.sdk.billingclient.model.purchase.PurchaseState
+import ru.rustore.sdk.billingclient.utils.pub.checkPurchasesAvailability
 import java.util.Calendar
+import java.util.Calendar.getInstance
 import java.util.TimeZone
-import java.util.Timer
 
 class HomeViewModel(application: Application) : AndroidViewModel(application = application),
     KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
+    private val trainUseCase: TrainUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val salarySettingUseCase: SalarySettingUseCase by inject()
@@ -87,11 +90,18 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     private val back4AppManager: Back4AppManager by inject()
     private val ruStoreAppUpdateManager: RuStoreAppUpdateManager by inject()
     private val shareManager: ShareManager by inject()
+    private var isLaunchedInitState: Boolean = false
 
     var timeWithoutHoliday by mutableLongStateOf(0L)
         private set
 
     var currentRoute by mutableStateOf<Route?>(null)
+
+    private var _isOnTheWay = MutableSharedFlow<SetTimeInTrainEvent>(
+        replay = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    var isOnTheWay = _isOnTheWay.asSharedFlow()
 
     private val _workTimeInCurrentRoute = MutableSharedFlow<Long>(replay = 1)
     val workTimeInCurrentRoute = _workTimeInCurrentRoute.asSharedFlow()
@@ -137,7 +147,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     private fun initUpdateManager() {
         ruStoreAppUpdateManager.getAppUpdateInfo()
             .addOnSuccessListener { appUpdateInfo ->
-                if (appUpdateInfo.updateAvailability == UpdateAvailability.UPDATE_AVAILABLE) {
+                if (appUpdateInfo.updateAvailability == UpdateAvailability.Companion.UPDATE_AVAILABLE) {
                     ruStoreAppUpdateManager.registerListener(installStateUpdateListener)
                     ruStoreAppUpdateManager
                         .startUpdateFlow(appUpdateInfo, AppUpdateOptions.Builder().build())
@@ -166,17 +176,17 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
 
     private val installStateUpdateListener = InstallStateUpdateListener { installState ->
         when (installState.installStatus) {
-            InstallStatus.DOWNLOADED -> {
+            InstallStatus.Companion.DOWNLOADED -> {
                 _updateEvents.tryEmit(UpdateEvent.UpdateCompleted)
             }
 
-            InstallStatus.DOWNLOADING -> {
+            InstallStatus.Companion.DOWNLOADING -> {
                 val totalBytes = installState.totalBytesToDownload
                 val bytesDownloaded = installState.bytesDownloaded
                 // Здесь можно отобразить прогресс скачивания
             }
 
-            InstallStatus.FAILED -> {
+            InstallStatus.Companion.FAILED -> {
                 Log.e("ZZZ", "Downloading error")
             }
         }
@@ -185,7 +195,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     fun completeUpdateRequested() {
         ruStoreAppUpdateManager.completeUpdate(
             AppUpdateOptions.Builder().appUpdateType(
-                AppUpdateType.FLEXIBLE
+                AppUpdateType.Companion.FLEXIBLE
             ).build()
         )
             .addOnFailureListener { throwable ->
@@ -249,7 +259,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                 if (holidayList.isNotEmpty()) {
                     holidayList.forEach { day ->
                         val startHolidayInLong =
-                            getInstance(TimeZone.getTimeZone(timeZone)).also {
+                            Calendar.getInstance(TimeZone.getTimeZone(timeZone)).also {
                                 it.set(Calendar.YEAR, monthOfYear.year)
                                 it.set(Calendar.MONTH, monthOfYear.month)
                                 it.set(Calendar.DAY_OF_MONTH, day.dayOfMonth)
@@ -259,7 +269,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                                 it.set(Calendar.MILLISECOND, 0)
                             }.timeInMillis
 
-                        val endHoliday = getInstance(TimeZone.getTimeZone(timeZone)).also {
+                        val endHoliday = Calendar.getInstance(TimeZone.getTimeZone(timeZone)).also {
                             it.set(Calendar.YEAR, monthOfYear.year)
                             it.set(Calendar.MONTH, monthOfYear.month)
                             it.set(Calendar.DAY_OF_MONTH, day.dayOfMonth)
@@ -288,7 +298,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     }
 
     fun checkPurchasesAvailability() {
-        RuStoreBillingClient.checkPurchasesAvailability()
+        RuStoreBillingClient.Companion.checkPurchasesAvailability()
             .addOnSuccessListener { result ->
                 _uiState.update {
                     it.copy(
@@ -316,7 +326,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
                 try {
-                    val currentTimeInMillis = getInstance().timeInMillis
+                    val currentTimeInMillis = Calendar.getInstance().timeInMillis
                     var maxEndTime = 0L
                     var job: Job? = null
                     billingClient.purchases.getPurchases()
@@ -396,7 +406,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                 isLoadingStateAddButton = true
             )
         }
-        val currentTime = getInstance().timeInMillis
+        val currentTime = Calendar.getInstance().timeInMillis
         val gracePeriod = 24 * 3_600_000 // 1 day grace period
         val endTimeSubscription = sharedPreferenceStorage.getSubscriptionExpiration() + gracePeriod
         viewModelScope.launch {
@@ -492,11 +502,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                 if (result is ResultState.Success) {
                     result.data?.let { setting ->
                         val dateAndTimeConverter = DateAndTimeConverter(setting)
-                        _uiState.update {
-                            it.copy(
-                                offsetInMoscow = setting.timeZone,
-                                dateAndTimeConverter = dateAndTimeConverter
-                            )
+                        withContext(Dispatchers.Main) {
+                            _uiState.update {
+                                it.copy(
+                                    offsetInMoscow = setting.timeZone,
+                                    dateAndTimeConverter = dateAndTimeConverter
+                                )
+                            }
                         }
                         currentMonthOfYear = setting.selectMonthOfYear
                         loadMinTimeRestInRoute()
@@ -544,6 +556,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                                 route.basicData.timeStartWork?.let { startWork ->
                                     workTimer(startWork)
                                 }
+                                initStateIsOneTheWay()
                             }
                         }
 
@@ -602,7 +615,269 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                 _workTimeInCurrentRoute.tryEmit(difference)
                 delay(60_000L)
             }
+        }
+    }
 
+    fun resetStateShowSnackbar() {
+        _uiState.update {
+            it.copy(
+                showSnackbar = false
+            )
+        }
+    }
+
+    fun resetStateIsLaunchedInitState(){
+        isLaunchedInitState = false
+    }
+
+    fun initStateIsOneTheWay() {
+        if (!isLaunchedInitState) {
+            currentRoute?.let { route ->
+                if (route.trains.isNotEmpty()) {
+                    val stationList: MutableList<Station> = route.trains[0].stations
+                    if (stationList.isNotEmpty()) {
+                        if (stationList.last().timeArrival == null && stationList.last().timeDeparture == null) {
+                            if (stationList.size == 1) {
+                                _isOnTheWay.tryEmit(
+                                    SetTimeInTrainEvent.SetTimeArrival(
+                                        message = null,
+                                        isOnTheWay = false
+                                    )
+                                )
+                            } else {
+                                _isOnTheWay.tryEmit(
+                                    SetTimeInTrainEvent.SetTimeDeparture(
+                                        message = null,
+                                        isOnTheWay = true
+                                    )
+                                )
+                            }
+                            isLaunchedInitState = true
+                            return
+                        }
+
+                        if (stationList.last().timeArrival != null && stationList.last().timeDeparture != null) {
+                            _isOnTheWay.tryEmit(
+                                SetTimeInTrainEvent.SetTimeDeparture(
+                                    message = null,
+                                    isOnTheWay = true
+                                )
+                            )
+                            isLaunchedInitState = true
+                            return
+                        }
+
+                        if (stationList.last().timeDeparture != null) {
+                            _isOnTheWay.tryEmit(
+                                SetTimeInTrainEvent.SetTimeDeparture(
+                                    message = null,
+                                    isOnTheWay = true
+                                )
+                            )
+                            isLaunchedInitState = true
+                            return
+                        }
+
+                        if (stationList.last().timeArrival != null && stationList.last().timeDeparture == null) {
+                            _isOnTheWay.tryEmit(
+                                SetTimeInTrainEvent.SetTimeArrival(
+                                    message = null,
+                                    isOnTheWay = false
+                                )
+                            )
+                            isLaunchedInitState = true
+                            return
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun setTimeInTrain() {
+        currentRoute?.let { route ->
+            if (route.trains.isNotEmpty()) {
+                val stationList: MutableList<Station> = route.trains[0].stations
+                if (stationList.isNotEmpty()) {
+                    val timeZone = uiState.value.dateAndTimeConverter?.timeZoneText ?: "GMT+3"
+                    val currentTimeCalendar = getInstance(TimeZone.getTimeZone(timeZone))
+                    val currentTimeInMillis = currentTimeCalendar.timeInMillis
+                    val timeText =
+                        uiState.value.dateAndTimeConverter?.getTime(currentTimeInMillis) ?: ""
+
+                    if (stationList.last().timeArrival == null && stationList.last().timeDeparture == null) {
+                        if (stationList.size == 1) {
+                            // для первой станции только время отправления
+                            val newStation = stationList.last().copy(
+                                timeDeparture = currentTimeInMillis
+                            )
+                            val index = stationList.lastIndex
+                            stationList[index] = newStation
+
+                            val newTrain = route.trains[0].copy(
+                                stations = stationList
+                            )
+                            viewModelScope.launch(Dispatchers.IO) {
+                                trainUseCase.updateTrain(newTrain).collect { saveResult ->
+                                    if (saveResult is ResultState.Success) {
+                                        _uiState.update {
+                                            it.copy(
+                                                showSnackbar = true
+                                            )
+                                        }
+                                        _isOnTheWay.tryEmit(
+                                            SetTimeInTrainEvent.SetTimeDeparture(
+                                                message = "Добавлено время отправления $timeText",
+                                                isOnTheWay = true
+                                            )
+                                        )
+                                        return@collect
+                                    }
+                                    if (saveResult is ResultState.Error) {
+                                        Log.d("zzz", "update failure ${saveResult.entity.message}")
+                                        return@collect
+                                    }
+                                }
+                            }
+                            return
+                        } else {
+                            val newStation = stationList.last().copy(
+                                timeArrival = currentTimeInMillis
+                            )
+                            val index = stationList.lastIndex
+                            stationList[index] = newStation
+
+                            val newTrain = route.trains[0].copy(
+                                stations = stationList
+                            )
+                            viewModelScope.launch(Dispatchers.IO) {
+                                trainUseCase.updateTrain(newTrain).collect { saveResult ->
+                                    if (saveResult is ResultState.Success) {
+                                        _uiState.update {
+                                            it.copy(
+                                                showSnackbar = true
+                                            )
+                                        }
+                                        _isOnTheWay.tryEmit(
+                                            SetTimeInTrainEvent.SetTimeArrival(
+                                                message = "Добавлено время прибытия $timeText",
+                                                isOnTheWay = false
+                                            )
+                                        )
+                                        return@collect
+                                    }
+                                    if (saveResult is ResultState.Error) {
+                                        Log.d("zzz", "update failure ${saveResult.entity.message}")
+                                        return@collect
+                                    }
+                                }
+                            }
+                            return
+                        }
+                    }
+                    if (stationList.last().timeArrival != null && stationList.last().timeDeparture != null) {
+                        val newStation = Station(
+                            timeArrival = currentTimeInMillis
+                        )
+                        stationList.add(newStation)
+
+                        val newTrain = route.trains[0].copy(
+                            stations = stationList
+                        )
+                        viewModelScope.launch(Dispatchers.IO) {
+                            trainUseCase.updateTrain(newTrain).collect { saveResult ->
+                                if (saveResult is ResultState.Success) {
+                                    _uiState.update {
+                                        it.copy(
+                                            showSnackbar = true
+                                        )
+                                    }
+                                    _isOnTheWay.tryEmit(
+                                        SetTimeInTrainEvent.SetTimeArrival(
+                                            message = "Добавлено время прибытия $timeText",
+                                            isOnTheWay = false
+                                        )
+                                    )
+                                    return@collect
+                                }
+                                if (saveResult is ResultState.Error) {
+                                    Log.d("zzz", "update failure ${saveResult.entity.message}")
+                                    return@collect
+                                }
+                            }
+                        }
+                        return
+                    }
+                    if (stationList.last().timeDeparture != null) {
+                        val newStation = Station(
+                            timeArrival = currentTimeInMillis
+                        )
+                        stationList.add(newStation)
+
+                        val newTrain = route.trains[0].copy(
+                            stations = stationList
+                        )
+                        viewModelScope.launch(Dispatchers.IO) {
+                            trainUseCase.updateTrain(newTrain).collect { saveResult ->
+                                if (saveResult is ResultState.Success) {
+                                    _uiState.update {
+                                        it.copy(
+                                            showSnackbar = true
+                                        )
+                                    }
+                                    _isOnTheWay.tryEmit(
+                                        SetTimeInTrainEvent.SetTimeArrival(
+                                            message = "Добавлено время прибытия $timeText",
+                                            isOnTheWay = false
+                                        )
+                                    )
+                                    return@collect
+                                }
+                                if (saveResult is ResultState.Error) {
+                                    Log.d("zzz", "update failure ${saveResult.entity.message}")
+                                    return@collect
+                                }
+                            }
+                        }
+                        return
+                    }
+                    if (stationList.last().timeArrival != null && stationList.last().timeDeparture == null) {
+                        val newStation = stationList.last().copy(
+                            timeDeparture = currentTimeInMillis
+                        )
+                        val index = stationList.lastIndex
+                        stationList[index] = newStation
+
+                        val newTrain = route.trains[0].copy(
+                            stations = stationList
+                        )
+                        viewModelScope.launch(Dispatchers.IO) {
+                            trainUseCase.updateTrain(newTrain).collect { saveResult ->
+                                if (saveResult is ResultState.Success) {
+                                    _uiState.update {
+                                        it.copy(
+                                            showSnackbar = true
+                                        )
+                                    }
+                                    _isOnTheWay.tryEmit(
+                                        SetTimeInTrainEvent.SetTimeDeparture(
+                                            message = "Добавлено время отправления $timeText",
+                                            isOnTheWay = true
+                                        )
+                                    )
+                                    return@collect
+                                }
+                                if (saveResult is ResultState.Error) {
+                                    Log.d("zzz", "update failure ${saveResult.entity.message}")
+                                    return@collect
+                                }
+                            }
+                        }
+                        return
+                    }
+                }
+            }
         }
     }
 
@@ -1170,12 +1445,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
             } ?: ""
         } ?: ""
     }
-
-//    fun getDateAndTimeText(long: Long?): String {
-//        return uiState.value.dateAndTimeConverter?.let {
-//            return it.getDateMiniAndTime(value = long)
-//        } ?: ""
-//    }
 
     private fun loadSalarySetting() {
         viewModelScope.launch {

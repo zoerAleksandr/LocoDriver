@@ -6,6 +6,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import androidx.room.Update
 import com.z_company.data_local.route.entity.BasicData
 import com.z_company.data_local.route.entity.Locomotive
 import com.z_company.data_local.route.entity.Passenger
@@ -41,6 +42,9 @@ internal interface RouteDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveTrain(train: Train)
+
+    @Update(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun updateTrain(train: Train)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun savePassenger(passenger: Passenger)

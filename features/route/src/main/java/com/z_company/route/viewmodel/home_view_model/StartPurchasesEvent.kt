@@ -1,4 +1,4 @@
-package com.z_company.route.viewmodel
+package com.z_company.route.viewmodel.home_view_model
 
 import ru.rustore.sdk.core.feature.model.FeatureAvailabilityResult
 

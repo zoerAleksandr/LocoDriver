@@ -9,7 +9,8 @@ import com.z_company.route.navigation.HomeFeature
 import com.z_company.route.navigation.homeGraph
 import com.z_company.settings.navigation.settingsGraph
 import androidx.navigation.compose.NavHost
-@ExperimentalAnimationApi
+
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun MainNavigation(
     appState: LocoDriverAppState,

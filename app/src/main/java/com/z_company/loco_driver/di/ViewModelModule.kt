@@ -6,7 +6,7 @@ import com.z_company.login.viewmodel.SignInViewModel
 import com.z_company.login.viewmodel.PasswordRecoveryViewModel
 import com.z_company.route.viewmodel.CreatePhotoViewModel
 import com.z_company.route.viewmodel.FormViewModel
-import com.z_company.route.viewmodel.HomeViewModel
+import com.z_company.route.viewmodel.home_view_model.HomeViewModel
 import com.z_company.route.viewmodel.LocoFormViewModel
 import com.z_company.route.viewmodel.MoreInfoViewModel
 import com.z_company.route.viewmodel.PassengerFormViewModel

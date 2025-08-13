@@ -6,7 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.z_company.domain.navigation.Router
 import com.z_company.route.ui.HomeScreen
-import com.z_company.route.viewmodel.HomeViewModel
+import com.z_company.route.viewmodel.home_view_model.HomeViewModel
 
 @Composable
 fun HomeDestination(
@@ -75,6 +75,23 @@ fun HomeDestination(
         heavyTrainsTime = uiState.heavyTrainsTime,
         onePersonOperationTime = uiState.onePersonOperationTime,
         currentRoute = homeViewModel.currentRoute,
-        currentRouteTimeWork = homeViewModel.workTimeInCurrentRoute
+        currentRouteTimeWork = homeViewModel.workTimeInCurrentRoute,
+        onNewLocoClick = {
+            router.showEmptyLocoForm(it)
+        },
+        onChangedLocoClick = router::showChangedLocoForm,
+        onNewTrainClick = {
+            router.showEmptyTrainForm(it)
+        },
+        onChangedTrainClick = router::showChangeTrainForm,
+        onNewPassengerClick = {
+            router.showEmptyPassengerForm(it)
+        },
+        onChangedPassengerClick = router::showChangePassengerForm,
+        setTimeInTrain = homeViewModel::setTimeInTrain,
+        isOnTheWayState = homeViewModel.isOnTheWay,
+        isShowSnackbar = uiState.showSnackbar,
+        resetStateShowSnackbar = homeViewModel::resetStateShowSnackbar,
+        resetStateIsLaunchedInitState = homeViewModel::resetStateIsLaunchedInitState
     )
 }
