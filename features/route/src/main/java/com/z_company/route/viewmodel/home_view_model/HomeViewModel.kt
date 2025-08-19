@@ -101,6 +101,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         replay = 1,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
+    var isShowOnTheWaySnackbar = MutableStateFlow(false)
     var isOnTheWay = _isOnTheWay.asSharedFlow()
 
     private val _workTimeInCurrentRoute = MutableSharedFlow<Long>(replay = 1)
@@ -619,36 +620,37 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     }
 
     fun resetStateShowSnackbar() {
-        _uiState.update {
-            it.copy(
-                showSnackbar = false
-            )
-        }
+        Log.d("zzz", "resetStateShowSnackbar")
+        isShowOnTheWaySnackbar.tryEmit(false)
     }
 
-    fun resetStateIsLaunchedInitState(){
+    fun resetStateIsLaunchedInitState() {
         isLaunchedInitState = false
     }
 
     fun initStateIsOneTheWay() {
         if (!isLaunchedInitState) {
+            Log.d("zzz", "initStateIsOneTheWay")
+            isShowOnTheWaySnackbar.tryEmit(false)
             currentRoute?.let { route ->
                 if (route.trains.isNotEmpty()) {
-                    val stationList: MutableList<Station> = route.trains[0].stations
+                    val stationList: MutableList<Station> = route.trains.last().stations
                     if (stationList.isNotEmpty()) {
                         if (stationList.last().timeArrival == null && stationList.last().timeDeparture == null) {
                             if (stationList.size == 1) {
                                 _isOnTheWay.tryEmit(
-                                    SetTimeInTrainEvent.SetTimeArrival(
+                                    SetTimeInTrainEvent(
                                         message = null,
-                                        isOnTheWay = false
+                                        isOnTheWay = false,
+                                        isShowSnackbar = false
                                     )
                                 )
                             } else {
                                 _isOnTheWay.tryEmit(
-                                    SetTimeInTrainEvent.SetTimeDeparture(
+                                    SetTimeInTrainEvent(
                                         message = null,
-                                        isOnTheWay = true
+                                        isOnTheWay = true,
+                                        isShowSnackbar = false
                                     )
                                 )
                             }
@@ -658,9 +660,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
 
                         if (stationList.last().timeArrival != null && stationList.last().timeDeparture != null) {
                             _isOnTheWay.tryEmit(
-                                SetTimeInTrainEvent.SetTimeDeparture(
+                                SetTimeInTrainEvent(
                                     message = null,
-                                    isOnTheWay = true
+                                    isOnTheWay = true,
+                                    isShowSnackbar = false
                                 )
                             )
                             isLaunchedInitState = true
@@ -669,9 +672,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
 
                         if (stationList.last().timeDeparture != null) {
                             _isOnTheWay.tryEmit(
-                                SetTimeInTrainEvent.SetTimeDeparture(
+                                SetTimeInTrainEvent(
                                     message = null,
-                                    isOnTheWay = true
+                                    isOnTheWay = true,
+                                    isShowSnackbar = false
                                 )
                             )
                             isLaunchedInitState = true
@@ -680,9 +684,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
 
                         if (stationList.last().timeArrival != null && stationList.last().timeDeparture == null) {
                             _isOnTheWay.tryEmit(
-                                SetTimeInTrainEvent.SetTimeArrival(
+                                SetTimeInTrainEvent(
                                     message = null,
-                                    isOnTheWay = false
+                                    isOnTheWay = false,
+                                    isShowSnackbar = false
                                 )
                             )
                             isLaunchedInitState = true
@@ -698,7 +703,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     fun setTimeInTrain() {
         currentRoute?.let { route ->
             if (route.trains.isNotEmpty()) {
-                val stationList: MutableList<Station> = route.trains[0].stations
+                val stationList: MutableList<Station> = route.trains.last().stations
                 if (stationList.isNotEmpty()) {
                     val timeZone = uiState.value.dateAndTimeConverter?.timeZoneText ?: "GMT+3"
                     val currentTimeCalendar = getInstance(TimeZone.getTimeZone(timeZone))
@@ -715,21 +720,18 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                             val index = stationList.lastIndex
                             stationList[index] = newStation
 
-                            val newTrain = route.trains[0].copy(
+                            val newTrain = route.trains.last().copy(
                                 stations = stationList
                             )
                             viewModelScope.launch(Dispatchers.IO) {
                                 trainUseCase.updateTrain(newTrain).collect { saveResult ->
                                     if (saveResult is ResultState.Success) {
-                                        _uiState.update {
-                                            it.copy(
-                                                showSnackbar = true
-                                            )
-                                        }
+                                        isShowOnTheWaySnackbar.tryEmit(true)
                                         _isOnTheWay.tryEmit(
-                                            SetTimeInTrainEvent.SetTimeDeparture(
+                                            SetTimeInTrainEvent(
                                                 message = "Добавлено время отправления $timeText",
-                                                isOnTheWay = true
+                                                isOnTheWay = true,
+                                                isShowSnackbar = true
                                             )
                                         )
                                         return@collect
@@ -748,21 +750,17 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                             val index = stationList.lastIndex
                             stationList[index] = newStation
 
-                            val newTrain = route.trains[0].copy(
+                            val newTrain = route.trains.last().copy(
                                 stations = stationList
                             )
                             viewModelScope.launch(Dispatchers.IO) {
                                 trainUseCase.updateTrain(newTrain).collect { saveResult ->
                                     if (saveResult is ResultState.Success) {
-                                        _uiState.update {
-                                            it.copy(
-                                                showSnackbar = true
-                                            )
-                                        }
+                                        isShowOnTheWaySnackbar.tryEmit(true)
                                         _isOnTheWay.tryEmit(
-                                            SetTimeInTrainEvent.SetTimeArrival(
+                                            SetTimeInTrainEvent(
                                                 message = "Добавлено время прибытия $timeText",
-                                                isOnTheWay = false
+                                                isOnTheWay = false,
                                             )
                                         )
                                         return@collect
@@ -782,21 +780,20 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                         )
                         stationList.add(newStation)
 
-                        val newTrain = route.trains[0].copy(
+                        val newTrain = route.trains.last().copy(
                             stations = stationList
                         )
+                        Log.d("zzz", "newTrain $newTrain")
+
                         viewModelScope.launch(Dispatchers.IO) {
                             trainUseCase.updateTrain(newTrain).collect { saveResult ->
                                 if (saveResult is ResultState.Success) {
-                                    _uiState.update {
-                                        it.copy(
-                                            showSnackbar = true
-                                        )
-                                    }
+                                    isShowOnTheWaySnackbar.tryEmit(true)
                                     _isOnTheWay.tryEmit(
-                                        SetTimeInTrainEvent.SetTimeArrival(
+                                        SetTimeInTrainEvent(
                                             message = "Добавлено время прибытия $timeText",
-                                            isOnTheWay = false
+                                            isOnTheWay = false,
+                                            isShowSnackbar = true
                                         )
                                     )
                                     return@collect
@@ -815,21 +812,18 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                         )
                         stationList.add(newStation)
 
-                        val newTrain = route.trains[0].copy(
+                        val newTrain = route.trains.last().copy(
                             stations = stationList
                         )
                         viewModelScope.launch(Dispatchers.IO) {
                             trainUseCase.updateTrain(newTrain).collect { saveResult ->
                                 if (saveResult is ResultState.Success) {
-                                    _uiState.update {
-                                        it.copy(
-                                            showSnackbar = true
-                                        )
-                                    }
+                                    isShowOnTheWaySnackbar.tryEmit(true)
                                     _isOnTheWay.tryEmit(
-                                        SetTimeInTrainEvent.SetTimeArrival(
+                                        SetTimeInTrainEvent(
                                             message = "Добавлено время прибытия $timeText",
-                                            isOnTheWay = false
+                                            isOnTheWay = false,
+                                            isShowSnackbar = true
                                         )
                                     )
                                     return@collect
@@ -849,21 +843,18 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                         val index = stationList.lastIndex
                         stationList[index] = newStation
 
-                        val newTrain = route.trains[0].copy(
+                        val newTrain = route.trains.last().copy(
                             stations = stationList
                         )
                         viewModelScope.launch(Dispatchers.IO) {
                             trainUseCase.updateTrain(newTrain).collect { saveResult ->
                                 if (saveResult is ResultState.Success) {
-                                    _uiState.update {
-                                        it.copy(
-                                            showSnackbar = true
-                                        )
-                                    }
+                                    isShowOnTheWaySnackbar.tryEmit(true)
                                     _isOnTheWay.tryEmit(
-                                        SetTimeInTrainEvent.SetTimeDeparture(
+                                        SetTimeInTrainEvent(
                                             message = "Добавлено время отправления $timeText",
-                                            isOnTheWay = true
+                                            isOnTheWay = true,
+                                            isShowSnackbar = true
                                         )
                                     )
                                     return@collect

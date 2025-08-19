@@ -40,7 +40,7 @@ object UtilsForEntities : KoinComponent {
     fun Route.isCurrentRoute(currentTimeInMillis: Long): Boolean {
         val startWork = this.basicData.timeStartWork
         val endWork = this.basicData.timeEndWork
-        return if (currentTimeInMillis.moreThan(startWork)){
+        return if (currentTimeInMillis.moreThan(startWork)) {
             if (endWork != null) {
                 currentTimeInMillis.lessThan(endWork)
             } else {
@@ -645,12 +645,28 @@ object UtilsForEntities : KoinComponent {
                 if (index + 1 < listDistance.size) listDistance[index + 1] else Int.MAX_VALUE
 
             val searchIntervalDistance = startInterval until endInterval
-            val workInterval = startWork until endWork
-            val result = this.trains.getTimeInServicePhase(
-                distanceInterval = searchIntervalDistance,
-                workInterval = workInterval
-            )
-            return result
+            var summaryDistance = 0
+            var summaryTimeFollowing = 0L
+            val trainsWithDistance = mutableListOf<Train>()
+
+            this.trains.forEach { train ->
+                if (train.distance.toIntOrZero() > 0) {
+                    trainsWithDistance.add(train)
+                    summaryDistance += train.distance.toIntOrZero()
+                }
+            }
+
+            if (searchIntervalDistance.contains(summaryDistance)) {
+                summaryTimeFollowing += endWork - startWork
+            }
+            return summaryTimeFollowing
+
+//            val workInterval = startWork until endWork
+//            val result = this.trains.getTimeInServicePhase(
+//                distanceInterval = searchIntervalDistance,
+//                workInterval = workInterval
+//            )
+//            return result
         }
     }
 
@@ -705,7 +721,12 @@ object UtilsForEntities : KoinComponent {
                 val endWork = this.basicData.timeEndWork
                 if (startWork != null && endWork != null) {
                     resultTime += endWork - startWork
+                    println("zzz resultTime $resultTime")
+                    return resultTime
                 }
+            }
+        }
+        return 0L
 //                var timeDeparture: Long? = train.stations.firstOrNull()?.timeDeparture
 //                var timeArrival: Long? = train.stations.lastOrNull()?.timeArrival
 //                val startWork = this.basicData.timeStartWork
@@ -727,10 +748,8 @@ object UtilsForEntities : KoinComponent {
 //                    }
 //                    resultTime += (timeArrival - timeDeparture)
 //                }
-            }
-        }
 
-        return resultTime
+
     }
 
     private fun Train.getTimeInLongDistance(
@@ -850,18 +869,23 @@ object UtilsForEntities : KoinComponent {
     fun List<Route>.getLongDistanceTime(lengthIsLongDistance: Int): Long {
         var resultTime = 0L
         this.forEach { route ->
-            route.trains.forEach { train ->
-                val startWork = route.basicData.timeStartWork
-                val endWork = route.basicData.timeEndWork
+            resultTime += route.getLongDistanceTime(lengthIsLongDistance)
+        }
+        return resultTime
+    }
+
+    fun Route.getLongDistanceTime(lengthIsLongDistance: Int): Long {
+        var resultTime = 0L
+        this.trains.forEach { train ->
+            if (train.conditionalLength.toIntOrZero() > lengthIsLongDistance) {
+                val startWork = this.basicData.timeStartWork
+                val endWork = this.basicData.timeEndWork
                 if (startWork != null && endWork != null) {
-                    val workInterval = startWork until endWork
-                    resultTime += train.getTimeInLongDistance(
-                        lengthIsLongDistance = lengthIsLongDistance,
-                        workInterval = workInterval
-                    )
+                    resultTime += endWork - startWork
+                    return resultTime
                 }
             }
         }
-        return resultTime
+        return 0L
     }
 }

@@ -6,6 +6,7 @@ import android.content.Intent
 import android.util.Log
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BasicTooltipBox
 import androidx.compose.foundation.BorderStroke
@@ -21,10 +22,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeightIn
 import androidx.compose.foundation.layout.size
@@ -78,8 +81,10 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -88,6 +93,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -106,15 +112,18 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.flowWithLifecycle
+import com.maxkeppeker.sheets.core.utils.BaseModifiers.dynamicContentWrapOrMaxHeight
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.AsyncDataValue
+import com.z_company.core.ui.component.toDp
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
@@ -154,6 +163,7 @@ import com.z_company.route.viewmodel.home_view_model.SetTimeInTrainEvent
 import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
 import com.z_company.route.viewmodel.home_view_model.UpdateEvent
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import ru.rustore.sdk.core.feature.model.FeatureAvailabilityResult
 import java.util.Calendar
@@ -521,32 +531,18 @@ fun HomeScreen(
         }
     }
 
-
-
-    if (isShowSnackbar) {
-        LaunchedEffect(Unit) {
-            scope.launch {
-                isOnTheWayState.flowWithLifecycle(lifecycle).collect { state ->
-                    Log.d("zzz", "isShowSnackbar state $state")
-                    if (state is SetTimeInTrainEvent.SetTimeArrival) {
-                        state.message?.let { text ->
-                            scope.launch {
-                                snackbarHostState.showSnackbar(message = text)
-                            }
+    LaunchedEffect(isShowSnackbar) {
+        scope.launch {
+            isOnTheWayState.flowWithLifecycle(lifecycle).collect { state ->
+                if (isShowSnackbar) {
+                    state.message?.let { text ->
+                        scope.launch {
+                            snackbarHostState.showSnackbar(message = text)
                         }
-                        onTheWay = state.isOnTheWay
-                        resetStateShowSnackbar()
-                    }
-                    if (state is SetTimeInTrainEvent.SetTimeDeparture) {
-                        state.message?.let { text ->
-                            scope.launch {
-                                snackbarHostState.showSnackbar(message = text)
-                            }
-                        }
-                        onTheWay = state.isOnTheWay
                         resetStateShowSnackbar()
                     }
                 }
+                onTheWay = state.isOnTheWay
             }
         }
     }
@@ -631,7 +627,10 @@ fun HomeScreen(
                         max = heightScreen.times(0.65f).dp
                     )
                     .padding(start = 12.dp, end = 12.dp, top = 30.dp, bottom = 12.dp)
-                    .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
+                    .background(
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = Shapes.medium
+                    )
                     .clickable {}
             ) {
                 calculationHomeRest(routeForPreview)
@@ -647,7 +646,10 @@ fun HomeScreen(
                 modifier = Modifier
                     .padding(end = 12.dp)
                     .fillMaxWidth(0.6f)
-                    .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
+                    .background(
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = Shapes.medium
+                    )
             ) {
                 Row(
                     modifier = Modifier
@@ -926,7 +928,11 @@ fun HomeScreen(
                 containerColor = green,
                 onClick = onNewRouteClick
             ) {
-                Icon(tint = MaterialTheme.colorScheme.background, imageVector = Icons.Rounded.Add, contentDescription = null)
+                Icon(
+                    tint = MaterialTheme.colorScheme.background,
+                    imageVector = Icons.Rounded.Add,
+                    contentDescription = null
+                )
             }
         },
         bottomBar = {
@@ -950,7 +956,11 @@ fun HomeScreen(
                         )
                     },
                     label = {
-                        Text(text = "Главная")
+                        Text(
+                            text = "Главная",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     },
                     onClick = {}
                 )
@@ -966,7 +976,11 @@ fun HomeScreen(
                         )
                     },
                     label = {
-                        Text(text = "ЗП")
+                        Text(
+                            text = "ЗП",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     },
                     onClick = {}
                 )
@@ -982,7 +996,11 @@ fun HomeScreen(
                         )
                     },
                     label = {
-                        Text(text = "Настройки")
+                        Text(
+                            text = "Настройки",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     },
                     onClick = onSettingsClick
                 )
@@ -998,7 +1016,11 @@ fun HomeScreen(
                         )
                     },
                     label = {
-                        Text(text = "Профиль")
+                        Text(
+                            text = "Профиль",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     },
                     onClick = {}
                 )
@@ -1098,6 +1120,8 @@ fun HomeScreen(
 
             item {
                 currentRoute?.let { route ->
+                    var maxHeightBox by remember { mutableStateOf(widthScreen / 3) }
+
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1123,8 +1147,17 @@ fun HomeScreen(
                             item {
                                 Card(
                                     modifier = Modifier
+                                        .onGloballyPositioned { coordinates ->
+                                            val currentHeight = coordinates.size.height
+                                            if (currentHeight > maxHeightBox) {
+                                                maxHeightBox = currentHeight
+                                            }
+                                        }
                                         .padding(start = 12.dp)
-                                        .size((widthScreen / 3).dp)
+                                        .defaultMinSize(
+                                            minWidth = (widthScreen / 3).dp,
+                                            minHeight = (widthScreen / 3).dp,
+                                        )
                                         .clickable {
                                             onRouteClick(route.basicData.id)
                                         },
@@ -1138,12 +1171,18 @@ fun HomeScreen(
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .fillMaxSize()
+                                            .defaultMinSize(
+                                                minWidth = (widthScreen / 3).dp,
+                                                minHeight = (widthScreen / 3).dp,
+                                            )
                                             .background(brushMain)
                                     ) {
                                         Column(
                                             modifier = Modifier
-                                                .fillMaxSize()
+                                                .defaultMinSize(
+                                                    minWidth = (widthScreen / 3).dp,
+                                                    minHeight = maxHeightBox.toDp(),
+                                                )
                                                 .padding(vertical = 8.dp, horizontal = 16.dp),
                                             verticalArrangement = Arrangement.SpaceBetween
                                         ) {
@@ -1158,6 +1197,7 @@ fun HomeScreen(
                                                 text = "На работе",
                                                 color = MaterialTheme.colorScheme.background,
                                                 maxLines = 1,
+                                                style = AppTypography.getType().titleMedium,
                                                 overflow = TextOverflow.Ellipsis
                                             )
                                         }
@@ -1167,10 +1207,15 @@ fun HomeScreen(
                             item {
                                 Card(
                                     modifier = Modifier
-                                        .height((widthScreen / 3).dp)
-                                        .widthIn(
-                                            min = (widthScreen / 3).dp,
-                                            max = (widthScreen * 0.8).dp
+                                        .onGloballyPositioned { coordinates ->
+                                            val currentHeight = coordinates.size.height
+                                            if (currentHeight > maxHeightBox) {
+                                                maxHeightBox = currentHeight
+                                            }
+                                        }
+                                        .defaultMinSize(
+                                            minWidth = (widthScreen / 3).dp,
+                                            minHeight = (widthScreen / 3).dp,
                                         ),
                                     elevation = CardDefaults.elevatedCardElevation(
                                         defaultElevation = 2.dp,
@@ -1182,19 +1227,17 @@ fun HomeScreen(
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .height((widthScreen / 3).dp)
-                                            .widthIn(
-                                                min = (widthScreen / 3).dp,
-                                                max = (widthScreen * 0.8).dp
+                                            .defaultMinSize(
+                                                minWidth = (widthScreen / 3).dp,
+                                                minHeight = (widthScreen / 3).dp,
                                             )
-                                            .background(Color(0xFFF6F5EF))
+                                            .background(MaterialTheme.colorScheme.secondary)
                                     ) {
                                         Column(
                                             modifier = Modifier
-                                                .height((widthScreen / 3).dp)
-                                                .widthIn(
-                                                    min = (widthScreen / 3).dp,
-                                                    max = (widthScreen * 0.8).dp
+                                                .defaultMinSize(
+                                                    minWidth = (widthScreen / 3).dp,
+                                                    minHeight = maxHeightBox.toDp(),
                                                 )
                                                 .padding(vertical = 8.dp, horizontal = 16.dp),
                                             verticalArrangement = Arrangement.SpaceBetween,
@@ -1218,16 +1261,12 @@ fun HomeScreen(
                                             } else {
                                                 Column(
                                                     modifier = Modifier
-                                                        .wrapContentWidth()
-                                                        .fillMaxHeight()
-                                                        .padding(bottom = 8.dp)
-                                                        .weight(1f),
+                                                        .padding(bottom = 8.dp),
                                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                                 ) {
                                                     val loco = route.locomotives.last()
                                                     Box(
                                                         modifier = Modifier
-                                                            .padding(4.dp)
                                                             .pointerInput(Unit) {
                                                                 detectTapGestures(
                                                                     onPress = {
@@ -1261,7 +1300,7 @@ fun HomeScreen(
                                                 text = "Локомотив",
                                                 color = MaterialTheme.colorScheme.primary,
                                                 maxLines = 1,
-                                                style = AppTypography.getType().bodyLarge,
+                                                style = AppTypography.getType().titleMedium,
                                                 overflow = TextOverflow.Ellipsis
                                             )
                                         }
@@ -1271,10 +1310,15 @@ fun HomeScreen(
                             item {
                                 Card(
                                     modifier = Modifier
-                                        .height((widthScreen / 3).dp)
-                                        .widthIn(
-                                            min = (widthScreen / 3).dp,
-                                            max = (widthScreen * 0.8).dp
+                                        .onGloballyPositioned { coordinates ->
+                                            val currentHeight = coordinates.size.height
+                                            if (currentHeight > maxHeightBox) {
+                                                maxHeightBox = currentHeight
+                                            }
+                                        }
+                                        .defaultMinSize(
+                                            minWidth = (widthScreen / 3).dp,
+                                            minHeight = (widthScreen / 3).dp,
                                         ),
                                     elevation = CardDefaults.elevatedCardElevation(
                                         defaultElevation = 2.dp,
@@ -1286,19 +1330,17 @@ fun HomeScreen(
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .height((widthScreen / 3).dp)
-                                            .widthIn(
-                                                min = (widthScreen / 3).dp,
-                                                max = (widthScreen * 0.8).dp
+                                            .defaultMinSize(
+                                                minWidth = (widthScreen / 3).dp,
+                                                minHeight = (widthScreen / 3).dp,
                                             )
-                                            .background(Color(0xFFF6F5EF))
+                                            .background(MaterialTheme.colorScheme.secondary)
                                     ) {
                                         Column(
                                             modifier = Modifier
-                                                .height((widthScreen / 3).dp)
-                                                .widthIn(
-                                                    min = (widthScreen / 3).dp,
-                                                    max = (widthScreen * 0.8).dp
+                                                .defaultMinSize(
+                                                    minWidth = (widthScreen / 3).dp,
+                                                    minHeight = maxHeightBox.toDp(),
                                                 )
                                                 .padding(vertical = 8.dp, horizontal = 16.dp),
                                             verticalArrangement = Arrangement.SpaceBetween,
@@ -1322,10 +1364,7 @@ fun HomeScreen(
                                             } else {
                                                 Column(
                                                     modifier = Modifier
-                                                        .wrapContentWidth()
-                                                        .fillMaxHeight()
-                                                        .padding(bottom = 8.dp)
-                                                        .weight(1f),
+                                                        .padding(bottom = 8.dp),
                                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                                 ) {
                                                     val train = route.trains.last()
@@ -1350,19 +1389,25 @@ fun HomeScreen(
                                                                 overflow = TextOverflow.Ellipsis
                                                             )
                                                         }
-                                                        Text(
-                                                            text = "${
-                                                                train.stations.firstOrNull()
-                                                                    ?.let { it.stationName ?: "" } ?: ""
-                                                            } ${
-                                                                train.stations.lastOrNull()
-                                                                    ?.let { " - ${it.stationName ?: ""}" } ?: ""
-                                                            } ",
-                                                            color = MaterialTheme.colorScheme.primary,
-                                                            maxLines = 1,
-                                                            style = AppTypography.getType().bodyLarge,
-                                                            overflow = TextOverflow.Ellipsis
-                                                        )
+                                                        val firstStation = train.stations.firstOrNull()
+                                                            ?.let { it.stationName ?: "" } ?: ""
+                                                        val lastStation = if (train.stations.size > 1){
+                                                            train.stations.lastOrNull()
+                                                            ?.let { " - ${it.stationName ?: ""}" } ?: ""
+                                                        } else {
+                                                            ""
+                                                        }
+                                                        val trainInfoText = "$firstStation $lastStation"
+
+                                                        if (trainInfoText.isNotBlank()) {
+                                                            Text(
+                                                                text = trainInfoText,
+                                                                color = MaterialTheme.colorScheme.primary,
+                                                                maxLines = 1,
+                                                                style = AppTypography.getType().bodyLarge,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
+                                                        }
                                                     }
                                                     if (route.trains.size > 1) {
                                                         Text(
@@ -1384,7 +1429,7 @@ fun HomeScreen(
                                                     text = "Поезд",
                                                     color = MaterialTheme.colorScheme.primary,
                                                     maxLines = 1,
-                                                    style = AppTypography.getType().bodyLarge,
+                                                    style = AppTypography.getType().titleMedium,
                                                     overflow = TextOverflow.Ellipsis
                                                 )
                                                 if (route.trains.isNotEmpty()) {
@@ -1409,18 +1454,20 @@ fun HomeScreen(
                                                                 tint = if (it) purple else green
                                                             )
                                                         }
-                                                        AnimatedContent(targetState = onTheWay) {
-                                                            val text = if (it) {
-                                                                "Остановка"
-                                                            } else {
-                                                                "Отправление"
-                                                            }
-                                                            Text(
-                                                                text = text,
-                                                                style = AppTypography.getType().bodyLarge,
-                                                                color = if (it) purple else green
-                                                            )
-                                                        }
+//                                                        AnimatedContent(targetState = onTheWay) {
+//                                                            val text = if (it) {
+//                                                                "Остановка"
+//                                                            } else {
+//                                                                "Отправление"
+//                                                            }
+//                                                            Text(
+//                                                                text = text,
+//                                                                maxLines = 1,
+//                                                                overflow = TextOverflow.Ellipsis,
+//                                                                style = AppTypography.getType().bodyLarge,
+//                                                                color = if (it) purple else green
+//                                                            )
+//                                                        }
                                                     }
                                                 }
                                             }
@@ -1431,10 +1478,15 @@ fun HomeScreen(
                             item {
                                 Card(
                                     modifier = Modifier
-                                        .height((widthScreen / 3).dp)
-                                        .widthIn(
-                                            min = (widthScreen / 3).dp,
-                                            max = (widthScreen * 0.8).dp
+                                        .onGloballyPositioned { coordinates ->
+                                            val currentHeight = coordinates.size.height
+                                            if (currentHeight > maxHeightBox) {
+                                                maxHeightBox = currentHeight
+                                            }
+                                        }
+                                        .defaultMinSize(
+                                            minWidth = (widthScreen / 3).dp,
+                                            minHeight = (widthScreen / 3).dp,
                                         )
                                         .padding(end = 12.dp),
                                     elevation = CardDefaults.elevatedCardElevation(
@@ -1447,19 +1499,17 @@ fun HomeScreen(
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .height((widthScreen / 3).dp)
-                                            .widthIn(
-                                                min = (widthScreen / 3).dp,
-                                                max = (widthScreen * 0.8).dp
+                                            .defaultMinSize(
+                                                minWidth = (widthScreen / 3).dp,
+                                                minHeight = (widthScreen / 3).dp,
                                             )
-                                            .background(Color(0xFFF6F5EF))
+                                            .background(MaterialTheme.colorScheme.secondary)
                                     ) {
                                         Column(
                                             modifier = Modifier
-                                                .height((widthScreen / 3).dp)
-                                                .widthIn(
-                                                    min = (widthScreen / 3).dp,
-                                                    max = (widthScreen * 0.8).dp
+                                                .defaultMinSize(
+                                                    minWidth = (widthScreen / 3).dp,
+                                                    minHeight = maxHeightBox.toDp(),
                                                 )
                                                 .padding(vertical = 8.dp, horizontal = 16.dp),
                                             verticalArrangement = Arrangement.SpaceBetween,
@@ -1483,10 +1533,7 @@ fun HomeScreen(
                                             } else {
                                                 Column(
                                                     modifier = Modifier
-                                                        .wrapContentWidth()
-                                                        .fillMaxHeight()
-                                                        .padding(bottom = 8.dp)
-                                                        .weight(1f),
+                                                        .padding(bottom = 8.dp),
                                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                                 ) {
                                                     val passenger = route.passengers.last()
@@ -1504,7 +1551,7 @@ fun HomeScreen(
                                                     ) {
                                                         passenger.trainNumber?.let {
                                                             Text(
-                                                                text = it,
+                                                                text = "№ $it",
                                                                 color = MaterialTheme.colorScheme.primary,
                                                                 maxLines = 1,
                                                                 style = AppTypography.getType().titleLarge,
@@ -1534,7 +1581,7 @@ fun HomeScreen(
                                                 text = "Пассажиром",
                                                 color = MaterialTheme.colorScheme.primary,
                                                 maxLines = 1,
-                                                style = AppTypography.getType().bodyLarge,
+                                                style = AppTypography.getType().titleMedium,
                                                 overflow = TextOverflow.Ellipsis
                                             )
                                         }
@@ -1545,6 +1592,7 @@ fun HomeScreen(
                     }
                 }
             }
+
             item {
                 Column(
                     modifier = Modifier
@@ -1898,9 +1946,10 @@ fun PreviewRoute(
                             )
                             if (route.basicData.restPointOfTurnover) {
                                 minTimeRest?.let {
-                                    val shortRestText = dateAndTimeConverter?.getDateMiniAndTime(
-                                        route.shortRest(minTimeRest)
-                                    ) ?: "загрузка"
+                                    val shortRestText =
+                                        dateAndTimeConverter?.getDateMiniAndTime(
+                                            route.shortRest(minTimeRest)
+                                        ) ?: "загрузка"
                                     val fullRestText = dateAndTimeConverter?.getDateMiniAndTime(
                                         route.fullRest(minTimeRest)
                                     ) ?: "загрузка"
@@ -1923,7 +1972,9 @@ fun PreviewRoute(
                                 ) { homeRestInLong ->
                                     homeRestInLong?.let {
                                         val homeRestInLongText =
-                                            dateAndTimeConverter?.getDateMiniAndTime(homeRestInLong)
+                                            dateAndTimeConverter?.getDateMiniAndTime(
+                                                homeRestInLong
+                                            )
                                                 ?: "загрузка"
                                         Text(
                                             text = "до $homeRestInLongText",
@@ -2102,13 +2153,17 @@ fun PreviewRoute(
                                 Column {
                                     locomotive.electricSectionList.forEachIndexed { index, sectionElectric ->
                                         val acceptedEnergyText =
-                                            sectionElectric.acceptedEnergy?.toPlainString() ?: ""
+                                            sectionElectric.acceptedEnergy?.toPlainString()
+                                                ?: ""
                                         val deliveryEnergyText =
-                                            sectionElectric.deliveryEnergy?.toPlainString() ?: ""
+                                            sectionElectric.deliveryEnergy?.toPlainString()
+                                                ?: ""
                                         val acceptedRecoveryText =
-                                            sectionElectric.acceptedRecovery?.toPlainString() ?: ""
+                                            sectionElectric.acceptedRecovery?.toPlainString()
+                                                ?: ""
                                         val deliveryRecoveryText =
-                                            sectionElectric.deliveryRecovery?.toPlainString() ?: ""
+                                            sectionElectric.deliveryRecovery?.toPlainString()
+                                                ?: ""
                                         val consumptionEnergy =
                                             CalculationEnergy.getTotalEnergyConsumption(
                                                 accepted = sectionElectric.acceptedEnergy,
@@ -2267,11 +2322,12 @@ fun PreviewRoute(
                             AnimatedVisibility(visible = locomotiveExpandItemState[index]!!) {
                                 Column {
                                     locomotive.dieselSectionList.forEachIndexed { index, sectionDiesel ->
-                                        val consumption = CalculationEnergy.getTotalFuelConsumption(
-                                            accepted = sectionDiesel.acceptedFuel,
-                                            delivery = sectionDiesel.deliveryFuel,
-                                            refuel = sectionDiesel.fuelSupply
-                                        )
+                                        val consumption =
+                                            CalculationEnergy.getTotalFuelConsumption(
+                                                accepted = sectionDiesel.acceptedFuel,
+                                                delivery = sectionDiesel.deliveryFuel,
+                                                refuel = sectionDiesel.fuelSupply
+                                            )
                                         val consumptionInKilo =
                                             CalculationEnergy.getTotalFuelInKiloConsumption(
                                                 consumption = consumption,
@@ -2283,10 +2339,12 @@ fun PreviewRoute(
                                         val deliveryText = sectionDiesel.deliveryFuel.str()
                                         val acceptedInKilo =
                                             sectionDiesel.acceptedFuel.times(sectionDiesel.coefficient)
-                                        val acceptedInKiloText = rounding(acceptedInKilo, 2).str()
+                                        val acceptedInKiloText =
+                                            rounding(acceptedInKilo, 2).str()
                                         val deliveryInKilo =
                                             sectionDiesel.deliveryFuel.times(sectionDiesel.coefficient)
-                                        val deliveryInKiloText = rounding(deliveryInKilo, 2).str()
+                                        val deliveryInKiloText =
+                                            rounding(deliveryInKilo, 2).str()
                                         val fuelSupplyText = sectionDiesel.fuelSupply.str()
                                         val coefficientText = sectionDiesel.coefficient.str()
 
@@ -2577,9 +2635,11 @@ fun PreviewRoute(
                 val stationDeparture = passenger.stationDeparture.ifNullOrBlank { "" }
                 val stationArrival = passenger.stationArrival.ifNullOrBlank { "" }
                 val timeDeparture =
-                    dateAndTimeConverter?.getTimeFromDateLong(passenger.timeDeparture) ?: "загрузка"
+                    dateAndTimeConverter?.getTimeFromDateLong(passenger.timeDeparture)
+                        ?: "загрузка"
                 val timeArrival =
-                    dateAndTimeConverter?.getTimeFromDateLong(passenger.timeArrival) ?: "загрузка"
+                    dateAndTimeConverter?.getTimeFromDateLong(passenger.timeArrival)
+                        ?: "загрузка"
                 val timeFollowing =
                     ConverterLongToTime.getTimeInStringFormat(passenger.getFollowingTime())
                         .ifNullOrBlank { "" }
@@ -3013,7 +3073,8 @@ fun DetailWorkTimeCard(
                                     color = MaterialTheme.colorScheme.background
                                 )
                                 if (totalTime != totalTimeWithHoliday) {
-                                    val differenceTimeInLong = totalTimeWithHoliday.minus(totalTime)
+                                    val differenceTimeInLong =
+                                        totalTimeWithHoliday.minus(totalTime)
                                     val totalTime =
                                         ConverterLongToTime.getTimeInStringFormat(
                                             totalTime
@@ -3027,7 +3088,8 @@ fun DetailWorkTimeCard(
                                             detectTapGestures(
                                                 onPress = {
                                                     scope.launch {
-                                                        tooltipText = "Рабочие + праздничные часы"
+                                                        tooltipText =
+                                                            "Рабочие + праздничные часы"
                                                         state.show(MutatePriority.Default)
                                                     }
                                                 }
@@ -3094,7 +3156,9 @@ fun DetailWorkTimeCard(
                                         verticalArrangement = Arrangement.spacedBy(4.dp),
                                     ) {
                                         val passengerTimeText =
-                                            ConverterLongToTime.getTimeInStringFormat(passengerTime)
+                                            ConverterLongToTime.getTimeInStringFormat(
+                                                passengerTime
+                                            )
                                         val percent =
                                             ((passengerTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
                                         Row(
@@ -3271,7 +3335,8 @@ fun DetailTrainCard(
                                     color = MaterialTheme.colorScheme.background
                                 )
                                 if (totalTime != totalTimeWithHoliday) {
-                                    val differenceTimeInLong = totalTimeWithHoliday.minus(totalTime)
+                                    val differenceTimeInLong =
+                                        totalTimeWithHoliday.minus(totalTime)
                                     val totalTime =
                                         ConverterLongToTime.getTimeInStringFormat(
                                             totalTime
@@ -3285,7 +3350,8 @@ fun DetailTrainCard(
                                             detectTapGestures(
                                                 onPress = {
                                                     scope.launch {
-                                                        tooltipText = "Рабочие + праздничные часы"
+                                                        tooltipText =
+                                                            "Рабочие + праздничные часы"
                                                         state.show(MutatePriority.Default)
                                                     }
                                                 }
