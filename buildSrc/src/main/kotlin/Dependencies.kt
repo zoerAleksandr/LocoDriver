@@ -30,6 +30,7 @@ import Versions.ozcanalasalvar_ver
 import Versions.parse_sdk_android_ver
 import Versions.permission_accompanist_ver
 import Versions.rebugger_ver
+import Versions.retrofit_ver
 import Versions.reveal_swipe_version
 import Versions.room_version
 import Versions.ru_ok_tracer_platform_ver
@@ -59,8 +60,8 @@ object Apps {
     const val min_sdk_version = 26
     const val target_sdk_version = 35
 
-    const val version_code = 46
-    const val version_name = "1.2.7.2"
+    const val version_code = 47
+    const val version_name = "1.2.8"
 
     const val jvm_target_version = "21"
     val java_compatibility_version = JavaVersion.VERSION_21
@@ -115,6 +116,7 @@ object Versions {
     const val kotlinx_date_time_ver = "0.6.2"
     const val ru_ok_tracer_platform_ver = "0.5.1"
     const val mytracker_sdk_ver = "3.3.2"
+    const val retrofit_ver = "2.11.0"
 }
 
 object Libs {
@@ -129,6 +131,7 @@ object Libs {
     const val project_feature_settings = ":features:settings"
 
     // Libs
+    const val retrofit2 = "com.squareup.retrofit2:retrofit:$retrofit_ver"
     const val ksp_api = "com.google.devtools.ksp:symbol-processing-api:$ksp_ver"
     const val ru_ok_tracer_platform = "ru.ok.tracer:tracer-platform:$ru_ok_tracer_platform_ver"
     const val ru_ok_tracer_tracer_crash_report = "ru.ok.tracer:tracer-crash-report"

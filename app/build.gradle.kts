@@ -88,7 +88,6 @@ dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
     implementation (Libs.ksp_api)
 
-//    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:${Versions.kotlin_version}")
     implementation(Libs.mytracker_sdk)
     implementation(platform(Libs.rustore_sdk_bom))
     implementation(Libs.rustore_sdk_billingclient)

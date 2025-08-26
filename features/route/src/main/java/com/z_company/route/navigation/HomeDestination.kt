@@ -6,7 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.z_company.domain.navigation.Router
 import com.z_company.route.ui.HomeScreen
-import com.z_company.route.viewmodel.HomeViewModel
+import com.z_company.route.viewmodel.home_view_model.HomeViewModel
 
 @Composable
 fun HomeDestination(
@@ -15,8 +15,8 @@ fun HomeDestination(
     val homeViewModel: HomeViewModel = viewModel()
     val uiState by homeViewModel.uiState.collectAsState()
     val previewRouteUiState by homeViewModel.previewRouteUiState.collectAsState()
-
     HomeScreen(
+        listRouteState = uiState.listItemState,
         routeListState = uiState.routeListState,
         removeRouteState = uiState.removeRouteState,
         onRouteClick = {
@@ -27,7 +27,7 @@ fun HomeDestination(
         onNewRouteClick = homeViewModel::newRouteClick,
         onDeleteRoute = homeViewModel::removeRoute,
         onDeleteRouteConfirmed = homeViewModel::resetRemoveRouteState,
-        reloadRoute = homeViewModel::loadData,
+//        reloadRoute = homeViewModel::loadSetting,
         onSettingsClick = { router.showSettings() },
         onSearchClick = { router.showSearch() },
         totalTime = homeViewModel.timeWithoutHoliday,
@@ -36,9 +36,10 @@ fun HomeDestination(
         monthList = uiState.monthList,
         selectYearAndMonth = homeViewModel::setCurrentMonth,
         minTimeRest = uiState.minTimeRest,
-        nightTime = uiState.nightTimeInRouteList,
+        nightTimeState = uiState.nightTimeInRouteList,
         totalTimeWithHoliday = uiState.totalTimeWithHoliday,
-        passengerTime = uiState.passengerTimeInRouteList,
+        passengerTimeState = uiState.passengerTimeInRouteList,
+        singleLocomotiveTimeState = uiState.singleLocomotiveTimeState,
         dayoffHours = uiState.dayOffHours,
         holidayHours = uiState.holidayHours,
         calculationHomeRest = homeViewModel::calculationHomeRest,
@@ -67,6 +68,33 @@ fun HomeDestination(
         setFavoriteState = homeViewModel::setFavoriteRoute,
         getSharedIntent = homeViewModel::getUriToRoute,
         getTextWorkTime = homeViewModel::getTextWorkTime,
-        getDateMiniAndTime = homeViewModel::getDateAndTimeText
+        dateAndTimeConverter = uiState.dateAndTimeConverter,
+        extendedServicePhaseTime = uiState.extendedServicePhaseTime,
+        longDistanceTrainsTime = uiState.longDistanceTrainsTime,
+        heavyTrainsTime = uiState.heavyTrainsTime,
+        onePersonOperationTime = uiState.onePersonOperationTime,
+        currentRoute = homeViewModel.currentRoute,
+        currentRouteTimeWork = homeViewModel.workTimeInCurrentRoute,
+        onNewLocoClick = {
+            router.showEmptyLocoForm(it)
+        },
+        onChangedLocoClick = router::showChangedLocoForm,
+        onNewTrainClick = {
+            router.showEmptyTrainForm(it)
+        },
+        onChangedTrainClick = router::showChangeTrainForm,
+        onNewPassengerClick = {
+            router.showEmptyPassengerForm(it)
+        },
+        onChangedPassengerClick = router::showChangePassengerForm,
+        onGoClicked = homeViewModel::onGoClicked,
+//        isOnTheWayState = homeViewModel.isOnTheWay,
+//        isShowSnackbar = isShowSnackbarOnTheWay,
+//        resetStateShowSnackbar = homeViewModel::resetStateShowSnackbar,
+//        resetStateIsLaunchedInitState = homeViewModel::resetStateIsLaunchedInitState,
+        onAllRouteClick = router::showAllRoute,
+        uiState = uiState.uiState,
+        saveTimeEvent = homeViewModel.saveTimeEvent,
+        isNextDeparture = homeViewModel::isNextDeparture
     )
 }

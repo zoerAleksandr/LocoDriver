@@ -6,7 +6,6 @@ import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Photo
 import com.z_company.domain.entities.route.Train
 
-
 internal data class Route(
     var remoteObjectId: String? = null,
     var basicData: BasicData = BasicData(),

@@ -78,7 +78,7 @@ dependencies {
 
     implementation(Libs.kotlinx_date_time)
 
-    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation(Libs.retrofit2)
 
     implementation(Libs.camera_camera2)
     implementation(Libs.camera_lifecycle)

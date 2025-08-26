@@ -1,7 +1,6 @@
 package com.z_company.loco_driver.viewmodel
 
 import android.util.Log
-import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -15,7 +14,6 @@ import com.z_company.domain.use_cases.LoadCalendarFromStorage
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
-import com.z_company.repository.Back4AppManager
 import com.z_company.use_case.RemoteRouteUseCase
 import com.z_company.use_case.RuStoreUseCase
 import com.z_company.work_manager.UserFieldName
@@ -86,12 +84,12 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
             this.launch {
                 // загрузил старые и сохранил их в список
                 calendarUseCase.loadFlowMonthOfYearListState().collect { monthListResult ->
-                    if (monthListResult is ResultState.Success) {
-                        monthListResult.data.forEach { monthOfYear ->
+//                    if (monthListResult is ResultState.Success) {
+                        monthListResult.forEach { monthOfYear ->
                             monthOfYearList.add(monthOfYear)
                         }
                         this.cancel()
-                    }
+//                    }
                 }
             }.join()
             // проверил, если этот месяц ранее был сохранен, проверил помечен ли он isRelease
@@ -181,7 +179,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     }
 
     // при вызове метода происходит утечка памяти на Pixel API 34 Android 14
-    private suspend fun syncRuStoreSubscription() {
+    private fun syncRuStoreSubscription() {
         var job: Job? = null
         try {
             billingClient.purchases.getPurchases()
@@ -204,7 +202,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
                                     }
                                 }
                             }
-                            job?.join()
+                            job.join()
                         }
                     }
 

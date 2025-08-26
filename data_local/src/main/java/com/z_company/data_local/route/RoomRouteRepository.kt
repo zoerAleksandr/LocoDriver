@@ -290,6 +290,12 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
         }
     }
 
+    override fun updateTrain(train: Train): Flow<ResultState<Unit>> {
+        return flowRequest {
+            dao.updateTrain(TrainConverter.fromData(train))
+        }
+    }
+
     override fun savePassenger(passenger: Passenger): Flow<ResultState<Unit>> {
         return flowRequest {
             if (passenger.passengerId.isBlank()) {

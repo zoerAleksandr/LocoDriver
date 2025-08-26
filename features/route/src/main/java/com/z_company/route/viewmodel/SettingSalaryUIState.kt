@@ -29,6 +29,8 @@ data class SettingSalaryUIState(
     val isErrorInputSurchargeQualificationClass: Boolean = false,
     val onePersonOperationPercent: ResultState<String> = ResultState.Loading(),
     val isErrorInputOnePersonOperation: Boolean = false,
+    val onePersonOperationPassengerTrainPercent: ResultState<String> = ResultState.Loading(),
+    val isErrorInputOnePersonOperationPassengerTrain: Boolean = false,
     val harmfulnessPercent: ResultState<String> = ResultState.Loading(),
     val isErrorInputHarmfulnessPercent: Boolean = false,
     val longDistanceTrainPercent: ResultState<String> = ResultState.Loading(),

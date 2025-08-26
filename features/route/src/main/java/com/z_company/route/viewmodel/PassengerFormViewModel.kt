@@ -5,6 +5,7 @@ import androidx.compose.runtime.toMutableStateList
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
+import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.use_cases.PassengerUseCase
@@ -46,6 +47,8 @@ class PassengerFormViewModel(
 
     private var route: Route = Route()
 
+    var timeZoneText: String = "GMT+3"
+
     private var loadPassengerJob: Job? = null
     private var savePassengerJob: Job? = null
 
@@ -66,14 +69,25 @@ class PassengerFormViewModel(
         }
 
     init {
-        if (passengerId == NULLABLE_ID) {
-            isNewPassenger = true
-            currentPassenger = Passenger(basicId = basicId)
-        } else {
-            isNewPassenger = false
-            loadPassenger(passengerId!!)
-        }
         viewModelScope.launch {
+            if (passengerId == NULLABLE_ID) {
+                isNewPassenger = true
+                currentPassenger = Passenger(basicId = basicId)
+            } else {
+                isNewPassenger = false
+                loadPassenger(passengerId!!)
+            }
+            val initJob = this.launch {
+                val setting = settingsUseCase.getUserSettingFlow().first()
+                timeZoneText = settingsUseCase.getTimeZone(setting.timeZone)
+                _uiState.update {
+                    it.copy(
+                        dateAndTimeConverter = DateAndTimeConverter(setting)
+                    )
+                }
+            }
+            initJob.join()
+
             combine(
                 settingsUseCase.getFlowCurrentSettingsState(),
                 routeUseCase.routeDetails(basicId)

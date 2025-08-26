@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import org.koin.core.component.KoinComponent
@@ -21,9 +22,8 @@ class SalarySettingUseCase(
     private val calendarUseCase: CalendarUseCase by inject()
     fun salarySettingFlow(): Flow<SalarySetting> {
         return flow {
-            repository.getSalarySettingFlow().collect{
-                emit(it)
-            }
+            val salarySetting = repository.getSalarySettingFlow().first()
+            emit(salarySetting)
         }
     }
 

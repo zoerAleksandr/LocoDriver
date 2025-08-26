@@ -24,10 +24,15 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.ModalBottomSheetLayout
+import androidx.compose.material.ModalBottomSheetState
+import androidx.compose.material.ModalBottomSheetValue
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.rememberModalBottomSheetState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -49,7 +54,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -81,19 +88,21 @@ import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
+import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.ServicePhase
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.trainCategory
 import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.BottomShadow
 import com.z_company.route.component.ConfirmExitDialog
+import com.z_company.route.component.RemoveTimeContent
 import com.z_company.route.component.StationItem
 import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.route.viewmodel.StationFormState
 import com.z_company.route.viewmodel.TrainFormUiState
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
 fun FormTrainScreen(
     formUiState: TrainFormUiState,
@@ -128,7 +137,9 @@ fun FormTrainScreen(
     onHideDialogSelectServicePhase: () -> Unit,
     onSelectServicePhase: (ServicePhase?) -> Unit,
     selectedServicePhase: ServicePhase?,
-    onSettingClick: () -> Unit
+    onSettingClick: () -> Unit,
+    timeZoneText: String,
+    dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -138,16 +149,6 @@ fun FormTrainScreen(
             fontSize = 18.sp,
             fontWeight = FontWeight.Light
         )
-//    if (formUiState.errorMessage != null) {
-//        LaunchedEffect(Unit) {
-//            scope.launch {
-//                snackbarHostState.showSnackbar(
-//                    message = formUiState.errorMessage
-//                )
-//                resetErrorMessage()
-//            }
-//        }
-//    }
 
     Scaffold(
         modifier = Modifier
@@ -205,12 +206,13 @@ fun FormTrainScreen(
             )
         }
     ) { paddingValues ->
-        when(formUiState.saveTrainState){
+        when (formUiState.saveTrainState) {
             is ResultState.Success -> {
                 LaunchedEffect(formUiState.saveTrainState) {
                     onTrainSaved()
                 }
             }
+
             is ResultState.Error -> {
                 LaunchedEffect(Unit) {
                     scope.launch {
@@ -219,6 +221,7 @@ fun FormTrainScreen(
                     resetSaveState()
                 }
             }
+
             else -> {}
         }
 
@@ -227,46 +230,75 @@ fun FormTrainScreen(
                 exitScreen()
             }
         }
-        Box(modifier = Modifier.padding(paddingValues)) {
-            AsyncData(resultState = formUiState.trainDetailState) {
-                currentTrain?.let { train ->
-                    TrainFormScreenContent(
-                        train = train,
-                        onNumberChanged = onNumberChanged,
-                        onDistanceChange = onDistanceChange,
-                        onWeightChanged = onWeightChanged,
-                        onAxleChanged = onAxleChanged,
-                        onLengthChanged = onLengthChanged,
-                        onAddingStation = onAddingStation,
-                        onDeleteStation = onDeleteStation,
-                        onStationNameChanged = onStationNameChanged,
-                        onDepartureTimeChanged = onDepartureTimeChanged,
-                        onArrivalTimeChanged = onArrivalTimeChanged,
-                        stationListState = stationListState,
-                        changeShowConfirmExitDialog = changeShowConfirmExitDialog,
-                        onSaveClick = onSaveClick,
-                        exitWithoutSave = exitWithoutSave,
-                        showConfirmExitDialog = formUiState.confirmExitDialogShow,
-                        menuList = menuList,
-                        isExpandedMenu = isExpandedMenu,
-                        onChangedContentMenu = onChangedContentMenu,
-                        onExpandedMenuChange = onExpandedMenuChange,
-                        onDeleteStationName = onDeleteStationName,
-                        servicePhaseList = servicePhaseList,
-                        isShowDialogSelectServicePhase = isShowDialogSelectServicePhase,
-                        onShowDialogSelectServicePhase = onShowDialogSelectServicePhase,
-                        onHideDialogSelectServicePhase = onHideDialogSelectServicePhase,
-                        onSelectServicePhase = onSelectServicePhase,
-                        selectedServicePhase = selectedServicePhase,
-                        onSettingClick = onSettingClick,
-                        errorMessage = formUiState.errorMessage
-                    )
+
+        val bottomSheetState = rememberModalBottomSheetState(
+            initialValue = ModalBottomSheetValue.Hidden,
+        )
+        var bottomSheetContentState =
+            remember { mutableStateOf(BottomSheetRemoveTimeFormTrainScreen.TIME_ARRIVAL) }
+
+        var selectSectionIndexState = remember { mutableIntStateOf(0) }
+
+        ModalBottomSheetLayout(
+            sheetState = bottomSheetState,
+            sheetShape = MaterialTheme.shapes.medium,
+            sheetContent = {
+                RemoveTimeBottomSheetContent(
+                    bottomSheetState = bottomSheetState,
+                    sectionIndex = selectSectionIndexState.intValue,
+                    onDepartureTimeChanged = onDepartureTimeChanged,
+                    onArrivalTimeChanged = onArrivalTimeChanged,
+                    selectBottomSheetContent = bottomSheetContentState.value
+                )
+            }
+        ) {
+            Box(modifier = Modifier.padding(paddingValues)) {
+                AsyncData(resultState = formUiState.trainDetailState) {
+                    currentTrain?.let { train ->
+                        TrainFormScreenContent(
+                            train = train,
+                            onNumberChanged = onNumberChanged,
+                            onDistanceChange = onDistanceChange,
+                            onWeightChanged = onWeightChanged,
+                            onAxleChanged = onAxleChanged,
+                            onLengthChanged = onLengthChanged,
+                            onAddingStation = onAddingStation,
+                            onDeleteStation = onDeleteStation,
+                            onStationNameChanged = onStationNameChanged,
+                            onDepartureTimeChanged = onDepartureTimeChanged,
+                            onArrivalTimeChanged = onArrivalTimeChanged,
+                            stationListState = stationListState,
+                            changeShowConfirmExitDialog = changeShowConfirmExitDialog,
+                            onSaveClick = onSaveClick,
+                            exitWithoutSave = exitWithoutSave,
+                            showConfirmExitDialog = formUiState.confirmExitDialogShow,
+                            menuList = menuList,
+                            isExpandedMenu = isExpandedMenu,
+                            onChangedContentMenu = onChangedContentMenu,
+                            onExpandedMenuChange = onExpandedMenuChange,
+                            onDeleteStationName = onDeleteStationName,
+                            servicePhaseList = servicePhaseList,
+                            isShowDialogSelectServicePhase = isShowDialogSelectServicePhase,
+                            onShowDialogSelectServicePhase = onShowDialogSelectServicePhase,
+                            onHideDialogSelectServicePhase = onHideDialogSelectServicePhase,
+                            onSelectServicePhase = onSelectServicePhase,
+                            selectedServicePhase = selectedServicePhase,
+                            onSettingClick = onSettingClick,
+                            errorMessage = formUiState.errorMessage,
+                            timeZoneText = timeZoneText,
+                            selectSectionIndexState = selectSectionIndexState,
+                            bottomSheetState = bottomSheetState,
+                            bottomSheetContentState = bottomSheetContentState,
+                            dateAndTimeConverter = dateAndTimeConverter
+                        )
+                    }
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun TrainFormScreenContent(
     train: Train,
@@ -297,7 +329,12 @@ fun TrainFormScreenContent(
     onSelectServicePhase: (ServicePhase?) -> Unit,
     selectedServicePhase: ServicePhase?,
     onSettingClick: () -> Unit,
-    errorMessage: String?
+    errorMessage: String?,
+    timeZoneText: String,
+    selectSectionIndexState: MutableState<Int>,
+    bottomSheetState: ModalBottomSheetState,
+    bottomSheetContentState: MutableState<BottomSheetRemoveTimeFormTrainScreen>,
+    dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
@@ -451,7 +488,10 @@ fun TrainFormScreenContent(
     ) {
         item {
             errorMessage?.let {
-                val errorTextStyle = AppTypography.getType().titleMedium.copy(fontWeight = FontWeight.Normal, color = MaterialTheme.colorScheme.onError)
+                val errorTextStyle = AppTypography.getType().titleMedium.copy(
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.onError
+                )
                 val widthScreen = LocalConfiguration.current.screenWidthDp.toFloat()
                 val gradient = Brush.radialGradient(
                     colors = listOf(
@@ -771,7 +811,12 @@ fun TrainFormScreenContent(
                     onArrivalTimeChanged = onArrivalTimeChanged,
                     onDepartureTimeChanged = onDepartureTimeChanged,
                     onDeleteStationName = onDeleteStationName,
-                    onSettingClick = onSettingClick
+                    onSettingClick = onSettingClick,
+                    timeZoneText = timeZoneText,
+                    selectIndexState = selectSectionIndexState,
+                    bottomSheetState = bottomSheetState,
+                    bottomSheetContentState = bottomSheetContentState,
+                    dateAndTimeConverter = dateAndTimeConverter
                 )
             }
         }
@@ -794,4 +839,46 @@ fun TrainFormScreenContent(
         }
         item { Spacer(modifier = Modifier.height(20.dp)) }
     }
+}
+
+
+@OptIn(ExperimentalMaterialApi::class)
+@Composable
+private fun RemoveTimeBottomSheetContent(
+    bottomSheetState: ModalBottomSheetState,
+    sectionIndex: Int,
+    onDepartureTimeChanged: (index: Int, time: Long?) -> Unit,
+    onArrivalTimeChanged: (index: Int, time: Long?) -> Unit,
+    selectBottomSheetContent: BottomSheetRemoveTimeFormTrainScreen
+) {
+    val scope = rememberCoroutineScope()
+    when (selectBottomSheetContent) {
+        BottomSheetRemoveTimeFormTrainScreen.TIME_DEPARTURE -> {
+            RemoveTimeContent(
+                title = "Время отправления",
+                onRemoveTimeClick = {
+                    scope.launch {
+                        bottomSheetState.hide()
+                    }
+                    onDepartureTimeChanged(sectionIndex, null)
+                }
+            )
+        }
+
+        BottomSheetRemoveTimeFormTrainScreen.TIME_ARRIVAL -> {
+            RemoveTimeContent(
+                title = "Время прибытия",
+                onRemoveTimeClick = {
+                    scope.launch {
+                        bottomSheetState.hide()
+                    }
+                    onArrivalTimeChanged(sectionIndex, null)
+                }
+            )
+        }
+    }
+}
+
+enum class BottomSheetRemoveTimeFormTrainScreen() {
+    TIME_ARRIVAL, TIME_DEPARTURE
 }

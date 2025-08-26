@@ -5,6 +5,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
+import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ReleasePeriod
 import com.z_company.domain.use_cases.CalendarUseCase
@@ -27,7 +28,6 @@ import java.util.Calendar.getInstance
 class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
     private val calendarUseCase: CalendarUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
-
 
     private val _uiState = MutableStateFlow(SelectReleaseDaysUIState())
     val uiState = _uiState.asStateFlow()
@@ -66,15 +66,15 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
     fun setCurrentMonth(yearAndMonth: Pair<Int, Int>) {
         setCalendarJob?.cancel()
         setCalendarJob = calendarUseCase.loadFlowMonthOfYearListState().onEach { result ->
-            if (result is ResultState.Success) {
-                result.data.find {
+//            if (result is ResultState.Success) {
+                result.find {
                     it.year == yearAndMonth.first && it.month == yearAndMonth.second
                 }?.let { selectMonthOfYear ->
                     currentMonthOfYear = selectMonthOfYear
                     saveCurrentMonthInLocal(selectMonthOfYear)
                     setReleasePeriodState(selectMonthOfYear)
                 }
-            }
+//            }
         }.launchIn(viewModelScope)
     }
 
@@ -102,17 +102,17 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
     private fun loadMonthList() {
         loadCalendarJob?.cancel()
         loadCalendarJob = calendarUseCase.loadFlowMonthOfYearListState().onEach { result ->
-            if (result is ResultState.Success) {
-                allMonthOfYear = result.data
+//            if (result is ResultState.Success) {
+                allMonthOfYear = result
                 _uiState.update { state ->
                     state.copy(
-                        monthList = result.data.map { it.month }.distinct().sorted(),
-                        yearList = result.data.map { it.year }.distinct().sorted()
+                        monthList = result.map { it.month }.distinct().sorted(),
+                        yearList = result.map { it.year }.distinct().sorted()
                     )
                 }
-                newMonthList = result.data.toMutableList()
+                newMonthList = result.toMutableList()
 
-            }
+//            }
         }.launchIn(viewModelScope)
     }
 
@@ -185,7 +185,7 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
                             _uiState.update {
                                 it.copy(saveReleaseDaysState = resultState)
                             }
-                            if (resultState is ResultState.Success){
+                            if (resultState is ResultState.Success) {
                                 saveCurrentMonthJob?.cancel()
                             }
                         }.launchIn(viewModelScope)
@@ -199,13 +199,14 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
         viewModelScope.launch {
             settingsUseCase.getFlowCurrentSettingsState().collect { result ->
                 if (result is ResultState.Success) {
-                    _uiState.update {
-                        it.copy(
-                            currentMonthOfYearState = ResultState.Success(result.data?.selectMonthOfYear)
-                        )
-                    }
-                    result.data?.selectMonthOfYear?.let {
-                        setReleasePeriodState(it)
+                    result.data?.let { setting ->
+                        _uiState.update {
+                            it.copy(
+                                currentMonthOfYearState = ResultState.Success(setting.selectMonthOfYear),
+                                dateAndTimeConverter = DateAndTimeConverter(setting)
+                            )
+                        }
+                        setReleasePeriodState(setting.selectMonthOfYear)
                     }
                 }
             }

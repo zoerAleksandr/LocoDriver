@@ -807,6 +807,44 @@ fun SalaryCalculationScreen(
                 }
             }
             item {
+                uiState.onePersonOperationPassengerTrainMoney?.let { value ->
+                    if (value != 0.0) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = verticalPaddingSmall)
+                        ) {
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
+                                modifier = Modifier.weight(widthColumn1),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                text = "НадРабОдноЛицоПассПоезд"
+                            )
+                            Box(
+                                modifier = Modifier.weight(widthColumn2),
+                            )
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
+                                modifier = Modifier.weight(widthColumn3),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                alignment = Alignment.Center,
+                                text = uiState.onePersonOperationPassengerTrainPercent.str()
+                            )
+                            AutoSizeText(
+                                maxTextSize = maxTextSize,
+                                modifier = Modifier.weight(widthColumn4),
+                                overflow = TextOverflow.Visible,
+                                style = styleDataLight,
+                                alignment = Alignment.CenterEnd,
+                                text = uiState.onePersonOperationPassengerTrainMoney.str2decimalSign()
+                            )
+                        }
+                    }
+                }
+            }
+            item {
                 uiState.harmfulnessSurchargeMoney?.let { value ->
                     if (value != 0.0) {
                         Row(

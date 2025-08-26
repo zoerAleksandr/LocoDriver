@@ -1,7 +1,9 @@
 package com.z_company.route.component
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -14,6 +16,7 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.ModalBottomSheetState
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
@@ -31,6 +34,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,10 +53,12 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
 import com.z_company.core.ui.component.SelectableDateTimePicker
-import com.z_company.core.ui.component.WheelDateTimePicker
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
+import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.DateAndTimeFormat
+import com.z_company.route.ui.BottomSheetRemoveTimeFormLocoScreen
+import com.z_company.route.ui.BottomSheetRemoveTimeFormTrainScreen
 import com.z_company.route.viewmodel.StationFormState
 import de.charlex.compose.RevealDirection
 import de.charlex.compose.RevealSwipe
@@ -61,11 +67,11 @@ import de.charlex.compose.rememberRevealState
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
-import java.text.SimpleDateFormat
 import java.util.Calendar
-import java.util.Locale
 
-@OptIn(ExperimentalMaterialApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterialApi::class, ExperimentalMaterial3Api::class,
+    ExperimentalFoundationApi::class
+)
 @Composable
 fun StationItem(
     index: Int,
@@ -79,7 +85,12 @@ fun StationItem(
     onDepartureTimeChanged: (Int, Long?) -> Unit,
     onDelete: (StationFormState) -> Unit,
     onDeleteStationName: (String) -> Unit,
-    onSettingClick: () -> Unit
+    onSettingClick: () -> Unit,
+    timeZoneText: String,
+    selectIndexState: MutableState<Int>,
+    bottomSheetState: ModalBottomSheetState,
+    bottomSheetContentState: MutableState<BottomSheetRemoveTimeFormTrainScreen>,
+    dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val focusManager = LocalFocusManager.current
     val revealState = rememberRevealState()
@@ -258,19 +269,26 @@ fun StationItem(
                             color = MaterialTheme.colorScheme.surface,
                             shape = Shapes.medium
                         )
-                        .clickable(!isFirst) {
-                            showArrivalDatePicker = true
-                        },
+                        .combinedClickable(
+                            onClick = {
+                                showArrivalDatePicker = true
+                            },
+                            onLongClick = {
+                                selectIndexState.value = index
+                                stationFormState.arrival.data?.let {
+                                    scope.launch {
+                                        bottomSheetContentState.value =
+                                            BottomSheetRemoveTimeFormTrainScreen.TIME_ARRIVAL
+                                        bottomSheetState.show()
+                                    }
+                                }
+                            }
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     if (!isFirst) {
-                        val textTimeArrival = stationFormState.arrival.data?.let { millis ->
-                            SimpleDateFormat(
-                                DateAndTimeFormat.TIME_FORMAT,
-                                Locale.getDefault()
-                            ).format(
-                                millis
-                            )
+                        val textTimeArrival = stationFormState.arrival.data?.let {
+                            dateAndTimeConverter?.getTimeFromDateLong(it)
                         } ?: DateAndTimeFormat.DEFAULT_TIME_TEXT
 
                         Text(
@@ -288,18 +306,26 @@ fun StationItem(
                             color = MaterialTheme.colorScheme.surface,
                             shape = Shapes.medium
                         )
-                        .clickable {
-                            showDepartureDatePicker = true
-                        },
+
+                        .combinedClickable(
+                            onClick = {
+                                showDepartureDatePicker = true
+                            },
+                            onLongClick = {
+                                selectIndexState.value = index
+                                stationFormState.departure.data?.let {
+                                    scope.launch {
+                                        bottomSheetContentState.value =
+                                            BottomSheetRemoveTimeFormTrainScreen.TIME_DEPARTURE
+                                        bottomSheetState.show()
+                                    }
+                                }
+                            }
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
-                    val textTimeDeparture = stationFormState.departure.data?.let { millis ->
-                        SimpleDateFormat(
-                            DateAndTimeFormat.TIME_FORMAT,
-                            Locale.getDefault()
-                        ).format(
-                            millis
-                        )
+                    val textTimeDeparture = stationFormState.departure.data?.let {
+                        dateAndTimeConverter?.getTimeFromDateLong(it)
                     } ?: DateAndTimeFormat.DEFAULT_TIME_TEXT
 
                     Text(
@@ -318,7 +344,7 @@ fun StationItem(
         isShowPicker = showArrivalDatePicker,
         initDateTime = arrivalDateTime,
         onDoneClick = { localDateTime ->
-            val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+            val instant = localDateTime.toInstant(TimeZone.of(timeZoneText))
             val millis = instant.toEpochMilliseconds()
             onArrivalTimeChanged(index, millis)
             showArrivalDatePicker = false
@@ -334,7 +360,7 @@ fun StationItem(
         isShowPicker = showDepartureDatePicker,
         initDateTime = departureDateTime,
         onDoneClick = { localDateTime ->
-            val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+            val instant = localDateTime.toInstant(TimeZone.of(timeZoneText))
             val millis = instant.toEpochMilliseconds()
             onDepartureTimeChanged(index, millis)
             showDepartureDatePicker = false

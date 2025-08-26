@@ -7,6 +7,62 @@ import org.koin.core.component.inject
 object MonthShortenedText: KoinComponent {
     private val res: Resources by inject()
 
+    fun getMonthShortText(value: Int?): String {
+        return when (value) {
+            0 -> {
+                MonthShortenedText.JANUARY
+            }
+
+            1 -> {
+                MonthShortenedText.FEBRUARY
+            }
+
+            2 -> {
+                MonthShortenedText.MARCH
+            }
+
+            3 -> {
+                MonthShortenedText.APRIL
+            }
+
+            4 -> {
+                MonthShortenedText.MAY
+            }
+
+            5 -> {
+                MonthShortenedText.JUNE
+            }
+
+            6 -> {
+                MonthShortenedText.JULY
+            }
+
+            7 -> {
+                MonthShortenedText.AUGUST
+            }
+
+            8 -> {
+                MonthShortenedText.SEPTEMBER
+            }
+
+            9 -> {
+                MonthShortenedText.OCTOBER
+            }
+
+            10 -> {
+                MonthShortenedText.NOVEMBER
+            }
+
+            11 -> {
+                MonthShortenedText.DECEMBER
+            }
+
+            else -> {
+                ""
+            }
+        }
+    }
+
     val JANUARY = res.getString(R.string.january_short)
     val FEBRUARY = res.getString(R.string.february_short)
     val MARCH = res.getString(R.string.march_short)

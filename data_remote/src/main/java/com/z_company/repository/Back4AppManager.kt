@@ -1,5 +1,8 @@
 package com.z_company.repository
 
+import android.util.Log
+import com.parse.FindCallback
+import com.parse.ParseException
 import com.parse.ParseObject
 import com.parse.ParseQuery
 import com.parse.ParseUser
@@ -35,9 +38,53 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.util.Calendar
 
+
 const val TIMEOUT_LOADING = 360_000L
 
 class Back4AppManager : KoinComponent {
+
+    fun getAllRouteRemote() {
+        val query = ParseQuery.getQuery<ParseObject>("Route")
+        query.limit = 30_000
+
+        try {
+            Log.d("zzz", "start")
+            // Synchronously find all Route objects
+            val routes = query.find()
+            Log.d("zzz", "routes size ${routes.size}")
+
+            // Group routes by 'Data' field
+            val groupedRoutes = routes.groupBy { it.getString("data") }
+
+            // Process groups with more than one entry
+            groupedRoutes.forEach { (_, routesWithSameData) ->
+                if (routesWithSameData.size > 1) {
+                    // Sort routes by creation time in descending order to keep the latest one
+//                    Log.d("zzz", "size group ${routesWithSameData.size}")
+                    val sortedRoutes = routesWithSameData.sortedByDescending { it.createdAt }
+
+                    // Remove all but the most recent
+//                    Log.d("zzz", "Останется ${sortedRoutes[0].createdAt} ${sortedRoutes[0].objectId} ${sortedRoutes[0].getString("data")}")
+                    val routesToDelete = sortedRoutes.drop(1) // drop() the first (most recent) one
+
+//                    Log.d("zzz", "size routesToDelete ${routesToDelete.size}")
+//                    routesToDelete.forEachIndexed { index, route ->
+//                        Log.d("zzz", "Удаление: ${route.createdAt} ${route.objectId}")
+//                    }
+                    // Delete the older routes
+                    ParseObject.deleteAll(routesToDelete)
+
+                    println(
+                        "zzz Removed ${routesToDelete.size}"
+                    )
+                }
+            }
+
+        } catch (e: ParseException) {
+            // Handle errors such as network issues
+            println("Error fetching routes: ${e.message}")
+        }
+    }
 
     private val routeUseCase: RouteUseCase by inject()
     private val remoteRepository: RemoteRouteRepository by inject()

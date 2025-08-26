@@ -108,7 +108,7 @@ private const val TAG = "AutoSizeText"
 fun AutoSizeText(
     text: String,
     modifier: Modifier = Modifier,
-    color: Color = Color.Unspecified,
+    color: Color = MaterialTheme.colorScheme.primary,
     suggestedFontSizes: List<TextUnit> = emptyList(),
     suggestedFontSizesStatus: SuggestedFontSizesStatus = SuggestedFontSizesStatus.UNKNOWN,
     stepGranularityTextSize: TextUnit = TextUnit.Unspecified,

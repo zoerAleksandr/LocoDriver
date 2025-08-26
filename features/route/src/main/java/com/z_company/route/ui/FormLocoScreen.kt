@@ -5,8 +5,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,9 +24,14 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.ModalBottomSheetLayout
+import androidx.compose.material.ModalBottomSheetState
+import androidx.compose.material.ModalBottomSheetValue
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.rememberModalBottomSheetState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -49,6 +56,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -74,7 +82,6 @@ import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
-import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.LocoTypeHelper.converterLocoTypeToString
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Locomotive
@@ -85,12 +92,14 @@ import com.z_company.route.component.BottomShadow
 import com.z_company.route.component.DieselSectionItem
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.component.SelectableDateTimePicker
+import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.route.viewmodel.LocoFormUiState
 import java.util.Calendar
 import com.z_company.domain.util.*
 import com.z_company.route.component.ConfirmExitDialog
 import com.z_company.route.component.ElectricSectionItem
+import com.z_company.route.component.RemoveTimeContent
 import com.z_company.route.viewmodel.DieselSectionFormState
 import com.z_company.route.viewmodel.DieselSectionType
 import com.z_company.route.viewmodel.ElectricSectionFormState
@@ -100,7 +109,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import java.math.BigDecimal
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
 fun FormLocoScreen(
     currentLoco: Locomotive?,
@@ -142,8 +151,8 @@ fun FormLocoScreen(
     onChangedContentMenu: (String) -> Unit,
     onDeleteSeries: (String) -> Unit,
     onSettingClick: () -> Unit,
-    getDateMiniAndTime: (Long) -> String
-
+    timeZoneText: String,
+    dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -220,61 +229,88 @@ fun FormLocoScreen(
                 exitScreen()
             }
         }
-        Box(modifier = Modifier.padding(paddingValues)) {
-            AsyncData(resultState = formUiState.locoDetailState) {
-                currentLoco?.let { locomotive ->
-                    if (formUiState.saveLocoState is ResultState.Success) {
-                        LaunchedEffect(formUiState.saveLocoState) {
-                            onLocoSaved()
-                        }
-                    } else {
-                        LocoFormScreenContent(
-                            locomotive = locomotive,
-                            dieselSectionListState = dieselSectionListState,
-                            electricSectionListState = electricSectionListState,
-                            onNumberChanged = onNumberChanged,
-                            onSeriesChanged = onSeriesChanged,
-                            onTypeLocoChanged = onChangedTypeLoco,
-                            onStartAcceptedTimeChanged = onStartAcceptedTimeChanged,
-                            onEndAcceptedTimeChanged = onEndAcceptedTimeChanged,
-                            onStartDeliveryTimeChanged = onStartDeliveryTimeChanged,
-                            onEndDeliveryTimeChanged = onEndDeliveryTimeChanged,
-                            onFuelAcceptedChanged = onFuelAcceptedChanged,
-                            onFuelDeliveredChanged = onFuelDeliveredChanged,
-                            onDeleteSectionDiesel = onDeleteSectionDiesel,
-                            addingSectionDiesel = addingSectionDiesel,
-                            focusChangedDieselSection = focusChangedDieselSection,
-                            onEnergyAcceptedChanged = onEnergyAcceptedChanged,
-                            onEnergyDeliveryChanged = onEnergyDeliveryChanged,
-                            onRecoveryAcceptedChanged = onRecoveryAcceptedChanged,
-                            onRecoveryDeliveryChanged = onRecoveryDeliveryChanged,
-                            onDeleteSectionElectric = onDeleteSectionElectric,
-                            addingSectionElectric = addingSectionElectric,
-                            focusChangedElectricSection = focusChangedElectricSection,
-                            onExpandStateElectricSection = onExpandStateElectricSection,
-                            onRefuelValueChanged = onRefuelValueChanged,
-                            onCoefficientValueChanged = onCoefficientValueChanged,
-                            showConfirmExitDialog = formUiState.confirmExitDialogShow,
-                            changeShowConfirmExitDialog = changeShowConfirmExitDialog,
-                            exitWithoutSave = exitWithoutSave,
-                            onSaveClick = onSaveClick,
-                            menuList = menuList,
-                            isExpandedMenu = isExpandedMenu,
-                            onExpandedMenuChange = onExpandedMenuChange,
-                            onChangedContentMenu = onChangedContentMenu,
-                            onDeleteSeries = onDeleteSeries,
-                            onSettingClick = onSettingClick,
-                            getDateMiniAndTime = getDateMiniAndTime
-                        )
-                    }
 
+        val bottomSheetState = rememberModalBottomSheetState(
+            initialValue = ModalBottomSheetValue.Hidden,
+        )
+        var bottomSheetContentState =
+            remember { mutableStateOf(BottomSheetRemoveTimeFormLocoScreen.START_ACCEPTED) }
+
+        ModalBottomSheetLayout(
+            sheetState = bottomSheetState,
+            sheetShape = MaterialTheme.shapes.medium,
+            sheetContent = {
+                RemoveTimeBottomSheetContent(
+                    bottomSheetState = bottomSheetState,
+                    onStartAcceptedTimeChanged = onStartAcceptedTimeChanged,
+                    onEndAcceptedTimeChanged = onEndAcceptedTimeChanged,
+                    onStartDeliveryTimeChanged = onStartDeliveryTimeChanged,
+                    onEndDeliveryTimeChanged = onEndDeliveryTimeChanged,
+                    selectBottomSheetContent = bottomSheetContentState.value
+                )
+            }
+        ) {
+            Box(modifier = Modifier.padding(paddingValues)) {
+                AsyncData(resultState = formUiState.locoDetailState) {
+                    currentLoco?.let { locomotive ->
+                        if (formUiState.saveLocoState is ResultState.Success) {
+                            LaunchedEffect(formUiState.saveLocoState) {
+                                onLocoSaved()
+                            }
+                        } else {
+                            LocoFormScreenContent(
+                                locomotive = locomotive,
+                                dieselSectionListState = dieselSectionListState,
+                                electricSectionListState = electricSectionListState,
+                                onNumberChanged = onNumberChanged,
+                                onSeriesChanged = onSeriesChanged,
+                                onTypeLocoChanged = onChangedTypeLoco,
+                                onStartAcceptedTimeChanged = onStartAcceptedTimeChanged,
+                                onEndAcceptedTimeChanged = onEndAcceptedTimeChanged,
+                                onStartDeliveryTimeChanged = onStartDeliveryTimeChanged,
+                                onEndDeliveryTimeChanged = onEndDeliveryTimeChanged,
+                                onFuelAcceptedChanged = onFuelAcceptedChanged,
+                                onFuelDeliveredChanged = onFuelDeliveredChanged,
+                                onDeleteSectionDiesel = onDeleteSectionDiesel,
+                                addingSectionDiesel = addingSectionDiesel,
+                                focusChangedDieselSection = focusChangedDieselSection,
+                                onEnergyAcceptedChanged = onEnergyAcceptedChanged,
+                                onEnergyDeliveryChanged = onEnergyDeliveryChanged,
+                                onRecoveryAcceptedChanged = onRecoveryAcceptedChanged,
+                                onRecoveryDeliveryChanged = onRecoveryDeliveryChanged,
+                                onDeleteSectionElectric = onDeleteSectionElectric,
+                                addingSectionElectric = addingSectionElectric,
+                                focusChangedElectricSection = focusChangedElectricSection,
+                                onExpandStateElectricSection = onExpandStateElectricSection,
+                                onRefuelValueChanged = onRefuelValueChanged,
+                                onCoefficientValueChanged = onCoefficientValueChanged,
+                                showConfirmExitDialog = formUiState.confirmExitDialogShow,
+                                changeShowConfirmExitDialog = changeShowConfirmExitDialog,
+                                exitWithoutSave = exitWithoutSave,
+                                onSaveClick = onSaveClick,
+                                menuList = menuList,
+                                isExpandedMenu = isExpandedMenu,
+                                onExpandedMenuChange = onExpandedMenuChange,
+                                onChangedContentMenu = onChangedContentMenu,
+                                onDeleteSeries = onDeleteSeries,
+                                onSettingClick = onSettingClick,
+                                timeZoneText = timeZoneText,
+                                bottomSheetState = bottomSheetState,
+                                bottomSheetContentState = bottomSheetContentState,
+                                dateAndTimeConverter = dateAndTimeConverter,
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(
+    ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class,
+    ExperimentalMaterialApi::class
+)
 @Composable
 private fun LocoFormScreenContent(
     locomotive: Locomotive,
@@ -312,7 +348,10 @@ private fun LocoFormScreenContent(
     onChangedContentMenu: (String) -> Unit,
     onDeleteSeries: (String) -> Unit,
     onSettingClick: () -> Unit,
-    getDateMiniAndTime: (Long) -> String
+    timeZoneText: String,
+    bottomSheetState: ModalBottomSheetState,
+    bottomSheetContentState: MutableState<BottomSheetRemoveTimeFormLocoScreen>,
+    dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
@@ -537,7 +576,7 @@ private fun LocoFormScreenContent(
                 isShowPicker = showStartAcceptedDatePicker,
                 initDateTime = startAcceptedCalendar.timeInMillis,
                 onDoneClick = { localDateTime ->
-                    val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+                    val instant = localDateTime.toInstant(TimeZone.of(timeZoneText))
                     val millis = instant.toEpochMilliseconds()
                     onStartAcceptedTimeChanged(millis)
                     showStartAcceptedDatePicker = false
@@ -565,7 +604,7 @@ private fun LocoFormScreenContent(
                 isShowPicker = showEndAcceptedDatePicker,
                 initDateTime = endAcceptedCalendar.timeInMillis,
                 onDoneClick = { localDateTime ->
-                    val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+                    val instant = localDateTime.toInstant(TimeZone.of(timeZoneText))
                     val millis = instant.toEpochMilliseconds()
                     onEndAcceptedTimeChanged(millis)
                     showEndAcceptedDatePicker = false
@@ -596,14 +635,25 @@ private fun LocoFormScreenContent(
                                 color = MaterialTheme.colorScheme.surface,
                                 shape = Shapes.medium
                             )
-                            .clickable {
-                                showStartAcceptedDatePicker = true
-                            }
+                            .combinedClickable(
+                                onClick = {
+                                    showStartAcceptedDatePicker = true
+                                },
+                                onLongClick = {
+                                    locomotive.timeStartOfAcceptance?.let {
+                                        scope.launch {
+                                            bottomSheetContentState.value =
+                                                BottomSheetRemoveTimeFormLocoScreen.START_ACCEPTED
+                                            bottomSheetState.show()
+                                        }
+                                    }
+                                }
+                            )
                             .padding(16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         val dateStartText = locomotive.timeStartOfAcceptance?.let {
-                            getDateMiniAndTime(it)
+                            dateAndTimeConverter?.getDateMiniAndTime(it)
                         } ?: "Начало"
                         Text(
                             text = dateStartText,
@@ -618,14 +668,25 @@ private fun LocoFormScreenContent(
                                 color = MaterialTheme.colorScheme.surface,
                                 shape = Shapes.medium
                             )
-                            .clickable {
-                                showEndAcceptedDatePicker = true
-                            }
+                            .combinedClickable(
+                                onClick = {
+                                    showEndAcceptedDatePicker = true
+                                },
+                                onLongClick = {
+                                    locomotive.timeEndOfAcceptance?.let {
+                                        scope.launch {
+                                            bottomSheetContentState.value =
+                                                BottomSheetRemoveTimeFormLocoScreen.END_ACCEPTED
+                                            bottomSheetState.show()
+                                        }
+                                    }
+                                }
+                            )
                             .padding(16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         val dateEndText = locomotive.timeEndOfAcceptance?.let {
-                            getDateMiniAndTime(it)
+                            dateAndTimeConverter?.getDateMiniAndTime(it)
                         } ?: "Окончание"
 
                         Text(
@@ -653,7 +714,7 @@ private fun LocoFormScreenContent(
                 isShowPicker = showStartDeliveryDatePicker,
                 initDateTime = startDeliveryCalendar.timeInMillis,
                 onDoneClick = { localDateTime ->
-                    val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+                    val instant = localDateTime.toInstant(TimeZone.of(timeZoneText))
                     val millis = instant.toEpochMilliseconds()
                     onStartDeliveryTimeChanged(millis)
                     showStartDeliveryDatePicker = false
@@ -680,7 +741,7 @@ private fun LocoFormScreenContent(
                 isShowPicker = showEndDeliveryDatePicker,
                 initDateTime = endDeliveryCalendar.timeInMillis,
                 onDoneClick = { localDateTime ->
-                    val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+                    val instant = localDateTime.toInstant(TimeZone.of(timeZoneText))
                     val millis = instant.toEpochMilliseconds()
                     onEndDeliveryTimeChanged(millis)
                     showEndDeliveryDatePicker = false
@@ -711,14 +772,25 @@ private fun LocoFormScreenContent(
                                 color = MaterialTheme.colorScheme.surface,
                                 shape = Shapes.medium
                             )
-                            .clickable {
-                                showStartDeliveryDatePicker = true
-                            }
+                            .combinedClickable(
+                                onClick = {
+                                    showStartDeliveryDatePicker = true
+                                },
+                                onLongClick = {
+                                    locomotive.timeStartOfDelivery?.let {
+                                        scope.launch {
+                                            bottomSheetContentState.value =
+                                                BottomSheetRemoveTimeFormLocoScreen.START_DELIVERY
+                                            bottomSheetState.show()
+                                        }
+                                    }
+                                }
+                            )
                             .padding(16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         val dateStartText = locomotive.timeStartOfDelivery?.let {
-                            getDateMiniAndTime(it)
+                            dateAndTimeConverter?.getDateMiniAndTime(it)
                         } ?: "Начало"
 
                         Text(
@@ -734,14 +806,25 @@ private fun LocoFormScreenContent(
                                 color = MaterialTheme.colorScheme.surface,
                                 shape = Shapes.medium
                             )
-                            .clickable {
-                                showEndDeliveryDatePicker = true
-                            }
+                            .combinedClickable(
+                                onClick = {
+                                    showEndDeliveryDatePicker = true
+                                },
+                                onLongClick = {
+                                    locomotive.timeEndOfDelivery?.let {
+                                        scope.launch {
+                                            bottomSheetContentState.value =
+                                                BottomSheetRemoveTimeFormLocoScreen.END_DELIVERY
+                                            bottomSheetState.show()
+                                        }
+                                    }
+                                }
+                            )
                             .padding(16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         val dateEndText = locomotive.timeEndOfDelivery?.let {
-                            getDateMiniAndTime(it)
+                            dateAndTimeConverter?.getDateMiniAndTime(it)
                         } ?: "Окончание"
                         Text(
                             text = dateEndText,
@@ -883,4 +966,71 @@ private fun LocoFormScreenContent(
         }
         item { Spacer(modifier = Modifier.height(20.dp)) }
     }
+}
+
+
+@OptIn(ExperimentalMaterialApi::class)
+@Composable
+private fun RemoveTimeBottomSheetContent(
+    bottomSheetState: ModalBottomSheetState,
+    onStartAcceptedTimeChanged: (Long?) -> Unit,
+    onEndAcceptedTimeChanged: (Long?) -> Unit,
+    onStartDeliveryTimeChanged: (Long?) -> Unit,
+    onEndDeliveryTimeChanged: (Long?) -> Unit,
+    selectBottomSheetContent: BottomSheetRemoveTimeFormLocoScreen
+) {
+    val scope = rememberCoroutineScope()
+    when (selectBottomSheetContent) {
+        BottomSheetRemoveTimeFormLocoScreen.START_ACCEPTED -> {
+            RemoveTimeContent(
+                title = "Начало приемки",
+                onRemoveTimeClick = {
+                    scope.launch {
+                        bottomSheetState.hide()
+                    }
+                    onStartAcceptedTimeChanged(null)
+                }
+            )
+        }
+
+        BottomSheetRemoveTimeFormLocoScreen.END_ACCEPTED -> {
+            RemoveTimeContent(
+                title = "Окончание приемки",
+                onRemoveTimeClick = {
+                    scope.launch {
+                        bottomSheetState.hide()
+                    }
+                    onEndAcceptedTimeChanged(null)
+                }
+            )
+        }
+
+        BottomSheetRemoveTimeFormLocoScreen.START_DELIVERY -> {
+            RemoveTimeContent(
+                title = "Начало сдачи",
+                onRemoveTimeClick = {
+                    scope.launch {
+                        bottomSheetState.hide()
+                    }
+                    onStartDeliveryTimeChanged(null)
+                }
+            )
+        }
+
+        BottomSheetRemoveTimeFormLocoScreen.END_DELIVERY -> {
+            RemoveTimeContent(
+                title = "Окончание сдачи",
+                onRemoveTimeClick = {
+                    scope.launch {
+                        bottomSheetState.hide()
+                    }
+                    onEndDeliveryTimeChanged(null)
+                }
+            )
+        }
+    }
+}
+
+enum class BottomSheetRemoveTimeFormLocoScreen() {
+    START_ACCEPTED, END_ACCEPTED, START_DELIVERY, END_DELIVERY
 }

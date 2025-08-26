@@ -64,8 +64,6 @@ import com.z_company.settings.component.SelectedDialog
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
-import com.z_company.core.util.DateAndTimeConverter
-import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
 import com.z_company.domain.entities.User
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
@@ -78,6 +76,8 @@ import com.z_company.core.R as CoreR
 import androidx.compose.ui.text.style.TextOverflow
 import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.ui.component.customDateTimePicker.noRippleEffect
+import com.z_company.core.util.DateAndTimeConverter
+import com.z_company.core.util.MonthFullText.getMonthFullText
 import com.z_company.domain.entities.ServicePhase
 import com.z_company.domain.entities.TypeDateTimePicker
 import com.z_company.domain.util.toIntOrZero
@@ -126,7 +126,9 @@ fun SettingsScreen(
     deleteServicePhase: (Int) -> Unit,
     updateServicePhase: (ServicePhase, Int) -> Unit,
     setInputDateTimeType: (String) -> Unit,
-    inputDateTimeType: String
+    inputDateTimeType: String,
+    getAllRouteRemote: () -> Unit,
+    dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -140,28 +142,29 @@ fun SettingsScreen(
             }
         },
         topBar = {
-            TopAppBar(navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        imageVector = ImageVector.vectorResource(id = CoreR.drawable.ic_arrow_back),
-                        contentDescription = stringResource(id = CoreR.string.cd_back)
-                    )
-                }
-            }, title = {
-                Text(text = stringResource(id = CoreR.string.settings), style = titleStyle)
-            }, actions = {
-                TextButton(onClick = onSaveClick) {
-                    Text(
-                        text = "Сохранить",
-                        style = AppTypography.getType().titleLarge
-                            .copy(
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Light,
-                                color = MaterialTheme.colorScheme.tertiary
-                            ),
-                    )
-                }
-            },
+            TopAppBar(
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = ImageVector.vectorResource(id = CoreR.drawable.ic_arrow_back),
+                            contentDescription = stringResource(id = CoreR.string.cd_back)
+                        )
+                    }
+                }, title = {
+                    Text(text = stringResource(id = CoreR.string.settings), style = titleStyle)
+                }, actions = {
+                    TextButton(onClick = onSaveClick) {
+                        Text(
+                            text = "Сохранить",
+                            style = AppTypography.getType().titleLarge
+                                .copy(
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Light,
+                                    color = MaterialTheme.colorScheme.tertiary
+                                ),
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors().copy(
                     containerColor = Color.Transparent,
                 )
@@ -435,7 +438,9 @@ fun SettingsScreen(
                                 updateServicePhase = updateServicePhase,
                                 deleteServicePhase = deleteServicePhase,
                                 setInputDateTimeType = setInputDateTimeType,
-                                inputDateTimeType = inputDateTimeType
+                                inputDateTimeType = inputDateTimeType,
+                                getAllRouteRemote = getAllRouteRemote,
+                                dateAndTimeConverter = dateAndTimeConverter
                             )
                         }
                     }
@@ -482,7 +487,9 @@ fun SettingScreenContent(
     updateServicePhase: (ServicePhase, Int) -> Unit,
     deleteServicePhase: (Int) -> Unit,
     setInputDateTimeType: (String) -> Unit,
-    inputDateTimeType: String
+    inputDateTimeType: String,
+    getAllRouteRemote: () -> Unit,
+    dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val styleTitle = AppTypography.getType().titleLarge
         .copy(
@@ -819,8 +826,9 @@ fun SettingScreenContent(
                     Text(
                         modifier = Modifier
                             .padding(start = 16.dp, bottom = 6.dp),
-                        text = "ЧАСОВОЙ ПОЯС",
-                        style = styleTitle
+                        text = "ДОМАШНИЙ ЧАСОВОЙ ПОЯС",
+                        style = styleTitle,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Box(
@@ -1489,9 +1497,9 @@ fun SettingScreenContent(
                                     ) {
                                         updateAtState?.let { timeInMillis ->
                                             val textSyncDate =
-                                                DateAndTimeConverter.getDateAndTime(
+                                                dateAndTimeConverter?.getDateAndTime(
                                                     timeInMillis
-                                                )
+                                                ) ?: ""
 
                                             AutoSizeText(
                                                 maxTextSize = maxTextSize,
@@ -1594,6 +1602,25 @@ fun SettingScreenContent(
                     )
                 }
             }
+
+//            item{
+//                Button(
+//                    modifier = Modifier
+//                        .padding(top = 16.dp)
+//                        .fillMaxWidth()
+//                        .background(
+//                            color = MaterialTheme.colorScheme.surface,
+//                            shape = Shapes.medium
+//                        ),
+//                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface),
+//                    onClick = { getAllRouteRemote() }) {
+//                    Text(
+//                        text = "Запрос",
+//                        color = MaterialTheme.colorScheme.error,
+//                        style = styleTitle
+//                    )
+//                }
+//            }
         }
     }
 }

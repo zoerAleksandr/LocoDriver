@@ -6,6 +6,7 @@ import androidx.compose.runtime.toMutableStateList
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
+import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.ServicePhase
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Station
@@ -41,12 +42,13 @@ class TrainFormViewModel(
     private val settingsUseCase: SettingsUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
     private var route: Route = Route()
-
     private val _uiState = MutableStateFlow(TrainFormUiState())
     val uiState = _uiState.asStateFlow()
 
     private var loadTrainJob: Job? = null
     private var saveTrainJob: Job? = null
+
+    var timeZoneText: String = "GMT+3"
 
     private var isNewTrain by Delegates.notNull<Boolean>()
 
@@ -108,7 +110,6 @@ class TrainFormViewModel(
 
     fun showDialogSelectServicePhase() {
         viewModelScope.launch(Dispatchers.IO) {
-//            loadSetting().join()
             withContext(Dispatchers.Main) {
                 _uiState.update {
                     it.copy(
@@ -128,21 +129,31 @@ class TrainFormViewModel(
     }
 
     init {
-        if (trainId == NULLABLE_ID) {
-            isNewTrain = true
-            currentTrain = Train(basicId = basicId)
-        } else {
-            isNewTrain = false
-            loadTrain(trainId!!)
-        }
         viewModelScope.launch {
-//            loadSetting().join()
+            if (trainId == NULLABLE_ID) {
+                isNewTrain = true
+                currentTrain = Train(basicId = basicId)
+            } else {
+                isNewTrain = false
+                loadTrain(trainId!!)
+            }
+            val initJob = this.launch {
+                val setting = settingsUseCase.getUserSettingFlow().first()
+                timeZoneText = settingsUseCase.getTimeZone(setting.timeZone)
+            }
+            initJob.join()
+
             combine(
                 settingsUseCase.getFlowCurrentSettingsState(),
                 routeUseCase.routeDetails(basicId)
             ) { settingState, routeState ->
                 if (settingState is ResultState.Success) {
                     settingState.data?.let { settings ->
+                        _uiState.update {
+                            it.copy(
+                                dateAndTimeConverter = DateAndTimeConverter(settings)
+                            )
+                        }
                         stationNameList.addAllOrSkip(settings.stationList.toMutableStateList())
                         servicePhaseList.clear()
                         servicePhaseList.addAllOrSkip(settings.servicePhases.toMutableStateList())
@@ -155,21 +166,7 @@ class TrainFormViewModel(
                 }
             }.collect {}
         }
-    }
 
-    private suspend fun loadSetting(): Job {
-        return viewModelScope.launch {
-            settingsUseCase.getFlowCurrentSettingsState().collect {
-                if (it is ResultState.Success) {
-                    it.data?.let { settings ->
-                        stationNameList.addAllOrSkip(settings.stationList.toMutableStateList())
-                        servicePhaseList.clear()
-                        servicePhaseList.addAllOrSkip(settings.servicePhases.toMutableStateList())
-                    }
-                    this.cancel()
-                }
-            }
-        }
     }
 
     private fun changesHave() {

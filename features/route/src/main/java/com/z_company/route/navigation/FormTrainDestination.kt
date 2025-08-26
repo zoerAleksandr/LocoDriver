@@ -57,6 +57,8 @@ fun FormTrainDestination(
         servicePhaseList = formUiState.servicePhaseList,
         onSelectServicePhase = viewModel::setSelectedServicePhase,
         selectedServicePhase = formUiState.selectedServicePhase,
-        onSettingClick = router::showSettings
+        onSettingClick = router::showSettings,
+        timeZoneText = viewModel.timeZoneText,
+        dateAndTimeConverter = formUiState.dateAndTimeConverter
     )
 }

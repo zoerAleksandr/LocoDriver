@@ -9,6 +9,7 @@ import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHoursInDate
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getOnePersonOperationTime
+import com.z_company.domain.entities.route.UtilsForEntities.getOverOnePersonOperationTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeWithoutHoliday
@@ -19,6 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -90,7 +92,7 @@ class MoreInfoViewModel: ViewModel(), KoinComponent {
                                     workTimeWithHoliday - settings.selectMonthOfYear.getPersonalNormaHours()
                                         .times(3_600_000)
                                 val onePersonTime =
-                                    routeList.getOnePersonOperationTime(
+                                    routeList.getOverOnePersonOperationTime(
                                         settings.selectMonthOfYear,
                                         settings.timeZone
                                     )
@@ -106,7 +108,7 @@ class MoreInfoViewModel: ViewModel(), KoinComponent {
                                                 passengerTime
                                             ),
                                             holidayWorkTimeState = ResultState.Success(
-                                                holidayWorkTime
+                                                holidayWorkTime.first()
                                             ),
                                             workTimeWithHoliday = ResultState.Success(
                                                 workTimeWithHoliday

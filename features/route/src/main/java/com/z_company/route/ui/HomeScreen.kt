@@ -1,19 +1,27 @@
 package com.z_company.route.ui
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
+import android.util.Log
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.BasicTooltipBox
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.MutatePriority
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,32 +29,51 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberBasicTooltipState
+import androidx.compose.material3.Card
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.BottomSheetDefaults
-import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SheetValue
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemColors
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberBottomSheetScaffoldState
-import androidx.compose.material3.rememberStandardBottomSheetState
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -59,70 +86,88 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.flowWithLifecycle
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.AsyncDataValue
-import com.z_company.core.ui.component.AutoSizeText
-import com.z_company.core.ui.component.CustomSnackBar
+import com.z_company.core.ui.component.toDp
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
-import com.z_company.core.util.DateAndTimeConverter.getDateFromDateLong
-import com.z_company.core.util.DateAndTimeConverter.getMonthFullText
-import com.z_company.core.util.DateAndTimeConverter.getTimeFromDateLong
+import com.z_company.core.util.MonthFullText.getMonthFullText
 import com.z_company.domain.entities.MonthOfYear
+import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHoursInDate
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
+import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.LocoType
+import com.z_company.domain.entities.route.Locomotive
+import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.fullRest
 import com.z_company.domain.entities.route.UtilsForEntities.getFollowingTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
+import com.z_company.domain.entities.route.UtilsForEntities.isTransition
 import com.z_company.domain.entities.route.UtilsForEntities.shortRest
 import com.z_company.domain.util.CalculationEnergy
 import com.z_company.domain.util.CalculationEnergy.rounding
 import com.z_company.domain.util.ifNullOrBlank
+import com.z_company.domain.util.minus
 import com.z_company.domain.util.str
 import com.z_company.domain.util.times
 import com.z_company.repository.ShareManager
 import com.z_company.route.R
+import com.z_company.route.component.AnimatedCounter
 import com.z_company.route.component.AnimationDialog
-import com.z_company.route.component.ButtonLocoDriver
 import com.z_company.route.component.DialogSelectMonthOfYear
-import com.z_company.route.component.HomeBottomSheetContent
-import com.z_company.route.viewmodel.AlertBeforePurchasesEvent
-import com.z_company.route.viewmodel.StartPurchasesEvent
-import com.z_company.route.viewmodel.UpdateEvent
+import com.z_company.route.component.ItemHomeScreen
+import com.z_company.route.component.LinearPagerIndicator
+import com.z_company.route.component.PieChart
+import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
+import com.z_company.route.viewmodel.home_view_model.ItemState
+import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
+import com.z_company.route.viewmodel.home_view_model.UpdateEvent
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import ru.rustore.sdk.core.feature.model.FeatureAvailabilityResult
-import com.z_company.core.R as CoreR
+import java.util.Calendar
 
-
-@OptIn(ExperimentalMaterial3Api::class)
+@SuppressLint(
+    "CoroutineCreationDuringComposition",
+    "FlowOperatorInvokedInComposition",
+    "SuspiciousIndentation"
+)
+@OptIn(
+    ExperimentalMaterial3Api::class,
+    ExperimentalFoundationApi::class
+)
 @Composable
 fun HomeScreen(
+    uiState: ResultState<Unit>,
+    listRouteState: MutableList<ItemState>,
     routeListState: ResultState<List<Route>>,
     removeRouteState: ResultState<Unit>?,
     onRouteClick: (String) -> Unit,
@@ -131,7 +176,6 @@ fun HomeScreen(
     makeCopyRoute: (String) -> Unit,
     onDeleteRoute: (Route) -> Unit,
     onDeleteRouteConfirmed: () -> Unit,
-    reloadRoute: () -> Unit,
     onSettingsClick: () -> Unit,
     onSearchClick: () -> Unit,
     totalTime: Long,
@@ -140,8 +184,9 @@ fun HomeScreen(
     yearList: List<Int>,
     selectYearAndMonth: (Pair<Int, Int>) -> Unit,
     minTimeRest: Long?,
-    nightTime: ResultState<Long>?,
-    passengerTime: ResultState<Long>?,
+    nightTimeState: ResultState<Long>?,
+    singleLocomotiveTimeState: ResultState<Long>?,
+    passengerTimeState: ResultState<Long>?,
     dayoffHours: ResultState<Int>?,
     holidayHours: ResultState<Long>?,
     totalTimeWithHoliday: ResultState<Long>?,
@@ -171,10 +216,30 @@ fun HomeScreen(
     setFavoriteState: (Route) -> Unit,
     getSharedIntent: (Route) -> Intent,
     getTextWorkTime: (Route) -> String,
-    getDateMiniAndTime: (Long?) -> String
+    dateAndTimeConverter: DateAndTimeConverter?,
+    extendedServicePhaseTime: ResultState<Long>?,
+    longDistanceTrainsTime: ResultState<Long>?,
+    heavyTrainsTime: ResultState<Long>?,
+    onePersonOperationTime: ResultState<Long>?,
+    currentRoute: Route?,
+    currentRouteTimeWork: SharedFlow<Long>,
+    onNewLocoClick: (basicId: String) -> Unit,
+    onChangedLocoClick: (loco: Locomotive) -> Unit,
+    onNewTrainClick: (basicId: String) -> Unit,
+    onChangedTrainClick: (train: Train) -> Unit,
+    onNewPassengerClick: (basicId: String) -> Unit,
+    onChangedPassengerClick: (passenger: Passenger) -> Unit,
+    onGoClicked: () -> Unit,
+    onAllRouteClick: () -> Unit,
+    isNextDeparture: () -> Boolean,
+    saveTimeEvent: SharedFlow<String>
 ) {
     val view = LocalView.current
     val backgroundColor = MaterialTheme.colorScheme.background
+
+    val redOrange = Color(0xFFf1642e)
+    val purple = Color(0xFF504e76)
+    val green = Color(0xFFa3b565)
 
     // для изменения color status bar после изменения в PresentationBlock
     if (!view.isInEditMode) {
@@ -188,17 +253,10 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
-    val scaffoldState = rememberBottomSheetScaffoldState(
-        bottomSheetState = rememberStandardBottomSheetState(
-            confirmValueChange = {
-                it != SheetValue.Hidden
-            }
-        )
-    )
+    val snackbarHostState = remember { SnackbarHostState() }
+
     val heightScreen = LocalConfiguration.current.screenHeightDp
-    val sheetPeekHeight = remember {
-        heightScreen.times(0.25)
-    }
+    val widthScreen = LocalConfiguration.current.screenWidthDp
 
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -207,7 +265,7 @@ fun HomeScreen(
             updateEvent.flowWithLifecycle(lifecycle).collect { event ->
                 when (event) {
                     UpdateEvent.UpdateCompleted -> {
-                        val result = scaffoldState.snackbarHostState
+                        val result = snackbarHostState
                             .showSnackbar(
                                 message = "Обновление загружено",
                                 actionLabel = "Установить"
@@ -221,18 +279,18 @@ fun HomeScreen(
         }
     }
 
-    DisposableEffect(key1 = lifecycleOwner, effect = {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_START) {
-                reloadRoute()
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
+//    DisposableEffect(key1 = lifecycleOwner, effect = {
+//        val observer = LifecycleEventObserver { _, event ->
+//            if (event == Lifecycle.Event.ON_START) {
+////                reloadRoute()
+////                resetStateIsLaunchedInitState()
+//            }
+//        }
+//        lifecycleOwner.lifecycle.addObserver(observer)
+//
+//        onDispose { }
+//    })
 
-        onDispose { }
-    })
-
-    val isExpand = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded
 
     if (isShowFormScreen) {
         showFormScreen()
@@ -250,13 +308,13 @@ fun HomeScreen(
     AsyncData(resultState = restoreResultState, errorContent = {
         LaunchedEffect(Unit) {
             scope.launch {
-                scaffoldState.snackbarHostState.showSnackbar("Ошибка синхронизации. Проверьте интернет.")
+                snackbarHostState.showSnackbar("Ошибка синхронизации. Проверьте интернет.")
             }
         }
     }) { message ->
         message?.let {
             scope.launch {
-                scaffoldState.snackbarHostState.showSnackbar(message)
+                snackbarHostState.showSnackbar(message)
             }
         }
         resetSubscriptionState()
@@ -265,7 +323,7 @@ fun HomeScreen(
     AsyncData(resultState = syncRouteState) { message ->
         message?.let {
             scope.launch {
-                scaffoldState.snackbarHostState.showSnackbar(message)
+                snackbarHostState.showSnackbar(message)
             }
         }
         resetSyncRouteState()
@@ -426,7 +484,7 @@ fun HomeScreen(
     if (removeRouteState is ResultState.Success) {
         LaunchedEffect(removeRouteState) {
             scope.launch {
-                scaffoldState.snackbarHostState.showSnackbar(
+                snackbarHostState.showSnackbar(
                     message = context.getString(R.string.msg_route_deleted)
                 )
                 onDeleteRouteConfirmed()
@@ -445,6 +503,42 @@ fun HomeScreen(
     var showContextDialog by remember {
         mutableStateOf(false)
     }
+
+    var currentRouteWorkTime by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        scope.launch {
+            currentRouteTimeWork.flowWithLifecycle(lifecycle).collect { time ->
+                currentRouteWorkTime =
+                    ConverterLongToTime.getTimeInStringFormat(time)
+            }
+        }
+    }
+
+    LaunchedEffect(saveTimeEvent) {
+        saveTimeEvent.collectLatest {
+            scope.launch {
+                snackbarHostState.showSnackbar("$it")
+            }
+        }
+    }
+
+//    LaunchedEffect(isShowSnackbar) {
+//        scope.launch {
+//            isOnTheWayState.flowWithLifecycle(lifecycle).collect { state ->
+//                if (isShowSnackbar) {
+//                    state.message?.let { text ->
+//                        scope.launch {
+//                            snackbarHostState.showSnackbar(message = text)
+//                        }
+//                        resetStateShowSnackbar()
+//                    }
+//                }
+//                onTheWay = state.isOnTheWay
+//            }
+//        }
+//    }
+
     AnimationDialog(
         showDialog = firstEntryDialogState,
         onDismissRequest = resetStateFirstEntryDialog
@@ -525,18 +619,29 @@ fun HomeScreen(
                         max = heightScreen.times(0.65f).dp
                     )
                     .padding(start = 12.dp, end = 12.dp, top = 30.dp, bottom = 12.dp)
-                    .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
+                    .background(
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = Shapes.medium
+                    )
                     .clickable {}
             ) {
                 calculationHomeRest(routeForPreview)
-                PreviewRoute(routeForPreview, minTimeRest, homeRestValue, getDateMiniAndTime)
+                PreviewRoute(
+                    routeForPreview,
+                    minTimeRest,
+                    homeRestValue,
+                    dateAndTimeConverter
+                )
             }
 
             Column(
                 modifier = Modifier
                     .padding(end = 12.dp)
                     .fillMaxWidth(0.6f)
-                    .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
+                    .background(
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = Shapes.medium
+                    )
             ) {
                 Row(
                     modifier = Modifier
@@ -756,42 +861,165 @@ fun HomeScreen(
         )
     }
 
-    BottomSheetScaffold(
-        scaffoldState = scaffoldState,
-        snackbarHost = {
-            SnackbarHost(hostState = scaffoldState.snackbarHostState) { snackBarData ->
-                CustomSnackBar(snackBarData = snackBarData)
+    val brushMain = Brush.linearGradient(
+        0.1f to MaterialTheme.colorScheme.surfaceVariant,
+        1500.0f to MaterialTheme.colorScheme.surface,
+        start = Offset.Zero,
+        end = Offset.Infinite
+    )
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(),
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent
+                ),
+                title = {},
+                actions = {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(
+                            shape = Shapes.medium,
+                            onClick = {
+                                showMonthSelectorDialog.value = true
+                            }) {
+                            val text = currentMonthOfYear?.month?.let {
+                                getMonthFullText(it)
+                            } ?: "загрузка"
+                            Text(
+                                text = "$text ${currentMonthOfYear?.year}",
+                                style = AppTypography.getType().headlineMedium,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                        }
+                        IconButton(
+                            modifier = Modifier
+                                .background(
+                                    color = Color.Transparent,
+                                    shape = Shapes.medium
+                                ),
+                            onClick = { onSearchClick() }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                containerColor = green,
+                onClick = onNewRouteClick
+            ) {
+                Icon(
+                    tint = MaterialTheme.colorScheme.background,
+                    imageVector = Icons.Rounded.Add,
+                    contentDescription = null
+                )
             }
         },
-        sheetPeekHeight = sheetPeekHeight.dp,
-        sheetContainerColor = MaterialTheme.colorScheme.background,
-        sheetDragHandle = {
-            BottomSheetDefaults.DragHandle(
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+        bottomBar = {
+            val colors: NavigationBarItemColors = NavigationBarItemDefaults.colors(
+                unselectedTextColor = MaterialTheme.colorScheme.background,
+                selectedTextColor = MaterialTheme.colorScheme.background,
+                unselectedIconColor = MaterialTheme.colorScheme.background,
+                selectedIconColor = MaterialTheme.colorScheme.primary,
+                indicatorColor = MaterialTheme.colorScheme.background
             )
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.primary
+            ) {
+                NavigationBarItem(
+                    colors = colors,
+                    selected = true,
+                    icon = {
+                        Icon(
+                            modifier = Modifier.size(24.dp),
+                            imageVector = Icons.Outlined.Home, contentDescription = null
+                        )
+                    },
+                    label = {
+                        Text(
+                            text = "Главная",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    onClick = {}
+                )
+
+                NavigationBarItem(
+                    colors = colors,
+                    selected = false,
+                    icon = {
+                        Icon(
+                            modifier = Modifier.size(24.dp),
+                            painter = painterResource(R.drawable.rub),
+                            contentDescription = null
+                        )
+                    },
+                    label = {
+                        Text(
+                            text = "ЗП",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    onClick = {}
+                )
+
+                NavigationBarItem(
+                    colors = colors,
+                    selected = false,
+                    icon = {
+                        Icon(
+                            modifier = Modifier.size(24.dp),
+                            imageVector = Icons.Outlined.Settings,
+                            contentDescription = null
+                        )
+                    },
+                    label = {
+                        Text(
+                            text = "Настройки",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    onClick = onSettingsClick
+                )
+
+                NavigationBarItem(
+                    colors = colors,
+                    selected = false,
+                    icon = {
+                        Icon(
+                            modifier = Modifier.size(24.dp),
+                            imageVector = Icons.Outlined.Person,
+                            contentDescription = null
+                        )
+                    },
+                    label = {
+                        Text(
+                            text = "Профиль",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    onClick = {}
+                )
+            }
         },
-        sheetShadowElevation = 0.dp,
-        sheetContent = {
-            HomeBottomSheetContent(
-                routeListState = routeListState,
-                reloadRoute = reloadRoute,
-                onDeleteRoute = {
-                    routeForRemove = it
-                    changeShowConfirmExitDialog(true)
-                },
-                onRouteClick = onRouteClick,
-                onRouteLongClick = { route ->
-                    showContextDialog = true
-                    routeForPreview = route
-                },
-                isExpand = isExpand,
-                offsetInMoscow = offsetInMoscow,
-                getTextWorkTime = getTextWorkTime
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background,
-        contentColor = MaterialTheme.colorScheme.primary
-    ) {
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { padding ->
         LaunchedEffect(purchasesEvent) {
             scope.launch {
                 purchasesEvent.flowWithLifecycle(lifecycle).collect { event ->
@@ -803,342 +1031,734 @@ fun HomeScreen(
                                 }
 
                                 is FeatureAvailabilityResult.Unavailable -> {
-                                    scaffoldState.snackbarHostState.showSnackbar("Ошибка: ${event.availability.cause.message}")
+                                    snackbarHostState.showSnackbar("Ошибка: ${event.availability.cause.message}")
                                 }
-
-                                else -> {}
                             }
                         }
 
                         is StartPurchasesEvent.Error -> {
-                            scaffoldState.snackbarHostState.showSnackbar("Ошибка: ${event.throwable.message}")
+                            snackbarHostState.showSnackbar("Ошибка: ${event.throwable.message}")
                         }
                     }
                 }
             }
         }
-        Column(
-            Modifier
-                .fillMaxSize()
-                .padding(start = 32.dp, end = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Spacer(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(heightScreen.times(0.02f).dp)
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(heightScreen.times(0.07f).dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        val pagerState = rememberPagerState(pageCount = { 3 })
+        AsyncData(uiState) {
+            LazyColumn(
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                IconButton(
-                    modifier = Modifier
-                        .background(
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                            shape = Shapes.medium
-                        ),
-                    onClick = { onSettingsClick() }) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-                TextButton(
-                    modifier = Modifier,
-                    shape = Shapes.medium,
-                    onClick = {
-                        showMonthSelectorDialog.value = true
-                    }) {
-                    val text = currentMonthOfYear?.month?.let {
-                        getMonthFullText(it)
-                    }
-                    AutoSizeText(
-                        text = "$text ${currentMonthOfYear?.year}",
-                        style = AppTypography.getType().headlineSmall,
-                        maxTextSize = 24.sp,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-                IconButton(
-                    modifier = Modifier
-                        .background(
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                            shape = Shapes.medium
-                        ),
-                    onClick = { onSearchClick() }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
+                item {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        HorizontalPager(
+                            modifier = Modifier.animateItemPlacement(),
+                            state = pagerState
+                        ) { page ->
+                            when (page) {
+                                0 -> {
+                                    MainInfo(
+                                        totalTime = totalTime,
+                                        totalTimeWithHoliday = totalTimeWithHoliday,
+                                        currentMonthOfYear = currentMonthOfYear,
+                                        dateAndTimeConverter = dateAndTimeConverter,
+                                        brush = brushMain
+                                    )
+                                }
 
-            Spacer(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(heightScreen.times(0.08f).dp)
-            )
-            currentMonthOfYear?.let { monthOfYear ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    TotalTime(
-                        modifier = Modifier
-                            .background(color = Color.Transparent, shape = Shapes.medium)
-                            .height(heightScreen.times(0.13f).dp),
-                        valueTime = totalTime,
-                        normaHours = monthOfYear.getPersonalNormaHours(),
-                    )
-                    IconButton(onClick = { onMoreInfoClick(monthOfYear.id) }) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                1 -> {
+                                    DetailWorkTimeCard(
+                                        totalTime = totalTime,
+                                        brush = brushMain,
+                                        totalTimeWithHoliday = totalTimeWithHoliday,
+                                        passengerTimeState = passengerTimeState,
+                                        singleLocomotiveTimeState = singleLocomotiveTimeState,
+                                        nightTimeState = nightTimeState
+                                    )
+                                }
+
+                                2 -> {
+                                    DetailTrainCard(
+                                        totalTime = totalTime,
+                                        brush = brushMain,
+                                        totalTimeWithHoliday = totalTimeWithHoliday,
+                                        extendedServicePhaseTime = extendedServicePhaseTime,
+                                        longDistanceTrainsTime = longDistanceTrainsTime,
+                                        heavyTrainsTime = heavyTrainsTime,
+                                        onePersonOperationTime = onePersonOperationTime
+                                    )
+                                }
+                            }
+                        }
+                        LinearPagerIndicator(
+                            modifier = Modifier
+                                .animateItemPlacement(),
+                            state = pagerState
+                        )
+                    }
+                }
+
+                val brushSecondary = Brush.linearGradient(
+                    0.1f to Color(0xFFefede3),
+                    1500.0f to Color(0xFFFDFDFC),
+                    start = Offset.Zero,
+                    end = Offset.Infinite
+                )
+
+                item {
+                    currentRoute?.let { route ->
+                        var maxHeightBox by remember { mutableStateOf(widthScreen / 3) }
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .animateItemPlacement()
                         ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.rub),
-                                tint = MaterialTheme.colorScheme.primary,
-                                contentDescription = null
+                            Text(
+                                modifier = Modifier
+                                    .padding(horizontal = 24.dp)
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onPress = {
+                                                onRouteClick(route.basicData.id)
+                                            }
+                                        )
+                                    },
+                                text = "Текущий маршрут",
+                                style = AppTypography.getType().titleMedium
                             )
-                        }
-                    }
-                }
-            }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(heightScreen.times(0.05f).dp),
-                horizontalArrangement = Arrangement.Start,
-                verticalAlignment = Alignment.Top
-            ) {
-
-                Row(
-                    modifier = Modifier.padding(end = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-
-                    Icon(
-                        modifier = Modifier.padding(end = 4.dp),
-                        painter = painterResource(id = R.drawable.dark_mode_24px),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    AsyncData(
-                        resultState = nightTime,
-                        loadingContent = {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp
-                            )
-                        }
-                    ) {
-                        AutoSizeText(
-                            text = ConverterLongToTime.getTimeInStringFormat(it),
-                            style = AppTypography.getType().headlineSmall,
-                            maxTextSize = 24.sp,
-                            fontWeight = FontWeight.Light,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-
-
-                Row(
-                    modifier = Modifier.padding(end = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        modifier = Modifier.padding(end = 4.dp),
-                        painter = painterResource(id = R.drawable.passenger_24px),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    AsyncData(
-                        resultState = passengerTime,
-                        loadingContent = {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp
-                            )
-                        }
-                    ) {
-                        AutoSizeText(
-                            text = ConverterLongToTime.getTimeInStringFormat(it),
-                            style = AppTypography.getType().headlineSmall,
-                            maxTextSize = 24.sp,
-                            fontWeight = FontWeight.Light,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(heightScreen.times(0.05f).dp),
-                horizontalArrangement = Arrangement.Start,
-                verticalAlignment = Alignment.Top
-            ) {
-                AsyncData(
-                    resultState = dayoffHours,
-                    loadingContent = {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
-                        )
-                    }
-                ) { hours ->
-                    hours?.let {
-                        if (it != 0) {
-                            Row(
-                                modifier = Modifier.padding(end = 16.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                            LazyRow(
+                                modifier = Modifier.padding(top = 6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Icon(
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .padding(end = 4.dp),
-                                    painter = painterResource(id = R.drawable.palma),
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                                AutoSizeText(
-                                    text = "$it:00",
-                                    style = AppTypography.getType().headlineSmall,
-                                    maxTextSize = 24.sp,
-                                    fontWeight = FontWeight.Light,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
+                                item {
+                                    Card(
+                                        modifier = Modifier
+                                            .onGloballyPositioned { coordinates ->
+                                                val currentHeight = coordinates.size.height
+                                                if (currentHeight > maxHeightBox) {
+                                                    maxHeightBox = currentHeight
+                                                }
+                                            }
+                                            .padding(start = 12.dp)
+                                            .defaultMinSize(
+                                                minWidth = (widthScreen / 3).dp,
+                                                minHeight = (widthScreen / 3).dp,
+                                            )
+                                            .clickable {
+                                                onRouteClick(route.basicData.id)
+                                            },
+                                        elevation = CardDefaults.elevatedCardElevation(
+                                            defaultElevation = 2.dp,
+                                        ),
+                                        border = BorderStroke(
+                                            width = 1.dp,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .defaultMinSize(
+                                                    minWidth = (widthScreen / 3).dp,
+                                                    minHeight = (widthScreen / 3).dp,
+                                                )
+                                                .background(brushMain)
+                                        ) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .defaultMinSize(
+                                                        minWidth = (widthScreen / 3).dp,
+                                                        minHeight = maxHeightBox.toDp(),
+                                                    )
+                                                    .padding(vertical = 8.dp, horizontal = 16.dp),
+                                                verticalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                AnimatedCounter(
+                                                    count = currentRouteWorkTime,
+                                                    style = AppTypography.getType().headlineMedium.copy(
+                                                        fontWeight = FontWeight.Medium,
+                                                        color = MaterialTheme.colorScheme.background
+                                                    )
+                                                )
+                                                Text(
+                                                    text = "На работе",
+                                                    color = MaterialTheme.colorScheme.background,
+                                                    maxLines = 1,
+                                                    style = AppTypography.getType().titleMedium,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                                item {
+                                    Card(
+                                        modifier = Modifier
+                                            .onGloballyPositioned { coordinates ->
+                                                val currentHeight = coordinates.size.height
+                                                if (currentHeight > maxHeightBox) {
+                                                    maxHeightBox = currentHeight
+                                                }
+                                            }
+                                            .defaultMinSize(
+                                                minWidth = (widthScreen / 3).dp,
+                                                minHeight = (widthScreen / 3).dp,
+                                            ),
+                                        elevation = CardDefaults.elevatedCardElevation(
+                                            defaultElevation = 2.dp,
+                                        ),
+                                        border = BorderStroke(
+                                            width = 1.dp,
+                                            color = MaterialTheme.colorScheme.secondary
+                                        )
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .defaultMinSize(
+                                                    minWidth = (widthScreen / 3).dp,
+                                                    minHeight = (widthScreen / 3).dp,
+                                                )
+                                                .background(MaterialTheme.colorScheme.secondary)
+                                        ) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .defaultMinSize(
+                                                        minWidth = (widthScreen / 3).dp,
+                                                        minHeight = maxHeightBox.toDp(),
+                                                    )
+                                                    .padding(vertical = 8.dp, horizontal = 16.dp),
+                                                verticalArrangement = Arrangement.SpaceBetween,
+                                            ) {
+                                                if (route.locomotives.isEmpty()) {
+                                                    IconButton(
+                                                        modifier = Modifier.align(Alignment.End),
+                                                        colors = IconButtonDefaults.iconButtonColors(
+                                                            containerColor = green,
+                                                            contentColor = MaterialTheme.colorScheme.background
+                                                        ),
+                                                        onClick = {
+                                                            onNewLocoClick(route.basicData.id)
+                                                        }
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Add,
+                                                            contentDescription = null
+                                                        )
+                                                    }
+                                                } else {
+                                                    Column(
+                                                        modifier = Modifier
+                                                            .padding(bottom = 8.dp),
+                                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                                    ) {
+                                                        val loco = route.locomotives.last()
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .pointerInput(Unit) {
+                                                                    detectTapGestures(
+                                                                        onPress = {
+                                                                            onChangedLocoClick(
+                                                                                loco
+                                                                            )
+                                                                        }
+                                                                    )
+                                                                }
+                                                        ) {
+                                                            Text(
+                                                                text = "${loco.series ?: ""} ${loco.number ?: ""}",
+                                                                color = MaterialTheme.colorScheme.primary,
+                                                                maxLines = 1,
+                                                                style = AppTypography.getType().titleLarge,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
+                                                        }
+                                                        if (route.locomotives.size > 1) {
+                                                            Text(
+                                                                text = "... и ещё ${route.locomotives.size - 1}",
+                                                                color = MaterialTheme.colorScheme.primary,
+                                                                maxLines = 1,
+                                                                style = AppTypography.getType().bodyLarge,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                                Text(
+                                                    text = "Локомотив",
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    maxLines = 1,
+                                                    style = AppTypography.getType().titleMedium,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                                item {
+                                    Card(
+                                        modifier = Modifier
+                                            .onGloballyPositioned { coordinates ->
+                                                val currentHeight = coordinates.size.height
+                                                if (currentHeight > maxHeightBox) {
+                                                    maxHeightBox = currentHeight
+                                                }
+                                            }
+                                            .defaultMinSize(
+                                                minWidth = (widthScreen / 3).dp,
+                                                minHeight = (widthScreen / 3).dp,
+                                            ),
+                                        elevation = CardDefaults.elevatedCardElevation(
+                                            defaultElevation = 2.dp,
+                                        ),
+                                        border = BorderStroke(
+                                            width = 1.dp,
+                                            color = MaterialTheme.colorScheme.secondary
+                                        )
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .defaultMinSize(
+                                                    minWidth = (widthScreen / 3).dp,
+                                                    minHeight = (widthScreen / 3).dp,
+                                                )
+                                                .background(MaterialTheme.colorScheme.secondary)
+                                        ) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .defaultMinSize(
+                                                        minWidth = (widthScreen / 3).dp,
+                                                        minHeight = maxHeightBox.toDp(),
+                                                    )
+                                                    .padding(vertical = 8.dp, horizontal = 16.dp),
+                                                verticalArrangement = Arrangement.SpaceBetween,
+                                            ) {
+                                                if (route.trains.isEmpty()) {
+                                                    IconButton(
+                                                        modifier = Modifier.align(Alignment.End),
+                                                        colors = IconButtonDefaults.iconButtonColors(
+                                                            containerColor = green,
+                                                            contentColor = MaterialTheme.colorScheme.background
+                                                        ),
+                                                        onClick = {
+                                                            onNewTrainClick(route.basicData.id)
+                                                        }
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Add,
+                                                            contentDescription = null
+                                                        )
+                                                    }
+                                                } else {
+                                                    Column(
+                                                        modifier = Modifier
+                                                            .padding(bottom = 8.dp),
+                                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                                    ) {
+                                                        val train = route.trains.last()
+                                                        Column(
+                                                            modifier = Modifier
+                                                                .pointerInput(Unit) {
+                                                                    detectTapGestures(
+                                                                        onPress = {
+                                                                            onChangedTrainClick(
+                                                                                train
+                                                                            )
+                                                                        }
+                                                                    )
+                                                                }
+                                                        ) {
+                                                            train.number?.let {
+                                                                Text(
+                                                                    text = "№ $it",
+                                                                    color = MaterialTheme.colorScheme.primary,
+                                                                    maxLines = 1,
+                                                                    style = AppTypography.getType().titleLarge,
+                                                                    overflow = TextOverflow.Ellipsis
+                                                                )
+                                                            }
+                                                            val firstStation =
+                                                                train.stations.firstOrNull()
+                                                                    ?.let { it.stationName ?: "" }
+                                                                    ?: ""
+                                                            val lastStation =
+                                                                if (train.stations.size > 1) {
+                                                                    train.stations.lastOrNull()
+                                                                        ?.let { " - ${it.stationName ?: ""}" }
+                                                                        ?: ""
+                                                                } else {
+                                                                    ""
+                                                                }
+                                                            val trainInfoText =
+                                                                "$firstStation $lastStation"
+
+                                                            if (trainInfoText.isNotBlank()) {
+                                                                Text(
+                                                                    text = trainInfoText,
+                                                                    color = MaterialTheme.colorScheme.primary,
+                                                                    maxLines = 1,
+                                                                    style = AppTypography.getType().bodyLarge,
+                                                                    overflow = TextOverflow.Ellipsis
+                                                                )
+                                                            }
+                                                        }
+                                                        if (route.trains.size > 1) {
+                                                            Text(
+                                                                text = "... и ещё ${route.trains.size - 1}",
+                                                                color = MaterialTheme.colorScheme.primary,
+                                                                maxLines = 1,
+                                                                style = AppTypography.getType().bodyLarge,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                                Row(
+                                                    modifier = Modifier.wrapContentWidth(),
+                                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                                    verticalAlignment = Alignment.Bottom
+                                                ) {
+                                                    Text(
+                                                        text = "Поезд",
+                                                        color = MaterialTheme.colorScheme.primary,
+                                                        maxLines = 1,
+                                                        style = AppTypography.getType().titleMedium,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                    if (route.trains.isNotEmpty()) {
+                                                        val nextIsDeparture = isNextDeparture()
+                                                        OutlinedButton(
+                                                            onClick = {
+                                                                onGoClicked()
+                                                            },
+                                                            border = BorderStroke(
+                                                                width = 1.dp,
+                                                                color = if (nextIsDeparture) green else purple
+                                                            ),
+                                                        ) {
+                                                            AnimatedContent(targetState = nextIsDeparture) {
+                                                                val icon = if (it) {
+                                                                    R.drawable.play_arrow_24px
+                                                                } else {
+                                                                    R.drawable.pause_24px
+                                                                }
+                                                                Icon(
+                                                                    painter = painterResource(icon),
+                                                                    contentDescription = null,
+                                                                    tint = if (it) green else purple
+                                                                )
+                                                            }
+//                                                        AnimatedContent(targetState = onTheWay) {
+//                                                            val text = if (it) {
+//                                                                "Остановка"
+//                                                            } else {
+//                                                                "Отправление"
+//                                                            }
+//                                                            Text(
+//                                                                text = text,
+//                                                                maxLines = 1,
+//                                                                overflow = TextOverflow.Ellipsis,
+//                                                                style = AppTypography.getType().bodyLarge,
+//                                                                color = if (it) purple else green
+//                                                            )
+//                                                        }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                item {
+                                    Card(
+                                        modifier = Modifier
+                                            .onGloballyPositioned { coordinates ->
+                                                val currentHeight = coordinates.size.height
+                                                if (currentHeight > maxHeightBox) {
+                                                    maxHeightBox = currentHeight
+                                                }
+                                            }
+                                            .defaultMinSize(
+                                                minWidth = (widthScreen / 3).dp,
+                                                minHeight = (widthScreen / 3).dp,
+                                            )
+                                            .padding(end = 12.dp),
+                                        elevation = CardDefaults.elevatedCardElevation(
+                                            defaultElevation = 2.dp,
+                                        ),
+                                        border = BorderStroke(
+                                            width = 1.dp,
+                                            color = MaterialTheme.colorScheme.secondary
+                                        )
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .defaultMinSize(
+                                                    minWidth = (widthScreen / 3).dp,
+                                                    minHeight = (widthScreen / 3).dp,
+                                                )
+                                                .background(MaterialTheme.colorScheme.secondary)
+                                        ) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .defaultMinSize(
+                                                        minWidth = (widthScreen / 3).dp,
+                                                        minHeight = maxHeightBox.toDp(),
+                                                    )
+                                                    .padding(vertical = 8.dp, horizontal = 16.dp),
+                                                verticalArrangement = Arrangement.SpaceBetween,
+                                            ) {
+                                                if (route.passengers.isEmpty()) {
+                                                    IconButton(
+                                                        modifier = Modifier.align(Alignment.End),
+                                                        colors = IconButtonDefaults.iconButtonColors(
+                                                            containerColor = green,
+                                                            contentColor = MaterialTheme.colorScheme.background
+                                                        ),
+                                                        onClick = {
+                                                            onNewPassengerClick(route.basicData.id)
+                                                        }
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Add,
+                                                            contentDescription = null
+                                                        )
+                                                    }
+                                                } else {
+                                                    Column(
+                                                        modifier = Modifier
+                                                            .padding(bottom = 8.dp),
+                                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                                    ) {
+                                                        val passenger = route.passengers.last()
+                                                        Column(
+                                                            modifier = Modifier
+                                                                .pointerInput(Unit) {
+                                                                    detectTapGestures(
+                                                                        onPress = {
+                                                                            onChangedPassengerClick(
+                                                                                passenger
+                                                                            )
+                                                                        }
+                                                                    )
+                                                                }
+                                                        ) {
+                                                            passenger.trainNumber?.let {
+                                                                Text(
+                                                                    text = "№ $it",
+                                                                    color = MaterialTheme.colorScheme.primary,
+                                                                    maxLines = 1,
+                                                                    style = AppTypography.getType().titleLarge,
+                                                                    overflow = TextOverflow.Ellipsis
+                                                                )
+                                                            }
+                                                            Text(
+                                                                text = "${passenger.stationDeparture ?: ""} ${passenger.stationArrival?.let { " - $it" } ?: ""} ",
+                                                                color = MaterialTheme.colorScheme.primary,
+                                                                maxLines = 1,
+                                                                style = AppTypography.getType().bodyLarge,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
+                                                        }
+                                                        if (route.passengers.size > 1) {
+                                                            Text(
+                                                                text = "... и ещё ${route.passengers.size - 1}",
+                                                                color = MaterialTheme.colorScheme.primary,
+                                                                maxLines = 1,
+                                                                style = AppTypography.getType().bodyLarge,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                                Text(
+                                                    text = "Пассажиром",
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    maxLines = 1,
+                                                    style = AppTypography.getType().titleMedium,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 }
 
-                AsyncDataValue(resultState = holidayHours) { hours ->
-                    hours?.let {
-                        if (it != 0L) {
-                            Row(
-                                modifier = Modifier.padding(end = 16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .padding(end = 4.dp),
-                                    painter = painterResource(id = R.drawable.icon_holiday_hours),
-                                    contentDescription = null,
-//                                    tint = Color.Red
-                                )
-                                AutoSizeText(
-                                    text = ConverterLongToTime.getTimeInStringFormat(hours),
-                                    style = AppTypography.getType().headlineSmall,
-                                    maxTextSize = 24.sp,
-                                    fontWeight = FontWeight.Light,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-                    }
-
-                }
-            }
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.CenterStart
-            ) {
-                AsyncDataValue(resultState = totalTimeWithHoliday) { time ->
-                    AutoSizeText(
-                        text = "Всего отработано: ${ConverterLongToTime.getTimeInStringFormat(time)}",
-                        style = AppTypography.getType().headlineSmall,
-                        maxTextSize = 24.sp,
-                        fontWeight = FontWeight.Light,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-            Spacer(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(heightScreen.times(0.12f).dp)
-            )
-            ButtonLocoDriver(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(heightScreen.times(0.08f).dp),
-                onClick = {
-                    onNewRouteClick()
-                }
-            ) {
-                if (isLoadingStateAddButton) {
-                    Row(
+                item {
+                    Column(
                         modifier = Modifier
-                            .fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically
+                            .fillMaxWidth()
+                            .animateItemPlacement()
                     ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(36.dp),
-                            strokeWidth = 3.dp,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                        AutoSizeText(
-                            text = "Загрузка",
-                            style = AppTypography.getType().headlineSmall.copy(color = MaterialTheme.colorScheme.onPrimary),
-                            maxTextSize = 24.sp,
-                        )
+                        Row(
+                            modifier = Modifier
+                                .padding(horizontal = 24.dp)
+                                .fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Маршруты",
+                                style = AppTypography.getType().titleMedium
+                            )
+                            TextButton(onClick = {
+                                onAllRouteClick()
+                            }) {
+                                Text(
+                                    color = MaterialTheme.colorScheme.tertiary,
+                                    text = "Все"
+                                )
+                            }
+                        }
+                        Column(
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            var background = MaterialTheme.colorScheme.secondary
+
+                            if (Route(BasicData(timeStartWork = Calendar.getInstance().timeInMillis)).basicData.timeStartWork!! > Calendar.getInstance().timeInMillis) {
+                                background = MaterialTheme.colorScheme.surfaceBright
+                            } else {
+                                if (Route().isTransition(offsetInMoscow)) {
+                                    background = MaterialTheme.colorScheme.surfaceDim
+                                }
+                            }
+                            var requiredSize by remember {
+                                mutableStateOf(22.sp)
+                            }
+
+                            fun changingTextSize(value: TextUnit) {
+                                if (requiredSize > value) {
+                                    requiredSize = value
+                                }
+                            }
+
+                            if (listRouteState.isNotEmpty()) {
+                                val route = listRouteState.first().route
+                                ItemHomeScreen(
+                                    modifier = Modifier.animateItemPlacement(),
+                                    route = route,
+                                    isExpand = true,
+                                    onDelete = onDeleteRoute,
+                                    requiredSizeText = requiredSize,
+                                    changingTextSize = ::changingTextSize,
+                                    onLongClick = {
+                                        showContextDialog = true
+                                        routeForPreview = route
+                                    },
+                                    containerColor = background,
+                                    onClick = { onRouteClick(route.basicData.id) },
+                                    getTextWorkTime = getTextWorkTime,
+                                    isHeavyTrains = listRouteState[0].isHeavyTrains,
+                                    isExtendedServicePhaseTrains = listRouteState[0].isExtendedServicePhaseTrains,
+                                    isHolidayTimeInRoute = listRouteState[0].isHoliday
+                                )
+                            }
+                            if (listRouteState.size > 1) {
+                                val route = listRouteState[1].route
+                                ItemHomeScreen(
+                                    modifier = Modifier.animateItemPlacement(),
+                                    route = route,
+                                    isExpand = true,
+                                    onDelete = onDeleteRoute,
+                                    requiredSizeText = requiredSize,
+                                    changingTextSize = ::changingTextSize,
+                                    onLongClick = {
+                                        showContextDialog = true
+                                        routeForPreview = route
+                                    },
+                                    containerColor = background,
+                                    onClick = { onRouteClick(route.basicData.id) },
+                                    getTextWorkTime = getTextWorkTime,
+                                    isHeavyTrains = listRouteState[1].isHeavyTrains,
+                                    isExtendedServicePhaseTrains = listRouteState[1].isExtendedServicePhaseTrains,
+                                    isHolidayTimeInRoute = listRouteState[1].isHoliday
+                                )
+                            }
+                        }
                     }
-                } else {
-                    AutoSizeText(
-                        text = stringResource(id = CoreR.string.adding),
-                        style = AppTypography.getType().headlineSmall.copy(color = MaterialTheme.colorScheme.onPrimary),
-                        maxTextSize = 24.sp,
+                }
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .animateItemPlacement()
+                    ) {
+                        Text(
+                            modifier = Modifier
+                                .padding(horizontal = 24.dp),
+                            text = "Действия"
+                        )
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            item {
+                                Card(
+                                    modifier = Modifier
+                                        .padding(start = 12.dp)
+                                        .size((widthScreen / 3).dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = Color.LightGray
+                                    )
+                                ) {
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.holiday_icon),
+                                            contentDescription = null
+                                        )
+                                        Text(
+                                            modifier = Modifier.weight(1f),
+                                            text = "Создать график"
+                                        )
+                                    }
+                                }
+                            }
+                            item {
+                                Card(
+                                    modifier = Modifier
+                                        .padding(end = 12.dp)
+                                        .size((widthScreen / 3).dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = Color.LightGray
+                                    )
+                                ) {
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.palma),
+                                            contentDescription = null
+                                        )
+                                        Text(
+                                            modifier = Modifier.weight(1f),
+                                            text = "Добавить отвлечение"
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                item {
+                    Spacer(
+                        modifier = Modifier
+                            .height(40.dp)
+                            .animateItemPlacement()
                     )
                 }
             }
         }
     }
-}
-
-@Composable
-fun TotalTime(
-    modifier: Modifier,
-    valueTime: Long,
-    normaHours: Int
-) {
-    AutoSizeText(
-        modifier = modifier,
-        alignment = Alignment.BottomStart,
-        text = buildAnnotatedString {
-            withStyle(
-                SpanStyle(
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            ) {
-                append(DateAndTimeConverter.getTimeInStringFormat(valueTime))
-            }
-            withStyle(
-                SpanStyle(
-                    fontWeight = FontWeight.Light,
-                    fontSize = 24.sp,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            ) {
-                append(" / $normaHours")
-            }
-        },
-        maxTextSize = 70.sp,
-//        fontFamily = AppTypography.Companion.AppFontFamilies.RobotoConsed
-    )
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -1147,8 +1767,9 @@ fun PreviewRoute(
     route: Route?,
     minTimeRest: Long?,
     homeRest: ResultState<Long?>,
-    getDateMiniAndTime: (Long?) -> String
-    ) {
+    dateAndTimeConverter: DateAndTimeConverter?
+) {
+    Log.d("zzz", "dateAndTimeConverter in preview ${dateAndTimeConverter.hashCode()}")
     val styleTitle = AppTypography.getType().titleSmall.copy(
         fontWeight = FontWeight.W600,
         color = MaterialTheme.colorScheme.primary
@@ -1207,7 +1828,8 @@ fun PreviewRoute(
                         contentAlignment = Alignment.CenterStart
                     ) {
                         Text(
-                            text = getDateFromDateLong(route.basicData.timeStartWork),
+                            text = dateAndTimeConverter?.getDateFromDateLong(route.basicData.timeStartWork)
+                                ?: "загрузка",
                             style = styleData,
                         )
                     }
@@ -1255,20 +1877,21 @@ fun PreviewRoute(
                         Column(modifier = Modifier.padding(start = paddingIcon)) {
                             Box {
                                 Text(
-                                    text = DateAndTimeConverter.getTimeInStringFormat(route.getWorkTime()),
+                                    text = ConverterLongToTime.getTimeInStringFormat(route.getWorkTime()),
                                     style = styleData,
                                     maxLines = 1
                                 )
                             }
                             Row {
                                 Text(
-                                    text = getTimeFromDateLong(route.basicData.timeStartWork),
+                                    text = dateAndTimeConverter?.getTimeFromDateLong(route.basicData.timeStartWork)
+                                        ?: "загрузка",
                                     style = styleHint,
                                     maxLines = 1
                                 )
 
                                 Text(
-                                    text = " - ${getTimeFromDateLong(route.basicData.timeEndWork)}",
+                                    text = " - ${dateAndTimeConverter?.getTimeFromDateLong(route.basicData.timeEndWork) ?: "загрузка"}",
                                     style = styleHint,
                                     maxLines = 1
                                 )
@@ -1325,12 +1948,13 @@ fun PreviewRoute(
                             )
                             if (route.basicData.restPointOfTurnover) {
                                 minTimeRest?.let {
-                                    val shortRestText = getDateMiniAndTime(
-                                        route.shortRest(minTimeRest)
-                                    )
-                                    val fullRestText = getDateMiniAndTime(
+                                    val shortRestText =
+                                        dateAndTimeConverter?.getDateMiniAndTime(
+                                            route.shortRest(minTimeRest)
+                                        ) ?: "загрузка"
+                                    val fullRestText = dateAndTimeConverter?.getDateMiniAndTime(
                                         route.fullRest(minTimeRest)
-                                    )
+                                    ) ?: "загрузка"
                                     Text(
                                         text = "$shortRestText - $fullRestText",
                                         style = styleHint,
@@ -1349,7 +1973,11 @@ fun PreviewRoute(
                                     errorContent = {}
                                 ) { homeRestInLong ->
                                     homeRestInLong?.let {
-                                        val homeRestInLongText = getDateMiniAndTime(homeRestInLong)
+                                        val homeRestInLongText =
+                                            dateAndTimeConverter?.getDateMiniAndTime(
+                                                homeRestInLong
+                                            )
+                                                ?: "загрузка"
                                         Text(
                                             text = "до $homeRestInLongText",
                                             style = styleHint,
@@ -1391,13 +2019,17 @@ fun PreviewRoute(
                 val seriesText = locomotive.series.ifNullOrBlank { "" }
                 val numberText = locomotive.number.ifNullOrBlank { "" }
                 val timeStartAcceptedText =
-                    getTimeFromDateLong(locomotive.timeStartOfAcceptance)
+                    dateAndTimeConverter?.getTimeFromDateLong(locomotive.timeStartOfAcceptance)
+                        ?: "загрузка"
                 val timeEndAcceptedText =
-                    getTimeFromDateLong(locomotive.timeEndOfAcceptance)
+                    dateAndTimeConverter?.getTimeFromDateLong(locomotive.timeEndOfAcceptance)
+                        ?: "загрузка"
                 val timeStartDeliveryText =
-                    getTimeFromDateLong(locomotive.timeStartOfDelivery)
+                    dateAndTimeConverter?.getTimeFromDateLong(locomotive.timeStartOfDelivery)
+                        ?: "загрузка"
                 val timeEndDeliveryText =
-                    getTimeFromDateLong(locomotive.timeEndOfDelivery)
+                    dateAndTimeConverter?.getTimeFromDateLong(locomotive.timeEndOfDelivery)
+                        ?: "загрузка"
 
                 val rotationSectionButton =
                     animateFloatAsState(
@@ -1523,13 +2155,17 @@ fun PreviewRoute(
                                 Column {
                                     locomotive.electricSectionList.forEachIndexed { index, sectionElectric ->
                                         val acceptedEnergyText =
-                                            sectionElectric.acceptedEnergy?.toPlainString() ?: ""
+                                            sectionElectric.acceptedEnergy?.toPlainString()
+                                                ?: ""
                                         val deliveryEnergyText =
-                                            sectionElectric.deliveryEnergy?.toPlainString() ?: ""
+                                            sectionElectric.deliveryEnergy?.toPlainString()
+                                                ?: ""
                                         val acceptedRecoveryText =
-                                            sectionElectric.acceptedRecovery?.toPlainString() ?: ""
+                                            sectionElectric.acceptedRecovery?.toPlainString()
+                                                ?: ""
                                         val deliveryRecoveryText =
-                                            sectionElectric.deliveryRecovery?.toPlainString() ?: ""
+                                            sectionElectric.deliveryRecovery?.toPlainString()
+                                                ?: ""
                                         val consumptionEnergy =
                                             CalculationEnergy.getTotalEnergyConsumption(
                                                 accepted = sectionElectric.acceptedEnergy,
@@ -1688,11 +2324,12 @@ fun PreviewRoute(
                             AnimatedVisibility(visible = locomotiveExpandItemState[index]!!) {
                                 Column {
                                     locomotive.dieselSectionList.forEachIndexed { index, sectionDiesel ->
-                                        val consumption = CalculationEnergy.getTotalFuelConsumption(
-                                            accepted = sectionDiesel.acceptedFuel,
-                                            delivery = sectionDiesel.deliveryFuel,
-                                            refuel = sectionDiesel.fuelSupply
-                                        )
+                                        val consumption =
+                                            CalculationEnergy.getTotalFuelConsumption(
+                                                accepted = sectionDiesel.acceptedFuel,
+                                                delivery = sectionDiesel.deliveryFuel,
+                                                refuel = sectionDiesel.fuelSupply
+                                            )
                                         val consumptionInKilo =
                                             CalculationEnergy.getTotalFuelInKiloConsumption(
                                                 consumption = consumption,
@@ -1704,10 +2341,12 @@ fun PreviewRoute(
                                         val deliveryText = sectionDiesel.deliveryFuel.str()
                                         val acceptedInKilo =
                                             sectionDiesel.acceptedFuel.times(sectionDiesel.coefficient)
-                                        val acceptedInKiloText = rounding(acceptedInKilo, 2).str()
+                                        val acceptedInKiloText =
+                                            rounding(acceptedInKilo, 2).str()
                                         val deliveryInKilo =
                                             sectionDiesel.deliveryFuel.times(sectionDiesel.coefficient)
-                                        val deliveryInKiloText = rounding(deliveryInKilo, 2).str()
+                                        val deliveryInKiloText =
+                                            rounding(deliveryInKilo, 2).str()
                                         val fuelSupplyText = sectionDiesel.fuelSupply.str()
                                         val coefficientText = sectionDiesel.coefficient.str()
 
@@ -1928,8 +2567,12 @@ fun PreviewRoute(
                         Column {
                             train.stations.forEachIndexed { _, station ->
                                 val stationNameText = station.stationName.ifNullOrBlank { "" }
-                                val timeArrival = getTimeFromDateLong(station.timeArrival)
-                                val timeDeparture = getTimeFromDateLong(station.timeDeparture)
+                                val timeArrival =
+                                    dateAndTimeConverter?.getTimeFromDateLong(station.timeArrival)
+                                        ?: "загрузка"
+                                val timeDeparture =
+                                    dateAndTimeConverter?.getTimeFromDateLong(station.timeDeparture)
+                                        ?: "загрузка"
                                 // Icon
                                 Row(
                                     modifier = Modifier
@@ -1993,10 +2636,14 @@ fun PreviewRoute(
                 val numberText = passenger.trainNumber.ifNullOrBlank { "" }
                 val stationDeparture = passenger.stationDeparture.ifNullOrBlank { "" }
                 val stationArrival = passenger.stationArrival.ifNullOrBlank { "" }
-                val timeDeparture = getTimeFromDateLong(passenger.timeDeparture)
-                val timeArrival = getTimeFromDateLong(passenger.timeArrival)
+                val timeDeparture =
+                    dateAndTimeConverter?.getTimeFromDateLong(passenger.timeDeparture)
+                        ?: "загрузка"
+                val timeArrival =
+                    dateAndTimeConverter?.getTimeFromDateLong(passenger.timeArrival)
+                        ?: "загрузка"
                 val timeFollowing =
-                    DateAndTimeConverter.getTimeInStringFormat(passenger.getFollowingTime())
+                    ConverterLongToTime.getTimeInStringFormat(passenger.getFollowingTime())
                         .ifNullOrBlank { "" }
                 val notesText = passenger.notes.ifNullOrBlank { "" }
 
@@ -2139,5 +2786,818 @@ fun rememberShareManager(): ShareManager {
     return remember { ShareManager(context) }
 }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+fun MainInfo(
+    totalTime: Long,
+    totalTimeWithHoliday: ResultState<Long>?,
+    currentMonthOfYear: MonthOfYear?,
+    dateAndTimeConverter: DateAndTimeConverter?,
+    brush: Brush
+) {
+    Card(
+        modifier = Modifier
+            .padding(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = 3.dp,
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Max)
+                .background(brush)
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp, vertical = 24.dp)
+                    .fillMaxWidth(),
+            ) {
+                AsyncDataValue(resultState = totalTimeWithHoliday) { time ->
+                    val tooltipPosition = TooltipDefaults.rememberPlainTooltipPositionProvider()
+                    val state = rememberBasicTooltipState(isPersistent = false)
+                    val scope = rememberCoroutineScope()
+                    var tooltipText by remember {
+                        mutableStateOf("")
+                    }
+                    BasicTooltipBox(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        positionProvider = tooltipPosition,
+                        tooltip = {
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        shape = Shapes.medium,
+                                        color = MaterialTheme.colorScheme.surface
+                                    )
+                                    .padding(12.dp)
+                            ) {
+                                Text(
+                                    text = tooltipText,
+                                )
+                            }
+                        },
+                        state = state
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                modifier = Modifier.pointerInput(Unit) {
+                                    detectTapGestures(
+                                        onPress = {
+                                            scope.launch {
+                                                tooltipText = "Общее отработанное время"
+                                                state.show(MutatePriority.Default)
+                                            }
+                                        }
+                                    )
+                                },
+                                text = ConverterLongToTime.getTimeInStringFormat(
+                                    time
+                                ),
+                                style = AppTypography.getType().headlineMedium.copy(
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                color = MaterialTheme.colorScheme.background
+                            )
+                            if (totalTime != time) {
+                                val differenceTimeInLong = time.minus(totalTime)
+                                val totalTime =
+                                    ConverterLongToTime.getTimeInStringFormat(
+                                        totalTime
+                                    )
+                                val differenceTime =
+                                    ConverterLongToTime.getTimeInStringFormat(
+                                        differenceTimeInLong
+                                    )
+                                Text(
+                                    modifier = Modifier.pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onPress = {
+                                                scope.launch {
+                                                    tooltipText = "Рабочие + праздничные часы"
+                                                    state.show(MutatePriority.Default)
+                                                }
+                                            }
+                                        )
+                                    },
+                                    text = " ($totalTime + $differenceTime)",
+                                    style = AppTypography.getType().titleMedium,
+                                    fontWeight = FontWeight.Light,
+                                    color = MaterialTheme.colorScheme.background
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(18.dp))
+                currentMonthOfYear?.let { month ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        val normaHoursInMonth =
+                            month.getPersonalNormaHours()
+                        val percent =
+                            ((totalTime * 100).toFloat() / (normaHoursInMonth * 3_600_000L).toFloat()) / 100f
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Норма на месяц",
+                                maxLines = 1,
+                                modifier = Modifier.weight(1f),
+                                overflow = TextOverflow.Ellipsis,
+                                style = AppTypography.getType().bodyMedium,
+                                color = MaterialTheme.colorScheme.background
+                            )
+                            Text(
+                                text = "$normaHoursInMonth ч.",
+                                style = AppTypography.getType().bodyLarge,
+                                color = MaterialTheme.colorScheme.background
+                            )
+                        }
+                        LinearProgressIndicator(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(2.dp),
+                            trackColor = MaterialTheme.colorScheme.primary.copy(
+                                alpha = 0.8f
+                            ),
+                            color = MaterialTheme.colorScheme.background,
+                            strokeCap = StrokeCap.Round,
+                            progress = { percent.toFloat() },
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(7.dp))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        val currentTime = Calendar.getInstance()
+                        val normaHoursToday =
+                            month.getNormaHoursInDate(currentTime.timeInMillis)
+                        val percent =
+                            ((totalTime * 100).toFloat() / (normaHoursToday * 3_600_000L).toFloat()) / 100f
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Норма на ${
+                                    dateAndTimeConverter?.getDate(
+                                        currentTime.timeInMillis
+                                    ) ?: ""
+                                }",
+                                maxLines = 1,
+                                modifier = Modifier.weight(1f),
+                                overflow = TextOverflow.Ellipsis,
+                                style = AppTypography.getType().bodyMedium,
+                                color = MaterialTheme.colorScheme.background
+                            )
+                            Text(
+                                text = "$normaHoursToday ч.",
+                                style = AppTypography.getType().bodyLarge,
+                                color = MaterialTheme.colorScheme.background
+                            )
+                        }
+                        LinearProgressIndicator(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(2.dp),
+                            trackColor = MaterialTheme.colorScheme.primary.copy(
+                                alpha = 0.8f
+                            ),
+                            color = MaterialTheme.colorScheme.background,
+                            strokeCap = StrokeCap.Round,
+                            progress = { percent.toFloat() },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+fun DetailWorkTimeCard(
+    brush: Brush,
+    totalTime: Long,
+    totalTimeWithHoliday: ResultState<Long>?,
+    passengerTimeState: ResultState<Long>?,
+    singleLocomotiveTimeState: ResultState<Long>?,
+    nightTimeState: ResultState<Long>?
+) {
+    Card(
+        modifier = Modifier
+            .padding(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = 3.dp,
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Max)
+                .background(brush)
+        ) {
+            AsyncDataValue(resultState = totalTimeWithHoliday) { totalTimeWithHoliday ->
+                totalTimeWithHoliday?.let {
+                    val tooltipPosition = TooltipDefaults.rememberPlainTooltipPositionProvider()
+                    val state = rememberBasicTooltipState(isPersistent = false)
+                    val scope = rememberCoroutineScope()
+                    var tooltipText by remember {
+                        mutableStateOf("")
+                    }
+                    BasicTooltipBox(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        positionProvider = tooltipPosition,
+                        tooltip = {
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        shape = Shapes.medium,
+                                        color = MaterialTheme.colorScheme.surface
+                                    )
+                                    .padding(12.dp)
+                            ) {
+                                Text(
+                                    text = tooltipText,
+                                )
+                            }
+                        },
+                        state = state
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp, vertical = 24.dp)
+                                .fillMaxWidth(),
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    modifier = Modifier.pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onPress = {
+                                                scope.launch {
+                                                    tooltipText = "Общее отработанное время"
+                                                    state.show(MutatePriority.Default)
+                                                }
+                                            }
+                                        )
+                                    },
+                                    text = ConverterLongToTime.getTimeInStringFormat(
+                                        totalTimeWithHoliday
+                                    ),
+                                    style = AppTypography.getType().headlineMedium.copy(
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    color = MaterialTheme.colorScheme.background
+                                )
+                                if (totalTime != totalTimeWithHoliday) {
+                                    val differenceTimeInLong =
+                                        totalTimeWithHoliday.minus(totalTime)
+                                    val totalTime =
+                                        ConverterLongToTime.getTimeInStringFormat(
+                                            totalTime
+                                        )
+                                    val differenceTime =
+                                        ConverterLongToTime.getTimeInStringFormat(
+                                            differenceTimeInLong
+                                        )
+                                    Text(
+                                        modifier = Modifier.pointerInput(Unit) {
+                                            detectTapGestures(
+                                                onPress = {
+                                                    scope.launch {
+                                                        tooltipText =
+                                                            "Рабочие + праздничные часы"
+                                                        state.show(MutatePriority.Default)
+                                                    }
+                                                }
+                                            )
+                                        },
+                                        text = " ($totalTime + $differenceTime)",
+                                        style = AppTypography.getType().titleMedium,
+                                        fontWeight = FontWeight.Light,
+                                        color = MaterialTheme.colorScheme.background
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(18.dp))
+                            AsyncDataValue(nightTimeState) { nightTime ->
+                                nightTime?.let {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        val passengerTimeText =
+                                            ConverterLongToTime.getTimeInStringFormat(nightTime)
+                                        val percent =
+                                            ((nightTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "Ночные",
+                                                maxLines = 1,
+                                                modifier = Modifier.weight(1f),
+                                                overflow = TextOverflow.Ellipsis,
+                                                style = AppTypography.getType().bodyMedium,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                            Text(
+                                                text = passengerTimeText,
+                                                style = AppTypography.getType().bodyLarge,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                        }
+                                        LinearProgressIndicator(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(2.dp),
+                                            trackColor = MaterialTheme.colorScheme.primary.copy(
+                                                alpha = 0.8f
+                                            ),
+                                            color = MaterialTheme.colorScheme.background,
+                                            strokeCap = StrokeCap.Round,
+                                            progress = { percent.toFloat() },
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(7.dp))
+                            AsyncDataValue(passengerTimeState) { passengerTime ->
+                                passengerTime?.let {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        val passengerTimeText =
+                                            ConverterLongToTime.getTimeInStringFormat(
+                                                passengerTime
+                                            )
+                                        val percent =
+                                            ((passengerTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "Пассажиром",
+                                                maxLines = 1,
+                                                modifier = Modifier.weight(1f),
+                                                overflow = TextOverflow.Ellipsis,
+                                                style = AppTypography.getType().bodyMedium,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                            Text(
+                                                text = passengerTimeText,
+                                                style = AppTypography.getType().bodyLarge,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                        }
+                                        LinearProgressIndicator(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(2.dp),
+                                            trackColor = MaterialTheme.colorScheme.primary.copy(
+                                                alpha = 0.8f
+                                            ),
+                                            color = MaterialTheme.colorScheme.background,
+                                            strokeCap = StrokeCap.Round,
+                                            progress = { percent.toFloat() },
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(7.dp))
+                            AsyncDataValue(singleLocomotiveTimeState) { singleLocomotiveTime ->
+                                singleLocomotiveTime?.let {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        val passengerTimeText =
+                                            ConverterLongToTime.getTimeInStringFormat(
+                                                singleLocomotiveTime
+                                            )
+                                        val percent =
+                                            ((singleLocomotiveTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "Резервом",
+                                                maxLines = 1,
+                                                modifier = Modifier.weight(1f),
+                                                overflow = TextOverflow.Ellipsis,
+                                                style = AppTypography.getType().bodyMedium,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                            Text(
+                                                text = passengerTimeText,
+                                                style = AppTypography.getType().bodyLarge,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                        }
+                                        LinearProgressIndicator(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(2.dp),
+                                            trackColor = MaterialTheme.colorScheme.primary.copy(
+                                                alpha = 0.8f
+                                            ),
+                                            color = MaterialTheme.colorScheme.background,
+                                            strokeCap = StrokeCap.Round,
+                                            progress = { percent.toFloat() },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+fun DetailTrainCard(
+    brush: Brush,
+    totalTime: Long,
+    totalTimeWithHoliday: ResultState<Long>?,
+    extendedServicePhaseTime: ResultState<Long>?,
+    longDistanceTrainsTime: ResultState<Long>?,
+    heavyTrainsTime: ResultState<Long>?,
+    onePersonOperationTime: ResultState<Long>?,
+) {
+    Card(
+        modifier = Modifier
+            .padding(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = 3.dp,
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Max)
+                .background(brush)
+        ) {
+
+            AsyncDataValue(resultState = totalTimeWithHoliday) { totalTimeWithHoliday ->
+                totalTimeWithHoliday?.let {
+                    val tooltipPosition = TooltipDefaults.rememberPlainTooltipPositionProvider()
+                    val state = rememberBasicTooltipState(isPersistent = false)
+                    val scope = rememberCoroutineScope()
+                    var tooltipText by remember {
+                        mutableStateOf("")
+                    }
+                    BasicTooltipBox(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        positionProvider = tooltipPosition,
+                        tooltip = {
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        shape = Shapes.medium,
+                                        color = MaterialTheme.colorScheme.surface
+                                    )
+                                    .padding(12.dp)
+                            ) {
+                                Text(
+                                    text = tooltipText,
+                                )
+                            }
+                        },
+                        state = state
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp, vertical = 24.dp)
+                                .fillMaxWidth(),
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    modifier = Modifier.pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onPress = {
+                                                scope.launch {
+                                                    tooltipText = "Общее отработанное время"
+                                                    state.show(MutatePriority.Default)
+                                                }
+                                            }
+                                        )
+                                    },
+                                    text = ConverterLongToTime.getTimeInStringFormat(
+                                        totalTimeWithHoliday
+                                    ),
+                                    style = AppTypography.getType().headlineMedium.copy(
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    color = MaterialTheme.colorScheme.background
+                                )
+                                if (totalTime != totalTimeWithHoliday) {
+                                    val differenceTimeInLong =
+                                        totalTimeWithHoliday.minus(totalTime)
+                                    val totalTime =
+                                        ConverterLongToTime.getTimeInStringFormat(
+                                            totalTime
+                                        )
+                                    val differenceTime =
+                                        ConverterLongToTime.getTimeInStringFormat(
+                                            differenceTimeInLong
+                                        )
+                                    Text(
+                                        modifier = Modifier.pointerInput(Unit) {
+                                            detectTapGestures(
+                                                onPress = {
+                                                    scope.launch {
+                                                        tooltipText =
+                                                            "Рабочие + праздничные часы"
+                                                        state.show(MutatePriority.Default)
+                                                    }
+                                                }
+                                            )
+                                        },
+                                        text = " ($totalTime + $differenceTime)",
+                                        style = AppTypography.getType().titleMedium,
+                                        fontWeight = FontWeight.Light,
+                                        color = MaterialTheme.colorScheme.background
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(18.dp))
+                            AsyncDataValue(extendedServicePhaseTime) { extendedServicePhaseTime ->
+                                extendedServicePhaseTime?.let {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        val extendedServicePhaseTimeText =
+                                            ConverterLongToTime.getTimeInStringFormat(
+                                                extendedServicePhaseTime
+                                            )
+                                        val percent =
+                                            ((extendedServicePhaseTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "Удл. плечи обслуживания",
+                                                modifier = Modifier.weight(1f),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                style = AppTypography.getType().bodyMedium,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                            Text(
+                                                text = extendedServicePhaseTimeText,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Visible,
+                                                style = AppTypography.getType().bodyLarge,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                        }
+                                        LinearProgressIndicator(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(2.dp),
+                                            trackColor = MaterialTheme.colorScheme.primary.copy(
+                                                alpha = 0.8f
+                                            ),
+                                            color = MaterialTheme.colorScheme.background,
+                                            strokeCap = StrokeCap.Round,
+                                            progress = { percent.toFloat() },
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(7.dp))
+                            AsyncDataValue(longDistanceTrainsTime) { longDistanceTrainsTime ->
+                                longDistanceTrainsTime?.let {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        val longDistanceTrainsTimeText =
+                                            ConverterLongToTime.getTimeInStringFormat(
+                                                longDistanceTrainsTime
+                                            )
+                                        val percent =
+                                            ((longDistanceTrainsTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "Длинносоставные",
+                                                modifier = Modifier.weight(1f),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                style = AppTypography.getType().bodyMedium,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                            Text(
+                                                text = longDistanceTrainsTimeText,
+                                                style = AppTypography.getType().bodyLarge,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                        }
+                                        LinearProgressIndicator(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(2.dp),
+                                            trackColor = MaterialTheme.colorScheme.primary.copy(
+                                                alpha = 0.8f
+                                            ),
+                                            color = MaterialTheme.colorScheme.background,
+                                            strokeCap = StrokeCap.Round,
+                                            progress = { percent.toFloat() },
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(7.dp))
+                            AsyncDataValue(heavyTrainsTime) { heavyTrainsTime ->
+                                heavyTrainsTime?.let {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        val heavyTrainsTimeText =
+                                            ConverterLongToTime.getTimeInStringFormat(
+                                                heavyTrainsTime
+                                            )
+                                        val percent =
+                                            ((heavyTrainsTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "Тяжелые",
+                                                maxLines = 1,
+                                                modifier = Modifier.weight(1f),
+                                                overflow = TextOverflow.Ellipsis,
+                                                style = AppTypography.getType().bodyMedium,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                            Text(
+                                                text = heavyTrainsTimeText,
+                                                style = AppTypography.getType().bodyLarge,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                        }
+                                        LinearProgressIndicator(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(2.dp),
+                                            trackColor = MaterialTheme.colorScheme.primary.copy(
+                                                alpha = 0.8f
+                                            ),
+                                            color = MaterialTheme.colorScheme.background,
+                                            strokeCap = StrokeCap.Round,
+                                            progress = { percent.toFloat() },
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(7.dp))
+                            AsyncDataValue(onePersonOperationTime) { onePersonOperationTime ->
+                                onePersonOperationTime?.let {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        val onePersonOperationTimeText =
+                                            ConverterLongToTime.getTimeInStringFormat(
+                                                onePersonOperationTime
+                                            )
+                                        val percent =
+                                            ((onePersonOperationTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "Одно лицо",
+                                                maxLines = 1,
+                                                modifier = Modifier.weight(1f),
+                                                overflow = TextOverflow.Ellipsis,
+                                                style = AppTypography.getType().bodyMedium,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                            Text(
+                                                text = onePersonOperationTimeText,
+                                                style = AppTypography.getType().bodyLarge,
+                                                color = MaterialTheme.colorScheme.background
+                                            )
+                                        }
+                                        LinearProgressIndicator(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(2.dp),
+                                            trackColor = MaterialTheme.colorScheme.primary.copy(
+                                                alpha = 0.8f
+                                            ),
+                                            color = MaterialTheme.colorScheme.background,
+                                            strokeCap = StrokeCap.Round,
+                                            progress = { percent.toFloat() },
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(7.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DetailInfo() {
+    val localDensity = LocalDensity.current
+    var cardWidthDp by remember {
+        mutableStateOf(0.dp)
+    }
+
+    Card(
+        modifier = Modifier
+            .padding(12.dp)
+            .onGloballyPositioned { coordinates ->
+                cardWidthDp = with(localDensity) { coordinates.size.width.toDp() }
+            },
+        colors = CardDefaults.cardColors(
+            containerColor = Color.Transparent
+        ),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Max),
+            contentAlignment = Alignment.Center
+        ) {
+            PieChart(
+                data = mapOf(
+                    Pair("Пассажиром", 19),
+                    Pair("Резервом", 8),
+                    Pair("Остальные", 220)
+                ),
+                centerText = "247:00",
+                radiusOuter = cardWidthDp * 0.18f,
+                nightTime = 80
+            )
+        }
+    }
+}

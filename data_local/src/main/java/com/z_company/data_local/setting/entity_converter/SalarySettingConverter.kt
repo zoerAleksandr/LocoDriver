@@ -24,7 +24,8 @@ internal object SalarySettingConverter {
         otherSurcharge = salarySetting.otherSurcharge,
         ndfl = salarySetting.ndfl,
         unionistsRetention = salarySetting.unionistsRetention,
-        otherRetention = salarySetting.otherRetention
+        otherRetention = salarySetting.otherRetention,
+        onePersonOperationPassengerTrainPercent = salarySetting.onePersonOperationPassengerTrainPercent
     )
 
     fun toData(entity: SalarySettingEntity) = SalarySetting(
@@ -45,6 +46,7 @@ internal object SalarySettingConverter {
         otherSurcharge = entity.otherSurcharge,
         ndfl = entity.ndfl,
         unionistsRetention = entity.unionistsRetention,
-        otherRetention = entity.otherRetention
+        otherRetention = entity.otherRetention,
+        onePersonOperationPassengerTrainPercent = entity.onePersonOperationPassengerTrainPercent
     )
 }

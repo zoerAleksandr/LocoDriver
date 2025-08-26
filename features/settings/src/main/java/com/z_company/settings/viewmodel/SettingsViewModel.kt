@@ -10,7 +10,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.parse.ParseUser
 import com.z_company.core.ResultState
-import com.z_company.core.util.ConverterLongToTime
+import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.isEmailValid
 import com.z_company.domain.entities.ServicePhase
 import com.z_company.use_case.LoginUseCase
@@ -55,6 +55,11 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private var loadLoginJob: Job? = null
     private var loadCalendarJob: Job? = null
 
+    fun getAllRouteRemote() {
+        viewModelScope.launch(Dispatchers.IO) {
+            back4AppManager.getAllRouteRemote()
+        }
+    }
 
     var currentSettings: UserSettings?
         get() {
@@ -153,7 +158,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         showDialogAddServicePhase(phase)
     }
 
-    fun setInputDateTimeType(value: String){
+    fun setInputDateTimeType(value: String) {
         viewModelScope.launch(Dispatchers.IO) {
             sharedPreferenceStorage.setTokenDateTimePickerType(value)
             _uiState.update {
@@ -183,7 +188,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             val textEndTime = if (maxEndTime == 0L) {
                 ""
             } else {
-                ConverterLongToTime.getDateAndTimeStringFormat(maxEndTime)
+                uiState.value.dateAndTimeConverter?.getDateMiniAndTime(maxEndTime) ?: ""
             }
             _uiState.update {
                 it.copy(
@@ -233,16 +238,16 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private fun loadMonthList() {
         loadCalendarJob?.cancel()
         loadCalendarJob = calendarUseCase.loadFlowMonthOfYearListState().onEach { result ->
-            if (result is ResultState.Success) {
+//            if (result is ResultState.Success) {
                 _uiState.update { state ->
                     state.copy(
-                        monthList = result.data.map { it.month }.distinct().sorted(),
-                        yearList = result.data.map { it.year }.distinct().sorted()
+                        monthList = result.map { it.month }.distinct().sorted(),
+                        yearList = result.map { it.year }.distinct().sorted()
                     )
 
                 }
             }
-        }
+//        }
             .launchIn(viewModelScope)
     }
 
@@ -266,6 +271,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                     result.data?.let { userSettings ->
                         _uiState.update {
                             it.copy(
+                                dateAndTimeConverter = DateAndTimeConverter(userSettings),
                                 updateAt = userSettings.updateAt,
                                 servicePhases = userSettings.servicePhases.toMutableStateList()
                             )
@@ -276,7 +282,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         }
         viewModelScope.launch {
             calendarUseCase.loadFlowMonthOfYearListState().collect { result ->
-                if (result is ResultState.Success) {
+//                if (result is ResultState.Success) {
                     currentSettings?.let { setting ->
                         _uiState.update {
                             it.copy(
@@ -284,7 +290,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                             )
                         }
                     }
-                }
+//                }
             }
         }
     }
@@ -387,6 +393,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             )
         }
     }
+
     fun resetDownloadState() {
         _uiState.update {
             it.copy(

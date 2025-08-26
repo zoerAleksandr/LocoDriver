@@ -48,6 +48,8 @@ data class SalaryCalculationUIState(
     val districtSurchargeMoney: Double? = null,
     val onePersonOperationPercent: Double? = null,
     val onePersonOperationMoney: Double? = null,
+    val onePersonOperationPassengerTrainPercent: Double? = null,
+    val onePersonOperationPassengerTrainMoney: Double? = null,
     val restInExcessOfTheNormTime: Long? = null,
     val restInExcessOfTheNormMoney: Double? = null,
     val harmfulnessSurchargePercent: Double? = null,

@@ -1,10 +1,10 @@
 import Libs.ksp_api
+import org.gradle.kotlin.dsl.androidTest
 
 plugins {
     id(Plugins.android_lib)
     id(Plugins.kotlin_android)
     id(Plugins.ksp)
-//    id(Plugins.kotlin_jvm)
 }
 
 android {
@@ -16,6 +16,10 @@ android {
 
         testInstrumentationRunner = Apps.test_instrumentation_runner
         consumerProguardFiles("consumer-rules.pro")
+
+        ksp {
+            arg("room.schemaLocation", "$projectDir/schemas")
+        }
     }
 
     buildTypes {
@@ -46,8 +50,6 @@ dependencies {
     implementation(Libs.koin_core)
     implementation(Libs.koin_android)
     implementation(Libs.koin_androidx_compose)
-//    implementation("org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version")
-//    implementation("org.jetbrains.kotlin:kotlin-reflect:$kotlin_version")
     implementation(Libs.room_runtime)
     implementation(Libs.room_ktx)
     implementation(Libs.gson)

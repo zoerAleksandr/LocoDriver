@@ -3,6 +3,7 @@ package com.z_company.settings.viewmodel
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.z_company.core.ResultState
+import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ReleasePeriod
 import com.z_company.domain.entities.UserSettings
@@ -14,4 +15,5 @@ data class SelectReleaseDaysUIState(
     val userSettingsState: ResultState<UserSettings?> = ResultState.Loading(),
     val monthList: List<Int> = listOf(),
     val yearList: List<Int> = listOf(),
+    val dateAndTimeConverter: DateAndTimeConverter? = null
 )

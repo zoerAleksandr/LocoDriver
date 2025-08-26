@@ -47,6 +47,7 @@ import com.z_company.core.ui.component.GenericLoading
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
+import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.route.viewmodel.BillingEvent
 import com.z_company.route.viewmodel.BillingState
 import kotlinx.coroutines.flow.SharedFlow
@@ -61,7 +62,8 @@ fun PurchasesScreen(
     billingState: BillingState,
     onProductClick: (Product) -> Unit,
     onBack: () -> Unit,
-    eventSharedFlow: SharedFlow<BillingEvent>
+    eventSharedFlow: SharedFlow<BillingEvent>,
+    dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val scope = rememberCoroutineScope()
@@ -203,9 +205,9 @@ fun PurchasesScreen(
                             .fillMaxWidth()
                             .padding(top = 12.dp),
                         text = "Активна до ${
-                            ConverterLongToTime.getDateAndTimeStringFormat(
+                            dateAndTimeConverter?.getDateMiniAndTime(
                                 subscription.expiryTime.toLongOrNull()
-                            )
+                            )?: ""
                         }",
                         textAlign = TextAlign.End,
                         style = subTitleTextStyle,

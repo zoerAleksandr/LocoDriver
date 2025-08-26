@@ -3,8 +3,10 @@ package com.z_company.route.viewmodel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.SubscriptionDetails
 import com.z_company.domain.repositories.SharedPreferencesRepositories
+import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.repository.ru_store_api.DTO.JWEAnswerDTO
 import com.z_company.repository.ru_store_api.DTO.SubscriptionAnswerDTO
 import com.z_company.route.Const.LOCO_DRIVER_ANNUAL_SUBSCRIPTION
@@ -17,6 +19,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -34,6 +37,7 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
     private val billingClient: RuStoreBillingClient by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val ruStoreUseCase: RuStoreUseCase by inject()
+    private val settingsUseCase: SettingsUseCase by inject()
 
     private val availableProductIds = listOf(
         LOCO_DRIVER_MONTHLY_SUBSCRIPTION,
@@ -61,6 +65,13 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
         _state.value = _state.value.copy(isLoading = true)
 
         viewModelScope.launch(Dispatchers.IO) {
+            val setting = settingsUseCase.getUserSettingFlow().first()
+            _state.update {
+                it.copy(
+                    dateAndTimeConverter = DateAndTimeConverter(setting)
+                )
+            }
+
             runCatching {
                 // получил данные по доступным продуктам
                 val products: MutableList<Product> = billingClient.products.getProducts(

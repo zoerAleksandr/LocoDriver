@@ -44,6 +44,8 @@ class LocoFormViewModel(
     private var saveLocoJob: Job? = null
     private var saveCoefficientJob: Job? = null
 
+    var timeZoneText: String = "GMT+3"
+
     private val locomotiveSeriesList = mutableStateListOf<String>()
     private var isNewLoco by Delegates.notNull<Boolean>()
 
@@ -247,13 +249,19 @@ class LocoFormViewModel(
         }
     }
 
-    private suspend fun loadSetting(): Job {
+    private fun loadSetting(): Job {
         return viewModelScope.launch {
             settingsUseCase.getFlowCurrentSettingsState().collect {
                 if (it is ResultState.Success) {
                     currentSetting = it.data
                     currentSetting?.let { setting ->
                         currentSetting = setting
+                        _uiState.update {
+                            it.copy(
+                                dateAndTimeConverter = DateAndTimeConverter(setting)
+                            )
+                        }
+                        timeZoneText = settingsUseCase.getTimeZone(setting.timeZone)
                         locomotiveSeriesList.addAllOrSkip(setting.locomotiveSeriesList.toMutableStateList())
                     }
                     this.cancel()
@@ -983,13 +991,5 @@ class LocoFormViewModel(
                 true
             }
         }
-    }
-
-    fun getDateAndTimeText(long: Long?): String {
-        return DateAndTimeConverter.getDateMiniAndTime(value = long)
-//        return currentSetting?.timeZone?.let { timeZone ->
-//            val timeZoneText = settingsUseCase.getTimeZone(timeZone)
-//            getDateMiniAndTime(value = long, timeZone = timeZoneText)
-//        } ?: ""
     }
 }

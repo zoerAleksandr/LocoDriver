@@ -45,6 +45,7 @@ dependencies {
     api(project(Libs.project_core))
 
     implementation(project(Libs.project_domain))
+    implementation(Libs.kotlinx_coroutines_core)
     implementation(Libs.accompanist_navigation_animation)
     implementation(Libs.ui_tooling_preview)
     implementation(Libs.core_ktx)

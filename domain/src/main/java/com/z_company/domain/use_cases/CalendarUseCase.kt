@@ -6,7 +6,7 @@ import com.z_company.domain.repositories.CalendarRepositories
 import kotlinx.coroutines.flow.Flow
 
 class CalendarUseCase(private val repositories: CalendarRepositories) {
-    fun loadFlowMonthOfYearListState(): Flow<ResultState<List<MonthOfYear>>> {
+    fun loadFlowMonthOfYearListState(): Flow<List<MonthOfYear>> {
         return repositories.getFlowMonthOfYearListState()
     }
 

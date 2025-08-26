@@ -9,7 +9,6 @@ import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import retrofit2.Call
-import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.Path
@@ -31,6 +30,5 @@ interface RetrofitServices {
         @Path("subscriptionId") subscriptionId: String,
         @Path("subscriptionToken") subscriptionToken: String,
     ): Call<SubscriptionAnswerDTO>
-
 }
 

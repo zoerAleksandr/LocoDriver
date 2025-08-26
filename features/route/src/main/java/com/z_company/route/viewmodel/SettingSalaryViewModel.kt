@@ -50,6 +50,7 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                     districtCoefficient = ResultState.Success(value?.districtCoefficient.str()),
                     nordicCoefficient = ResultState.Success(value?.nordicPercent.str()),
                     onePersonOperationPercent = ResultState.Success(value?.onePersonOperationPercent.str()),
+                    onePersonOperationPassengerTrainPercent = ResultState.Success(value?.onePersonOperationPassengerTrainPercent.str()),
                     harmfulnessPercent = ResultState.Success(value?.harmfulnessPercent.str()),
                     longDistanceTrainPercent = ResultState.Success(value?.percentLongDistanceTrain.str()),
                     lengthLongDistanceTrain = ResultState.Success(value?.lengthLongDistanceTrain.str()),
@@ -397,6 +398,18 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
             it.copy(
                 onePersonOperationPercent = ResultState.Success(value),
                 isErrorInputOnePersonOperation = isErrorInputDouble(value)
+            )
+        }
+    }
+
+    fun setOnePersonOperationPassengerTrainPercent(value: String) {
+        currentSalarySetting = currentSalarySetting?.copy(
+            onePersonOperationPassengerTrainPercent = value.toDoubleOrZero()
+        )
+        _uiState.update {
+            it.copy(
+                onePersonOperationPassengerTrainPercent = ResultState.Success(value),
+                isErrorInputOnePersonOperationPassengerTrain = isErrorInputDouble(value)
             )
         }
     }
