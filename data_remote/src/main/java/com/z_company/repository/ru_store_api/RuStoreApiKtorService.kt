@@ -31,6 +31,5 @@ interface RetrofitServices {
         @Path("subscriptionId") subscriptionId: String,
         @Path("subscriptionToken") subscriptionToken: String,
     ): Call<SubscriptionAnswerDTO>
-
 }
 

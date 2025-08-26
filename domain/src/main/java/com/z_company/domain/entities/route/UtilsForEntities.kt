@@ -1,6 +1,7 @@
 package com.z_company.domain.entities.route
 
 import com.z_company.domain.entities.MonthOfYear
+import com.z_company.domain.entities.SalarySetting
 import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.TimePeriod
 import com.z_company.domain.entities.UserSettings
@@ -21,6 +22,7 @@ import kotlinx.coroutines.flow.flow
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.util.Calendar
+import java.util.Calendar.getInstance
 import java.util.TimeZone
 import kotlin.getValue
 
@@ -36,6 +38,91 @@ object UtilsForEntities : KoinComponent {
         751..788,
         801..898
     )
+
+    fun isHolidayTimeInRoute(
+        monthOfYear: MonthOfYear,
+        userSetting: UserSettings,
+        route: Route
+    ): Boolean {
+        var holidayTime = 0L
+        val timeZone = settingsUseCase.getTimeZone(userSetting.timeZone)
+        val holidayList = monthOfYear.days.filter { it.tag == TagForDay.HOLIDAY }
+        if (holidayList.isNotEmpty()) {
+            holidayList.forEach { day ->
+                val startHolidayInLong =
+                    getInstance(TimeZone.getTimeZone(timeZone)).also {
+                        it.set(Calendar.YEAR, monthOfYear.year)
+                        it.set(Calendar.MONTH, monthOfYear.month)
+                        it.set(Calendar.DAY_OF_MONTH, day.dayOfMonth)
+                        it.set(Calendar.HOUR_OF_DAY, 0)
+                        it.set(Calendar.MINUTE, 0)
+                        it.set(Calendar.SECOND, 0)
+                        it.set(Calendar.MILLISECOND, 0)
+                    }.timeInMillis
+
+                val endHoliday = getInstance(TimeZone.getTimeZone(timeZone)).also {
+                    it.set(Calendar.YEAR, monthOfYear.year)
+                    it.set(Calendar.MONTH, monthOfYear.month)
+                    it.set(Calendar.DAY_OF_MONTH, day.dayOfMonth)
+                    it.set(Calendar.HOUR_OF_DAY, 0)
+                    it.set(Calendar.MINUTE, 0)
+                    it.set(Calendar.SECOND, 0)
+                    it.set(Calendar.MILLISECOND, 0)
+                }
+                endHoliday.add(Calendar.DATE, 1)
+
+                val endHolidayInLong = endHoliday.timeInMillis
+
+                route.timeInLongInPeriod(
+                    startDate = startHolidayInLong - userSetting.timeZone,
+                    endDate = endHolidayInLong - userSetting.timeZone
+                )?.let { timeInPeriod ->
+                    if (timeInPeriod > 0) {
+                        holidayTime += timeInPeriod
+                    }
+                }
+            }
+        }
+        return holidayTime > 0
+    }
+
+    fun isHeavyTrains(salarySetting: SalarySetting, route: Route): Boolean {
+        val surchargeListSorted = salarySetting.surchargeHeavyTrainsList.sortedBy {
+            it.weight
+        }
+        val timeList: MutableList<Long> = mutableListOf()
+        surchargeListSorted.forEachIndexed { index, _ ->
+            var totalTimeHeavyTrain = 0L
+            totalTimeHeavyTrain += route.getTimeInHeavyTrain(
+                surchargeListSorted.map { it.weight.toIntOrZero() },
+                index
+            )
+
+            timeList.add(totalTimeHeavyTrain)
+        }
+        return timeList.sum() > 0
+    }
+
+    fun isExtendedServicePhaseTrains(salarySetting: SalarySetting, route: Route): Boolean {
+        val phaseList =
+            salarySetting.surchargeExtendedServicePhaseList.sortedBy {
+                it.distance
+            }
+
+        val timeList: MutableList<Long> = mutableListOf()
+        phaseList.forEachIndexed { index, _ ->
+            var totalTimeInServicePhase = 0L
+            val timeInRoute = route.getTimeInServicePhase(
+                phaseList.map { it.distance.toIntOrNull() ?: 0 },
+                index
+            )
+            totalTimeInServicePhase += timeInRoute
+
+            timeList.add(totalTimeInServicePhase)
+        }
+        timeList
+        return timeList.sum() > 0
+    }
 
     fun Route.isCurrentRoute(currentTimeInMillis: Long): Boolean {
         val startWork = this.basicData.timeStartWork

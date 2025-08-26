@@ -1,6 +1,7 @@
 package com.z_company.route.component
 
 import android.annotation.SuppressLint
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.combinedClickable
@@ -160,7 +161,14 @@ fun ItemHomeScreen(
                 .onGloballyPositioned { coordinates ->
                     itemHeightDp = with(localDensity) { coordinates.size.height.toDp() }
                 },
-            shape = Shapes.medium,
+            elevation = CardDefaults.elevatedCardElevation(
+                defaultElevation = 2.dp,
+            ),
+            border = BorderStroke(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.secondary
+            ),
+//            shape = Shapes.medium,
             colors = CardDefaults.cardColors(
                 containerColor = containerColor,
                 contentColor = MaterialTheme.colorScheme.primary
@@ -288,6 +296,7 @@ fun ItemHomeScreen(
                     }
                     if (isExtendedServicePhaseTrains) {
                         Icon(
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp),
                             painter = painterResource(id = R.drawable.long_distance_24px),
                             contentDescription = null
@@ -295,6 +304,7 @@ fun ItemHomeScreen(
                     }
                     if (isHeavyTrains) {
                         Icon(
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp),
                             painter = painterResource(id = R.drawable.weight_24px),
                             contentDescription = null
@@ -302,6 +312,7 @@ fun ItemHomeScreen(
                     }
                     if (route.basicData.isOnePersonOperation) {
                         Icon(
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp),
                             painter = painterResource(id = R.drawable.person_24px),
                             contentDescription = null
@@ -310,6 +321,7 @@ fun ItemHomeScreen(
                     route.getPassengerTime()?.let { time ->
                         if (time > 0L) {
                             Icon(
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(20.dp),
                                 painter = painterResource(id = R.drawable.passenger_24px),
                                 contentDescription = null
@@ -343,6 +355,7 @@ fun ItemHomeScreen(
                         )
                     } else {
                         Icon(
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp),
                             painter = painterResource(id = R.drawable.not_sync_icon),
                             contentDescription = null,

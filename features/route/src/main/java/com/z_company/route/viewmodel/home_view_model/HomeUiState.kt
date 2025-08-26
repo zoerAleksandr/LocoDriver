@@ -7,6 +7,7 @@ import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.route.Route
 
 data class HomeUiState(
+    val uiState: ResultState<Unit> = ResultState.Loading(),
     val routeListState: ResultState<List<Route>> = ResultState.Loading(),
     val settingState: ResultState<UserSettings?> = ResultState.Loading(),
     val removeRouteState: ResultState<Unit>? = null,
@@ -43,4 +44,6 @@ data class ItemState(
     val isHoliday: Boolean = false,
     val isExtendedServicePhaseTrains: Boolean = false,
     val isHeavyTrains: Boolean = false,
+    val isTransition: Boolean = false,
+    val isFuture: Boolean = false
 )

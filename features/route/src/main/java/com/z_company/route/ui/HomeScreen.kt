@@ -6,7 +6,6 @@ import android.content.Intent
 import android.util.Log
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BasicTooltipBox
 import androidx.compose.foundation.BorderStroke
@@ -23,15 +22,12 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeightIn
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
@@ -81,19 +77,15 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -112,14 +104,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.flowWithLifecycle
-import com.maxkeppeker.sheets.core.utils.BaseModifiers.dynamicContentWrapOrMaxHeight
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.AsyncDataValue
@@ -163,7 +153,7 @@ import com.z_company.route.viewmodel.home_view_model.SetTimeInTrainEvent
 import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
 import com.z_company.route.viewmodel.home_view_model.UpdateEvent
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import ru.rustore.sdk.core.feature.model.FeatureAvailabilityResult
 import java.util.Calendar
@@ -179,6 +169,7 @@ import java.util.Calendar
 )
 @Composable
 fun HomeScreen(
+    uiState: ResultState<Unit>,
     listRouteState: MutableList<ItemState>,
     routeListState: ResultState<List<Route>>,
     removeRouteState: ResultState<Unit>?,
@@ -188,7 +179,7 @@ fun HomeScreen(
     makeCopyRoute: (String) -> Unit,
     onDeleteRoute: (Route) -> Unit,
     onDeleteRouteConfirmed: () -> Unit,
-    reloadRoute: () -> Unit,
+//    reloadRoute: () -> Unit,
     onSettingsClick: () -> Unit,
     onSearchClick: () -> Unit,
     totalTime: Long,
@@ -242,11 +233,10 @@ fun HomeScreen(
     onChangedTrainClick: (train: Train) -> Unit,
     onNewPassengerClick: (basicId: String) -> Unit,
     onChangedPassengerClick: (passenger: Passenger) -> Unit,
-    setTimeInTrain: () -> Unit,
-    isOnTheWayState: SharedFlow<SetTimeInTrainEvent>,
-    isShowSnackbar: Boolean,
-    resetStateShowSnackbar: () -> Unit,
-    resetStateIsLaunchedInitState: () -> Unit
+    onGoClicked: () -> Unit,
+    onAllRouteClick: () -> Unit,
+    isNextDeparture: () -> Boolean,
+    saveTimeEvent: SharedFlow<String>
 ) {
     val view = LocalView.current
     val backgroundColor = MaterialTheme.colorScheme.background
@@ -293,17 +283,17 @@ fun HomeScreen(
         }
     }
 
-    DisposableEffect(key1 = lifecycleOwner, effect = {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_START) {
-                reloadRoute()
-                resetStateIsLaunchedInitState()
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-
-        onDispose { }
-    })
+//    DisposableEffect(key1 = lifecycleOwner, effect = {
+//        val observer = LifecycleEventObserver { _, event ->
+//            if (event == Lifecycle.Event.ON_START) {
+////                reloadRoute()
+////                resetStateIsLaunchedInitState()
+//            }
+//        }
+//        lifecycleOwner.lifecycle.addObserver(observer)
+//
+//        onDispose { }
+//    })
 
 
     if (isShowFormScreen) {
@@ -520,8 +510,6 @@ fun HomeScreen(
 
     var currentRouteWorkTime by remember { mutableStateOf("") }
 
-    var onTheWay by rememberSaveable { mutableStateOf(false) }
-
     LaunchedEffect(Unit) {
         scope.launch {
             currentRouteTimeWork.flowWithLifecycle(lifecycle).collect { time ->
@@ -531,21 +519,29 @@ fun HomeScreen(
         }
     }
 
-    LaunchedEffect(isShowSnackbar) {
-        scope.launch {
-            isOnTheWayState.flowWithLifecycle(lifecycle).collect { state ->
-                if (isShowSnackbar) {
-                    state.message?.let { text ->
-                        scope.launch {
-                            snackbarHostState.showSnackbar(message = text)
-                        }
-                        resetStateShowSnackbar()
-                    }
-                }
-                onTheWay = state.isOnTheWay
+    LaunchedEffect(saveTimeEvent) {
+        saveTimeEvent.collectLatest {
+            scope.launch {
+                snackbarHostState.showSnackbar("$it")
             }
         }
     }
+
+//    LaunchedEffect(isShowSnackbar) {
+//        scope.launch {
+//            isOnTheWayState.flowWithLifecycle(lifecycle).collect { state ->
+//                if (isShowSnackbar) {
+//                    state.message?.let { text ->
+//                        scope.launch {
+//                            snackbarHostState.showSnackbar(message = text)
+//                        }
+//                        resetStateShowSnackbar()
+//                    }
+//                }
+//                onTheWay = state.isOnTheWay
+//            }
+//        }
+//    }
 
     AnimationDialog(
         showDialog = firstEntryDialogState,
@@ -1052,356 +1048,243 @@ fun HomeScreen(
             }
         }
         val pagerState = rememberPagerState(pageCount = { 3 })
-        LazyColumn(
-            Modifier
-                .fillMaxSize()
-                .padding(padding),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            item {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    HorizontalPager(
-                        modifier = Modifier.animateItemPlacement(),
-                        state = pagerState
-                    ) { page ->
-                        when (page) {
-                            0 -> {
-                                MainInfo(
-                                    totalTime = totalTime,
-                                    totalTimeWithHoliday = totalTimeWithHoliday,
-                                    currentMonthOfYear = currentMonthOfYear,
-                                    dateAndTimeConverter = dateAndTimeConverter,
-                                    brush = brushMain
-                                )
-                            }
+        AsyncData(uiState) {
+            LazyColumn(
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                item {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        HorizontalPager(
+                            modifier = Modifier.animateItemPlacement(),
+                            state = pagerState
+                        ) { page ->
+                            when (page) {
+                                0 -> {
+                                    MainInfo(
+                                        totalTime = totalTime,
+                                        totalTimeWithHoliday = totalTimeWithHoliday,
+                                        currentMonthOfYear = currentMonthOfYear,
+                                        dateAndTimeConverter = dateAndTimeConverter,
+                                        brush = brushMain
+                                    )
+                                }
 
-                            1 -> {
-                                DetailWorkTimeCard(
-                                    totalTime = totalTime,
-                                    brush = brushMain,
-                                    totalTimeWithHoliday = totalTimeWithHoliday,
-                                    passengerTimeState = passengerTimeState,
-                                    singleLocomotiveTimeState = singleLocomotiveTimeState,
-                                    nightTimeState = nightTimeState
-                                )
-                            }
+                                1 -> {
+                                    DetailWorkTimeCard(
+                                        totalTime = totalTime,
+                                        brush = brushMain,
+                                        totalTimeWithHoliday = totalTimeWithHoliday,
+                                        passengerTimeState = passengerTimeState,
+                                        singleLocomotiveTimeState = singleLocomotiveTimeState,
+                                        nightTimeState = nightTimeState
+                                    )
+                                }
 
-                            2 -> {
-                                DetailTrainCard(
-                                    totalTime = totalTime,
-                                    brush = brushMain,
-                                    totalTimeWithHoliday = totalTimeWithHoliday,
-                                    extendedServicePhaseTime = extendedServicePhaseTime,
-                                    longDistanceTrainsTime = longDistanceTrainsTime,
-                                    heavyTrainsTime = heavyTrainsTime,
-                                    onePersonOperationTime = onePersonOperationTime
-                                )
+                                2 -> {
+                                    DetailTrainCard(
+                                        totalTime = totalTime,
+                                        brush = brushMain,
+                                        totalTimeWithHoliday = totalTimeWithHoliday,
+                                        extendedServicePhaseTime = extendedServicePhaseTime,
+                                        longDistanceTrainsTime = longDistanceTrainsTime,
+                                        heavyTrainsTime = heavyTrainsTime,
+                                        onePersonOperationTime = onePersonOperationTime
+                                    )
+                                }
                             }
                         }
-                    }
-                    LinearPagerIndicator(
-                        modifier = Modifier
-                            .animateItemPlacement(),
-                        state = pagerState
-                    )
-                }
-            }
-
-            val brushSecondary = Brush.linearGradient(
-                0.1f to Color(0xFFefede3),
-                1500.0f to Color(0xFFFDFDFC),
-                start = Offset.Zero,
-                end = Offset.Infinite
-            )
-
-            item {
-                currentRoute?.let { route ->
-                    var maxHeightBox by remember { mutableStateOf(widthScreen / 3) }
-
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .animateItemPlacement()
-                    ) {
-                        Text(
+                        LinearPagerIndicator(
                             modifier = Modifier
-                                .padding(horizontal = 24.dp)
-                                .pointerInput(Unit) {
-                                    detectTapGestures(
-                                        onPress = {
-                                            onRouteClick(route.basicData.id)
-                                        }
-                                    )
-                                },
-                            text = "Текущий маршрут",
-                            style = AppTypography.getType().titleMedium
+                                .animateItemPlacement(),
+                            state = pagerState
                         )
-                        LazyRow(
-                            modifier = Modifier.padding(top = 6.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    }
+                }
+
+                val brushSecondary = Brush.linearGradient(
+                    0.1f to Color(0xFFefede3),
+                    1500.0f to Color(0xFFFDFDFC),
+                    start = Offset.Zero,
+                    end = Offset.Infinite
+                )
+
+                item {
+                    currentRoute?.let { route ->
+                        var maxHeightBox by remember { mutableStateOf(widthScreen / 3) }
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .animateItemPlacement()
                         ) {
-                            item {
-                                Card(
-                                    modifier = Modifier
-                                        .onGloballyPositioned { coordinates ->
-                                            val currentHeight = coordinates.size.height
-                                            if (currentHeight > maxHeightBox) {
-                                                maxHeightBox = currentHeight
+                            Text(
+                                modifier = Modifier
+                                    .padding(horizontal = 24.dp)
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onPress = {
+                                                onRouteClick(route.basicData.id)
                                             }
-                                        }
-                                        .padding(start = 12.dp)
-                                        .defaultMinSize(
-                                            minWidth = (widthScreen / 3).dp,
-                                            minHeight = (widthScreen / 3).dp,
                                         )
-                                        .clickable {
-                                            onRouteClick(route.basicData.id)
-                                        },
-                                    elevation = CardDefaults.elevatedCardElevation(
-                                        defaultElevation = 2.dp,
-                                    ),
-                                    border = BorderStroke(
-                                        width = 1.dp,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                ) {
-                                    Box(
+                                    },
+                                text = "Текущий маршрут",
+                                style = AppTypography.getType().titleMedium
+                            )
+                            LazyRow(
+                                modifier = Modifier.padding(top = 6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                item {
+                                    Card(
                                         modifier = Modifier
+                                            .onGloballyPositioned { coordinates ->
+                                                val currentHeight = coordinates.size.height
+                                                if (currentHeight > maxHeightBox) {
+                                                    maxHeightBox = currentHeight
+                                                }
+                                            }
+                                            .padding(start = 12.dp)
                                             .defaultMinSize(
                                                 minWidth = (widthScreen / 3).dp,
                                                 minHeight = (widthScreen / 3).dp,
                                             )
-                                            .background(brushMain)
+                                            .clickable {
+                                                onRouteClick(route.basicData.id)
+                                            },
+                                        elevation = CardDefaults.elevatedCardElevation(
+                                            defaultElevation = 2.dp,
+                                        ),
+                                        border = BorderStroke(
+                                            width = 1.dp,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
                                     ) {
-                                        Column(
+                                        Box(
                                             modifier = Modifier
                                                 .defaultMinSize(
                                                     minWidth = (widthScreen / 3).dp,
-                                                    minHeight = maxHeightBox.toDp(),
+                                                    minHeight = (widthScreen / 3).dp,
                                                 )
-                                                .padding(vertical = 8.dp, horizontal = 16.dp),
-                                            verticalArrangement = Arrangement.SpaceBetween
+                                                .background(brushMain)
                                         ) {
-                                            AnimatedCounter(
-                                                count = currentRouteWorkTime,
-                                                style = AppTypography.getType().headlineMedium.copy(
-                                                    fontWeight = FontWeight.Medium,
-                                                    color = MaterialTheme.colorScheme.background
+                                            Column(
+                                                modifier = Modifier
+                                                    .defaultMinSize(
+                                                        minWidth = (widthScreen / 3).dp,
+                                                        minHeight = maxHeightBox.toDp(),
+                                                    )
+                                                    .padding(vertical = 8.dp, horizontal = 16.dp),
+                                                verticalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                AnimatedCounter(
+                                                    count = currentRouteWorkTime,
+                                                    style = AppTypography.getType().headlineMedium.copy(
+                                                        fontWeight = FontWeight.Medium,
+                                                        color = MaterialTheme.colorScheme.background
+                                                    )
                                                 )
-                                            )
-                                            Text(
-                                                text = "На работе",
-                                                color = MaterialTheme.colorScheme.background,
-                                                maxLines = 1,
-                                                style = AppTypography.getType().titleMedium,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
+                                                Text(
+                                                    text = "На работе",
+                                                    color = MaterialTheme.colorScheme.background,
+                                                    maxLines = 1,
+                                                    style = AppTypography.getType().titleMedium,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
                                         }
                                     }
                                 }
-                            }
-                            item {
-                                Card(
-                                    modifier = Modifier
-                                        .onGloballyPositioned { coordinates ->
-                                            val currentHeight = coordinates.size.height
-                                            if (currentHeight > maxHeightBox) {
-                                                maxHeightBox = currentHeight
-                                            }
-                                        }
-                                        .defaultMinSize(
-                                            minWidth = (widthScreen / 3).dp,
-                                            minHeight = (widthScreen / 3).dp,
-                                        ),
-                                    elevation = CardDefaults.elevatedCardElevation(
-                                        defaultElevation = 2.dp,
-                                    ),
-                                    border = BorderStroke(
-                                        width = 1.dp,
-                                        color = MaterialTheme.colorScheme.secondary
-                                    )
-                                ) {
-                                    Box(
+                                item {
+                                    Card(
                                         modifier = Modifier
+                                            .onGloballyPositioned { coordinates ->
+                                                val currentHeight = coordinates.size.height
+                                                if (currentHeight > maxHeightBox) {
+                                                    maxHeightBox = currentHeight
+                                                }
+                                            }
                                             .defaultMinSize(
                                                 minWidth = (widthScreen / 3).dp,
                                                 minHeight = (widthScreen / 3).dp,
-                                            )
-                                            .background(MaterialTheme.colorScheme.secondary)
+                                            ),
+                                        elevation = CardDefaults.elevatedCardElevation(
+                                            defaultElevation = 2.dp,
+                                        ),
+                                        border = BorderStroke(
+                                            width = 1.dp,
+                                            color = MaterialTheme.colorScheme.secondary
+                                        )
                                     ) {
-                                        Column(
+                                        Box(
                                             modifier = Modifier
                                                 .defaultMinSize(
                                                     minWidth = (widthScreen / 3).dp,
-                                                    minHeight = maxHeightBox.toDp(),
+                                                    minHeight = (widthScreen / 3).dp,
                                                 )
-                                                .padding(vertical = 8.dp, horizontal = 16.dp),
-                                            verticalArrangement = Arrangement.SpaceBetween,
+                                                .background(MaterialTheme.colorScheme.secondary)
                                         ) {
-                                            if (route.locomotives.isEmpty()) {
-                                                IconButton(
-                                                    modifier = Modifier.align(Alignment.End),
-                                                    colors = IconButtonDefaults.iconButtonColors(
-                                                        containerColor = green,
-                                                        contentColor = MaterialTheme.colorScheme.background
-                                                    ),
-                                                    onClick = {
-                                                        onNewLocoClick(route.basicData.id)
-                                                    }
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Add,
-                                                        contentDescription = null
+                                            Column(
+                                                modifier = Modifier
+                                                    .defaultMinSize(
+                                                        minWidth = (widthScreen / 3).dp,
+                                                        minHeight = maxHeightBox.toDp(),
                                                     )
-                                                }
-                                            } else {
-                                                Column(
-                                                    modifier = Modifier
-                                                        .padding(bottom = 8.dp),
-                                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                                ) {
-                                                    val loco = route.locomotives.last()
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .pointerInput(Unit) {
-                                                                detectTapGestures(
-                                                                    onPress = {
-                                                                        onChangedLocoClick(
-                                                                            loco
-                                                                        )
-                                                                    }
-                                                                )
-                                                            }
+                                                    .padding(vertical = 8.dp, horizontal = 16.dp),
+                                                verticalArrangement = Arrangement.SpaceBetween,
+                                            ) {
+                                                if (route.locomotives.isEmpty()) {
+                                                    IconButton(
+                                                        modifier = Modifier.align(Alignment.End),
+                                                        colors = IconButtonDefaults.iconButtonColors(
+                                                            containerColor = green,
+                                                            contentColor = MaterialTheme.colorScheme.background
+                                                        ),
+                                                        onClick = {
+                                                            onNewLocoClick(route.basicData.id)
+                                                        }
                                                     ) {
-                                                        Text(
-                                                            text = "${loco.series ?: ""} ${loco.number ?: ""}",
-                                                            color = MaterialTheme.colorScheme.primary,
-                                                            maxLines = 1,
-                                                            style = AppTypography.getType().titleLarge,
-                                                            overflow = TextOverflow.Ellipsis
+                                                        Icon(
+                                                            imageVector = Icons.Default.Add,
+                                                            contentDescription = null
                                                         )
                                                     }
-                                                    if (route.locomotives.size > 1) {
-                                                        Text(
-                                                            text = "... и ещё ${route.locomotives.size - 1}",
-                                                            color = MaterialTheme.colorScheme.primary,
-                                                            maxLines = 1,
-                                                            style = AppTypography.getType().bodyLarge,
-                                                            overflow = TextOverflow.Ellipsis
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                            Text(
-                                                text = "Локомотив",
-                                                color = MaterialTheme.colorScheme.primary,
-                                                maxLines = 1,
-                                                style = AppTypography.getType().titleMedium,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                            item {
-                                Card(
-                                    modifier = Modifier
-                                        .onGloballyPositioned { coordinates ->
-                                            val currentHeight = coordinates.size.height
-                                            if (currentHeight > maxHeightBox) {
-                                                maxHeightBox = currentHeight
-                                            }
-                                        }
-                                        .defaultMinSize(
-                                            minWidth = (widthScreen / 3).dp,
-                                            minHeight = (widthScreen / 3).dp,
-                                        ),
-                                    elevation = CardDefaults.elevatedCardElevation(
-                                        defaultElevation = 2.dp,
-                                    ),
-                                    border = BorderStroke(
-                                        width = 1.dp,
-                                        color = MaterialTheme.colorScheme.secondary
-                                    )
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .defaultMinSize(
-                                                minWidth = (widthScreen / 3).dp,
-                                                minHeight = (widthScreen / 3).dp,
-                                            )
-                                            .background(MaterialTheme.colorScheme.secondary)
-                                    ) {
-                                        Column(
-                                            modifier = Modifier
-                                                .defaultMinSize(
-                                                    minWidth = (widthScreen / 3).dp,
-                                                    minHeight = maxHeightBox.toDp(),
-                                                )
-                                                .padding(vertical = 8.dp, horizontal = 16.dp),
-                                            verticalArrangement = Arrangement.SpaceBetween,
-                                        ) {
-                                            if (route.trains.isEmpty()) {
-                                                IconButton(
-                                                    modifier = Modifier.align(Alignment.End),
-                                                    colors = IconButtonDefaults.iconButtonColors(
-                                                        containerColor = green,
-                                                        contentColor = MaterialTheme.colorScheme.background
-                                                    ),
-                                                    onClick = {
-                                                        onNewTrainClick(route.basicData.id)
-                                                    }
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Add,
-                                                        contentDescription = null
-                                                    )
-                                                }
-                                            } else {
-                                                Column(
-                                                    modifier = Modifier
-                                                        .padding(bottom = 8.dp),
-                                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                                ) {
-                                                    val train = route.trains.last()
+                                                } else {
                                                     Column(
                                                         modifier = Modifier
-                                                            .pointerInput(Unit) {
-                                                                detectTapGestures(
-                                                                    onPress = {
-                                                                        onChangedTrainClick(
-                                                                            train
-                                                                        )
-                                                                    }
-                                                                )
-                                                            }
+                                                            .padding(bottom = 8.dp),
+                                                        verticalArrangement = Arrangement.spacedBy(4.dp)
                                                     ) {
-                                                        train.number?.let {
+                                                        val loco = route.locomotives.last()
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .pointerInput(Unit) {
+                                                                    detectTapGestures(
+                                                                        onPress = {
+                                                                            onChangedLocoClick(
+                                                                                loco
+                                                                            )
+                                                                        }
+                                                                    )
+                                                                }
+                                                        ) {
                                                             Text(
-                                                                text = "№ $it",
+                                                                text = "${loco.series ?: ""} ${loco.number ?: ""}",
                                                                 color = MaterialTheme.colorScheme.primary,
                                                                 maxLines = 1,
                                                                 style = AppTypography.getType().titleLarge,
                                                                 overflow = TextOverflow.Ellipsis
                                                             )
                                                         }
-                                                        val firstStation = train.stations.firstOrNull()
-                                                            ?.let { it.stationName ?: "" } ?: ""
-                                                        val lastStation = if (train.stations.size > 1){
-                                                            train.stations.lastOrNull()
-                                                            ?.let { " - ${it.stationName ?: ""}" } ?: ""
-                                                        } else {
-                                                            ""
-                                                        }
-                                                        val trainInfoText = "$firstStation $lastStation"
-
-                                                        if (trainInfoText.isNotBlank()) {
+                                                        if (route.locomotives.size > 1) {
                                                             Text(
-                                                                text = trainInfoText,
+                                                                text = "... и ещё ${route.locomotives.size - 1}",
                                                                 color = MaterialTheme.colorScheme.primary,
                                                                 maxLines = 1,
                                                                 style = AppTypography.getType().bodyLarge,
@@ -1409,51 +1292,171 @@ fun HomeScreen(
                                                             )
                                                         }
                                                     }
-                                                    if (route.trains.size > 1) {
-                                                        Text(
-                                                            text = "... и ещё ${route.trains.size - 1}",
-                                                            color = MaterialTheme.colorScheme.primary,
-                                                            maxLines = 1,
-                                                            style = AppTypography.getType().bodyLarge,
-                                                            overflow = TextOverflow.Ellipsis
-                                                        )
-                                                    }
                                                 }
-                                            }
-                                            Row(
-                                                modifier = Modifier.wrapContentWidth(),
-                                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                                verticalAlignment = Alignment.Bottom
-                                            ) {
                                                 Text(
-                                                    text = "Поезд",
+                                                    text = "Локомотив",
                                                     color = MaterialTheme.colorScheme.primary,
                                                     maxLines = 1,
                                                     style = AppTypography.getType().titleMedium,
                                                     overflow = TextOverflow.Ellipsis
                                                 )
-                                                if (route.trains.isNotEmpty()) {
-                                                    OutlinedButton(
-                                                        onClick = {
-                                                            setTimeInTrain()
-                                                        },
-                                                        border = BorderStroke(
-                                                            width = 1.dp,
-                                                            color = if (onTheWay) purple else green
+                                            }
+                                        }
+                                    }
+                                }
+                                item {
+                                    Card(
+                                        modifier = Modifier
+                                            .onGloballyPositioned { coordinates ->
+                                                val currentHeight = coordinates.size.height
+                                                if (currentHeight > maxHeightBox) {
+                                                    maxHeightBox = currentHeight
+                                                }
+                                            }
+                                            .defaultMinSize(
+                                                minWidth = (widthScreen / 3).dp,
+                                                minHeight = (widthScreen / 3).dp,
+                                            ),
+                                        elevation = CardDefaults.elevatedCardElevation(
+                                            defaultElevation = 2.dp,
+                                        ),
+                                        border = BorderStroke(
+                                            width = 1.dp,
+                                            color = MaterialTheme.colorScheme.secondary
+                                        )
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .defaultMinSize(
+                                                    minWidth = (widthScreen / 3).dp,
+                                                    minHeight = (widthScreen / 3).dp,
+                                                )
+                                                .background(MaterialTheme.colorScheme.secondary)
+                                        ) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .defaultMinSize(
+                                                        minWidth = (widthScreen / 3).dp,
+                                                        minHeight = maxHeightBox.toDp(),
+                                                    )
+                                                    .padding(vertical = 8.dp, horizontal = 16.dp),
+                                                verticalArrangement = Arrangement.SpaceBetween,
+                                            ) {
+                                                if (route.trains.isEmpty()) {
+                                                    IconButton(
+                                                        modifier = Modifier.align(Alignment.End),
+                                                        colors = IconButtonDefaults.iconButtonColors(
+                                                            containerColor = green,
+                                                            contentColor = MaterialTheme.colorScheme.background
                                                         ),
+                                                        onClick = {
+                                                            onNewTrainClick(route.basicData.id)
+                                                        }
                                                     ) {
-                                                        AnimatedContent(targetState = onTheWay) {
-                                                            val icon = if (it) {
-                                                                R.drawable.pause_24px
-                                                            } else {
-                                                                R.drawable.play_arrow_24px
+                                                        Icon(
+                                                            imageVector = Icons.Default.Add,
+                                                            contentDescription = null
+                                                        )
+                                                    }
+                                                } else {
+                                                    Column(
+                                                        modifier = Modifier
+                                                            .padding(bottom = 8.dp),
+                                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                                    ) {
+                                                        val train = route.trains.last()
+                                                        Column(
+                                                            modifier = Modifier
+                                                                .pointerInput(Unit) {
+                                                                    detectTapGestures(
+                                                                        onPress = {
+                                                                            onChangedTrainClick(
+                                                                                train
+                                                                            )
+                                                                        }
+                                                                    )
+                                                                }
+                                                        ) {
+                                                            train.number?.let {
+                                                                Text(
+                                                                    text = "№ $it",
+                                                                    color = MaterialTheme.colorScheme.primary,
+                                                                    maxLines = 1,
+                                                                    style = AppTypography.getType().titleLarge,
+                                                                    overflow = TextOverflow.Ellipsis
+                                                                )
                                                             }
-                                                            Icon(
-                                                                painter = painterResource(icon),
-                                                                contentDescription = null,
-                                                                tint = if (it) purple else green
+                                                            val firstStation =
+                                                                train.stations.firstOrNull()
+                                                                    ?.let { it.stationName ?: "" }
+                                                                    ?: ""
+                                                            val lastStation =
+                                                                if (train.stations.size > 1) {
+                                                                    train.stations.lastOrNull()
+                                                                        ?.let { " - ${it.stationName ?: ""}" }
+                                                                        ?: ""
+                                                                } else {
+                                                                    ""
+                                                                }
+                                                            val trainInfoText =
+                                                                "$firstStation $lastStation"
+
+                                                            if (trainInfoText.isNotBlank()) {
+                                                                Text(
+                                                                    text = trainInfoText,
+                                                                    color = MaterialTheme.colorScheme.primary,
+                                                                    maxLines = 1,
+                                                                    style = AppTypography.getType().bodyLarge,
+                                                                    overflow = TextOverflow.Ellipsis
+                                                                )
+                                                            }
+                                                        }
+                                                        if (route.trains.size > 1) {
+                                                            Text(
+                                                                text = "... и ещё ${route.trains.size - 1}",
+                                                                color = MaterialTheme.colorScheme.primary,
+                                                                maxLines = 1,
+                                                                style = AppTypography.getType().bodyLarge,
+                                                                overflow = TextOverflow.Ellipsis
                                                             )
                                                         }
+                                                    }
+                                                }
+                                                Row(
+                                                    modifier = Modifier.wrapContentWidth(),
+                                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                                    verticalAlignment = Alignment.Bottom
+                                                ) {
+                                                    Text(
+                                                        text = "Поезд",
+                                                        color = MaterialTheme.colorScheme.primary,
+                                                        maxLines = 1,
+                                                        style = AppTypography.getType().titleMedium,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                    if (route.trains.isNotEmpty()) {
+                                                        val nextIsDeparture = isNextDeparture()
+                                                        OutlinedButton(
+                                                            onClick = {
+                                                                onGoClicked()
+                                                            },
+                                                            border = BorderStroke(
+                                                                width = 1.dp,
+                                                                color = if (nextIsDeparture) green else purple
+                                                            ),
+                                                        ) {
+                                                            AnimatedContent(targetState = nextIsDeparture) {
+                                                                val icon = if (it) {
+                                                                    R.drawable.play_arrow_24px
+                                                                } else {
+                                                                    R.drawable.pause_24px
+                                                                }
+                                                                Icon(
+                                                                    painter = painterResource(icon),
+                                                                    contentDescription = null,
+                                                                    tint = if (it) green else purple
+                                                                )
+                                                            }
 //                                                        AnimatedContent(targetState = onTheWay) {
 //                                                            val text = if (it) {
 //                                                                "Остановка"
@@ -1468,292 +1471,295 @@ fun HomeScreen(
 //                                                                color = if (it) purple else green
 //                                                            )
 //                                                        }
+                                                        }
                                                     }
                                                 }
                                             }
                                         }
+                                    }
+                                }
+                                item {
+                                    Card(
+                                        modifier = Modifier
+                                            .onGloballyPositioned { coordinates ->
+                                                val currentHeight = coordinates.size.height
+                                                if (currentHeight > maxHeightBox) {
+                                                    maxHeightBox = currentHeight
+                                                }
+                                            }
+                                            .defaultMinSize(
+                                                minWidth = (widthScreen / 3).dp,
+                                                minHeight = (widthScreen / 3).dp,
+                                            )
+                                            .padding(end = 12.dp),
+                                        elevation = CardDefaults.elevatedCardElevation(
+                                            defaultElevation = 2.dp,
+                                        ),
+                                        border = BorderStroke(
+                                            width = 1.dp,
+                                            color = MaterialTheme.colorScheme.secondary
+                                        )
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .defaultMinSize(
+                                                    minWidth = (widthScreen / 3).dp,
+                                                    minHeight = (widthScreen / 3).dp,
+                                                )
+                                                .background(MaterialTheme.colorScheme.secondary)
+                                        ) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .defaultMinSize(
+                                                        minWidth = (widthScreen / 3).dp,
+                                                        minHeight = maxHeightBox.toDp(),
+                                                    )
+                                                    .padding(vertical = 8.dp, horizontal = 16.dp),
+                                                verticalArrangement = Arrangement.SpaceBetween,
+                                            ) {
+                                                if (route.passengers.isEmpty()) {
+                                                    IconButton(
+                                                        modifier = Modifier.align(Alignment.End),
+                                                        colors = IconButtonDefaults.iconButtonColors(
+                                                            containerColor = green,
+                                                            contentColor = MaterialTheme.colorScheme.background
+                                                        ),
+                                                        onClick = {
+                                                            onNewPassengerClick(route.basicData.id)
+                                                        }
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Add,
+                                                            contentDescription = null
+                                                        )
+                                                    }
+                                                } else {
+                                                    Column(
+                                                        modifier = Modifier
+                                                            .padding(bottom = 8.dp),
+                                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                                    ) {
+                                                        val passenger = route.passengers.last()
+                                                        Column(
+                                                            modifier = Modifier
+                                                                .pointerInput(Unit) {
+                                                                    detectTapGestures(
+                                                                        onPress = {
+                                                                            onChangedPassengerClick(
+                                                                                passenger
+                                                                            )
+                                                                        }
+                                                                    )
+                                                                }
+                                                        ) {
+                                                            passenger.trainNumber?.let {
+                                                                Text(
+                                                                    text = "№ $it",
+                                                                    color = MaterialTheme.colorScheme.primary,
+                                                                    maxLines = 1,
+                                                                    style = AppTypography.getType().titleLarge,
+                                                                    overflow = TextOverflow.Ellipsis
+                                                                )
+                                                            }
+                                                            Text(
+                                                                text = "${passenger.stationDeparture ?: ""} ${passenger.stationArrival?.let { " - $it" } ?: ""} ",
+                                                                color = MaterialTheme.colorScheme.primary,
+                                                                maxLines = 1,
+                                                                style = AppTypography.getType().bodyLarge,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
+                                                        }
+                                                        if (route.passengers.size > 1) {
+                                                            Text(
+                                                                text = "... и ещё ${route.passengers.size - 1}",
+                                                                color = MaterialTheme.colorScheme.primary,
+                                                                maxLines = 1,
+                                                                style = AppTypography.getType().bodyLarge,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                                Text(
+                                                    text = "Пассажиром",
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    maxLines = 1,
+                                                    style = AppTypography.getType().titleMedium,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .animateItemPlacement()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .padding(horizontal = 24.dp)
+                                .fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Маршруты",
+                                style = AppTypography.getType().titleMedium
+                            )
+                            TextButton(onClick = {
+                                onAllRouteClick()
+                            }) {
+                                Text(
+                                    color = MaterialTheme.colorScheme.tertiary,
+                                    text = "Все"
+                                )
+                            }
+                        }
+                        Column(
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            var background = MaterialTheme.colorScheme.secondary
+
+                            if (Route(BasicData(timeStartWork = Calendar.getInstance().timeInMillis)).basicData.timeStartWork!! > Calendar.getInstance().timeInMillis) {
+                                background = MaterialTheme.colorScheme.surfaceBright
+                            } else {
+                                if (Route().isTransition(offsetInMoscow)) {
+                                    background = MaterialTheme.colorScheme.surfaceDim
+                                }
+                            }
+                            var requiredSize by remember {
+                                mutableStateOf(22.sp)
+                            }
+
+                            fun changingTextSize(value: TextUnit) {
+                                if (requiredSize > value) {
+                                    requiredSize = value
+                                }
+                            }
+
+                            if (listRouteState.isNotEmpty()) {
+                                val route = listRouteState.first().route
+                                ItemHomeScreen(
+                                    modifier = Modifier.animateItemPlacement(),
+                                    route = route,
+                                    isExpand = true,
+                                    onDelete = onDeleteRoute,
+                                    requiredSizeText = requiredSize,
+                                    changingTextSize = ::changingTextSize,
+                                    onLongClick = {
+                                        showContextDialog = true
+                                        routeForPreview = route
+                                    },
+                                    containerColor = background,
+                                    onClick = { onRouteClick(route.basicData.id) },
+                                    getTextWorkTime = getTextWorkTime,
+                                    isHeavyTrains = listRouteState[0].isHeavyTrains,
+                                    isExtendedServicePhaseTrains = listRouteState[0].isExtendedServicePhaseTrains,
+                                    isHolidayTimeInRoute = listRouteState[0].isHoliday
+                                )
+                            }
+                            if (listRouteState.size > 1) {
+                                val route = listRouteState[1].route
+                                ItemHomeScreen(
+                                    modifier = Modifier.animateItemPlacement(),
+                                    route = route,
+                                    isExpand = true,
+                                    onDelete = onDeleteRoute,
+                                    requiredSizeText = requiredSize,
+                                    changingTextSize = ::changingTextSize,
+                                    onLongClick = {
+                                        showContextDialog = true
+                                        routeForPreview = route
+                                    },
+                                    containerColor = background,
+                                    onClick = { onRouteClick(route.basicData.id) },
+                                    getTextWorkTime = getTextWorkTime,
+                                    isHeavyTrains = listRouteState[1].isHeavyTrains,
+                                    isExtendedServicePhaseTrains = listRouteState[1].isExtendedServicePhaseTrains,
+                                    isHolidayTimeInRoute = listRouteState[1].isHoliday
+                                )
+                            }
+                        }
+                    }
+                }
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .animateItemPlacement()
+                    ) {
+                        Text(
+                            modifier = Modifier
+                                .padding(horizontal = 24.dp),
+                            text = "Действия"
+                        )
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            item {
+                                Card(
+                                    modifier = Modifier
+                                        .padding(start = 12.dp)
+                                        .size((widthScreen / 3).dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = Color.LightGray
+                                    )
+                                ) {
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.holiday_icon),
+                                            contentDescription = null
+                                        )
+                                        Text(
+                                            modifier = Modifier.weight(1f),
+                                            text = "Создать график"
+                                        )
                                     }
                                 }
                             }
                             item {
                                 Card(
                                     modifier = Modifier
-                                        .onGloballyPositioned { coordinates ->
-                                            val currentHeight = coordinates.size.height
-                                            if (currentHeight > maxHeightBox) {
-                                                maxHeightBox = currentHeight
-                                            }
-                                        }
-                                        .defaultMinSize(
-                                            minWidth = (widthScreen / 3).dp,
-                                            minHeight = (widthScreen / 3).dp,
-                                        )
-                                        .padding(end = 12.dp),
-                                    elevation = CardDefaults.elevatedCardElevation(
-                                        defaultElevation = 2.dp,
-                                    ),
-                                    border = BorderStroke(
-                                        width = 1.dp,
-                                        color = MaterialTheme.colorScheme.secondary
+                                        .padding(end = 12.dp)
+                                        .size((widthScreen / 3).dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = Color.LightGray
                                     )
                                 ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .defaultMinSize(
-                                                minWidth = (widthScreen / 3).dp,
-                                                minHeight = (widthScreen / 3).dp,
-                                            )
-                                            .background(MaterialTheme.colorScheme.secondary)
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth()
                                     ) {
-                                        Column(
-                                            modifier = Modifier
-                                                .defaultMinSize(
-                                                    minWidth = (widthScreen / 3).dp,
-                                                    minHeight = maxHeightBox.toDp(),
-                                                )
-                                                .padding(vertical = 8.dp, horizontal = 16.dp),
-                                            verticalArrangement = Arrangement.SpaceBetween,
-                                        ) {
-                                            if (route.passengers.isEmpty()) {
-                                                IconButton(
-                                                    modifier = Modifier.align(Alignment.End),
-                                                    colors = IconButtonDefaults.iconButtonColors(
-                                                        containerColor = green,
-                                                        contentColor = MaterialTheme.colorScheme.background
-                                                    ),
-                                                    onClick = {
-                                                        onNewPassengerClick(route.basicData.id)
-                                                    }
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Add,
-                                                        contentDescription = null
-                                                    )
-                                                }
-                                            } else {
-                                                Column(
-                                                    modifier = Modifier
-                                                        .padding(bottom = 8.dp),
-                                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                                ) {
-                                                    val passenger = route.passengers.last()
-                                                    Column(
-                                                        modifier = Modifier
-                                                            .pointerInput(Unit) {
-                                                                detectTapGestures(
-                                                                    onPress = {
-                                                                        onChangedPassengerClick(
-                                                                            passenger
-                                                                        )
-                                                                    }
-                                                                )
-                                                            }
-                                                    ) {
-                                                        passenger.trainNumber?.let {
-                                                            Text(
-                                                                text = "№ $it",
-                                                                color = MaterialTheme.colorScheme.primary,
-                                                                maxLines = 1,
-                                                                style = AppTypography.getType().titleLarge,
-                                                                overflow = TextOverflow.Ellipsis
-                                                            )
-                                                        }
-                                                        Text(
-                                                            text = "${passenger.stationDeparture ?: ""} ${passenger.stationArrival?.let { " - $it" } ?: ""} ",
-                                                            color = MaterialTheme.colorScheme.primary,
-                                                            maxLines = 1,
-                                                            style = AppTypography.getType().bodyLarge,
-                                                            overflow = TextOverflow.Ellipsis
-                                                        )
-                                                    }
-                                                    if (route.passengers.size > 1) {
-                                                        Text(
-                                                            text = "... и ещё ${route.passengers.size - 1}",
-                                                            color = MaterialTheme.colorScheme.primary,
-                                                            maxLines = 1,
-                                                            style = AppTypography.getType().bodyLarge,
-                                                            overflow = TextOverflow.Ellipsis
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                            Text(
-                                                text = "Пассажиром",
-                                                color = MaterialTheme.colorScheme.primary,
-                                                maxLines = 1,
-                                                style = AppTypography.getType().titleMedium,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
+                                        Icon(
+                                            painter = painterResource(R.drawable.palma),
+                                            contentDescription = null
+                                        )
+                                        Text(
+                                            modifier = Modifier.weight(1f),
+                                            text = "Добавить отвлечение"
+                                        )
                                     }
                                 }
                             }
                         }
                     }
                 }
-            }
-
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .animateItemPlacement()
-                ) {
-                    Row(
+                item {
+                    Spacer(
                         modifier = Modifier
-                            .padding(horizontal = 24.dp)
-                            .fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Маршруты",
-                            style = AppTypography.getType().titleMedium
-                        )
-                        TextButton(onClick = {}) {
-                            Text(
-                                color = MaterialTheme.colorScheme.tertiary,
-                                text = "Все"
-                            )
-                        }
-                    }
-                    Column(
-                        modifier = Modifier.padding(horizontal = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        var background = MaterialTheme.colorScheme.secondaryContainer
-
-                        if (Route(BasicData(timeStartWork = Calendar.getInstance().timeInMillis)).basicData.timeStartWork!! > Calendar.getInstance().timeInMillis) {
-                            background = MaterialTheme.colorScheme.surfaceBright
-                        } else {
-                            if (Route().isTransition(offsetInMoscow)) {
-                                background = MaterialTheme.colorScheme.surfaceDim
-                            }
-                        }
-                        var requiredSize by remember {
-                            mutableStateOf(22.sp)
-                        }
-
-                        fun changingTextSize(value: TextUnit) {
-                            if (requiredSize > value) {
-                                requiredSize = value
-                            }
-                        }
-
-                        if (listRouteState.isNotEmpty()) {
-                            val route = listRouteState.first().route
-                            ItemHomeScreen(
-                                modifier = Modifier.animateItemPlacement(),
-                                route = route,
-                                isExpand = true,
-                                onDelete = onDeleteRoute,
-                                requiredSizeText = requiredSize,
-                                changingTextSize = ::changingTextSize,
-                                onLongClick = {
-                                    showContextDialog = true
-                                    routeForPreview = route
-                                },
-                                containerColor = background,
-                                onClick = { onRouteClick(route.basicData.id) },
-                                getTextWorkTime = getTextWorkTime,
-                                isHeavyTrains = listRouteState[0].isHeavyTrains,
-                                isExtendedServicePhaseTrains = listRouteState[0].isExtendedServicePhaseTrains,
-                                isHolidayTimeInRoute = listRouteState[0].isHoliday
-                            )
-                        }
-                        if (listRouteState.size > 1) {
-                            val route = listRouteState[1].route
-                            ItemHomeScreen(
-                                modifier = Modifier.animateItemPlacement(),
-                                route = route,
-                                isExpand = true,
-                                onDelete = onDeleteRoute,
-                                requiredSizeText = requiredSize,
-                                changingTextSize = ::changingTextSize,
-                                onLongClick = {
-                                    showContextDialog = true
-                                    routeForPreview = route
-                                },
-                                containerColor = background,
-                                onClick = { onRouteClick(route.basicData.id) },
-                                getTextWorkTime = getTextWorkTime,
-                                isHeavyTrains = listRouteState[1].isHeavyTrains,
-                                isExtendedServicePhaseTrains = listRouteState[1].isExtendedServicePhaseTrains,
-                                isHolidayTimeInRoute = listRouteState[1].isHoliday
-                            )
-                        }
-                    }
-                }
-            }
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .animateItemPlacement()
-                ) {
-                    Text(
-                        modifier = Modifier
-                            .padding(horizontal = 24.dp),
-                        text = "Действия"
+                            .height(40.dp)
+                            .animateItemPlacement()
                     )
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        item {
-                            Card(
-                                modifier = Modifier
-                                    .padding(start = 12.dp)
-                                    .size((widthScreen / 3).dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = Color.LightGray
-                                )
-                            ) {
-                                Column(
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.holiday_icon),
-                                        contentDescription = null
-                                    )
-                                    Text(
-                                        modifier = Modifier.weight(1f),
-                                        text = "Создать график"
-                                    )
-                                }
-                            }
-                        }
-                        item {
-                            Card(
-                                modifier = Modifier
-                                    .padding(end = 12.dp)
-                                    .size((widthScreen / 3).dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = Color.LightGray
-                                )
-                            ) {
-                                Column(
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.palma),
-                                        contentDescription = null
-                                    )
-                                    Text(
-                                        modifier = Modifier.weight(1f),
-                                        text = "Добавить отвлечение"
-                                    )
-                                }
-                            }
-                        }
-                    }
                 }
-            }
-            item {
-                Spacer(
-                    modifier = Modifier
-                        .height(40.dp)
-                        .animateItemPlacement()
-                )
             }
         }
     }

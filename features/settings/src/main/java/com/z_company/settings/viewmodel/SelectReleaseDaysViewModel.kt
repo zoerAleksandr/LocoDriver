@@ -66,15 +66,15 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
     fun setCurrentMonth(yearAndMonth: Pair<Int, Int>) {
         setCalendarJob?.cancel()
         setCalendarJob = calendarUseCase.loadFlowMonthOfYearListState().onEach { result ->
-            if (result is ResultState.Success) {
-                result.data.find {
+//            if (result is ResultState.Success) {
+                result.find {
                     it.year == yearAndMonth.first && it.month == yearAndMonth.second
                 }?.let { selectMonthOfYear ->
                     currentMonthOfYear = selectMonthOfYear
                     saveCurrentMonthInLocal(selectMonthOfYear)
                     setReleasePeriodState(selectMonthOfYear)
                 }
-            }
+//            }
         }.launchIn(viewModelScope)
     }
 
@@ -102,17 +102,17 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
     private fun loadMonthList() {
         loadCalendarJob?.cancel()
         loadCalendarJob = calendarUseCase.loadFlowMonthOfYearListState().onEach { result ->
-            if (result is ResultState.Success) {
-                allMonthOfYear = result.data
+//            if (result is ResultState.Success) {
+                allMonthOfYear = result
                 _uiState.update { state ->
                     state.copy(
-                        monthList = result.data.map { it.month }.distinct().sorted(),
-                        yearList = result.data.map { it.year }.distinct().sorted()
+                        monthList = result.map { it.month }.distinct().sorted(),
+                        yearList = result.map { it.year }.distinct().sorted()
                     )
                 }
-                newMonthList = result.data.toMutableList()
+                newMonthList = result.toMutableList()
 
-            }
+//            }
         }.launchIn(viewModelScope)
     }
 

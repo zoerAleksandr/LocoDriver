@@ -15,7 +15,6 @@ fun HomeDestination(
     val homeViewModel: HomeViewModel = viewModel()
     val uiState by homeViewModel.uiState.collectAsState()
     val previewRouteUiState by homeViewModel.previewRouteUiState.collectAsState()
-    val isShowSnackbarOnTheWay by homeViewModel.isShowOnTheWaySnackbar.collectAsState()
     HomeScreen(
         listRouteState = uiState.listItemState,
         routeListState = uiState.routeListState,
@@ -28,7 +27,7 @@ fun HomeDestination(
         onNewRouteClick = homeViewModel::newRouteClick,
         onDeleteRoute = homeViewModel::removeRoute,
         onDeleteRouteConfirmed = homeViewModel::resetRemoveRouteState,
-        reloadRoute = homeViewModel::loadSetting,
+//        reloadRoute = homeViewModel::loadSetting,
         onSettingsClick = { router.showSettings() },
         onSearchClick = { router.showSearch() },
         totalTime = homeViewModel.timeWithoutHoliday,
@@ -88,10 +87,14 @@ fun HomeDestination(
             router.showEmptyPassengerForm(it)
         },
         onChangedPassengerClick = router::showChangePassengerForm,
-        setTimeInTrain = homeViewModel::setTimeInTrain,
-        isOnTheWayState = homeViewModel.isOnTheWay,
-        isShowSnackbar = isShowSnackbarOnTheWay,
-        resetStateShowSnackbar = homeViewModel::resetStateShowSnackbar,
-        resetStateIsLaunchedInitState = homeViewModel::resetStateIsLaunchedInitState
+        onGoClicked = homeViewModel::onGoClicked,
+//        isOnTheWayState = homeViewModel.isOnTheWay,
+//        isShowSnackbar = isShowSnackbarOnTheWay,
+//        resetStateShowSnackbar = homeViewModel::resetStateShowSnackbar,
+//        resetStateIsLaunchedInitState = homeViewModel::resetStateIsLaunchedInitState,
+        onAllRouteClick = router::showAllRoute,
+        uiState = uiState.uiState,
+        saveTimeEvent = homeViewModel.saveTimeEvent,
+        isNextDeparture = homeViewModel::isNextDeparture
     )
 }

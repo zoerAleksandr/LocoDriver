@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface CalendarRepositories {
     fun saveCalendar(calendar: List<MonthOfYear>): Flow<ResultState<Unit>>
-    fun getFlowMonthOfYearListState(): Flow<ResultState<List<MonthOfYear>>>
+    fun getFlowMonthOfYearListState(): Flow<List<MonthOfYear>>
     fun updateMonthOfYear(monthOfYear: MonthOfYear): Flow<ResultState<Unit>>
     suspend fun getMonthOfYearById(id: String): MonthOfYear
 

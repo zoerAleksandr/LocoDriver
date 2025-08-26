@@ -86,12 +86,12 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
             this.launch {
                 // загрузил старые и сохранил их в список
                 calendarUseCase.loadFlowMonthOfYearListState().collect { monthListResult ->
-                    if (monthListResult is ResultState.Success) {
-                        monthListResult.data.forEach { monthOfYear ->
+//                    if (monthListResult is ResultState.Success) {
+                        monthListResult.forEach { monthOfYear ->
                             monthOfYearList.add(monthOfYear)
                         }
                         this.cancel()
-                    }
+//                    }
                 }
             }.join()
             // проверил, если этот месяц ранее был сохранен, проверил помечен ли он isRelease

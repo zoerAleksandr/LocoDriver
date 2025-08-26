@@ -14,14 +14,10 @@ import org.koin.core.component.inject
 
 class RoomCalendarRepository : CalendarRepositories, KoinComponent {
     private val dao: SettingsDao by inject()
-    override fun getFlowMonthOfYearListState(): Flow<ResultState<List<MonthOfYear>>> {
-        return flowMap {
-            dao.getFlowMonthOfYearList().map { monthList ->
-                ResultState.Success(
-                    monthList.map { monthOfYear ->
-                        MonthOfYearConverter.toData(monthOfYear)
-                    }
-                )
+    override fun getFlowMonthOfYearListState(): Flow<List<MonthOfYear>> {
+        return dao.getFlowMonthOfYearList().map { monthList ->
+            monthList.map { monthOfYear ->
+                MonthOfYearConverter.toData(monthOfYear)
             }
         }
     }

@@ -9,8 +9,8 @@ import androidx.navigation.NavDeepLink
 import androidx.navigation.NavGraphBuilder
 import com.google.accompanist.navigation.animation.composable
 
-private const val transitionDuration = 400
-private const val transitionVerticalDuration = 500
+private const val transitionDuration = 300
+private const val transitionVerticalDuration = 300
 
 @ExperimentalAnimationApi
 val horizontalSlideInEnterTransition =
@@ -48,9 +48,23 @@ val verticalSlideInEnterTransition =
     )
 
 @ExperimentalAnimationApi
+val verticalSlideOutExitTransition =
+    slideOutVertically(
+        targetOffsetY = { it },
+        animationSpec = tween(transitionVerticalDuration)
+    )
+
+@ExperimentalAnimationApi
 val verticalSlideOutPopExitTransition =
     slideOutVertically(
         targetOffsetY = { it },
+        animationSpec = tween(transitionVerticalDuration)
+    )
+
+@ExperimentalAnimationApi
+val verticalSlideOutPopEnterTransition =
+    slideInVertically(
+        initialOffsetY = { it },
         animationSpec = tween(transitionVerticalDuration)
     )
 
@@ -96,8 +110,8 @@ fun NavGraphBuilder.composablePopup(
         arguments,
         deepLinks,
         enterTransition = { verticalSlideInEnterTransition },
-        exitTransition = { fadeOut() },
-        popEnterTransition = { fadeIn() },
+        exitTransition = { verticalSlideOutExitTransition },
+        popEnterTransition = { verticalSlideOutPopEnterTransition },
         popExitTransition = { verticalSlideOutPopExitTransition },
         content
     )

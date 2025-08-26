@@ -24,20 +24,20 @@
             android:exported="true"
             android:screenOrientation="portrait"
             android:theme="@style/Theme.LocoDriver.Splash">
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <action android:name="android.intent.action.SEND" />
-                <category android:name="android.intent.category.OPENABLE" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data
-                    android:mimeType="application/route"
-                    android:scheme="content" />
+<!--            <intent-filter>-->
+<!--                <action android:name="android.intent.action.VIEW" />-->
+<!--                <action android:name="android.intent.action.SEND" />-->
+<!--                <category android:name="android.intent.category.OPENABLE" />-->
+<!--                <category android:name="android.intent.category.DEFAULT" />-->
+<!--                <data-->
+<!--                    android:mimeType="application/route"-->
+<!--                    android:scheme="content" />-->
 
-                <data android:scheme="content" />
-                <data android:scheme="*" />
-                <data android:mimeType="*/*" />
-<!--                <data android:mimeType="application/vnd.com.z_company.loco_driver.route" />-->
-            </intent-filter>
+<!--                <data android:scheme="content" />-->
+<!--                <data android:scheme="*" />-->
+<!--                <data android:mimeType="*/*" />-->
+<!--&lt;!&ndash;                <data android:mimeType="application/vnd.com.z_company.loco_driver.route" />&ndash;&gt;-->
+<!--            </intent-filter>-->
 
 
             <intent-filter>

@@ -238,16 +238,16 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private fun loadMonthList() {
         loadCalendarJob?.cancel()
         loadCalendarJob = calendarUseCase.loadFlowMonthOfYearListState().onEach { result ->
-            if (result is ResultState.Success) {
+//            if (result is ResultState.Success) {
                 _uiState.update { state ->
                     state.copy(
-                        monthList = result.data.map { it.month }.distinct().sorted(),
-                        yearList = result.data.map { it.year }.distinct().sorted()
+                        monthList = result.map { it.month }.distinct().sorted(),
+                        yearList = result.map { it.year }.distinct().sorted()
                     )
 
                 }
             }
-        }
+//        }
             .launchIn(viewModelScope)
     }
 
@@ -282,7 +282,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         }
         viewModelScope.launch {
             calendarUseCase.loadFlowMonthOfYearListState().collect { result ->
-                if (result is ResultState.Success) {
+//                if (result is ResultState.Success) {
                     currentSettings?.let { setting ->
                         _uiState.update {
                             it.copy(
@@ -290,7 +290,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                             )
                         }
                     }
-                }
+//                }
             }
         }
     }

@@ -10,6 +10,7 @@ import com.z_company.login.navigation.AuthFeature
 import com.z_company.login.navigation.LogInScreenRoute
 import com.z_company.login.navigation.SignInScreenRoute
 import com.z_company.login.navigation.RecoveryPasswordRoute
+import com.z_company.route.navigation.AllRouteScreenRoute
 import com.z_company.route.navigation.CreatePhotoRoute
 import com.z_company.route.navigation.DetailsRoute
 import com.z_company.route.navigation.FormLoco
@@ -181,6 +182,12 @@ class RouterImpl(
     override fun showSettingHomeScreen() {
         navController.navigate(
             SettingHomeScreenRoute.route
+        )
+    }
+
+    override fun showAllRoute() {
+        navController.navigate(
+            AllRouteScreenRoute.route
         )
     }
 }
