@@ -107,8 +107,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.flowWithLifecycle
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
@@ -149,7 +147,6 @@ import com.z_company.route.component.LinearPagerIndicator
 import com.z_company.route.component.PieChart
 import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
 import com.z_company.route.viewmodel.home_view_model.ItemState
-import com.z_company.route.viewmodel.home_view_model.SetTimeInTrainEvent
 import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
 import com.z_company.route.viewmodel.home_view_model.UpdateEvent
 import kotlinx.coroutines.flow.SharedFlow
@@ -179,7 +176,6 @@ fun HomeScreen(
     makeCopyRoute: (String) -> Unit,
     onDeleteRoute: (Route) -> Unit,
     onDeleteRouteConfirmed: () -> Unit,
-//    reloadRoute: () -> Unit,
     onSettingsClick: () -> Unit,
     onSearchClick: () -> Unit,
     totalTime: Long,

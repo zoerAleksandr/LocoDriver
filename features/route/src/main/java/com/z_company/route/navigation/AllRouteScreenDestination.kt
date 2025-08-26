@@ -21,7 +21,7 @@ fun AllRouteScreenDestination(
         onRouteClick = {
             router.showRouteForm(it)
         },
-        onNewRouteClick = viewModel::newRouteClick,
-        getTextWorkTime = viewModel::getTextWorkTime
+//        onNewRouteClick = viewModel::newRouteClick,
+        getTextWorkTime = {""}
     )
 }

@@ -1,7 +1,6 @@
 package com.z_company.data_local.calendar
 
 import com.z_company.core.ResultState
-import com.z_company.core.ResultState.Companion.flowMap
 import com.z_company.core.ResultState.Companion.flowRequest
 import com.z_company.data_local.setting.dao.SettingsDao
 import com.z_company.data_local.setting.entity_converter.MonthOfYearConverter

@@ -33,7 +33,7 @@ fun AllRouteScreen(
     makeCopyRoute: (String) -> Unit,
     onDeleteRoute: (Route) -> Unit,
     onRouteClick: (String) -> Unit,
-    onNewRouteClick: () -> Unit,
+//    onNewRouteClick: () -> Unit,
     getTextWorkTime: (Route) -> String
 ) {
 

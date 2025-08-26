@@ -1144,7 +1144,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                                 route.basicData.timeStartWork?.let { startWork ->
                                     workTimer(startWork)
                                 }
-//                                initStateIsOneTheWay()
                             }
                         }
 
