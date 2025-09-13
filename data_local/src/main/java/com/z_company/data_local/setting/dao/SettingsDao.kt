@@ -21,9 +21,9 @@ internal interface SettingsDao {
 
     @Query("SELECT * FROM UserSettings")
     fun getFlowSettings(): Flow<UserSettings>
+
     @Query("SELECT * FROM UserSettings")
     fun getUserSettings(): UserSettings
-
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun saveMonthOfYearList(monthList: List<MonthOfYear>)
@@ -55,6 +55,7 @@ internal interface SettingsDao {
 
     @Query("UPDATE UserSettings SET defaultWorkTime =:timeInMillis WHERE settingsKey =:key")
     fun setWorkTimeDefault(timeInMillis: Long, key: String)
+
     @TypeConverters(MonthOfYearToPrimitiveConverter::class)
     @Query("UPDATE UserSettings SET monthOfYear =:monthOfYear WHERE settingsKey =:key")
     fun setCurrentMonthOfYear(monthOfYear: MonthOfYear, key: String)

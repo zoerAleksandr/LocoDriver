@@ -151,7 +151,7 @@ class B4ARouteRepository(private val context: Context) : RemoteRouteRepository, 
                 }
                 if (saveResult is ResultState.Error) {
                     trySend(ResultState.Error(saveResult.entity))
-                    TracerCrashReport.report(NotActiveException("${saveResult.entity.throwable} \n$route"))
+                    TracerCrashReport.report(NotActiveException("${saveResult.entity.message} \n${route.basicData.id}"))
                     this.cancel()
                 }
             }

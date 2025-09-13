@@ -1,12 +1,15 @@
 package com.z_company.route.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.z_company.domain.navigation.Router
 import com.z_company.route.ui.HomeScreen
 import com.z_company.route.viewmodel.home_view_model.HomeViewModel
+import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
+import ru.rustore.sdk.core.feature.model.FeatureAvailabilityResult
 
 @Composable
 fun HomeDestination(
@@ -15,19 +18,47 @@ fun HomeDestination(
     val homeViewModel: HomeViewModel = viewModel()
     val uiState by homeViewModel.uiState.collectAsState()
     val previewRouteUiState by homeViewModel.previewRouteUiState.collectAsState()
+
+    // Подписываемся на событие открытия формы и выполняем навигацию через router
+    LaunchedEffect(Unit) {
+        homeViewModel.openRouteFormEvent.collect { event ->
+            router.showRouteForm(basicId = event.basicId, isMakeCopy = event.isMakeCopy)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        homeViewModel.purchasesEvent.collect { event ->
+            when (event) {
+                is StartPurchasesEvent.PurchasesAvailability -> {
+                    when (val avail = event.availability) {
+                        is FeatureAvailabilityResult.Available -> {
+                            // UI performs navigation
+                            router.showPurchasesScreen()
+                        }
+
+                        is FeatureAvailabilityResult.Unavailable -> {
+                            // ViewModel already showed snackbar; optionally handle here
+                        }
+                    }
+                }
+
+                is StartPurchasesEvent.Error -> {
+                    // event.throwable - show fallback snackbar or handle
+                    // you can also rely on ViewModel to show snackbar via snackbarManager
+                }
+            }
+        }
+    }
+
     HomeScreen(
         listRouteState = uiState.listItemState,
-        routeListState = uiState.routeListState,
-        removeRouteState = uiState.removeRouteState,
         onRouteClick = {
             router.showRouteForm(it)
         },
-        makeCopyRoute = {router.showRouteForm(basicId = it, isMakeCopy = true)},
+        makeCopyRoute = { basicId -> homeViewModel.newRouteClick(basicId) },
         onMoreInfoClick = { router.showMoreInfo(it) },
         onNewRouteClick = homeViewModel::newRouteClick,
         onDeleteRoute = homeViewModel::removeRoute,
-        onDeleteRouteConfirmed = homeViewModel::resetRemoveRouteState,
-//        reloadRoute = homeViewModel::loadSetting,
         onSettingsClick = { router.showSettings() },
         onSearchClick = { router.showSearch() },
         totalTime = homeViewModel.timeWithoutHoliday,
@@ -40,34 +71,20 @@ fun HomeDestination(
         totalTimeWithHoliday = uiState.totalTimeWithHoliday,
         passengerTimeState = uiState.passengerTimeInRouteList,
         singleLocomotiveTimeState = uiState.singleLocomotiveTimeState,
-        dayoffHours = uiState.dayOffHours,
-        holidayHours = uiState.holidayHours,
         calculationHomeRest = homeViewModel::calculationHomeRest,
-        homeRestValue = previewRouteUiState.homeRestState,
+        homeRestValue = previewRouteUiState.homeRest,
         firstEntryDialogState = uiState.showFirstEntryToAccountDialog,
         resetStateFirstEntryDialog = homeViewModel::disableFirstEntryToAccountDialog,
-        purchasesEvent = homeViewModel.checkPurchasesEvent,
-        showPurchasesScreen = router::showPurchasesScreen,
-        isShowFormScreen = uiState.showNewRouteScreen,
-        showFormScreen = { router.showRouteForm() },
+        showFormScreen =  router::showRouteForm,
         isLoadingStateAddButton = uiState.isLoadingStateAddButton,
-        showFormScreenReset = homeViewModel::showFormScreenReset,
         alertBeforePurchasesState = homeViewModel.alertBeforePurchasesEvent,
         checkPurchasesAvailability = homeViewModel::checkPurchasesAvailability,
         restorePurchases = homeViewModel::restorePurchases,
-        restoreResultState = uiState.restoreSubscriptionState,
-        resetSubscriptionState = homeViewModel::resetSubscriptionState,
-        showConfirmDialogRemoveRoute = uiState.showConfirmRemoveRoute,
-        changeShowConfirmExitDialog = homeViewModel::isShowConfirmRemoveRoute,
         offsetInMoscow = uiState.offsetInMoscow,
-        syncRouteState = uiState.syncRouteState,
-        resetSyncRouteState = homeViewModel::resetSyncRouteState,
         syncRoute = homeViewModel::syncRoute,
         completeUpdateRequested = homeViewModel::completeUpdateRequested,
         updateEvent = homeViewModel.updateEvents,
         setFavoriteState = homeViewModel::setFavoriteRoute,
-        getSharedIntent = homeViewModel::getUriToRoute,
-        getTextWorkTime = homeViewModel::getTextWorkTime,
         dateAndTimeConverter = uiState.dateAndTimeConverter,
         extendedServicePhaseTime = uiState.extendedServicePhaseTime,
         longDistanceTrainsTime = uiState.longDistanceTrainsTime,
@@ -88,13 +105,9 @@ fun HomeDestination(
         },
         onChangedPassengerClick = router::showChangePassengerForm,
         onGoClicked = homeViewModel::onGoClicked,
-//        isOnTheWayState = homeViewModel.isOnTheWay,
-//        isShowSnackbar = isShowSnackbarOnTheWay,
-//        resetStateShowSnackbar = homeViewModel::resetStateShowSnackbar,
-//        resetStateIsLaunchedInitState = homeViewModel::resetStateIsLaunchedInitState,
         onAllRouteClick = router::showAllRoute,
         uiState = uiState.uiState,
         saveTimeEvent = homeViewModel.saveTimeEvent,
-        isNextDeparture = homeViewModel::isNextDeparture
+        isNextDeparture = homeViewModel::isNextDeparture,
     )
 }

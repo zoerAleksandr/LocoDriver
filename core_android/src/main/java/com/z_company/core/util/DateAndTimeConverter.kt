@@ -17,7 +17,7 @@ class DateAndTimeConverter(userSettings: UserSettings) : KoinComponent {
     private val settingsUseCase: SettingsUseCase by inject()
 
     init {
-            timeZoneText = settingsUseCase.getTimeZone(userSettings.timeZone)
+        timeZoneText = settingsUseCase.getTimeZone(userSettings.timeZone)
     }
 
     fun getDate(value: Long?): String {
@@ -58,12 +58,18 @@ class DateAndTimeConverter(userSettings: UserSettings) : KoinComponent {
         }
     }
 
-    fun getDateAndTime(value: Long): String {
-        val instant = Instant.ofEpochMilli(value)
-        val time = OffsetDateTime.ofInstant(instant, ZoneId.of(timeZoneText))
-        val formatterWithThreeDecimals =
-            DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
-        return ("${time.format(formatterWithThreeDecimals)}")
+    fun getDateAndTime(value: Long?): String {
+        if (value != null) {
+            value.let { millis ->
+                val instant = Instant.ofEpochMilli(millis)
+                val time = OffsetDateTime.ofInstant(instant, ZoneId.of(timeZoneText))
+                val formatterWithThreeDecimals =
+                    DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
+                return ("${time.format(formatterWithThreeDecimals)}")
+            }
+        } else {
+            return ("")
+        }
     }
 
     fun getTimeFromDateLong(value: Long?): String {

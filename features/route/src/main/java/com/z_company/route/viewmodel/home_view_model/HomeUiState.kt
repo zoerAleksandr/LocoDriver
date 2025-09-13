@@ -30,10 +30,8 @@ data class HomeUiState(
     val showNewRouteScreen: Boolean = false,
     val showPurchasesScreen: Boolean = false,
     val isLoadingStateAddButton: Boolean = false,
-    val restoreSubscriptionState: ResultState<String>? = null,
     val showConfirmRemoveRoute: Boolean = false,
     val offsetInMoscow: Long = 0L,
-    val syncRouteState: ResultState<String>? = null,
     val listItemState: MutableList<ItemState> = mutableListOf<ItemState>(),
     var dateAndTimeConverter: DateAndTimeConverter? = null,
     val showSnackbar: Boolean = false

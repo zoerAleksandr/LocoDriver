@@ -17,18 +17,22 @@ import com.z_company.domain.repositories.HistoryResponseRepository
 import com.z_company.domain.repositories.SalarySettingRepository
 import com.z_company.domain.repositories.SettingsRepository
 import com.z_company.domain.repositories.SharedPreferencesRepositories
+import com.z_company.core.ui.snackbar.ISnackbarManager
+import com.z_company.core.ui.snackbar.SnackbarManagerImpl
 import com.z_company.repository.Back4AppManager
 import com.z_company.repository.ShareManager
 import com.z_company.repository.remote_rest.RemoteRestApi
 import com.z_company.repository.remote_rest.RemoteRestClient
 import com.z_company.repository.remote_rest.RemoteRestRouteRepository
-import com.z_company.repository.ru_store_api.RetrofitClient
 import com.z_company.repository.ru_store_api.RuStoreRepositoryKtor
+import com.z_company.route.viewmodel.RouteActionsHelper
 import org.koin.android.ext.koin.androidApplication
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
 val repositoryModule = module {
+    single<ISnackbarManager> { SnackbarManagerImpl() }
+
     single<RouteRepository> {
         RoomRouteRepository()
     }
@@ -60,4 +64,5 @@ val repositoryModule = module {
 
     single<RemoteRestApi> { RemoteRestClient.routeApi }
     single<RemoteRestRouteRepository> { RemoteRestRouteRepository(api = get()) }
+    single { RouteActionsHelper() }
 }

@@ -11,7 +11,6 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 
 class SettingsUseCase(private val settingsRepository: SettingsRepository) {
@@ -83,11 +82,7 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
     }
 
     fun getUserSettingFlow(): Flow<UserSettings> {
-        return flow {
-            settingsRepository.getUserSettingFlow().collect {
-                emit(it)
-            }
-        }
+           return settingsRepository.getUserSettingFlow()
     }
 
     fun getUserSetting(): UserSettings {

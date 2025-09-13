@@ -450,6 +450,9 @@ class Back4AppManager : KoinComponent {
                 if (result is ResultState.Error) {
                     trySend(ResultState.Error(result.entity))
                 }
+                if (result is ResultState.Loading) {
+                    trySend(ResultState.Loading("Синхронизируем..."))
+                }
             }
             awaitClose()
         }

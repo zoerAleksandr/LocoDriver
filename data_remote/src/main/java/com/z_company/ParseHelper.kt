@@ -41,6 +41,10 @@ object ParseHelper {
                 TracerCrashReport.log("Error get object fun ParseHelper.saveOrUpdateObjectAsync 43 $e")
                 return@getFirstInBackground
             }
+            if (e?.code == ParseException.INVALID_SESSION_TOKEN){
+                trySend(ResultState.Error(ErrorEntity(message = "Истек срок токена. Войдите в приложение заново.")))
+            }
+
 
             // If object doesn't exist, create a new one
             if (parseObject == null) {

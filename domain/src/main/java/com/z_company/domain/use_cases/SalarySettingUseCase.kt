@@ -10,7 +10,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import org.koin.core.component.KoinComponent
@@ -21,10 +20,7 @@ class SalarySettingUseCase(
 ) : KoinComponent {
     private val calendarUseCase: CalendarUseCase by inject()
     fun salarySettingFlow(): Flow<SalarySetting> {
-        return flow {
-            val salarySetting = repository.getSalarySettingFlow().first()
-            emit(salarySetting)
-        }
+        return repository.getSalarySettingFlow()
     }
 
     fun getSalarySetting(): SalarySetting = repository.getSalarySetting()
@@ -37,7 +33,7 @@ class SalarySettingUseCase(
     fun updateMonthOfYear(monthOfYear: MonthOfYear): Flow<ResultState<Unit>> =
         calendarUseCase.updateMonthOfYear(monthOfYear)
 
-    suspend fun updateTariffRateOnlyInOneMonthOfYear(
+    fun updateTariffRateOnlyInOneMonthOfYear(
         newTariffRate: Double,
         monthId: String
     ): Flow<ResultState<Unit>> {
@@ -61,7 +57,7 @@ class SalarySettingUseCase(
         }.flowOn(dispatcher)
     }
 
-    suspend fun updateTariffRateCurrentAndNextMonths(
+    fun updateTariffRateCurrentAndNextMonths(
         newTariffRate: Double,
         currentMonthId: String
     ): Flow<ResultState<Unit>> {
