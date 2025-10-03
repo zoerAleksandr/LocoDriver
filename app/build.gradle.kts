@@ -4,7 +4,7 @@ plugins {
     id(Plugins.android_app)
     id(Plugins.kotlin_android)
     id(Plugins.ksp)
-    id("ru.ok.tracer").version("0.5.1")
+    id("ru.ok.tracer").version(Versions.ru_ok_tracer_platform_ver)
     id(Plugins.compose_compiler)
 }
 
@@ -71,11 +71,11 @@ android {
 //    composeOptions {
 //        kotlinCompilerExtensionVersion = Versions.kotlin_compiler_ext_version
 //    }
-    packaging {
-        resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
-        }
-    }
+//    packaging {
+//        resources {
+//            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+//        }
+//    }
 }
 tracer {
     create("defaultConfig") {
@@ -84,13 +84,14 @@ tracer {
     }
 }
 
+
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
     implementation (Libs.ksp_api)
 
     implementation(Libs.mytracker_sdk)
-    implementation(platform(Libs.rustore_sdk_bom))
-    implementation(Libs.rustore_sdk_billingclient)
+    implementation(platform(Libs.rustore_bom))
+    implementation(Libs.rustore_pay)
     implementation(Libs.rustore_sdk_appupdate)
 
     implementation(platform(Libs.ru_ok_tracer_platform))

@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 11,
-    "identityHash": "99987dfcbb1f756ba8b404683209ceb7",
+    "identityHash": "1a1a99220ec55f3b54a4d782480daa59",
     "entities": [
       {
         "tableName": "UserSettings",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`settingsKey` TEXT NOT NULL, `minTimeRest` INTEGER NOT NULL, `minTimeHomeRest` INTEGER NOT NULL, `lastEnteredDieselCoefficient` REAL NOT NULL, `nightTime` TEXT NOT NULL, `updateAt` INTEGER NOT NULL, `defaultLocoType` TEXT NOT NULL, `defaultWorkTime` INTEGER NOT NULL, `usingDefaultWorkTime` INTEGER NOT NULL, `isConsiderFutureRoute` INTEGER NOT NULL DEFAULT 1, `monthOfYear` TEXT NOT NULL, `isVisibleNightTime` INTEGER NOT NULL DEFAULT 1, `isVisiblePassengerTime` INTEGER NOT NULL DEFAULT 1, `isVisibleRelationTime` INTEGER NOT NULL DEFAULT 1, `isVisibleHolidayTime` INTEGER NOT NULL DEFAULT 1, `isVisibleExtendedServicePhase` INTEGER NOT NULL DEFAULT 1, `stationList` TEXT NOT NULL DEFAULT '[]', `timeZone` INTEGER NOT NULL DEFAULT 0, `locomotiveSeriesList` TEXT NOT NULL DEFAULT '[]', `servicePhases` TEXT NOT NULL DEFAULT '[]', `dateTimePickerType` TEXT NOT NULL DEFAULT 'Барабан', `isUsageMoscowTimeZone` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`settingsKey`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`settingsKey` TEXT NOT NULL, `minTimeRest` INTEGER NOT NULL, `minTimeHomeRest` INTEGER NOT NULL, `lastEnteredDieselCoefficient` REAL NOT NULL, `nightTime` TEXT NOT NULL, `updateAt` INTEGER NOT NULL, `defaultLocoType` TEXT NOT NULL, `defaultWorkTime` INTEGER NOT NULL, `usingDefaultWorkTime` INTEGER NOT NULL, `isConsiderFutureRoute` INTEGER NOT NULL DEFAULT 1, `monthOfYear` TEXT NOT NULL, `isVisibleNightTime` INTEGER NOT NULL DEFAULT 1, `isVisiblePassengerTime` INTEGER NOT NULL DEFAULT 1, `isVisibleRelationTime` INTEGER NOT NULL DEFAULT 1, `isVisibleHolidayTime` INTEGER NOT NULL DEFAULT 1, `isVisibleExtendedServicePhase` INTEGER NOT NULL DEFAULT 1, `stationList` TEXT NOT NULL DEFAULT '[]', `timeZone` INTEGER NOT NULL DEFAULT 0, `locomotiveSeriesList` TEXT NOT NULL DEFAULT '[]', `servicePhases` TEXT NOT NULL DEFAULT '[]', `dateTimePickerType` TEXT NOT NULL DEFAULT 'Барабан', `standardTimesStartWork` TEXT NOT NULL DEFAULT '[28_800_000, 72_000_000]', PRIMARY KEY(`settingsKey`))",
         "fields": [
           {
             "fieldPath": "settingsKey",
@@ -146,11 +146,11 @@
             "defaultValue": "'Барабан'"
           },
           {
-            "fieldPath": "isUsageMoscowTimeZone",
-            "columnName": "isUsageMoscowTimeZone",
-            "affinity": "INTEGER",
+            "fieldPath": "standardTimesStartWork",
+            "columnName": "standardTimesStartWork",
+            "affinity": "TEXT",
             "notNull": true,
-            "defaultValue": "0"
+            "defaultValue": "'[28_800_000, 72_000_000]'"
           }
         ],
         "primaryKey": {
@@ -212,7 +212,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '99987dfcbb1f756ba8b404683209ceb7')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '1a1a99220ec55f3b54a4d782480daa59')"
     ]
   }
 }

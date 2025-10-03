@@ -243,9 +243,14 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
     }
 
     override fun remove(route: Route): Flow<ResultState<Unit>> {
-        return flowRequest {
+        return flow {
+            emit(ResultState.Loading())
+            // выполнение удаления (suspend DAO)
             dao.delete(RouteConverter.fromData(route))
-        }
+            emit(ResultState.Success(Unit))
+        }.catch { e ->
+            emit(ResultState.Error(ErrorEntity(e)))
+        }.flowOn(Dispatchers.IO)
     }
 
     override fun removeLoco(locomotive: Locomotive): Flow<ResultState<Unit>> {

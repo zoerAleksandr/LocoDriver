@@ -26,6 +26,7 @@ import com.z_company.route.navigation.SalaryCalculationRoute
 import com.z_company.route.navigation.SearchRoute
 import com.z_company.route.navigation.SettingSalaryRoute
 import com.z_company.route.navigation.ViewingImageRoute
+import com.z_company.route.navigation.WorkScheduleScreenRoute
 import com.z_company.settings.navigation.SelectReleaseDaysScreenRoute
 import com.z_company.settings.navigation.SettingHomeScreenRoute
 import com.z_company.settings.navigation.SettingsFeature
@@ -188,6 +189,12 @@ class RouterImpl(
     override fun showAllRoute() {
         navController.navigate(
             AllRouteScreenRoute.route
+        )
+    }
+
+    override fun showWorkScheduleScreen() {
+        navController.navigate(
+            WorkScheduleScreenRoute.route
         )
     }
 }

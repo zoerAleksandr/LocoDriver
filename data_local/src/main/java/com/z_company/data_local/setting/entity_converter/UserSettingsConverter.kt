@@ -25,7 +25,8 @@ internal object UserSettingsConverter {
         timeZone = userSettings.timeZone,
         locomotiveSeriesList = userSettings.locomotiveSeriesList,
         servicePhases = ServicePhasesConverter.fromDataList(userSettings.servicePhases),
-        dateTimePickerType = userSettings.dateTimePickerType
+        dateTimePickerType = userSettings.dateTimePickerType,
+        standardTimesStartWork = userSettings.standardTimesStartWork
     )
 
     fun toData(userSettingsEntity: UserSettingsEntity) = UserSettings(
@@ -49,6 +50,7 @@ internal object UserSettingsConverter {
         timeZone = userSettingsEntity.timeZone,
         locomotiveSeriesList = userSettingsEntity.locomotiveSeriesList,
         servicePhases = ServicePhasesConverter.toDataList(userSettingsEntity.servicePhases),
-        dateTimePickerType = userSettingsEntity.dateTimePickerType
+        dateTimePickerType = userSettingsEntity.dateTimePickerType,
+        standardTimesStartWork = userSettingsEntity.standardTimesStartWork
     )
 }

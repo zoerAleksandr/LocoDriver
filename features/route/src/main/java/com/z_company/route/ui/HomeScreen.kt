@@ -1,15 +1,12 @@
 package com.z_company.route.ui
 
 import android.annotation.SuppressLint
-import org.koin.androidx.compose.get
 import android.app.Activity
-import android.content.Intent
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.BasicTooltipBox
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.MutatePriority
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -87,6 +84,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -132,7 +130,6 @@ import com.z_company.route.component.LinearPagerIndicator
 import com.z_company.route.component.PieChart
 import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
 import com.z_company.route.viewmodel.home_view_model.ItemState
-import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
 import com.z_company.route.viewmodel.home_view_model.UpdateEvent
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -140,6 +137,7 @@ import kotlinx.coroutines.launch
 import java.util.Calendar
 import com.z_company.route.component.Chip
 import com.z_company.route.component.PreviewRouteDialog
+import org.koin.compose.koinInject
 
 @SuppressLint(
     "CoroutineCreationDuringComposition",
@@ -202,6 +200,7 @@ fun HomeScreen(
     onAllRouteClick: () -> Unit,
     isNextDeparture: () -> Boolean,
     saveTimeEvent: SharedFlow<String>,
+    onWorkScheduleScreen: () -> Unit
 ) {
     val view = LocalView.current
     val backgroundColor = MaterialTheme.colorScheme.background
@@ -228,7 +227,7 @@ fun HomeScreen(
         skipPartiallyExpanded = true
     )
 
-    val snackbarManager: ISnackbarManager = get()
+    val snackbarManager: ISnackbarManager = koinInject()
 
     LaunchedEffect(Unit) {
         snackbarManager.events
@@ -274,6 +273,8 @@ fun HomeScreen(
         }
     }
 
+    var isShowDialogConfirmRemoveRoute by remember { mutableStateOf(false) }
+
     var isShowNeedSubscribeDialog by remember {
         mutableStateOf(false)
     }
@@ -281,8 +282,6 @@ fun HomeScreen(
     var isShowAlertSubscribeDialog by remember {
         mutableStateOf(false)
     }
-
-    var isShowDialogConfirmRemoveRoute by remember { mutableStateOf(false) }
 
     if (isShowAlertSubscribeDialog) {
         AppBottomSheet(
@@ -388,7 +387,7 @@ fun HomeScreen(
     LaunchedEffect(saveTimeEvent) {
         saveTimeEvent.collectLatest {
             scope.launch {
-                snackbarHostState.showSnackbar("$it")
+                snackbarHostState.showSnackbar(it)
             }
         }
     }
@@ -542,7 +541,8 @@ fun HomeScreen(
                             showMonthSheetVisible = false
 
                         },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = Shapes.medium
                     ) {
                         Text("Применить")
 
@@ -552,7 +552,6 @@ fun HomeScreen(
                 }
 
             }
-
         }
     }
 
@@ -738,11 +737,12 @@ fun HomeScreen(
                     .fillMaxSize()
                     .padding(padding),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
                 item {
                     Column(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 28.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         HorizontalPager(
@@ -792,13 +792,6 @@ fun HomeScreen(
                     }
                 }
 
-                val brushSecondary = Brush.linearGradient(
-                    0.1f to Color(0xFFefede3),
-                    1500.0f to Color(0xFFFDFDFC),
-                    start = Offset.Zero,
-                    end = Offset.Infinite
-                )
-
                 item {
                     currentRoute?.let { route ->
                         var maxHeightBox by remember { mutableIntStateOf(widthScreen / 3) }
@@ -806,6 +799,7 @@ fun HomeScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .padding(top = 28.dp)
                                 .animateItemPlacement()
                         ) {
                             Text(
@@ -1141,20 +1135,6 @@ fun HomeScreen(
                                                                     tint = if (it) green else purple
                                                                 )
                                                             }
-//                                                        AnimatedContent(targetState = onTheWay) {
-//                                                            val text = if (it) {
-//                                                                "Остановка"
-//                                                            } else {
-//                                                                "Отправление"
-//                                                            }
-//                                                            Text(
-//                                                                text = text,
-//                                                                maxLines = 1,
-//                                                                overflow = TextOverflow.Ellipsis,
-//                                                                style = AppTypography.getType().bodyLarge,
-//                                                                color = if (it) purple else green
-//                                                            )
-//                                                        }
                                                         }
                                                     }
                                                 }
@@ -1284,6 +1264,7 @@ fun HomeScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .padding(top = 28.dp)
                             .animateItemPlacement()
                     ) {
                         Row(
@@ -1320,7 +1301,6 @@ fun HomeScreen(
                                         requiredSize = value
                                     }
                                 }
-
                                 if (listRouteState.isNotEmpty()) {
                                     val route = listRouteState.first().route
                                     var background = MaterialTheme.colorScheme.secondary
@@ -1365,6 +1345,15 @@ fun HomeScreen(
                                         isHeavyTrains = listRouteState[0].isHeavyTrains,
                                         isExtendedServicePhaseTrains = listRouteState[0].isExtendedServicePhaseTrains,
                                         isHolidayTimeInRoute = listRouteState[0].isHoliday
+                                    )
+                                } else {
+                                    Text(
+                                        modifier = Modifier
+                                            .animateItemPlacement()
+                                            .fillMaxWidth(),
+                                        textAlign = TextAlign.Center,
+                                        text = "Список пуст\n\nНажмите + чтобы добавить маршрут\nили создайте график работы",
+                                        style = AppTypography.getType().bodyLarge
                                     )
                                 }
                                 if (listRouteState.size > 1) {
@@ -1417,38 +1406,79 @@ fun HomeScreen(
                 }
 
                 item {
+                    var maxHeightBox by remember { mutableIntStateOf(widthScreen / 3) }
+
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .padding(top = 28.dp)
                             .animateItemPlacement()
                     ) {
                         Text(
                             modifier = Modifier
                                 .padding(horizontal = 24.dp),
+                            style = AppTypography.getType().titleMedium,
                             text = "Действия"
                         )
                         LazyRow(
+                            modifier = Modifier
+                                .padding(top = 12.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             item {
                                 Card(
                                     modifier = Modifier
+                                        .onGloballyPositioned { coordinates ->
+                                            val currentHeight = coordinates.size.height
+                                            if (currentHeight > maxHeightBox) {
+                                                maxHeightBox = currentHeight
+                                            }
+                                        }
                                         .padding(start = 12.dp)
-                                        .size((widthScreen / 3).dp),
+                                        .defaultMinSize(
+                                            minWidth = (widthScreen / 3).dp,
+                                            minHeight = (widthScreen / 3).dp
+                                        )
+                                        .clickable {
+                                            onWorkScheduleScreen()
+                                        },
+                                    elevation = CardDefaults.elevatedCardElevation(
+                                        defaultElevation = 2.dp,
+                                    ),
+                                    border = BorderStroke(
+                                        width = 1.dp,
+                                        color = MaterialTheme.colorScheme.secondary
+                                    ),
                                     colors = CardDefaults.cardColors(
-                                        containerColor = Color.LightGray
-                                    )
+                                        containerColor = MaterialTheme.colorScheme.secondary,
+                                        contentColor = MaterialTheme.colorScheme.primary
+                                    ),
                                 ) {
                                     Column(
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(R.drawable.holiday_icon),
-                                            contentDescription = null
+                                        modifier = Modifier
+                                            .defaultMinSize(
+                                                minWidth = (widthScreen / 3).dp,
+                                                minHeight = maxHeightBox.toDp(),
+                                            )
+                                            .padding(
+                                                vertical = 8.dp, horizontal = 16.dp
+                                            ),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+
+                                        ) {
+                                        Image(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .align(Alignment.CenterHorizontally),
+                                            painter = painterResource(R.drawable.icon_calendar),
+                                            contentDescription = null,
+                                            contentScale = ContentScale.Fit
                                         )
                                         Text(
-                                            modifier = Modifier.weight(1f),
-                                            text = "Создать график"
+                                            maxLines = 1,
+                                            style = AppTypography.getType().titleMedium,
+                                            overflow = TextOverflow.Ellipsis,
+                                            text = "График"
                                         )
                                     }
                                 }
@@ -1456,22 +1486,57 @@ fun HomeScreen(
                             item {
                                 Card(
                                     modifier = Modifier
+                                        .onGloballyPositioned { coordinates ->
+                                            val currentHeight = coordinates.size.height
+                                            if (currentHeight > maxHeightBox) {
+                                                maxHeightBox = currentHeight
+                                            }
+                                        }
                                         .padding(end = 12.dp)
-                                        .size((widthScreen / 3).dp),
+                                        .defaultMinSize(
+                                            minWidth = (widthScreen / 3).dp,
+                                            minHeight = (widthScreen / 3).dp
+                                        )
+                                        .clickable {
+
+                                        },
+                                    elevation = CardDefaults.elevatedCardElevation(
+                                        defaultElevation = 2.dp,
+                                    ),
+                                    border = BorderStroke(
+                                        width = 1.dp,
+                                        color = MaterialTheme.colorScheme.secondary
+                                    ),
                                     colors = CardDefaults.cardColors(
-                                        containerColor = Color.LightGray
-                                    )
+                                        containerColor = MaterialTheme.colorScheme.secondary,
+                                        contentColor = MaterialTheme.colorScheme.primary
+                                    ),
                                 ) {
                                     Column(
-                                        modifier = Modifier.fillMaxWidth()
+                                        modifier = Modifier
+                                            .defaultMinSize(
+                                                minWidth = (widthScreen / 3).dp,
+                                                minHeight = maxHeightBox.toDp(),
+                                            )
+                                            .padding(
+                                                vertical = 8.dp, horizontal = 16.dp
+                                            ),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
                                     ) {
-                                        Icon(
-                                            painter = painterResource(R.drawable.palma),
-                                            contentDescription = null
+                                        Image(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .align(Alignment.CenterHorizontally),
+                                            painter = painterResource(R.drawable.icon_vacation),
+                                            contentDescription = null,
+                                            contentScale = ContentScale.Fit
                                         )
                                         Text(
-                                            modifier = Modifier.weight(1f),
-                                            text = "Добавить отвлечение"
+                                            color = MaterialTheme.colorScheme.primary,
+                                            maxLines = 1,
+                                            style = AppTypography.getType().titleMedium,
+                                            overflow = TextOverflow.Ellipsis,
+                                            text = "Отвлечения"
                                         )
                                     }
                                 }
@@ -1482,19 +1547,13 @@ fun HomeScreen(
                 item {
                     Spacer(
                         modifier = Modifier
-                            .height(40.dp)
+                            .height(50.dp)
                             .animateItemPlacement()
                     )
                 }
             }
         }
     }
-}
-
-@Composable
-fun rememberShareManager(): ShareManager {
-    val context = LocalContext.current
-    return remember { ShareManager(context) }
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)

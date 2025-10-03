@@ -44,6 +44,7 @@ import com.z_company.route.viewmodel.PreviewRouteUiState
 import com.z_company.route.viewmodel.RouteActionsHelper
 import com.z_company.route.viewmodel.SalaryCalculationHelper
 import com.z_company.use_case.RuStoreUseCase
+import com.z_company.use_case.SubscriptionHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
@@ -74,15 +75,11 @@ import ru.rustore.sdk.appupdate.model.AppUpdateOptions
 import ru.rustore.sdk.appupdate.model.AppUpdateType
 import ru.rustore.sdk.appupdate.model.InstallStatus
 import ru.rustore.sdk.appupdate.model.UpdateAvailability
-import ru.rustore.sdk.billingclient.RuStoreBillingClient
-import ru.rustore.sdk.billingclient.model.purchase.PurchaseState
-import ru.rustore.sdk.billingclient.utils.pub.checkPurchasesAvailability
 import java.util.Calendar
 import java.util.Calendar.getInstance
 import java.util.TimeZone
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
-import ru.rustore.sdk.core.feature.model.FeatureAvailabilityResult
 
 data class OpenRouteFormEvent(val basicId: String?, val isMakeCopy: Boolean)
 
@@ -94,7 +91,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     private val settingsUseCase: SettingsUseCase by inject()
     private val salarySettingUseCase: SalarySettingUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
-    private val billingClient: RuStoreBillingClient by inject()
+    private val subscriptionHelper: SubscriptionHelper by inject()
     private val ruStoreUseCase: RuStoreUseCase by inject()
     private val ruStoreAppUpdateManager: RuStoreAppUpdateManager by inject()
     private val shareManager: ShareManager by inject()
@@ -251,89 +248,86 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     }
 
     fun checkPurchasesAvailability() {
-        RuStoreBillingClient.checkPurchasesAvailability()
-            .addOnSuccessListener { result ->
-                when (result) {
-                    is FeatureAvailabilityResult.Available -> {
-                        _purchasesEvent.tryEmit(StartPurchasesEvent.PurchasesAvailability(result))
-                    }
-
-                    is FeatureAvailabilityResult.Unavailable -> {
-                        snackbarManager.show(
-                            message = "Ошибка ${result.cause.message}",
-                            showOnceKey = "checkPurchasesAvailability"
-                        )
-                    }
+        viewModelScope.launch(Dispatchers.IO) {
+            when (val checkResult = subscriptionHelper.checkPurchasesAvailabilitySuspend()) {
+                is ResultState.Success -> {
+                    _purchasesEvent.tryEmit(StartPurchasesEvent.PurchasesAvailability(checkResult.data))
                 }
+
+                is ResultState.Error -> {
+                    snackbarManager.show(
+                        message = "Ошибка ${checkResult.entity.message}",
+                        showOnceKey = "checkPurchasesAvailability"
+                    )
+                }
+
+                else -> {}
             }
-            .addOnFailureListener { throwable ->
-                snackbarManager.show(
-                    message = "Ошибка ${throwable.message}",
-                    showOnceKey = "checkPurchasesAvailability"
-                )
-            }
+        }
     }
 
     fun restorePurchases() {
         viewModelScope.launch {
-            withContext(Dispatchers.IO) {
-                try {
-                    val currentTimeInMillis = getInstance().timeInMillis
-                    var maxEndTime = 0L
-                    var job: Job? = null
-                    billingClient.purchases.getPurchases()
-                        .addOnSuccessListener { purchases ->
-                            viewModelScope.launch {
-                                purchases.forEach { purchase ->
-                                    job?.cancel()
-                                    job = this.launch(Dispatchers.IO) {
-                                        if (purchase.purchaseState == PurchaseState.CONFIRMED) {
-                                            ruStoreUseCase.getExpiryTimeMillis(
-                                                purchase.productId,
-                                                purchase.subscriptionToken ?: ""
-                                            ).collect { resultState ->
-                                                if (resultState is ResultState.Success) {
-                                                    if (resultState.data > maxEndTime) {
-                                                        maxEndTime = resultState.data
-                                                    }
-                                                    job?.cancel()
-                                                }
-                                                if (resultState is ResultState.Error) {
-                                                    snackbarManager.show(
-                                                        message = "Ошибка ruStoreUseCase.getExpiryTimeMillis ${resultState.entity.message}",
-                                                        showOnceKey = "restore_purchases_none"
-                                                    )
-                                                    job?.cancel()
-                                                }
-                                            }
-                                        }
-                                    }
-                                    job.join()
-                                }
-                                if (maxEndTime > currentTimeInMillis) {
-                                    sharedPreferenceStorage.setSubscriptionExpiration(maxEndTime)
-                                    snackbarManager.show(
-                                        message = "Покупки восстановлены",
-                                        showOnceKey = "restore_purchases_success"
-                                    )
-                                }
-                                if (maxEndTime < currentTimeInMillis) {
-                                    snackbarManager.show(
-                                        message = "Действующих подписок не найдено",
-                                        showOnceKey = "restore_purchases_none"
-                                    )
-                                }
-                            }
-                        }
-                        .addOnFailureListener {
-                            snackbarManager.show(
-                                message = "Ошибка получения данных от сервера",
-                            )
-                        }
-                } catch (e: Exception) {
-                    snackbarManager.show(message = e.message ?: "Ошибка при восстановлении")
-                }
-            }
+            subscriptionHelper.restorePurchasesSuspend(snackbarManager)
+
+//            withContext(Dispatchers.IO) {
+//                try {
+//                    val currentTimeInMillis = getInstance().timeInMillis
+//                    var maxEndTime = 0L
+//                    var job: Job? = null
+//                    billingClient.purchases.getPurchases()
+//                        .addOnSuccessListener { purchases ->
+//                            viewModelScope.launch {
+//                                purchases.forEach { purchase ->
+//                                    job?.cancel()
+//                                    job = this.launch(Dispatchers.IO) {
+//                                        if (purchase.purchaseState == PurchaseState.CONFIRMED) {
+//                                            ruStoreUseCase.getExpiryTimeMillis(
+//                                                purchase.productId,
+//                                                purchase.subscriptionToken ?: ""
+//                                            ).collect { resultState ->
+//                                                if (resultState is ResultState.Success) {
+//                                                    if (resultState.data > maxEndTime) {
+//                                                        maxEndTime = resultState.data
+//                                                    }
+//                                                    job?.cancel()
+//                                                }
+//                                                if (resultState is ResultState.Error) {
+//                                                    snackbarManager.show(
+//                                                        message = "Ошибка ruStoreUseCase.getExpiryTimeMillis ${resultState.entity.message}",
+//                                                        showOnceKey = "restore_purchases_none"
+//                                                    )
+//                                                    job?.cancel()
+//                                                }
+//                                            }
+//                                        }
+//                                    }
+//                                    job.join()
+//                                }
+//                                if (maxEndTime > currentTimeInMillis) {
+//                                    sharedPreferenceStorage.setSubscriptionExpiration(maxEndTime)
+//                                    snackbarManager.show(
+//                                        message = "Покупки восстановлены",
+//                                        showOnceKey = "restore_purchases_success"
+//                                    )
+//                                }
+//                                if (maxEndTime < currentTimeInMillis) {
+//                                    snackbarManager.show(
+//                                        message = "Действующих подписок не найдено",
+//                                        showOnceKey = "restore_purchases_none"
+//                                    )
+//                                }
+//                            }
+//                        }
+//                        .addOnFailureListener {
+//                            snackbarManager.show(
+//                                message = "Ошибка получения данных от сервера",
+//                            )
+//                        }
+//                } catch (e: Exception) {
+//                    snackbarManager.show(message = e.message ?: "Ошибка при восстановлении")
+//                }
+//            }
         }
     }
 
@@ -344,8 +338,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
             )
         }
         viewModelScope.launch {
-            when (val decision =
-                routeHelper.newRouteClick(basicId = basicId, isMakeCopy = basicId != null)) {
+            when (val decision = routeHelper.newRouteClick(basicId = basicId, isMakeCopy = basicId != null)) {
                 is RouteActionsHelper.NewRouteResult.NeedSubscribeDialog -> {
                     _alertBeforePurchasesEvent.tryEmit(AlertBeforePurchasesEvent.ShowDialogNeedSubscribe)
                     _uiState.update { it.copy(isLoadingStateAddButton = false) }

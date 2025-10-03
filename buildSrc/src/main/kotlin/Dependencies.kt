@@ -106,7 +106,7 @@ object Versions {
     const val parse_sdk_android_ver = "4.3.0"
     const val work_manager_version = "2.9.0"
     const val ozcanalasalvar_ver = "2.0.7"
-    const val rustore_bom_ver = "7.0.0"
+    const val rustore_bom_ver = "2025.08.01"
     const val accompanist_ui_controller_version = "0.32.0"
     const val rebugger_ver = "1.0.0-rc03"
     const val desugaring_ver = "2.0.4"
@@ -114,7 +114,7 @@ object Versions {
     const val mockito_inline_ver= "2.8.9"
     const val mockito_kotlin_ver= "1.5.0"
     const val kotlinx_date_time_ver = "0.6.2"
-    const val ru_ok_tracer_platform_ver = "0.5.1"
+    const val ru_ok_tracer_platform_ver = "1.1.2"
     const val mytracker_sdk_ver = "3.3.2"
     const val retrofit_ver = "2.11.0"
 }
@@ -137,9 +137,8 @@ object Libs {
     const val ru_ok_tracer_tracer_crash_report = "ru.ok.tracer:tracer-crash-report"
     const val ru_ok_tracer_tracer_heap_dumps = "ru.ok.tracer:tracer-heap-dumps"
     const val mytracker_sdk = "com.my.tracker:mytracker-sdk:$mytracker_sdk_ver"
-    const val rustore_sdk_bom = "ru.rustore.sdk:bom:$rustore_bom_ver"
-    const val rustore_sdk_billingclient = "ru.rustore.sdk:billingclient"
-    const val rustore_sdk_appupdate = "ru.rustore.sdk:appupdate"
+//    const val rustore_sdk_bom = "ru.rustore.sdk:bom:$rustore_bom_ver"
+//    const val rustore_sdk_billingclient = "ru.rustore.sdk:billingclient"
 
     const val kotlinx_date_time = "org.jetbrains.kotlinx:kotlinx-datetime:$kotlinx_date_time_ver"
     const val desugaring = "com.android.tools:desugar_jdk_libs:$desugaring_ver"
@@ -213,8 +212,10 @@ object Libs {
     const val ozcanalasalvar_wheelview = "com.github.ozcanalasalvar.picker:wheelview:$ozcanalasalvar_ver"
 
     const val rustore_bom = "ru.rustore.sdk:bom:$rustore_bom_ver"
-    const val rustore_bulling = "ru.rustore.sdk:billingclient"
+    const val rustore_pay = "ru.rustore.sdk:pay"
     const val rustore_review = "ru.rustore.sdk:review"
+    const val rustore_sdk_appupdate = "ru.rustore.sdk:appupdate"
+
     //     Debug
     const val ui_tooling =
         "androidx.compose.ui:ui-tooling:$compose_ui_version"

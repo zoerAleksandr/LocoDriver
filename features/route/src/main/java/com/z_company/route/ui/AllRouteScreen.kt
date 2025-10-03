@@ -52,6 +52,7 @@ import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.get
+import org.koin.compose.koinInject
 import ru.rustore.sdk.core.feature.model.FeatureAvailabilityResult
 import java.util.Calendar
 
@@ -113,7 +114,7 @@ fun AllRouteScreen(
     var routeForRemove by remember { mutableStateOf<Route?>(null) }
     var showContextDialog by remember { mutableStateOf(false) }
 
-    val snackbarManager: ISnackbarManager = get()
+    val snackbarManager: ISnackbarManager = koinInject()
 
     LaunchedEffect(Unit) {
         snackbarManager.events
@@ -185,7 +186,6 @@ fun AllRouteScreen(
                         var selectedMonth by remember { mutableIntStateOf(monthOfYear.month) }
 
                         var selectedYear by remember { mutableIntStateOf(monthOfYear.year) }
-
                         FlowRow(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -194,7 +194,7 @@ fun AllRouteScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             // разобраться !!!
-                            months.forEach { m ->
+                            months.forEachIndexed { index, m ->
                                 val selected = selectedMonth == m
                                 Chip(
                                     selected = selected,

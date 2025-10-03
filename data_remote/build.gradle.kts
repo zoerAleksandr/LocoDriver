@@ -39,6 +39,11 @@ dependencies {
     implementation(project(Libs.project_core_android))
     implementation(project(Libs.project_data_local))
 
+    implementation(platform(Libs.rustore_bom))
+    implementation(Libs.rustore_pay)
+    implementation(Libs.rustore_review)
+    implementation(Libs.rustore_sdk_appupdate)
+
     implementation(platform(Libs.ru_ok_tracer_platform))
     implementation(Libs.ru_ok_tracer_tracer_crash_report)
 

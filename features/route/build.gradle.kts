@@ -41,7 +41,7 @@ android {
 
 dependencies {
     implementation(platform(Libs.rustore_bom))
-    implementation(Libs.rustore_bulling)
+    implementation(Libs.rustore_pay)
     implementation(Libs.rustore_review)
     implementation(Libs.rustore_sdk_appupdate)
     implementation(Libs.gson)

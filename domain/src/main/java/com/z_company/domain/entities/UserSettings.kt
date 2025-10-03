@@ -28,7 +28,8 @@ data class UserSettings(
     val locomotiveSeriesList: List<String> = listOf(),
     val timeZone: Long = 0L,
     var servicePhases: List<ServicePhase> = listOf(),
-    var dateTimePickerType: String = TypeDateTimePicker.WHEEL.text
+    var dateTimePickerType: String = TypeDateTimePicker.WHEEL.text,
+    val standardTimesStartWork: List<Long> = listOf()
 )
 
 

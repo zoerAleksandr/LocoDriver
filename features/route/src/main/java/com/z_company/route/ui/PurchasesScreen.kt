@@ -52,9 +52,8 @@ import com.z_company.route.viewmodel.BillingEvent
 import com.z_company.route.viewmodel.BillingState
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
-import ru.rustore.sdk.billingclient.model.product.Product
-import ru.rustore.sdk.billingclient.utils.resolveForBilling
 import ru.rustore.sdk.core.exception.RuStoreException
+import ru.rustore.sdk.pay.model.Product
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -121,7 +120,7 @@ fun PurchasesScreen(
 
                     is BillingEvent.ShowError -> {
                         if (event.error is RuStoreException) {
-                            event.error.resolveForBilling(context)
+//                            event.error.resolveForBilling(context)
                         }
                         event.error.message?.let {
                             if (it.contains("Range timestamp not valid")) {
@@ -245,7 +244,7 @@ fun PurchasesScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = product.priceLabel.toString(),
+                            text = product.price?.value.toString(),
                             style = subTitleTextStyle
                         )
                         TextButton(

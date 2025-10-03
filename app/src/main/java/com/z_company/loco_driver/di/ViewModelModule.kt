@@ -18,6 +18,7 @@ import com.z_company.route.viewmodel.SearchViewModel
 import com.z_company.route.viewmodel.SettingSalaryViewModel
 import com.z_company.route.viewmodel.TrainFormViewModel
 import com.z_company.route.viewmodel.ViewingImageViewModel
+import com.z_company.route.viewmodel.WorkScheduleViewModel
 import com.z_company.settings.viewmodel.SelectReleaseDaysViewModel
 import com.z_company.settings.viewmodel.SettingsViewModel
 import org.koin.android.ext.koin.androidApplication
@@ -59,4 +60,5 @@ val viewModelModule = module {
     viewModel { SalaryCalculationViewModel() }
     viewModel { SettingSalaryViewModel() }
     viewModel { AllRouteViewModel() }
+    viewModel { WorkScheduleViewModel() }
 }

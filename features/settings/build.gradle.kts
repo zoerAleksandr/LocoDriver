@@ -41,7 +41,7 @@ android {
 
 dependencies {
     implementation(platform(Libs.rustore_bom))
-    implementation(Libs.rustore_bulling)
+    implementation(Libs.rustore_pay)
 
     implementation (Libs.accompanist_swipe_refresh)
     implementation(project(Libs.project_core_android))

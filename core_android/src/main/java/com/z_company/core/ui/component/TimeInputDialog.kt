@@ -64,7 +64,7 @@ fun TimeInputDialog(
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                color = MaterialTheme.colorScheme.surface,
+                color = MaterialTheme.colorScheme.secondary,
                 shape = Shapes.medium
             )
     ) {

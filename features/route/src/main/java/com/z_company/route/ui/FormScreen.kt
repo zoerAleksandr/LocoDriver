@@ -437,7 +437,6 @@ private fun RouteFormScreenContent(
         isShowPicker = showStartDatePicker,
         initDateTime = startCalendar.timeInMillis,
         onDoneClick = { localDateTime ->
-            Log.d("zzz", "in UI $timeZoneText")
             val instant = localDateTime.toInstant(TimeZone.of(timeZoneText))
             val millis = instant.toEpochMilliseconds()
             onTimeStartWorkChanged(millis)

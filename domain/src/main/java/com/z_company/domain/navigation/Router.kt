@@ -33,4 +33,5 @@ interface Router {
     fun showSettingSalary()
     fun showSettingHomeScreen()
     fun showAllRoute()
+    fun showWorkScheduleScreen()
 }

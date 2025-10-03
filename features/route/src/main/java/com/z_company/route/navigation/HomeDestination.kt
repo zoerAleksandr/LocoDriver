@@ -10,6 +10,7 @@ import com.z_company.route.ui.HomeScreen
 import com.z_company.route.viewmodel.home_view_model.HomeViewModel
 import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
 import ru.rustore.sdk.core.feature.model.FeatureAvailabilityResult
+import ru.rustore.sdk.pay.model.PurchaseAvailabilityResult
 
 @Composable
 fun HomeDestination(
@@ -31,12 +32,12 @@ fun HomeDestination(
             when (event) {
                 is StartPurchasesEvent.PurchasesAvailability -> {
                     when (val avail = event.availability) {
-                        is FeatureAvailabilityResult.Available -> {
+                        is PurchaseAvailabilityResult.Available -> {
                             // UI performs navigation
                             router.showPurchasesScreen()
                         }
 
-                        is FeatureAvailabilityResult.Unavailable -> {
+                        is PurchaseAvailabilityResult.Unavailable -> {
                             // ViewModel already showed snackbar; optionally handle here
                         }
                     }
@@ -109,5 +110,7 @@ fun HomeDestination(
         uiState = uiState.uiState,
         saveTimeEvent = homeViewModel.saveTimeEvent,
         isNextDeparture = homeViewModel::isNextDeparture,
+        onWorkScheduleScreen = router::showWorkScheduleScreen
+
     )
 }

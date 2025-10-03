@@ -106,10 +106,16 @@ fun NavGraphBuilder.homeGraph(
         ){
             UpdatePresentationBlockDestination(router = router)
         }
+        composableScreen(
+            route = WorkScheduleScreenRoute.route
+        ){
+            WorkScheduleDestination(router = router)
+        }
         composablePopup(
             route = AllRouteScreenRoute.route
         ){
             AllRouteScreenDestination(router = router)
         }
+
     }
 }

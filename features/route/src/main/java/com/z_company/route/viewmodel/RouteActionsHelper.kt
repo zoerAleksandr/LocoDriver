@@ -13,16 +13,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withTimeoutOrNull
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import com.z_company.route.viewmodel.all_route_view_model.RouteFilter
 import com.z_company.route.viewmodel.home_view_model.ItemState
-import ru.rustore.sdk.billingclient.RuStoreBillingClient
-import ru.rustore.sdk.billingclient.utils.pub.checkPurchasesAvailability
 import java.util.Calendar
 import com.z_company.domain.entities.route.UtilsForEntities.getHomeRest
-import com.z_company.domain.navigation.Router
 import com.z_company.domain.use_cases.SettingsUseCase
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
@@ -33,7 +29,6 @@ class RouteActionsHelper() : KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val back4AppManager: Back4AppManager by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
-    private val billingClient: RuStoreBillingClient by inject()
     private val settingsUseCase: SettingsUseCase by inject()
 
     // Result of newRouteClick decision — ViewModel will react accordingly
@@ -184,30 +179,6 @@ class RouteActionsHelper() : KoinComponent {
                 ok = ok && (end > start && (end - start) > over12hMillis)
             }
             ok
-        }
-    }
-
-    /**
-     * (опц.) Функция проверки наличия покупок — возвращает true/false.
-     * В HomeViewModel оригинально использовали RuStoreBillingClient.checkPurchasesAvailability()
-     * и потом UI-обработку. Здесь — вспомогательная обёртка, если потребуется.
-     */
-    suspend fun checkPurchasesAvailabilitySafe(timeoutMs: Long = 10_000): ResultState<Unit> {
-        return try {
-            // RuStoreBillingClient.checkPurchasesAvailability() возвращает Task<FeatureAvailabilityResult>
-            // мы попытаемся дождаться результата асинхронно (в UI/ViewModel можно обрабатывать иначе).
-
-            val task = RuStoreBillingClient.Companion.checkPurchasesAvailability()
-            // конвертируем в результат: т.к. Task API не suspend, пытаемся дождаться с таймаутом
-            val res = withTimeoutOrNull(timeoutMs) {
-                // просто ожидаем — в проде лучше обёртку в suspendTask
-                // здесь упрощённая заглушка: если удалось — Success(Unit)
-                Unit
-            }
-            if (res == null) ResultState.Error(ErrorEntity(message = "Timeout"))
-            else ResultState.Success(Unit)
-        } catch (t: Throwable) {
-            ResultState.Error(ErrorEntity(t))
         }
     }
 

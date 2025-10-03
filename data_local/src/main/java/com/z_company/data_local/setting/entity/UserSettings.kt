@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.TypeConverters
+import com.z_company.data_local.setting.type_converter.LongListToPrimitiveConverter
 import com.z_company.data_local.setting.type_converter.MonthOfYearToPrimitiveConverter
 import com.z_company.data_local.setting.type_converter.NightTimeToPrimitiveConverter
 import com.z_company.data_local.setting.type_converter.ServicePhaseToPrimitiveConverter
@@ -15,7 +16,8 @@ import com.z_company.domain.entities.route.LocoType
     NightTimeToPrimitiveConverter::class,
     MonthOfYearToPrimitiveConverter::class,
     StringListToPrimitiveConverter::class,
-    ServicePhaseToPrimitiveConverter::class
+    ServicePhaseToPrimitiveConverter::class,
+    LongListToPrimitiveConverter::class
 )
 internal data class UserSettings(
     @PrimaryKey
@@ -50,7 +52,9 @@ internal data class UserSettings(
     @ColumnInfo(defaultValue = "[]")
     val servicePhases: List<ServicePhase> = listOf(),
     @ColumnInfo(defaultValue = "Барабан")
-    var dateTimePickerType: String
+    var dateTimePickerType: String,
+    @ColumnInfo(defaultValue = "[28_800_000, 72_000_000]")
+    val standardTimesStartWork: List<Long>
 )
 
 data class ServicePhase(

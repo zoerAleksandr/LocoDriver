@@ -26,8 +26,6 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import ru.rustore.sdk.billingclient.RuStoreBillingClient
-import ru.rustore.sdk.billingclient.model.purchase.PurchaseState
 import java.util.Calendar
 import java.util.Calendar.MONTH
 import java.util.Calendar.YEAR
@@ -41,7 +39,6 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private val settingsUseCase: SettingsUseCase by inject()
     private val remoteRouteUseCase: RemoteRouteUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
-    private val billingClient: RuStoreBillingClient by inject()
     private val ruStoreUseCase: RuStoreUseCase by inject()
 
     private var saveCalendarInLocalJob: Job? = null
@@ -59,7 +56,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
 
     init {
         viewModelScope.launch {
-            syncRuStoreSubscription()
+//            syncRuStoreSubscription()
             loadCalendar()
             delay(1000L)
             getSession()
@@ -179,41 +176,41 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     }
 
     // при вызове метода происходит утечка памяти на Pixel API 34 Android 14
-    private fun syncRuStoreSubscription() {
-        var job: Job? = null
-        try {
-            billingClient.purchases.getPurchases()
-                .addOnSuccessListener { purchases ->
-                    viewModelScope.launch {
-                        purchases.forEach { purchase ->
-                            job?.cancel()
-                            job = this.launch(Dispatchers.IO) {
-                                if (purchase.purchaseState == PurchaseState.CONFIRMED) {
-                                    ruStoreUseCase.getExpiryTimeMillis(
-                                        productId = purchase.productId,
-                                        subscriptionToken = purchase.subscriptionToken ?: ""
-                                    ).collect { resultState ->
-                                        if (resultState is ResultState.Success) {
-                                            sharedPreferenceStorage.setSubscriptionExpiration(
-                                                resultState.data
-                                            )
-                                            job?.cancel()
-                                        }
-                                    }
-                                }
-                            }
-                            job.join()
-                        }
-                    }
-
-                }
-                .addOnFailureListener {
-                    Log.w(TAG, "${it.message}")
-                }
-        } catch (e: Exception) {
-            Log.w(TAG, "${e.message}")
-        }
-    }
+//    private fun syncRuStoreSubscription() {
+//        var job: Job? = null
+//        try {
+//            billingClient.purchases.getPurchases()
+//                .addOnSuccessListener { purchases ->
+//                    viewModelScope.launch {
+//                        purchases.forEach { purchase ->
+//                            job?.cancel()
+//                            job = this.launch(Dispatchers.IO) {
+//                                if (purchase.purchaseState == PurchaseState.CONFIRMED) {
+//                                    ruStoreUseCase.getExpiryTimeMillis(
+//                                        productId = purchase.productId,
+//                                        subscriptionToken = purchase.subscriptionToken ?: ""
+//                                    ).collect { resultState ->
+//                                        if (resultState is ResultState.Success) {
+//                                            sharedPreferenceStorage.setSubscriptionExpiration(
+//                                                resultState.data
+//                                            )
+//                                            job?.cancel()
+//                                        }
+//                                    }
+//                                }
+//                            }
+//                            job.join()
+//                        }
+//                    }
+//
+//                }
+//                .addOnFailureListener {
+//                    Log.w(TAG, "${it.message}")
+//                }
+//        } catch (e: Exception) {
+//            Log.w(TAG, "${e.message}")
+//        }
+//    }
 
     private suspend fun getSession() {
         val isRegisteredJob = viewModelScope.launch {

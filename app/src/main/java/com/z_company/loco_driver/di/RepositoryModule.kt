@@ -26,6 +26,7 @@ import com.z_company.repository.remote_rest.RemoteRestClient
 import com.z_company.repository.remote_rest.RemoteRestRouteRepository
 import com.z_company.repository.ru_store_api.RuStoreRepositoryKtor
 import com.z_company.route.viewmodel.RouteActionsHelper
+import com.z_company.use_case.SubscriptionHelper
 import org.koin.android.ext.koin.androidApplication
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
@@ -65,4 +66,5 @@ val repositoryModule = module {
     single<RemoteRestApi> { RemoteRestClient.routeApi }
     single<RemoteRestRouteRepository> { RemoteRestRouteRepository(api = get()) }
     single { RouteActionsHelper() }
+    single { SubscriptionHelper() }
 }
