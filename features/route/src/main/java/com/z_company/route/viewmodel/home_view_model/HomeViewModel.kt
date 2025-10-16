@@ -13,6 +13,7 @@ import androidx.lifecycle.viewModelScope
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.ui.snackbar.ISnackbarManager
+import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.SalarySetting
@@ -21,6 +22,7 @@ import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHours
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
+import com.z_company.domain.entities.route.UtilsForEntities.findCurrentRoute
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getOnePersonOperationTime
 import com.z_company.domain.entities.route.UtilsForEntities.getOnePersonOperationTimePassengerTrain
@@ -31,6 +33,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeWithoutHo
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.isCurrentRoute
 import com.z_company.domain.entities.route.UtilsForEntities.isExtendedServicePhaseTrains
+import com.z_company.domain.entities.route.UtilsForEntities.isFuture
 import com.z_company.domain.entities.route.UtilsForEntities.isHeavyTrains
 import com.z_company.domain.entities.route.UtilsForEntities.isHolidayTimeInRoute
 import com.z_company.domain.repositories.SharedPreferencesRepositories
@@ -338,7 +341,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
             )
         }
         viewModelScope.launch {
-            when (val decision = routeHelper.newRouteClick(basicId = basicId, isMakeCopy = basicId != null)) {
+            when (val decision =
+                routeHelper.newRouteClick(basicId = basicId, isMakeCopy = basicId != null)) {
                 is RouteActionsHelper.NewRouteResult.NeedSubscribeDialog -> {
                     _alertBeforePurchasesEvent.tryEmit(AlertBeforePurchasesEvent.ShowDialogNeedSubscribe)
                     _uiState.update { it.copy(isLoadingStateAddButton = false) }
@@ -1097,14 +1101,28 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                                 }
                             }
 
-                            currentRoute = null
-                            routeList.forEach { route ->
-                                if (route.isCurrentRoute(currentTimeInMillis)) {
-                                    currentRoute = route
-                                    route.basicData.timeStartWork?.let { startWork ->
-                                        workTimer(startWork)
-                                    }
-                                }
+//                            currentRoute = null
+//
+//                            routeList
+//                                .filter { route ->
+//                                    !route.isFuture(userSettings.timeZone)
+//                                }.forEach { route ->
+//                                if (route.isCurrentRoute(currentTimeInMillis)) {
+//                                    currentRoute = route
+//                                    route.basicData.timeStartWork?.let { startWork ->
+//                                        workTimer(startWork)
+//                                    }
+//                                    return@forEach
+//                                }
+//                            }
+
+                            currentRoute = routeList.findCurrentRoute(
+                                currentTimeInMillis = currentTimeInMillis,
+                                userSettings = userSettings
+                            )
+
+                            currentRoute?.let {
+                                workTimer(it.basicData.timeStartWork!!)
                             }
 
                             withContext(Dispatchers.Main) {

@@ -10,7 +10,7 @@ import com.z_company.core.ResultState
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
-import ru.ok.tracer.crash.report.TracerCrashReport
+//import ru.ok.tracer.crash.report.TracerCrashReport
 
 object ParseHelper {
     /**
@@ -38,7 +38,7 @@ object ParseHelper {
             if (e != null && e.code != ParseException.OBJECT_NOT_FOUND) {
                 // An error occurred that is not the object not being found
                 trySend(ResultState.Error(ErrorEntity(e)))
-                TracerCrashReport.log("Error get object fun ParseHelper.saveOrUpdateObjectAsync 43 $e")
+//                TracerCrashReport.log("Error get object fun ParseHelper.saveOrUpdateObjectAsync 43 $e")
                 return@getFirstInBackground
             }
             if (e?.code == ParseException.INVALID_SESSION_TOKEN){
@@ -51,7 +51,7 @@ object ParseHelper {
                 Log.d("ZZZ", "parseObject == null")
                 parseObject = ParseObject(className)
 //                parseObject.put(uniqueKey, uniqueValue!!)
-                TracerCrashReport.log("Info fun ParseHelper.saveOrUpdateObjectAsync 50 Create New object")
+//                TracerCrashReport.log("Info fun ParseHelper.saveOrUpdateObjectAsync 50 Create New object")
             }
 
             // Update or add new fields
@@ -64,11 +64,11 @@ object ParseHelper {
                 if (e2 == null) {
                     Log.d("ZZZ", "saveInBackground ${parseObject.objectId}")
                     // Successfully saved or updated
-                    TracerCrashReport.log("Info fun ParseHelper.saveOrUpdateObjectAsync 63 save Successfully ${parseObject.objectId}")
+//                    TracerCrashReport.log("Info fun ParseHelper.saveOrUpdateObjectAsync 63 save Successfully ${parseObject.objectId}")
                     trySend(ResultState.Success(parseObject.objectId))
                 } else {
                     // Save failed
-                    TracerCrashReport.log("Error save object fun ParseHelper.saveOrUpdateObjectAsync 66 $e")
+//                    TracerCrashReport.log("Error save object fun ParseHelper.saveOrUpdateObjectAsync 66 $e")
                     trySend(ResultState.Error(ErrorEntity(e)))
                 }
             })

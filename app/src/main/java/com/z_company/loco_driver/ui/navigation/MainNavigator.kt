@@ -26,6 +26,6 @@ fun MainNavigation(
     ) {
         loginGraph(router = appState.router, isShowFirstPresentation = isShowFirstPresentation)
         homeGraph(router = appState.router, isShowUpdatePresentation = isShowUpdatePresentation)
-        settingsGraph(appState.router)
+//        settingsGraph(appState.router)
     }
 }

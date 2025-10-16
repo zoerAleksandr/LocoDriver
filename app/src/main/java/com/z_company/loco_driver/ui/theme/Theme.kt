@@ -32,6 +32,7 @@ private val LightColorScheme = lightColorScheme(
     secondaryContainer = LightSecondaryContainer,
     secondary = LightSecondary,
     tertiary = Blue,
+    error = DarkError,
     surface = LightSurface,
     surfaceVariant = LightSurfaceVariant,
     surfaceTint = LightSurfaceTint,
@@ -39,7 +40,9 @@ private val LightColorScheme = lightColorScheme(
     background = LightBackground,
     surfaceBright = SurfaceBrightLight,
     surfaceDim = SurfaceDimLight,
-    onError = OnError
+    onError = OnError,
+    surfaceContainerLow = Green,
+    surfaceContainerHigh = Purple
 )
 
 @Composable

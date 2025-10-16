@@ -392,7 +392,6 @@ fun WorkScheduleScreen(
             }
         }
     }
-
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         modifier = modifier.fillMaxSize()
@@ -588,7 +587,8 @@ fun WorkScheduleScreen(
                     exit = fadeOut(animationSpec = tween(durationMillis = 100))
                 ) {
                     FlowRow(
-                        modifier = Modifier.animateItemPlacement(),
+                        modifier = Modifier
+                            .animateItemPlacement(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {

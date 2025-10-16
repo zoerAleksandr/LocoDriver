@@ -11,6 +11,8 @@ import androidx.compose.foundation.MutatePriority
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,7 +26,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -34,16 +35,13 @@ import androidx.compose.foundation.rememberBasicTooltipState
 import androidx.compose.material.DismissValue
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material3.Card
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.rememberDismissState
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -52,10 +50,6 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemColors
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -81,19 +75,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Color.Companion.Red
+import androidx.compose.ui.graphics.Color.Companion.Yellow
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
@@ -106,7 +100,6 @@ import com.z_company.core.ui.component.AsyncDataValue
 import com.z_company.core.ui.component.toDp
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.ui.theme.Shapes
-import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.MonthFullText.getMonthFullText
@@ -117,9 +110,9 @@ import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Train
+import com.z_company.domain.entities.route.UtilsForEntities.isFuture
 import com.z_company.domain.entities.route.UtilsForEntities.isTransition
 import com.z_company.domain.util.minus
-import com.z_company.repository.ShareManager
 import com.z_company.route.R
 import com.z_company.route.component.AnimatedCounter
 import com.z_company.route.component.AnimationDialog
@@ -200,20 +193,21 @@ fun HomeScreen(
     onAllRouteClick: () -> Unit,
     isNextDeparture: () -> Boolean,
     saveTimeEvent: SharedFlow<String>,
-    onWorkScheduleScreen: () -> Unit
+    onWorkScheduleScreen: () -> Unit,
+    onClickVacation: () -> Unit
 ) {
     val view = LocalView.current
     val backgroundColor = MaterialTheme.colorScheme.background
+    val primaryColor = MaterialTheme.colorScheme.primary
 
     val redOrange = Color(0xFFf1642e)
-    val purple = Color(0xFF504e76)
-    val green = Color(0xFFa3b565)
 
     // для изменения color status bar после изменения в PresentationBlock
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
             window.statusBarColor = backgroundColor.toArgb()
+            window.navigationBarColor = primaryColor.toArgb()
         }
     }
 
@@ -226,6 +220,8 @@ fun HomeScreen(
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
     )
+
+    val interactionSource = remember { MutableInteractionSource() }
 
     val snackbarManager: ISnackbarManager = koinInject()
 
@@ -295,11 +291,13 @@ fun HomeScreen(
                 ) {
                     Text(
                         text = "${stringResource(id = R.string.test_period)}\n",
-                        style = AppTypography.getType().titleLarge.copy(color = MaterialTheme.colorScheme.primary)
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
                     )
                     Text(
                         text = "${stringResource(id = R.string.available_for_free_route)}\n",
-                        style = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.primary)
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             },
@@ -326,10 +324,12 @@ fun HomeScreen(
                 ) {
                     Text(
                         text = "${stringResource(id = R.string.dialog_title_need_purchases)}\n",
-                        style = AppTypography.getType().titleLarge.copy(color = MaterialTheme.colorScheme.primary)
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.primary
                     )
                     Text(
                         text = stringResource(id = R.string.available_for_free_route),
+                        style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
@@ -412,22 +412,26 @@ fun HomeScreen(
                 Text(
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Start, text = "ДОБРО ПОЖАЛОВАТЬ!\n",
-                    style = AppTypography.getType().titleLarge.copy(color = MaterialTheme.colorScheme.primary)
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary
                 )
                 Text(
                     modifier = Modifier.fillMaxWidth(),
                     text = "Подтвердите вашу электронную почту.\n",
-                    style = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.primary)
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary
                 )
                 Text(
                     modifier = Modifier.fillMaxWidth(),
                     text = "На ваш адрес электронной почты было отправлено письмо со ссылкой для подтверждения. Пожалуйста, проверьте вашу почту и нажмите на ссылку для завершения регистрации.\n\n",
-                    style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.primary
                 )
                 Text(
                     modifier = Modifier.fillMaxWidth(),
                     text = "Если вы не получили письмо, проверьте папку \"Спам\" или повторите попытку позже.\n",
-                    style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.primary
                 )
 
                 Button(
@@ -437,7 +441,7 @@ fun HomeScreen(
                 ) {
                     Text(
                         text = "Понял",
-                        style = AppTypography.getType().titleMedium
+                        style = MaterialTheme.typography.bodySmall,
                     )
                 }
             }
@@ -483,7 +487,7 @@ fun HomeScreen(
             ModalBottomSheet(
                 onDismissRequest = { showMonthSheetVisible = false },
                 sheetState = monthSheetState,
-                containerColor = MaterialTheme.colorScheme.background,
+                containerColor = MaterialTheme.colorScheme.secondary,
                 tonalElevation = 8.dp
             ) {
                 Column(
@@ -493,7 +497,8 @@ fun HomeScreen(
                 ) {
                     Text(
                         text = "Выберите месяц и год",
-                        style = AppTypography.getType().titleMedium,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
 
@@ -542,9 +547,16 @@ fun HomeScreen(
 
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = Shapes.medium
+                        shape = Shapes.medium,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                        )
                     ) {
-                        Text("Применить")
+                        Text(
+                            text = "Применить",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
 
                     }
                     Spacer(modifier = Modifier.height(24.dp))
@@ -572,8 +584,8 @@ fun HomeScreen(
     }
 
     val brushMain = Brush.linearGradient(
-        0.1f to MaterialTheme.colorScheme.surfaceVariant,
-        1500.0f to MaterialTheme.colorScheme.surface,
+        0.1f to MaterialTheme.colorScheme.primary,
+        1500.0f to Color(0xFF6B6A67),
         start = Offset.Zero,
         end = Offset.Infinite
     )
@@ -589,23 +601,33 @@ fun HomeScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(12.dp),
+                            .padding(top = 12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.Bottom
                     ) {
                         TextButton(
-                            shape = Shapes.medium,
+                            modifier = Modifier
+                                .weight(1f),
                             onClick = {
                                 showMonthSheetVisible = true
                             }) {
-                            val text = currentMonthOfYear?.month?.let {
+                            val textMonth = currentMonthOfYear?.month?.let {
                                 getMonthFullText(it)
                             } ?: "загрузка"
-                            Text(
-                                text = "$text ${currentMonthOfYear?.year}",
-                                style = AppTypography.getType().headlineSmall,
-                                color = MaterialTheme.colorScheme.onBackground
-                            )
+                            FlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+                                Text(
+                                    text = "$textMonth ",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    overflow = TextOverflow.Visible,
+                                    maxLines = 2
+                                )
+                                Text(
+                                    text = "${currentMonthOfYear?.year}",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                         IconButton(
                             modifier = Modifier
@@ -625,108 +647,129 @@ fun HomeScreen(
                 }
             )
         },
-        floatingActionButton = {
-            FloatingActionButton(
-                containerColor = green,
-                onClick = onNewRouteClick
-            ) {
-                Icon(
-                    tint = MaterialTheme.colorScheme.background,
-                    imageVector = Icons.Rounded.Add,
-                    contentDescription = null
-                )
-            }
-        },
+
         bottomBar = {
-            val colors: NavigationBarItemColors = NavigationBarItemDefaults.colors(
-                unselectedTextColor = MaterialTheme.colorScheme.background,
-                selectedTextColor = MaterialTheme.colorScheme.background,
-                unselectedIconColor = MaterialTheme.colorScheme.background,
-                selectedIconColor = MaterialTheme.colorScheme.primary,
-                indicatorColor = MaterialTheme.colorScheme.background
-            )
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.primary
-            ) {
-                NavigationBarItem(
-                    colors = colors,
-                    selected = true,
-                    icon = {
-                        Icon(
-                            modifier = Modifier.size(24.dp),
-                            imageVector = Icons.Outlined.Home, contentDescription = null
-                        )
-                    },
-                    label = {
-                        Text(
-                            text = "Главная",
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    },
-                    onClick = {}
-                )
-
-                NavigationBarItem(
-                    colors = colors,
-                    selected = false,
-                    icon = {
-                        Icon(
-                            modifier = Modifier.size(24.dp),
-                            painter = painterResource(R.drawable.rub),
-                            contentDescription = null
-                        )
-                    },
-                    label = {
-                        Text(
-                            text = "ЗП",
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    },
-                    onClick = {}
-                )
-
-                NavigationBarItem(
-                    colors = colors,
-                    selected = false,
-                    icon = {
-                        Icon(
-                            modifier = Modifier.size(24.dp),
-                            imageVector = Icons.Outlined.Settings,
-                            contentDescription = null
-                        )
-                    },
-                    label = {
-                        Text(
-                            text = "Настройки",
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    },
-                    onClick = onSettingsClick
-                )
-
-                NavigationBarItem(
-                    colors = colors,
-                    selected = false,
-                    icon = {
-                        Icon(
-                            modifier = Modifier.size(24.dp),
-                            imageVector = Icons.Outlined.Person,
-                            contentDescription = null
-                        )
-                    },
-                    label = {
-                        Text(
-                            text = "Профиль",
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    },
-                    onClick = {}
-                )
-            }
+//            BottomNavigationBar()
+//            val colors: NavigationBarItemColors = NavigationBarItemDefaults.colors(
+//                unselectedTextColor = MaterialTheme.colorScheme.primary,
+//                selectedTextColor = MaterialTheme.colorScheme.primary,
+//                unselectedIconColor = MaterialTheme.colorScheme.primary,
+//                selectedIconColor = MaterialTheme.colorScheme.primary,
+//                indicatorColor = MaterialTheme.colorScheme.secondary
+//            )
+//            NavigationBar(
+//                containerColor = MaterialTheme.colorScheme.surface
+//            ) {
+//                NavigationBarItem(
+//                    modifier = Modifier.padding(start = 8.dp),
+//                    colors = colors,
+//                    selected = true,
+//                    icon = {
+//                        Icon(
+//                            modifier = Modifier.size(32.dp),
+//                            imageVector = Icons.Outlined.Home, contentDescription = null
+//                        )
+//                    },
+//                    label = {
+//                        Text(
+//                            text = "Главная",
+//                            maxLines = 1,
+//                            overflow = TextOverflow.Ellipsis
+//                        )
+//                    },
+//                    onClick = {}
+//                )
+//
+//                NavigationBarItem(
+//                    colors = colors,
+//                    selected = false,
+//                    icon = {
+//                        Icon(
+//                            modifier = Modifier.size(32.dp),
+//                            painter = painterResource(R.drawable.rub),
+//                            contentDescription = null
+//                        )
+//                    },
+//                    label = {
+//                        Text(
+//                            text = "Зарплата",
+//                            maxLines = 1,
+//                            overflow = TextOverflow.Ellipsis
+//                        )
+//                    },
+//                    onClick = {
+//                        currentMonthOfYear?.let {
+//                            onMoreInfoClick(it.id)
+//                        }
+//                    }
+//                )
+//
+//                NavigationBarItem(
+//                    colors = NavigationBarItemDefaults.colors(
+//                        unselectedIconColor = MaterialTheme.colorScheme.primary,
+//                        selectedIconColor = MaterialTheme.colorScheme.primary,
+//                        indicatorColor = MaterialTheme.colorScheme.surface
+//                    ),
+//                    selected = false,
+//                    icon = {
+//                        Icon(
+//                            modifier = Modifier.size(32.dp),
+//                            tint = MaterialTheme.colorScheme.primary,
+//                            painter = painterResource(R.drawable.add_circle_24px),
+//                            contentDescription = null
+//                        )
+//                    },
+//                    label = {
+//
+//                    },
+//                    onClick = {
+//                        onNewRouteClick()
+//                    }
+//                )
+//
+//
+//
+//                NavigationBarItem(
+//                    colors = colors,
+//                    selected = false,
+//                    icon = {
+//                        Icon(
+//                            modifier = Modifier.size(32.dp),
+//                            imageVector = Icons.Outlined.Settings,
+//                            contentDescription = null
+//                        )
+//                    },
+//                    label = {
+//                        Text(
+//                            text = "Настройки",
+//                            maxLines = 1,
+//                            overflow = TextOverflow.Ellipsis
+//                        )
+//                    },
+//                    onClick = onSettingsClick
+//                )
+//
+//                NavigationBarItem(
+//                    modifier = Modifier.padding(end = 8.dp),
+//                    colors = colors,
+//                    selected = false,
+//                    icon = {
+//                        Icon(
+//                            modifier = Modifier.size(32.dp),
+//                            imageVector = Icons.Outlined.Person,
+//                            contentDescription = null
+//                        )
+//                    },
+//                    label = {
+//                        Text(
+//                            text = "Профиль",
+//                            maxLines = 1,
+//                            overflow = TextOverflow.Ellipsis
+//                        )
+//                    },
+//                    onClick = {}
+//                )
+//            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
@@ -737,13 +780,15 @@ fun HomeScreen(
                     .fillMaxSize()
                     .padding(padding),
                 horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(32.dp)
             ) {
                 item {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 28.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                            .padding(top = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Top
                     ) {
                         HorizontalPager(
                             modifier = Modifier.animateItemPlacement(),
@@ -792,19 +837,18 @@ fun HomeScreen(
                     }
                 }
 
-                item {
-                    currentRoute?.let { route ->
+                currentRoute?.let { route ->
+                    item {
                         var maxHeightBox by remember { mutableIntStateOf(widthScreen / 3) }
 
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 28.dp)
                                 .animateItemPlacement()
                         ) {
                             Text(
                                 modifier = Modifier
-                                    .padding(horizontal = 24.dp)
+                                    .padding(horizontal = 16.dp)
                                     .pointerInput(Unit) {
                                         detectTapGestures(
                                             onPress = {
@@ -813,11 +857,14 @@ fun HomeScreen(
                                         )
                                     },
                                 text = "Текущий маршрут",
-                                style = AppTypography.getType().titleMedium
+                                maxLines = 2,
+                                overflow = TextOverflow.Visible,
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary
                             )
                             LazyRow(
-                                modifier = Modifier.padding(top = 6.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                modifier = Modifier.padding(top = 12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 item {
                                     Card(
@@ -839,10 +886,6 @@ fun HomeScreen(
                                         elevation = CardDefaults.elevatedCardElevation(
                                             defaultElevation = 2.dp,
                                         ),
-                                        border = BorderStroke(
-                                            width = 1.dp,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
                                     ) {
                                         Box(
                                             modifier = Modifier
@@ -858,21 +901,19 @@ fun HomeScreen(
                                                         minWidth = (widthScreen / 3).dp,
                                                         minHeight = maxHeightBox.toDp(),
                                                     )
-                                                    .padding(vertical = 8.dp, horizontal = 16.dp),
+                                                    .padding(12.dp),
                                                 verticalArrangement = Arrangement.SpaceBetween
                                             ) {
                                                 AnimatedCounter(
                                                     count = currentRouteWorkTime,
-                                                    style = AppTypography.getType().headlineMedium.copy(
-                                                        fontWeight = FontWeight.Medium,
-                                                        color = MaterialTheme.colorScheme.background
-                                                    )
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    color = MaterialTheme.colorScheme.secondary
                                                 )
                                                 Text(
                                                     text = "На работе",
-                                                    color = MaterialTheme.colorScheme.background,
+                                                    color = MaterialTheme.colorScheme.secondary,
                                                     maxLines = 1,
-                                                    style = AppTypography.getType().titleMedium,
+                                                    style = MaterialTheme.typography.bodySmall,
                                                     overflow = TextOverflow.Ellipsis
                                                 )
                                             }
@@ -894,10 +935,6 @@ fun HomeScreen(
                                             ),
                                         elevation = CardDefaults.elevatedCardElevation(
                                             defaultElevation = 2.dp,
-                                        ),
-                                        border = BorderStroke(
-                                            width = 1.dp,
-                                            color = MaterialTheme.colorScheme.secondary
                                         )
                                     ) {
                                         Box(
@@ -914,15 +951,15 @@ fun HomeScreen(
                                                         minWidth = (widthScreen / 3).dp,
                                                         minHeight = maxHeightBox.toDp(),
                                                     )
-                                                    .padding(vertical = 8.dp, horizontal = 16.dp),
+                                                    .padding(12.dp),
                                                 verticalArrangement = Arrangement.SpaceBetween,
                                             ) {
                                                 if (route.locomotives.isEmpty()) {
                                                     IconButton(
                                                         modifier = Modifier.align(Alignment.End),
                                                         colors = IconButtonDefaults.iconButtonColors(
-                                                            containerColor = green,
-                                                            contentColor = MaterialTheme.colorScheme.background
+                                                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                                            contentColor = MaterialTheme.colorScheme.secondary
                                                         ),
                                                         onClick = {
                                                             onNewLocoClick(route.basicData.id)
@@ -956,7 +993,7 @@ fun HomeScreen(
                                                                 text = "${loco.series ?: ""} ${loco.number ?: ""}",
                                                                 color = MaterialTheme.colorScheme.primary,
                                                                 maxLines = 1,
-                                                                style = AppTypography.getType().titleLarge,
+                                                                style = MaterialTheme.typography.bodyMedium,
                                                                 overflow = TextOverflow.Ellipsis
                                                             )
                                                         }
@@ -965,7 +1002,7 @@ fun HomeScreen(
                                                                 text = "... и ещё ${route.locomotives.size - 1}",
                                                                 color = MaterialTheme.colorScheme.primary,
                                                                 maxLines = 1,
-                                                                style = AppTypography.getType().bodyLarge,
+                                                                style = MaterialTheme.typography.bodyMedium,
                                                                 overflow = TextOverflow.Ellipsis
                                                             )
                                                         }
@@ -975,7 +1012,7 @@ fun HomeScreen(
                                                     text = "Локомотив",
                                                     color = MaterialTheme.colorScheme.primary,
                                                     maxLines = 1,
-                                                    style = AppTypography.getType().titleMedium,
+                                                    style = MaterialTheme.typography.bodySmall,
                                                     overflow = TextOverflow.Ellipsis
                                                 )
                                             }
@@ -997,10 +1034,6 @@ fun HomeScreen(
                                             ),
                                         elevation = CardDefaults.elevatedCardElevation(
                                             defaultElevation = 2.dp,
-                                        ),
-                                        border = BorderStroke(
-                                            width = 1.dp,
-                                            color = MaterialTheme.colorScheme.secondary
                                         )
                                     ) {
                                         Box(
@@ -1017,15 +1050,15 @@ fun HomeScreen(
                                                         minWidth = (widthScreen / 3).dp,
                                                         minHeight = maxHeightBox.toDp(),
                                                     )
-                                                    .padding(vertical = 8.dp, horizontal = 16.dp),
+                                                    .padding(12.dp),
                                                 verticalArrangement = Arrangement.SpaceBetween,
                                             ) {
                                                 if (route.trains.isEmpty()) {
                                                     IconButton(
                                                         modifier = Modifier.align(Alignment.End),
                                                         colors = IconButtonDefaults.iconButtonColors(
-                                                            containerColor = green,
-                                                            contentColor = MaterialTheme.colorScheme.background
+                                                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                                            contentColor = MaterialTheme.colorScheme.secondary
                                                         ),
                                                         onClick = {
                                                             onNewTrainClick(route.basicData.id)
@@ -1060,7 +1093,7 @@ fun HomeScreen(
                                                                     text = "№ $it",
                                                                     color = MaterialTheme.colorScheme.primary,
                                                                     maxLines = 1,
-                                                                    style = AppTypography.getType().titleLarge,
+                                                                    style = MaterialTheme.typography.bodyMedium,
                                                                     overflow = TextOverflow.Ellipsis
                                                                 )
                                                             }
@@ -1084,7 +1117,7 @@ fun HomeScreen(
                                                                     text = trainInfoText,
                                                                     color = MaterialTheme.colorScheme.primary,
                                                                     maxLines = 1,
-                                                                    style = AppTypography.getType().bodyLarge,
+                                                                    style = MaterialTheme.typography.bodyMedium,
                                                                     overflow = TextOverflow.Ellipsis
                                                                 )
                                                             }
@@ -1094,7 +1127,7 @@ fun HomeScreen(
                                                                 text = "... и ещё ${route.trains.size - 1}",
                                                                 color = MaterialTheme.colorScheme.primary,
                                                                 maxLines = 1,
-                                                                style = AppTypography.getType().bodyLarge,
+                                                                style = MaterialTheme.typography.bodyMedium,
                                                                 overflow = TextOverflow.Ellipsis
                                                             )
                                                         }
@@ -1109,7 +1142,7 @@ fun HomeScreen(
                                                         text = "Поезд",
                                                         color = MaterialTheme.colorScheme.primary,
                                                         maxLines = 1,
-                                                        style = AppTypography.getType().titleMedium,
+                                                        style = MaterialTheme.typography.bodySmall,
                                                         overflow = TextOverflow.Ellipsis
                                                     )
                                                     if (route.trains.isNotEmpty()) {
@@ -1120,7 +1153,7 @@ fun HomeScreen(
                                                             },
                                                             border = BorderStroke(
                                                                 width = 1.dp,
-                                                                color = if (nextIsDeparture) green else purple
+                                                                color = if (nextIsDeparture) MaterialTheme.colorScheme.surfaceContainerLow else MaterialTheme.colorScheme.surfaceContainerHigh
                                                             ),
                                                         ) {
                                                             AnimatedContent(targetState = nextIsDeparture) {
@@ -1132,7 +1165,7 @@ fun HomeScreen(
                                                                 Icon(
                                                                     painter = painterResource(icon),
                                                                     contentDescription = null,
-                                                                    tint = if (it) green else purple
+                                                                    tint = if (it) MaterialTheme.colorScheme.surfaceContainerLow else MaterialTheme.colorScheme.surfaceContainerHigh
                                                                 )
                                                             }
                                                         }
@@ -1158,10 +1191,6 @@ fun HomeScreen(
                                             .padding(end = 12.dp),
                                         elevation = CardDefaults.elevatedCardElevation(
                                             defaultElevation = 2.dp,
-                                        ),
-                                        border = BorderStroke(
-                                            width = 1.dp,
-                                            color = MaterialTheme.colorScheme.secondary
                                         )
                                     ) {
                                         Box(
@@ -1178,15 +1207,15 @@ fun HomeScreen(
                                                         minWidth = (widthScreen / 3).dp,
                                                         minHeight = maxHeightBox.toDp(),
                                                     )
-                                                    .padding(vertical = 8.dp, horizontal = 16.dp),
+                                                    .padding(12.dp),
                                                 verticalArrangement = Arrangement.SpaceBetween,
                                             ) {
                                                 if (route.passengers.isEmpty()) {
                                                     IconButton(
                                                         modifier = Modifier.align(Alignment.End),
                                                         colors = IconButtonDefaults.iconButtonColors(
-                                                            containerColor = green,
-                                                            contentColor = MaterialTheme.colorScheme.background
+                                                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                                            contentColor = MaterialTheme.colorScheme.secondary
                                                         ),
                                                         onClick = {
                                                             onNewPassengerClick(route.basicData.id)
@@ -1221,7 +1250,7 @@ fun HomeScreen(
                                                                     text = "№ $it",
                                                                     color = MaterialTheme.colorScheme.primary,
                                                                     maxLines = 1,
-                                                                    style = AppTypography.getType().titleLarge,
+                                                                    style = MaterialTheme.typography.bodyMedium,
                                                                     overflow = TextOverflow.Ellipsis
                                                                 )
                                                             }
@@ -1229,7 +1258,7 @@ fun HomeScreen(
                                                                 text = "${passenger.stationDeparture ?: ""} ${passenger.stationArrival?.let { " - $it" } ?: ""} ",
                                                                 color = MaterialTheme.colorScheme.primary,
                                                                 maxLines = 1,
-                                                                style = AppTypography.getType().bodyLarge,
+                                                                style = MaterialTheme.typography.bodyMedium,
                                                                 overflow = TextOverflow.Ellipsis
                                                             )
                                                         }
@@ -1238,7 +1267,7 @@ fun HomeScreen(
                                                                 text = "... и ещё ${route.passengers.size - 1}",
                                                                 color = MaterialTheme.colorScheme.primary,
                                                                 maxLines = 1,
-                                                                style = AppTypography.getType().bodyLarge,
+                                                                style = MaterialTheme.typography.bodyMedium,
                                                                 overflow = TextOverflow.Ellipsis
                                                             )
                                                         }
@@ -1248,7 +1277,7 @@ fun HomeScreen(
                                                     text = "Пассажиром",
                                                     color = MaterialTheme.colorScheme.primary,
                                                     maxLines = 1,
-                                                    style = AppTypography.getType().titleMedium,
+                                                    style = MaterialTheme.typography.bodySmall,
                                                     overflow = TextOverflow.Ellipsis
                                                 )
                                             }
@@ -1264,31 +1293,32 @@ fun HomeScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 28.dp)
                             .animateItemPlacement()
                     ) {
                         Row(
                             modifier = Modifier
-                                .padding(horizontal = 24.dp)
+                                .padding(horizontal = 16.dp)
                                 .fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
                                 text = "Маршруты",
-                                style = AppTypography.getType().titleMedium
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary
                             )
                             TextButton(onClick = {
                                 onAllRouteClick()
                             }) {
                                 Text(
                                     color = MaterialTheme.colorScheme.tertiary,
+                                    style = MaterialTheme.typography.bodySmall,
                                     text = "Все"
                                 )
                             }
                         }
                         Column(
-                            modifier = Modifier.padding(horizontal = 12.dp),
+                            modifier = Modifier.padding(start = 16.dp, end = 16.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             dateAndTimeConverter?.let {
@@ -1305,7 +1335,7 @@ fun HomeScreen(
                                     val route = listRouteState.first().route
                                     var background = MaterialTheme.colorScheme.secondary
 
-                                    if (route.basicData.timeStartWork!! > Calendar.getInstance().timeInMillis) {
+                                    if (route.isFuture(offsetInMoscow)) {
                                         background = MaterialTheme.colorScheme.surfaceBright
                                     } else {
                                         if (route.isTransition(offsetInMoscow)) {
@@ -1352,8 +1382,8 @@ fun HomeScreen(
                                             .animateItemPlacement()
                                             .fillMaxWidth(),
                                         textAlign = TextAlign.Center,
-                                        text = "Список пуст\n\nНажмите + чтобы добавить маршрут\nили создайте график работы",
-                                        style = AppTypography.getType().bodyLarge
+                                        text = "Список пуст\n\nНажмите  +  чтобы добавить маршрут\nили создайте график работы",
+                                        style = MaterialTheme.typography.bodyMedium
                                     )
                                 }
                                 if (listRouteState.size > 1) {
@@ -1404,26 +1434,25 @@ fun HomeScreen(
                         }
                     }
                 }
-
                 item {
                     var maxHeightBox by remember { mutableIntStateOf(widthScreen / 3) }
 
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 28.dp)
                             .animateItemPlacement()
                     ) {
                         Text(
                             modifier = Modifier
-                                .padding(horizontal = 24.dp),
-                            style = AppTypography.getType().titleMedium,
-                            text = "Действия"
+                                .padding(horizontal = 16.dp),
+                            style = MaterialTheme.typography.titleSmall,
+                            text = "Действия",
+                            color = MaterialTheme.colorScheme.primary
                         )
                         LazyRow(
                             modifier = Modifier
                                 .padding(top = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             item {
                                 Card(
@@ -1439,15 +1468,18 @@ fun HomeScreen(
                                             minWidth = (widthScreen / 3).dp,
                                             minHeight = (widthScreen / 3).dp
                                         )
+                                        .indication(
+                                            interactionSource = interactionSource,
+                                            indication = rememberRipple(
+                                                color = MaterialTheme.colorScheme.background,
+                                                bounded = true
+                                            )
+                                        )
                                         .clickable {
                                             onWorkScheduleScreen()
                                         },
                                     elevation = CardDefaults.elevatedCardElevation(
                                         defaultElevation = 2.dp,
-                                    ),
-                                    border = BorderStroke(
-                                        width = 1.dp,
-                                        color = MaterialTheme.colorScheme.secondary
                                     ),
                                     colors = CardDefaults.cardColors(
                                         containerColor = MaterialTheme.colorScheme.secondary,
@@ -1464,19 +1496,20 @@ fun HomeScreen(
                                                 vertical = 8.dp, horizontal = 16.dp
                                             ),
                                         verticalArrangement = Arrangement.spacedBy(8.dp),
-
-                                        ) {
+                                        horizontalAlignment = Alignment.Start,
+                                    ) {
                                         Image(
                                             modifier = Modifier
                                                 .weight(1f)
                                                 .align(Alignment.CenterHorizontally),
-                                            painter = painterResource(R.drawable.icon_calendar),
+                                            painter = painterResource(R.drawable.calendar_3d_ver3),
                                             contentDescription = null,
                                             contentScale = ContentScale.Fit
                                         )
                                         Text(
                                             maxLines = 1,
-                                            style = AppTypography.getType().titleMedium,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.primary,
                                             overflow = TextOverflow.Ellipsis,
                                             text = "График"
                                         )
@@ -1497,15 +1530,18 @@ fun HomeScreen(
                                             minWidth = (widthScreen / 3).dp,
                                             minHeight = (widthScreen / 3).dp
                                         )
+                                        .indication(
+                                            interactionSource = interactionSource,
+                                            indication = rememberRipple(
+                                                color = MaterialTheme.colorScheme.background,
+                                                bounded = true
+                                            )
+                                        )
                                         .clickable {
-
+                                            onClickVacation()
                                         },
                                     elevation = CardDefaults.elevatedCardElevation(
                                         defaultElevation = 2.dp,
-                                    ),
-                                    border = BorderStroke(
-                                        width = 1.dp,
-                                        color = MaterialTheme.colorScheme.secondary
                                     ),
                                     colors = CardDefaults.cardColors(
                                         containerColor = MaterialTheme.colorScheme.secondary,
@@ -1521,20 +1557,21 @@ fun HomeScreen(
                                             .padding(
                                                 vertical = 8.dp, horizontal = 16.dp
                                             ),
+                                        horizontalAlignment = Alignment.Start,
                                         verticalArrangement = Arrangement.spacedBy(8.dp),
                                     ) {
                                         Image(
                                             modifier = Modifier
                                                 .weight(1f)
                                                 .align(Alignment.CenterHorizontally),
-                                            painter = painterResource(R.drawable.icon_vacation),
+                                            painter = painterResource(R.drawable.island_3d),
                                             contentDescription = null,
                                             contentScale = ContentScale.Fit
                                         )
                                         Text(
                                             color = MaterialTheme.colorScheme.primary,
                                             maxLines = 1,
-                                            style = AppTypography.getType().titleMedium,
+                                            style = MaterialTheme.typography.bodySmall,
                                             overflow = TextOverflow.Ellipsis,
                                             text = "Отвлечения"
                                         )
@@ -1572,7 +1609,7 @@ fun MainInfo(
             containerColor = MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.elevatedCardElevation(
-            defaultElevation = 3.dp,
+            defaultElevation = 2.dp,
         )
     ) {
         Box(
@@ -1583,7 +1620,7 @@ fun MainInfo(
         ) {
             Column(
                 modifier = Modifier
-                    .padding(horizontal = 12.dp, vertical = 24.dp)
+                    .padding(16.dp)
                     .fillMaxWidth(),
             ) {
                 AsyncDataValue(resultState = totalTimeWithHoliday) { time ->
@@ -1608,6 +1645,8 @@ fun MainInfo(
                             ) {
                                 Text(
                                     text = tooltipText,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary
                                 )
                             }
                         },
@@ -1632,10 +1671,8 @@ fun MainInfo(
                                 text = ConverterLongToTime.getTimeInStringFormat(
                                     time
                                 ),
-                                style = AppTypography.getType().headlineMedium.copy(
-                                    fontWeight = FontWeight.Medium
-                                ),
-                                color = MaterialTheme.colorScheme.background
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.secondary
                             )
                             if (totalTime != time) {
                                 val differenceTimeInLong = time.minus(totalTime)
@@ -1659,9 +1696,8 @@ fun MainInfo(
                                         )
                                     },
                                     text = " ($totalTime + $differenceTime)",
-                                    style = AppTypography.getType().titleMedium,
-                                    fontWeight = FontWeight.Light,
-                                    color = MaterialTheme.colorScheme.background
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.secondary
                                 )
                             }
                         }
@@ -1688,13 +1724,13 @@ fun MainInfo(
                                 maxLines = 1,
                                 modifier = Modifier.weight(1f),
                                 overflow = TextOverflow.Ellipsis,
-                                style = AppTypography.getType().bodyMedium,
-                                color = MaterialTheme.colorScheme.background
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.secondary
                             )
                             Text(
                                 text = "$normaHoursInMonth ч.",
-                                style = AppTypography.getType().bodyLarge,
-                                color = MaterialTheme.colorScheme.background
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.secondary
                             )
                         }
                         LinearProgressIndicator(
@@ -1704,7 +1740,7 @@ fun MainInfo(
                             trackColor = MaterialTheme.colorScheme.primary.copy(
                                 alpha = 0.8f
                             ),
-                            color = MaterialTheme.colorScheme.background,
+                            color = MaterialTheme.colorScheme.secondary,
                             strokeCap = StrokeCap.Round,
                             progress = { percent.toFloat() },
                         )
@@ -1734,13 +1770,13 @@ fun MainInfo(
                                 maxLines = 1,
                                 modifier = Modifier.weight(1f),
                                 overflow = TextOverflow.Ellipsis,
-                                style = AppTypography.getType().bodyMedium,
-                                color = MaterialTheme.colorScheme.background
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.secondary
                             )
                             Text(
                                 text = "$normaHoursToday ч.",
-                                style = AppTypography.getType().bodyLarge,
-                                color = MaterialTheme.colorScheme.background
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.secondary
                             )
                         }
                         LinearProgressIndicator(
@@ -1750,7 +1786,7 @@ fun MainInfo(
                             trackColor = MaterialTheme.colorScheme.primary.copy(
                                 alpha = 0.8f
                             ),
-                            color = MaterialTheme.colorScheme.background,
+                            color = MaterialTheme.colorScheme.secondary,
                             strokeCap = StrokeCap.Round,
                             progress = { percent.toFloat() },
                         )
@@ -1778,7 +1814,7 @@ fun DetailWorkTimeCard(
             containerColor = MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.elevatedCardElevation(
-            defaultElevation = 3.dp,
+            defaultElevation = 2.dp,
         )
     ) {
         Box(
@@ -1810,6 +1846,8 @@ fun DetailWorkTimeCard(
                             ) {
                                 Text(
                                     text = tooltipText,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary
                                 )
                             }
                         },
@@ -1817,7 +1855,7 @@ fun DetailWorkTimeCard(
                     ) {
                         Column(
                             modifier = Modifier
-                                .padding(horizontal = 12.dp, vertical = 24.dp)
+                                .padding(16.dp)
                                 .fillMaxWidth(),
                         ) {
                             Row(
@@ -1839,10 +1877,8 @@ fun DetailWorkTimeCard(
                                     text = ConverterLongToTime.getTimeInStringFormat(
                                         totalTimeWithHoliday
                                     ),
-                                    style = AppTypography.getType().headlineMedium.copy(
-                                        fontWeight = FontWeight.Medium
-                                    ),
-                                    color = MaterialTheme.colorScheme.background
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.secondary
                                 )
                                 if (totalTime != totalTimeWithHoliday) {
                                     val differenceTimeInLong =
@@ -1868,9 +1904,8 @@ fun DetailWorkTimeCard(
                                             )
                                         },
                                         text = " ($totalTime + $differenceTime)",
-                                        style = AppTypography.getType().titleMedium,
-                                        fontWeight = FontWeight.Light,
-                                        color = MaterialTheme.colorScheme.background
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.secondary
                                     )
                                 }
                             }
@@ -1896,13 +1931,13 @@ fun DetailWorkTimeCard(
                                                 maxLines = 1,
                                                 modifier = Modifier.weight(1f),
                                                 overflow = TextOverflow.Ellipsis,
-                                                style = AppTypography.getType().bodyMedium,
-                                                color = MaterialTheme.colorScheme.background
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.secondary
                                             )
                                             Text(
                                                 text = nightTimeText,
-                                                style = AppTypography.getType().bodyLarge,
-                                                color = MaterialTheme.colorScheme.background
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.secondary
                                             )
                                         }
                                         LinearProgressIndicator(
@@ -1912,7 +1947,7 @@ fun DetailWorkTimeCard(
                                             trackColor = MaterialTheme.colorScheme.primary.copy(
                                                 alpha = 0.8f
                                             ),
-                                            color = MaterialTheme.colorScheme.background,
+                                            color = MaterialTheme.colorScheme.secondary,
                                             strokeCap = StrokeCap.Round,
                                             progress = { percent.toFloat() },
                                         )
@@ -1943,13 +1978,13 @@ fun DetailWorkTimeCard(
                                                 maxLines = 1,
                                                 modifier = Modifier.weight(1f),
                                                 overflow = TextOverflow.Ellipsis,
-                                                style = AppTypography.getType().bodyMedium,
-                                                color = MaterialTheme.colorScheme.background
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.secondary
                                             )
                                             Text(
                                                 text = passengerTimeText,
-                                                style = AppTypography.getType().bodyLarge,
-                                                color = MaterialTheme.colorScheme.background
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.secondary
                                             )
                                         }
                                         LinearProgressIndicator(
@@ -1959,7 +1994,7 @@ fun DetailWorkTimeCard(
                                             trackColor = MaterialTheme.colorScheme.primary.copy(
                                                 alpha = 0.8f
                                             ),
-                                            color = MaterialTheme.colorScheme.background,
+                                            color = MaterialTheme.colorScheme.secondary,
                                             strokeCap = StrokeCap.Round,
                                             progress = { percent.toFloat() },
                                         )
@@ -1990,13 +2025,13 @@ fun DetailWorkTimeCard(
                                                 maxLines = 1,
                                                 modifier = Modifier.weight(1f),
                                                 overflow = TextOverflow.Ellipsis,
-                                                style = AppTypography.getType().bodyMedium,
-                                                color = MaterialTheme.colorScheme.background
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.secondary
                                             )
                                             Text(
                                                 text = passengerTimeText,
-                                                style = AppTypography.getType().bodyLarge,
-                                                color = MaterialTheme.colorScheme.background
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.secondary
                                             )
                                         }
                                         LinearProgressIndicator(
@@ -2006,7 +2041,7 @@ fun DetailWorkTimeCard(
                                             trackColor = MaterialTheme.colorScheme.primary.copy(
                                                 alpha = 0.8f
                                             ),
-                                            color = MaterialTheme.colorScheme.background,
+                                            color = MaterialTheme.colorScheme.secondary,
                                             strokeCap = StrokeCap.Round,
                                             progress = { percent.toFloat() },
                                         )
@@ -2072,6 +2107,8 @@ fun DetailTrainCard(
                             ) {
                                 Text(
                                     text = tooltipText,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary
                                 )
                             }
                         },
@@ -2079,7 +2116,7 @@ fun DetailTrainCard(
                     ) {
                         Column(
                             modifier = Modifier
-                                .padding(horizontal = 12.dp, vertical = 24.dp)
+                                .padding(16.dp)
                                 .fillMaxWidth(),
                         ) {
                             Row(
@@ -2101,10 +2138,8 @@ fun DetailTrainCard(
                                     text = ConverterLongToTime.getTimeInStringFormat(
                                         totalTimeWithHoliday
                                     ),
-                                    style = AppTypography.getType().headlineMedium.copy(
-                                        fontWeight = FontWeight.Medium
-                                    ),
-                                    color = MaterialTheme.colorScheme.background
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.secondary
                                 )
                                 if (totalTime != totalTimeWithHoliday) {
                                     val differenceTimeInLong =
@@ -2130,9 +2165,8 @@ fun DetailTrainCard(
                                             )
                                         },
                                         text = " ($totalTime + $differenceTime)",
-                                        style = AppTypography.getType().titleMedium,
-                                        fontWeight = FontWeight.Light,
-                                        color = MaterialTheme.colorScheme.background
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.secondary
                                     )
                                 }
                             }
@@ -2160,15 +2194,15 @@ fun DetailTrainCard(
                                                 modifier = Modifier.weight(1f),
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis,
-                                                style = AppTypography.getType().bodyMedium,
-                                                color = MaterialTheme.colorScheme.background
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.secondary
                                             )
                                             Text(
                                                 text = extendedServicePhaseTimeText,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Visible,
-                                                style = AppTypography.getType().bodyLarge,
-                                                color = MaterialTheme.colorScheme.background
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.secondary
                                             )
                                         }
                                         LinearProgressIndicator(
@@ -2178,7 +2212,7 @@ fun DetailTrainCard(
                                             trackColor = MaterialTheme.colorScheme.primary.copy(
                                                 alpha = 0.8f
                                             ),
-                                            color = MaterialTheme.colorScheme.background,
+                                            color = MaterialTheme.colorScheme.secondary,
                                             strokeCap = StrokeCap.Round,
                                             progress = { percent.toFloat() },
                                         )
@@ -2209,13 +2243,13 @@ fun DetailTrainCard(
                                                 modifier = Modifier.weight(1f),
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis,
-                                                style = AppTypography.getType().bodyMedium,
-                                                color = MaterialTheme.colorScheme.background
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.secondary
                                             )
                                             Text(
                                                 text = longDistanceTrainsTimeText,
-                                                style = AppTypography.getType().bodyLarge,
-                                                color = MaterialTheme.colorScheme.background
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.secondary
                                             )
                                         }
                                         LinearProgressIndicator(
@@ -2225,7 +2259,7 @@ fun DetailTrainCard(
                                             trackColor = MaterialTheme.colorScheme.primary.copy(
                                                 alpha = 0.8f
                                             ),
-                                            color = MaterialTheme.colorScheme.background,
+                                            color = MaterialTheme.colorScheme.secondary,
                                             strokeCap = StrokeCap.Round,
                                             progress = { percent.toFloat() },
                                         )
@@ -2256,13 +2290,13 @@ fun DetailTrainCard(
                                                 maxLines = 1,
                                                 modifier = Modifier.weight(1f),
                                                 overflow = TextOverflow.Ellipsis,
-                                                style = AppTypography.getType().bodyMedium,
-                                                color = MaterialTheme.colorScheme.background
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.secondary
                                             )
                                             Text(
                                                 text = heavyTrainsTimeText,
-                                                style = AppTypography.getType().bodyLarge,
-                                                color = MaterialTheme.colorScheme.background
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.secondary
                                             )
                                         }
                                         LinearProgressIndicator(
@@ -2272,7 +2306,7 @@ fun DetailTrainCard(
                                             trackColor = MaterialTheme.colorScheme.primary.copy(
                                                 alpha = 0.8f
                                             ),
-                                            color = MaterialTheme.colorScheme.background,
+                                            color = MaterialTheme.colorScheme.secondary,
                                             strokeCap = StrokeCap.Round,
                                             progress = { percent.toFloat() },
                                         )
@@ -2303,13 +2337,13 @@ fun DetailTrainCard(
                                                 maxLines = 1,
                                                 modifier = Modifier.weight(1f),
                                                 overflow = TextOverflow.Ellipsis,
-                                                style = AppTypography.getType().bodyMedium,
-                                                color = MaterialTheme.colorScheme.background
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.secondary
                                             )
                                             Text(
                                                 text = onePersonOperationTimeText,
-                                                style = AppTypography.getType().bodyLarge,
-                                                color = MaterialTheme.colorScheme.background
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.secondary
                                             )
                                         }
                                         LinearProgressIndicator(
@@ -2319,7 +2353,7 @@ fun DetailTrainCard(
                                             trackColor = MaterialTheme.colorScheme.primary.copy(
                                                 alpha = 0.8f
                                             ),
-                                            color = MaterialTheme.colorScheme.background,
+                                            color = MaterialTheme.colorScheme.secondary,
                                             strokeCap = StrokeCap.Round,
                                             progress = { percent.toFloat() },
                                         )

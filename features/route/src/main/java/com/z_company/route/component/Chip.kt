@@ -41,8 +41,8 @@ fun Chip(
     shape: androidx.compose.ui.graphics.Shape = Shapes.medium,
     horizontalPadding: Dp = 12.dp,
     verticalPadding: Dp = 8.dp,
-    selectedBackgroundColor: Color = MaterialTheme.colorScheme.primary,
-    unSelectedBackgroundColor: Color = MaterialTheme.colorScheme.background,
+    selectedBackgroundColor: Color = MaterialTheme.colorScheme.tertiary,
+    unSelectedBackgroundColor: Color = Color.Transparent,
 ) {
     val backgroundColor =
         if (selected) selectedBackgroundColor else unSelectedBackgroundColor
@@ -54,15 +54,18 @@ fun Chip(
         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
     )
     val textColor =
-        if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
+        if (selected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
     val fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
 
     val interactionSource = remember { MutableInteractionSource() }
 
+    val elevation = if (selected) 2.dp else 0.dp
+
     Surface(
         shape = shape,
         color = backgroundColor,
-        border = border,
+//        border = border,
+        tonalElevation = elevation,
         modifier = modifier
             .wrapContentWidth()
             .height(IntrinsicSize.Min)

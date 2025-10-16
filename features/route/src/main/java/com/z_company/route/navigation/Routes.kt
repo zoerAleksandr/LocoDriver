@@ -190,3 +190,7 @@ object SettingSalaryRoute: AppRoutes("SettingSalaryRoute")
 object UpdatePresentationBlockRoute: AppRoutes("UpdatePresentationBlockRoute")
 object AllRouteScreenRoute: AppRoutes("AllRouteScreenRoute")
 object WorkScheduleScreenRoute: AppRoutes("WorkScheduleScreenRoute")
+
+object SettingsScreenRoute : AppRoutes("SettingsScreen")
+object SelectReleaseDaysScreenRoute: AppRoutes("SelectReleaseDaysScreen")
+object ProfileRoute: AppRoutes("ProfileRoute")

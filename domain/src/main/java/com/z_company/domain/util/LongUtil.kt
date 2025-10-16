@@ -1,9 +1,14 @@
 package com.z_company.domain.util
 
+/** Возвращает true если this < other && (this == null && other == null)
+ * */
 fun Long?.lessThan(other: Long?): Boolean {
     return if (this == null || other == null) false
     else this < other
 }
+
+/** Возвращает true если this > other && (this == null && other == null)
+ * */
 fun Long?.moreThan(other: Long?): Boolean {
     return if (this == null || other == null) false
     else this > other

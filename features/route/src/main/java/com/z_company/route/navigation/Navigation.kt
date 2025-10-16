@@ -25,7 +25,7 @@ fun NavGraphBuilder.homeGraph(
         composableScreen(
             route = HomeRoute.route,
         ) {
-            HomeDestination(router = router)
+            MainDestination(router = router)
         }
 
         composableScreen(
@@ -116,6 +116,11 @@ fun NavGraphBuilder.homeGraph(
         ){
             AllRouteScreenDestination(router = router)
         }
-
+        composableScreen(SettingsScreenRoute.route) {
+            SettingDestination(router = router)
+        }
+        composableScreen(SelectReleaseDaysScreenRoute.route) {
+            SelectReleaseDaysDestination(router = router)
+        }
     }
 }

@@ -34,9 +34,6 @@ android {
     buildFeatures {
         compose = true
     }
-//    composeOptions {
-//        kotlinCompilerExtensionVersion = Versions.kotlin_compiler_ext_version
-//    }
 }
 
 dependencies {
@@ -49,6 +46,8 @@ dependencies {
     implementation(project(Libs.project_core_android))
     implementation(project(Libs.project_domain))
     implementation(project(Libs.project_data_remote))
+
+    implementation(Libs.parse_sdk_android)
 
     implementation(Libs.activity_compose)
     implementation(Libs.core_ktx)

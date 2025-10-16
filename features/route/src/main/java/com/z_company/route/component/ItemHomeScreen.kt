@@ -9,28 +9,32 @@ import androidx.compose.foundation.MutatePriority
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberBasicTooltipState
 import androidx.compose.material.DismissDirection
 import androidx.compose.material.DismissState
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.SwipeToDismiss
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TooltipDefaults
@@ -50,7 +54,6 @@ import androidx.compose.ui.unit.sp
 import com.z_company.domain.entities.route.Route
 import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.ui.theme.Shapes
-import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
@@ -102,6 +105,7 @@ fun ItemHomeScreen(
     val tooltipPosition = TooltipDefaults.rememberPlainTooltipPositionProvider()
     val tooltipState = rememberBasicTooltipState()
     val scope = rememberCoroutineScope()
+    val interactionSource = remember { MutableInteractionSource() }
 
     // Outer box so we can place a local SnackbarHost (Undo) overlayed on the item
     SwipeToDismiss(
@@ -137,6 +141,11 @@ fun ItemHomeScreen(
                     .wrapContentHeight()
                     .defaultMinSize(minHeight = 65.dp)
                     .combinedClickable(
+                        interactionSource = interactionSource,
+                        indication = rememberRipple(
+                            color = MaterialTheme.colorScheme.background,
+                            bounded = true
+                        ),
                         onClick = onClick,
                         onLongClick = onLongClick
                     ),
@@ -156,7 +165,7 @@ fun ItemHomeScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                    horizontalAlignment = Alignment.End,
                     verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)
                 ) {
                     Row(
@@ -174,9 +183,9 @@ fun ItemHomeScreen(
                                 text = timeTextMemo,
                                 maxTextSize = requiredSizeText,
                                 maxLines = 1,
+                                fontWeight = FontWeight.Medium,
                                 overflow = TextOverflow.Ellipsis,
-                                style = AppTypography.getType().headlineSmall,
-                                fontWeight = FontWeight.Normal,
+                                style = MaterialTheme.typography.bodyLarge,
                                 onTextLayout = { textLayoutResult ->
                                     val size = textLayoutResult.layoutInput.style.fontSize
                                     changingTextSize(size)
@@ -191,9 +200,9 @@ fun ItemHomeScreen(
                         ) {
                             AutoSizeText(
                                 text = workTimeStringMemo,
-                                style = AppTypography.getType().headlineSmall,
-                                fontWeight = FontWeight.Normal,
+                                style = MaterialTheme.typography.bodyLarge,
                                 maxTextSize = requiredSizeText,
+                                fontWeight = FontWeight.Medium,
                                 onTextLayout = { textLayoutResult ->
                                     val size = textLayoutResult.layoutInput.style.fontSize
                                     changingTextSize(size)
@@ -232,8 +241,7 @@ fun ItemHomeScreen(
                                                 maxTextSize = requiredSizeText,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis,
-                                                style = AppTypography.getType().headlineSmall,
-                                                fontWeight = FontWeight.Light,
+                                                style = MaterialTheme.typography.bodyLarge,
                                                 onTextLayout = { textLayoutResult ->
                                                     val size =
                                                         textLayoutResult.layoutInput.style.fontSize
@@ -252,35 +260,16 @@ fun ItemHomeScreen(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         AutoSizeText(
-                                            maxTextSize = requiredSizeText.value.minus(4).sp,
+                                            maxTextSize = requiredSizeText,
                                             maxLines = 1,
                                             text = "${loco.series ?: ""} ${loco.number ?: ""}",
-                                            style = AppTypography.getType().bodyLarge,
+                                            style = MaterialTheme.typography.bodyLarge,
                                             overflow = TextOverflow.Ellipsis,
                                         )
                                     }
                                 }
                             }
                         }
-//                    if (route.passengers.isNotEmpty()) {
-//                        Column(modifier = Modifier.fillMaxWidth()) {
-//                            route.passengers.forEach { passenger ->
-//                                val timeFollowing = ConverterLongToTime.getTimeInStringFormat(passenger.getFollowingTime())
-//                                Row(
-//                                    modifier = Modifier.fillMaxWidth(),
-//                                    verticalAlignment = Alignment.CenterVertically
-//                                ) {
-//                                    Text(
-//                                        text = "Пассажиром $timeFollowing",
-//                                        style = AppTypography.getType().bodyLarge,
-//                                        maxLines = 1,
-//                                        overflow = TextOverflow.Ellipsis
-//                                    )
-//                                }
-//                            }
-//                        }
-//                    }
-
                     } else {
                         // compact: show only last locomotive/train/passenger (if any)
                         route.trains.firstOrNull()?.let { train ->
@@ -312,8 +301,7 @@ fun ItemHomeScreen(
                                         maxTextSize = requiredSizeText,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
-                                        style = AppTypography.getType().headlineSmall,
-                                        fontWeight = FontWeight.Light,
+                                        style = MaterialTheme.typography.bodyLarge,
                                         onTextLayout = { textLayoutResult ->
                                             val size =
                                                 textLayoutResult.layoutInput.style.fontSize
@@ -326,12 +314,13 @@ fun ItemHomeScreen(
                     }
                     BasicTooltipBox(
                         modifier = Modifier
-                            .fillMaxWidth(),
+                            .wrapContentWidth(),
                         positionProvider = tooltipPosition,
                         tooltip = {
                             Column(
                                 modifier = Modifier
-                                    .fillMaxWidth(0.9f)
+                                    .padding(horizontal = 8.dp)
+                                    .wrapContentWidth()
                                     .background(
                                         shape = Shapes.medium,
                                         color = MaterialTheme.colorScheme.surface
@@ -339,8 +328,16 @@ fun ItemHomeScreen(
                                     .padding(12.dp),
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
+                                Text(
+                                    overflow = TextOverflow.Visible,
+                                    text = "Значения иконок",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Image(
@@ -352,27 +349,22 @@ fun ItemHomeScreen(
                                     Text(
                                         overflow = TextOverflow.Visible,
                                         text = " - ",
-                                        style = AppTypography.getType().titleMedium.copy(
-                                            fontWeight = FontWeight.Medium
-                                        ),
-                                        color = MaterialTheme.colorScheme.background,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.primary,
                                     )
 
                                     Text(
                                         overflow = TextOverflow.Visible,
                                         text = "Работа в праздничный день",
-                                        style = AppTypography.getType().titleMedium.copy(
-                                            fontWeight = FontWeight.Medium
-                                        ),
-                                        color = MaterialTheme.colorScheme.background,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.primary,
                                     )
                                 }
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
-                                        tint = MaterialTheme.colorScheme.background,
+                                        tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(20.dp),
                                         painter = painterResource(id = R.drawable.long_distance_24px),
                                         contentDescription = null
@@ -380,26 +372,21 @@ fun ItemHomeScreen(
                                     Text(
                                         overflow = TextOverflow.Visible,
                                         text = " - ",
-                                        style = AppTypography.getType().titleMedium.copy(
-                                            fontWeight = FontWeight.Medium
-                                        ),
-                                        color = MaterialTheme.colorScheme.background,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.primary,
                                     )
                                     Text(
                                         overflow = TextOverflow.Visible,
                                         text = "Поезда повышенной длины",
-                                        style = AppTypography.getType().titleMedium.copy(
-                                            fontWeight = FontWeight.Medium
-                                        ),
-                                        color = MaterialTheme.colorScheme.background,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.primary,
                                     )
                                 }
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
-                                        tint = MaterialTheme.colorScheme.background,
+                                        tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(20.dp),
                                         painter = painterResource(id = R.drawable.weight_24px),
                                         contentDescription = null
@@ -407,26 +394,21 @@ fun ItemHomeScreen(
                                     Text(
                                         overflow = TextOverflow.Visible,
                                         text = " - ",
-                                        style = AppTypography.getType().titleMedium.copy(
-                                            fontWeight = FontWeight.Medium
-                                        ),
-                                        color = MaterialTheme.colorScheme.background,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.primary,
                                     )
                                     Text(
-                                        style = AppTypography.getType().titleMedium.copy(
-                                            fontWeight = FontWeight.Medium
-                                        ),
-                                        color = MaterialTheme.colorScheme.background,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.primary,
                                         overflow = TextOverflow.Visible,
                                         text = "Поезда повышенной массы",
                                     )
                                 }
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
-                                        tint = MaterialTheme.colorScheme.background,
+                                        tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(20.dp),
                                         painter = painterResource(id = R.drawable.person_24px),
                                         contentDescription = null
@@ -434,26 +416,21 @@ fun ItemHomeScreen(
                                     Text(
                                         overflow = TextOverflow.Visible,
                                         text = " - ",
-                                        style = AppTypography.getType().titleMedium.copy(
-                                            fontWeight = FontWeight.Medium
-                                        ),
-                                        color = MaterialTheme.colorScheme.background,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.primary,
                                     )
                                     Text(
-                                        style = AppTypography.getType().titleMedium.copy(
-                                            fontWeight = FontWeight.Medium
-                                        ),
-                                        color = MaterialTheme.colorScheme.background,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.primary,
                                         overflow = TextOverflow.Visible,
                                         text = "Работа в одно лицо",
                                     )
                                 }
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
-                                        tint = MaterialTheme.colorScheme.background,
+                                        tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(20.dp),
                                         painter = painterResource(id = R.drawable.passenger_24px),
                                         contentDescription = null
@@ -461,16 +438,12 @@ fun ItemHomeScreen(
                                     Text(
                                         overflow = TextOverflow.Visible,
                                         text = " - ",
-                                        style = AppTypography.getType().titleMedium.copy(
-                                            fontWeight = FontWeight.Medium
-                                        ),
-                                        color = MaterialTheme.colorScheme.background,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.primary,
                                     )
                                     Text(
-                                        style = AppTypography.getType().titleMedium.copy(
-                                            fontWeight = FontWeight.Medium
-                                        ),
-                                        color = MaterialTheme.colorScheme.background,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.primary,
                                         overflow = TextOverflow.Visible,
                                         text = "Следование пассажиром",
                                     )
@@ -487,22 +460,17 @@ fun ItemHomeScreen(
                                     Text(
                                         overflow = TextOverflow.Visible,
                                         text = " - ",
-                                        style = AppTypography.getType().titleMedium.copy(
-                                            fontWeight = FontWeight.Medium
-                                        ),
-                                        color = MaterialTheme.colorScheme.background,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.primary,
                                     )
                                     Text(
-                                        style = AppTypography.getType().titleMedium.copy(
-                                            fontWeight = FontWeight.Medium
-                                        ),
-                                        color = MaterialTheme.colorScheme.background,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.primary,
                                         overflow = TextOverflow.Visible,
                                         text = "Работа свыше 12-ти часов",
                                     )
                                 }
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Image(
@@ -513,16 +481,12 @@ fun ItemHomeScreen(
                                     Text(
                                         overflow = TextOverflow.Visible,
                                         text = " - ",
-                                        style = AppTypography.getType().titleMedium.copy(
-                                            fontWeight = FontWeight.Medium
-                                        ),
-                                        color = MaterialTheme.colorScheme.background,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.primary,
                                     )
                                     Text(
-                                        style = AppTypography.getType().titleMedium.copy(
-                                            fontWeight = FontWeight.Medium
-                                        ),
-                                        color = MaterialTheme.colorScheme.background,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.primary,
                                         overflow = TextOverflow.Visible,
                                         text = "Статус синхронизации маршрута",
                                     )
@@ -533,10 +497,10 @@ fun ItemHomeScreen(
                     ) {
                         Row(
                             modifier = Modifier
-                                .fillMaxWidth()
+                                .wrapContentWidth()
                                 .pointerInput(Unit) {
                                     detectTapGestures(
-                                        onPress = {
+                                        onLongPress = {
                                             scope.launch {
                                                 tooltipState.show(MutatePriority.Default)
                                             }

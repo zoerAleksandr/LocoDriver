@@ -305,17 +305,81 @@ object UtilsForEntities : KoinComponent {
         return totalTime
     }
 
+    fun Route.isFuture(offsetInMoscow: Long): Boolean{
+        if (this.basicData.timeStartWork == null || this.basicData.timeEndWork == null) {
+            return false
+        } else {
+            val startCalendar = getInstance(TimeZone.getDefault()).also {
+                it.timeInMillis = this.basicData.timeStartWork!! + offsetInMoscow
+            }
+            return this.basicData.timeStartWork!! > startCalendar.timeInMillis
+        }
+    }
+
+    fun List<Route>.findCurrentRoute(
+        currentTimeInMillis: Long,
+        userSettings: UserSettings
+    ): Route? {
+        // Фильтруем будущие маршруты
+        val filteredRoutes = this
+            .filter { !it.isFuture(userSettings.timeZone) }
+            .sortedByDescending { it.basicData.timeStartWork ?: 0L }
+
+        // 1. Сначала ищем маршрут, попадающий в интервал времени
+        val routeInTimeInterval = filteredRoutes.find { route ->
+            val startWork = route.basicData.timeStartWork
+            val endWork = route.basicData.timeEndWork
+
+            if (startWork != null) {
+                if (currentTimeInMillis.moreThan(startWork)) {
+                    endWork?.let {
+                        currentTimeInMillis.lessThan(it)
+                    } ?: false
+                } else false
+            } else false
+        }
+
+        // Если найден маршрут в интервале времени - возвращаем его
+        if (routeInTimeInterval != null ) {
+            return routeInTimeInterval
+        }
+
+        // 2. Если нет маршрута в интервале, ищем последний незавершенный маршрут
+        // для текущего месяца пользователя
+        val lastUnfinishedRoute = filteredRoutes.firstOrNull { route ->
+            // Проверяем, что это самый первый (последний по времени) маршрут
+            route == filteredRoutes.firstOrNull() &&
+                    // У маршрута нет времени окончания
+                    route.basicData.timeEndWork == null &&
+                    // Проверяем соответствие месяца
+                    route.isInCurrentMonth(userSettings.selectMonthOfYear, userSettings.timeZone)
+        }
+
+        return lastUnfinishedRoute
+    }
+
+    // Вспомогательный метод для проверки месяца маршрута
+    private fun Route.isInCurrentMonth(currentMonthOfYear: MonthOfYear, offsetInMoscow: Long): Boolean {
+        if (this.basicData.timeStartWork == null ) return false
+        val calendar = getInstance().apply {
+            timeInMillis = timeInMillis + offsetInMoscow
+        }
+
+        return calendar.get(Calendar.YEAR) == currentMonthOfYear.year &&
+                calendar.get(Calendar.MONTH) == currentMonthOfYear.month
+    }
+
     fun Route.isTransition(offsetInMoscow: Long): Boolean {
         if (this.basicData.timeStartWork == null || this.basicData.timeEndWork == null) {
             return false
         } else {
-            val startCalendar = Calendar.getInstance(TimeZone.getDefault()).also {
+            val startCalendar = getInstance(TimeZone.getDefault()).also {
                 it.timeInMillis = this.basicData.timeStartWork!! + offsetInMoscow
             }
             val yearStart = startCalendar.get(Calendar.YEAR)
             val monthStart = startCalendar.get(Calendar.MONTH)
 
-            val endCalendar = Calendar.getInstance().also {
+            val endCalendar = getInstance().also {
                 it.timeInMillis = this.basicData.timeEndWork!! + offsetInMoscow
             }
             val yearEnd = endCalendar.get(Calendar.YEAR)

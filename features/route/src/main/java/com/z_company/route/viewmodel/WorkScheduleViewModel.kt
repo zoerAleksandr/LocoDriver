@@ -47,7 +47,7 @@ import kotlin.collections.sorted
  *
  * NOTE: Building a valid domain Route instance depends on your domain model (BasicData, Route constructors).
  * Below there is a placeholder createRouteForStartTime() where you should construct a Route with required fields.
- * Replace TODO section with real construction using your domain classes.
+ * Replace
  */
 class WorkScheduleViewModel() : ViewModel(), KoinComponent {
     private val settingsUseCase: SettingsUseCase by inject()
