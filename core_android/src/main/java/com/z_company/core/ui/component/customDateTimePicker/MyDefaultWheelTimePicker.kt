@@ -51,7 +51,7 @@ internal fun MyDefaultWheelTimePicker(
     timeFormat: TimeFormat = TimeFormat.HOUR_24,
     height: Dp = 128.dp,
     rowCount: Int = 3,
-    textStyle: TextStyle = MaterialTheme.typography.titleSmall,
+    textStyle: TextStyle = MaterialTheme.typography.bodyLarge,
     textColor: Color = LocalContentColor.current,
     selectorProperties: SelectorProperties = MyWheelPickerDefaults.selectorProperties(),
     onSnappedTime: (snappedTime: MySnappedTime, timeFormat: TimeFormat) -> Int? = { _, _ -> null },
@@ -135,7 +135,6 @@ internal fun MyDefaultWheelTimePicker(
                 }
 
                 newHour?.let {
-
                     val newTime = snappedTime.withHour(newHour)
 
                     if (newTime.compareTo(minTime) >= 0 && newTime.compareTo(maxTime) <= 0) {

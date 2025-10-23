@@ -1,7 +1,6 @@
 package com.z_company.route.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -9,8 +8,6 @@ import com.z_company.core.navigation.AppRoutes
 import com.z_company.domain.navigation.Router
 import com.z_company.route.ui.HomeScreen
 import com.z_company.route.viewmodel.home_view_model.HomeViewModel
-import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
-import ru.rustore.sdk.pay.model.PurchaseAvailabilityResult
 import com.z_company.route.R
 
 @Composable
@@ -21,47 +18,16 @@ fun HomeDestination(
     val uiState by homeViewModel.uiState.collectAsState()
     val previewRouteUiState by homeViewModel.previewRouteUiState.collectAsState()
 
-    // Подписываемся на событие открытия формы и выполняем навигацию через router
-    LaunchedEffect(Unit) {
-        homeViewModel.openRouteFormEvent.collect { event ->
-            router.showRouteForm(basicId = event.basicId, isMakeCopy = event.isMakeCopy)
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        homeViewModel.purchasesEvent.collect { event ->
-            when (event) {
-                is StartPurchasesEvent.PurchasesAvailability -> {
-                    when (val avail = event.availability) {
-                        is PurchaseAvailabilityResult.Available -> {
-                            // UI performs navigation
-                            router.showPurchasesScreen()
-                        }
-
-                        is PurchaseAvailabilityResult.Unavailable -> {
-                            // ViewModel already showed snackbar; optionally handle here
-                        }
-                    }
-                }
-
-                is StartPurchasesEvent.Error -> {
-                    // event.throwable - show fallback snackbar or handle
-                    // you can also rely on ViewModel to show snackbar via snackbarManager
-                }
-            }
-        }
-    }
-
     HomeScreen(
         listRouteState = uiState.listItemState,
         onRouteClick = {
             router.showRouteForm(it)
         },
-        makeCopyRoute = { basicId -> homeViewModel.newRouteClick(basicId) },
+        makeCopyRoute = { basicId ->
+            router.showRouteForm(basicId = basicId, isMakeCopy = true)
+        },
         onMoreInfoClick = { router.showMoreInfo(it) },
-        onNewRouteClick = homeViewModel::newRouteClick,
         onDeleteRoute = homeViewModel::removeRoute,
-        onSettingsClick = { router.showSettings() },
         onSearchClick = { router.showSearch() },
         totalTime = homeViewModel.timeWithoutHoliday,
         currentMonthOfYear = homeViewModel.currentMonthOfYear,
@@ -77,11 +43,6 @@ fun HomeDestination(
         homeRestValue = previewRouteUiState.homeRest,
         firstEntryDialogState = uiState.showFirstEntryToAccountDialog,
         resetStateFirstEntryDialog = homeViewModel::disableFirstEntryToAccountDialog,
-        showFormScreen =  router::showRouteForm,
-        isLoadingStateAddButton = uiState.isLoadingStateAddButton,
-        alertBeforePurchasesState = homeViewModel.alertBeforePurchasesEvent,
-        checkPurchasesAvailability = homeViewModel::checkPurchasesAvailability,
-        restorePurchases = homeViewModel::restorePurchases,
         offsetInMoscow = uiState.offsetInMoscow,
         syncRoute = homeViewModel::syncRoute,
         completeUpdateRequested = homeViewModel::completeUpdateRequested,

@@ -1,6 +1,7 @@
 package com.z_company.core.ui.component.customDatePicker
 
 
+import android.util.Log
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -108,15 +109,14 @@ fun MyWheelPicker(
             items(count) { index ->
                 Box(
                     modifier = Modifier
-                        .height(height / rowCount)
-                        .fillMaxWidth(),
+                        .height(height / rowCount),
                     contentAlignment = contentAlignment
                 ) {
                     AutoSizeText(
                         text = texts[index],
                         minTextSize = 10.sp,
                         maxTextSize = 18.sp,
-                        color = if (calculateSnappedItemIndex(snapperLayoutInfo) == index) color else MaterialTheme.colorScheme.onSurface,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
@@ -129,6 +129,7 @@ fun MyWheelPicker(
 private fun calculateSnappedItemIndex(snapperLayoutInfo: SnapperLayoutInfo): Int? {
     var currentItemIndex = snapperLayoutInfo.currentItem?.index
 
+    Log.d("zzz", "currentItemIndex $currentItemIndex")
     if (snapperLayoutInfo.currentItem?.offset != 0) {
         if (currentItemIndex != null) {
             currentItemIndex++

@@ -94,18 +94,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     private val settingsUseCase: SettingsUseCase by inject()
     private val salarySettingUseCase: SalarySettingUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
-    private val subscriptionHelper: SubscriptionHelper by inject()
-    private val ruStoreUseCase: RuStoreUseCase by inject()
     private val ruStoreAppUpdateManager: RuStoreAppUpdateManager by inject()
-    private val shareManager: ShareManager by inject()
     private val routeHelper: RouteActionsHelper by inject()
     private val snackbarManager: ISnackbarManager by inject()
-
-    private val _openRouteFormEvent = MutableSharedFlow<OpenRouteFormEvent>(
-        extraBufferCapacity = 1,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST
-    )
-    val openRouteFormEvent: SharedFlow<OpenRouteFormEvent> = _openRouteFormEvent.asSharedFlow()
 
     var timeWithoutHoliday by mutableLongStateOf(0L)
         private set
@@ -139,19 +130,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
 
     private val _previewRouteUiState = MutableStateFlow(PreviewRouteUiState())
     val previewRouteUiState = _previewRouteUiState.asStateFlow()
-
-    private val _purchasesEvent = MutableSharedFlow<StartPurchasesEvent>(
-        extraBufferCapacity = 1,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST
-    )
-    val purchasesEvent = _purchasesEvent.asSharedFlow()
-
-    private val _alertBeforePurchasesEvent = MutableSharedFlow<AlertBeforePurchasesEvent>(
-        extraBufferCapacity = 1,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST
-    )
-
-    val alertBeforePurchasesEvent = _alertBeforePurchasesEvent.asSharedFlow()
 
     private val _updateEvents = MutableSharedFlow<UpdateEvent>(
         extraBufferCapacity = 1,
@@ -245,131 +223,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                         snackbarManager.show(message = message)
                         _uiState.update { it.copy(removeRouteState = ResultState.Error(result.entity)) }
                     }
-                }
-            }
-        }
-    }
-
-    fun checkPurchasesAvailability() {
-        viewModelScope.launch(Dispatchers.IO) {
-            when (val checkResult = subscriptionHelper.checkPurchasesAvailabilitySuspend()) {
-                is ResultState.Success -> {
-                    _purchasesEvent.tryEmit(StartPurchasesEvent.PurchasesAvailability(checkResult.data))
-                }
-
-                is ResultState.Error -> {
-                    snackbarManager.show(
-                        message = "Ошибка ${checkResult.entity.message}",
-                        showOnceKey = "checkPurchasesAvailability"
-                    )
-                }
-
-                else -> {}
-            }
-        }
-    }
-
-    fun restorePurchases() {
-        viewModelScope.launch {
-            subscriptionHelper.restorePurchasesSuspend(snackbarManager)
-
-//            withContext(Dispatchers.IO) {
-//                try {
-//                    val currentTimeInMillis = getInstance().timeInMillis
-//                    var maxEndTime = 0L
-//                    var job: Job? = null
-//                    billingClient.purchases.getPurchases()
-//                        .addOnSuccessListener { purchases ->
-//                            viewModelScope.launch {
-//                                purchases.forEach { purchase ->
-//                                    job?.cancel()
-//                                    job = this.launch(Dispatchers.IO) {
-//                                        if (purchase.purchaseState == PurchaseState.CONFIRMED) {
-//                                            ruStoreUseCase.getExpiryTimeMillis(
-//                                                purchase.productId,
-//                                                purchase.subscriptionToken ?: ""
-//                                            ).collect { resultState ->
-//                                                if (resultState is ResultState.Success) {
-//                                                    if (resultState.data > maxEndTime) {
-//                                                        maxEndTime = resultState.data
-//                                                    }
-//                                                    job?.cancel()
-//                                                }
-//                                                if (resultState is ResultState.Error) {
-//                                                    snackbarManager.show(
-//                                                        message = "Ошибка ruStoreUseCase.getExpiryTimeMillis ${resultState.entity.message}",
-//                                                        showOnceKey = "restore_purchases_none"
-//                                                    )
-//                                                    job?.cancel()
-//                                                }
-//                                            }
-//                                        }
-//                                    }
-//                                    job.join()
-//                                }
-//                                if (maxEndTime > currentTimeInMillis) {
-//                                    sharedPreferenceStorage.setSubscriptionExpiration(maxEndTime)
-//                                    snackbarManager.show(
-//                                        message = "Покупки восстановлены",
-//                                        showOnceKey = "restore_purchases_success"
-//                                    )
-//                                }
-//                                if (maxEndTime < currentTimeInMillis) {
-//                                    snackbarManager.show(
-//                                        message = "Действующих подписок не найдено",
-//                                        showOnceKey = "restore_purchases_none"
-//                                    )
-//                                }
-//                            }
-//                        }
-//                        .addOnFailureListener {
-//                            snackbarManager.show(
-//                                message = "Ошибка получения данных от сервера",
-//                            )
-//                        }
-//                } catch (e: Exception) {
-//                    snackbarManager.show(message = e.message ?: "Ошибка при восстановлении")
-//                }
-//            }
-        }
-    }
-
-    fun newRouteClick(basicId: String? = null) {
-        _uiState.update {
-            it.copy(
-                isLoadingStateAddButton = true
-            )
-        }
-        viewModelScope.launch {
-            when (val decision =
-                routeHelper.newRouteClick(basicId = basicId, isMakeCopy = basicId != null)) {
-                is RouteActionsHelper.NewRouteResult.NeedSubscribeDialog -> {
-                    _alertBeforePurchasesEvent.tryEmit(AlertBeforePurchasesEvent.ShowDialogNeedSubscribe)
-                    _uiState.update { it.copy(isLoadingStateAddButton = false) }
-                }
-
-                is RouteActionsHelper.NewRouteResult.AlertSubscribeDialog -> {
-                    _alertBeforePurchasesEvent.tryEmit(AlertBeforePurchasesEvent.ShowDialogAlertSubscribe)
-                    _uiState.update { it.copy(isLoadingStateAddButton = false) }
-                }
-
-                is RouteActionsHelper.NewRouteResult.ShowNewRouteScreen -> {
-                    _openRouteFormEvent.tryEmit(
-                        OpenRouteFormEvent(
-                            decision.basicId,
-                            decision.isMakeCopy
-                        )
-                    )
-
-                    _uiState.update {
-                        it.copy(
-                            isLoadingStateAddButton = false
-                        )
-                    }
-                }
-
-                is RouteActionsHelper.NewRouteResult.Error -> {
-                    _uiState.update { it.copy(isLoadingStateAddButton = false) }
                 }
             }
         }
@@ -991,10 +844,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         sharedPreferenceStorage.setTokenIsFirstAppEntry(false)
     }
 
-    fun getUriToRoute(route: Route): Intent {
-        return shareManager.createShareIntent(route)
-    }
-
     init {
         viewModelScope.launch(Dispatchers.IO) {
             loadMonthList()
@@ -1100,21 +949,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                                     routeStateList.add(routeState)
                                 }
                             }
-
-//                            currentRoute = null
-//
-//                            routeList
-//                                .filter { route ->
-//                                    !route.isFuture(userSettings.timeZone)
-//                                }.forEach { route ->
-//                                if (route.isCurrentRoute(currentTimeInMillis)) {
-//                                    currentRoute = route
-//                                    route.basicData.timeStartWork?.let { startWork ->
-//                                        workTimer(startWork)
-//                                    }
-//                                    return@forEach
-//                                }
-//                            }
 
                             currentRoute = routeList.findCurrentRoute(
                                 currentTimeInMillis = currentTimeInMillis,

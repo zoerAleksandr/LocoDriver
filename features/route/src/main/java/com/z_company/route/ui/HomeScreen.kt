@@ -146,11 +146,9 @@ fun HomeScreen(
     uiState: ResultState<Unit>,
     listRouteState: MutableList<ItemState>,
     onRouteClick: (String) -> Unit,
-    onNewRouteClick: () -> Unit,
     onMoreInfoClick: (String) -> Unit,
     makeCopyRoute: (String) -> Unit,
     onDeleteRoute: (Route) -> Unit,
-    onSettingsClick: () -> Unit,
     onSearchClick: () -> Unit,
     totalTime: Long,
     currentMonthOfYear: MonthOfYear?,
@@ -166,11 +164,6 @@ fun HomeScreen(
     homeRestValue: Long?,
     firstEntryDialogState: Boolean,
     resetStateFirstEntryDialog: () -> Unit,
-    showFormScreen: () -> Unit,
-    isLoadingStateAddButton: Boolean,
-    alertBeforePurchasesState: SharedFlow<AlertBeforePurchasesEvent>,
-    checkPurchasesAvailability: () -> Unit,
-    restorePurchases: () -> Unit,
     offsetInMoscow: Long,
     syncRoute: (Route) -> Unit,
     updateEvent: SharedFlow<UpdateEvent>,
@@ -215,13 +208,14 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
-    val snackbarHostState = remember { SnackbarHostState() }
 
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
     )
 
     val interactionSource = remember { MutableInteractionSource() }
+
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val snackbarManager: ISnackbarManager = koinInject()
 
@@ -240,8 +234,7 @@ fun HomeScreen(
                         launch {
                             try {
                                 onAction()
-                            } catch (_: Exception) { /* optional logging */
-                            }
+                            } catch (_: Exception) { /* optional logging */ }
                         }
                     }
                 }
@@ -271,95 +264,95 @@ fun HomeScreen(
 
     var isShowDialogConfirmRemoveRoute by remember { mutableStateOf(false) }
 
-    var isShowNeedSubscribeDialog by remember {
-        mutableStateOf(false)
-    }
+//    var isShowNeedSubscribeDialog by remember {
+//        mutableStateOf(false)
+//    }
+//
+//    var isShowAlertSubscribeDialog by remember {
+//        mutableStateOf(false)
+//    }
+//
+//    if (isShowAlertSubscribeDialog) {
+//        AppBottomSheet(
+//            onDismissRequest = { isShowAlertSubscribeDialog = false },
+//            sheetState = sheetState,
+//            headerContent = {
+//                Column(
+//                    modifier = Modifier
+//                        .fillMaxWidth(),
+//                    horizontalAlignment = Alignment.CenterHorizontally,
+//                ) {
+//                    Text(
+//                        text = "${stringResource(id = R.string.test_period)}\n",
+//                        style = MaterialTheme.typography.titleMedium,
+//                        color = MaterialTheme.colorScheme.primary
+//                    )
+//                    Text(
+//                        text = "${stringResource(id = R.string.available_for_free_route)}\n",
+//                        style = MaterialTheme.typography.bodyLarge,
+//                        color = MaterialTheme.colorScheme.primary
+//                    )
+//                }
+//            },
+//            actions = listOf(
+//                BottomSheetAction(text = stringResource(id = R.string.billing_common_ok)) {
+//                    showFormScreen()
+//                },
+//                BottomSheetAction(text = "Оформить подписку за 44 руб/мес") {
+//                    checkPurchasesAvailability()
+//                }
+//            ),
+//        )
+//    }
+//
+//    if (isShowNeedSubscribeDialog) {
+//        AppBottomSheet(
+//            onDismissRequest = { isShowNeedSubscribeDialog = false },
+//            sheetState = sheetState,
+//            headerContent = {
+//                Column(
+//                    modifier = Modifier
+//                        .fillMaxWidth(),
+//                    horizontalAlignment = Alignment.CenterHorizontally,
+//                ) {
+//                    Text(
+//                        text = "${stringResource(id = R.string.dialog_title_need_purchases)}\n",
+//                        style = MaterialTheme.typography.titleLarge,
+//                        color = MaterialTheme.colorScheme.primary
+//                    )
+//                    Text(
+//                        text = stringResource(id = R.string.available_for_free_route),
+//                        style = MaterialTheme.typography.bodyLarge,
+//                        color = MaterialTheme.colorScheme.primary
+//                    )
+//                }
+//            },
+//            actions = listOf(
+//                BottomSheetAction(text = "Оформить подписку за 44 руб/мес") {
+//                    checkPurchasesAvailability()
+//                },
+//                BottomSheetAction(text = "Восстановить покупки") {
+//                    restorePurchases()
+//                }
+//            )
+//        )
+//    }
 
-    var isShowAlertSubscribeDialog by remember {
-        mutableStateOf(false)
-    }
-
-    if (isShowAlertSubscribeDialog) {
-        AppBottomSheet(
-            onDismissRequest = { isShowAlertSubscribeDialog = false },
-            sheetState = sheetState,
-            headerContent = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(
-                        text = "${stringResource(id = R.string.test_period)}\n",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = "${stringResource(id = R.string.available_for_free_route)}\n",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            },
-            actions = listOf(
-                BottomSheetAction(text = stringResource(id = R.string.billing_common_ok)) {
-                    showFormScreen()
-                },
-                BottomSheetAction(text = "Оформить подписку за 44 руб/мес") {
-                    checkPurchasesAvailability()
-                }
-            ),
-        )
-    }
-
-    if (isShowNeedSubscribeDialog) {
-        AppBottomSheet(
-            onDismissRequest = { isShowNeedSubscribeDialog = false },
-            sheetState = sheetState,
-            headerContent = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(
-                        text = "${stringResource(id = R.string.dialog_title_need_purchases)}\n",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = stringResource(id = R.string.available_for_free_route),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            },
-            actions = listOf(
-                BottomSheetAction(text = "Оформить подписку за 44 руб/мес") {
-                    checkPurchasesAvailability()
-                },
-                BottomSheetAction(text = "Восстановить покупки") {
-                    restorePurchases()
-                }
-            )
-        )
-    }
-
-    LaunchedEffect(Unit) {
-        scope.launch {
-            alertBeforePurchasesState.flowWithLifecycle(lifecycle).collect { event ->
-                when (event) {
-                    is AlertBeforePurchasesEvent.ShowDialogNeedSubscribe -> {
-                        isShowNeedSubscribeDialog = true
-                    }
-
-                    is AlertBeforePurchasesEvent.ShowDialogAlertSubscribe -> {
-                        isShowAlertSubscribeDialog = true
-                    }
-                }
-            }
-        }
-    }
+//    LaunchedEffect(Unit) {
+//        scope.launch {
+//            alertBeforePurchasesState.flowWithLifecycle(lifecycle).collect { event ->
+//                when (event) {
+//                    is AlertBeforePurchasesEvent.ShowDialogNeedSubscribe -> {
+//                        isShowNeedSubscribeDialog = true
+//                    }
+//
+//                    is AlertBeforePurchasesEvent.ShowDialogAlertSubscribe -> {
+//                        isShowAlertSubscribeDialog = true
+//                    }
+//                }
+//            }
+//        }
+//    }
 
     var routeForPreview by remember {
         mutableStateOf<Route?>(null)
@@ -647,7 +640,6 @@ fun HomeScreen(
                 }
             )
         },
-
         bottomBar = {
 //            BottomNavigationBar()
 //            val colors: NavigationBarItemColors = NavigationBarItemDefaults.colors(

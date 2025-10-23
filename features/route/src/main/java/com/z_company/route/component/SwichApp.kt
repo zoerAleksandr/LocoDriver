@@ -1,5 +1,6 @@
 package com.z_company.route.component
 
+import android.util.Log
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
@@ -11,7 +12,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -21,12 +24,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.z_company.core.ui.theme.Shapes
 
 /**
  * A composable function that creates a switch with text labels for both states.
@@ -52,15 +57,14 @@ fun SwitchApp(
     onCheckedChange: ((Boolean) -> Unit)?,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    shape: RoundedCornerShape = RoundedCornerShape(10.dp),
-    color: Color = MaterialTheme.colorScheme.primaryContainer,
-    borderColor: Color = MaterialTheme.colorScheme.primaryContainer,
-    textColor: Color = MaterialTheme.colorScheme.onPrimaryContainer,
-    disabledColor: Color = color.copy(alpha = 0.38f),
-    disabledBorderColor: Color = borderColor.copy(alpha = 0.38f),
-    disabledTextColor: Color = textColor.copy(alpha = 0.38f),
-    firstVariant: @Composable () -> Unit,
-    secondVariant: @Composable () -> Unit,
+    shape: RoundedCornerShape = RoundedCornerShape(12.dp),
+    positiveColor: Color = MaterialTheme.colorScheme.secondary,
+    negativeColor: Color = MaterialTheme.colorScheme.secondary,
+    disabledPositiveColor: Color = positiveColor,
+    disabledNegativeColor: Color = negativeColor,
+    borderColor: Color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+    positiveContent: @Composable BoxScope.() -> Unit,
+    negativeContent: @Composable BoxScope.() -> Unit,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
 ) {
     var width by remember { mutableStateOf(0.dp) }
@@ -81,44 +85,11 @@ fun SwitchApp(
         label = "thumb_offset"
     )
 
-    val animatedColor by animateColorAsState(
-        targetValue = if (!enabled) disabledColor else color,
-        animationSpec = tween(
-            durationMillis = 150,
-            easing = FastOutSlowInEasing
-        ),
-        label = "color"
-    )
-
-    val animatedBorderColor by animateColorAsState(
-        targetValue = if (!enabled) disabledBorderColor else borderColor,
-        animationSpec = tween(
-            durationMillis = 150,
-            easing = FastOutSlowInEasing
-        ),
-        label = "border_color"
-    )
-
-    val animatedTextColor by animateColorAsState(
-        targetValue = if (!enabled) disabledTextColor else textColor,
-        animationSpec = tween(
-            durationMillis = 150,
-            easing = FastOutSlowInEasing
-        ),
-        label = "text_color"
-    )
-
-    val animatedAlpha by animateFloatAsState(
-        targetValue = if (enabled) 1f else 0.38f,
-        animationSpec = tween(durationMillis = 150),
-        label = "switch_alpha"
-    )
-
     val localDensity = LocalDensity.current
     Box(
         modifier = modifier
             .defaultMinSize(
-                minWidth = ButtonDefaults.MinHeight * 2,
+                minWidth = ButtonDefaults.MinHeight,
                 minHeight = ButtonDefaults.MinHeight
             )
             .onGloballyPositioned { coordinates ->
@@ -129,13 +100,15 @@ fun SwitchApp(
                     coordinates.size.height.toDp()
                 }
             }
+            .shadow(elevation = 3.dp, shape = shape)
             .height(height)
             .clip(shape = shape)
             .border(
-                width = 1.dp,
-                color = animatedBorderColor,
+                width = 0.5.dp,
+                color = borderColor,
                 shape = shape
             )
+            .background(MaterialTheme.colorScheme.surface)
             .then(
                 if (onCheckedChange != null) {
                     Modifier.toggleable(
@@ -159,36 +132,42 @@ fun SwitchApp(
                 modifier = Modifier
                     .fillMaxHeight()
                     .width(animatedThumbOffset)
-                    .background(Color.Transparent)
             )
             Box(
                 modifier = Modifier
+                    .padding(2.dp)
                     .height(height)
                     .width(width / 2)
-                    .clip(shape = shape)
-                    .background(animatedColor)
-                    .alpha(animatedAlpha)
+                    .clip(shape = shape.copy(CornerSize(10.dp)))
+                    .shadow(elevation = 3.dp, shape = shape.copy(CornerSize(10.dp)))
+                    .background(MaterialTheme.colorScheme.secondary)
+                    .border(
+                        shape = shape.copy(CornerSize(10.dp)),
+                        color = borderColor,
+                        width = 0.5.dp
+                    )
+//                    .alpha(animatedAlpha)
             )
         }
         Row(
             modifier = Modifier
+                .fillMaxWidth()
                 .fillMaxHeight(),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            firstVariant
-            secondVariant
-//            Text(
-//                modifier = Modifier.weight(1f),
-//                text = negativeText,
-//                textAlign = TextAlign.Center,
-//                color = animatedTextColor
-//            )
-//            Text(
-//                modifier = Modifier.weight(1f),
-//                text = positiveText,
-//                textAlign = TextAlign.Center,
-//                color = animatedTextColor
-//            )
+            Box(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                negativeContent()
+            }
+            Box(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                positiveContent()
+            }
         }
     }
 }

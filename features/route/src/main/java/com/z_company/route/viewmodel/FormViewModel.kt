@@ -8,13 +8,16 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
+import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.NightTime
+import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.route.*
 import com.z_company.domain.entities.route.UtilsForEntities.getHomeRest
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeFlow
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.passengerTrainNumberList
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.*
@@ -24,6 +27,10 @@ import com.z_company.domain.util.plus
 import com.z_company.domain.util.sum
 import com.z_company.domain.util.toIntOrZero
 import com.z_company.route.Const.NULLABLE_ID
+import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
+import com.z_company.route.viewmodel.home_view_model.OpenRouteFormEvent
+import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
+import com.z_company.use_case.SubscriptionHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -58,6 +65,9 @@ class FormViewModel(
     private val settingsUseCase: SettingsUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val salaryCalculationUseCase: SalaryCalculationUseCase by inject()
+    private val routeHelper: RouteActionsHelper by inject()
+    private val snackbarManager: ISnackbarManager by inject()
+    private val subscriptionHelper: SubscriptionHelper by inject()
 
     val reviewManager = RuStoreReviewManagerFactory.create(application.applicationContext)
     private val _uiState = MutableStateFlow(RouteFormUiState())
@@ -75,6 +85,24 @@ class FormViewModel(
     )
     val events = _events.asSharedFlow()
 
+    private val _alertBeforePurchasesEvent = MutableSharedFlow<AlertBeforePurchasesEvent>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+
+    val alertBeforePurchasesEvent = _alertBeforePurchasesEvent.asSharedFlow()
+
+    private val _purchasesEvent = MutableSharedFlow<StartPurchasesEvent>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    val purchasesEvent = _purchasesEvent.asSharedFlow()
+
+    private val _holidayTime = MutableStateFlow<Long?>(null)
+    val holidayTime: StateFlow<Long?> = _holidayTime
+
+    private val _userSetting = MutableStateFlow<UserSettings?>(null)
+    val userSetting: StateFlow<UserSettings?> = _userSetting
 
     private var loadRouteJob: Job? = null
     private var saveRouteJob: Job? = null
@@ -113,6 +141,7 @@ class FormViewModel(
                 calculateSalary(value)
             }
         }
+
 
     private var currentMonthOfYear: MonthOfYear? = null
     private var currentTimeZoneOffset: Long? = null
@@ -302,6 +331,7 @@ class FormViewModel(
                     currentRoute?.let { route ->
                         calculateRestTime(route)
                         getNightTimeInRoute(route)
+                        getHolidayTimeInRoute(route)
                         calculationPassengerTime(route)
                     }
                 }
@@ -389,9 +419,55 @@ class FormViewModel(
                 currentRoute?.let { route ->
                     calculateRestTime(route)
                     getNightTimeInRoute(route)
+                    getHolidayTimeInRoute(route)
                 }
             }
         }.launchIn(viewModelScope)
+    }
+
+    fun checkPurchasesAvailability() {
+        viewModelScope.launch(Dispatchers.IO) {
+            when (val checkResult = subscriptionHelper.checkPurchasesAvailabilitySuspend()) {
+                is ResultState.Success -> {
+                    _purchasesEvent.tryEmit(StartPurchasesEvent.PurchasesAvailability(checkResult.data))
+                }
+
+                is ResultState.Error -> {
+                    snackbarManager.show(
+                        message = "Ошибка ${checkResult.entity.message}",
+                        showOnceKey = "checkPurchasesAvailability"
+                    )
+                }
+
+                else -> {}
+            }
+        }
+    }
+
+    fun restorePurchases() {
+        viewModelScope.launch {
+            subscriptionHelper.restorePurchasesSuspend(snackbarManager)
+        }
+    }
+
+    fun onSaveClick() {
+        viewModelScope.launch {
+            when (routeHelper.newRouteClick()) {
+                is RouteActionsHelper.NewRouteResult.NeedSubscribeDialog -> {
+                    _alertBeforePurchasesEvent.tryEmit(AlertBeforePurchasesEvent.ShowDialogNeedSubscribe)
+                }
+
+                is RouteActionsHelper.NewRouteResult.AlertSubscribeDialog -> {
+                    _alertBeforePurchasesEvent.tryEmit(AlertBeforePurchasesEvent.ShowDialogAlertSubscribe)
+                }
+
+                is RouteActionsHelper.NewRouteResult.ShowNewRouteScreen -> {
+                    saveRoute()
+                }
+
+                is RouteActionsHelper.NewRouteResult.Error -> {}
+            }
+        }
     }
 
     fun saveRoute() {
@@ -451,14 +527,6 @@ class FormViewModel(
                                         deletePassengerJob =
                                             passengerUseCase.removePassenger(passenger)
                                                 .launchIn(viewModelScope)
-                                    }
-                                    deletedPhotoList.forEach { photo ->
-                                        viewModelScope.launch {
-                                            deletePhotoJob?.cancel()
-                                            deletePhotoJob =
-                                                photoUseCase.removePhoto(photo)
-                                                    .launchIn(viewModelScope)
-                                        }.join()
                                     }
                                     reviewInfo?.let { info ->
                                         showReviewDialog(info)
@@ -609,6 +677,7 @@ class FormViewModel(
             }
             calculateRestTime(currentRoute!!)
             getNightTimeInRoute(currentRoute!!)
+            getHolidayTimeInRoute(currentRoute!!)
             isValidTime()
             changesHave()
         }
@@ -624,6 +693,7 @@ class FormViewModel(
             )
             calculateRestTime(currentRoute!!)
             getNightTimeInRoute(currentRoute!!)
+            getHolidayTimeInRoute(currentRoute!!)
             isValidTime()
             changesHave()
         }
@@ -681,6 +751,16 @@ class FormViewModel(
                         offsetInMoscow = currentTimeZoneOffset ?: 0L
                     ).first()
                 )
+            }
+        }
+    }
+
+    private fun getHolidayTimeInRoute(route: Route) {
+        viewModelScope.launch {
+            userSetting.value?.let { setting ->
+                val holidayTime =
+                    listOf(route).getWorkingTimeOnAHoliday(setting.selectMonthOfYear, setting.timeZone).first()
+                _holidayTime.value = holidayTime
             }
         }
     }
