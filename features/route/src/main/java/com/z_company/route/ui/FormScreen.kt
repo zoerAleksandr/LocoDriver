@@ -473,62 +473,64 @@ fun FormScreen(
         ) {
             Box(Modifier.padding(it)) {
                 AsyncData(resultState = formUiState.routeDetailState) {
-                    currentRoute?.let { route ->
-                        val scrollState = rememberLazyListState()
-                        val scope = rememberCoroutineScope()
+                    if (formUiState.routeDetailState is ResultState.Success) {
+                        val route = formUiState.routeDetailState.data
+                        route?.let { route ->
+                            val scrollState = rememberLazyListState()
+                            val scope = rememberCoroutineScope()
 
-                        var showStartDatePickerCopyRoute by remember {
-                            mutableStateOf(false)
-                        }
+                            var showStartDatePickerCopyRoute by remember {
+                                mutableStateOf(false)
+                            }
 
-                        var showStartDatePicker by remember {
-                            mutableStateOf(false)
-                        }
+                            var showStartDatePicker by remember {
+                                mutableStateOf(false)
+                            }
 
-                        var showEndDatePicker by remember {
-                            mutableStateOf(false)
-                        }
+                            var showEndDatePicker by remember {
+                                mutableStateOf(false)
+                            }
 
-                        var moreInfoRestVisible by remember {
-                            mutableStateOf(false)
-                        }
+                            var moreInfoRestVisible by remember {
+                                mutableStateOf(false)
+                            }
 
-                        if (formUiState.confirmExitDialogShow) {
-                            ConfirmExitDialog(
-                                showExitConfirmDialog = changeShowConfirmExitDialog,
-                                onSaveClick = onSaveClick,
-                                exitWithoutSave = exitWithoutSave
-                            )
-                        }
+                            if (formUiState.confirmExitDialogShow) {
+                                ConfirmExitDialog(
+                                    showExitConfirmDialog = changeShowConfirmExitDialog,
+                                    onSaveClick = onSaveClick,
+                                    exitWithoutSave = exitWithoutSave
+                                )
+                            }
 
-                        val startOfWorkTime by remember {
-                            mutableStateOf(
-                                Calendar.getInstance().also { calendar ->
-                                    route.basicData.timeStartWork?.let {
-                                        calendar.timeInMillis = it
+                            val startOfWorkTime by remember {
+                                mutableStateOf(
+                                    Calendar.getInstance().also { calendar ->
+                                        route.basicData.timeStartWork?.let {
+                                            calendar.timeInMillis = it
+                                        }
                                     }
-                                }
-                            )
-                        }
+                                )
+                            }
 
-                        val startCalendar by remember {
-                            mutableStateOf(startOfWorkTime)
-                        }
+                            val startCalendar by remember {
+                                mutableStateOf(startOfWorkTime)
+                            }
 
-                        if (showStartDatePicker) {
-                            DateTimePickerBottomSheet(
-                                title = "Явка",
-                                onDateTimeSelected = { timestamp ->
-                                    onTimeStartWorkChanged(timestamp)
-                                },
-                                initialTimestamp = startCalendar.timeInMillis,
-                                onDismiss = { showStartDatePicker = false },
+                            if (showStartDatePicker) {
+                                DateTimePickerBottomSheet(
+                                    title = "Явка",
+                                    onDateTimeSelected = { timestamp ->
+                                        onTimeStartWorkChanged(timestamp)
+                                    },
+                                    onDismiss = { showStartDatePicker = false },
+                                    startDateTime = startCalendar.timeInMillis
 //                                onSnappedDateTime = { snappedDateTime ->
 ////                                    selectedDate = snappedDateTime.snappedLocalDateTime
 //                                    snappedDateTime.snappedIndex
 //                                }
-                            )
-                        }
+                                )
+                            }
 
 //                        SelectableDateTimePicker(
 //                            titleText = "Явка",
@@ -546,566 +548,280 @@ fun FormScreen(
 //                            onSettingClick = onSettingClick
 //                        )
 
-                        val endOfWorkTime by remember {
-                            mutableStateOf(
-                                Calendar.getInstance().also { calendar ->
-                                    route.basicData.timeEndWork?.let {
-                                        calendar.timeInMillis = it
-                                    }
-                                })
-                        }
-
-                        val endCalendar by remember {
-                            mutableStateOf(endOfWorkTime)
-                        }
-
-                        SelectableDateTimePicker(
-                            titleText = "Сдача",
-                            isShowPicker = showEndDatePicker,
-                            initDateTime = endCalendar.timeInMillis,
-                            onDoneClick = { localDateTime ->
-                                val instant = localDateTime.toInstant(TimeZone.of(timeZoneText))
-                                val millis = instant.toEpochMilliseconds()
-                                onTimeEndWorkChanged(millis)
-                                showEndDatePicker = false
-                            },
-                            onDismiss = {
-                                showEndDatePicker = false
-                            },
-                            onSettingClick = onSettingClick
-                        )
-
-                        LaunchedEffect(isCopy) {
-                            if (isCopy) {
-                                showStartDatePickerCopyRoute = true
+                            val endOfWorkTime by remember {
+                                mutableStateOf(
+                                    Calendar.getInstance().also { calendar ->
+                                        route.basicData.timeEndWork?.let {
+                                            calendar.timeInMillis = it
+                                        }
+                                    })
                             }
-                        }
 
-                        val startDateCopyRoutePickerState = rememberDatePickerStateInLocale(
-                            route.basicData.timeStartWork ?: Calendar.getInstance().timeInMillis
-                        )
+                            val endCalendar by remember {
+                                mutableStateOf(endOfWorkTime)
+                            }
 
-                        if (showStartDatePickerCopyRoute) {
-                            CustomDatePickerDialog(
-                                datePickerState = startDateCopyRoutePickerState,
-                                onDismissRequest = {
-                                    showStartDatePickerCopyRoute = false
+                            SelectableDateTimePicker(
+                                titleText = "Сдача",
+                                isShowPicker = showEndDatePicker,
+                                initDateTime = endCalendar.timeInMillis,
+                                onDoneClick = { localDateTime ->
+                                    val instant = localDateTime.toInstant(TimeZone.of(timeZoneText))
+                                    val millis = instant.toEpochMilliseconds()
+                                    onTimeEndWorkChanged(millis)
+                                    showEndDatePicker = false
                                 },
-                                onConfirmRequest = {
-                                    showStartDatePickerCopyRoute = false
-                                    val oldValueStartCalendar = Calendar.getInstance().also {
-                                        it.timeInMillis = startCalendar.timeInMillis
-                                    }
-                                    startCalendar.timeInMillis =
-                                        startDateCopyRoutePickerState.selectedDateMillis!!
-                                    startCalendar.set(
-                                        Calendar.HOUR_OF_DAY,
-                                        oldValueStartCalendar.get(Calendar.HOUR_OF_DAY)
-                                    )
-                                    startCalendar.set(
-                                        Calendar.MINUTE,
-                                        oldValueStartCalendar.get(Calendar.MINUTE)
-                                    )
-                                    startCalendar.set(Calendar.SECOND, 0)
-                                    startCalendar.set(Calendar.MILLISECOND, 0)
+                                onDismiss = {
+                                    showEndDatePicker = false
+                                },
+                                onSettingClick = onSettingClick
+                            )
 
-                                    onTimeStartWorkChanged(startCalendar.timeInMillis)
-                                    val workTimeInMillis = route.getWorkTime()
-                                    workTimeInMillis?.let { workTime ->
-                                        endCalendar.timeInMillis =
-                                            startCalendar.timeInMillis + workTime
-                                        onTimeEndWorkChanged(endCalendar.timeInMillis)
-                                    }
-                                })
-                        }
+                            LaunchedEffect(isCopy) {
+                                if (isCopy) {
+                                    showStartDatePickerCopyRoute = true
+                                }
+                            }
 
-                        AnimatedVisibility(
-                            modifier = Modifier.zIndex(1f),
-                            visible = !scrollState.isScrollInInitialState(),
-                            enter = fadeIn(animationSpec = tween(durationMillis = 300)),
-                            exit = fadeOut(animationSpec = tween(durationMillis = 300))
-                        ) {
-                            BottomShadow()
-                        }
+                            val startDateCopyRoutePickerState = rememberDatePickerStateInLocale(
+                                route.basicData.timeStartWork ?: Calendar.getInstance().timeInMillis
+                            )
 
-                        var isVisibleDetailMoney by remember {
-                            mutableStateOf(false)
-                        }
+                            if (showStartDatePickerCopyRoute) {
+                                CustomDatePickerDialog(
+                                    datePickerState = startDateCopyRoutePickerState,
+                                    onDismissRequest = {
+                                        showStartDatePickerCopyRoute = false
+                                    },
+                                    onConfirmRequest = {
+                                        showStartDatePickerCopyRoute = false
+                                        val oldValueStartCalendar = Calendar.getInstance().also {
+                                            it.timeInMillis = startCalendar.timeInMillis
+                                        }
+                                        startCalendar.timeInMillis =
+                                            startDateCopyRoutePickerState.selectedDateMillis!!
+                                        startCalendar.set(
+                                            Calendar.HOUR_OF_DAY,
+                                            oldValueStartCalendar.get(Calendar.HOUR_OF_DAY)
+                                        )
+                                        startCalendar.set(
+                                            Calendar.MINUTE,
+                                            oldValueStartCalendar.get(Calendar.MINUTE)
+                                        )
+                                        startCalendar.set(Calendar.SECOND, 0)
+                                        startCalendar.set(Calendar.MILLISECOND, 0)
 
-                        LazyColumn(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(24.dp),
-                            state = scrollState,
-                        ) {
-                            val startTimeInLong = route.basicData.timeStartWork
-                            val endTimeInLong = route.basicData.timeEndWork
-                            val workTimeInLong = endTimeInLong - startTimeInLong
-                            val workTimeInFormatted =
-                                ConverterLongToTime.getTimeInStringFormat(workTimeInLong)
+                                        onTimeStartWorkChanged(startCalendar.timeInMillis)
+                                        val workTimeInMillis = route.getWorkTime()
+                                        workTimeInMillis?.let { workTime ->
+                                            endCalendar.timeInMillis =
+                                                startCalendar.timeInMillis + workTime
+                                            onTimeEndWorkChanged(endCalendar.timeInMillis)
+                                        }
+                                    })
+                            }
 
-                            item {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .animateItemPlacement(),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    val widthScreen =
-                                        LocalConfiguration.current.screenWidthDp.toFloat()
-                                    val errorGradient = Brush.radialGradient(
-                                        colors = listOf(
-                                            MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
-                                            MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
-                                        ),
-                                        center = Offset(Float.POSITIVE_INFINITY, 0f),
-                                        radius = widthScreen * 2
-                                    )
+                            AnimatedVisibility(
+                                modifier = Modifier.zIndex(1f),
+                                visible = !scrollState.isScrollInInitialState(),
+                                enter = fadeIn(animationSpec = tween(durationMillis = 300)),
+                                exit = fadeOut(animationSpec = tween(durationMillis = 300))
+                            ) {
+                                BottomShadow()
+                            }
 
+                            var isVisibleDetailMoney by remember {
+                                mutableStateOf(false)
+                            }
+
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(24.dp),
+                                state = scrollState,
+                            ) {
+                                val startTimeInLong = route.basicData.timeStartWork
+                                val endTimeInLong = route.basicData.timeEndWork
+                                val workTimeInLong = endTimeInLong - startTimeInLong
+                                val workTimeInFormatted =
+                                    ConverterLongToTime.getTimeInStringFormat(workTimeInLong)
+
+                                item {
                                     Column(
                                         modifier = Modifier
-                                            .fillMaxWidth(),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        formUiState.errorMessage?.let { message ->
-                                            Card(
-                                                modifier = Modifier
-                                                    .fillMaxWidth(),
-                                                shape = MaterialTheme.shapes.medium,
-                                                elevation = CardDefaults.elevatedCardElevation(
-                                                    defaultElevation = 3.dp,
-                                                    pressedElevation = 0.dp
-                                                )
-                                            ) {
-                                                Column(
-                                                    modifier = Modifier
-                                                        .background(
-                                                            brush = errorGradient,
-                                                            shape = MaterialTheme.shapes.medium
-                                                        )
-                                                        .padding(12.dp),
-                                                    verticalArrangement = Arrangement.spacedBy(
-                                                        12.dp
-                                                    )
-                                                ) {
-                                                    Text(
-                                                        text = message,
-                                                        style = MaterialTheme.typography.bodyLarge,
-                                                        color = MaterialTheme.colorScheme.secondary
-                                                    )
-                                                }
-                                            }
-                                        }
-                                        if (workTimeInLong != null && formUiState.errorMessage == null) {
-                                            Text(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                textAlign = TextAlign.Start,
-                                                text = workTimeInFormatted,
-                                                color = MaterialTheme.colorScheme.primary,
-                                                style = MaterialTheme.typography.titleMedium
-                                            )
-                                            FlowRow(
-                                                modifier = Modifier
-                                                    .fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                                            ) {
-                                                val holidayTime by viewModel.holidayTime.collectAsState()
-
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Icon(
-                                                        modifier = Modifier
-                                                            .size(32.dp)
-                                                            .padding(end = 4.dp),
-                                                        painter = painterResource(id = R.drawable.dark_mode_24px),
-                                                        contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.primary
-                                                    )
-                                                    Text(
-                                                        text = ConverterLongToTime.getTimeInStringFormat(
-                                                            nightTime
-                                                        ),
-                                                        style = MaterialTheme.typography.bodyMedium,
-                                                        color = MaterialTheme.colorScheme.primary
-                                                    )
-                                                }
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Icon(
-                                                        modifier = Modifier
-                                                            .size(32.dp)
-                                                            .padding(end = 4.dp),
-                                                        painter = painterResource(id = R.drawable.passenger_24px),
-                                                        contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.primary
-                                                    )
-                                                    Text(
-                                                        text = ConverterLongToTime.getTimeInStringFormat(
-                                                            route.getPassengerTime() ?: 0L
-                                                        ),
-                                                        style = MaterialTheme.typography.bodyMedium,
-                                                        color = MaterialTheme.colorScheme.primary
-                                                    )
-                                                }
-
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Image(
-                                                        modifier = Modifier
-                                                            .size(32.dp)
-                                                            .padding(end = 8.dp),
-                                                        painter = painterResource(id = R.drawable.icon_holiday),
-                                                        contentDescription = null
-                                                    )
-                                                    Text(
-                                                        text = ConverterLongToTime.getTimeInStringFormat(
-                                                            holidayTime ?: 0L
-                                                        ),
-                                                        style = MaterialTheme.typography.bodyMedium,
-                                                        color = MaterialTheme.colorScheme.primary
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    Row(
-                                        modifier = Modifier
                                             .fillMaxWidth()
-                                            .noRippleEffect(
-                                                { isVisibleDetailMoney = !isVisibleDetailMoney }
+                                            .animateItemPlacement(),
+                                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        val widthScreen =
+                                            LocalConfiguration.current.screenWidthDp.toFloat()
+                                        val errorGradient = Brush.radialGradient(
+                                            colors = listOf(
+                                                MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
+                                                MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
                                             ),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    )
-                                    {
-                                        Text(
-                                            text = "Заработано",
-                                            style = MaterialTheme.typography.bodyMedium
+                                            center = Offset(Float.POSITIVE_INFINITY, 0f),
+                                            radius = widthScreen * 2
                                         )
 
-                                        Row(
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        ) {
-                                            if (salaryForRouteState.isCalculated) {
-                                                Text(
-                                                    text = salaryForRouteState.totalPayment.toMoneyString(),
-                                                    style = MaterialTheme.typography.bodyMedium
-                                                )
-                                            } else {
-                                                Text(
-                                                    text = null.toMoneyString(),
-                                                    style = MaterialTheme.typography.bodyMedium
-                                                )
-                                            }
-
-                                            AnimatedContent(
-                                                targetState = isVisibleDetailMoney,
-
-                                                label = ""
-                                            ) {
-                                                val icon = if (it) {
-                                                    Icons.Default.KeyboardArrowUp
-                                                } else {
-                                                    Icons.Default.KeyboardArrowDown
-                                                }
-                                                Icon(
-                                                    imageVector = icon,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.primary
-                                                )
-                                            }
-                                        }
-                                    }
-
-                                    AnimatedVisibility(
-                                        visible = isVisibleDetailMoney,
-                                        enter = slideInVertically(
-                                            animationSpec = tween(
-                                                durationMillis = 150
-                                            )
-                                        ) + fadeIn(
-                                            animationSpec = tween(durationMillis = 100)
-                                        ),
-                                        exit = fadeOut(animationSpec = tween(durationMillis = 100))
-                                    ) {
                                         Column(
                                             modifier = Modifier
-                                                .background(
-                                                    color = MaterialTheme.colorScheme.surfaceDim,
-                                                    shape = Shapes.medium
-                                                )
-                                                .border(
-                                                    width = 0.5.dp,
-                                                    color = MaterialTheme.colorScheme.tertiary,
-                                                    shape = Shapes.medium
-                                                )
-                                                .padding(12.dp),
-                                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                                                .fillMaxWidth(),
+                                            horizontalAlignment = Alignment.CenterHorizontally
                                         ) {
-                                            if (salaryForRouteState.isCalculated) {
-                                                if (salaryForRouteState.paymentAtTariffRate == 0.0) {
-                                                    val link = buildAnnotatedString {
-                                                        val text =
-                                                            "Установите значение тарифной ставки в настройках."
-
-                                                        val endIndex = text.length - 1
-                                                        val startIndex =
-                                                            startIndexLastWord(text)
-
-                                                        append(text)
-                                                        addStyle(
-                                                            style = SpanStyle(
-                                                                color = MaterialTheme.colorScheme.tertiary,
-                                                                textDecoration = TextDecoration.Underline
-                                                            ),
-                                                            start = startIndex,
-                                                            end = endIndex
-                                                        )
-
-                                                        addStringAnnotation(
-                                                            tag = LINK_TO_SALARY_SETTING,
-                                                            annotation = LINK_TO_SALARY_SETTING,
-                                                            start = startIndex,
-                                                            end = endIndex
-                                                        )
-                                                    }
-
-                                                    Box(modifier = Modifier.fillMaxWidth()) {
-                                                        ClickableText(
-                                                            text = link,
-                                                            style = AppTypography.getType().bodyMedium.copy(
-                                                                fontStyle = FontStyle.Italic,
-                                                                fontWeight = FontWeight.Light,
-                                                                color = MaterialTheme.colorScheme.primary
-                                                            ),
-                                                        ) {
-                                                            link.getStringAnnotations(
-                                                                LINK_TO_SALARY_SETTING,
-                                                                it,
-                                                                it
+                                            formUiState.errorMessage?.let { message ->
+                                                Card(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth(),
+                                                    shape = MaterialTheme.shapes.medium,
+                                                    elevation = CardDefaults.elevatedCardElevation(
+                                                        defaultElevation = 3.dp,
+                                                        pressedElevation = 0.dp
+                                                    )
+                                                ) {
+                                                    Column(
+                                                        modifier = Modifier
+                                                            .background(
+                                                                brush = errorGradient,
+                                                                shape = MaterialTheme.shapes.medium
                                                             )
-                                                                .firstOrNull()?.let {
-                                                                    onSalarySettingClick()
-                                                                }
-                                                        }
-                                                    }
-                                                } else {
-                                                    Row(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                            .padding(12.dp),
+                                                        verticalArrangement = Arrangement.spacedBy(
+                                                            12.dp
+                                                        )
                                                     ) {
                                                         Text(
-                                                            text = "Почасовая оплата",
-                                                            style = MaterialTheme.typography.bodyMedium
-                                                        )
-                                                        Text(
-                                                            text = salaryForRouteState.paymentAtTariffRate.toMoneyString(),
-                                                            style = MaterialTheme.typography.bodyMedium
-                                                        )
-                                                    }
-
-                                                }
-
-                                                if (salaryForRouteState.paymentHolidayMoney != 0.0) {
-                                                    Row(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.SpaceBetween
-                                                    ) {
-                                                        Text(
-                                                            text = "Праздничные",
-                                                            style = MaterialTheme.typography.bodyMedium
-                                                        )
-                                                        Text(
-                                                            text = salaryForRouteState.paymentHolidayMoney.toMoneyString(),
-                                                            style = MaterialTheme.typography.bodyMedium
+                                                            text = message,
+                                                            style = MaterialTheme.typography.bodyLarge,
+                                                            color = MaterialTheme.colorScheme.secondary
                                                         )
                                                     }
                                                 }
+                                            }
+                                            if (workTimeInLong != null && formUiState.errorMessage == null) {
+                                                Text(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    textAlign = TextAlign.Start,
+                                                    text = workTimeInFormatted,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    style = MaterialTheme.typography.titleMedium
+                                                )
+                                                FlowRow(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                                ) {
+                                                    val holidayTime by viewModel.holidayTime.collectAsState()
 
-                                                if (salaryForRouteState.zonalSurchargeMoney != 0.0) {
-                                                    Row(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.SpaceBetween
-                                                    ) {
-                                                        Text(
-                                                            text = "Зональная надбавка",
-                                                            style = MaterialTheme.typography.bodyMedium
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        Icon(
+                                                            modifier = Modifier
+                                                                .size(32.dp)
+                                                                .padding(end = 4.dp),
+                                                            painter = painterResource(id = R.drawable.dark_mode_24px),
+                                                            contentDescription = null,
+                                                            tint = MaterialTheme.colorScheme.primary
                                                         )
                                                         Text(
-                                                            text = salaryForRouteState.zonalSurchargeMoney.toMoneyString(),
-                                                            style = MaterialTheme.typography.bodyMedium
+                                                            text = ConverterLongToTime.getTimeInStringFormat(
+                                                                nightTime
+                                                            ),
+                                                            style = MaterialTheme.typography.bodyMedium,
+                                                            color = MaterialTheme.colorScheme.primary
+                                                        )
+                                                    }
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        Icon(
+                                                            modifier = Modifier
+                                                                .size(32.dp)
+                                                                .padding(end = 4.dp),
+                                                            painter = painterResource(id = R.drawable.passenger_24px),
+                                                            contentDescription = null,
+                                                            tint = MaterialTheme.colorScheme.primary
+                                                        )
+                                                        Text(
+                                                            text = ConverterLongToTime.getTimeInStringFormat(
+                                                                route.getPassengerTime() ?: 0L
+                                                            ),
+                                                            style = MaterialTheme.typography.bodyMedium,
+                                                            color = MaterialTheme.colorScheme.primary
+                                                        )
+                                                    }
+
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        Image(
+                                                            modifier = Modifier
+                                                                .size(32.dp)
+                                                                .padding(end = 8.dp),
+                                                            painter = painterResource(id = R.drawable.icon_holiday),
+                                                            contentDescription = null
+                                                        )
+                                                        Text(
+                                                            text = ConverterLongToTime.getTimeInStringFormat(
+                                                                holidayTime ?: 0L
+                                                            ),
+                                                            style = MaterialTheme.typography.bodyMedium,
+                                                            color = MaterialTheme.colorScheme.primary
                                                         )
                                                     }
                                                 }
+                                            }
+                                        }
 
-                                                if (salaryForRouteState.paymentAtNightTime != 0.0) {
-                                                    Row(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.SpaceBetween
-                                                    ) {
-                                                        Text(
-                                                            text = "Ночные",
-                                                            style = MaterialTheme.typography.bodyMedium
-                                                        )
-                                                        Text(
-                                                            text = salaryForRouteState.paymentAtNightTime.toMoneyString(),
-                                                            style = MaterialTheme.typography.bodyMedium
-                                                        )
-                                                    }
-                                                }
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .noRippleEffect(
+                                                    { isVisibleDetailMoney = !isVisibleDetailMoney }
+                                                ),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        )
+                                        {
+                                            Text(
+                                                text = "Заработано",
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
 
-                                                if (salaryForRouteState.paymentAtPassengerTime != 0.0) {
-                                                    Row(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.SpaceBetween
-                                                    ) {
-                                                        Text(
-                                                            text = "Пассажиром",
-                                                            style = MaterialTheme.typography.bodyMedium
-                                                        )
-                                                        Text(
-                                                            text = salaryForRouteState.paymentAtPassengerTime.toMoneyString(),
-                                                            style = MaterialTheme.typography.bodyMedium
-                                                        )
-                                                    }
-                                                }
-
-                                                if (salaryForRouteState.paymentAtOnePerson != 0.0) {
-                                                    Row(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.SpaceBetween
-                                                    ) {
-                                                        Text(
-                                                            text = "Одно лицо",
-                                                            style = MaterialTheme.typography.bodyMedium
-                                                        )
-                                                        Text(
-                                                            text = salaryForRouteState.paymentAtOnePerson.toMoneyString(),
-                                                            style = MaterialTheme.typography.bodyMedium
-                                                        )
-                                                    }
-                                                }
-
-                                                if (salaryForRouteState.surchargesAtTrain != 0.0) {
-                                                    Row(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.SpaceBetween
-                                                    ) {
-                                                        Text(
-                                                            text = "Доплаты за поезд",
-                                                            style = MaterialTheme.typography.bodyMedium
-                                                        )
-                                                        Text(
-                                                            text = salaryForRouteState.surchargesAtTrain.toMoneyString(),
-                                                            style = MaterialTheme.typography.bodyMedium
-                                                        )
-                                                    }
-                                                }
-
-                                                if (salaryForRouteState.otherSurcharge != 0.0) {
-                                                    Row(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.SpaceBetween
-                                                    ) {
-                                                        Text(
-                                                            text = "Прочие доплаты",
-                                                            style = MaterialTheme.typography.bodyMedium
-                                                        )
-                                                        Text(
-                                                            text = salaryForRouteState.otherSurcharge.toMoneyString(),
-                                                            style = MaterialTheme.typography.bodyMedium
-                                                        )
-                                                    }
-                                                }
-                                            } else {
-                                                Box(modifier = Modifier.fillMaxWidth()) {
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            ) {
+                                                if (salaryForRouteState.isCalculated) {
                                                     Text(
-                                                        text = "Укажите начало и окончание рабочего времени для расчета заработной платы за поездку",
+                                                        text = salaryForRouteState.totalPayment.toMoneyString(),
+                                                        style = MaterialTheme.typography.bodyMedium
+                                                    )
+                                                } else {
+                                                    Text(
+                                                        text = null.toMoneyString(),
                                                         style = MaterialTheme.typography.bodyMedium
                                                     )
                                                 }
-                                            }
-                                        }
-                                    }
 
-                                    Column(
-                                        modifier = Modifier.fillMaxWidth(),
-                                    ) {
-                                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                            SwitchApp(
-                                                modifier = Modifier.weight(1f),
-                                                checked = route.basicData.isOnePersonOperation,
-                                                onCheckedChange = checkedOnePersonOperation,
-                                                positiveContent = {
+                                                AnimatedContent(
+                                                    targetState = isVisibleDetailMoney,
+
+                                                    label = ""
+                                                ) {
+                                                    val icon = if (it) {
+                                                        Icons.Default.KeyboardArrowUp
+                                                    } else {
+                                                        Icons.Default.KeyboardArrowDown
+                                                    }
                                                     Icon(
-                                                        painter = painterResource(id = R.drawable.person_rounded_24px),
-                                                        contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.primary
-                                                    )
-                                                },
-                                                negativeContent = {
-                                                    Icon(
-                                                        painter = painterResource(id = R.drawable.group_24px),
+                                                        imageVector = icon,
                                                         contentDescription = null,
                                                         tint = MaterialTheme.colorScheme.primary
                                                     )
                                                 }
-                                            )
-
-                                            SwitchApp(
-                                                modifier = Modifier.weight(1f),
-                                                checked = route.basicData.restPointOfTurnover,
-                                                onCheckedChange = onRestChanged,
-                                                positiveContent = {
-                                                    Icon(
-                                                        painter = painterResource(id = R.drawable.hotel_24px),
-                                                        contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.primary
-                                                    )
-                                                },
-                                                negativeContent = {
-                                                    Icon(
-                                                        painter = painterResource(id = R.drawable.home_24px),
-                                                        contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.primary
-                                                    )
-
-                                                }
-                                            )
-                                        }
-
-                                        var isVisibleDetailRest by remember {
-                                            mutableStateOf(false)
-                                        }
-
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.End
-                                        ) {
-                                            TextButton(
-                                                onClick = {
-                                                    isVisibleDetailRest = !isVisibleDetailRest
-                                                }
-                                            ) {
-                                                Text(
-                                                    text = "Рассчитать отдых",
-                                                    color = MaterialTheme.colorScheme.tertiary,
-                                                    style = MaterialTheme.typography.bodySmall
-                                                )
                                             }
                                         }
 
                                         AnimatedVisibility(
-                                            visible = isVisibleDetailRest,
+                                            visible = isVisibleDetailMoney,
                                             enter = slideInVertically(
                                                 animationSpec = tween(
                                                     durationMillis = 150
@@ -1129,227 +845,518 @@ fun FormScreen(
                                                     .padding(12.dp),
                                                 verticalArrangement = Arrangement.spacedBy(6.dp)
                                             ) {
-                                                if (route.basicData.restPointOfTurnover) {
-                                                    InfoRestPointOfTurnoverTime(
-                                                        minUntilTimeRest = dialogRestUiState.minUntilTimeRestPointOfTurnover,
-                                                        fullUntilTimeRest = dialogRestUiState.fullUntilTimeRestPointOfTurnover,
-                                                        onSettingClick = onSettingClick,
-                                                        minTimeRest = dialogRestUiState.minTimeRestPointOfTurnover,
-                                                        dateAndTimeConverter = dateAndTimeConverter
-                                                    )
+                                                if (salaryForRouteState.isCalculated) {
+                                                    if (salaryForRouteState.paymentAtTariffRate == 0.0) {
+                                                        val link = buildAnnotatedString {
+                                                            val text =
+                                                                "Установите значение тарифной ставки в настройках."
+
+                                                            val endIndex = text.length - 1
+                                                            val startIndex =
+                                                                startIndexLastWord(text)
+
+                                                            append(text)
+                                                            addStyle(
+                                                                style = SpanStyle(
+                                                                    color = MaterialTheme.colorScheme.tertiary,
+                                                                    textDecoration = TextDecoration.Underline
+                                                                ),
+                                                                start = startIndex,
+                                                                end = endIndex
+                                                            )
+
+                                                            addStringAnnotation(
+                                                                tag = LINK_TO_SALARY_SETTING,
+                                                                annotation = LINK_TO_SALARY_SETTING,
+                                                                start = startIndex,
+                                                                end = endIndex
+                                                            )
+                                                        }
+
+                                                        Box(modifier = Modifier.fillMaxWidth()) {
+                                                            ClickableText(
+                                                                text = link,
+                                                                style = AppTypography.getType().bodyMedium.copy(
+                                                                    fontStyle = FontStyle.Italic,
+                                                                    fontWeight = FontWeight.Light,
+                                                                    color = MaterialTheme.colorScheme.primary
+                                                                ),
+                                                            ) {
+                                                                link.getStringAnnotations(
+                                                                    LINK_TO_SALARY_SETTING,
+                                                                    it,
+                                                                    it
+                                                                )
+                                                                    .firstOrNull()?.let {
+                                                                        onSalarySettingClick()
+                                                                    }
+                                                            }
+                                                        }
+                                                    } else {
+                                                        Row(
+                                                            modifier = Modifier
+                                                                .fillMaxWidth(),
+                                                            horizontalArrangement = Arrangement.SpaceBetween
+                                                        ) {
+                                                            Text(
+                                                                text = "Почасовая оплата",
+                                                                style = MaterialTheme.typography.bodyMedium
+                                                            )
+                                                            Text(
+                                                                text = salaryForRouteState.paymentAtTariffRate.toMoneyString(),
+                                                                style = MaterialTheme.typography.bodyMedium
+                                                            )
+                                                        }
+
+                                                    }
+
+                                                    if (salaryForRouteState.paymentHolidayMoney != 0.0) {
+                                                        Row(
+                                                            modifier = Modifier
+                                                                .fillMaxWidth(),
+                                                            horizontalArrangement = Arrangement.SpaceBetween
+                                                        ) {
+                                                            Text(
+                                                                text = "Праздничные",
+                                                                style = MaterialTheme.typography.bodyMedium
+                                                            )
+                                                            Text(
+                                                                text = salaryForRouteState.paymentHolidayMoney.toMoneyString(),
+                                                                style = MaterialTheme.typography.bodyMedium
+                                                            )
+                                                        }
+                                                    }
+
+                                                    if (salaryForRouteState.zonalSurchargeMoney != 0.0) {
+                                                        Row(
+                                                            modifier = Modifier
+                                                                .fillMaxWidth(),
+                                                            horizontalArrangement = Arrangement.SpaceBetween
+                                                        ) {
+                                                            Text(
+                                                                text = "Зональная надбавка",
+                                                                style = MaterialTheme.typography.bodyMedium
+                                                            )
+                                                            Text(
+                                                                text = salaryForRouteState.zonalSurchargeMoney.toMoneyString(),
+                                                                style = MaterialTheme.typography.bodyMedium
+                                                            )
+                                                        }
+                                                    }
+
+                                                    if (salaryForRouteState.paymentAtNightTime != 0.0) {
+                                                        Row(
+                                                            modifier = Modifier
+                                                                .fillMaxWidth(),
+                                                            horizontalArrangement = Arrangement.SpaceBetween
+                                                        ) {
+                                                            Text(
+                                                                text = "Ночные",
+                                                                style = MaterialTheme.typography.bodyMedium
+                                                            )
+                                                            Text(
+                                                                text = salaryForRouteState.paymentAtNightTime.toMoneyString(),
+                                                                style = MaterialTheme.typography.bodyMedium
+                                                            )
+                                                        }
+                                                    }
+
+                                                    if (salaryForRouteState.paymentAtPassengerTime != 0.0) {
+                                                        Row(
+                                                            modifier = Modifier
+                                                                .fillMaxWidth(),
+                                                            horizontalArrangement = Arrangement.SpaceBetween
+                                                        ) {
+                                                            Text(
+                                                                text = "Пассажиром",
+                                                                style = MaterialTheme.typography.bodyMedium
+                                                            )
+                                                            Text(
+                                                                text = salaryForRouteState.paymentAtPassengerTime.toMoneyString(),
+                                                                style = MaterialTheme.typography.bodyMedium
+                                                            )
+                                                        }
+                                                    }
+
+                                                    if (salaryForRouteState.paymentAtOnePerson != 0.0) {
+                                                        Row(
+                                                            modifier = Modifier
+                                                                .fillMaxWidth(),
+                                                            horizontalArrangement = Arrangement.SpaceBetween
+                                                        ) {
+                                                            Text(
+                                                                text = "Одно лицо",
+                                                                style = MaterialTheme.typography.bodyMedium
+                                                            )
+                                                            Text(
+                                                                text = salaryForRouteState.paymentAtOnePerson.toMoneyString(),
+                                                                style = MaterialTheme.typography.bodyMedium
+                                                            )
+                                                        }
+                                                    }
+
+                                                    if (salaryForRouteState.surchargesAtTrain != 0.0) {
+                                                        Row(
+                                                            modifier = Modifier
+                                                                .fillMaxWidth(),
+                                                            horizontalArrangement = Arrangement.SpaceBetween
+                                                        ) {
+                                                            Text(
+                                                                text = "Доплаты за поезд",
+                                                                style = MaterialTheme.typography.bodyMedium
+                                                            )
+                                                            Text(
+                                                                text = salaryForRouteState.surchargesAtTrain.toMoneyString(),
+                                                                style = MaterialTheme.typography.bodyMedium
+                                                            )
+                                                        }
+                                                    }
+
+                                                    if (salaryForRouteState.otherSurcharge != 0.0) {
+                                                        Row(
+                                                            modifier = Modifier
+                                                                .fillMaxWidth(),
+                                                            horizontalArrangement = Arrangement.SpaceBetween
+                                                        ) {
+                                                            Text(
+                                                                text = "Прочие доплаты",
+                                                                style = MaterialTheme.typography.bodyMedium
+                                                            )
+                                                            Text(
+                                                                text = salaryForRouteState.otherSurcharge.toMoneyString(),
+                                                                style = MaterialTheme.typography.bodyMedium
+                                                            )
+                                                        }
+                                                    }
                                                 } else {
-                                                    InfoRestOfHmeOfTime(
-                                                        untilTimeHomeRest = dialogRestUiState.untilTimeHomeRest,
-                                                        minTimeRest = dialogRestUiState.minTimeHomeRest,
-                                                        onSettingClick = onSettingClick,
-                                                        dateAndTimeConverter = dateAndTimeConverter
+                                                    Box(modifier = Modifier.fillMaxWidth()) {
+                                                        Text(
+                                                            text = "Укажите начало и окончание рабочего времени для расчета заработной платы за поездку",
+                                                            style = MaterialTheme.typography.bodyMedium
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth(),
+                                        ) {
+                                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                                SwitchApp(
+                                                    modifier = Modifier.weight(1f),
+                                                    checked = route.basicData.isOnePersonOperation,
+                                                    onCheckedChange = checkedOnePersonOperation,
+                                                    positiveContent = {
+                                                        Icon(
+                                                            painter = painterResource(id = R.drawable.person_rounded_24px),
+                                                            contentDescription = null,
+                                                            tint = MaterialTheme.colorScheme.primary
+                                                        )
+                                                    },
+                                                    negativeContent = {
+                                                        Icon(
+                                                            painter = painterResource(id = R.drawable.group_24px),
+                                                            contentDescription = null,
+                                                            tint = MaterialTheme.colorScheme.primary
+                                                        )
+                                                    }
+                                                )
+
+                                                SwitchApp(
+                                                    modifier = Modifier.weight(1f),
+                                                    checked = route.basicData.restPointOfTurnover,
+                                                    onCheckedChange = onRestChanged,
+                                                    positiveContent = {
+                                                        Icon(
+                                                            painter = painterResource(id = R.drawable.hotel_24px),
+                                                            contentDescription = null,
+                                                            tint = MaterialTheme.colorScheme.primary
+                                                        )
+                                                    },
+                                                    negativeContent = {
+                                                        Icon(
+                                                            painter = painterResource(id = R.drawable.home_24px),
+                                                            contentDescription = null,
+                                                            tint = MaterialTheme.colorScheme.primary
+                                                        )
+
+                                                    }
+                                                )
+                                            }
+
+                                            var isVisibleDetailRest by remember {
+                                                mutableStateOf(false)
+                                            }
+
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.End
+                                            ) {
+                                                TextButton(
+                                                    onClick = {
+                                                        isVisibleDetailRest = !isVisibleDetailRest
+                                                    }
+                                                ) {
+                                                    Text(
+                                                        text = "Рассчитать отдых",
+                                                        color = MaterialTheme.colorScheme.tertiary,
+                                                        style = MaterialTheme.typography.bodySmall
                                                     )
+                                                }
+                                            }
+
+                                            AnimatedVisibility(
+                                                visible = isVisibleDetailRest,
+                                                enter = slideInVertically(
+                                                    animationSpec = tween(
+                                                        durationMillis = 150
+                                                    )
+                                                ) + fadeIn(
+                                                    animationSpec = tween(durationMillis = 100)
+                                                ),
+                                                exit = fadeOut(animationSpec = tween(durationMillis = 100))
+                                            ) {
+                                                Column(
+                                                    modifier = Modifier
+                                                        .background(
+                                                            color = MaterialTheme.colorScheme.surfaceDim,
+                                                            shape = Shapes.medium
+                                                        )
+                                                        .border(
+                                                            width = 0.5.dp,
+                                                            color = MaterialTheme.colorScheme.tertiary,
+                                                            shape = Shapes.medium
+                                                        )
+                                                        .padding(12.dp),
+                                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                                ) {
+                                                    if (route.basicData.restPointOfTurnover) {
+                                                        InfoRestPointOfTurnoverTime(
+                                                            minUntilTimeRest = dialogRestUiState.minUntilTimeRestPointOfTurnover,
+                                                            fullUntilTimeRest = dialogRestUiState.fullUntilTimeRestPointOfTurnover,
+                                                            onSettingClick = onSettingClick,
+                                                            minTimeRest = dialogRestUiState.minTimeRestPointOfTurnover,
+                                                            dateAndTimeConverter = dateAndTimeConverter
+                                                        )
+                                                    } else {
+                                                        InfoRestOfHmeOfTime(
+                                                            untilTimeHomeRest = dialogRestUiState.untilTimeHomeRest,
+                                                            minTimeRest = dialogRestUiState.minTimeHomeRest,
+                                                            onSettingClick = onSettingClick,
+                                                            dateAndTimeConverter = dateAndTimeConverter
+                                                        )
+                                                    }
                                                 }
                                             }
                                         }
                                     }
                                 }
-                            }
 
-                            item {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .animateItemPlacement(),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    OutlinedTextFieldApp(
+                                item {
+                                    Column(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .shadow(elevation = 2.dp, shape = Shapes.medium),
-                                        value = route.basicData.number ?: "",
-                                        onValueChange = onNumberChanged,
-                                        placeholder = {
-                                            Text(
-                                                text = "маршрута",
-                                                style = MaterialTheme.typography.bodyLarge
+                                            .animateItemPlacement(),
+                                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        OutlinedTextFieldApp(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .shadow(elevation = 2.dp, shape = Shapes.medium),
+                                            value = route.basicData.number ?: "",
+                                            onValueChange = onNumberChanged,
+                                            placeholder = {
+                                                Text(
+                                                    text = "маршрута",
+                                                    style = MaterialTheme.typography.bodyLarge
+                                                )
+                                            },
+                                            prefix = {
+                                                Text(
+                                                    text = "№ ",
+                                                    style = MaterialTheme.typography.bodyLarge
+                                                )
+                                            },
+                                            singleLine = true,
+                                            textStyle = MaterialTheme.typography.bodyLarge,
+                                            shape = Shapes.medium,
+                                            keyboardOptions = KeyboardOptions.Default.copy(
+                                                keyboardType = KeyboardType.Number
                                             )
-                                        },
-                                        prefix = {
-                                            Text(
-                                                text = "№ ",
-                                                style = MaterialTheme.typography.bodyLarge
-                                            )
-                                        },
-                                        singleLine = true,
-                                        textStyle = MaterialTheme.typography.bodyLarge,
-                                        shape = Shapes.medium,
-                                        keyboardOptions = KeyboardOptions.Default.copy(
-                                            keyboardType = KeyboardType.Number
                                         )
-                                    )
 
-                                    val animatedBackgroundColorsStartWork by animateColorAsState(
-                                        targetValue = if (route.basicData.timeStartWork == null) MaterialTheme.colorScheme.surface
-                                        else MaterialTheme.colorScheme.secondary,
-                                        animationSpec = tween(
-                                            durationMillis = 200,
-                                            easing = FastOutSlowInEasing
+                                        val animatedBackgroundColorsStartWork by animateColorAsState(
+                                            targetValue = if (route.basicData.timeStartWork == null) MaterialTheme.colorScheme.surface
+                                            else MaterialTheme.colorScheme.secondary,
+                                            animationSpec = tween(
+                                                durationMillis = 200,
+                                                easing = FastOutSlowInEasing
+                                            )
                                         )
-                                    )
 
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .shadow(elevation = 3.dp, shape = Shapes.medium)
-                                            .background(
-                                                color = animatedBackgroundColorsStartWork,
-                                                shape = Shapes.medium
-                                            )
-                                            .border(
-                                                width = 0.5.dp,
-                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                                                shape = Shapes.medium
-                                            )
-                                            .combinedClickable(
-                                                onClick = {
-                                                    showStartDatePicker = true
-                                                },
-                                                onLongClick = {
-                                                    startTimeInLong?.let {
-                                                        scope.launch {
-                                                            bottomSheetContent.value =
-                                                                BottomSheetRemoveTimeFormScreen.START_WORK
-                                                            bottomSheetState.show()
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .shadow(elevation = 3.dp, shape = Shapes.medium)
+                                                .background(
+                                                    color = animatedBackgroundColorsStartWork,
+                                                    shape = Shapes.medium
+                                                )
+                                                .border(
+                                                    width = 0.5.dp,
+                                                    color = MaterialTheme.colorScheme.primary.copy(
+                                                        alpha = 0.5f
+                                                    ),
+                                                    shape = Shapes.medium
+                                                )
+                                                .combinedClickable(
+                                                    onClick = {
+                                                        showStartDatePicker = true
+                                                    },
+                                                    onLongClick = {
+                                                        startTimeInLong?.let {
+                                                            scope.launch {
+                                                                bottomSheetContent.value =
+                                                                    BottomSheetRemoveTimeFormScreen.START_WORK
+                                                                bottomSheetState.show()
+                                                            }
                                                         }
                                                     }
-                                                }
-                                            )
-                                            .padding(16.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(
-                                            text = "Явка",
-                                            style = MaterialTheme.typography.bodyLarge
-                                        )
-                                        Row(
-                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                            verticalAlignment = Alignment.CenterVertically
+                                                )
+                                                .padding(16.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
-                                            val dateAndTimeStartText =
-                                                startTimeInLong?.let {
+                                            Text(
+                                                text = "Явка",
+                                                style = MaterialTheme.typography.bodyLarge
+                                            )
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                val dateAndTimeStartText =
+                                                    startTimeInLong?.let {
+                                                        dateAndTimeConverter?.getDateAndTime(
+                                                            startTimeInLong
+                                                        )
+                                                    } ?: "укажите время"
+
+                                                Text(
+                                                    text = dateAndTimeStartText,
+                                                    style = MaterialTheme.typography.bodyLarge
+                                                )
+                                            }
+                                        }
+
+                                        val animatedBackgroundColorsEndWork by animateColorAsState(
+                                            targetValue = if (route.basicData.timeEndWork == null) MaterialTheme.colorScheme.surface
+                                            else MaterialTheme.colorScheme.secondary,
+                                            animationSpec = tween(
+                                                durationMillis = 200,
+                                                easing = FastOutSlowInEasing
+                                            )
+                                        )
+
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .border(
+                                                    width = 0.5.dp,
+                                                    shape = Shapes.medium,
+                                                    color = MaterialTheme.colorScheme.primary.copy(
+                                                        alpha = 0.5f
+                                                    )
+                                                )
+                                                .shadow(elevation = 3.dp, shape = Shapes.medium)
+                                                .background(
+                                                    color = animatedBackgroundColorsEndWork,
+                                                    shape = Shapes.medium
+                                                )
+                                                .combinedClickable(
+                                                    onClick = {
+                                                        showEndDatePicker = true
+                                                    },
+                                                    onLongClick = {
+                                                        endTimeInLong?.let {
+                                                            scope.launch {
+                                                                bottomSheetContent.value =
+                                                                    BottomSheetRemoveTimeFormScreen.END_WORK
+                                                                bottomSheetState.show()
+                                                            }
+                                                        }
+                                                    }
+                                                )
+                                                .padding(16.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                text = "Сдача",
+                                                style = MaterialTheme.typography.bodyLarge
+                                            )
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                            ) {
+                                                val dateAndTimeEndText = endTimeInLong?.let {
                                                     dateAndTimeConverter?.getDateAndTime(
-                                                        startTimeInLong
+                                                        endTimeInLong
                                                     )
                                                 } ?: "укажите время"
-
-                                            Text(
-                                                text = dateAndTimeStartText,
-                                                style = MaterialTheme.typography.bodyLarge
-                                            )
-                                        }
-                                    }
-
-                                    val animatedBackgroundColorsEndWork by animateColorAsState(
-                                        targetValue = if (route.basicData.timeEndWork == null) MaterialTheme.colorScheme.surface
-                                        else MaterialTheme.colorScheme.secondary,
-                                        animationSpec = tween(
-                                            durationMillis = 200,
-                                            easing = FastOutSlowInEasing
-                                        )
-                                    )
-
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .border(
-                                                width = 0.5.dp,
-                                                shape = Shapes.medium,
-                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                                            )
-                                            .shadow(elevation = 3.dp, shape = Shapes.medium)
-                                            .background(
-                                                color = animatedBackgroundColorsEndWork,
-                                                shape = Shapes.medium
-                                            )
-                                            .combinedClickable(
-                                                onClick = {
-                                                    showEndDatePicker = true
-                                                },
-                                                onLongClick = {
-                                                    endTimeInLong?.let {
-                                                        scope.launch {
-                                                            bottomSheetContent.value =
-                                                                BottomSheetRemoveTimeFormScreen.END_WORK
-                                                            bottomSheetState.show()
-                                                        }
-                                                    }
-                                                }
-                                            )
-                                            .padding(16.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(
-                                            text = "Сдача",
-                                            style = MaterialTheme.typography.bodyLarge
-                                        )
-                                        Row(
-                                            horizontalArrangement = Arrangement.spacedBy(16.dp)
-                                        ) {
-                                            val dateAndTimeEndText = endTimeInLong?.let {
-                                                dateAndTimeConverter?.getDateAndTime(
-                                                    endTimeInLong
+                                                Text(
+                                                    text = dateAndTimeEndText,
+                                                    style = MaterialTheme.typography.bodyLarge,
                                                 )
-                                            } ?: "укажите время"
-                                            Text(
-                                                text = dateAndTimeEndText,
-                                                style = MaterialTheme.typography.bodyLarge,
-                                            )
+                                            }
                                         }
                                     }
                                 }
-                            }
 
-                            item {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .animateItemPlacement()
-                                        .padding(bottom = 32.dp, top = 16.dp),
-                                    horizontalAlignment = Alignment.End,
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    val basicId = route.basicData.id
-                                    ItemAddingScreen(
-                                        title = stringResource(id = R.string.locomotive),
-                                        contentList = route.locomotives,
-                                        onChangeElementClick = onChangedLocoClick,
-                                        onNewElementClick = onNewLocoClick,
-                                        basicId = basicId,
-                                        onDeleteClick = onDeleteLoco
-                                    ) { index, locomotive ->
-                                        LocomotiveSubItem(locomotive, index)
+                                item {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .animateItemPlacement()
+                                            .padding(bottom = 32.dp, top = 16.dp),
+                                        horizontalAlignment = Alignment.End,
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        val basicId = route.basicData.id
+                                        ItemAddingScreen(
+                                            title = stringResource(id = R.string.locomotive),
+                                            contentList = route.locomotives,
+                                            onChangeElementClick = onChangedLocoClick,
+                                            onNewElementClick = onNewLocoClick,
+                                            basicId = basicId,
+                                            onDeleteClick = onDeleteLoco
+                                        ) { index, locomotive ->
+                                            LocomotiveSubItem(locomotive, index)
+                                        }
+                                        ItemAddingScreen(
+                                            title = stringResource(id = R.string.train),
+                                            contentList = route.trains,
+                                            onChangeElementClick = onChangeTrainClick,
+                                            onNewElementClick = onNewTrainClick,
+                                            basicId = basicId,
+                                            onDeleteClick = onDeleteTrain
+                                        ) { index, train ->
+                                            TrainSubItem(index, train)
+                                        }
+                                        ItemAddingScreen(
+                                            title = stringResource(id = R.string.passenger),
+                                            contentList = route.passengers,
+                                            onChangeElementClick = onChangePassengerClick,
+                                            onNewElementClick = onNewPassengerClick,
+                                            basicId = basicId,
+                                            onDeleteClick = onDeletePassenger
+                                        ) { index, passenger ->
+                                            PassengerSubItem(index, passenger)
+                                        }
+                                        ItemNotes(
+                                            modifier = Modifier.padding(top = 8.dp),
+                                            notes = route.basicData.notes,
+                                            onNotesChanged = onNotesChanged,
+                                        )
                                     }
-                                    ItemAddingScreen(
-                                        title = stringResource(id = R.string.train),
-                                        contentList = route.trains,
-                                        onChangeElementClick = onChangeTrainClick,
-                                        onNewElementClick = onNewTrainClick,
-                                        basicId = basicId,
-                                        onDeleteClick = onDeleteTrain
-                                    ) { index, train ->
-                                        TrainSubItem(index, train)
-                                    }
-                                    ItemAddingScreen(
-                                        title = stringResource(id = R.string.passenger),
-                                        contentList = route.passengers,
-                                        onChangeElementClick = onChangePassengerClick,
-                                        onNewElementClick = onNewPassengerClick,
-                                        basicId = basicId,
-                                        onDeleteClick = onDeletePassenger
-                                    ) { index, passenger ->
-                                        PassengerSubItem(index, passenger)
-                                    }
-                                    ItemNotes(
-                                        modifier = Modifier.padding(top = 8.dp),
-                                        notes = route.basicData.notes,
-                                        onNotesChanged = onNotesChanged,
-                                    )
                                 }
                             }
                         }

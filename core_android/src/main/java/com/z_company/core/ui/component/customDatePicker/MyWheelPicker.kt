@@ -1,17 +1,35 @@
 package com.z_company.core.ui.component.customDatePicker
 
+import androidx.compose.animation.core.DecayAnimationSpec
+import androidx.compose.animation.core.exponentialDecay
+import androidx.compose.foundation.gestures.FlingBehavior
+import androidx.compose.foundation.gestures.ScrollScope
 
+import androidx.compose.animation.core.exponentialDecay
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.ui.unit.dp
+import kotlin.math.abs
 import android.util.Log
+import androidx.compose.animation.core.AnimationState
+import androidx.compose.animation.core.DecayAnimation
+import androidx.compose.animation.core.FloatDecayAnimationSpec
+import androidx.compose.animation.core.FloatExponentialDecaySpec
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.animateDecay
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -25,12 +43,28 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.ViewCompat.animate
 import com.z_company.core.ui.component.AutoSizeText
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlin.math.abs
 import kotlin.math.absoluteValue
+import kotlin.math.roundToInt
+//import androidx.compose.animation.core.DecayAnimationSpec
+//import androidx.compose.animation.core.exponentialDecay
+//import androidx.compose.foundation.ExperimentalFoundationApi
+//import androidx.compose.foundation.gestures.FlingBehavior
+//import androidx.compose.foundation.gestures.ScrollScope
+//import androidx.compose.ui.unit.Density
+//import kotlinx.coroutines.withAnimationContext
+import kotlin.math.abs
 
 @Composable
 fun MyWheelTextPicker(
@@ -42,6 +76,7 @@ fun MyWheelTextPicker(
     style: TextStyle = MaterialTheme.typography.titleSmall,
     color: Color = LocalContentColor.current,
     contentAlignment: Alignment = Alignment.Center,
+    contentArrangement: Arrangement.Horizontal = Arrangement.Center,
     onScrollFinished: (snappedIndex: Int) -> Int? = { null },
 ) {
     MyWheelPicker(
@@ -54,7 +89,8 @@ fun MyWheelTextPicker(
         texts = texts,
         style = style,
         color = color,
-        contentAlignment = contentAlignment
+//        contentAlignment = contentAlignment,
+        contentArrangement = contentArrangement
     )
 }
 
@@ -70,9 +106,8 @@ fun MyWheelPicker(
     texts: List<String>,
     style: TextStyle = MaterialTheme.typography.titleSmall,
     color: Color = LocalContentColor.current,
-    contentAlignment: Alignment = Alignment.Center,
+    contentArrangement: Arrangement.Horizontal = Arrangement.Center,
 ) {
-    val context = LocalContext.current
     val lazyListState = rememberLazyListState(startIndex)
     val snapperLayoutInfo = rememberLazyListSnapperLayoutInfo(lazyListState = lazyListState)
     val isScrollInProgress = lazyListState.isScrollInProgress
@@ -80,7 +115,7 @@ fun MyWheelPicker(
     LaunchedEffect(isScrollInProgress, count) {
         if (!isScrollInProgress) {
             onScrollFinished(calculateSnappedItemIndex(snapperLayoutInfo) ?: startIndex)?.let {
-                lazyListState.scrollToItem(it)
+                lazyListState.animateScrollToItem(it)
             }
         }
     }
@@ -98,26 +133,45 @@ fun MyWheelPicker(
         LazyColumn(
             modifier = Modifier
                 .height(height)
-                .wrapContentWidth()
+                .fillMaxWidth()
                 .fadingEdge(topBottomFade),
             state = lazyListState,
             contentPadding = PaddingValues(vertical = height / rowCount * ((rowCount - 1) / 2)),
             flingBehavior = rememberSnapperFlingBehavior(
-                lazyListState = lazyListState
+                lazyListState = lazyListState,
+                // Настройка анимации для более плавной инерции
+                springAnimationSpec = spring(
+                    dampingRatio = Spring.DampingRatioLowBouncy, // Низкое сопротивление для более длительного затухания
+                    stiffness = Spring.StiffnessLow // Меньшая жесткость для плавного замедления
+                ),
+//                maximumFlingDistance = { layoutInfo ->
+//                    // Увеличьте максимальное расстояние прокрутки для более длинной инерции
+//                    layoutInfo.totalItemsCount * 2f
+//                }
             )
         ) {
             items(count) { index ->
-                Box(
+                val isCentered = index == snapperLayoutInfo.currentItem?.index
+                val scale = if (isCentered) 1f else 0.8f
+                val alpha = if (isCentered) 1f else 0.6f
+
+                Row(
                     modifier = Modifier
+                        .fillMaxWidth()
                         .height(height / rowCount),
-                    contentAlignment = contentAlignment
+                    horizontalArrangement = contentArrangement
                 ) {
-                    AutoSizeText(
-                        text = texts[index],
-                        minTextSize = 10.sp,
-                        maxTextSize = 18.sp,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    Box(
+                        modifier = Modifier.padding(horizontal = 4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = texts[index],
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = alpha),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
                 }
             }
         }
@@ -129,7 +183,6 @@ fun MyWheelPicker(
 private fun calculateSnappedItemIndex(snapperLayoutInfo: SnapperLayoutInfo): Int? {
     var currentItemIndex = snapperLayoutInfo.currentItem?.index
 
-    Log.d("zzz", "currentItemIndex $currentItemIndex")
     if (snapperLayoutInfo.currentItem?.offset != 0) {
         if (currentItemIndex != null) {
             currentItemIndex++
@@ -165,5 +218,29 @@ fun calculateAnimatedAlpha(
         1.2f - (distanceToIndexSnap / singleViewPortHeight)
     } else {
         0.2f
+    }
+}
+
+
+fun customFlingBehavior(): FlingBehavior {
+    val decay = exponentialDecay<Float>(
+        frictionMultiplier = 0.5f // Уменьшаем трение для более длинной инерции
+    )
+    return object : FlingBehavior {
+        override suspend fun ScrollScope.performFling(initialVelocity: Float): Float {
+            val animationSpec = decay
+            val animation = FloatExponentialDecaySpec(
+                frictionMultiplier = 0.5f,
+//                absVelocityThreshold =
+            )
+
+            val result = with(animation) {
+                // Выполняем анимацию затухания
+                val target = initialVelocity * 0.5f // Уменьшаем скорость для плавности
+                scrollBy(target)
+                initialVelocity
+            }
+            return result
+        }
     }
 }
