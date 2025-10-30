@@ -1,14 +1,16 @@
 package com.z_company.core.ui.component
 
-import android.util.Log
+import android.annotation.SuppressLint
 import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -16,7 +18,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,10 +26,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -41,22 +42,18 @@ import com.z_company.core.ui.component.customDatePicker.MIN
 import com.z_company.core.ui.component.customDatePicker.Minute
 import com.z_company.core.ui.component.customDatePicker.MyWheelTextPicker
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
-import com.z_company.core.ui.component.customDatePicker.truncateTo
 import com.z_company.core.ui.component.customDatePicker.withHour
 import com.z_company.core.ui.component.customDatePicker.withMinute
 import com.z_company.core.ui.theme.Shapes
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.datetime.DateTimeUnit
+import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalTime
-import kotlinx.datetime.toKotlinLocalDateTime
 import java.text.SimpleDateFormat
-import java.time.Instant
-import java.time.LocalDateTime
-import java.time.ZoneId
 import java.util.*
 
 
+@SuppressLint("DefaultLocale")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DateTimePickerBottomSheet(
@@ -142,7 +139,6 @@ fun DateTimePickerBottomSheet(
                     } else {
                         FullCalendar(
                             selectedDate = uiState.selectedDate,
-//                        currentMonth = uiState.currentMonth,
                             onDateSelected = { viewModel.selectDate(it) })
                     }
                 }
@@ -155,32 +151,44 @@ fun DateTimePickerBottomSheet(
             item {
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .wrapContentWidth()
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center
                 ) {
                     // Всегда отображаем ScrollPicker
                     TimeScrollPicker(
-                        startTime = uiState.selectedDate,
+                        currentHour = uiState.hour,
+                        currentMinute = uiState.minute,
+                        isEditing = uiState.isEditingTime,
                         onHourChange = { viewModel.setHour(it) },
                         onMinuteChange = { viewModel.setMinute(it) },
+                        onChangeEditTime = viewModel::toggleEditMode
                     )
                     // Overlay для ввода времени
                     if (uiState.isEditingTime) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clickable(
+                                    onClick = { viewModel.toggleEditMode() },
+                                    indication = null,
+                                    interactionSource = remember { MutableInteractionSource() }
+                                )
+                        )
                         TimeInputOverlay(
-                            hour = uiState.hour,
-                            minute = uiState.minute,
                             onHourChange = { viewModel.setHour(it) },
                             onMinuteChange = { viewModel.setMinute(it) },
-                            onDone = { viewModel.toggleEditMode() })
+                            onDone = { viewModel.toggleEditMode() },
+                        )
                     }
                 }
             }
+
             item {
                 Spacer(
-                    modifier =
-                        Modifier.height(32.dp)
+                    modifier = Modifier.height(48.dp)
                 )
             }
+
             // Дата и время внизу
             item {
 
@@ -205,7 +213,7 @@ fun DateTimePickerBottomSheet(
                 }
             }
             item {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
             }
             // Кнопка выбрать
             item {
@@ -213,7 +221,6 @@ fun DateTimePickerBottomSheet(
                     onClick = {
                         val calendar = Calendar.getInstance().apply {
                             timeInMillis = uiState.selectedDate
-//                        time = uiState.selectedDate
                             set(Calendar.HOUR_OF_DAY, uiState.hour)
                             set(Calendar.MINUTE, uiState.minute)
                             set(Calendar.SECOND, 0)
@@ -280,14 +287,14 @@ fun CompactCalendar(selectedDate: Long, onDateSelected: (Long) -> Unit) {
                         .height(24.dp)
                         .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
                         .background(if (isSelectedDay) MaterialTheme.colorScheme.tertiary else Color.Transparent)
-                        .padding(top = 6.dp),
+                        .padding(top = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = day,
                         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
                         color = if (isSelectedDay) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary.copy(
-                            alpha = 0.8f
+                            alpha = 0.6f
                         )
                     )
                 }
@@ -310,7 +317,8 @@ fun CompactCalendar(selectedDate: Long, onDateSelected: (Long) -> Unit) {
                                 )
                             }
                             onDateSelected(newCalendar.timeInMillis)
-                        }, contentAlignment = Alignment.Center
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = dayNumber.toString(),
@@ -340,7 +348,6 @@ fun FullCalendar(
 
 
     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-
         // Навигация по месяцам
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -365,7 +372,7 @@ fun FullCalendar(
                     tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
                 )
                 Text(
-                    text = "${monthNameFormat.format(prevMonth.time).capitalize()} " +
+                    text = "${monthNameFormat.format(prevMonth.time).capitalize(Locale.ROOT)} " +
                             (if (prevMonth.get(Calendar.YEAR) != currentMonth.get(Calendar.YEAR))
                                 yearFormat.format(prevMonth.time)
                             else ""),
@@ -378,7 +385,7 @@ fun FullCalendar(
 
             // Текущий месяц
             Text(
-                text = monthNameFormat.format(currentMonth.time).capitalize(),
+                text = monthNameFormat.format(currentMonth.time).capitalize(Locale.ROOT),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary,
                 overflow = TextOverflow.Ellipsis,
@@ -522,25 +529,26 @@ fun FullCalendar(
 
 @Composable
 fun TimeScrollPicker(
-    startTime: Long = 0L,
+    currentHour: Int,
+    currentMinute: Int,
+    isEditing: Boolean,
     minTime: LocalTime = LocalTime.MIN(),
     maxTime: LocalTime = LocalTime.MAX(),
     rowCount: Int = 5,
-    textStyle: TextStyle = MaterialTheme.typography.bodyLarge,
-    textColor: Color = MaterialTheme.colorScheme.primary,
     height: Dp = 128.dp,
     onHourChange: (Int) -> Unit,
     onMinuteChange: (Int) -> Unit,
+    onChangeEditTime: () -> Unit
 ) {
-    val startLocalTime: LocalTime =
-        LocalDateTime.ofInstant(Instant.ofEpochMilli(startTime), ZoneId.systemDefault())
-            .toKotlinLocalDateTime().time
+    val scope = rememberCoroutineScope()
 
-    var snappedTime by remember { mutableStateOf(startLocalTime.truncateTo(DateTimeUnit.MINUTE)) }
+    var snappedTime by remember { mutableStateOf(LocalTime(hour = currentHour, minute = currentMinute)) }
 
     val hoursRange = (0..23)
+    val hoursCycle = hoursRange.count()
     val longHoursRange =
-        List(500) { (it + hoursRange.first + hoursRange.count()) % hoursRange.count() + hoursRange.first }
+        List(500) { (it % hoursCycle) }
+
     val hours = longHoursRange.mapIndexed { index, value ->
         Hour(
             text = value.toString().padStart(2, '0'),
@@ -549,9 +557,10 @@ fun TimeScrollPicker(
         )
     }
 
-    val hoursMinutes = (0..59)
+    val minutesRange = (0..59)
+    val minutesCycle = minutesRange.count()
     val longMinutesRange =
-        List(500) { (it + hoursMinutes.first + hoursMinutes.count()) % hoursMinutes.count() + hoursMinutes.first }
+        List(500) { (it % minutesCycle) }
     val minutes = longMinutesRange.mapIndexed { index, value ->
         Minute(
             text = value.toString().padStart(2, '0'),
@@ -559,7 +568,39 @@ fun TimeScrollPicker(
             index = index
         )
     }
-    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+
+    val hoursMiddleCycle = (longHoursRange.size / 2) / hoursCycle
+    val hoursMiddleIndex = hoursMiddleCycle * hoursCycle + currentHour
+
+    val minutesMiddleCycle = (longMinutesRange.size / 2) / minutesCycle
+    val minutesMiddleIndex = minutesMiddleCycle * minutesCycle + currentMinute
+
+    val hourListState = rememberLazyListState(
+        initialFirstVisibleItemIndex = hoursMiddleIndex.coerceIn(0, hours.size - 1)
+    )
+    val minuteListState = rememberLazyListState(
+        initialFirstVisibleItemIndex = minutesMiddleIndex.coerceIn(0, minutes.size - 1)
+    )
+
+    LaunchedEffect(currentHour) {
+        val targetIndex = hoursMiddleCycle * hoursCycle + currentHour
+        scope.launch {
+            hourListState.animateScrollToItem(targetIndex.coerceIn(0, hours.size - 1))
+        }
+    }
+
+    LaunchedEffect(currentMinute) {
+        val targetIndex = minutesMiddleCycle * minutesCycle + currentMinute
+        scope.launch {
+            minuteListState.animateScrollToItem(targetIndex.coerceIn(0, minutes.size - 1))
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth(),
+        contentAlignment = Alignment.Center
+    ) {
         Box(
             modifier = Modifier
                 .padding(horizontal = 16.dp)
@@ -569,27 +610,33 @@ fun TimeScrollPicker(
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f),
                     shape = Shapes.small
                 )
+                .noRippleEffect(onChangeEditTime)
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
         ) {
+            val textStyle = MaterialTheme.typography.bodyLarge
+            val textColor = MaterialTheme.colorScheme.primary
+
             MyWheelTextPicker(
                 modifier = Modifier
-                    .weight(1f),
-                startIndex = hours.find { it.value == startLocalTime.hour }?.index ?: 0,
+                    .width(40.dp),
+                lazyListState = hourListState,
                 height = height,
                 texts = hours.map { it.text },
                 rowCount = rowCount,
                 style = textStyle,
                 color = textColor,
-                contentArrangement = Arrangement.End
+                contentArrangement = Arrangement.Center
             ) { snappedIndex ->
 
                 val newHour = hours.getOrNull(snappedIndex)?.value
 
                 newHour?.let {
-                    onHourChange(newHour)
+                    if (!isEditing) {
+                        onHourChange(newHour)
+                    }
                     val newTime = snappedTime.withHour(newHour)
 
                     if (newTime.compareTo(minTime) >= 0 && newTime.compareTo(maxTime) <= 0) {
@@ -614,24 +661,26 @@ fun TimeScrollPicker(
 
             MyWheelTextPicker(
                 modifier = Modifier
-                    .weight(1f),
-                startIndex = minutes.find { it.value == startLocalTime.minute }?.index ?: 0,
+                    .width(40.dp),
+                lazyListState = minuteListState,
                 height = height,
                 texts = minutes.map { it.text },
                 rowCount = rowCount,
                 style = textStyle,
                 color = textColor,
-                contentArrangement = Arrangement.Start
+                contentArrangement = Arrangement.Center
             ) { snappedIndex ->
 
                 val newMinute = minutes.getOrNull(snappedIndex)?.value
 
                 newMinute?.let {
+                    if (!isEditing) {
+                        onMinuteChange(newMinute)
+                    }
                     val newTime = snappedTime.withMinute(newMinute)
                     if (newTime.compareTo(minTime) >= 0 && newTime.compareTo(maxTime) <= 0) {
                         snappedTime = newTime
                     }
-                    onMinuteChange(newMinute)
 
                 }
 
@@ -639,184 +688,129 @@ fun TimeScrollPicker(
             }
         }
     }
-
 }
 
 
 @Composable
 fun TimeInputOverlay(
-    hour: Int,
-    minute: Int,
     onHourChange: (Int) -> Unit,
     onMinuteChange: (Int) -> Unit,
     onDone: () -> Unit
 ) {
     var timeText by remember {
-        mutableStateOf(String.format("%02d%02d", hour, minute))
+        mutableStateOf("")
     }
+
     val haptic = LocalHapticFeedback.current
+
     val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
-    LaunchedEffect(timeText) {
-        if (timeText.length >= 2) {
-            val h = timeText.substring(0, 2).toIntOrNull()
-            if (h != null && h in 0..23) {
-                onHourChange(h)
-            }
-        }
-        if (timeText.length == 4) {
-            val m = timeText.substring(2, 4).toIntOrNull()
-            if (m != null && m in 0..59) {
-                onMinuteChange(m)
-            }
-        }
-    }
+    val textStyle = MaterialTheme.typography.bodyLarge
+    val textColor = MaterialTheme.colorScheme.primary
 
     Box(
         modifier = Modifier
-            .wrapContentSize()
-            .background(Color.Transparent),
+            .wrapContentWidth(),
         contentAlignment = Alignment.Center
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                BasicTextField(
-                    value = timeText,
-                    onValueChange = { newValue ->
-                        if (newValue.length <= 4 && newValue.all { it.isDigit() }) {
-                            val isValid = when (newValue.length) {
-                                0, 1 -> true
-                                2 -> {
-                                    val h = newValue.toIntOrNull()
-                                    h != null && h in 0..23
-                                }
+        BasicTextField(
+            value = timeText,
+            onValueChange = { newValue ->
+                val processedValue = if (newValue.length > 4) {
+                    newValue.takeLast(4)
+                } else {
+                    newValue
+                }
 
-                                3 -> {
-                                    val h =
-                                        newValue.substring(0, 2).toIntOrNull()
-                                    h != null && h in 0..23
-                                }
+                if (processedValue.all { it.isDigit() }) {
+                    timeText = processedValue
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
 
-                                4 -> {
-                                    val h =
-                                        newValue.substring(0, 2).toIntOrNull()
-                                    val m =
-                                        newValue.substring(2, 4).toIntOrNull()
-                                    h != null && h in 0..23 && m != null && m in 0..59
-                                }
+                    val len = timeText.length
+                    if (len > 0) {
+                        val d = timeText.map { it.digitToInt() }
+                        when (len) {
+                            1 -> {
+                                var newM = d[0]
+                                if (newM > 59) newM = d[0] // impossible for single digit
+                                onMinuteChange(newM)
+                            }
+                            2 -> {
+                                var newM = d[0] * 10 + d[1]
+                                if (newM > 59) newM = d[1]
+                                onMinuteChange(newM)
+                            }
+                            3 -> {
+                                var newH = d[0]
+                                if (newH > 23) newH = d[0] // impossible
+                                onHourChange(newH)
 
-                                else -> false
+                                var newM = d[1] * 10 + d[2]
+                                if (newM > 59) newM = d[2]
+                                onMinuteChange(newM)
                             }
-                            if (isValid) {
-                                timeText = newValue
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            4 -> {
+                                var newH = d[0] * 10 + d[1]
+                                if (newH > 23) newH = d[1]
+                                onHourChange(newH)
+
+                                var newM = d[2] * 10 + d[3]
+                                if (newM > 59) newM = d[3]
+                                onMinuteChange(newM)
                             }
-                        }
-                    },
-                    modifier = Modifier
-                        .width(180.dp)
-                        .focusRequester(focusRequester)
-                        .background(Color.Yellow),
-                    textStyle = TextStyle(
-                        fontSize = MaterialTheme.typography.bodyLarge.fontSize,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.primary,
-                    ),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    keyboardActions = KeyboardActions(
-                        onDone = { onDone }
-                    ),
-                    singleLine = true,
-                    decorationBox = { innerTextField ->
-                        Row(
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Box(
-                                modifier = Modifier.width(80.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (timeText.isEmpty()) {
-                                    Text(
-                                        text = "00",
-                                        fontSize = MaterialTheme.typography.bodyLarge.fontSize,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary.copy(
-                                            alpha = 0.3f
-                                        )
-                                    )
-                                } else if (timeText.length == 1) {
-                                    Text(
-                                        text = "0${timeText[0]}",
-                                        fontSize = MaterialTheme.typography.bodyLarge.fontSize,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                } else {
-                                    Text(
-                                        text = timeText.substring(0, 2),
-                                        fontSize = MaterialTheme.typography.bodyLarge.fontSize,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
-                            Text(
-                                text =
-                                    ":",
-                                fontSize = MaterialTheme.typography.bodyLarge.fontSize,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(horizontal = 8.dp)
-                            )
-                            Box(
-                                modifier = Modifier.width(80.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (timeText.length <= 2) {
-                                    Text(
-                                        text = "00",
-                                        fontSize = MaterialTheme.typography.bodyLarge.fontSize,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary.copy(
-                                            alpha = 0.3f
-                                        )
-                                    )
-                                } else if (timeText.length == 3) {
-                                    Text(
-                                        text = "0${timeText[2]}",
-                                        fontSize = MaterialTheme.typography.bodyLarge.fontSize,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                } else {
-                                    Text(
-                                        text = timeText.substring(2, 4),
-                                        fontSize = MaterialTheme.typography.bodyLarge.fontSize,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
-                        }
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(Color.Cyan)
-                        ) {
-                            innerTextField()
                         }
                     }
-                )
+                }
+            },
+            modifier = Modifier
+                .wrapContentWidth()
+                .focusRequester(focusRequester),
+            textStyle = TextStyle(
+                fontFamily = textStyle.fontFamily,
+                fontSize = textStyle.fontSize,
+                textAlign = TextAlign.Center,
+                color = Color.Transparent,
+            ),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            keyboardActions = KeyboardActions(
+                onDone = { onDone() }
+            ),
+            cursorBrush = SolidColor(Color.Transparent),
+            singleLine = true,
+            decorationBox = { innerTextField ->
+//                val padded = timeText.padStart(4, '_')
+//                val displayHH = padded.substring(0, 2)
+//                val displayMM = padded.substring(2, 4)
+//                Row(
+//                    modifier = Modifier
+//                        .wrapContentWidth(),
+//                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
+//                ) {
+//                    Text(
+//                        text = displayHH,
+//                        style = textStyle,
+//                        color = textColor,
+//                        textAlign = TextAlign.End
+//                    )
+//                    Box(contentAlignment = Alignment.Center) {
+//                        Text(
+//                            text = ":",
+//                            style = textStyle,
+//                            color = textColor
+//                        )
+//                    }
+//                    Text(
+//                        text = displayMM,
+//                        style = textStyle,
+//                        color = textColor,
+//                        textAlign = TextAlign.Start
+//                    )
+//                }
+                innerTextField()
             }
-        }
+        )
     }
 }
 

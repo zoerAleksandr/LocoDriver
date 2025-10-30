@@ -183,10 +183,7 @@ class RouteActionsHelper() : KoinComponent {
     }
 
     /**
-     * Calculates home rest for given route using current and previous month routes.
-     *
-     * Returns ResultState.Success(homeRestInMillis?) on success (nullable: null if route not found among fetched routes),
-     * or ResultState.Error on failure.
+     * Возвращает Pair<Long, Long>?, где first - продолжительность отдыха, а second - время окончания отдыха
      *
      * Usage:
      * viewModelScope.launch {
@@ -206,7 +203,7 @@ class RouteActionsHelper() : KoinComponent {
      */
     suspend fun calculationHomeRest(
         route: Route?,
-    ): ResultState<Long?> = withContext(Dispatchers.IO) {
+    ): ResultState<Pair<Long, Long>?> = withContext(Dispatchers.IO) {
         try {
             val userSettings = settingsUseCase.getUserSettingFlow().first()
 

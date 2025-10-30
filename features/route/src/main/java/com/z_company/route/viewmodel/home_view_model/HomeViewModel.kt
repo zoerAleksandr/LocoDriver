@@ -779,7 +779,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                 is ResultState.Success -> { /* result.data is Long? */
                     _previewRouteUiState.update {
                         it.copy(
-                            homeRest = result.data
+                            homeRest = result.data?.second
                         )
                     }
                 }

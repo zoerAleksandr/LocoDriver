@@ -7,5 +7,6 @@ data class DialogRestUiState(
     val minTimeHomeRest: Long? = null,
     val minUntilTimeRestPointOfTurnover:  ResultState<Long?> = ResultState.Loading(),
     val fullUntilTimeRestPointOfTurnover:  ResultState<Long?> = ResultState.Loading(),
-    val untilTimeHomeRest: ResultState<Long?> = ResultState.Loading()
+    val untilTimeHomeRest: ResultState<Long?> = ResultState.Loading(),
+    val homeRestDuration: Long = 0
 )

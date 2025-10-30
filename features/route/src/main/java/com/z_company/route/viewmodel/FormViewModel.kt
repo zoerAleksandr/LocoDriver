@@ -761,13 +761,34 @@ class FormViewModel(
         viewModelScope.launch {
             userSetting.value?.let { setting ->
                 val holidayTime =
-                    listOf(route).getWorkingTimeOnAHoliday(setting.selectMonthOfYear, setting.timeZone).first()
+                    listOf(route).getWorkingTimeOnAHoliday(
+                        setting.selectMonthOfYear,
+                        setting.timeZone
+                    ).first()
                 _holidayTime.value = holidayTime
             }
         }
     }
 
     private fun calculationHomeRest(route: Route) {
+        viewModelScope.launch {
+            val result = routeHelper.calculationHomeRest(
+                route = route,
+            )
+            when (result) {
+                is ResultState.Success -> {
+                    _dialogRestUiState.update {
+                        it.copy(
+                            homeRestDuration = result.data?.first ?: 0L,
+                            untilTimeHomeRest = ResultState.Success(result.data?.second)
+                        )
+                    }
+                }
+
+                else -> {}
+            }
+        }
+
         val routesList = mutableListOf<Route>()
         viewModelScope.launch(Dispatchers.IO) {
             currentMonthOfYear?.let { monthOfYear ->
@@ -811,10 +832,13 @@ class FormViewModel(
                     parentList = sortedRouteList,
                     minTimeHomeRest = dialogRestUiState.value.minTimeHomeRest
                 )
-                _dialogRestUiState.update {
-                    it.copy(
-                        untilTimeHomeRest = ResultState.Success(homeRest)
-                    )
+                homeRest?.let {
+                    _dialogRestUiState.update {
+                        it.copy(
+                            homeRestDuration = homeRest.first,
+                            untilTimeHomeRest = ResultState.Success(homeRest.second)
+                        )
+                    }
                 }
 
             } else {

@@ -12,10 +12,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.z_company.core.ui.theme.custom.AppTypography
-
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
@@ -31,7 +28,8 @@ fun RemoveTimeContent(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(36.dp)
     ) {
-        Text(text = title, style = AppTypography.getType().headlineSmall)
+        Text(text = title, style = MaterialTheme.typography.titleSmall)
+
         TextButton(
             modifier = Modifier
                 .fillMaxWidth(),
@@ -43,7 +41,7 @@ fun RemoveTimeContent(
         ) {
             Text(
                 text = "Удалить значение",
-                style = AppTypography.getType().titleMedium.copy(fontWeight = FontWeight.Normal),
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error
             )
         }

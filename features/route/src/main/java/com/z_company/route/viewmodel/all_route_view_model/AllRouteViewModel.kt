@@ -413,10 +413,10 @@ class AllRouteViewModel() : ViewModel(), KoinComponent {
                 route = route,
             )
             when (result) {
-                is ResultState.Success -> { /* result.data is Long? */
+                is ResultState.Success -> {
                     _previewRouteUiState.update {
                         it.copy(
-                            homeRest = result.data
+                            homeRest = result.data?.second
                         )
                     }
                 }

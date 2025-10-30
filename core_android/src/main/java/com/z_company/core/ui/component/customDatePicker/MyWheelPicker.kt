@@ -1,22 +1,12 @@
 package com.z_company.core.ui.component.customDatePicker
 
-import androidx.compose.animation.core.DecayAnimationSpec
 import androidx.compose.animation.core.exponentialDecay
 import androidx.compose.foundation.gestures.FlingBehavior
 import androidx.compose.foundation.gestures.ScrollScope
-
-import androidx.compose.animation.core.exponentialDecay
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.ui.unit.dp
-import kotlin.math.abs
-import android.util.Log
-import androidx.compose.animation.core.AnimationState
-import androidx.compose.animation.core.DecayAnimation
-import androidx.compose.animation.core.FloatDecayAnimationSpec
 import androidx.compose.animation.core.FloatExponentialDecaySpec
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animate
-import androidx.compose.animation.core.animateDecay
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.LocalContentColor
@@ -42,33 +33,15 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.core.view.ViewCompat.animate
-import com.z_company.core.ui.component.AutoSizeText
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
-import kotlin.math.abs
 import kotlin.math.absoluteValue
-import kotlin.math.roundToInt
-//import androidx.compose.animation.core.DecayAnimationSpec
-//import androidx.compose.animation.core.exponentialDecay
-//import androidx.compose.foundation.ExperimentalFoundationApi
-//import androidx.compose.foundation.gestures.FlingBehavior
-//import androidx.compose.foundation.gestures.ScrollScope
-//import androidx.compose.ui.unit.Density
-//import kotlinx.coroutines.withAnimationContext
-import kotlin.math.abs
 
 @Composable
 fun MyWheelTextPicker(
     modifier: Modifier = Modifier,
+    lazyListState: LazyListState = rememberLazyListState(),
     startIndex: Int = 0,
     height: Dp = 128.dp,
     texts: List<String>,
@@ -81,6 +54,7 @@ fun MyWheelTextPicker(
 ) {
     MyWheelPicker(
         modifier = modifier,
+        lazyListState = lazyListState,
         startIndex = startIndex,
         count = texts.size,
         rowCount = rowCount,
@@ -89,7 +63,6 @@ fun MyWheelTextPicker(
         texts = texts,
         style = style,
         color = color,
-//        contentAlignment = contentAlignment,
         contentArrangement = contentArrangement
     )
 }
@@ -98,6 +71,7 @@ fun MyWheelTextPicker(
 @Composable
 fun MyWheelPicker(
     modifier: Modifier = Modifier,
+    lazyListState: LazyListState,
     startIndex: Int = 0,
     count: Int,
     rowCount: Int,
@@ -108,7 +82,6 @@ fun MyWheelPicker(
     color: Color = LocalContentColor.current,
     contentArrangement: Arrangement.Horizontal = Arrangement.Center,
 ) {
-    val lazyListState = rememberLazyListState(startIndex)
     val snapperLayoutInfo = rememberLazyListSnapperLayoutInfo(lazyListState = lazyListState)
     val isScrollInProgress = lazyListState.isScrollInProgress
 
@@ -159,20 +132,22 @@ fun MyWheelPicker(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(height / rowCount),
-                    horizontalArrangement = contentArrangement
+                    horizontalArrangement = contentArrangement,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier.padding(horizontal = 4.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
+//                    Box(
+//                        modifier = Modifier.padding(horizontal = 4.dp),
+//                        contentAlignment = Alignment.Center
+//                    ) {
                         Text(
+                            modifier = Modifier.fillMaxWidth(),
                             text = texts[index],
                             textAlign = TextAlign.Center,
                             color = MaterialTheme.colorScheme.primary.copy(alpha = alpha),
                             style = MaterialTheme.typography.bodyLarge
                         )
                     }
-                }
+//                }
             }
         }
     }

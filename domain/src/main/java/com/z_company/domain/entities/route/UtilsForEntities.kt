@@ -214,7 +214,9 @@ object UtilsForEntities : KoinComponent {
         }
     }
 
-    fun Route.getHomeRest(parentList: List<Route>, minTimeHomeRest: Long?): Long? {
+    /** Возвращает Pair<Long, Long>?, где first - продолжительность отдыха, а second - время окончания отдыха
+     */
+    fun Route.getHomeRest(parentList: List<Route>, minTimeHomeRest: Long?): Pair<Long, Long>? {
         val routeChain = mutableListOf<Route>()
         val thisInRoute = parentList.find { it.basicData.id == this.basicData.id }
         var indexRoute = parentList.indexOf(thisInRoute)
@@ -250,7 +252,13 @@ object UtilsForEntities : KoinComponent {
             if (homeRest.lessThan(minTimeHomeRest)) {
                 homeRest = minTimeHomeRest ?: 0L
             }
-            return routeChain.last().basicData.timeEndWork + homeRest
+            routeChain.last().basicData.timeStartWork?.let {
+                return Pair(
+                    first = homeRest,
+                    second = it + homeRest
+                )
+            }
+            return null
         } else {
             return null
         }
@@ -305,7 +313,7 @@ object UtilsForEntities : KoinComponent {
         return totalTime
     }
 
-    fun Route.isFuture(offsetInMoscow: Long): Boolean{
+    fun Route.isFuture(offsetInMoscow: Long): Boolean {
         if (this.basicData.timeStartWork == null || this.basicData.timeEndWork == null) {
             return false
         } else {
@@ -340,7 +348,7 @@ object UtilsForEntities : KoinComponent {
         }
 
         // Если найден маршрут в интервале времени - возвращаем его
-        if (routeInTimeInterval != null ) {
+        if (routeInTimeInterval != null) {
             return routeInTimeInterval
         }
 
@@ -359,8 +367,11 @@ object UtilsForEntities : KoinComponent {
     }
 
     // Вспомогательный метод для проверки месяца маршрута
-    private fun Route.isInCurrentMonth(currentMonthOfYear: MonthOfYear, offsetInMoscow: Long): Boolean {
-        if (this.basicData.timeStartWork == null ) return false
+    private fun Route.isInCurrentMonth(
+        currentMonthOfYear: MonthOfYear,
+        offsetInMoscow: Long
+    ): Boolean {
+        if (this.basicData.timeStartWork == null) return false
         val calendar = getInstance().apply {
             timeInMillis = timeInMillis + offsetInMoscow
         }

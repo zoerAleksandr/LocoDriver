@@ -1,35 +1,28 @@
 package com.z_company.route.component
 
-import android.util.Log
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ui.theme.Shapes
 
@@ -57,7 +50,7 @@ fun SwitchApp(
     onCheckedChange: ((Boolean) -> Unit)?,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    shape: RoundedCornerShape = RoundedCornerShape(12.dp),
+    shape: Shape = Shapes.medium,
     positiveColor: Color = MaterialTheme.colorScheme.secondary,
     negativeColor: Color = MaterialTheme.colorScheme.secondary,
     disabledPositiveColor: Color = positiveColor,
@@ -100,7 +93,6 @@ fun SwitchApp(
                     coordinates.size.height.toDp()
                 }
             }
-            .shadow(elevation = 3.dp, shape = shape)
             .height(height)
             .clip(shape = shape)
             .border(
@@ -108,7 +100,7 @@ fun SwitchApp(
                 color = borderColor,
                 shape = shape
             )
-            .background(MaterialTheme.colorScheme.surface)
+            .background(MaterialTheme.colorScheme.background)
             .then(
                 if (onCheckedChange != null) {
                     Modifier.toggleable(
@@ -133,21 +125,21 @@ fun SwitchApp(
                     .fillMaxHeight()
                     .width(animatedThumbOffset)
             )
-            Box(
+
+            // индикатор выбраного элемента
+            Card(
                 modifier = Modifier
-                    .padding(2.dp)
+                    .padding(4.dp)
                     .height(height)
-                    .width(width / 2)
-                    .clip(shape = shape.copy(CornerSize(10.dp)))
-                    .shadow(elevation = 3.dp, shape = shape.copy(CornerSize(10.dp)))
-                    .background(MaterialTheme.colorScheme.secondary)
-                    .border(
-                        shape = shape.copy(CornerSize(10.dp)),
-                        color = borderColor,
-                        width = 0.5.dp
-                    )
-//                    .alpha(animatedAlpha)
-            )
+                    .width(width / 2),
+                elevation = CardDefaults.elevatedCardElevation(
+                    defaultElevation = 3.dp
+                ),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondary
+                ),
+                shape = RoundedCornerShape(8.dp)
+            ) {}
         }
         Row(
             modifier = Modifier
@@ -157,13 +149,13 @@ fun SwitchApp(
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             Box(
-                modifier = Modifier.padding(horizontal = 16.dp),
+                modifier = Modifier.padding(horizontal = 8.dp),
                 contentAlignment = Alignment.Center
             ) {
                 negativeContent()
             }
             Box(
-                modifier = Modifier.padding(horizontal = 16.dp),
+                modifier = Modifier.padding(horizontal = 8.dp),
                 contentAlignment = Alignment.Center
             ) {
                 positiveContent()

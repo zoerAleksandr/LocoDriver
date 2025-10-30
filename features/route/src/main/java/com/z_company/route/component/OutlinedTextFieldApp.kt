@@ -64,12 +64,8 @@ fun OutlinedTextFieldApp(
         unfocusedTextColor = MaterialTheme.colorScheme.primary,
         unfocusedContainerColor = animatedBackgroundColorsNumber,
         focusedContainerColor = animatedBackgroundColorsNumber,
-        focusedBorderColor = MaterialTheme.colorScheme.primary.copy(
-            alpha = 0.5f
-        ),
-        unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(
-            alpha = 0.5f
-        )
+        focusedBorderColor = Color.Transparent,
+        unfocusedBorderColor = Color.Transparent
     )
 
     BasicTextField(
@@ -108,8 +104,8 @@ fun OutlinedTextFieldApp(
                     interactionSource = interactionSource,
                     colors = color,
                     shape = shape,
-                    focusedBorderThickness = 1.dp,
-                    unfocusedBorderThickness = 0.5.dp
+                    focusedBorderThickness = 0.dp,
+                    unfocusedBorderThickness = 0.dp
                 )
             }
         )
