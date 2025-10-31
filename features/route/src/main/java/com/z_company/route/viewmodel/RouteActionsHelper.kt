@@ -19,9 +19,15 @@ import com.z_company.route.viewmodel.all_route_view_model.RouteFilter
 import com.z_company.route.viewmodel.home_view_model.ItemState
 import java.util.Calendar
 import com.z_company.domain.entities.route.UtilsForEntities.getHomeRest
+import com.z_company.domain.entities.route.UtilsForEntities.isTimeWorkValid
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.domain.util.addOrReplace
+import com.z_company.domain.util.minus
+import com.z_company.domain.util.moreThan
+import com.z_company.domain.util.plus
 import kotlinx.coroutines.async
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.*
 
 class RouteActionsHelper() : KoinComponent {
 
@@ -35,7 +41,9 @@ class RouteActionsHelper() : KoinComponent {
     sealed class NewRouteResult {
         object NeedSubscribeDialog : NewRouteResult()          // Show "need subscribe" dialog
         object AlertSubscribeDialog : NewRouteResult()         // Show "alert subscribe" dialog
-        data class ShowNewRouteScreen(val basicId: String?, val isMakeCopy: Boolean) : NewRouteResult()
+        data class ShowNewRouteScreen(val basicId: String?, val isMakeCopy: Boolean) :
+            NewRouteResult()
+
         data class Error(val throwable: Throwable?) : NewRouteResult()
     }
 
@@ -49,7 +57,10 @@ class RouteActionsHelper() : KoinComponent {
      *
      * Этот метод не меняет uiState — ViewModel делает это сама по результату.
      */
-    suspend fun newRouteClick(basicId: String? = null, isMakeCopy: Boolean = false): NewRouteResult {
+    suspend fun newRouteClick(
+        basicId: String? = null,
+        isMakeCopy: Boolean = false
+    ): NewRouteResult {
         return try {
             val currentTime = Calendar.getInstance().timeInMillis
             val gracePeriod = 24 * 3_600_000 // 1 day in ms
@@ -183,31 +194,33 @@ class RouteActionsHelper() : KoinComponent {
     }
 
     /**
-     * Возвращает Pair<Long, Long>?, где first - продолжительность отдыха, а second - время окончания отдыха
+     * Возвращает Flow<ResultState<Pair<Long, Long>?>>, где first - продолжительность отдыха, а second - время окончания отдыха
      *
      * Usage:
      * viewModelScope.launch {
-     *   val result = RouteActionsHelper.calculationHomeRest(
-     *      route = myRoute,
-     *      currentMonthOfYear = monthOfYear,
-     *      userSettings = userSettings,
-     *      routeUseCase = routeUseCase,
-     *      minTimeHomeRest = minTimeHomeRest
-     *   )
-     *   when (result) {
-     *     is ResultState.Success -> { /* result.data is Long? */ }
-     *     is ResultState.Error -> { /* handle error */ }
-     *     else -> {}
+     *   routeHelper.calculationHomeRest(myRoute).collect { result ->
+     *     when (result) {
+     *       is ResultState.Success -> { /* result.data is Pair<Long, Long>? */ }
+     *       is ResultState.Error -> { /* handle error */ }
+     *       else -> {}
+     *     }
      *   }
      * }
      */
-    suspend fun calculationHomeRest(
-        route: Route?,
-    ): ResultState<Pair<Long, Long>?> = withContext(Dispatchers.IO) {
+    fun calculationHomeRest(route: Route?): Flow<ResultState<Pair<Long, Long>?>> = flow {
+        emit(ResultState.Loading())
         try {
+            if (route == null) {
+                emit(ResultState.Success(null))
+                return@flow
+            }
+            if (route.basicData.timeStartWork == null || route.basicData.timeEndWork == null) {
+                emit(ResultState.Success(null))
+                return@flow
+            }
+
             val userSettings = settingsUseCase.getUserSettingFlow().first()
 
-            // Из настроек извлекаем нужные параметры
             val currentMonthOfYear = userSettings.selectMonthOfYear
             val minTimeHomeRest = userSettings.minTimeHomeRest
             val tz = userSettings.timeZone
@@ -215,56 +228,167 @@ class RouteActionsHelper() : KoinComponent {
             val previousMonth = if (currentMonthOfYear.month > 0) {
                 currentMonthOfYear.copy(month = currentMonthOfYear.month - 1)
             } else {
-                // wrap to previous year, month = 11 (December)
-                currentMonthOfYear.copy(
-                    year = currentMonthOfYear.year - 1,
-                    month = 11
-                )
+                currentMonthOfYear.copy(year = currentMonthOfYear.year - 1, month = 11)
             }
 
-            val deferredCurrent = async {
-                routeUseCase.listRoutesByMonth(currentMonthOfYear, tz)
-                    .first { it is ResultState.Success || it is ResultState.Error }
-            }
-            val deferredPrev = async {
-                routeUseCase.listRoutesByMonth(previousMonth, tz)
-                    .first { it is ResultState.Success || it is ResultState.Error }
-            }
+            val currentResult: ResultState<List<Route>>
+            val prevResult: ResultState<List<Route>>
 
-            val currentResult = deferredCurrent.await()
-            val prevResult = deferredPrev.await()
+            coroutineScope {
+                val deferredCurrent = async(Dispatchers.IO) {
+                    routeUseCase.listRoutesByMonth(currentMonthOfYear, tz)
+                        .first { it is ResultState.Success || it is ResultState.Error }
+                }
+                val deferredPrev = async(Dispatchers.IO) {
+                    routeUseCase.listRoutesByMonth(previousMonth, tz)
+                        .first { it is ResultState.Success || it is ResultState.Error }
+                }
 
-            val combinedRoutes = mutableListOf<Route>()
-
-            if (currentResult is ResultState.Success) {
-                combinedRoutes.addAll(currentResult.data)
-            } else if (currentResult is ResultState.Error) {
-                // if error for current month - return error
-                return@withContext ResultState.Error(currentResult.entity)
+                currentResult = deferredCurrent.await()
+                prevResult = deferredPrev.await()
             }
 
-            if (prevResult is ResultState.Success) {
-                combinedRoutes.addAll(prevResult.data)
-            } else if (prevResult is ResultState.Error) {
-                // if error for previous month - return error
-                return@withContext ResultState.Error(prevResult.entity)
+            if (currentResult is ResultState.Error) {
+                emit(currentResult)
+                return@flow
+            }
+            if (prevResult is ResultState.Error) {
+                emit(prevResult)
+                return@flow
             }
 
-            // sort and deduplicate by start time (keep original objects)
-            val sortedRouteList = combinedRoutes
-                .sortedBy { it.basicData.timeStartWork }
-                .distinct()
+            val combinedRoutes =
+                (currentResult as ResultState.Success).data + (prevResult as ResultState.Success).data
 
-            // if route exists in combined list compute home rest using route.getHomeRest(...)
-            val homeRest = if (route != null && sortedRouteList.contains(route)) {
-                route.getHomeRest(parentList = sortedRouteList, minTimeHomeRest = minTimeHomeRest)
+            val sorted = combinedRoutes.sortedByDescending { it.basicData.timeStartWork ?: 0L }
+                .toMutableList()
+
+            val inputId = route.basicData.id
+            val existingIndex = sorted.indexOfFirst { it.basicData.id == inputId }
+
+            if (existingIndex != -1) {
+                sorted[existingIndex] = route
             } else {
-                null
+                val insertIndex = sorted.indexOfFirst {
+                    (it.basicData.timeStartWork ?: 0L) < (route.basicData.timeStartWork ?: 0L)
+                }
+                if (insertIndex == -1) {
+                    sorted.add(route)
+                } else {
+                    sorted.add(insertIndex, route)
+                }
             }
 
-            ResultState.Success(homeRest)
+
+            val index = sorted.indexOfFirst { it.basicData.id == inputId }
+            if (index == -1) {
+                emit(ResultState.Error(ErrorEntity(Exception("Route not found after insertion"))))
+                return@flow
+            }
+
+            val chain = mutableListOf<Route>(sorted[index])
+
+            var nextIdx = index + 1
+            while (nextIdx < sorted.size) {
+                if (sorted[nextIdx].basicData.restPointOfTurnover == true) {
+                    chain.add(sorted[nextIdx])
+                    nextIdx++
+                } else {
+                    break
+                }
+            }
+
+            if (chain.any { it.basicData.timeStartWork == null || it.basicData.timeEndWork == null }) {
+                emit(ResultState.Error(ErrorEntity(message = "В цепочке маршрутов не указано начало или окончание работы. Невозможно рассчитать отдых.")))
+                return@flow
+            }
+
+            val sumWork = chain.sumOf { it.basicData.timeEndWork!! - it.basicData.timeStartWork!! }
+
+            var sumRest = 0L
+            for (i in 1 until chain.size) {
+                sumRest += chain[i - 1].basicData.timeStartWork!! - chain[i].basicData.timeEndWork!!
+            }
+
+            val rawDuration = (sumWork.toDouble() * 2.6).toLong()
+            val duration = maxOf(rawDuration - sumRest, minTimeHomeRest)
+
+            val endTime = route.basicData.timeEndWork!! + duration
+
+            emit(ResultState.Success(Pair(duration, endTime)))
         } catch (t: Throwable) {
-            ResultState.Error(ErrorEntity(t))
+            emit(ResultState.Error(ErrorEntity(t)))
         }
+    }
+
+    /** Возвращает Flow<Pair<Long, Long>?>, где first - продолжительность отдыха, а second - время окончания отдыха
+     */
+    fun calculateShortRest(route: Route?): Flow<Pair<Long, Long>?> = flow {
+        if (route == null) {
+            emit(null)
+            return@flow
+        }
+
+        val startTime = route.basicData.timeStartWork
+        val endTime = route.basicData.timeEndWork
+
+        if (startTime == null || endTime == null) {
+            emit(null)
+            return@flow
+        }
+
+        if (!route.isTimeWorkValid()) {
+            emit(null)
+            return@flow
+        }
+
+        val userSettings = settingsUseCase.getUserSettingFlow().first()
+        val minTimeRestPointOfTurnover = userSettings.minTimeRestPointOfTurnover
+
+        val timeResult = endTime - startTime
+        var halfRest = timeResult / 2
+
+        if (halfRest % 60_000L != 0L) {
+            halfRest += 60_000L
+        }
+
+        val effectiveRest =
+            if (halfRest > minTimeRestPointOfTurnover) halfRest else minTimeRestPointOfTurnover
+        val endRestTime = endTime + effectiveRest
+
+        emit(Pair(effectiveRest, endRestTime))
+    }
+
+
+    /** Возвращает Flow<Pair<Long, Long>?>, где first - продолжительность отдыха, а second - время окончания отдыха
+     */
+    fun calculateFullRest(route: Route?): Flow<Pair<Long, Long>?> = flow {
+        if (route == null) {
+            emit(null)
+            return@flow
+        }
+
+        val startTime = route.basicData.timeStartWork
+        val endTime = route.basicData.timeEndWork
+
+        if (startTime == null || endTime == null) {
+            emit(null)
+            return@flow
+        }
+
+        if (!route.isTimeWorkValid()) {
+            emit(null)
+            return@flow
+        }
+
+        val userSettings = settingsUseCase.getUserSettingFlow().first()
+        val minTimeRestPointOfTurnover = userSettings.minTimeRestPointOfTurnover
+
+
+        val timeResult = endTime - startTime
+        val effectiveRest = if (timeResult > minTimeRestPointOfTurnover) timeResult else minTimeRestPointOfTurnover
+        val endRestTime = endTime + effectiveRest
+
+        emit(Pair(effectiveRest, endRestTime))
     }
 }

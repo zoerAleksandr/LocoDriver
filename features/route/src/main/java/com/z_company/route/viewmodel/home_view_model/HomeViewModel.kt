@@ -774,7 +774,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         viewModelScope.launch {
             val result = routeHelper.calculationHomeRest(
                 route = route,
-            )
+            ).first()
             when (result) {
                 is ResultState.Success -> { /* result.data is Long? */
                     _previewRouteUiState.update {

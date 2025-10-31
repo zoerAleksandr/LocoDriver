@@ -50,11 +50,11 @@ class RoomSettingRepository : SettingsRepository, KoinComponent {
         }
     }
 
-    override fun getFlowSettingsState(): Flow<ResultState<UserSettings?>> {
+    override fun getFlowSettingsState(): Flow<ResultState<UserSettings>> {
         return flowMap {
             dao.getFlowSettings().map { settings ->
                 ResultState.Success(
-                    settings?.let {
+                    settings.let {
                         UserSettingsConverter.toData(settings)
                     }
                 )

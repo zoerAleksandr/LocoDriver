@@ -13,4 +13,8 @@ internal data class Route(
     var trains: MutableList<Train> = mutableListOf(),
     var passengers: MutableList<Passenger> = mutableListOf(),
     var photos: MutableList<Photo> = mutableListOf()
-)
+) {
+    override fun equals(other: Any?): Boolean {
+        return this.basicData.id == other
+    }
+}

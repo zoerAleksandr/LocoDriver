@@ -1,12 +1,11 @@
 package com.z_company.route.viewmodel
 
-import com.z_company.core.ResultState
-
 data class DialogRestUiState(
-    val minTimeRestPointOfTurnover: Long? = null,
-    val minTimeHomeRest: Long? = null,
-    val minUntilTimeRestPointOfTurnover:  ResultState<Long?> = ResultState.Loading(),
-    val fullUntilTimeRestPointOfTurnover:  ResultState<Long?> = ResultState.Loading(),
-    val untilTimeHomeRest: ResultState<Long?> = ResultState.Loading(),
-    val homeRestDuration: Long = 0
+    val minTimeDuration: Long? = null,
+    val fullTimeDuration: Long? = null,
+    val timeEndMinTimeRestPointOfTurnover:  Long? = null,
+    val timeEndFullTimeRestPointOfTurnover:  Long? = null,
+
+    val homeRestDuration: Long? = null,
+    val timeEndHomeRest: Long? = null,
 )

@@ -8,75 +8,57 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material.ModalBottomSheetLayout
 import androidx.compose.material.ModalBottomSheetState
-import androidx.compose.material.ModalBottomSheetValue
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Clear
-import androidx.compose.material.rememberModalBottomSheetState
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -101,19 +83,13 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.zIndex
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.flowWithLifecycle
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.component.DateTimePickerBottomSheet
-import com.z_company.core.ui.component.SelectableDateTimePicker
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.ui.theme.Shapes
@@ -133,23 +109,18 @@ import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.BottomShadow
 import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.ConfirmExitDialog
-import com.z_company.route.component.CustomDatePickerDialog
 import com.z_company.route.component.OutlinedTextFieldApp
 import com.z_company.route.component.RemoveTimeContent
 import com.z_company.route.component.SwitchApp
 import com.z_company.route.component.rememberDatePickerStateInLocale
 import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.route.viewmodel.DialogRestUiState
-import com.z_company.route.viewmodel.FormScreenEvent
 import com.z_company.route.viewmodel.FormViewModel
 import com.z_company.route.viewmodel.RouteFormUiState
 import com.z_company.route.viewmodel.SalaryForRouteState
 import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toInstant
 import org.koin.compose.koinInject
 import java.util.Calendar
 
@@ -193,7 +164,6 @@ fun FormScreen(
     exitWithoutSave: () -> Unit,
     onSalarySettingClick: () -> Unit,
     setFavoriteState: () -> Unit,
-    checkIsCorrectTime: () -> Unit,
     timeZoneText: String,
     dateAndTimeConverter: DateAndTimeConverter?
 ) {
@@ -202,16 +172,6 @@ fun FormScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val lifecycle = lifecycleOwner.lifecycle
 
-    DisposableEffect(key1 = lifecycleOwner, effect = {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_START) {
-                checkIsCorrectTime()
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-
-        onDispose { }
-    })
 
     var isExpandedMenu by remember { mutableStateOf(false) }
 
@@ -420,12 +380,6 @@ fun FormScreen(
             }
         }
 
-//        val bottomSheetState = rememberModalBottomSheetState(
-//            initialValue = ModalBottomSheetValue.Hidden,
-//        )
-//        var bottomSheetContent =
-//            remember { mutableStateOf(BottomSheetRemoveTimeFormScreen.END_WORK) }
-
         var showBottomSheetRemoveTimeStartWork by remember {
             mutableStateOf(false)
         }
@@ -487,10 +441,10 @@ fun FormScreen(
         Box(Modifier.padding(it)) {
             AsyncData(resultState = formUiState.routeDetailState) {
                 if (formUiState.routeDetailState is ResultState.Success) {
-                    val route = formUiState.routeDetailState.data
-                    route?.let { route ->
+                    currentRoute?.let { route ->
+                        Log.d("zzz", "route $route")
+                        Log.d("zzz", "route ${route.basicData.timeStartWork}")
                         val scrollState = rememberLazyListState()
-                        val scope = rememberCoroutineScope()
 
                         var showStartDatePickerCopyRoute by remember {
                             mutableStateOf(false)
@@ -501,10 +455,6 @@ fun FormScreen(
                         }
 
                         var showEndDatePicker by remember {
-                            mutableStateOf(false)
-                        }
-
-                        var moreInfoRestVisible by remember {
                             mutableStateOf(false)
                         }
 
@@ -1170,16 +1120,17 @@ fun FormScreen(
                                             ) {
                                                 if (route.basicData.restPointOfTurnover) {
                                                     InfoRestPointOfTurnoverTime(
-                                                        minUntilTimeRest = dialogRestUiState.minUntilTimeRestPointOfTurnover,
-                                                        fullUntilTimeRest = dialogRestUiState.fullUntilTimeRestPointOfTurnover,
+                                                        minTimeDuration = dialogRestUiState.minTimeDuration,
+                                                        fullTimeDuration = dialogRestUiState.fullTimeDuration,
+                                                        timeEndMinTimeRest = dialogRestUiState.timeEndMinTimeRestPointOfTurnover,
+                                                        timeEndFullTimeRest = dialogRestUiState.timeEndFullTimeRestPointOfTurnover,
                                                         onSettingClick = onSettingClick,
-                                                        minTimeRest = dialogRestUiState.minTimeRestPointOfTurnover,
                                                         dateAndTimeConverter = dateAndTimeConverter
                                                     )
                                                 } else {
-                                                    InfoRestOfHmeOfTime(
+                                                    InfoRestOfHomeOfTime(
                                                         restDuration = dialogRestUiState.homeRestDuration,
-                                                        untilTimeHomeRest = dialogRestUiState.untilTimeHomeRest,
+                                                        timeEndHomeRest = dialogRestUiState.timeEndHomeRest,
                                                         onSettingClick = onSettingClick,
                                                         dateAndTimeConverter = dateAndTimeConverter
                                                     )
@@ -1584,9 +1535,9 @@ fun ItemNotes(
 }
 
 @Composable
-fun InfoRestOfHmeOfTime(
-    restDuration: Long,
-    untilTimeHomeRest: ResultState<Long?>,
+fun InfoRestOfHomeOfTime(
+    restDuration: Long?,
+    timeEndHomeRest: Long?,
     onSettingClick: () -> Unit,
     dateAndTimeConverter: DateAndTimeConverter?
 ) {
@@ -1597,68 +1548,47 @@ fun InfoRestOfHmeOfTime(
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Column(
+            modifier = Modifier
+                .weight(1f),
             horizontalAlignment = Alignment.Start
         ) {
-            AsyncData(
-                resultState = untilTimeHomeRest,
-                loadingContent = {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.dp
-                    )
-                },
-                errorContent = {
-                    Text(
-                        text = "Ошибка вычисления",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            ) {
-                Column {
-                    val untilTimeHomeRestText =
-                        dateAndTimeConverter?.getDateMiniAndTime(it) ?: ""
-                    val restDuration = ConverterLongToTime.formatDurationFromMillis(restDuration)
+            if (restDuration == null || timeEndHomeRest == null) {
+                Text(
+                    text = "Невозможно рассчитать время отдыха.\nПроверьте начало и окончание работы во всей цепочке маршрутов.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            } else {
+                val timeEndHomeRestText =
+                    dateAndTimeConverter?.getDateAndTime(timeEndHomeRest) ?: ""
+                val restDuration = ConverterLongToTime.formatDurationFromMillis(restDuration)
 
-                    Text(
-                        text = restDuration
-                    )
-
-                    Text(
-                        text = "До $untilTimeHomeRestText",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-
-//        ClickableText(
-//            modifier = Modifier.padding(top = 12.dp),
-//            text = link,
-//            style = MaterialTheme.typography.bodyMedium.copy(
-//                fontStyle = FontStyle.Italic,
-//                fontWeight = FontWeight.Light,
-//                color = MaterialTheme.colorScheme.primary
-//            ),
-//        ) {
-//            link.getStringAnnotations(LINK_TO_SETTING, it, it).firstOrNull()?.let {
-//                onSettingClick()
-//            }
-//        }
-            Text(
-                text = "\nформула расчета\n(время рабочее * 2,6) - время отдыха в ПО",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontStyle = FontStyle.Italic,
-                    fontWeight = FontWeight.Light,
+                Text(
+                    text = "Продлится $restDuration",
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
-            )
+
+                Text(
+                    text = "До $timeEndHomeRestText",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Text(
+                    text = "\nформула расчета\n(время рабочее * 2,6) - время отдыха в ПО",
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontStyle = FontStyle.Italic,
+                        fontWeight = FontWeight.Light,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                )
+            }
 
         }
 
         Icon(
             modifier = Modifier
-//                .weight(1f)
                 .clickable {
                     onSettingClick()
                 },
@@ -1671,36 +1601,13 @@ fun InfoRestOfHmeOfTime(
 
 @Composable
 fun InfoRestPointOfTurnoverTime(
-    minUntilTimeRest: ResultState<Long?>,
-    fullUntilTimeRest: ResultState<Long?>,
+    minTimeDuration: Long?,
+    fullTimeDuration: Long?,
+    timeEndMinTimeRest: Long?,
+    timeEndFullTimeRest: Long?,
     onSettingClick: () -> Unit,
-    minTimeRest: Long?,
     dateAndTimeConverter: DateAndTimeConverter?
 ) {
-//    val minTimeRestText = ConverterLongToTime.getTimeInStringFormat(minTimeRest)
-//
-//    val link = buildAnnotatedString {
-//        val text = stringResource(id = R.string.info_text_min_time_rest, minTimeRestText)
-//
-//        val endIndex = text.length - 1
-//        val startIndex = startIndexLastWord(text)
-//
-//        append(text)
-//        addStyle(
-//            style = SpanStyle(
-//                color = MaterialTheme.colorScheme.tertiary,
-//                textDecoration = TextDecoration.Underline
-//            ), start = startIndex, end = endIndex
-//        )
-//
-//        addStringAnnotation(
-//            tag = LINK_TO_SETTING,
-//            annotation = LINK_TO_SETTING,
-//            start = startIndex,
-//            end = endIndex
-//        )
-//    }
-
     Row(
         modifier = Modifier
             .fillMaxWidth(),
@@ -1708,65 +1615,49 @@ fun InfoRestPointOfTurnoverTime(
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Column(
-//            modifier = Modifier
-//                .fillMaxWidth(),
+            modifier = Modifier.weight(1f),
             horizontalAlignment = Alignment.Start
         ) {
-            AsyncData(
-                resultState = minUntilTimeRest,
-                loadingContent = {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.dp
-                    )
-                },
-                errorContent = {
-                    Text(
-                        text = "Ошибка вычисления",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            ) {
-                val minUntilTimeRestText =
-                    dateAndTimeConverter?.getDateMiniAndTime(it) ?: ""
+            if (minTimeDuration == null || fullTimeDuration == null) {
                 Text(
-                    text = stringResource(
-                        id = R.string.min_time_rest_text, minUntilTimeRestText
-                    ),
+                    text = "Невозможно рассчитать время отдыха.\nПроверьте начало и окончание работы.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            } else {
+                val minTimeDurationText =
+                    ConverterLongToTime.formatDurationFromMillis(minTimeDuration)
+                val timeEndMinTimeRestText =
+                    dateAndTimeConverter?.getDateMiniAndTime(timeEndMinTimeRest) ?: ""
+
+                Text(
+                    text = "Короткий $minTimeDurationText",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "до $timeEndMinTimeRestText",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                val fullTimeDurationText =
+                    ConverterLongToTime.formatDurationFromMillis(fullTimeDuration)
+                val timeEndFullTimeRestText =
+                    dateAndTimeConverter?.getDateMiniAndTime(timeEndFullTimeRest) ?: ""
+                Text(
+                    text = "Полный $fullTimeDurationText",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "до $timeEndFullTimeRestText",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
             }
-
-            AsyncData(
-                resultState = fullUntilTimeRest,
-                loadingContent = {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.dp
-                    )
-                },
-                errorContent = {
-                    Text(
-                        text = "Ошибка вычисления",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            ) {
-                val fullUntilTimeRestText =
-                    dateAndTimeConverter?.getDateMiniAndTime(it) ?: ""
-
-                Text(
-                    text = stringResource(
-                        id = R.string.complete_time_rest_text, fullUntilTimeRestText
-                    ),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-
         }
 
         Icon(
@@ -1779,45 +1670,4 @@ fun InfoRestPointOfTurnoverTime(
             tint = MaterialTheme.colorScheme.primary
         )
     }
-}
-
-@OptIn(ExperimentalMaterialApi::class)
-@Composable
-private fun RemoveTimeBottomSheetContent(
-    bottomSheetState: ModalBottomSheetState,
-    onTimeStartWorkChanged: (Long?) -> Unit,
-    onTimeEndWorkChanged: (Long?) -> Unit,
-    selectBottomSheetContent: BottomSheetRemoveTimeFormScreen
-) {
-    val scope = rememberCoroutineScope()
-    when (selectBottomSheetContent) {
-        BottomSheetRemoveTimeFormScreen.START_WORK -> {
-
-            RemoveTimeContent(
-                title = "Время явки",
-                onRemoveTimeClick = {
-                    scope.launch {
-                        bottomSheetState.hide()
-                    }
-                    onTimeStartWorkChanged(null)
-                }
-            )
-        }
-
-        BottomSheetRemoveTimeFormScreen.END_WORK -> {
-            RemoveTimeContent(
-                title = "Время сдачи",
-                onRemoveTimeClick = {
-                    scope.launch {
-                        bottomSheetState.hide()
-                    }
-                    onTimeEndWorkChanged(null)
-                }
-            )
-        }
-    }
-}
-
-enum class BottomSheetRemoveTimeFormScreen() {
-    START_WORK, END_WORK
 }

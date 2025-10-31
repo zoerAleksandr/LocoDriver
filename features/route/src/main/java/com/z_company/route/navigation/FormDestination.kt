@@ -43,6 +43,9 @@ fun FormDestination(
 
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
+    val currentRoute by viewModel.currentRoute.collectAsState()
+    val dateAndTimeConverter by viewModel.dateAndTimeConverter.collectAsState()
+
     LaunchedEffect(Unit) {
         scope.launch {
             viewModel.events.flowWithLifecycle(lifecycle).collect { event ->
@@ -53,6 +56,10 @@ fun FormDestination(
 
                     FormScreenEvent.DeactivatedFavoriteRoute -> {
                         snackbarHostState.showSnackbar(message = "Удален из избранного")
+                    }
+
+                    FormScreenEvent.RouteSaved -> {
+                        snackbarHostState.showSnackbar(message = "Маршрут сохранен")
                     }
                 }
             }
@@ -87,19 +94,19 @@ fun FormDestination(
         viewModel = viewModel,
         formUiState = formUiState,
         dialogRestUiState = dialogRestUiState,
-        currentRoute = viewModel.currentRoute,
+        currentRoute = currentRoute,
         exitScreen = { router.showHome(HomeRoute.route) },
         isCopy = formUiState.isCopy,
         onSaveClick = viewModel::onSaveClick,
         onBack = viewModel::checkBeforeExitTheScreen,
         onNumberChanged = viewModel::setNumber,
-        checkedOnePersonOperation = viewModel::setOnePersonOperation,
+        checkedOnePersonOperation = viewModel::checkedOnePersonOperation,
         onNotesChanged = viewModel::setNotes,
         onSettingClick = router::showSettings,
         resetSaveState = viewModel::resetSaveState,
         onTimeStartWorkChanged = viewModel::setTimeStartWork,
         onTimeEndWorkChanged = viewModel::setTimeEndWork,
-        onRestChanged = viewModel::setRestValue,
+        onRestChanged = viewModel::onRestChanged,
         onChangedLocoClick = router::showChangedLocoForm,
         onNewLocoClick = {
             router.showEmptyLocoForm(it)
@@ -120,12 +127,11 @@ fun FormDestination(
         onDeletePassenger = viewModel::onDeletePassenger,
         nightTime = formUiState.nightTime,
         changeShowConfirmExitDialog = viewModel::changeShowConfirmDialog,
-        exitWithoutSave = viewModel::exitWithoutSaving,
+        exitWithoutSave = viewModel::exitWithoutSave,
         salaryForRouteState = salaryState,
         onSalarySettingClick = router::showSettingSalary,
         setFavoriteState = viewModel::setFavoriteRoute,
-        checkIsCorrectTime = viewModel::isValidTime,
         timeZoneText = viewModel.timeZoneText,
-        dateAndTimeConverter = formUiState.dateAndTimeConverter
+        dateAndTimeConverter = dateAndTimeConverter
     )
 }

@@ -11,7 +11,7 @@ interface SettingsRepository {
     fun updateMonthOfYearInUserSetting(monthOfYear: MonthOfYear): Flow<ResultState<Unit>>
     fun updateNightTime(nightTime: NightTime): Flow<ResultState<Unit>>
     fun setSettings(userSettings: UserSettings): Flow<ResultState<Unit>>
-    fun getFlowSettingsState(): Flow<ResultState<UserSettings?>>
+    fun getFlowSettingsState(): Flow<ResultState<UserSettings>>
     fun getUserSettingFlow(): Flow<UserSettings>
     fun getUserSettings(): UserSettings
     fun setUpdateAt(timestamp: Long): Flow<ResultState<Unit>>

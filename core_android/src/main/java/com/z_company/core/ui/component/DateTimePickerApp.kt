@@ -621,7 +621,7 @@ fun TimeScrollPicker(
 
             MyWheelTextPicker(
                 modifier = Modifier
-                    .width(40.dp),
+                    .width(60.dp),
                 lazyListState = hourListState,
                 height = height,
                 texts = hours.map { it.text },
@@ -661,7 +661,7 @@ fun TimeScrollPicker(
 
             MyWheelTextPicker(
                 modifier = Modifier
-                    .width(40.dp),
+                    .width(60.dp),
                 lazyListState = minuteListState,
                 height = height,
                 texts = minutes.map { it.text },
@@ -780,34 +780,6 @@ fun TimeInputOverlay(
             cursorBrush = SolidColor(Color.Transparent),
             singleLine = true,
             decorationBox = { innerTextField ->
-//                val padded = timeText.padStart(4, '_')
-//                val displayHH = padded.substring(0, 2)
-//                val displayMM = padded.substring(2, 4)
-//                Row(
-//                    modifier = Modifier
-//                        .wrapContentWidth(),
-//                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
-//                ) {
-//                    Text(
-//                        text = displayHH,
-//                        style = textStyle,
-//                        color = textColor,
-//                        textAlign = TextAlign.End
-//                    )
-//                    Box(contentAlignment = Alignment.Center) {
-//                        Text(
-//                            text = ":",
-//                            style = textStyle,
-//                            color = textColor
-//                        )
-//                    }
-//                    Text(
-//                        text = displayMM,
-//                        style = textStyle,
-//                        color = textColor,
-//                        textAlign = TextAlign.Start
-//                    )
-//                }
                 innerTextField()
             }
         )

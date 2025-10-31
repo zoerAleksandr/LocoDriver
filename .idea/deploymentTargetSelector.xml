@@ -4,10 +4,10 @@
     <selectionStates>
       <SelectionState runConfigName="app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2025-10-23T11:00:45.691214Z">
-          <Target type="COLD_BOOT">
+        <DropdownSelection timestamp="2025-10-30T15:46:04.458688Z">
+          <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="LocalEmulator" identifier="path=/Users/zoer/.android/avd/Pixel_5_API_31.avd" />
+              <DeviceId pluginId="LocalEmulator" identifier="path=/Users/zoer/.android/avd/Pixel_4a_API_31.avd" />
             </handle>
           </Target>
         </DropdownSelection>

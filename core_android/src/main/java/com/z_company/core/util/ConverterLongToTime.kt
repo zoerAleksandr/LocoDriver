@@ -45,7 +45,10 @@ object ConverterLongToTime {
         }
     }
 
-    fun formatDurationFromMillis(millis: Long): String {
+    fun formatDurationFromMillis(millis: Long?): String {
+        if (millis == null) {
+            return ""
+        }
         val totalMinutes = millis / 60000
         val days = totalMinutes / 1440
         val hours = (totalMinutes % 1440) / 60
@@ -54,7 +57,7 @@ object ConverterLongToTime {
         return buildString {
             if (days > 0) append("${days}д ")
             if (hours > 0) append("${hours}ч ")
-            if (minutes > 0 || isEmpty()) append("${minutes}м")
+            if (minutes >= 0 || isEmpty()) append("${minutes}м")
         }.trim()
     }
 

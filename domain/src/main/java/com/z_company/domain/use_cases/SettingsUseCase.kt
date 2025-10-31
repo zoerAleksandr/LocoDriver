@@ -77,7 +77,7 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
         return settingsRepository.setSettings(setting)
     }
 
-    fun getFlowCurrentSettingsState(): Flow<ResultState<UserSettings?>> {
+    fun getFlowCurrentSettingsState(): Flow<ResultState<UserSettings>> {
         return settingsRepository.getFlowSettingsState()
     }
 

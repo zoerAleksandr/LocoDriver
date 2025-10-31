@@ -220,6 +220,12 @@ object UtilsForEntities : KoinComponent {
         val routeChain = mutableListOf<Route>()
         val thisInRoute = parentList.find { it.basicData.id == this.basicData.id }
         var indexRoute = parentList.indexOf(thisInRoute)
+        println("zzz route $this")
+        println("zzz minTimeHomeRest $minTimeHomeRest")
+        parentList.forEachIndexed { index, value ->
+            println("zzz parentList $index $value")
+        }
+
         if (parentList.isNotEmpty()) {
             routeChain.add(parentList[indexRoute])
             if (indexRoute > 0) {

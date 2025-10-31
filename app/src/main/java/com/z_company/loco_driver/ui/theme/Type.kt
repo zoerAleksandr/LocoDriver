@@ -53,6 +53,13 @@ val Typography = Typography(
         fontSize = 16.sp,
     ),
 
+    // для пояснений
+    labelLarge = TextStyle(
+        fontFamily = SFFont,
+        fontWeight = FontWeight.Normal,
+        fontSize = 12.sp,
+    ),
+
     // в figma обозначен bottom_menu
     labelMedium = TextStyle(
         fontFamily = SFFont,
