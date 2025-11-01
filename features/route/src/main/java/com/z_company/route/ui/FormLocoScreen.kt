@@ -104,6 +104,7 @@ import com.z_company.route.viewmodel.DieselSectionFormState
 import com.z_company.route.viewmodel.DieselSectionType
 import com.z_company.route.viewmodel.ElectricSectionFormState
 import com.z_company.route.viewmodel.ElectricSectionType
+import com.z_company.route.viewmodel.LocoFormViewModel
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
@@ -112,6 +113,7 @@ import java.math.BigDecimal
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
 fun FormLocoScreen(
+    viewModel: LocoFormViewModel,
     currentLoco: Locomotive?,
     dieselSectionListState: SnapshotStateList<DieselSectionFormState>?,
     electricSectionListState: SnapshotStateList<ElectricSectionFormState>?,
@@ -167,45 +169,38 @@ fun FormLocoScreen(
             .fillMaxWidth(),
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        text = "Локомотив",
-                        style = titleStyle
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = { onBackPressed() }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Default.ArrowBack,
-                            contentDescription = "Назад"
-                        )
-                    }
-                },
+                title = {},
                 actions = {
-                    AsyncData(
-                        resultState = formUiState.saveLocoState,
-                        loadingContent = {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp
-                            )
-                        },
-                        errorContent = {}
-                    ) {
+//                        TextButton(
+//                            modifier = Modifier
+//                                .padding(end = 16.dp),
+//                            enabled = formUiState.changesHaveState,
+//                            colors = ButtonDefaults.buttonColors(
+//                                containerColor = Color.Transparent,
+//                                disabledContainerColor = Color.Transparent,
+//                                contentColor = MaterialTheme.colorScheme.tertiary
+//                            ),
+//                            onClick = { onSaveClick() }
+//                        ) {
+//                            Text(text = "Сохранить", style = hintStyle)
+//                        }
                         TextButton(
-                            modifier = Modifier
-                                .padding(end = 16.dp),
-                            enabled = formUiState.changesHaveState,
+                            onClick = viewModel::saveLoco,
+                            enabled = formUiState.errorMessage == null,
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.Transparent,
                                 disabledContainerColor = Color.Transparent,
-                                contentColor = MaterialTheme.colorScheme.tertiary
-                            ),
-                            onClick = { onSaveClick() }
+                                disabledContentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                                contentColor = MaterialTheme.colorScheme.tertiary,
+                                containerColor = Color.Transparent
+                            )
                         ) {
-                            Text(text = "Сохранить", style = hintStyle)
+                            Text(
+                                text = "Готово",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
                         }
-                    }
+
+//                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )

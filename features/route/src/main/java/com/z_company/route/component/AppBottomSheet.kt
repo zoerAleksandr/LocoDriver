@@ -150,7 +150,9 @@ fun AppBottomSheet(
                     .background(
                         color = sheetBackgroundColor,
                         shape = RoundedCornerShape(sheetCornerRadius.dp)
-                    ),
+                    ).clickable {
+                    onCancel()
+                },
                 contentAlignment = Alignment.Center
             ) {
                 // The cancel button should NOT auto-dismiss the sheet here; we call onCancel so caller can decide.
@@ -159,11 +161,7 @@ fun AppBottomSheet(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier
-                        .clickable {
-                            onCancel()
-                        }
                         .padding(vertical = 14.dp),
-                    // center the text
                 )
             }
 

@@ -1,6 +1,5 @@
 package com.z_company.route.ui
 
-import android.util.Log
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -34,7 +33,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material.ModalBottomSheetState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -108,11 +106,8 @@ import com.z_company.route.R
 import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.BottomShadow
 import com.z_company.route.component.BottomSheetAction
-import com.z_company.route.component.ConfirmExitDialog
 import com.z_company.route.component.OutlinedTextFieldApp
-import com.z_company.route.component.RemoveTimeContent
 import com.z_company.route.component.SwitchApp
-import com.z_company.route.component.rememberDatePickerStateInLocale
 import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.route.viewmodel.DialogRestUiState
 import com.z_company.route.viewmodel.FormViewModel
@@ -140,9 +135,7 @@ fun FormScreen(
     currentRoute: Route?,
     isCopy: Boolean,
     exitScreen: () -> Unit,
-    onSaveClick: () -> Unit,
     onSettingClick: () -> Unit,
-    onBack: () -> Unit,
     resetSaveState: () -> Unit,
     onNumberChanged: (String) -> Unit,
     checkedOnePersonOperation: (Boolean) -> Unit,
@@ -160,20 +153,14 @@ fun FormScreen(
     onNewPassengerClick: (basicId: String) -> Unit,
     onDeletePassenger: (passenger: Passenger) -> Unit,
     nightTime: Long?,
-    changeShowConfirmExitDialog: (Boolean) -> Unit,
-    exitWithoutSave: () -> Unit,
     onSalarySettingClick: () -> Unit,
     setFavoriteState: () -> Unit,
-    timeZoneText: String,
     dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val scope = rememberCoroutineScope()
 
     val lifecycleOwner = LocalLifecycleOwner.current
     val lifecycle = lifecycleOwner.lifecycle
-
-
-    var isExpandedMenu by remember { mutableStateOf(false) }
 
     val sheetState = androidx.compose.material3.rememberModalBottomSheetState(
         skipPartiallyExpanded = true
@@ -299,17 +286,6 @@ fun FormScreen(
         topBar = {
             TopAppBar(
                 title = {},
-                navigationIcon = {
-//                    IconButton(onClick = {
-//                        onBack()
-//                    }) {
-//                        Icon(
-//                            tint = MaterialTheme.colorScheme.primary,
-//                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-//                            contentDescription = "Назад"
-//                        )
-//                    }
-                },
                 actions = {
                     Row(
                         modifier = Modifier
@@ -438,12 +414,11 @@ fun FormScreen(
                 )
             )
         }
+
         Box(Modifier.padding(it)) {
             AsyncData(resultState = formUiState.routeDetailState) {
                 if (formUiState.routeDetailState is ResultState.Success) {
                     currentRoute?.let { route ->
-                        Log.d("zzz", "route $route")
-                        Log.d("zzz", "route ${route.basicData.timeStartWork}")
                         val scrollState = rememberLazyListState()
 
                         var showStartDatePickerCopyRoute by remember {
@@ -458,28 +433,6 @@ fun FormScreen(
                             mutableStateOf(false)
                         }
 
-                        if (formUiState.confirmExitDialogShow) {
-                            ConfirmExitDialog(
-                                showExitConfirmDialog = changeShowConfirmExitDialog,
-                                onSaveClick = onSaveClick,
-                                exitWithoutSave = exitWithoutSave
-                            )
-                        }
-
-                        val startOfWorkTime by remember {
-                            mutableStateOf(
-                                Calendar.getInstance().also { calendar ->
-                                    route.basicData.timeStartWork?.let {
-                                        calendar.timeInMillis = it
-                                    }
-                                }
-                            )
-                        }
-
-                        val startCalendar by remember {
-                            mutableStateOf(startOfWorkTime)
-                        }
-
                         if (showStartDatePicker) {
                             DateTimePickerBottomSheet(
                                 title = "Явка",
@@ -487,21 +440,8 @@ fun FormScreen(
                                     onTimeStartWorkChanged(timestamp)
                                 },
                                 onDismiss = { showStartDatePicker = false },
-                                startDateTime = startCalendar.timeInMillis
+                                startDateTime = route.basicData.timeStartWork ?: Calendar.getInstance().timeInMillis
                             )
-                        }
-
-                        val endOfWorkTime by remember {
-                            mutableStateOf(
-                                Calendar.getInstance().also { calendar ->
-                                    route.basicData.timeEndWork?.let {
-                                        calendar.timeInMillis = it
-                                    }
-                                })
-                        }
-
-                        val endCalendar by remember {
-                            mutableStateOf(endOfWorkTime)
                         }
 
                         if (showEndDatePicker) {
@@ -511,7 +451,7 @@ fun FormScreen(
                                     onTimeEndWorkChanged(timestamp)
                                 },
                                 onDismiss = { showEndDatePicker = false },
-                                startDateTime = endCalendar.timeInMillis
+                                startDateTime = route.basicData.timeEndWork ?: route.basicData.timeStartWork ?: Calendar.getInstance().timeInMillis
                             )
                         }
 
@@ -521,76 +461,39 @@ fun FormScreen(
                             }
                         }
 
-                        val startDateCopyRoutePickerState = rememberDatePickerStateInLocale(
-                            route.basicData.timeStartWork ?: Calendar.getInstance().timeInMillis
-                        )
-
                         // Диалог при копировании маршрута
                         if (showStartDatePickerCopyRoute) {
                             DateTimePickerBottomSheet(
                                 title = "Явка",
                                 onDateTimeSelected = { timestamp ->
                                     showStartDatePickerCopyRoute = false
-                                    val oldValueStartCalendar = Calendar.getInstance().also {
-                                        it.timeInMillis = startCalendar.timeInMillis
-                                    }
-                                    startCalendar.timeInMillis =
-                                        startDateCopyRoutePickerState.selectedDateMillis!!
-                                    startCalendar.set(
-                                        Calendar.HOUR_OF_DAY,
-                                        oldValueStartCalendar.get(Calendar.HOUR_OF_DAY)
-                                    )
-                                    startCalendar.set(
-                                        Calendar.MINUTE,
-                                        oldValueStartCalendar.get(Calendar.MINUTE)
-                                    )
-                                    startCalendar.set(Calendar.SECOND, 0)
-                                    startCalendar.set(Calendar.MILLISECOND, 0)
+//                                    val oldValueStartCalendar = Calendar.getInstance().also {
+//                                        it.timeInMillis = route.basicData.timeStartWork ?: Calendar.getInstance().timeInMillis
+//                                    }
+//
+//                                    startCalendar.timeInMillis =
+//                                        startDateCopyRoutePickerState.selectedDateMillis!!
+//                                    startCalendar.set(
+//                                        Calendar.HOUR_OF_DAY,
+//                                        oldValueStartCalendar.get(Calendar.HOUR_OF_DAY)
+//                                    )
+//                                    startCalendar.set(
+//                                        Calendar.MINUTE,
+//                                        oldValueStartCalendar.get(Calendar.MINUTE)
+//                                    )
+//                                    startCalendar.set(Calendar.SECOND, 0)
+//                                    startCalendar.set(Calendar.MILLISECOND, 0)
 
-                                    onTimeStartWorkChanged(startCalendar.timeInMillis)
+                                    onTimeStartWorkChanged(timestamp)
                                     val workTimeInMillis = route.getWorkTime()
                                     workTimeInMillis?.let { workTime ->
-                                        endCalendar.timeInMillis =
-                                            startCalendar.timeInMillis + workTime
-                                        onTimeEndWorkChanged(endCalendar.timeInMillis)
+//                                        endCalendar.timeInMillis = timestamp + workTime
+                                        onTimeEndWorkChanged(timestamp + workTime)
                                     }
                                 },
                                 onDismiss = { showStartDatePickerCopyRoute = false },
-                                startDateTime = route.basicData.timeStartWork
-                                    ?: Calendar.getInstance().timeInMillis
+                                startDateTime = route.basicData.timeStartWork ?: Calendar.getInstance().timeInMillis
                             )
-
-//                                CustomDatePickerDialog(
-//                                    datePickerState = startDateCopyRoutePickerState,
-//                                    onDismissRequest = {
-//                                        showStartDatePickerCopyRoute = false
-//                                    },
-//                                    onConfirmRequest = {
-//                                        showStartDatePickerCopyRoute = false
-//                                        val oldValueStartCalendar = Calendar.getInstance().also {
-//                                            it.timeInMillis = startCalendar.timeInMillis
-//                                        }
-//                                        startCalendar.timeInMillis =
-//                                            startDateCopyRoutePickerState.selectedDateMillis!!
-//                                        startCalendar.set(
-//                                            Calendar.HOUR_OF_DAY,
-//                                            oldValueStartCalendar.get(Calendar.HOUR_OF_DAY)
-//                                        )
-//                                        startCalendar.set(
-//                                            Calendar.MINUTE,
-//                                            oldValueStartCalendar.get(Calendar.MINUTE)
-//                                        )
-//                                        startCalendar.set(Calendar.SECOND, 0)
-//                                        startCalendar.set(Calendar.MILLISECOND, 0)
-//
-//                                        onTimeStartWorkChanged(startCalendar.timeInMillis)
-//                                        val workTimeInMillis = route.getWorkTime()
-//                                        workTimeInMillis?.let { workTime ->
-//                                            endCalendar.timeInMillis =
-//                                                startCalendar.timeInMillis + workTime
-//                                            onTimeEndWorkChanged(endCalendar.timeInMillis)
-//                                        }
-//                                    })
                         }
 
                         // Тень при скроле
@@ -751,9 +654,9 @@ fun FormScreen(
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .noRippleEffect(
-                                                { isVisibleDetailMoney = !isVisibleDetailMoney }
-                                            ),
+                                            .noRippleEffect {
+                                                isVisibleDetailMoney = !isVisibleDetailMoney
+                                            },
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     )

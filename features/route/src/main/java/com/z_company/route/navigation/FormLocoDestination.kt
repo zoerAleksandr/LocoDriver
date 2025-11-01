@@ -24,6 +24,7 @@ fun FormLocoDestination(
     val formUiState by viewModel.uiState.collectAsState()
 
     FormLocoScreen(
+        viewModel = viewModel,
         currentLoco = viewModel.currentLoco,
         dieselSectionListState = formUiState.dieselSectionList,
         electricSectionListState = formUiState.electricSectionList,

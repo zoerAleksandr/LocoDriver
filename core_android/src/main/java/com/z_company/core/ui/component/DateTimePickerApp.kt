@@ -3,9 +3,13 @@ package com.z_company.core.ui.component
 import android.annotation.SuppressLint
 import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.exponentialDecay
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.FlingBehavior
+import androidx.compose.foundation.gestures.ScrollScope
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
@@ -66,8 +70,9 @@ fun DateTimePickerBottomSheet(
     val uiState by viewModel.uiState.collectAsState()
 
     ModalBottomSheet(
-        onDismissRequest =
-            onDismiss, sheetState = sheetState, dragHandle = {
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        dragHandle = {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -82,7 +87,8 @@ fun DateTimePickerBottomSheet(
                         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
                 )
             }
-        }, containerColor = MaterialTheme.colorScheme.secondary
+        },
+        containerColor = MaterialTheme.colorScheme.secondary
     ) {
         LazyColumn(modifier = Modifier.fillMaxWidth()) {
             item {
@@ -271,6 +277,7 @@ fun CompactCalendar(selectedDate: Long, onDateSelected: (Long) -> Unit) {
             "Сб",
             "Вс"
         )
+
         daysOfWeek.forEachIndexed { index, day ->
             val adjustedIndex = (index + 1) % 7 + 1
             val dayNumber =
@@ -538,11 +545,21 @@ fun TimeScrollPicker(
     height: Dp = 128.dp,
     onHourChange: (Int) -> Unit,
     onMinuteChange: (Int) -> Unit,
-    onChangeEditTime: () -> Unit
+    onChangeEditTime: () -> Unit,
+    dampingRatio: Float = Spring.DampingRatioLowBouncy, // Регулируемый параметр: низкое сопротивление для длительного затухания
+    stiffness: Float = Spring.StiffnessLow, // Регулируемый параметр: меньшая жесткость для плавного замедления
+    frictionMultiplier: Float = 0.5f // Регулируемый параметр: уменьшение трения для большей инерции
 ) {
     val scope = rememberCoroutineScope()
 
-    var snappedTime by remember { mutableStateOf(LocalTime(hour = currentHour, minute = currentMinute)) }
+    var snappedTime by remember {
+        mutableStateOf(
+            LocalTime(
+                hour = currentHour,
+                minute = currentMinute
+            )
+        )
+    }
 
     val hoursRange = (0..23)
     val hoursCycle = hoursRange.count()
@@ -583,16 +600,26 @@ fun TimeScrollPicker(
     )
 
     LaunchedEffect(currentHour) {
-        val targetIndex = hoursMiddleCycle * hoursCycle + currentHour
+        snappedTime = snappedTime.withHour(currentHour)
+        val offset = rowCount / 2
+        val currentCenter = hourListState.firstVisibleItemIndex + offset
+        val maxK = (longHoursRange.size - 1 - currentHour) / hoursCycle
+        val candidates = (0..maxK).map { currentHour + it * hoursCycle }
+        val closest = candidates.minByOrNull { kotlin.math.abs(it - currentCenter) } ?: 0
         scope.launch {
-            hourListState.animateScrollToItem(targetIndex.coerceIn(0, hours.size - 1))
+            hourListState.animateScrollToItem(closest.coerceIn(0, hours.size - 1))
         }
     }
 
     LaunchedEffect(currentMinute) {
-        val targetIndex = minutesMiddleCycle * minutesCycle + currentMinute
+        snappedTime = snappedTime.withMinute(currentMinute)
+        val offset = rowCount / 2
+        val currentCenter = minuteListState.firstVisibleItemIndex + offset
+        val maxK = (longMinutesRange.size - 1 - currentMinute) / minutesCycle
+        val candidates = (0..maxK).map { currentMinute + it * minutesCycle }
+        val closest = candidates.minByOrNull { kotlin.math.abs(it - currentCenter) } ?: 0
         scope.launch {
-            minuteListState.animateScrollToItem(targetIndex.coerceIn(0, minutes.size - 1))
+            minuteListState.animateScrollToItem(closest.coerceIn(0, minutes.size - 1))
         }
     }
 
@@ -628,23 +655,33 @@ fun TimeScrollPicker(
                 rowCount = rowCount,
                 style = textStyle,
                 color = textColor,
-                contentArrangement = Arrangement.Center
+                contentArrangement = Arrangement.Center,
+                dampingRatio = dampingRatio,
+                stiffness = stiffness,
+                frictionMultiplier = frictionMultiplier
             ) { snappedIndex ->
 
-                val newHour = hours.getOrNull(snappedIndex)?.value
+                val newHour =
+                    hours.getOrNull(snappedIndex)?.value ?: return@MyWheelTextPicker snappedIndex
 
-                newHour?.let {
+                val newTime = snappedTime.withHour(newHour)
+
+                if (newTime.compareTo(minTime) >= 0 && newTime.compareTo(maxTime) <= 0) {
+                    snappedTime = newTime
                     if (!isEditing) {
                         onHourChange(newHour)
                     }
-                    val newTime = snappedTime.withHour(newHour)
-
-                    if (newTime.compareTo(minTime) >= 0 && newTime.compareTo(maxTime) <= 0) {
-                        snappedTime = newTime
-                    }
+                    return@MyWheelTextPicker snappedIndex
+                } else {
+                    val offset = rowCount / 2
+                    val currentCenter = hourListState.firstVisibleItemIndex + offset
+                    val maxK = (longHoursRange.size - 1 - snappedTime.hour) / hoursCycle
+                    val candidates = (0..maxK).map { snappedTime.hour + it * hoursCycle }
+                    val closest =
+                        candidates.minByOrNull { kotlin.math.abs(it - currentCenter) }
+                            ?: snappedIndex
+                    return@MyWheelTextPicker closest
                 }
-
-                return@MyWheelTextPicker snappedIndex
             }
 
             Box(
@@ -668,23 +705,31 @@ fun TimeScrollPicker(
                 rowCount = rowCount,
                 style = textStyle,
                 color = textColor,
-                contentArrangement = Arrangement.Center
+                contentArrangement = Arrangement.Center,
+                dampingRatio = Spring.DampingRatioLowBouncy,
+                stiffness = Spring.StiffnessLow,
+                frictionMultiplier = 0.5f
             ) { snappedIndex ->
 
-                val newMinute = minutes.getOrNull(snappedIndex)?.value
+                val newMinute =
+                    minutes.getOrNull(snappedIndex)?.value ?: return@MyWheelTextPicker snappedIndex
 
-                newMinute?.let {
+                val newTime = snappedTime.withMinute(newMinute)
+                if (newTime.compareTo(minTime) >= 0 && newTime.compareTo(maxTime) <= 0) {
+                    snappedTime = newTime
                     if (!isEditing) {
                         onMinuteChange(newMinute)
                     }
-                    val newTime = snappedTime.withMinute(newMinute)
-                    if (newTime.compareTo(minTime) >= 0 && newTime.compareTo(maxTime) <= 0) {
-                        snappedTime = newTime
-                    }
-
+                    return@MyWheelTextPicker snappedIndex
+                } else {
+                    val offset = rowCount / 2
+                    val currentCenter = minuteListState.firstVisibleItemIndex + offset
+                    val maxK = (longMinutesRange.size - 1 - snappedTime.minute) / minutesCycle
+                    val candidates = (0..maxK).map { snappedTime.minute + it * minutesCycle }
+                    val closest = candidates.minByOrNull { kotlin.math.abs(it - currentCenter) }
+                        ?: snappedIndex
+                    return@MyWheelTextPicker closest
                 }
-
-                return@MyWheelTextPicker snappedIndex
             }
         }
     }
@@ -737,11 +782,13 @@ fun TimeInputOverlay(
                                 if (newM > 59) newM = d[0] // impossible for single digit
                                 onMinuteChange(newM)
                             }
+
                             2 -> {
                                 var newM = d[0] * 10 + d[1]
                                 if (newM > 59) newM = d[1]
                                 onMinuteChange(newM)
                             }
+
                             3 -> {
                                 var newH = d[0]
                                 if (newH > 23) newH = d[0] // impossible
@@ -751,6 +798,7 @@ fun TimeInputOverlay(
                                 if (newM > 59) newM = d[2]
                                 onMinuteChange(newM)
                             }
+
                             4 -> {
                                 var newH = d[0] * 10 + d[1]
                                 if (newH > 23) newH = d[1]
