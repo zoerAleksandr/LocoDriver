@@ -55,6 +55,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -162,7 +163,7 @@ fun FormScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val lifecycle = lifecycleOwner.lifecycle
 
-    val sheetState = androidx.compose.material3.rememberModalBottomSheetState(
+    val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
     )
 
@@ -338,7 +339,7 @@ fun FormScreen(
         if (formUiState.saveRouteState is ResultState.Error) {
             LaunchedEffect(Unit) {
                 scope.launch {
-                    snackbarHostState.showSnackbar("Ошибка: ${formUiState.saveRouteState.entity.message}")
+                    snackbarManager.show("Ошибка: ${formUiState.saveRouteState.entity.message}")
                 }
                 resetSaveState()
             }
@@ -440,7 +441,8 @@ fun FormScreen(
                                     onTimeStartWorkChanged(timestamp)
                                 },
                                 onDismiss = { showStartDatePicker = false },
-                                startDateTime = route.basicData.timeStartWork ?: Calendar.getInstance().timeInMillis
+                                startDateTime = route.basicData.timeStartWork
+                                    ?: Calendar.getInstance().timeInMillis
                             )
                         }
 
@@ -451,7 +453,9 @@ fun FormScreen(
                                     onTimeEndWorkChanged(timestamp)
                                 },
                                 onDismiss = { showEndDatePicker = false },
-                                startDateTime = route.basicData.timeEndWork ?: route.basicData.timeStartWork ?: Calendar.getInstance().timeInMillis
+                                startDateTime = route.basicData.timeEndWork
+                                    ?: route.basicData.timeStartWork
+                                    ?: Calendar.getInstance().timeInMillis
                             )
                         }
 
@@ -492,7 +496,8 @@ fun FormScreen(
                                     }
                                 },
                                 onDismiss = { showStartDatePickerCopyRoute = false },
-                                startDateTime = route.basicData.timeStartWork ?: Calendar.getInstance().timeInMillis
+                                startDateTime = route.basicData.timeStartWork
+                                    ?: Calendar.getInstance().timeInMillis
                             )
                         }
 
@@ -683,7 +688,6 @@ fun FormScreen(
 
                                             AnimatedContent(
                                                 targetState = isVisibleDetailMoney,
-
                                                 label = ""
                                             ) {
                                                 val icon = if (it) {
@@ -923,58 +927,106 @@ fun FormScreen(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .animateItemPlacement(),
+                                        verticalArrangement = Arrangement.spacedBy(12.dp)
                                     ) {
-                                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                        ) {
+                                            val text = if (route.basicData.isOnePersonOperation) {
+                                                "В одно лицо"
+                                            } else {
+                                                "В два лица"
+                                            }
+
+                                            Text(
+                                                text = text,
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+
                                             SwitchApp(
-                                                modifier = Modifier.weight(1f),
                                                 checked = route.basicData.isOnePersonOperation,
                                                 onCheckedChange = checkedOnePersonOperation,
                                                 positiveContent = {
-                                                    Icon(
-                                                        painter = painterResource(id = R.drawable.person_rounded_24px),
-                                                        contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.primary.copy(
-                                                            alpha = 0.8f
+                                                    Box(
+                                                        modifier = Modifier.padding(horizontal = 16.dp),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Icon(
+                                                            painter = painterResource(id = R.drawable.person_rounded_24px),
+                                                            contentDescription = null,
+                                                            tint = MaterialTheme.colorScheme.primary.copy(
+                                                                alpha = 0.8f
+                                                            )
                                                         )
-                                                    )
+                                                    }
                                                 },
                                                 negativeContent = {
-                                                    Icon(
-                                                        painter = painterResource(id = R.drawable.group_24px),
-                                                        contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.primary.copy(
-                                                            alpha = 0.8f
+                                                    Box(
+                                                        modifier = Modifier.padding(horizontal = 16.dp),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Icon(
+                                                            painter = painterResource(id = R.drawable.group_24px),
+                                                            contentDescription = null,
+                                                            tint = MaterialTheme.colorScheme.primary.copy(
+                                                                alpha = 0.8f
+                                                            )
                                                         )
-                                                    )
-                                                }
-                                            )
-
-                                            SwitchApp(
-                                                modifier = Modifier.weight(1f),
-                                                checked = route.basicData.restPointOfTurnover,
-                                                onCheckedChange = onRestChanged,
-                                                positiveContent = {
-                                                    Icon(
-                                                        painter = painterResource(id = R.drawable.hotel_24px),
-                                                        contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.primary.copy(
-                                                            alpha = 0.8f
-                                                        )
-                                                    )
-                                                },
-                                                negativeContent = {
-                                                    Icon(
-                                                        painter = painterResource(id = R.drawable.home_24px),
-                                                        contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.primary.copy(
-                                                            alpha = 0.8f
-                                                        )
-                                                    )
-
+                                                    }
                                                 }
                                             )
                                         }
-
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            val text = if (route.basicData.restPointOfTurnover) {
+                                                "Отдых в ПО"
+                                            } else {
+                                                "Домашний"
+                                            }
+                                            Text(
+                                                text = text,
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                            SwitchApp(
+                                                checked = route.basicData.restPointOfTurnover,
+                                                onCheckedChange = onRestChanged,
+                                                positiveContent = {
+                                                    Box(
+                                                        modifier = Modifier.padding(horizontal = 16.dp),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Icon(
+                                                            painter = painterResource(id = R.drawable.hotel_24px),
+                                                            contentDescription = null,
+                                                            tint = MaterialTheme.colorScheme.primary.copy(
+                                                                alpha = 0.8f
+                                                            )
+                                                        )
+                                                    }
+                                                },
+                                                negativeContent = {
+                                                    Box(
+                                                        modifier = Modifier.padding(horizontal = 16.dp),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Icon(
+                                                            painter = painterResource(id = R.drawable.home_24px),
+                                                            contentDescription = null,
+                                                            tint = MaterialTheme.colorScheme.primary.copy(
+                                                                alpha = 0.8f
+                                                            )
+                                                        )
+                                                    }
+                                                }
+                                            )
+                                        }
                                         var isVisibleDetailRest by remember {
                                             mutableStateOf(false)
                                         }
@@ -1058,8 +1110,7 @@ fun FormScreen(
 
                                     OutlinedTextFieldApp(
                                         modifier = Modifier
-                                            .fillMaxWidth()
-                                            .shadow(elevation = 2.dp, shape = Shapes.medium),
+                                            .fillMaxWidth(),
                                         value = route.basicData.number ?: "",
                                         onValueChange = onNumberChanged,
                                         placeholder = {

@@ -127,6 +127,13 @@ class RouteActionsHelper() : KoinComponent {
     }
 
     /**
+     * Метод для удаления дубликатов маршрутов в back4app
+     */
+    suspend fun deleteDublicateRoute(){
+        back4AppManager.processAllRoutes()
+    }
+
+    /**
      * Общая фильтрация маршрутов — можно использовать в AllRouteViewModel (и где угодно).
      * Конкретная логика скопирована из AllRouteViewModel.applyFilters.
      */

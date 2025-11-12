@@ -10,6 +10,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.flowWithLifecycle
 import androidx.navigation.NavBackStackEntry
+import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.domain.navigation.Router
 import com.z_company.route.Const.NULLABLE_ID
 import com.z_company.route.navigation.HomeRoute
@@ -21,8 +22,12 @@ import com.z_company.route.viewmodel.TestFormViewModel
 import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
+import org.koin.core.component.inject
 import org.koin.core.parameter.parametersOf
+import org.koin.java.KoinJavaComponent.inject
 import ru.rustore.sdk.pay.model.PurchaseAvailabilityResult
+import kotlin.getValue
 
 @Composable
 fun FormDestination(
@@ -39,7 +44,7 @@ fun FormDestination(
     val salaryState by viewModel.salaryForRouteState.collectAsState()
 
     val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarManager: ISnackbarManager = koinInject()
 
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
@@ -51,15 +56,16 @@ fun FormDestination(
             viewModel.events.flowWithLifecycle(lifecycle).collect { event ->
                 when (event) {
                     FormScreenEvent.ActivatedFavoriteRoute -> {
-                        snackbarHostState.showSnackbar(message = "Добавлен в избранное")
+                        snackbarManager.show(message = "Добавлен в избранное")
                     }
 
                     FormScreenEvent.DeactivatedFavoriteRoute -> {
-                        snackbarHostState.showSnackbar(message = "Удален из избранного")
+                        snackbarManager.show(message = "Удален из избранного")
                     }
 
                     FormScreenEvent.RouteSaved -> {
-                        snackbarHostState.showSnackbar(message = "Маршрут сохранен")
+                        snackbarManager.show(message = "Маршрут сохранен")
+                        viewModel::prepareReviewDialog
                     }
                 }
             }
@@ -97,8 +103,6 @@ fun FormDestination(
         currentRoute = currentRoute,
         exitScreen = { router.showHome(HomeRoute.route) },
         isCopy = formUiState.isCopy,
-        onSaveClick = viewModel::onSaveClick,
-        onBack = viewModel::checkBeforeExitTheScreen,
         onNumberChanged = viewModel::setNumber,
         checkedOnePersonOperation = viewModel::checkedOnePersonOperation,
         onNotesChanged = viewModel::setNotes,
@@ -126,12 +130,9 @@ fun FormDestination(
         },
         onDeletePassenger = viewModel::onDeletePassenger,
         nightTime = formUiState.nightTime,
-        changeShowConfirmExitDialog = viewModel::changeShowConfirmDialog,
-        exitWithoutSave = viewModel::exitWithoutSave,
         salaryForRouteState = salaryState,
         onSalarySettingClick = router::showSettingSalary,
         setFavoriteState = viewModel::setFavoriteRoute,
-        timeZoneText = viewModel.timeZoneText,
         dateAndTimeConverter = dateAndTimeConverter
     )
 }

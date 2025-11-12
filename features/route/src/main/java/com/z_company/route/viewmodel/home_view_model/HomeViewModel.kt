@@ -687,6 +687,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
 
     fun syncRoute(route: Route) {
         viewModelScope.launch {
+//            routeHelper.deleteDublicateRoute()
             routeHelper.syncRoute(route).collect { result ->
                 when (result) {
                     is ResultState.Success -> {

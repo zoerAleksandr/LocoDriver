@@ -10,7 +10,12 @@ internal object ElectricSectionConverter {
         acceptedEnergy = section.acceptedEnergy,
         deliveryEnergy = section.deliveryEnergy,
         acceptedRecovery = section.acceptedRecovery,
-        deliveryRecovery = section.deliveryRecovery
+        deliveryRecovery = section.deliveryRecovery,
+        acceptedEnergyOtherCurrent = section.acceptedEnergyOtherCurrent,
+        deliveryEnergyOtherCurrent = section.deliveryEnergyOtherCurrent,
+        acceptedRecoveryOtherCurrent = section.acceptedRecoveryOtherCurrent,
+        deliveryRecoveryOtherCurrent = section.deliveryRecoveryOtherCurrent,
+
     )
 
     private fun toData(sectionEntity: SectionElectricEntity) = SectionElectric(
@@ -20,6 +25,10 @@ internal object ElectricSectionConverter {
         deliveryEnergy = sectionEntity.deliveryEnergy,
         acceptedRecovery = sectionEntity.acceptedRecovery,
         deliveryRecovery = sectionEntity.deliveryRecovery,
+        acceptedEnergyOtherCurrent = sectionEntity.acceptedEnergyOtherCurrent,
+        deliveryEnergyOtherCurrent = sectionEntity.deliveryEnergyOtherCurrent,
+        acceptedRecoveryOtherCurrent = sectionEntity.acceptedRecoveryOtherCurrent,
+        deliveryRecoveryOtherCurrent = sectionEntity.deliveryRecoveryOtherCurrent,
     )
 
     fun fromDataList(list: List<SectionElectric>): MutableList<SectionElectricEntity> {

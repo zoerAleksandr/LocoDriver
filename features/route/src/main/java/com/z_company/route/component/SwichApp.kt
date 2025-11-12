@@ -7,10 +7,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -20,11 +18,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ui.theme.Shapes
+import kotlin.math.max
 
 /**
  * A composable function that creates a switch with text labels for both states.
@@ -46,9 +46,9 @@ import com.z_company.core.ui.theme.Shapes
  */
 @Composable
 fun SwitchApp(
+    modifier: Modifier = Modifier,
     checked: Boolean,
     onCheckedChange: ((Boolean) -> Unit)?,
-    modifier: Modifier = Modifier,
     enabled: Boolean = true,
     shape: Shape = Shapes.medium,
     positiveColor: Color = MaterialTheme.colorScheme.secondary,
@@ -60,17 +60,10 @@ fun SwitchApp(
     negativeContent: @Composable BoxScope.() -> Unit,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
 ) {
-    var width by remember { mutableStateOf(0.dp) }
-    var height by remember { mutableStateOf(ButtonDefaults.MinHeight) }
-
-    val thumbOffset by remember(checked, width) {
-        derivedStateOf {
-            if (checked) width - (width / 2) else 0.dp
-        }
-    }
-
-    val animatedThumbOffset by animateDpAsState(
-        targetValue = thumbOffset,
+    var sideWidth by remember { mutableStateOf(0.dp) }
+    val targetOffset = if (checked) sideWidth else 0.dp
+    val animatedOffset by animateDpAsState(
+        targetValue = targetOffset,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioNoBouncy,
             stiffness = Spring.StiffnessMedium
@@ -78,88 +71,138 @@ fun SwitchApp(
         label = "thumb_offset"
     )
 
-    val localDensity = LocalDensity.current
-    Box(
-        modifier = modifier
-            .defaultMinSize(
-                minWidth = ButtonDefaults.MinHeight,
-                minHeight = ButtonDefaults.MinHeight
-            )
-            .onGloballyPositioned { coordinates ->
-                width = with(localDensity) {
-                    coordinates.size.width.toDp()
-                }
-                height = with(localDensity) {
-                    coordinates.size.height.toDp()
-                }
-            }
-            .height(height)
-            .clip(shape = shape)
-            .border(
-                width = 0.5.dp,
-                color = borderColor,
-                shape = shape
-            )
-            .background(MaterialTheme.colorScheme.background)
-            .then(
-                if (onCheckedChange != null) {
-                    Modifier.toggleable(
-                        value = checked,
-                        enabled = enabled,
-                        role = Role.Switch,
-                        interactionSource = interactionSource,
-                        indication = null,
-                        onValueChange = onCheckedChange
-                    )
-                } else {
-                    Modifier
-                }
-            )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxHeight()
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(animatedThumbOffset)
-            )
+    val density = LocalDensity.current
 
-            // индикатор выбраного элемента
-            Card(
-                modifier = Modifier
-                    .padding(4.dp)
-                    .height(height)
-                    .width(width / 2),
-                elevation = CardDefaults.elevatedCardElevation(
-                    defaultElevation = 3.dp
-                ),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondary
-                ),
-                shape = RoundedCornerShape(8.dp)
-            ) {}
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            Box(
-                modifier = Modifier.padding(horizontal = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
+    SubcomposeLayout(modifier = modifier.defaultMinSize(minHeight = androidx.compose.material3.ButtonDefaults.MinHeight)) { constraints ->
+
+        val looseConstraints = constraints.copy(
+            minWidth = 0,
+            minHeight = 0,
+            maxWidth = Constraints.Infinity,
+            maxHeight = Constraints.Infinity
+        )
+
+        val negativePlaceable = subcompose("negative") {
+            Box(contentAlignment = Alignment.Center) {
                 negativeContent()
             }
-            Box(
-                modifier = Modifier.padding(horizontal = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
+        }[0].measure(looseConstraints)
+
+        val positivePlaceable = subcompose("positive") {
+            Box(contentAlignment = Alignment.Center) {
                 positiveContent()
             }
+        }[0].measure(looseConstraints)
+
+        val maxContentWidthPx = max(negativePlaceable.width, positivePlaceable.width)
+        val maxContentHeightPx = max(negativePlaceable.height, positivePlaceable.height)
+
+        val paddingPerSidePx = with(density) { 4.dp.toPx() }.toInt()
+        val sidePaddingPx = paddingPerSidePx * 2
+
+        val sideWidthPx = maxContentWidthPx + sidePaddingPx
+        val totalWidthPx = sideWidthPx * 2
+
+        val minHeightPx = with(density) { androidx.compose.material3.ButtonDefaults.MinHeight.toPx() }.toInt()
+        val totalHeightPx = max(maxContentHeightPx + sidePaddingPx, minHeightPx) // adding vertical padding if needed
+
+        val newSideWidth = with(density) { sideWidthPx.toDp() }
+        if (sideWidth != newSideWidth) {
+            sideWidth = newSideWidth
+        }
+
+        val indicatorColor = if (enabled) {
+            if (checked) positiveColor else negativeColor
+        } else {
+            if (checked) disabledPositiveColor else disabledNegativeColor
+        }
+
+        val mainConstraints = constraints.copy(
+            minWidth = totalWidthPx,
+            maxWidth = totalWidthPx,
+            minHeight = totalHeightPx,
+            maxHeight = totalHeightPx
+        )
+
+        val mainPlaceable = subcompose("main") {
+            Box(
+                modifier = Modifier
+                    .clip(shape)
+                    .border(
+                        width = 0.5.dp,
+                        color = borderColor,
+                        shape = shape
+                    )
+                    .background(MaterialTheme.colorScheme.background)
+                    .then(
+                        if (onCheckedChange != null) {
+                            Modifier.toggleable(
+                                value = checked,
+                                enabled = enabled,
+                                role = Role.Switch,
+                                interactionSource = interactionSource,
+                                indication = null,
+                                onValueChange = onCheckedChange
+                            )
+                        } else {
+                            Modifier
+                        }
+                    )
+            ) {
+                // индикатор
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .width(animatedOffset)
+                    )
+                    Card(
+                        modifier = Modifier
+                            .padding(4.dp)
+                            .fillMaxHeight()
+                            .width(with(density) { sideWidthPx.toDp() }),
+                        elevation = CardDefaults.elevatedCardElevation(
+                            defaultElevation = 3.dp
+                        ),
+                        colors = CardDefaults.cardColors(
+                            containerColor = indicatorColor
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {}
+                }
+                // контент
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .width(with(density) { sideWidthPx.toDp() })
+                            .padding(4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        negativeContent()
+                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .width(with(density) { sideWidthPx.toDp() })
+                            .padding(4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        positiveContent()
+                    }
+                }
+            }
+        }[0].measure(mainConstraints)
+
+        layout(totalWidthPx, totalHeightPx) {
+            mainPlaceable.placeRelative(0, 0)
         }
     }
 }

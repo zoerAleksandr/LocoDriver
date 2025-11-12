@@ -1,6 +1,7 @@
 package com.z_company.route.component
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -9,9 +10,12 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CornerSize
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.ExperimentalMaterialApi
@@ -27,6 +31,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
@@ -59,8 +64,13 @@ fun ElectricSectionItem(
     onEnergyDeliveryChanged: (Int, String?) -> Unit,
     onRecoveryAcceptedChanged: (Int, String?) -> Unit,
     onRecoveryDeliveryChanged: (Int, String?) -> Unit,
+    onEnergyAcceptedChanged2: (Int, String?) -> Unit,
+    onEnergyDeliveryChanged2: (Int, String?) -> Unit,
+    onRecoveryAcceptedChanged2: (Int, String?) -> Unit,
+    onRecoveryDeliveryChanged2: (Int, String?) -> Unit,
     focusChangedElectricSection: (Int, ElectricSectionType) -> Unit,
-    onExpandStateChanged: (Boolean) -> Unit
+    onExpandStateChanged: (Boolean) -> Unit,
+    showOtherCurrent: Boolean = false
 ) {
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
@@ -79,17 +89,21 @@ fun ElectricSectionItem(
         item.recoveryDelivery.data?.toBigDecimalOrNull()
     )
 
-    val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
-    val subTitleTextStyle = AppTypography.getType().titleLarge
-        .copy(
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Normal
-        )
-    val hintStyle = AppTypography.getType().titleLarge
-        .copy(
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Light
-        )
+    val acceptedText2 = item.accepted2.data ?: ""
+    val deliveryText2 = item.delivery2.data ?: ""
+    val recoveryAcceptedText2 = item.recoveryAccepted2.data ?: ""
+    val recoveryDeliveryText2 = item.recoveryDelivery2.data ?: ""
+    val result2 = getTotalEnergyConsumption(
+        item.accepted2.data?.toBigDecimalOrNull(),
+        item.delivery2.data?.toBigDecimalOrNull()
+    )
+    val resultRecovery2 = getTotalEnergyConsumption(
+        item.recoveryAccepted2.data?.toBigDecimalOrNull(),
+        item.recoveryDelivery2.data?.toBigDecimalOrNull()
+    )
+
+    val dataTextStyle = MaterialTheme.typography.bodyLarge
+    val hintStyle = MaterialTheme.typography.bodyMedium
 
     RevealSwipe(
         modifier = Modifier
@@ -114,22 +128,21 @@ fun ElectricSectionItem(
             }
         },
         backgroundCardEndColor = MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
-        shape = Shapes.medium
     ) {
         Card(
-            border = BorderStroke(width = 0.5.dp, color = MaterialTheme.colorScheme.outline),
-            shape = Shapes.medium,
+            shape = RoundedCornerShape(0.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background),
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = "${index + 1} секция",
-                    style = subTitleTextStyle
+                    style = MaterialTheme.typography.bodyMedium
                 )
 
                 AnimatedContent(targetState = item.expandItemState, label = "") {
@@ -140,22 +153,26 @@ fun ElectricSectionItem(
                             )
                         },
                         painter = if (it) {
-                            painterResource(R.drawable.close_fullscreen_24px)
+                            painterResource(R.drawable.zoom_in_map_24px)
                         } else {
-                            painterResource(R.drawable.open_in_full_24px)
+                            painterResource(R.drawable.zoom_out_map_24px)
                         },
                         contentDescription = null
                     )
                 }
 
             }
+            // счетчики расхода ток 1
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedTextField(
+                Icon(painter = painterResource(R.drawable.electric_bolt_24px), contentDescription = null)
+
+                OutlinedTextFieldApp(
                     modifier = Modifier
                         .weight(1f),
                     value = acceptedText,
@@ -165,7 +182,7 @@ fun ElectricSectionItem(
                     },
                     textStyle = dataTextStyle,
                     placeholder = {
-                        Text(text = "Принято", style = dataTextStyle)
+                        Text(text = "Принято", style = hintStyle)
                     },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next
@@ -176,16 +193,10 @@ fun ElectricSectionItem(
                         }
                     }),
                     singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent
-                    ),
                     shape = Shapes.medium,
                 )
 
-                OutlinedTextField(
+                OutlinedTextFieldApp(
                     modifier = Modifier
                         .weight(1f),
                     value = deliveryText,
@@ -195,7 +206,7 @@ fun ElectricSectionItem(
                         focusChangedElectricSection(index, ElectricSectionType.DELIVERY)
                     },
                     placeholder = {
-                        Text(text = "Сдано", style = dataTextStyle)
+                        Text(text = "Сдано", style = hintStyle)
                     },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Number, imeAction = ImeAction.Done
@@ -206,47 +217,39 @@ fun ElectricSectionItem(
                         }
                     }),
                     singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent
-                    ),
                     shape = Shapes.medium,
                 )
             }
 
+            // счетчики расхода ток 2
             AnimatedContent(
-                targetState = item.expandItemState, label = ""
+                targetState = showOtherCurrent, label = ""
             ) { targetState ->
                 if (targetState) {
                     Row(
                         modifier = Modifier
+                            .fillMaxWidth()
                             .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        OutlinedTextField(
+                        Icon(painter = painterResource(R.drawable.electric_bolt_24px), contentDescription = null)
+                        OutlinedTextFieldApp(
                             modifier = Modifier
-                                .weight(0.5f),
-                            value = recoveryAcceptedText,
+                                .weight(1f),
+                            value = acceptedText2,
                             onValueChange = {
-                                onRecoveryAcceptedChanged(index, it.take(10))
-                                focusChangedElectricSection(
-                                    index,
-                                    ElectricSectionType.RECOVERY_ACCEPTED
-                                )
+                                onEnergyAcceptedChanged2(index, it.take(10))
+                                focusChangedElectricSection(index, ElectricSectionType.ACCEPTED2)
                             },
                             textStyle = dataTextStyle,
                             placeholder = {
-                                Text(
-                                    text = "Принято",
-                                    style = dataTextStyle
-                                )
+                                Text(text = "Принято", style = hintStyle)
                             },
                             keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Number,
-                                imeAction = ImeAction.Next
-                            ), keyboardActions = KeyboardActions(onNext = {
+                                keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next
+                            ),
+                            keyboardActions = KeyboardActions(onNext = {
                                 scope.launch {
                                     focusManager.moveFocus(FocusDirection.Right)
                                 }
@@ -261,34 +264,26 @@ fun ElectricSectionItem(
                             shape = Shapes.medium,
                         )
 
-                        OutlinedTextField(
+                        OutlinedTextFieldApp(
                             modifier = Modifier
-                                .weight(0.5f),
-                            value = recoveryDeliveryText,
-                            onValueChange = {
-                                onRecoveryDeliveryChanged(index, it.take(10))
-                                focusChangedElectricSection(
-                                    index,
-                                    ElectricSectionType.RECOVERY_DELIVERY
-                                )
-                            },
+                                .weight(1f),
+                            value = deliveryText2,
                             textStyle = dataTextStyle,
+                            onValueChange = {
+                                onEnergyDeliveryChanged2(index, it.take(10))
+                                focusChangedElectricSection(index, ElectricSectionType.DELIVERY2)
+                            },
                             placeholder = {
-                                Text(
-                                    text = "Сдано",
-                                    style = dataTextStyle
-                                )
+                                Text(text = "Сдано", style = hintStyle)
                             },
                             keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Number,
-                                imeAction = ImeAction.Done
+                                keyboardType = KeyboardType.Number, imeAction = ImeAction.Done
                             ),
                             keyboardActions = KeyboardActions(onDone = {
                                 scope.launch {
                                     focusManager.clearFocus()
                                 }
                             }),
-
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(
                                 unfocusedContainerColor = MaterialTheme.colorScheme.surface,
@@ -302,10 +297,187 @@ fun ElectricSectionItem(
                 }
             }
 
-            androidx.compose.animation.AnimatedVisibility(
+            AnimatedContent(
+                targetState = item.expandItemState, label = ""
+            ) { targetState ->
+                if (targetState) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(painter = painterResource(R.drawable.cycle_24px), contentDescription = null)
+                            OutlinedTextFieldApp(
+                                modifier = Modifier
+                                    .weight(0.5f),
+                                value = recoveryAcceptedText,
+                                onValueChange = {
+                                    onRecoveryAcceptedChanged(index, it.take(10))
+                                    focusChangedElectricSection(
+                                        index,
+                                        ElectricSectionType.RECOVERY_ACCEPTED
+                                    )
+                                },
+                                textStyle = dataTextStyle,
+                                placeholder = {
+                                    Text(
+                                        text = "Принято",
+                                        style = hintStyle
+                                    )
+                                },
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Next
+                                ),
+                                keyboardActions = KeyboardActions(onNext = {
+                                    scope.launch {
+                                        focusManager.moveFocus(FocusDirection.Right)
+                                    }
+                                }),
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent
+                                ),
+                                shape = Shapes.medium,
+                            )
+
+                            OutlinedTextFieldApp(
+                                modifier = Modifier
+                                    .weight(0.5f),
+                                value = recoveryDeliveryText,
+                                onValueChange = {
+                                    onRecoveryDeliveryChanged(index, it.take(10))
+                                    focusChangedElectricSection(
+                                        index,
+                                        ElectricSectionType.RECOVERY_DELIVERY
+                                    )
+                                },
+                                textStyle = dataTextStyle,
+                                placeholder = {
+                                    Text(
+                                        text = "Сдано",
+                                        style = hintStyle
+                                    )
+                                },
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Done
+                                ),
+                                keyboardActions = KeyboardActions(onDone = {
+                                    scope.launch {
+                                        focusManager.clearFocus()
+                                    }
+                                }),
+
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent
+                                ),
+                                shape = Shapes.medium,
+                            )
+                        }
+
+                        // рекуперация 2
+                        AnimatedVisibility(visible = showOtherCurrent) {
+                            Row(
+                                modifier = Modifier
+                                    .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(painter = painterResource(R.drawable.cycle_24px), contentDescription = null)
+                                OutlinedTextFieldApp(
+                                    modifier = Modifier
+                                        .weight(0.5f),
+                                    value = recoveryAcceptedText2,
+                                    onValueChange = {
+                                        onRecoveryAcceptedChanged2(index, it.take(10))
+                                        focusChangedElectricSection(
+                                            index,
+                                            ElectricSectionType.RECOVERY_ACCEPTED2
+                                        )
+                                    },
+                                    textStyle = dataTextStyle,
+                                    placeholder = {
+                                        Text(
+                                            text = "Принято",
+                                            style = hintStyle
+                                        )
+                                    },
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Number,
+                                        imeAction = ImeAction.Next
+                                    ),
+                                    keyboardActions = KeyboardActions(onNext = {
+                                        scope.launch {
+                                            focusManager.moveFocus(FocusDirection.Right)
+                                        }
+                                    }),
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                        focusedBorderColor = Color.Transparent,
+                                        unfocusedBorderColor = Color.Transparent
+                                    ),
+                                    shape = Shapes.medium,
+                                )
+
+                                OutlinedTextFieldApp(
+                                    modifier = Modifier
+                                        .weight(0.5f),
+                                    value = recoveryDeliveryText2,
+                                    onValueChange = {
+                                        onRecoveryDeliveryChanged2(index, it.take(10))
+                                        focusChangedElectricSection(
+                                            index,
+                                            ElectricSectionType.RECOVERY_DELIVERY2
+                                        )
+                                    },
+                                    textStyle = dataTextStyle,
+                                    placeholder = {
+                                        Text(
+                                            text = "Сдано",
+                                            style = hintStyle
+                                        )
+                                    },
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Number,
+                                        imeAction = ImeAction.Done
+                                    ),
+                                    keyboardActions = KeyboardActions(onDone = {
+                                        scope.launch {
+                                            focusManager.clearFocus()
+                                        }
+                                    }),
+
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                        focusedBorderColor = Color.Transparent,
+                                        unfocusedBorderColor = Color.Transparent
+                                    ),
+                                    shape = Shapes.medium,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            AnimatedVisibility(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 8.dp),
+                    .padding(bottom = 4.dp),
                 visible = item.resultVisibility,
                 enter = slideInHorizontally(animationSpec = tween(durationMillis = 300))
                         + fadeIn(animationSpec = tween(durationMillis = 300)),
@@ -313,19 +485,38 @@ fun ElectricSectionItem(
                         + fadeOut(animationSpec = tween(durationMillis = 150)),
                 label = ""
             ) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(end = 16.dp),
-                    horizontalArrangement = Arrangement.End
                 ) {
-                    result?.let {
-                        Text(text = it.toPlainString(), style = hintStyle)
-                    }
-                    resultRecovery?.let {
-                        Text(text = " / ${it.toPlainString()}", style = hintStyle)
-                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(end = 16.dp),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        result?.let {
+                            Text(text = it.toPlainString(), style = hintStyle)
+                        }
+                        resultRecovery?.let {
+                            Text(text = " / ${it.toPlainString()}", style = hintStyle)
+                        }
 
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(end = 16.dp),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        result2?.let {
+                            Text(text = it.toPlainString(), style = hintStyle)
+                        }
+                        resultRecovery2?.let {
+                            Text(text = " / ${it.toPlainString()}", style = hintStyle)
+                        }
+
+                    }
                 }
             }
         }

@@ -841,13 +841,7 @@ fun PreviewRoute(
                                                 delivery = sectionDiesel.deliveryFuel,
                                                 refuel = sectionDiesel.fuelSupply
                                             )
-                                        val consumptionInKilo =
-                                            CalculationEnergy.getTotalFuelInKiloConsumption(
-                                                consumption = consumption,
-                                                coefficient = sectionDiesel.coefficient
-                                            )
                                         val consumptionText = consumption.str()
-                                        val consumptionInKiloText = consumptionInKilo.str()
                                         val acceptedText = sectionDiesel.acceptedFuel.str()
                                         val deliveryText = sectionDiesel.deliveryFuel.str()
                                         val acceptedInKilo =
@@ -860,6 +854,13 @@ fun PreviewRoute(
                                             rounding(deliveryInKilo, 2).str()
                                         val fuelSupplyText = sectionDiesel.fuelSupply.str()
                                         val coefficientText = sectionDiesel.coefficient.str()
+                                        val consumptionInKilo =
+                                            CalculationEnergy.getTotalFuelInKiloConsumption(
+                                                acceptedInKilo = acceptedInKilo,
+                                                deliveryInKilo = deliveryInKilo,
+                                                refuelInKilo = sectionDiesel.fuelSupplyInKilo
+                                            )
+                                        val consumptionInKiloText = consumptionInKilo.str()
 
                                         Row(
                                             modifier = Modifier

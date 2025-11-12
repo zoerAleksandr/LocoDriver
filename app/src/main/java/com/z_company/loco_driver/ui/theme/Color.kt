@@ -2,7 +2,6 @@ package com.z_company.loco_driver.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-
 val DarkPrimary = Color(0xFFDDDBDB)
 val DarkOnPrimary = Color(0xFF1A1A1A)
 val DarkSurface = Color(0xFF383838)

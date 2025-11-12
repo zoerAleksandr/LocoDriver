@@ -619,9 +619,10 @@ class FormViewModel(
         changesHave()
     }
 
+    // предложение пользователю оценить приложение
     private var reviewInfo: ReviewInfo? = null
 
-    private suspend fun prepareReviewDialog() = coroutineScope {
+    suspend fun prepareReviewDialog() = coroutineScope {
         val count = async { getRoutesCount() }.await()
         val isShow = isShowReviewDialog(count)
         if (isShow) {
@@ -630,7 +631,7 @@ class FormViewModel(
                     reviewInfo = info
                 }
                 .addOnFailureListener { throwable ->
-                    Log.w("ZZZ", "prepareReviewDialog throwable = $throwable")
+                    Log.w("ZZZ", "prepareReviewDialog throwable = ${throwable.message}")
                 }
         }
     }

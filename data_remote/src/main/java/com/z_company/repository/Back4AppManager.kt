@@ -8,6 +8,7 @@ import com.parse.ParseQuery
 import com.parse.ParseUser
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
+import com.z_company.core.util.ConverterLongToTime
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -31,12 +32,14 @@ import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.skip
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.util.Calendar
+import kotlin.compareTo
 
 
 const val TIMEOUT_LOADING = 360_000L
@@ -419,6 +422,64 @@ class Back4AppManager : KoinComponent {
             }
             awaitClose()
         }
+
+    suspend fun processAllRoutes() = withContext(Dispatchers.IO) {
+        val pageSize =
+            10000 // Set a limit for each batch, can be adjusted based on memory considerations
+        var skip = 0 // Start from the first record
+        var count = 0
+
+        while (true) {
+            try {
+                // Create a query with pagination
+                val query = ParseQuery.getQuery<ParseObject>("Route")
+
+                query.limit = pageSize
+                query.skip = skip
+
+                val routes = query.find()
+
+                // Process the current batch of routes
+                if (routes.isNotEmpty()) {
+                    println("Processing ${routes.size} routes starting at skip $skip")
+                    // Group by the 'data' field
+                    val groupedRoutes = routes.groupBy { it.getString("data") }
+                    // Process each group
+                    groupedRoutes.forEach { (_, routeList) ->
+                        if (routeList.size > 1) { // More than one object with the same 'data'
+                            // Sort the routes by creation or updated date, descending
+                            val sortedRoutes = routeList.sortedByDescending { it.createdAt }
+
+                            // Retain only the most recent object
+                            val routesToDelete =
+                                sortedRoutes.drop(1) // Drops the first (most recent) element
+
+                            // Delete the duplicate routes
+                            ParseObject.deleteAll(routesToDelete)
+
+                            Log.d("zzz", "Deleted ${routesToDelete.size} duplicates for data: ${
+                                sortedRoutes.first().getString("data")
+                            }" )
+                            count += routesToDelete.size
+                        }
+                    }
+
+                    // Increment skip to get the next batch
+                    skip += routes.size
+                }
+
+                // Break loop if no more objects are returned
+                if (routes.size < pageSize) {
+                    Log.d("zzz", "All routes processed. count = $count")
+                    break
+                }
+            } catch (e: ParseException) {
+                // Handle errors, e.g., network issues
+                println("Error fetching routes: ${e.message}")
+                break
+            }
+        }
+    }
 
     fun saveOneRouteToRemoteStorage(route: Route): Flow<ResultState<Unit>> =
         channelFlow {
