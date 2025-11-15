@@ -1164,7 +1164,7 @@ fun FormScreen(
                                                     }
                                                 }
                                             )
-                                            .padding(16.dp),
+                                            .padding(horizontal = 16.dp, vertical = 12.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
@@ -1223,7 +1223,7 @@ fun FormScreen(
                                                     }
                                                 }
                                             )
-                                            .padding(16.dp),
+                                            .padding(horizontal = 16.dp, vertical = 12.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
@@ -1358,7 +1358,7 @@ fun <T> ItemAddingScreen(
                                 color = MaterialTheme.colorScheme.secondary,
                                 shape = Shapes.medium
                             )
-                            .padding(horizontal = 16.dp, vertical = 16.dp),
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {

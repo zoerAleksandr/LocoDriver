@@ -1,50 +1,47 @@
 package com.z_company.route.ui
 
+import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.text.ClickableText
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material.ModalBottomSheetLayout
-import androidx.compose.material.ModalBottomSheetState
-import androidx.compose.material.ModalBottomSheetValue
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.rememberModalBottomSheetState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -54,7 +51,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -64,54 +60,54 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.z_company.core.R
 import com.z_company.core.ResultState
-import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.CustomSnackBar
+import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.ui.theme.Shapes
-import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.ServicePhase
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.trainCategory
-import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.BottomShadow
-import com.z_company.route.component.ConfirmExitDialog
-import com.z_company.route.component.RemoveTimeContent
+import com.z_company.route.component.OutlinedTextFieldApp
 import com.z_company.route.component.StationItem
 import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.route.viewmodel.StationFormState
 import com.z_company.route.viewmodel.TrainFormUiState
+import com.z_company.route.viewmodel.TrainFormViewModel
 import kotlinx.coroutines.launch
+import kotlin.text.isNullOrBlank
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
+@SuppressLint("SuspiciousIndentation")
+@OptIn(
+    ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class,
+    ExperimentalFoundationApi::class
+)
 @Composable
 fun FormTrainScreen(
+    viewModel: TrainFormViewModel,
     formUiState: TrainFormUiState,
     currentTrain: Train?,
-    onBackPressed: () -> Unit,
-    onSaveClick: () -> Unit,
     onTrainSaved: () -> Unit,
     resetSaveState: () -> Unit,
-    resetErrorMessage: () -> Unit,
     onNumberChanged: (String) -> Unit,
     onDistanceChange: (String) -> Unit,
     onWeightChanged: (String) -> Unit,
@@ -123,32 +119,30 @@ fun FormTrainScreen(
     onDepartureTimeChanged: (index: Int, time: Long?) -> Unit,
     onArrivalTimeChanged: (index: Int, time: Long?) -> Unit,
     stationListState: SnapshotStateList<StationFormState>?,
-    exitScreen: () -> Unit,
-    changeShowConfirmExitDialog: (Boolean) -> Unit,
-    exitWithoutSave: () -> Unit,
     menuList: List<String>,
     isExpandedMenu: Pair<Int, Boolean>?,
     onExpandedMenuChange: (Int, Boolean) -> Unit,
     onChangedContentMenu: (Int, String) -> Unit,
     onDeleteStationName: (String) -> Unit,
     servicePhaseList: List<ServicePhase>,
-    isShowDialogSelectServicePhase: Boolean,
-    onShowDialogSelectServicePhase: () -> Unit,
-    onHideDialogSelectServicePhase: () -> Unit,
     onSelectServicePhase: (ServicePhase?) -> Unit,
     selectedServicePhase: ServicePhase?,
     onSettingClick: () -> Unit,
-    timeZoneText: String,
     dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
-    val titleStyle = AppTypography.getType().headlineMedium.copy(fontWeight = FontWeight.Light)
-    val hintStyle = AppTypography.getType().titleLarge
-        .copy(
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Light
-        )
+    val scrollState = rememberLazyListState()
+    val focusManager = LocalFocusManager.current
+    val hintStyle = MaterialTheme.typography.bodyMedium
+    val dataTextStyle = MaterialTheme.typography.bodyLarge
+
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true
+    )
+
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val noValueColor = primaryColor.copy(alpha = 0.5f)
 
     Scaffold(
         modifier = Modifier
@@ -160,46 +154,25 @@ fun FormTrainScreen(
         },
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        text = "Поезд",
-                        style = titleStyle
-                    )
-                },
+                title = {},
                 navigationIcon = {
-                    IconButton(onClick = { onBackPressed() }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Default.ArrowBack,
-                            contentDescription = "Назад"
+                    TextButton(
+                        onClick = viewModel::saveTrain,
+                        enabled = formUiState.errorMessage == null,
+                        colors = ButtonDefaults.buttonColors(
+                            disabledContainerColor = Color.Transparent,
+                            disabledContentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                            contentColor = MaterialTheme.colorScheme.tertiary,
+                            containerColor = Color.Transparent
+                        )
+                    ) {
+                        Text(
+                            text = "Готово",
+                            style = MaterialTheme.typography.bodySmall,
                         )
                     }
                 },
-                actions = {
-                    AsyncData(
-                        resultState = formUiState.saveTrainState,
-                        loadingContent = {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp
-                            )
-                        },
-                        errorContent = {}
-                    ) {
-                        TextButton(
-                            modifier = Modifier
-                                .padding(end = 16.dp),
-                            enabled = formUiState.changesHaveState,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.Transparent,
-                                disabledContainerColor = Color.Transparent,
-                                contentColor = MaterialTheme.colorScheme.tertiary
-                            ),
-                            onClick = { onSaveClick() }
-                        ) {
-                            Text(text = "Сохранить", style = hintStyle)
-                        }
-                    }
-                },
+                actions = {},
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent
                 )
@@ -225,660 +198,577 @@ fun FormTrainScreen(
             else -> {}
         }
 
-        if (formUiState.exitFromScreen) {
-            LaunchedEffect(Unit) {
-                exitScreen()
-            }
-        }
-
-        val bottomSheetState = rememberModalBottomSheetState(
-            initialValue = ModalBottomSheetValue.Hidden,
-        )
-        var bottomSheetContentState =
-            remember { mutableStateOf(BottomSheetRemoveTimeFormTrainScreen.TIME_ARRIVAL) }
-
         var selectSectionIndexState = remember { mutableIntStateOf(0) }
 
-        ModalBottomSheetLayout(
-            sheetState = bottomSheetState,
-            sheetShape = MaterialTheme.shapes.medium,
-            sheetContent = {
-                RemoveTimeBottomSheetContent(
-                    bottomSheetState = bottomSheetState,
-                    sectionIndex = selectSectionIndexState.intValue,
-                    onDepartureTimeChanged = onDepartureTimeChanged,
-                    onArrivalTimeChanged = onArrivalTimeChanged,
-                    selectBottomSheetContent = bottomSheetContentState.value
-                )
-            }
-        ) {
-            Box(modifier = Modifier.padding(paddingValues)) {
-                AsyncData(resultState = formUiState.trainDetailState) {
-                    currentTrain?.let { train ->
-                        TrainFormScreenContent(
-                            train = train,
-                            onNumberChanged = onNumberChanged,
-                            onDistanceChange = onDistanceChange,
-                            onWeightChanged = onWeightChanged,
-                            onAxleChanged = onAxleChanged,
-                            onLengthChanged = onLengthChanged,
-                            onAddingStation = onAddingStation,
-                            onDeleteStation = onDeleteStation,
-                            onStationNameChanged = onStationNameChanged,
-                            onDepartureTimeChanged = onDepartureTimeChanged,
-                            onArrivalTimeChanged = onArrivalTimeChanged,
-                            stationListState = stationListState,
-                            changeShowConfirmExitDialog = changeShowConfirmExitDialog,
-                            onSaveClick = onSaveClick,
-                            exitWithoutSave = exitWithoutSave,
-                            showConfirmExitDialog = formUiState.confirmExitDialogShow,
-                            menuList = menuList,
-                            isExpandedMenu = isExpandedMenu,
-                            onChangedContentMenu = onChangedContentMenu,
-                            onExpandedMenuChange = onExpandedMenuChange,
-                            onDeleteStationName = onDeleteStationName,
-                            servicePhaseList = servicePhaseList,
-                            isShowDialogSelectServicePhase = isShowDialogSelectServicePhase,
-                            onShowDialogSelectServicePhase = onShowDialogSelectServicePhase,
-                            onHideDialogSelectServicePhase = onHideDialogSelectServicePhase,
-                            onSelectServicePhase = onSelectServicePhase,
-                            selectedServicePhase = selectedServicePhase,
-                            onSettingClick = onSettingClick,
-                            errorMessage = formUiState.errorMessage,
-                            timeZoneText = timeZoneText,
-                            selectSectionIndexState = selectSectionIndexState,
-                            bottomSheetState = bottomSheetState,
-                            bottomSheetContentState = bottomSheetContentState,
-                            dateAndTimeConverter = dateAndTimeConverter
+        var isTrainInfoVisible by remember {
+            mutableStateOf(false)
+        }
+
+        var showSelectServicePhase by remember { mutableStateOf(false) }
+
+        if (showSelectServicePhase) {
+            ModalBottomSheet(
+                onDismissRequest = { showSelectServicePhase = false },
+                sheetState = sheetState,
+                containerColor = MaterialTheme.colorScheme.secondary,
+                dragHandle = {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(40.dp)
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
                         )
                     }
                 }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterialApi::class)
-@Composable
-fun TrainFormScreenContent(
-    train: Train,
-    onNumberChanged: (String) -> Unit,
-    onDistanceChange: (String) -> Unit,
-    onWeightChanged: (String) -> Unit,
-    onAxleChanged: (String) -> Unit,
-    onLengthChanged: (String) -> Unit,
-    onAddingStation: () -> Unit,
-    onDeleteStation: (StationFormState) -> Unit,
-    onStationNameChanged: (index: Int, s: String) -> Unit,
-    onDepartureTimeChanged: (index: Int, time: Long?) -> Unit,
-    onArrivalTimeChanged: (index: Int, time: Long?) -> Unit,
-    stationListState: SnapshotStateList<StationFormState>?,
-    showConfirmExitDialog: Boolean,
-    changeShowConfirmExitDialog: (Boolean) -> Unit,
-    exitWithoutSave: () -> Unit,
-    onSaveClick: () -> Unit,
-    menuList: List<String>,
-    isExpandedMenu: Pair<Int, Boolean>?,
-    onExpandedMenuChange: (Int, Boolean) -> Unit,
-    onChangedContentMenu: (Int, String) -> Unit,
-    onDeleteStationName: (String) -> Unit,
-    servicePhaseList: List<ServicePhase>,
-    isShowDialogSelectServicePhase: Boolean,
-    onShowDialogSelectServicePhase: () -> Unit,
-    onHideDialogSelectServicePhase: () -> Unit,
-    onSelectServicePhase: (ServicePhase?) -> Unit,
-    selectedServicePhase: ServicePhase?,
-    onSettingClick: () -> Unit,
-    errorMessage: String?,
-    timeZoneText: String,
-    selectSectionIndexState: MutableState<Int>,
-    bottomSheetState: ModalBottomSheetState,
-    bottomSheetContentState: MutableState<BottomSheetRemoveTimeFormTrainScreen>,
-    dateAndTimeConverter: DateAndTimeConverter?
-) {
-    val scrollState = rememberLazyListState()
-    val focusManager = LocalFocusManager.current
-    val scope = rememberCoroutineScope()
-    var isTrainInfoVisible by remember {
-        mutableStateOf(false)
-    }
-
-    val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
-    val subTitleTextStyle = AppTypography.getType().titleLarge
-        .copy(
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Normal
-        )
-    val hintStyle = AppTypography.getType().titleLarge
-        .copy(
-            fontSize = 17.sp,
-            fontWeight = FontWeight.Light
-        )
-
-    AnimationDialog(
-        showDialog = isShowDialogSelectServicePhase,
-        onDismissRequest = onHideDialogSelectServicePhase
-    ) {
-        Box(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onPress = {
-                            onHideDialogSelectServicePhase()
-                        }
-                    )
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        color = MaterialTheme.colorScheme.surface,
-                        shape = Shapes.medium
-                    )
-                    .clickable { }
-                    .padding(horizontal = 8.dp, vertical = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-
-                itemsIndexed(
-                    items = servicePhaseList,
-                    key = { _, item -> item.id }
-                ) { index, item ->
-                    if (index != 0) {
-                        HorizontalDivider()
-                    }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                onSelectServicePhase(item)
-                                focusManager.clearFocus()
-                            }
-                            .padding(8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-
-                    ) {
-
-                        Text(
-                            text = "${item.departureStation} - ${item.arrivalStation}",
-                            style = dataTextStyle,
-                            overflow = TextOverflow.Ellipsis
-                        )
-
-                        Text(
-                            text = "${item.distance} км",
-                            style = dataTextStyle,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-
-                item {
-                    if (servicePhaseList.isEmpty()) {
-                        Text(
-                            modifier = Modifier.padding(start = 16.dp),
-                            text = "Список пуст",
-                            style = dataTextStyle,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-
-                item {
-                    val link = buildAnnotatedString {
-                        val text = "Редактировать список"
-
-                        val endIndex = text.lastIndex
-                        val startIndex = 0
-
-                        append(text)
-
-                        addStringAnnotation(
-                            tag = LINK_TO_SETTING,
-                            annotation = LINK_TO_SETTING,
-                            start = startIndex,
-                            end = endIndex
-                        )
-                    }
-                    ClickableText(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp, end = 12.dp),
-                        text = link,
-                        style = hintStyle.copy(
-                            color = MaterialTheme.colorScheme.tertiary,
-                            textAlign = TextAlign.End
-                        )
-                    ) {
-                        link.getStringAnnotations(LINK_TO_SETTING, it, it).firstOrNull()?.let {
-                            onHideDialogSelectServicePhase()
-                            onSettingClick()
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if (showConfirmExitDialog) {
-        ConfirmExitDialog(
-            showExitConfirmDialog = changeShowConfirmExitDialog,
-            onSaveClick = onSaveClick,
-            exitWithoutSave = exitWithoutSave
-        )
-    }
-
-    AnimatedVisibility(
-        modifier = Modifier
-            .zIndex(1f),
-        visible = !scrollState.isScrollInInitialState(),
-        enter = fadeIn(animationSpec = tween(durationMillis = 300)),
-        exit = fadeOut(animationSpec = tween(durationMillis = 300))
-    ) {
-        BottomShadow()
-    }
-    LazyColumn(
-        state = scrollState,
-        horizontalAlignment = Alignment.End,
-        contentPadding = PaddingValues(16.dp)
-    ) {
-        item {
-            errorMessage?.let {
-                val errorTextStyle = AppTypography.getType().titleMedium.copy(
-                    fontWeight = FontWeight.Normal,
-                    color = MaterialTheme.colorScheme.onError
-                )
-                val widthScreen = LocalConfiguration.current.screenWidthDp.toFloat()
-                val gradient = Brush.radialGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
-                        MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
-                    ),
-                    center = Offset(Float.POSITIVE_INFINITY, 0f),
-                    radius = widthScreen * 2
-                )
-                Card(
+                LazyColumn(
                     modifier = Modifier
-                        .fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium,
-                    elevation = CardDefaults.elevatedCardElevation(
-                        defaultElevation = 3.dp,
-                        pressedElevation = 0.dp
-                    )
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                brush = gradient,
-                                shape = MaterialTheme.shapes.medium
+                    item {
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Плечи",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = primaryColor,
+                                maxLines = 2,
+                                overflow = TextOverflow.Visible
                             )
-                            .padding(start = 12.dp, end = 12.dp, bottom = 12.dp, top = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(
-                            text = errorMessage,
-                            style = errorTextStyle
-                        )
+                            Icon(
+                                modifier = Modifier.clickable(
+                                    onClick = onSettingClick
+                                ),
+                                painter = painterResource(R.drawable.ic_edit),
+                                contentDescription = null,
+                                tint = primaryColor
+                            )
+                        }
+                    }
+                    item {
+                        Spacer(modifier = Modifier.height(20.dp))
+                    }
+                    itemsIndexed(
+                        items = servicePhaseList,
+                        key = { _, item -> item.id }
+                    ) { index, item ->
+                        if (index != 0) {
+                            HorizontalDivider()
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onSelectServicePhase(item)
+                                    showSelectServicePhase = false
+                                }
+                                .padding(8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+
+                            Text(
+                                text = "${item.departureStation} - ${item.arrivalStation}",
+                                style = dataTextStyle,
+                                color = primaryColor,
+                                overflow = TextOverflow.Ellipsis
+                            )
+
+                            Text(
+                                text = "${item.distance} км",
+                                style = dataTextStyle,
+                                color = primaryColor,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    item {
+                        if (servicePhaseList.isEmpty()) {
+                            Text(
+                                modifier = Modifier.padding(start = 16.dp),
+                                text = "Список пуст",
+                                style = dataTextStyle,
+                                color = primaryColor,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                    item {
+                        Spacer(modifier = Modifier.height(40.dp))
                     }
                 }
             }
         }
 
-        item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+        AnimatedVisibility(
+            modifier = Modifier
+                .zIndex(1f),
+            visible = !scrollState.isScrollInInitialState(),
+            enter = fadeIn(animationSpec = tween(durationMillis = 300)),
+            exit = fadeOut(animationSpec = tween(durationMillis = 300))
+        ) {
+            BottomShadow()
+        }
+
+        Box(modifier = Modifier.padding(paddingValues)) {
+            currentTrain?.let { train ->
+                LazyColumn(
+                    state = scrollState,
+                    horizontalAlignment = Alignment.End,
+                    contentPadding = PaddingValues(16.dp)
                 ) {
-                    OutlinedTextField(
-                        modifier = Modifier
-                            .weight(1f),
-                        value = train.distance ?: "",
-                        onValueChange = {
-                            onDistanceChange(it)
-                        },
-                        placeholder = {
-                            Text(text = "Плечо", style = dataTextStyle)
-                        },
-                        suffix = {
-                            Text(text = "км", style = hintStyle)
-                        },
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Decimal,
-                            imeAction = ImeAction.Next
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onNext = {
-                                scope.launch {
-                                    focusManager.moveFocus(FocusDirection.Down)
+                    item {
+                        formUiState.errorMessage?.let {
+                            val widthScreen = LocalConfiguration.current.screenWidthDp.toFloat()
+                            val gradient = Brush.radialGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
+                                    MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                                ),
+                                center = Offset(Float.POSITIVE_INFINITY, 0f),
+                                radius = widthScreen * 2
+                            )
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                shape = MaterialTheme.shapes.medium,
+                                elevation = CardDefaults.elevatedCardElevation(
+                                    defaultElevation = 3.dp,
+                                    pressedElevation = 0.dp
+                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(
+                                            brush = gradient,
+                                            shape = MaterialTheme.shapes.medium
+                                        )
+                                        .padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Text(
+                                        text = it,
+                                        style = hintStyle,
+                                        color = MaterialTheme.colorScheme.onError
+                                    )
                                 }
                             }
-                        ),
-                        textStyle = dataTextStyle,
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                            focusedContainerColor = MaterialTheme.colorScheme.surface,
-                            focusedBorderColor = Color.Transparent,
-                            unfocusedBorderColor = Color.Transparent
-                        ),
-                        shape = Shapes.medium,
-                    )
-
-                    OutlinedTextField(
-                        modifier = Modifier
-                            .weight(1f),
-                        value = train.number ?: "",
-                        onValueChange = {
-                            onNumberChanged(it)
-                            if (it.isEmpty()) {
-                                isTrainInfoVisible = false
-                            }
-                        },
-                        placeholder = {
-                            Text(text = "Номер", style = dataTextStyle)
-                        },
-                        prefix = {
-                            if (!train.number.isNullOrBlank()) {
-                                Text(text = "№ ", style = hintStyle)
-                            }
-                        },
-                        trailingIcon = {
-                            if (!train.number.isNullOrBlank()) {
-                                Icon(
-                                    modifier = Modifier.clickable {
-                                        focusManager.clearFocus()
-                                        isTrainInfoVisible = !isTrainInfoVisible
+                        }
+                    }
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                OutlinedTextFieldApp(
+                                    modifier = Modifier
+                                        .weight(1f),
+                                    value = train.distance ?: "",
+                                    onValueChange = {
+                                        onDistanceChange(it)
                                     },
-                                    imageVector = Icons.Outlined.Info,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.tertiary
+                                    placeholder = {
+                                        Text(
+                                            text = "Плечо",
+                                            style = dataTextStyle,
+                                            color = noValueColor
+                                        )
+                                    },
+                                    suffix = {
+                                        Text(
+                                            text = "км",
+                                            style = hintStyle,
+                                            color = noValueColor
+                                        )
+                                    },
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Decimal,
+                                        imeAction = ImeAction.Next
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onNext = {
+                                            scope.launch {
+                                                focusManager.moveFocus(FocusDirection.Right)
+                                            }
+                                        }
+                                    ),
+                                    textStyle = dataTextStyle,
+                                    singleLine = true,
+                                )
+
+                                OutlinedTextFieldApp(
+                                    modifier = Modifier
+                                        .weight(1f),
+                                    value = train.number ?: "",
+                                    onValueChange = {
+                                        onNumberChanged(it)
+                                        if (it.isEmpty()) {
+                                            isTrainInfoVisible = false
+                                        }
+                                    },
+                                    placeholder = {
+                                        Text(
+                                            text = "Номер",
+                                            style = dataTextStyle,
+                                            color = noValueColor
+                                        )
+                                    },
+                                    prefix = {
+                                        if (!train.number.isNullOrBlank()) {
+                                            Text(
+                                                text = "№ ",
+                                                style = hintStyle,
+                                                color = noValueColor
+                                            )
+                                        }
+                                    },
+                                    suffix = {
+                                        if (!train.number.isNullOrBlank()) {
+                                            Icon(
+                                                modifier = Modifier.clickable {
+                                                    focusManager.clearFocus()
+                                                    isTrainInfoVisible = !isTrainInfoVisible
+                                                },
+                                                imageVector = Icons.Outlined.Info,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.tertiary
+                                            )
+                                        }
+                                    },
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Decimal,
+                                        imeAction = ImeAction.Next
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onNext = {
+                                            scope.launch {
+                                                focusManager.moveFocus(FocusDirection.Right)
+                                            }
+                                        }
+                                    ),
+                                    textStyle = dataTextStyle,
+                                    singleLine = true,
                                 )
                             }
-                        },
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Decimal,
-                            imeAction = ImeAction.Next
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onNext = {
-                                scope.launch {
-                                    focusManager.moveFocus(FocusDirection.Down)
+                            AnimatedVisibility(visible = isTrainInfoVisible) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(
+                                            color = MaterialTheme.colorScheme.surfaceDim,
+                                            shape = Shapes.medium
+                                        )
+                                        .border(
+                                            width = 0.5.dp,
+                                            color = MaterialTheme.colorScheme.tertiary,
+                                            shape = Shapes.medium
+                                        )
+                                        .padding(12.dp)
+                                ) {
+                                    Text(
+                                        text = train.trainCategory(),
+                                        style = hintStyle,
+                                        color = primaryColor
+                                    )
                                 }
                             }
-                        ),
-                        textStyle = dataTextStyle,
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                            focusedContainerColor = MaterialTheme.colorScheme.surface,
-                            focusedBorderColor = Color.Transparent,
-                            unfocusedBorderColor = Color.Transparent
-                        ),
-                        shape = Shapes.medium,
-                    )
-                }
-                AnimatedVisibility(visible = isTrainInfoVisible) {
-                    Text(
-                        modifier = Modifier.padding(vertical = 4.dp),
-                        text = train.trainCategory(),
-                        style = hintStyle
-                    )
-                }
-            }
-        }
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedTextField(
-                    modifier = Modifier
-                        .weight(1f),
-                    value = train.weight ?: "",
-                    onValueChange = {
-                        onWeightChanged(it)
-                    },
-                    placeholder = {
-                        Text(text = "Вес", style = dataTextStyle)
-                    },
-                    suffix = {
-                        if (!train.weight.isNullOrBlank()) {
-                            Text(text = "т.", style = hintStyle)
                         }
-                    },
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Number,
-                        imeAction = ImeAction.Next
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onNext = {
-                            scope.launch {
-                                focusManager.moveFocus(FocusDirection.Right)
-                            }
-                        }
-                    ),
-                    textStyle = dataTextStyle,
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent
-                    ),
-                    shape = Shapes.medium,
-                )
-
-                OutlinedTextField(
-                    modifier = Modifier
-                        .weight(1f),
-                    value = train.axle ?: "",
-                    onValueChange = {
-                        onAxleChanged(it)
-                    },
-                    placeholder = {
-                        Text(text = "Оси", style = dataTextStyle)
-                    },
-                    suffix = {
-                        if (!train.axle.isNullOrBlank()) {
-                            Text(text = "о.", style = hintStyle)
-                        }
-                    },
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Number,
-                        imeAction = ImeAction.Next
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onNext = {
-                            scope.launch {
-                                focusManager.moveFocus(FocusDirection.Right)
-                            }
-                        }
-                    ),
-                    textStyle = dataTextStyle,
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent
-                    ),
-                    shape = Shapes.medium,
-                )
-
-                OutlinedTextField(
-                    modifier = Modifier
-                        .weight(1f),
-                    value = train.conditionalLength ?: "",
-                    onValueChange = {
-                        onLengthChanged(it)
-                    },
-                    placeholder = {
-                        Text(text = "у.д.", style = dataTextStyle)
-                    },
-                    suffix = {
-                        if (!train.conditionalLength.isNullOrBlank()) {
-                            Text(text = "у.д.", style = hintStyle)
-                        }
-                    },
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Number,
-                        imeAction = ImeAction.Done
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onDone = {
-                            scope.launch {
-                                focusManager.clearFocus()
-                            }
-                        }
-                    ),
-                    textStyle = dataTextStyle,
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent
-                    ),
-                    shape = Shapes.medium,
-                )
-            }
-        }
-        item {
-            Row(
-                modifier = Modifier
-                    .padding(top = 12.dp)
-                    .fillMaxWidth()
-                    .clickable {
-                        onShowDialogSelectServicePhase()
                     }
-                    .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                val text = if (selectedServicePhase == null) {
-                    "Выбрать плечо"
-                } else {
-                    "${selectedServicePhase.departureStation} - ${selectedServicePhase.arrivalStation}"
-                }
-                Text(
-                    text = AnnotatedString(text = text),
-                    style = dataTextStyle,
-                    overflow = TextOverflow.Ellipsis
-                )
-                if (selectedServicePhase != null) {
-                    Icon(
-                        modifier = Modifier.clickable {
-                            onSelectServicePhase(null)
-                        },
-                        imageVector = Icons.Outlined.Clear,
-                        contentDescription = null
-                    )
-                }
-            }
-        }
-        stationListState?.let { stationList ->
-            itemsIndexed(
-                items = stationList,
-                key = { _, item -> item.id }
-            ) { index, item ->
-                Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.secondary_spacing)))
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextFieldApp(
+                                modifier = Modifier
+                                    .weight(1f),
+                                value = train.weight ?: "",
+                                onValueChange = {
+                                    onWeightChanged(it)
+                                },
+                                placeholder = {
+                                    Text(
+                                        text = "Вес",
+                                        style = dataTextStyle,
+                                        color = noValueColor
+                                    )
+                                },
+                                suffix = {
+                                    if (!train.weight.isNullOrBlank()) {
+                                        Text(
+                                            text = "т.",
+                                            style = hintStyle,
+                                            color = noValueColor
+                                        )
+                                    }
+                                },
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Next
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onNext = {
+                                        scope.launch {
+                                            focusManager.moveFocus(FocusDirection.Right)
+                                        }
+                                    }
+                                ),
+                                textStyle = dataTextStyle,
+                                singleLine = true,
+                            )
 
-                StationItem(
-                    index = index,
-                    stationFormState = item,
-                    onDelete = onDeleteStation,
-                    menuList = menuList,
-                    isExpandedMenu = if (isExpandedMenu?.first == index) {
-                        isExpandedMenu.second
-                    } else false,
-                    onExpandedMenuChange = onExpandedMenuChange,
-                    onChangedContentMenu = onChangedContentMenu,
-                    onStationNameChanged = onStationNameChanged,
-                    onArrivalTimeChanged = onArrivalTimeChanged,
-                    onDepartureTimeChanged = onDepartureTimeChanged,
-                    onDeleteStationName = onDeleteStationName,
-                    onSettingClick = onSettingClick,
-                    timeZoneText = timeZoneText,
-                    selectIndexState = selectSectionIndexState,
-                    bottomSheetState = bottomSheetState,
-                    bottomSheetContentState = bottomSheetContentState,
-                    dateAndTimeConverter = dateAndTimeConverter
-                )
-            }
-        }
-        item {
-            Button(
-                modifier = Modifier
-                    .padding(top = 24.dp)
-                    .fillMaxWidth(),
-                shape = Shapes.medium,
-                onClick = {
-                    onAddingStation()
-                    scope.launch {
-                        val countItems = scrollState.layoutInfo.totalItemsCount
-                        scrollState.animateScrollToItem(countItems)
+                            OutlinedTextFieldApp(
+                                modifier = Modifier
+                                    .weight(1f),
+                                value = train.axle ?: "",
+                                onValueChange = {
+                                    onAxleChanged(it)
+                                },
+                                placeholder = {
+                                    Text(
+                                        text = "Оси",
+                                        style = dataTextStyle,
+                                        color = noValueColor
+                                    )
+                                },
+                                suffix = {
+                                    if (!train.axle.isNullOrBlank()) {
+                                        Text(
+                                            text = "о.",
+                                            style = hintStyle,
+                                            color = noValueColor
+                                        )
+                                    }
+                                },
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Next
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onNext = {
+                                        scope.launch {
+                                            focusManager.moveFocus(FocusDirection.Right)
+                                        }
+                                    }
+                                ),
+                                textStyle = dataTextStyle,
+                                singleLine = true,
+                            )
+
+                            OutlinedTextFieldApp(
+                                modifier = Modifier
+                                    .weight(1f),
+                                value = train.conditionalLength ?: "",
+                                onValueChange = {
+                                    onLengthChanged(it)
+                                },
+                                placeholder = {
+                                    Text(
+                                        text = "у.д.",
+                                        style = dataTextStyle,
+                                        color = noValueColor
+                                    )
+                                },
+                                suffix = {
+                                    if (!train.conditionalLength.isNullOrBlank()) {
+                                        Text(
+                                            text = "у.д.",
+                                            style = hintStyle,
+                                            color = noValueColor
+                                        )
+                                    }
+                                },
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Done
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onDone = {
+                                        scope.launch {
+                                            focusManager.clearFocus()
+                                        }
+                                    }
+                                ),
+                                textStyle = dataTextStyle,
+                                singleLine = true,
+                            )
+                        }
                     }
+                    item {
+                        val animatedBackgroundColors by animateColorAsState(
+                            targetValue = if (selectedServicePhase == null) MaterialTheme.colorScheme.surface
+                            else MaterialTheme.colorScheme.secondary,
+                            animationSpec = tween(
+                                durationMillis = 200,
+                                easing = FastOutSlowInEasing
+                            )
+                        )
+
+                        Row(
+                            modifier = Modifier
+                                .padding(top = 12.dp)
+                                .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                .fillMaxWidth()
+                                .clickable {
+                                    showSelectServicePhase = true
+                                }
+                                .background(
+                                    color = animatedBackgroundColors,
+                                    shape = Shapes.medium
+                                )
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            val text = if (selectedServicePhase == null) {
+                                "Выбрать плечо"
+                            } else {
+                                "${selectedServicePhase.departureStation} - ${selectedServicePhase.arrivalStation}"
+                            }
+
+                            val color = if (selectedServicePhase == null) {
+                                noValueColor
+                            } else {
+                                primaryColor
+                            }
+                            Text(
+                                text = AnnotatedString(text = text),
+                                style = dataTextStyle,
+                                overflow = TextOverflow.Ellipsis,
+                                color = color
+                            )
+                            if (selectedServicePhase != null) {
+                                Icon(
+                                    modifier = Modifier.clickable {
+                                        onSelectServicePhase(null)
+                                    },
+                                    imageVector = Icons.Outlined.Clear,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                    item { Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.secondary_spacing))) }
+                    item {
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.CenterEnd
+                        ) {
+                            val isReversed = formUiState.isStationsReversed
+                            val rotation by animateFloatAsState(
+                                targetValue = if (isReversed) 180f else 0f,
+                                animationSpec = tween(durationMillis = 300)
+                            )
+
+                            Icon(
+                                modifier = Modifier
+                                    .graphicsLayer { rotationZ = rotation }
+                                    .noRippleEffect(
+                                        onClick = {
+                                            viewModel.toggleStationsSortOrder()
+                                        }
+                                    ),
+                                painter = painterResource(com.z_company.route.R.drawable.sort_24px),
+                                contentDescription = null
+                            )
+                        }
+                    }
+
+                    stationListState?.let { stationList ->
+                        val displayList = if (formUiState.isStationsReversed) stationList.reversed() else stationList
+                        itemsIndexed(
+                            items = displayList,
+                            key = { _, item -> item.id }
+                        ) { index, item ->
+                            val isFirst =
+                                if (formUiState.isStationsReversed) index == stationList.lastIndex
+                                else index == 0
+
+                            val originalIndex = if (formUiState.isStationsReversed) stationList.size - 1 - index else index
+
+                            Spacer(
+                                modifier = Modifier
+                                    .height(8.dp)
+                                    .animateItemPlacement()
+                            )
+                            StationItem(
+                                modifier = Modifier.animateItemPlacement(),
+                                index = originalIndex,
+                                isFirst = isFirst,
+                                stationFormState = item,
+                                onDelete = onDeleteStation,
+                                menuList = menuList,
+                                isExpandedMenu = if (isExpandedMenu?.first == originalIndex) {
+                                    isExpandedMenu.second
+                                } else false,
+                                onExpandedMenuChange = onExpandedMenuChange,
+                                onChangedContentMenu = onChangedContentMenu,
+                                onStationNameChanged = onStationNameChanged,
+                                onArrivalTimeChanged = onArrivalTimeChanged,
+                                onDepartureTimeChanged = onDepartureTimeChanged,
+                                onDeleteStationName = onDeleteStationName,
+                                selectIndexState = selectSectionIndexState,
+                                dateAndTimeConverter = dateAndTimeConverter
+                            )
+                        }
+                    }
+                    item {
+                        Button(
+                            modifier = Modifier
+                                .padding(top = 24.dp)
+                                .fillMaxWidth(),
+                            shape = Shapes.medium,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                contentColor = MaterialTheme.colorScheme.secondary
+                            ),
+                            elevation = ButtonDefaults.elevatedButtonElevation(
+                                defaultElevation = 3.dp,
+                                pressedElevation = 0.dp
+                            ),
+                            onClick = {
+                                onAddingStation()
+                                scope.launch {
+                                    val countItems = scrollState.layoutInfo.totalItemsCount
+                                    scrollState.animateScrollToItem(countItems)
+                                }
+                            }
+                        ) {
+                            Text(
+                                text = "Добавить станцию",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+                    }
+                    item { Spacer(modifier = Modifier.height(20.dp)) }
                 }
-            ) {
-                Text(text = "Добавить станцию", style = subTitleTextStyle)
             }
         }
-        item { Spacer(modifier = Modifier.height(20.dp)) }
     }
-}
-
-
-@OptIn(ExperimentalMaterialApi::class)
-@Composable
-private fun RemoveTimeBottomSheetContent(
-    bottomSheetState: ModalBottomSheetState,
-    sectionIndex: Int,
-    onDepartureTimeChanged: (index: Int, time: Long?) -> Unit,
-    onArrivalTimeChanged: (index: Int, time: Long?) -> Unit,
-    selectBottomSheetContent: BottomSheetRemoveTimeFormTrainScreen
-) {
-    val scope = rememberCoroutineScope()
-    when (selectBottomSheetContent) {
-        BottomSheetRemoveTimeFormTrainScreen.TIME_DEPARTURE -> {
-            RemoveTimeContent(
-                title = "Время отправления",
-                onRemoveTimeClick = {
-                    scope.launch {
-                        bottomSheetState.hide()
-                    }
-                    onDepartureTimeChanged(sectionIndex, null)
-                }
-            )
-        }
-
-        BottomSheetRemoveTimeFormTrainScreen.TIME_ARRIVAL -> {
-            RemoveTimeContent(
-                title = "Время прибытия",
-                onRemoveTimeClick = {
-                    scope.launch {
-                        bottomSheetState.hide()
-                    }
-                    onArrivalTimeChanged(sectionIndex, null)
-                }
-            )
-        }
-    }
-}
-
-enum class BottomSheetRemoveTimeFormTrainScreen() {
-    TIME_ARRIVAL, TIME_DEPARTURE
 }

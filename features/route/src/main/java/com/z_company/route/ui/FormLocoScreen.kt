@@ -47,7 +47,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -144,13 +143,11 @@ fun FormLocoScreen(
     onRefuelCoefficientValueChanged: (Int, String?) -> Unit,
     onCoefficientValueChanged: (Int, String?) -> Unit,
     exitScreen: () -> Unit,
-    menuList: List<String>,
+    dropDownSeriesMenuList: List<String>,
     isExpandedMenu: Boolean,
     onExpandedMenuChange: (Boolean) -> Unit,
     onChangedContentMenu: (String) -> Unit,
     onDeleteSeries: (String) -> Unit,
-    onSettingClick: () -> Unit,
-    timeZoneText: String,
     dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val scope = rememberCoroutineScope()
@@ -658,9 +655,9 @@ fun FormLocoScreen(
                                 modifier = Modifier
                                     .weight(1f),
                                 expanded = isExpandedMenu,
-                                onExpandedChange = { onExpandedMenuChange(it) }
+                                onExpandedChange = onExpandedMenuChange
                             ) {
-                                var series by remember {
+                                var seriesName by remember {
                                     mutableStateOf(
                                         TextFieldValue(
                                             text = locomotive.series ?: "",
@@ -671,35 +668,33 @@ fun FormLocoScreen(
 
                                 OutlinedTextFieldApp(
                                     modifier = Modifier
+                                        .fillMaxWidth()
                                         .menuAnchor(),
-                                    value = series,
-                                    textStyle = dataTextStyle,
-                                    placeholder = {
-                                        Text(text = "Серия", style = dataTextStyle)
-                                    },
+                                    value = seriesName,
                                     onValueChange = {
-                                        series = it
+                                        seriesName = it
                                         onSeriesChanged(it.text)
                                         onChangedContentMenu(it.text)
                                     },
+                                    placeholder = {
+                                        Text(
+                                            text = "Серия",
+                                            style = dataTextStyle,
+                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                        )
+                                    },
+                                    textStyle = dataTextStyle,
                                     keyboardOptions = KeyboardOptions(
-                                        imeAction = ImeAction.Next
+                                        keyboardType = KeyboardType.Text,
+                                        imeAction = ImeAction.Done
                                     ),
                                     keyboardActions = KeyboardActions(
-                                        onNext = {
-                                            focusManager.moveFocus(FocusDirection.Right)
-                                        }
+                                        onDone = { focusManager.clearFocus() }
                                     ),
-                                    singleLine = true,
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                        focusedBorderColor = Color.Transparent,
-                                        unfocusedBorderColor = Color.Transparent
-                                    ),
-                                    shape = Shapes.medium,
+                                    singleLine = true
                                 )
-                                if (menuList.isNotEmpty()) {
+
+                                if (dropDownSeriesMenuList.isNotEmpty()) {
                                     DropdownMenu(
                                         modifier = Modifier
                                             .background(
@@ -711,33 +706,34 @@ fun FormLocoScreen(
                                         properties = PopupProperties(focusable = false),
                                         onDismissRequest = { onExpandedMenuChange(false) }
                                     ) {
-                                        menuList.forEach { selectionSeries ->
+                                        dropDownSeriesMenuList.forEach { selectionSeries ->
                                             DropdownMenuItem(
                                                 modifier = Modifier
-                                                    .fillMaxWidth(),
+                                                    .fillMaxWidth()
+                                                    .background(
+                                                        color = MaterialTheme.colorScheme.surface,
+                                                        shape = Shapes.medium
+                                                    ),
                                                 text = {
                                                     Row(
                                                         modifier = Modifier.fillMaxWidth(),
                                                         horizontalArrangement = Arrangement.SpaceBetween
                                                     ) {
-                                                        Text(
-                                                            text = selectionSeries,
-                                                            style = dataTextStyle
-                                                        )
+                                                        Text(text = selectionSeries, style = dataTextStyle, color = MaterialTheme.colorScheme.primary)
                                                         Icon(
                                                             modifier = Modifier.clickable {
                                                                 onDeleteSeries(selectionSeries)
                                                             },
                                                             imageVector = Icons.Outlined.Close,
-                                                            contentDescription = null
+                                                            contentDescription = null,
+                                                            tint = MaterialTheme.colorScheme.primary
                                                         )
                                                     }
-
                                                 },
                                                 onClick = {
                                                     onSeriesChanged(selectionSeries)
                                                     onExpandedMenuChange(false)
-                                                    series = series.copy(
+                                                    seriesName = seriesName.copy(
                                                         text = selectionSeries,
                                                         selection = TextRange(selectionSeries.length)
                                                     )
@@ -770,13 +766,6 @@ fun FormLocoScreen(
                                     }
                                 ),
                                 singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent
-                                ),
-                                shape = Shapes.medium,
                             )
                         }
                     }
@@ -1071,8 +1060,6 @@ fun FormLocoScreen(
                                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-
-
                                     OutlinedTextFieldApp(
                                         modifier = Modifier.weight(1f),
                                         value = accepted,
@@ -1125,6 +1112,7 @@ fun FormLocoScreen(
                                         contentAlignment = Alignment.CenterEnd
                                     ) {
                                         Text(
+                                            modifier = Modifier.padding(end = 16.dp),
                                             text = heatingResult.toString(),
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.primary
@@ -1891,6 +1879,7 @@ fun FormLocoScreen(
                             Text(
                                 text = "Добавить секцию",
                                 style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary
                             )
 
                         }

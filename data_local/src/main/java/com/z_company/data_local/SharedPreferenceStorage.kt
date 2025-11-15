@@ -14,6 +14,7 @@ private const val TOKEN_IS_CHANGES_HAVE_TAG = "TOKEN_IS_CHANGES_HAVE_TAG"
 private const val TOKEN_SUBSCRIPTION_EXPIRATION_TAG = "TOKEN_SUBSCRIPTION_EXPIRATION_TAG"
 private const val TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_16 = "TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_16"
 private const val TOKEN_DATE_TIME_PICKER_TYPE = "TOKEN_DATE_TIME_PICKER_TYPE"
+private const val STATION_SORT_REVERSED = "STATION_SORT_REVERSED"
 
 class SharedPreferenceStorage(application: Application) : SharedPreferencesRepositories, KoinComponent {
     private val sharedpref: SharedPreferences =
@@ -70,4 +71,11 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
     override fun setTokenDateTimePickerType(type: String) {
         editor.putString(TOKEN_DATE_TIME_PICKER_TYPE, type).apply()
     }
+
+    override fun toggleStationsSortOrder(value: Boolean) {
+        editor.putBoolean(STATION_SORT_REVERSED, value).apply()
+    }
+
+    override fun isReversedSortStationList(): Boolean =
+        sharedpref.getBoolean(STATION_SORT_REVERSED, false)
 }

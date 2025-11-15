@@ -85,9 +85,6 @@ fun DieselSectionItem(
     onCoefficientValueChanged: (Int, String?) -> Unit,
     sheetState: SheetState
 ) {
-//    val sheetStateRefuel = rememberModalBottomSheetState(
-//        skipPartiallyExpanded = true
-//    )
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
     val revealState = rememberRevealState()

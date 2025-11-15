@@ -11,6 +11,7 @@ import com.z_company.domain.entities.ServicePhase
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
+import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.use_cases.TrainUseCase
@@ -38,6 +39,7 @@ class TrainFormViewModel(
     trainId: String?,
     basicId: String
 ) : ViewModel(), KoinComponent {
+    private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val trainUseCase: TrainUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
@@ -95,7 +97,19 @@ class TrainFormViewModel(
         if (servicePhase != null) {
             setDistance(servicePhase.distance.toString())
             if (servicePhase != uiState.value.selectedServicePhase || uiState.value.selectedServicePhase == null) {
-                addingStation(stationName = servicePhase.departureStation)
+                if (stationsListState.isEmpty()) {
+                    addingStation(stationName = servicePhase.departureStation)
+                }
+                if (stationsListState.isNotEmpty() && stationsListState.first().station.data != servicePhase.departureStation) {
+                    stationsListState[0] = StationFormState(
+                        id = Station().stationId,
+                        station = StationField(
+                            data = servicePhase.departureStation,
+                            type = StationDataType.NAME
+                        )
+                    )
+                    changesHave()
+                }
             }
         } else {
             setDistance("")
@@ -105,31 +119,24 @@ class TrainFormViewModel(
                 selectedServicePhase = servicePhase
             )
         }
-        hideDialogSelectServicePhase()
     }
 
-    fun showDialogSelectServicePhase() {
-        viewModelScope.launch(Dispatchers.IO) {
-            withContext(Dispatchers.Main) {
-                _uiState.update {
-                    it.copy(
-                        isShowDialogSelectServicePhase = true
-                    )
-                }
-            }
+    fun loadStationsSortOrder() {
+        viewModelScope.launch {
+            val isReversed = sharedPreferenceStorage.isReversedSortStationList() // Используйте ваш репозиторий
+            _uiState.update { it.copy(isStationsReversed = isReversed) }
         }
     }
 
-    fun hideDialogSelectServicePhase() {
-        _uiState.update {
-            it.copy(
-                isShowDialogSelectServicePhase = false
-            )
-        }
+    fun toggleStationsSortOrder() {
+        val newReversed = !_uiState.value.isStationsReversed
+        _uiState.update { it.copy(isStationsReversed = newReversed) }
+        sharedPreferenceStorage.toggleStationsSortOrder(newReversed)
     }
 
     init {
         viewModelScope.launch {
+            loadStationsSortOrder()
             if (trainId == NULLABLE_ID) {
                 isNewTrain = true
                 currentTrain = Train(basicId = basicId)
@@ -148,7 +155,7 @@ class TrainFormViewModel(
                 routeUseCase.routeDetails(basicId)
             ) { settingState, routeState ->
                 if (settingState is ResultState.Success) {
-                    settingState.data?.let { settings ->
+                    settingState.data.let { settings ->
                         _uiState.update {
                             it.copy(
                                 dateAndTimeConverter = DateAndTimeConverter(settings)
@@ -176,51 +183,6 @@ class TrainFormViewModel(
                     changesHaveState = true
                 )
             }
-        }
-    }
-
-    fun exitWithoutSaving() {
-        if (isNewTrain) {
-            val state = _uiState.value.trainDetailState
-            if (state is ResultState.Success) {
-                state.data?.let { train ->
-                    trainUseCase.removeTrain(train).onEach { result ->
-                        if (result is ResultState.Success) {
-                            _uiState.update {
-                                it.copy(
-                                    confirmExitDialogShow = false,
-                                    exitFromScreen = true
-                                )
-                            }
-                        }
-                    }.launchIn(viewModelScope)
-                }
-            }
-        } else {
-            _uiState.update {
-                it.copy(
-                    confirmExitDialogShow = false,
-                    exitFromScreen = true
-                )
-            }
-        }
-    }
-
-    fun checkBeforeExitTheScreen() {
-        if (_uiState.value.changesHaveState) {
-            _uiState.update {
-                it.copy(confirmExitDialogShow = true)
-            }
-        } else {
-            _uiState.update {
-                it.copy(exitFromScreen = true)
-            }
-        }
-    }
-
-    fun changeShowConfirmDialog(isShow: Boolean) {
-        _uiState.update {
-            it.copy(confirmExitDialogShow = isShow)
         }
     }
 
@@ -352,7 +314,7 @@ class TrainFormViewModel(
 
     fun addingStation(stationName: String? = null) {
         stationsListState.add(
-            StationFormState(
+            element = StationFormState(
                 id = Station().stationId,
                 station = StationField(data = stationName, type = StationDataType.NAME)
             )
@@ -395,14 +357,6 @@ class TrainFormViewModel(
             is StationEvent.FocusChange -> {
                 checkFormValidStation()
             }
-        }
-    }
-
-    fun resetErrorMessage() {
-        _uiState.update {
-            it.copy(
-                errorMessage = null
-            )
         }
     }
 

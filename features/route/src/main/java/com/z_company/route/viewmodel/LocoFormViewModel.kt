@@ -1,6 +1,5 @@
 package com.z_company.route.viewmodel
 
-import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
@@ -16,6 +15,7 @@ import com.z_company.domain.entities.route.SectionElectric
 import com.z_company.domain.use_cases.LocomotiveUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.util.CalculationEnergy
+import com.z_company.domain.util.addAllOrSkip
 import com.z_company.domain.util.addOrReplace
 import com.z_company.domain.util.str
 import com.z_company.route.Const.NULLABLE_ID
@@ -50,6 +50,19 @@ class LocoFormViewModel(
     private val _seriesList = MutableStateFlow(mutableStateListOf<String>())
     val seriesList = _seriesList.asStateFlow()
 
+    private var mutableSeriesList = mutableStateListOf<String>()
+        .also {
+            it.addAll(seriesList.value)
+        }
+
+    var dropDownSeriesList: SnapshotStateList<String>
+        get() {
+            return mutableSeriesList
+        }
+        set(value) {
+            mutableSeriesList = value
+        }
+
     private var isNewLoco by Delegates.notNull<Boolean>()
 
     private val _currentLoco = MutableStateFlow<Locomotive?>(null)
@@ -76,10 +89,16 @@ class LocoFormViewModel(
                             dateAndTimeConverter = DateAndTimeConverter(result.data)
                         )
                     }
+                    _seriesList.update { list ->
+                        list.addAllOrSkip(result.data.locomotiveSeriesList.toMutableStateList())
+                        list
+                    }
+                    mutableSeriesList.addAllOrSkip(result.data.locomotiveSeriesList.toMutableStateList())
                     timeZoneText = "GMT+${result.data?.timeZone ?: 3}"
                 }
             }
         }
+
 
         if (locoId == NULLABLE_ID) {
             isNewLoco = true
@@ -114,10 +133,12 @@ class LocoFormViewModel(
             loadLoco(locoId!!)
         }
     }
+
     private fun loadLoco(locoId: String) {
         loadLocoJob?.cancel()
         loadLocoJob = viewModelScope.launch {
-            val result = locomotiveUseCase.getLocoById(locoId).first { it is ResultState.Success || it is ResultState.Error }
+            val result = locomotiveUseCase.getLocoById(locoId)
+                .first { it is ResultState.Success || it is ResultState.Error }
             if (result is ResultState.Success) {
                 result.data?.let { loco ->
                     _currentLoco.value = loco
@@ -244,50 +265,6 @@ class LocoFormViewModel(
         }
     }
 
-//    fun exitWithoutSaving() {
-//        if (isNewLoco) {
-//            _currentLoco.value?.let { loco ->
-//                viewModelScope.launch {
-//                    locomotiveUseCase.removeLoco(loco).collect { result ->
-//                        if (result is ResultState.Success) {
-//                            _uiState.update {
-//                                it.copy(
-//                                    confirmExitDialogShow = false,
-//                                    exitFromScreen = true
-//                                )
-//                            }
-//                        }
-//                    }
-//                }
-//            }
-//        } else {
-//            _uiState.update {
-//                it.copy(
-//                    confirmExitDialogShow = false,
-//                    exitFromScreen = true
-//                )
-//            }
-//        }
-//    }
-//
-//    fun checkBeforeExitTheScreen() {
-//        if (_uiState.value.changesHaveState) {
-//            _uiState.update {
-//                it.copy(confirmExitDialogShow = true)
-//            }
-//        } else {
-//            _uiState.update {
-//                it.copy(exitFromScreen = true)
-//            }
-//        }
-//    }
-
-//    fun changeShowConfirmDialog(isShow: Boolean) {
-//        _uiState.update {
-//            it.copy(confirmExitDialogShow = isShow)
-//        }
-//    }
-
     fun setNumber(number: String) {
         _currentLoco.update { it?.copy(number = number) }
         changesHave()
@@ -412,7 +389,10 @@ class LocoFormViewModel(
             } else refuel.data
 
             copy(
-                refuelInKilo = DieselSectionFieldState(inputValue, DieselSectionType.REFUEL_IN_KILO),
+                refuelInKilo = DieselSectionFieldState(
+                    inputValue,
+                    DieselSectionType.REFUEL_IN_KILO
+                ),
                 refuel = DieselSectionFieldState(literValue, DieselSectionType.REFUEL)
             )
         }
@@ -435,7 +415,10 @@ class LocoFormViewModel(
             } else refuelInKilo.data
 
             copy(
-                refuelCoefficient = DieselSectionFieldState(inputValue, DieselSectionType.REFUEL_COEFFICIENT),
+                refuelCoefficient = DieselSectionFieldState(
+                    inputValue,
+                    DieselSectionType.REFUEL_COEFFICIENT
+                ),
                 refuelInKilo = DieselSectionFieldState(kiloValue, DieselSectionType.REFUEL_IN_KILO)
             )
         }
@@ -897,15 +880,29 @@ class LocoFormViewModel(
         _uiState.update { it.copy(isExpandedDropDownMenuSeries = expanded) }
     }
 
+
     fun onChangedDropDownContent(content: String) {
-        setSeries(content)
-        changeExpandedMenu(false)
+        if (content.isEmpty()) {
+            mutableSeriesList.addAllOrSkip(seriesList.value)
+        } else {
+            mutableSeriesList.clear()
+            val newSeriesList =
+                seriesList.value
+                    .filter { it.startsWith(prefix = content, ignoreCase = true) }
+                    .filterNot { it == content }
+                    .toMutableStateList()
+            newSeriesList.forEach { ser ->
+                mutableSeriesList.add(ser)
+                changeExpandedMenu(true)
+            }
+        }
     }
 
     fun removeSeries(series: String) {
-        _seriesList.update { list ->
-            list.remove(series)
-            list
+        viewModelScope.launch {
+            dropDownSeriesList.remove(series)
+            settingsUseCase.removeLocomotiveSeries(series)
+            changesHave()
         }
     }
 
@@ -936,9 +933,9 @@ class LocoFormViewModel(
                         )
                     }.toMutableList()
                 )
-                Log.d(
-                    "zzz", "type ${updatedLoco.type.text}"
-                )
+                updatedLoco.series?.let { series ->
+                    settingsUseCase.setLocomotiveSeries(series)
+                }
                 locomotiveUseCase.saveLocomotive(updatedLoco).collect { result ->
                     _uiState.update { it.copy(saveLocoState = result) }
                 }

@@ -1,11 +1,15 @@
 package com.z_company.route.component
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -29,9 +33,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
@@ -42,30 +45,26 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
-import com.z_company.core.ui.component.SelectableDateTimePicker
+import com.z_company.core.ui.component.DateTimePickerBottomSheet
 import com.z_company.core.ui.theme.Shapes
-import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.DateAndTimeFormat
-import com.z_company.route.ui.BottomSheetRemoveTimeFormTrainScreen
 import com.z_company.route.viewmodel.StationFormState
 import de.charlex.compose.RevealDirection
 import de.charlex.compose.RevealSwipe
 import de.charlex.compose.RevealValue
 import de.charlex.compose.rememberRevealState
 import kotlinx.coroutines.launch
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toInstant
 import java.util.Calendar
 
 @OptIn(ExperimentalMaterialApi::class, ExperimentalMaterial3Api::class,
@@ -73,6 +72,8 @@ import java.util.Calendar
 )
 @Composable
 fun StationItem(
+    modifier: Modifier,
+    isFirst: Boolean,
     index: Int,
     stationFormState: StationFormState,
     onStationNameChanged: (Int, String) -> Unit,
@@ -84,23 +85,82 @@ fun StationItem(
     onDepartureTimeChanged: (Int, Long?) -> Unit,
     onDelete: (StationFormState) -> Unit,
     onDeleteStationName: (String) -> Unit,
-    onSettingClick: () -> Unit,
-    timeZoneText: String,
     selectIndexState: MutableState<Int>,
-    bottomSheetState: ModalBottomSheetState,
-    bottomSheetContentState: MutableState<BottomSheetRemoveTimeFormTrainScreen>,
     dateAndTimeConverter: DateAndTimeConverter?
 ) {
-    val focusManager = LocalFocusManager.current
     val revealState = rememberRevealState()
     val scope = rememberCoroutineScope()
-    val isFirst = index == 0
+    val dataTextStyle = MaterialTheme.typography.bodyLarge
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val noValueColor = primaryColor.copy(alpha = 0.5f)
+    val sheetState = rememberModalBottomSheetState()
 
-    var showArrivalDatePicker by remember {
+    val focusRequester = remember(stationFormState.id) { FocusRequester() }
+    val focusManager = LocalFocusManager.current
+
+    var showBottomSheetRemoveTimeArrival by remember(stationFormState.id) {
         mutableStateOf(false)
     }
 
-    var showDepartureDatePicker by remember {
+    if (showBottomSheetRemoveTimeArrival) {
+        AppBottomSheet(
+            onDismissRequest = { showBottomSheetRemoveTimeArrival = false },
+            sheetState = sheetState,
+            headerContent = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = "Время прибытия",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            },
+            actions = listOf(
+                BottomSheetAction(text = "Удалить значение") {
+                    onArrivalTimeChanged(index, null)
+                }
+            )
+        )
+    }
+
+    var showBottomSheetRemoveTimeDeparture by remember(stationFormState.id) {
+        mutableStateOf(false)
+    }
+
+    if (showBottomSheetRemoveTimeDeparture) {
+        AppBottomSheet(
+            onDismissRequest = { showBottomSheetRemoveTimeDeparture = false },
+            sheetState = sheetState,
+            headerContent = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = "Время отправления",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            },
+            actions = listOf(
+                BottomSheetAction(text = "Удалить значение") {
+                    onDepartureTimeChanged(index, null)
+                }
+            )
+        )
+    }
+
+    var showArrivalDatePicker by remember(stationFormState.id) {
+        mutableStateOf(false)
+    }
+
+    var showDepartureDatePicker by remember(stationFormState.id) {
         mutableStateOf(false)
     }
 
@@ -120,10 +180,30 @@ fun StationItem(
 
     val departureDateTime = departureTime.timeInMillis
 
-    val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
+    if (showArrivalDatePicker) {
+        DateTimePickerBottomSheet(
+            title = "Прибытие",
+            onDateTimeSelected = { timestamp ->
+                onArrivalTimeChanged(index,timestamp)
+            },
+            onDismiss = { showArrivalDatePicker = false },
+            startDateTime = arrivalDateTime
+        )
+    }
+
+    if (showDepartureDatePicker) {
+        DateTimePickerBottomSheet(
+            title = "Отправление",
+            onDateTimeSelected = { timestamp ->
+                onDepartureTimeChanged(index,timestamp)
+            },
+            onDismiss = { showDepartureDatePicker = false },
+            startDateTime = departureDateTime
+        )
+    }
 
     RevealSwipe(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .wrapContentHeight(),
         state = revealState,
@@ -140,7 +220,7 @@ fun StationItem(
                 Icon(
                     modifier = Modifier.padding(end = 15.dp),
                     imageVector = Icons.Outlined.Delete,
-                    tint = Color.White,
+                    tint = MaterialTheme.colorScheme.secondary,
                     contentDescription = null
                 )
             }
@@ -154,11 +234,11 @@ fun StationItem(
             Row(
                 modifier = Modifier
                     .height(IntrinsicSize.Min)
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .padding(bottom = 2.dp, end = 2.dp, start = 1.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val focusRequester = remember { FocusRequester() }
 
                 ExposedDropdownMenuBox(
                     modifier = Modifier
@@ -166,7 +246,7 @@ fun StationItem(
                     expanded = isExpandedMenu,
                     onExpandedChange = { onExpandedMenuChange(index, it) }
                 ) {
-                    var stationName by remember {
+                    var stationName by remember(key1 = stationFormState.id) {
                         mutableStateOf(
                             TextFieldValue(
                                 text = stationFormState.station.data ?: "",
@@ -174,24 +254,32 @@ fun StationItem(
                             )
                         )
                     }
-                    LaunchedEffect(Unit) {
-                        focusRequester.requestFocus()
+
+                    LaunchedEffect(stationFormState.station.data) {
+                        if (stationName.text != stationFormState.station.data) {
+                            stationName = stationName.copy(text = stationFormState.station.data ?: "")
+                        }
                     }
 
-                    OutlinedTextField(
+                    OutlinedTextFieldApp(
                         modifier = Modifier
                             .menuAnchor()
-                            .focusRequester(focusRequester),
+                            .focusRequester(focusRequester)
+                            .onFocusChanged {
+                                if (!it.isFocused && stationName.text != stationFormState.station.data) {
+                                    onStationNameChanged(index, stationName.text)
+                                }
+                            },
                         value = stationName,
                         onValueChange = {
                             stationName = it
-                            onStationNameChanged(index, it.text)
                             onChangedContentMenu(index, it.text)
                         },
                         placeholder = {
                             Text(
                                 text = "Станция",
-                                style = dataTextStyle
+                                style = dataTextStyle,
+                                color = noValueColor
                             )
                         },
                         textStyle = dataTextStyle,
@@ -200,19 +288,11 @@ fun StationItem(
                         ),
                         keyboardActions = KeyboardActions(
                             onDone = {
-                                scope.launch {
-                                    focusManager.clearFocus()
-                                }
+                                focusManager.clearFocus()
+                                onStationNameChanged(index, stationName.text)
                             }
                         ),
                         singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                            focusedContainerColor = MaterialTheme.colorScheme.surface,
-                            focusedBorderColor = Color.Transparent,
-                            unfocusedBorderColor = Color.Transparent
-                        ),
-                        shape = Shapes.medium,
                     )
 
                     if (menuList.isNotEmpty()) {
@@ -230,19 +310,24 @@ fun StationItem(
                             menuList.forEach { selectionStation ->
                                 DropdownMenuItem(
                                     modifier = Modifier
-                                        .fillMaxWidth(),
+                                        .fillMaxWidth()
+                                        .background(
+                                            color = MaterialTheme.colorScheme.surface,
+                                            shape = Shapes.medium
+                                        ),
                                     text = {
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
-                                            Text(text = selectionStation, style = dataTextStyle)
+                                            Text(text = selectionStation, style = dataTextStyle, color = primaryColor)
                                             Icon(
                                                 modifier = Modifier.clickable {
                                                     onDeleteStationName(selectionStation)
                                                 },
                                                 imageVector = Icons.Outlined.Close,
-                                                contentDescription = null
+                                                contentDescription = null,
+                                                tint = primaryColor
                                             )
                                         }
 
@@ -260,12 +345,48 @@ fun StationItem(
                     }
                 }
 
+                val animatedBackgroundColorsArrival by animateColorAsState(
+                    targetValue = if (stationFormState.arrival.data == null) MaterialTheme.colorScheme.surface
+                    else MaterialTheme.colorScheme.secondary,
+                    animationSpec = tween(
+                        durationMillis = 200,
+                        easing = FastOutSlowInEasing
+                    )
+                )
+
+                val animatedBackgroundColorsDeparture by animateColorAsState(
+                    targetValue = if (stationFormState.departure.data == null) MaterialTheme.colorScheme.surface
+                    else MaterialTheme.colorScheme.secondary,
+                    animationSpec = tween(
+                        durationMillis = 200,
+                        easing = FastOutSlowInEasing
+                    )
+                )
+
+                val animatedTextColorsArrival by animateColorAsState(
+                    targetValue = if (stationFormState.arrival.data == null) primaryColor.copy(alpha = 0.5f)
+                    else primaryColor,
+                    animationSpec = tween(
+                        durationMillis = 200,
+                        easing = FastOutSlowInEasing
+                    )
+                )
+                val animatedTextColorsDeparture by animateColorAsState(
+                    targetValue = if (stationFormState.departure.data == null) primaryColor.copy(alpha = 0.5f)
+                    else primaryColor,
+                    animationSpec = tween(
+                        durationMillis = 200,
+                        easing = FastOutSlowInEasing
+                    )
+                )
+
                 Box(
                     modifier = Modifier
                         .weight(0.25f)
+                        .shadow(elevation = 2.dp, shape = Shapes.medium)
                         .fillMaxHeight()
                         .background(
-                            color = MaterialTheme.colorScheme.surface,
+                            color = animatedBackgroundColorsArrival,
                             shape = Shapes.medium
                         )
                         .combinedClickable(
@@ -275,11 +396,7 @@ fun StationItem(
                             onLongClick = {
                                 selectIndexState.value = index
                                 stationFormState.arrival.data?.let {
-                                    scope.launch {
-                                        bottomSheetContentState.value =
-                                            BottomSheetRemoveTimeFormTrainScreen.TIME_ARRIVAL
-                                        bottomSheetState.show()
-                                    }
+                                    showBottomSheetRemoveTimeArrival = true
                                 }
                             }
                         ),
@@ -293,19 +410,20 @@ fun StationItem(
                         Text(
                             text = textTimeArrival,
                             maxLines = 1,
-                            style = dataTextStyle
+                            style = dataTextStyle,
+                            color = animatedTextColorsArrival
                         )
                     }
                 }
                 Box(
                     modifier = Modifier
                         .weight(0.25f)
+                        .shadow(elevation = 2.dp, shape = Shapes.medium)
                         .fillMaxHeight()
                         .background(
-                            color = MaterialTheme.colorScheme.surface,
+                            color = animatedBackgroundColorsDeparture,
                             shape = Shapes.medium
                         )
-
                         .combinedClickable(
                             onClick = {
                                 showDepartureDatePicker = true
@@ -313,11 +431,7 @@ fun StationItem(
                             onLongClick = {
                                 selectIndexState.value = index
                                 stationFormState.departure.data?.let {
-                                    scope.launch {
-                                        bottomSheetContentState.value =
-                                            BottomSheetRemoveTimeFormTrainScreen.TIME_DEPARTURE
-                                        bottomSheetState.show()
-                                    }
+                                    showBottomSheetRemoveTimeDeparture = true
                                 }
                             }
                         ),
@@ -330,43 +444,11 @@ fun StationItem(
                     Text(
                         text = textTimeDeparture,
                         maxLines = 1,
-                        style = dataTextStyle
+                        style = dataTextStyle,
+                        color = animatedTextColorsDeparture
                     )
-
                 }
             }
         }
     }
-
-    SelectableDateTimePicker(
-        titleText = "Прибытие",
-        isShowPicker = showArrivalDatePicker,
-        initDateTime = arrivalDateTime,
-        onDoneClick = { localDateTime ->
-            val instant = localDateTime.toInstant(TimeZone.of(timeZoneText))
-            val millis = instant.toEpochMilliseconds()
-            onArrivalTimeChanged(index, millis)
-            showArrivalDatePicker = false
-        },
-        onDismiss = {
-            showArrivalDatePicker = false
-        },
-        onSettingClick = onSettingClick
-    )
-
-    SelectableDateTimePicker(
-        titleText = "Отправление",
-        isShowPicker = showDepartureDatePicker,
-        initDateTime = departureDateTime,
-        onDoneClick = { localDateTime ->
-            val instant = localDateTime.toInstant(TimeZone.of(timeZoneText))
-            val millis = instant.toEpochMilliseconds()
-            onDepartureTimeChanged(index, millis)
-            showDepartureDatePicker = false
-        },
-        onDismiss = {
-            showDepartureDatePicker = false
-        },
-        onSettingClick = onSettingClick
-    )
 }

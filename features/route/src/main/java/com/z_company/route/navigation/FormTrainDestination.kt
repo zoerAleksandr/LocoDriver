@@ -25,13 +25,11 @@ fun FormTrainDestination(
     val formUiState by viewModel.uiState.collectAsState()
 
     FormTrainScreen(
+        viewModel = viewModel,
         formUiState = formUiState,
         currentTrain = viewModel.currentTrain,
-        onBackPressed = viewModel::checkBeforeExitTheScreen,
-        onSaveClick = viewModel::saveTrain,
         onTrainSaved = router::back,
         resetSaveState = viewModel::resetSaveState,
-        resetErrorMessage = viewModel::resetErrorMessage,
         onNumberChanged = viewModel::setNumber,
         onDistanceChange = viewModel::setDistance,
         onWeightChanged = viewModel::setWeight,
@@ -43,22 +41,15 @@ fun FormTrainDestination(
         onArrivalTimeChanged = viewModel::setArrivalTime,
         onDepartureTimeChanged = viewModel::setDepartureTime,
         stationListState = formUiState.stationsListState,
-        exitScreen = router::back,
-        changeShowConfirmExitDialog = viewModel::changeShowConfirmDialog,
-        exitWithoutSave = viewModel::exitWithoutSaving,
         menuList = viewModel.stationList,
         isExpandedMenu = formUiState.isExpandedDropDownMenuStation,
         onExpandedMenuChange = viewModel::changeExpandedMenu,
         onChangedContentMenu = viewModel::onChangedDropDownContent,
         onDeleteStationName = viewModel::removeStationName,
-        isShowDialogSelectServicePhase = formUiState.isShowDialogSelectServicePhase,
-        onHideDialogSelectServicePhase = viewModel::hideDialogSelectServicePhase,
-        onShowDialogSelectServicePhase = viewModel::showDialogSelectServicePhase,
         servicePhaseList = formUiState.servicePhaseList,
         onSelectServicePhase = viewModel::setSelectedServicePhase,
         selectedServicePhase = formUiState.selectedServicePhase,
         onSettingClick = router::showSettings,
-        timeZoneText = viewModel.timeZoneText,
         dateAndTimeConverter = formUiState.dateAndTimeConverter
     )
 }

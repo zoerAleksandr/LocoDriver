@@ -547,18 +547,6 @@ class FormViewModel(
         }
     }
 
-    fun checkBeforeExitTheScreen() {
-        if (_uiState.value.changesHaveState) {
-            _uiState.update { it.copy(confirmExitDialogShow = true) }
-        } else {
-            _uiState.update { it.copy(exitFromScreen = true) }
-        }
-    }
-
-    fun changeShowConfirmDialog(isShow: Boolean) {
-        _uiState.update { it.copy(confirmExitDialogShow = isShow) }
-    }
-
     // Изменения
     private fun changesHave() {
         sharedPreferenceStorage.setTokenIsChangeHave(true)
