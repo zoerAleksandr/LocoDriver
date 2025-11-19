@@ -31,7 +31,7 @@ import com.z_company.core.ui.theme.Shapes
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun Chip(
+fun ChipApp(
     modifier: Modifier = Modifier,
     label: String,
     leading: @Composable (() -> Unit)? = null,

@@ -25,6 +25,7 @@ import com.z_company.route.navigation.PurchasesRoute
 import com.z_company.route.navigation.SalaryCalculationRoute
 import com.z_company.route.navigation.SearchRoute
 import com.z_company.route.navigation.SettingSalaryRoute
+import com.z_company.route.navigation.SettingsScreenRoute
 import com.z_company.route.navigation.ViewingImageRoute
 import com.z_company.route.navigation.WorkScheduleScreenRoute
 import com.z_company.settings.navigation.SelectReleaseDaysScreenRoute
@@ -76,10 +77,6 @@ class RouterImpl(
         navController.navigate(
             DetailsRoute.buildDetailsRoute(basicData.id)
         )
-    }
-
-    override fun showSettings() {
-        navController.navigate(SettingsFeature.route)
     }
 
     override fun showSearch() {
@@ -196,5 +193,9 @@ class RouterImpl(
         navController.navigate(
             WorkScheduleScreenRoute.route
         )
+    }
+
+    override fun showSettings() {
+        navController.navigate(SettingsScreenRoute.route)
     }
 }

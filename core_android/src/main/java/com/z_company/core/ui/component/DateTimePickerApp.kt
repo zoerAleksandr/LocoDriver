@@ -4,12 +4,9 @@ import android.annotation.SuppressLint
 import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.exponentialDecay
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.FlingBehavior
-import androidx.compose.foundation.gestures.ScrollScope
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
@@ -55,7 +52,6 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalTime
 import java.text.SimpleDateFormat
 import java.util.*
-
 
 @SuppressLint("DefaultLocale")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -149,6 +145,7 @@ fun DateTimePickerBottomSheet(
                     }
                 }
             }
+
             item {
                 Spacer(modifier = Modifier.height(32.dp))
             }
@@ -197,7 +194,6 @@ fun DateTimePickerBottomSheet(
 
             // Дата и время внизу
             item {
-
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -218,6 +214,7 @@ fun DateTimePickerBottomSheet(
                     )
                 }
             }
+
             item {
                 Spacer(modifier = Modifier.height(8.dp))
             }
@@ -533,306 +530,306 @@ fun FullCalendar(
         }
     }
 }
+//
+//@Composable
+//fun TimeScrollPicker(
+//    currentHour: Int,
+//    currentMinute: Int,
+//    isEditing: Boolean,
+//    minTime: LocalTime = LocalTime.MIN(),
+//    maxTime: LocalTime = LocalTime.MAX(),
+//    rowCount: Int = 5,
+//    height: Dp = 128.dp,
+//    onHourChange: (Int) -> Unit,
+//    onMinuteChange: (Int) -> Unit,
+//    onChangeEditTime: () -> Unit,
+//    dampingRatio: Float = Spring.DampingRatioLowBouncy, // Регулируемый параметр: низкое сопротивление для длительного затухания
+//    stiffness: Float = Spring.StiffnessLow, // Регулируемый параметр: меньшая жесткость для плавного замедления
+//    frictionMultiplier: Float = 0.5f // Регулируемый параметр: уменьшение трения для большей инерции
+//) {
+//    val scope = rememberCoroutineScope()
+//
+//    var snappedTime by remember {
+//        mutableStateOf(
+//            LocalTime(
+//                hour = currentHour,
+//                minute = currentMinute
+//            )
+//        )
+//    }
+//
+//    val hoursRange = (0..23)
+//    val hoursCycle = hoursRange.count()
+//    val longHoursRange =
+//        List(500) { (it % hoursCycle) }
+//
+//    val hours = longHoursRange.mapIndexed { index, value ->
+//        Hour(
+//            text = value.toString().padStart(2, '0'),
+//            value = value,
+//            index = index
+//        )
+//    }
+//
+//    val minutesRange = (0..59)
+//    val minutesCycle = minutesRange.count()
+//    val longMinutesRange =
+//        List(500) { (it % minutesCycle) }
+//    val minutes = longMinutesRange.mapIndexed { index, value ->
+//        Minute(
+//            text = value.toString().padStart(2, '0'),
+//            value = value,
+//            index = index
+//        )
+//    }
+//
+//    val hoursMiddleCycle = (longHoursRange.size / 2) / hoursCycle
+//    val hoursMiddleIndex = hoursMiddleCycle * hoursCycle + currentHour
+//
+//    val minutesMiddleCycle = (longMinutesRange.size / 2) / minutesCycle
+//    val minutesMiddleIndex = minutesMiddleCycle * minutesCycle + currentMinute
+//
+//    val hourListState = rememberLazyListState(
+//        initialFirstVisibleItemIndex = hoursMiddleIndex.coerceIn(0, hours.size - 1)
+//    )
+//    val minuteListState = rememberLazyListState(
+//        initialFirstVisibleItemIndex = minutesMiddleIndex.coerceIn(0, minutes.size - 1)
+//    )
+//
+//    LaunchedEffect(currentHour) {
+//        snappedTime = snappedTime.withHour(currentHour)
+//        val offset = rowCount / 2
+//        val currentCenter = hourListState.firstVisibleItemIndex + offset
+//        val maxK = (longHoursRange.size - 1 - currentHour) / hoursCycle
+//        val candidates = (0..maxK).map { currentHour + it * hoursCycle }
+//        val closest = candidates.minByOrNull { kotlin.math.abs(it - currentCenter) } ?: 0
+//        scope.launch {
+//            hourListState.animateScrollToItem(closest.coerceIn(0, hours.size - 1))
+//        }
+//    }
+//
+//    LaunchedEffect(currentMinute) {
+//        snappedTime = snappedTime.withMinute(currentMinute)
+//        val offset = rowCount / 2
+//        val currentCenter = minuteListState.firstVisibleItemIndex + offset
+//        val maxK = (longMinutesRange.size - 1 - currentMinute) / minutesCycle
+//        val candidates = (0..maxK).map { currentMinute + it * minutesCycle }
+//        val closest = candidates.minByOrNull { kotlin.math.abs(it - currentCenter) } ?: 0
+//        scope.launch {
+//            minuteListState.animateScrollToItem(closest.coerceIn(0, minutes.size - 1))
+//        }
+//    }
+//
+//    Box(
+//        modifier = Modifier
+//            .fillMaxWidth(),
+//        contentAlignment = Alignment.Center
+//    ) {
+//        Box(
+//            modifier = Modifier
+//                .padding(horizontal = 16.dp)
+//                .fillMaxWidth()
+//                .height(height / rowCount)
+//                .background(
+//                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f),
+//                    shape = Shapes.small
+//                )
+//                .noRippleEffect(onChangeEditTime)
+//        )
+//        Row(
+//            modifier = Modifier.fillMaxWidth(),
+//            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
+//        ) {
+//            val textStyle = MaterialTheme.typography.bodyLarge
+//            val textColor = MaterialTheme.colorScheme.primary
+//
+//            MyWheelTextPicker(
+//                modifier = Modifier
+//                    .width(60.dp),
+//                lazyListState = hourListState,
+//                height = height,
+//                texts = hours.map { it.text },
+//                rowCount = rowCount,
+//                style = textStyle,
+//                color = textColor,
+//                contentArrangement = Arrangement.Center,
+//                dampingRatio = dampingRatio,
+//                stiffness = stiffness,
+//                frictionMultiplier = frictionMultiplier
+//            ) { snappedIndex ->
+//
+//                val newHour =
+//                    hours.getOrNull(snappedIndex)?.value ?: return@MyWheelTextPicker snappedIndex
+//
+//                val newTime = snappedTime.withHour(newHour)
+//
+//                if (newTime.compareTo(minTime) >= 0 && newTime.compareTo(maxTime) <= 0) {
+//                    snappedTime = newTime
+//                    if (!isEditing) {
+//                        onHourChange(newHour)
+//                    }
+//                    return@MyWheelTextPicker snappedIndex
+//                } else {
+//                    val offset = rowCount / 2
+//                    val currentCenter = hourListState.firstVisibleItemIndex + offset
+//                    val maxK = (longHoursRange.size - 1 - snappedTime.hour) / hoursCycle
+//                    val candidates = (0..maxK).map { snappedTime.hour + it * hoursCycle }
+//                    val closest =
+//                        candidates.minByOrNull { kotlin.math.abs(it - currentCenter) }
+//                            ?: snappedIndex
+//                    return@MyWheelTextPicker closest
+//                }
+//            }
+//
+//            Box(
+//                modifier = Modifier
+//                    .height(height),
+//                contentAlignment = Alignment.Center
+//            ) {
+//                Text(
+//                    text = ":",
+//                    style = textStyle,
+//                    color = textColor
+//                )
+//            }
+//
+//            MyWheelTextPicker(
+//                modifier = Modifier
+//                    .width(60.dp),
+//                lazyListState = minuteListState,
+//                height = height,
+//                texts = minutes.map { it.text },
+//                rowCount = rowCount,
+//                style = textStyle,
+//                color = textColor,
+//                contentArrangement = Arrangement.Center,
+//                dampingRatio = Spring.DampingRatioLowBouncy,
+//                stiffness = Spring.StiffnessLow,
+//                frictionMultiplier = 0.5f
+//            ) { snappedIndex ->
+//
+//                val newMinute =
+//                    minutes.getOrNull(snappedIndex)?.value ?: return@MyWheelTextPicker snappedIndex
+//
+//                val newTime = snappedTime.withMinute(newMinute)
+//                if (newTime.compareTo(minTime) >= 0 && newTime.compareTo(maxTime) <= 0) {
+//                    snappedTime = newTime
+//                    if (!isEditing) {
+//                        onMinuteChange(newMinute)
+//                    }
+//                    return@MyWheelTextPicker snappedIndex
+//                } else {
+//                    val offset = rowCount / 2
+//                    val currentCenter = minuteListState.firstVisibleItemIndex + offset
+//                    val maxK = (longMinutesRange.size - 1 - snappedTime.minute) / minutesCycle
+//                    val candidates = (0..maxK).map { snappedTime.minute + it * minutesCycle }
+//                    val closest = candidates.minByOrNull { kotlin.math.abs(it - currentCenter) }
+//                        ?: snappedIndex
+//                    return@MyWheelTextPicker closest
+//                }
+//            }
+//        }
+//    }
+//}
 
-@Composable
-fun TimeScrollPicker(
-    currentHour: Int,
-    currentMinute: Int,
-    isEditing: Boolean,
-    minTime: LocalTime = LocalTime.MIN(),
-    maxTime: LocalTime = LocalTime.MAX(),
-    rowCount: Int = 5,
-    height: Dp = 128.dp,
-    onHourChange: (Int) -> Unit,
-    onMinuteChange: (Int) -> Unit,
-    onChangeEditTime: () -> Unit,
-    dampingRatio: Float = Spring.DampingRatioLowBouncy, // Регулируемый параметр: низкое сопротивление для длительного затухания
-    stiffness: Float = Spring.StiffnessLow, // Регулируемый параметр: меньшая жесткость для плавного замедления
-    frictionMultiplier: Float = 0.5f // Регулируемый параметр: уменьшение трения для большей инерции
-) {
-    val scope = rememberCoroutineScope()
-
-    var snappedTime by remember {
-        mutableStateOf(
-            LocalTime(
-                hour = currentHour,
-                minute = currentMinute
-            )
-        )
-    }
-
-    val hoursRange = (0..23)
-    val hoursCycle = hoursRange.count()
-    val longHoursRange =
-        List(500) { (it % hoursCycle) }
-
-    val hours = longHoursRange.mapIndexed { index, value ->
-        Hour(
-            text = value.toString().padStart(2, '0'),
-            value = value,
-            index = index
-        )
-    }
-
-    val minutesRange = (0..59)
-    val minutesCycle = minutesRange.count()
-    val longMinutesRange =
-        List(500) { (it % minutesCycle) }
-    val minutes = longMinutesRange.mapIndexed { index, value ->
-        Minute(
-            text = value.toString().padStart(2, '0'),
-            value = value,
-            index = index
-        )
-    }
-
-    val hoursMiddleCycle = (longHoursRange.size / 2) / hoursCycle
-    val hoursMiddleIndex = hoursMiddleCycle * hoursCycle + currentHour
-
-    val minutesMiddleCycle = (longMinutesRange.size / 2) / minutesCycle
-    val minutesMiddleIndex = minutesMiddleCycle * minutesCycle + currentMinute
-
-    val hourListState = rememberLazyListState(
-        initialFirstVisibleItemIndex = hoursMiddleIndex.coerceIn(0, hours.size - 1)
-    )
-    val minuteListState = rememberLazyListState(
-        initialFirstVisibleItemIndex = minutesMiddleIndex.coerceIn(0, minutes.size - 1)
-    )
-
-    LaunchedEffect(currentHour) {
-        snappedTime = snappedTime.withHour(currentHour)
-        val offset = rowCount / 2
-        val currentCenter = hourListState.firstVisibleItemIndex + offset
-        val maxK = (longHoursRange.size - 1 - currentHour) / hoursCycle
-        val candidates = (0..maxK).map { currentHour + it * hoursCycle }
-        val closest = candidates.minByOrNull { kotlin.math.abs(it - currentCenter) } ?: 0
-        scope.launch {
-            hourListState.animateScrollToItem(closest.coerceIn(0, hours.size - 1))
-        }
-    }
-
-    LaunchedEffect(currentMinute) {
-        snappedTime = snappedTime.withMinute(currentMinute)
-        val offset = rowCount / 2
-        val currentCenter = minuteListState.firstVisibleItemIndex + offset
-        val maxK = (longMinutesRange.size - 1 - currentMinute) / minutesCycle
-        val candidates = (0..maxK).map { currentMinute + it * minutesCycle }
-        val closest = candidates.minByOrNull { kotlin.math.abs(it - currentCenter) } ?: 0
-        scope.launch {
-            minuteListState.animateScrollToItem(closest.coerceIn(0, minutes.size - 1))
-        }
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth(),
-        contentAlignment = Alignment.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .padding(horizontal = 16.dp)
-                .fillMaxWidth()
-                .height(height / rowCount)
-                .background(
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f),
-                    shape = Shapes.small
-                )
-                .noRippleEffect(onChangeEditTime)
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
-        ) {
-            val textStyle = MaterialTheme.typography.bodyLarge
-            val textColor = MaterialTheme.colorScheme.primary
-
-            MyWheelTextPicker(
-                modifier = Modifier
-                    .width(60.dp),
-                lazyListState = hourListState,
-                height = height,
-                texts = hours.map { it.text },
-                rowCount = rowCount,
-                style = textStyle,
-                color = textColor,
-                contentArrangement = Arrangement.Center,
-                dampingRatio = dampingRatio,
-                stiffness = stiffness,
-                frictionMultiplier = frictionMultiplier
-            ) { snappedIndex ->
-
-                val newHour =
-                    hours.getOrNull(snappedIndex)?.value ?: return@MyWheelTextPicker snappedIndex
-
-                val newTime = snappedTime.withHour(newHour)
-
-                if (newTime.compareTo(minTime) >= 0 && newTime.compareTo(maxTime) <= 0) {
-                    snappedTime = newTime
-                    if (!isEditing) {
-                        onHourChange(newHour)
-                    }
-                    return@MyWheelTextPicker snappedIndex
-                } else {
-                    val offset = rowCount / 2
-                    val currentCenter = hourListState.firstVisibleItemIndex + offset
-                    val maxK = (longHoursRange.size - 1 - snappedTime.hour) / hoursCycle
-                    val candidates = (0..maxK).map { snappedTime.hour + it * hoursCycle }
-                    val closest =
-                        candidates.minByOrNull { kotlin.math.abs(it - currentCenter) }
-                            ?: snappedIndex
-                    return@MyWheelTextPicker closest
-                }
-            }
-
-            Box(
-                modifier = Modifier
-                    .height(height),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = ":",
-                    style = textStyle,
-                    color = textColor
-                )
-            }
-
-            MyWheelTextPicker(
-                modifier = Modifier
-                    .width(60.dp),
-                lazyListState = minuteListState,
-                height = height,
-                texts = minutes.map { it.text },
-                rowCount = rowCount,
-                style = textStyle,
-                color = textColor,
-                contentArrangement = Arrangement.Center,
-                dampingRatio = Spring.DampingRatioLowBouncy,
-                stiffness = Spring.StiffnessLow,
-                frictionMultiplier = 0.5f
-            ) { snappedIndex ->
-
-                val newMinute =
-                    minutes.getOrNull(snappedIndex)?.value ?: return@MyWheelTextPicker snappedIndex
-
-                val newTime = snappedTime.withMinute(newMinute)
-                if (newTime.compareTo(minTime) >= 0 && newTime.compareTo(maxTime) <= 0) {
-                    snappedTime = newTime
-                    if (!isEditing) {
-                        onMinuteChange(newMinute)
-                    }
-                    return@MyWheelTextPicker snappedIndex
-                } else {
-                    val offset = rowCount / 2
-                    val currentCenter = minuteListState.firstVisibleItemIndex + offset
-                    val maxK = (longMinutesRange.size - 1 - snappedTime.minute) / minutesCycle
-                    val candidates = (0..maxK).map { snappedTime.minute + it * minutesCycle }
-                    val closest = candidates.minByOrNull { kotlin.math.abs(it - currentCenter) }
-                        ?: snappedIndex
-                    return@MyWheelTextPicker closest
-                }
-            }
-        }
-    }
-}
-
-
-@Composable
-fun TimeInputOverlay(
-    onHourChange: (Int) -> Unit,
-    onMinuteChange: (Int) -> Unit,
-    onDone: () -> Unit
-) {
-    var timeText by remember {
-        mutableStateOf("")
-    }
-
-    val haptic = LocalHapticFeedback.current
-
-    val focusRequester = remember { FocusRequester() }
-
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
-
-    val textStyle = MaterialTheme.typography.bodyLarge
-    val textColor = MaterialTheme.colorScheme.primary
-
-    Box(
-        modifier = Modifier
-            .wrapContentWidth(),
-        contentAlignment = Alignment.Center
-    ) {
-        BasicTextField(
-            value = timeText,
-            onValueChange = { newValue ->
-                val processedValue = if (newValue.length > 4) {
-                    newValue.takeLast(4)
-                } else {
-                    newValue
-                }
-
-                if (processedValue.all { it.isDigit() }) {
-                    timeText = processedValue
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-
-                    val len = timeText.length
-                    if (len > 0) {
-                        val d = timeText.map { it.digitToInt() }
-                        when (len) {
-                            1 -> {
-                                var newM = d[0]
-                                if (newM > 59) newM = d[0] // impossible for single digit
-                                onMinuteChange(newM)
-                            }
-
-                            2 -> {
-                                var newM = d[0] * 10 + d[1]
-                                if (newM > 59) newM = d[1]
-                                onMinuteChange(newM)
-                            }
-
-                            3 -> {
-                                var newH = d[0]
-                                if (newH > 23) newH = d[0] // impossible
-                                onHourChange(newH)
-
-                                var newM = d[1] * 10 + d[2]
-                                if (newM > 59) newM = d[2]
-                                onMinuteChange(newM)
-                            }
-
-                            4 -> {
-                                var newH = d[0] * 10 + d[1]
-                                if (newH > 23) newH = d[1]
-                                onHourChange(newH)
-
-                                var newM = d[2] * 10 + d[3]
-                                if (newM > 59) newM = d[3]
-                                onMinuteChange(newM)
-                            }
-                        }
-                    }
-                }
-            },
-            modifier = Modifier
-                .wrapContentWidth()
-                .focusRequester(focusRequester),
-            textStyle = TextStyle(
-                fontFamily = textStyle.fontFamily,
-                fontSize = textStyle.fontSize,
-                textAlign = TextAlign.Center,
-                color = Color.Transparent,
-            ),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            keyboardActions = KeyboardActions(
-                onDone = { onDone() }
-            ),
-            cursorBrush = SolidColor(Color.Transparent),
-            singleLine = true,
-            decorationBox = { innerTextField ->
-                innerTextField()
-            }
-        )
-    }
-}
+//
+//@Composable
+//private fun TimeInputOverlay(
+//    onHourChange: (Int) -> Unit,
+//    onMinuteChange: (Int) -> Unit,
+//    onDone: () -> Unit
+//) {
+//    var timeText by remember {
+//        mutableStateOf("")
+//    }
+//
+//    val haptic = LocalHapticFeedback.current
+//
+//    val focusRequester = remember { FocusRequester() }
+//
+//    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+//
+//    val textStyle = MaterialTheme.typography.bodyLarge
+//    val textColor = MaterialTheme.colorScheme.primary
+//
+//    Box(
+//        modifier = Modifier
+//            .wrapContentWidth(),
+//        contentAlignment = Alignment.Center
+//    ) {
+//        BasicTextField(
+//            value = timeText,
+//            onValueChange = { newValue ->
+//                val processedValue = if (newValue.length > 4) {
+//                    newValue.takeLast(4)
+//                } else {
+//                    newValue
+//                }
+//
+//                if (processedValue.all { it.isDigit() }) {
+//                    timeText = processedValue
+//                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+//
+//                    val len = timeText.length
+//                    if (len > 0) {
+//                        val d = timeText.map { it.digitToInt() }
+//                        when (len) {
+//                            1 -> {
+//                                var newM = d[0]
+//                                if (newM > 59) newM = d[0] // impossible for single digit
+//                                onMinuteChange(newM)
+//                            }
+//
+//                            2 -> {
+//                                var newM = d[0] * 10 + d[1]
+//                                if (newM > 59) newM = d[1]
+//                                onMinuteChange(newM)
+//                            }
+//
+//                            3 -> {
+//                                var newH = d[0]
+//                                if (newH > 23) newH = d[0] // impossible
+//                                onHourChange(newH)
+//
+//                                var newM = d[1] * 10 + d[2]
+//                                if (newM > 59) newM = d[2]
+//                                onMinuteChange(newM)
+//                            }
+//
+//                            4 -> {
+//                                var newH = d[0] * 10 + d[1]
+//                                if (newH > 23) newH = d[1]
+//                                onHourChange(newH)
+//
+//                                var newM = d[2] * 10 + d[3]
+//                                if (newM > 59) newM = d[3]
+//                                onMinuteChange(newM)
+//                            }
+//                        }
+//                    }
+//                }
+//            },
+//            modifier = Modifier
+//                .wrapContentWidth()
+//                .focusRequester(focusRequester),
+//            textStyle = TextStyle(
+//                fontFamily = textStyle.fontFamily,
+//                fontSize = textStyle.fontSize,
+//                textAlign = TextAlign.Center,
+//                color = Color.Transparent,
+//            ),
+//            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+//            keyboardActions = KeyboardActions(
+//                onDone = { onDone() }
+//            ),
+//            cursorBrush = SolidColor(Color.Transparent),
+//            singleLine = true,
+//            decorationBox = { innerTextField ->
+//                innerTextField()
+//            }
+//        )
+//    }
+//}
 
 
 class DateTimePickerViewModel(initialTimestamp: Long? = null) {

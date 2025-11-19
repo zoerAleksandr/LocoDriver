@@ -73,6 +73,17 @@ val verticalSlideOutPopEnterTransition =
 val popupExitTransition: ExitTransition = fadeOut(
     animationSpec = tween(durationMillis = transitionDuration)
 )
+
+@ExperimentalAnimationApi
+val fadeInTransition = fadeIn(
+    animationSpec = tween(durationMillis = transitionDuration)
+)
+
+@ExperimentalAnimationApi
+val fadeOutTransition = fadeOut(
+    animationSpec = tween(durationMillis = transitionDuration)
+)
+
 @ExperimentalAnimationApi
 fun NavGraphBuilder.composableScreen(
     route: String,
@@ -114,10 +125,10 @@ fun NavGraphBuilder.composablePopup(
         route,
         arguments,
         deepLinks,
-        enterTransition = { verticalSlideInEnterTransition },
-        exitTransition = { popupExitTransition },
-        popEnterTransition = { verticalSlideOutPopEnterTransition },
-        popExitTransition = { popupExitTransition },
+        enterTransition = { fadeInTransition },
+        exitTransition = { fadeOutTransition },
+        popEnterTransition = { fadeInTransition },
+        popExitTransition = { fadeOutTransition },
         content
     )
 }

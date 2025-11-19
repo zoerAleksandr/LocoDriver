@@ -2,6 +2,7 @@ package com.z_company.route.navigation
 
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.navigation.NavGraphBuilder
+import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import com.z_company.core.ui.navigation.composablePopup
 import com.z_company.core.ui.navigation.composableScreen
@@ -22,8 +23,13 @@ fun NavGraphBuilder.homeGraph(
         route = HomeFeature.route,
         startDestination = startDestination
     ) {
-        composableScreen(
+        composable(
             route = HomeRoute.route,
+            // CHANGED: Set no animations (null) for HomeRoute to remove horizontal/vertical
+            enterTransition = null,
+            exitTransition = null,
+            popEnterTransition = null,
+            popExitTransition = null
         ) {
             MainDestination(router = router)
         }
@@ -76,37 +82,37 @@ fun NavGraphBuilder.homeGraph(
         ) { navBackStackEntry ->
             ViewingImageDestination(router = router, navBackStackEntry = navBackStackEntry)
         }
-        composableScreen(
+        composablePopup(
             route = SearchRoute.route
         ) {
             SearchDestination(router = router)
         }
-        composableScreen(
+        composablePopup(
             route = PurchasesRoute.route
         ) {
             PurchasesDestination(router = router)
         }
-        composableScreen(
+        composablePopup(
             route = MoreInfoRoute.route
         ) { navBackStackEntry ->
             MoreInfoDestination(router = router, backStackEntry = navBackStackEntry)
         }
-        composableScreen(
+        composablePopup(
             route = SalaryCalculationRoute.route
         ) {
             SalaryCalculationDestination(router = router)
         }
-        composableScreen(
+        composablePopup(
             route = SettingSalaryRoute.route
         ) {
             SettingSalaryDestination(router = router)
         }
-        composableScreen(
+        composablePopup(
             route = UpdatePresentationBlockRoute.route
         ){
             UpdatePresentationBlockDestination(router = router)
         }
-        composableScreen(
+        composablePopup(
             route = WorkScheduleScreenRoute.route
         ){
             WorkScheduleDestination(router = router)
@@ -116,10 +122,10 @@ fun NavGraphBuilder.homeGraph(
         ){
             AllRouteScreenDestination(router = router)
         }
-        composableScreen(SettingsScreenRoute.route) {
+        composablePopup(SettingsScreenRoute.route) {
             SettingDestination(router = router)
         }
-        composableScreen(SelectReleaseDaysScreenRoute.route) {
+        composablePopup(SelectReleaseDaysScreenRoute.route) {
             SelectReleaseDaysDestination(router = router)
         }
     }

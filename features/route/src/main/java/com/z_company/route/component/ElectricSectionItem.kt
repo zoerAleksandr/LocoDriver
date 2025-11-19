@@ -7,14 +7,12 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -26,24 +24,21 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
+import com.z_company.route.component.OutlinedTextFieldApp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.Shapes
-import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.domain.util.CalculationEnergy.getTotalEnergyConsumption
 import com.z_company.route.R
 import com.z_company.route.viewmodel.ElectricSectionFormState
@@ -255,13 +250,6 @@ fun ElectricSectionItem(
                                 }
                             }),
                             singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                focusedBorderColor = Color.Transparent,
-                                unfocusedBorderColor = Color.Transparent
-                            ),
-                            shape = Shapes.medium,
                         )
 
                         OutlinedTextFieldApp(
@@ -285,13 +273,6 @@ fun ElectricSectionItem(
                                 }
                             }),
                             singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                focusedBorderColor = Color.Transparent,
-                                unfocusedBorderColor = Color.Transparent
-                            ),
-                            shape = Shapes.medium,
                         )
                     }
                 }
@@ -337,13 +318,6 @@ fun ElectricSectionItem(
                                     }
                                 }),
                                 singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent
-                                ),
-                                shape = Shapes.medium,
                             )
 
                             OutlinedTextFieldApp(
@@ -375,13 +349,6 @@ fun ElectricSectionItem(
                                 }),
 
                                 singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent
-                                ),
-                                shape = Shapes.medium,
                             )
                         }
 
@@ -422,13 +389,6 @@ fun ElectricSectionItem(
                                         }
                                     }),
                                     singleLine = true,
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                        focusedBorderColor = Color.Transparent,
-                                        unfocusedBorderColor = Color.Transparent
-                                    ),
-                                    shape = Shapes.medium,
                                 )
 
                                 OutlinedTextFieldApp(
@@ -460,13 +420,6 @@ fun ElectricSectionItem(
                                     }),
 
                                     singleLine = true,
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                        focusedBorderColor = Color.Transparent,
-                                        unfocusedBorderColor = Color.Transparent
-                                    ),
-                                    shape = Shapes.medium,
                                 )
                             }
                         }

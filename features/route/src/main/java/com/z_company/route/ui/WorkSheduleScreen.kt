@@ -50,6 +50,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
@@ -74,6 +75,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.component.AutoSizeText
+import com.z_company.core.ui.component.TimePickerApp
 import com.z_company.core.ui.component.TimePickerDialog
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.ui.theme.Shapes
@@ -85,7 +87,7 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.route.R
 import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.BottomSheetAction
-import com.z_company.route.component.Chip
+import com.z_company.route.component.ChipApp
 import com.z_company.route.viewmodel.WorkScheduleViewModel
 import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
 import kotlinx.coroutines.FlowPreview
@@ -392,6 +394,7 @@ fun WorkScheduleScreen(
             }
         }
     }
+
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         modifier = modifier.fillMaxSize()
@@ -404,7 +407,6 @@ fun WorkScheduleScreen(
             modifier = modifier
                 .padding(12.dp)
         ) {
-            // Title + open month picker
             item {
                 Row(
                     modifier = Modifier
@@ -426,19 +428,19 @@ fun WorkScheduleScreen(
                     ) {
                         Text(
                             text = currentMonth?.let { getMonthFullText(it.month) } ?: "Месяц",
-                            style = AppTypography.getType().headlineSmall,
-                            color = MaterialTheme.colorScheme.onBackground
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary
                         )
                         Text(
                             text = currentMonth?.let { (it.year.toString()) } ?: "Год",
-                            style = AppTypography.getType().headlineSmall,
-                            color = MaterialTheme.colorScheme.onBackground
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
 
                     IconButton(onClick = { viewModel.toggleDeleteMode() }) {
                         val tint =
-                            if (isDeleteMode) red else MaterialTheme.colorScheme.onBackground
+                            if (isDeleteMode) red else MaterialTheme.colorScheme.primary
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = null,
@@ -450,11 +452,9 @@ fun WorkScheduleScreen(
 
             item {
                 Text(
-                    style = AppTypography.getType().headlineMedium.copy(
-                        fontWeight = FontWeight.Medium,
-                    ),
+                    style = MaterialTheme.typography.titleMedium,
                     text = ConverterLongToTime.getTimeInStringFormat(totalTimeWork),
-                    color = MaterialTheme.colorScheme.onBackground
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
 
@@ -480,6 +480,8 @@ fun WorkScheduleScreen(
                     ) {
                         Text(
                             text = "Режим удаления маршрутов",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier
                                 .padding(8.dp)
                         )
@@ -546,8 +548,6 @@ fun WorkScheduleScreen(
                             24.dp + unifiedCellHeightDpOrDefault() // реализуйте fallback функцию
                         }
 
-                    Log.d("zzz", "calendarHeightDp $calendarHeightDp")
-
                     Box(
                         modifier = Modifier
                             .animateItemPlacement()
@@ -574,6 +574,8 @@ fun WorkScheduleScreen(
             }
             // Row of time buttons
             item {
+                val minChipHeight = 24.dp
+
                 AnimatedVisibility(
                     visible = !isDeleteMode,
                     enter = fadeIn(
@@ -589,16 +591,12 @@ fun WorkScheduleScreen(
                     FlowRow(
                         modifier = Modifier
                             .animateItemPlacement(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(space = 6.dp),
+                        verticalArrangement = Arrangement.spacedBy(space = 6.dp),
                     ) {
-                        // We will display default times + custom times from viewModel._timeButtons mutable list.
-                        // But since timeButtons exposes only snapshot in our simplified implementation,
-                        // we create a small local list that includes built-ins and any extras from viewModel.addCustomTime() call.
-                        // ensure we sync with viewModel underlying list (best-effort)
                         timeButtonsState.forEach { time ->
                             val selected = time == activeTime
-                            Chip(
+                            ChipApp(
                                 modifier = Modifier
                                     .onGloballyPositioned { coordinates ->
                                         chipHeightPx = coordinates.size.height
@@ -606,25 +604,27 @@ fun WorkScheduleScreen(
                                 label = ConverterLongToTime.getTimeInStringFormat(time),
                                 selected = time == activeTime,
                                 onClick = {
-                                    if (selected) viewModel.setActiveTime(null) else viewModel.setActiveTime(
-                                        time
-                                    )
+                                    if (selected) viewModel.setActiveTime(null)
+                                    else viewModel.setActiveTime(time)
                                 },
                                 onLongClick = {
                                     viewModel.setActiveTime(time)
                                     showRemoveSheet = true
                                 },
-                                selectedBackgroundColor = green
+                                selectedBackgroundColor = MaterialTheme.colorScheme.tertiary
                             )
                         }
 
-                        Button(
+                        TextButton(
                             modifier = Modifier
-                                .height(chipHeightDp),
-                            shape = Shapes.medium,
+                                .height(chipHeightDp.coerceAtLeast(minChipHeight)),
                             onClick = { showCustomTimeSheet = true }
                         ) {
-                            Text("Добавить время")
+                            Text(
+                                text = "Добавить время",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
                         }
                     }
                 }
@@ -647,12 +647,15 @@ fun WorkScheduleScreen(
                             .fillMaxWidth()
                             .height(chipHeightDp),
                         shape = Shapes.medium,
-                        colors = ButtonDefaults.buttonColors(containerColor = green),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                            contentColor = MaterialTheme.colorScheme.secondary
+                        ),
                         onClick = {
                             showEndTimeSheet = true
                         },
                     ) {
-                        Text("Сохранить маршруты")
+                        Text("Сохранить маршруты", style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
@@ -674,12 +677,15 @@ fun WorkScheduleScreen(
                             .fillMaxWidth()
                             .height(chipHeightDp),
                         shape = Shapes.medium,
-                        colors = ButtonDefaults.buttonColors(containerColor = red),
+                        colors = ButtonDefaults.buttonColors(
+                            contentColor = MaterialTheme.colorScheme.secondary,
+                            containerColor = red
+                        ),
                         onClick = {
                             viewModel.resetSelectedDays()
                         },
                     ) {
-                        Text("Сбросить")
+                        Text("Сбросить", style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
@@ -703,10 +709,13 @@ fun WorkScheduleScreen(
                             .fillMaxWidth()
                             .height(chipHeightDp),
                         shape = Shapes.medium,
-                        colors = ButtonDefaults.buttonColors(containerColor = red),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = red,
+                            contentColor = MaterialTheme.colorScheme.secondary
+                            ),
                         onClick = { showDialogConfirmRemoveRoute = true },
                     ) {
-                        Text("Удалить выбранные ($totalSelectedRoutes)")
+                        Text(text = "Удалить выбранные ($totalSelectedRoutes)", style = MaterialTheme.typography.bodySmall)
                     }
                 }
 
@@ -752,11 +761,11 @@ fun WorkScheduleScreen(
             ) {
                 Text(
                     text = "Выберите маршруты для удаления",
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary
                 )
                 Spacer(Modifier.height(8.dp))
 
-//                var selectedIds by remember { mutableStateOf(dialogSelectedIds.toMutableSet()) }
                 var selectedIds by remember { mutableStateOf(dialogSelectedIds.toSet()) }
                 dialogRoutes.forEach { route ->
                     val id = route.basicData.id
@@ -783,7 +792,13 @@ fun WorkScheduleScreen(
                             }
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text(text = label, modifier = Modifier.weight(1f))
+
+                        Text(
+                            text = label,
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
 
@@ -795,14 +810,21 @@ fun WorkScheduleScreen(
                     Button(
                         shape = Shapes.medium,
                         onClick = {
-                            // отправляем выбор в ViewModel и закрываем диалог
                             viewModel.setSelectedRoutesForDay(dialogDay, selectedIds.toSet())
                             showDeleteDialog = false
                         }) {
-                        Text("Подтвердить")
+                        Text(
+                            text = "Удалить",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
                     OutlinedButton(shape = Shapes.medium, onClick = { showDeleteDialog = false }) {
-                        Text("Отмена")
+                        Text(
+                            text = "Отмена",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
             }
@@ -839,7 +861,7 @@ fun WorkScheduleScreen(
                 ) {
                     Text(
                         text = "Выберите месяц и год",
-                        style = AppTypography.getType().titleMedium,
+                        style = MaterialTheme.typography.titleSmall,
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
 
@@ -858,7 +880,7 @@ fun WorkScheduleScreen(
                     ) {
                         monthList.forEach { m ->
                             val selected = selectedMonth == m
-                            Chip(
+                            ChipApp(
                                 selected = selected,
                                 onClick = { selectedMonth = m },
                                 label = getMonthFullText(m)
@@ -876,7 +898,7 @@ fun WorkScheduleScreen(
                     ) {
                         yearList.forEach { y ->
                             val selected = selectedYear == y
-                            Chip(
+                            ChipApp(
                                 selected = selected,
                                 onClick = { selectedYear = y },
                                 label = "$y"
@@ -890,10 +912,18 @@ fun WorkScheduleScreen(
                             viewModel.setCurrentMonth(selectedYear to selectedMonth)
                             showMonthSheet = false
                         },
+                        colors = ButtonDefaults.buttonColors(
+                            contentColor = MaterialTheme.colorScheme.secondary,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                        ),
                         modifier = Modifier.fillMaxWidth(),
                         shape = Shapes.medium
                     ) {
-                        Text("Применить")
+                        Text(
+                            text = "Применить",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
 
                     }
                     Spacer(modifier = Modifier.height(24.dp))
@@ -905,48 +935,26 @@ fun WorkScheduleScreen(
 
     // Custom time sheet
     if (showCustomTimeSheet) {
-        TimePickerDialog(
-            timePickerState = timePickerStateTimeStartWork,
-            onDismissRequest = { showCustomTimeSheet = false },
-            isPicker = false,
-            header = "Время явки",
-            showSelectTypeDateTimePicker = false,
-            onConfirmRequest = {
-                val hour = timePickerStateTimeStartWork.hour
-                val minute = timePickerStateTimeStartWork.minute
-                val millis = (hour * 3_600_000L) + (minute * 60_000L)
+        TimePickerApp(
+            onTimeSelected = { millis ->
                 viewModel.addCustomTime(millis)
                 showCustomTimeSheet = false
-            }
+            },
+            onDismiss = { showCustomTimeSheet = false },
+            title = "Время явки"
         )
     }
 
     if (showEndTimeSheet) {
-        TimePickerDialog(
-            timePickerState = timePickerStateWorkDuration,
-            onDismissRequest = {
-                showEndTimeSheet = false
-            },
-            onCancelRequest = {
+        TimePickerApp(
+            onTimeSelected = { millis ->
                 scope.launch {
-                    viewModel.newRouteClick()
+                    viewModel.newRouteClick(millis)
                 }
                 showEndTimeSheet = false
             },
-            showSelectTypeDateTimePicker = false,
-            isPicker = false,
-            header = "Продолжительность работы",
-            cancelText = "Не устонавливать",
-            onConfirmRequest = {
-                val endHour = timePickerStateWorkDuration.hour
-                val endMinute = timePickerStateWorkDuration.minute
-                val endMillisFromMidnight = (endHour * 3_600_000L) + (endMinute * 60_000L)
-                // call save with chosen end time
-                scope.launch {
-                    viewModel.newRouteClick(endMillisFromMidnight)
-                }
-                showEndTimeSheet = false
-            },
+            onDismiss = { showEndTimeSheet = false },
+            title = "Продолжительность работы"
         )
     }
 }
@@ -993,7 +1001,11 @@ private fun CalendarView(
             Box(
                 contentAlignment = Alignment.BottomCenter
             ) {
-                Text(text = day)
+                Text(
+                    text = day,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                )
             }
         }
         items(cells) { day ->
@@ -1043,7 +1055,7 @@ private fun DayCell(
         if (isDeleteMode && isMarkedForDelete) redColor.copy(alpha = 0.4f) else MaterialTheme.colorScheme.secondary
 
     val textColor = if (isDeleteMode && isMarkedForDelete)
-        MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.primary
+        MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
 
     Card(
         modifier = Modifier
@@ -1066,8 +1078,7 @@ private fun DayCell(
             // top row - day number
             Text(
                 text = day.toString(),
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.bodyMedium,
                 color = textColor
             )
 
@@ -1107,7 +1118,7 @@ private fun DayCell(
                         text = label,
                         style = MaterialTheme.typography.bodySmall,
                         color = if (isPlanned) MaterialTheme.colorScheme.tertiary else textColor,
-                        fontWeight = if (isPlanned) FontWeight.Bold else FontWeight.Normal,
+                        fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         maxTextSize = 18.sp
                     )

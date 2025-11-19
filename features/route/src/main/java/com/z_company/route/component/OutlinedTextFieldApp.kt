@@ -12,7 +12,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -52,7 +51,6 @@ fun OutlinedTextFieldApp(
     minLines: Int = 1,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
     shape: Shape = Shapes.medium,
-    colors: TextFieldColors = OutlinedTextFieldDefaults.colors(),
     borderColor: Color = Color.Transparent
 ) {
     val animatedBackgroundColorsNumber by animateColorAsState(
@@ -92,7 +90,7 @@ fun OutlinedTextFieldApp(
             value = value,
             innerTextField = innerTextField,
             enabled = enabled,
-            singleLine = true,
+            singleLine = singleLine,
             interactionSource = interactionSource,
             visualTransformation = VisualTransformation.None,
             label = label,
@@ -143,7 +141,6 @@ fun OutlinedTextFieldApp(
     minLines: Int = 1,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
     shape: Shape = OutlinedTextFieldDefaults.shape,
-    colors: TextFieldColors = OutlinedTextFieldDefaults.colors()
 ) {
     val animatedBackgroundColorsNumber by animateColorAsState(
         targetValue = if (value.text.isEmpty()) MaterialTheme.colorScheme.surface
@@ -182,7 +179,7 @@ fun OutlinedTextFieldApp(
             value = value.text,
             innerTextField = innerTextField,
             enabled = enabled,
-            singleLine = true,
+            singleLine = singleLine,
             interactionSource = interactionSource,
             visualTransformation = VisualTransformation.None,
             label = label,

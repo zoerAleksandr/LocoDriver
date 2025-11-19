@@ -75,8 +75,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Color.Companion.Red
-import androidx.compose.ui.graphics.Color.Companion.Yellow
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
@@ -87,7 +85,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
@@ -97,6 +94,7 @@ import androidx.lifecycle.flowWithLifecycle
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.AsyncDataValue
+import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.ui.component.toDp
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.ui.theme.Shapes
@@ -121,14 +119,13 @@ import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.ItemHomeScreen
 import com.z_company.route.component.LinearPagerIndicator
 import com.z_company.route.component.PieChart
-import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
 import com.z_company.route.viewmodel.home_view_model.ItemState
 import com.z_company.route.viewmodel.home_view_model.UpdateEvent
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.util.Calendar
-import com.z_company.route.component.Chip
+import com.z_company.route.component.ChipApp
 import com.z_company.route.component.PreviewRouteDialog
 import org.koin.compose.koinInject
 
@@ -263,96 +260,6 @@ fun HomeScreen(
     }
 
     var isShowDialogConfirmRemoveRoute by remember { mutableStateOf(false) }
-
-//    var isShowNeedSubscribeDialog by remember {
-//        mutableStateOf(false)
-//    }
-//
-//    var isShowAlertSubscribeDialog by remember {
-//        mutableStateOf(false)
-//    }
-//
-//    if (isShowAlertSubscribeDialog) {
-//        AppBottomSheet(
-//            onDismissRequest = { isShowAlertSubscribeDialog = false },
-//            sheetState = sheetState,
-//            headerContent = {
-//                Column(
-//                    modifier = Modifier
-//                        .fillMaxWidth(),
-//                    horizontalAlignment = Alignment.CenterHorizontally,
-//                ) {
-//                    Text(
-//                        text = "${stringResource(id = R.string.test_period)}\n",
-//                        style = MaterialTheme.typography.titleMedium,
-//                        color = MaterialTheme.colorScheme.primary
-//                    )
-//                    Text(
-//                        text = "${stringResource(id = R.string.available_for_free_route)}\n",
-//                        style = MaterialTheme.typography.bodyLarge,
-//                        color = MaterialTheme.colorScheme.primary
-//                    )
-//                }
-//            },
-//            actions = listOf(
-//                BottomSheetAction(text = stringResource(id = R.string.billing_common_ok)) {
-//                    showFormScreen()
-//                },
-//                BottomSheetAction(text = "Оформить подписку за 44 руб/мес") {
-//                    checkPurchasesAvailability()
-//                }
-//            ),
-//        )
-//    }
-//
-//    if (isShowNeedSubscribeDialog) {
-//        AppBottomSheet(
-//            onDismissRequest = { isShowNeedSubscribeDialog = false },
-//            sheetState = sheetState,
-//            headerContent = {
-//                Column(
-//                    modifier = Modifier
-//                        .fillMaxWidth(),
-//                    horizontalAlignment = Alignment.CenterHorizontally,
-//                ) {
-//                    Text(
-//                        text = "${stringResource(id = R.string.dialog_title_need_purchases)}\n",
-//                        style = MaterialTheme.typography.titleLarge,
-//                        color = MaterialTheme.colorScheme.primary
-//                    )
-//                    Text(
-//                        text = stringResource(id = R.string.available_for_free_route),
-//                        style = MaterialTheme.typography.bodyLarge,
-//                        color = MaterialTheme.colorScheme.primary
-//                    )
-//                }
-//            },
-//            actions = listOf(
-//                BottomSheetAction(text = "Оформить подписку за 44 руб/мес") {
-//                    checkPurchasesAvailability()
-//                },
-//                BottomSheetAction(text = "Восстановить покупки") {
-//                    restorePurchases()
-//                }
-//            )
-//        )
-//    }
-
-//    LaunchedEffect(Unit) {
-//        scope.launch {
-//            alertBeforePurchasesState.flowWithLifecycle(lifecycle).collect { event ->
-//                when (event) {
-//                    is AlertBeforePurchasesEvent.ShowDialogNeedSubscribe -> {
-//                        isShowNeedSubscribeDialog = true
-//                    }
-//
-//                    is AlertBeforePurchasesEvent.ShowDialogAlertSubscribe -> {
-//                        isShowAlertSubscribeDialog = true
-//                    }
-//                }
-//            }
-//        }
-//    }
 
     var routeForPreview by remember {
         mutableStateOf<Route?>(null)
@@ -508,7 +415,7 @@ fun HomeScreen(
                     ) {
                         monthList.forEach { m ->
                             val selected = selectedMonth == m
-                            Chip(
+                            ChipApp(
                                 selected = selected,
                                 onClick = { selectedMonth = m },
                                 label = getMonthFullText(m)
@@ -525,7 +432,7 @@ fun HomeScreen(
                     ) {
                         yearList.forEach { y ->
                             val selected = selectedYear == y
-                            Chip(
+                            ChipApp(
                                 selected = selected,
                                 onClick = { selectedYear = y },
                                 label = "$y"
