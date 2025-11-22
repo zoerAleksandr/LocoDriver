@@ -1,8 +1,8 @@
-package com.z_company.login.navigation
+package com.z_company.route.navigation.login
 
 import androidx.compose.runtime.Composable
 import com.z_company.domain.navigation.Router
-import com.z_company.login.ui.FirstPresentationBlockScreen
+import com.z_company.route.ui.login.FirstPresentationBlockScreen
 
 @Composable
 fun FirstPresentationBlockDestination(router: Router){

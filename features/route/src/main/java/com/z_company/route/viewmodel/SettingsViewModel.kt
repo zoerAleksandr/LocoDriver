@@ -26,11 +26,13 @@ import com.z_company.use_case.AuthUseCase
 import com.z_company.use_case.RemoteRouteUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
@@ -48,6 +50,9 @@ class SettingsViewModel : ViewModel(), KoinComponent {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState = _uiState.asStateFlow()
+
+    private val _saveEvent = Channel<Unit>(Channel.CONFLATED)
+    val saveEvent = _saveEvent.receiveAsFlow()
 
     private var loadSettingsJob: Job? = null
     private var saveSettingsJob: Job? = null
@@ -239,14 +244,14 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         loadCalendarJob?.cancel()
         loadCalendarJob = calendarUseCase.loadFlowMonthOfYearListState().onEach { result ->
 //            if (result is ResultState.Success) {
-                _uiState.update { state ->
-                    state.copy(
-                        monthList = result.map { it.month }.distinct().sorted(),
-                        yearList = result.map { it.year }.distinct().sorted()
-                    )
+            _uiState.update { state ->
+                state.copy(
+                    monthList = result.map { it.month }.distinct().sorted(),
+                    yearList = result.map { it.year }.distinct().sorted()
+                )
 
-                }
             }
+        }
 //        }
             .launchIn(viewModelScope)
     }
@@ -283,13 +288,13 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         viewModelScope.launch {
             calendarUseCase.loadFlowMonthOfYearListState().collect { result ->
 //                if (result is ResultState.Success) {
-                    currentSettings?.let { setting ->
-                        _uiState.update {
-                            it.copy(
-                                calendarState = ResultState.Success(setting.selectMonthOfYear)
-                            )
-                        }
+                currentSettings?.let { setting ->
+                    _uiState.update {
+                        it.copy(
+                            calendarState = ResultState.Success(setting.selectMonthOfYear)
+                        )
                     }
+                }
 //                }
             }
         }
@@ -328,11 +333,14 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                 saveSettingsJob?.cancel()
                 saveSettingsJob = viewModelScope.launch {
                     settingsUseCase.saveSetting(settings).collect { result ->
-                        _uiState.update {
-                            it.copy(
-                                saveSettingsState = result
-                            )
+                        if (result is ResultState.Success) {
+                            _saveEvent.trySend(Unit)
                         }
+//                        _uiState.update {
+//                            it.copy(
+//                                saveSettingsState = result
+//                            )
+//                        }
                     }
                 }
             }
@@ -349,7 +357,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         viewModelScope.launch {
             authUseCase.logout().collect { result ->
                 if (result is ResultState.Success) {
-                    routeUseCase.clearLocalRouteRepository().launchIn(viewModelScope)
+//                    routeUseCase.clearLocalRouteRepository().launchIn(viewModelScope)
                     remoteRouteUseCase.cancelingSync()
                 }
                 _uiState.update {

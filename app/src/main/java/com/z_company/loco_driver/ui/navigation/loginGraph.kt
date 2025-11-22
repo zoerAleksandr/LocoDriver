@@ -1,11 +1,20 @@
-package com.z_company.login.navigation
+package com.z_company.loco_driver.ui.navigation
 
 import android.util.Log
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.navigation
-import com.z_company.domain.navigation.Router
 import com.z_company.core.ui.navigation.composableScreen
+import com.z_company.domain.navigation.Router
+import com.z_company.route.navigation.login.AuthFeature
+import com.z_company.route.navigation.login.FirstPresentationBlockDestination
+import com.z_company.route.navigation.login.FirstPresentationBlockRoute
+import com.z_company.route.navigation.login.LogInDestination
+import com.z_company.route.navigation.login.LogInScreenRoute
+import com.z_company.route.navigation.login.PasswordRecoveryDestination
+import com.z_company.route.navigation.login.RecoveryPasswordRoute
+import com.z_company.route.navigation.login.SignInDestination
+import com.z_company.route.navigation.login.SignInScreenRoute
 
 @ExperimentalAnimationApi
 fun NavGraphBuilder.loginGraph(

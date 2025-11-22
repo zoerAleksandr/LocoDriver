@@ -1,27 +1,24 @@
-package com.z_company.login.viewmodel
+package com.z_company.route.viewmodel.login
 
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.z_company.UserConverter
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.util.isEmailValid
-import com.z_company.login.ui.getMessageThrowable
 import com.z_company.repository.Back4AppManager
 import com.z_company.repository.RemoteRouteRepository
+import com.z_company.route.ui.login.getMessageThrowable
 import com.z_company.use_case.AuthUseCase
 import com.z_company.use_case.LoginUseCase
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
@@ -64,48 +61,52 @@ class SignInViewModel : ViewModel(), KoinComponent {
             val usernameWithoutWhitespace = username.filterNot { it.isWhitespace() }
             val passwordWithoutWhitespace = password.filterNot { it.isWhitespace() }
             loginWithEmailJob?.cancel()
+            _uiState.update {
+                it.copy(
+                    userState = ResultState.Loading()
+                )
+            }
             loginWithEmailJob =
                 authUseCase.loginWithEmail(usernameWithoutWhitespace, passwordWithoutWhitespace)
-                    .onEach { result ->
-                        if (result is ResultState.Error) {
-                            val messageThrowable = getMessageThrowable(result.entity.throwable)
-                            _uiState.update {
-                                it.copy(
-                                    userState = result.copy(
-                                        entity = ErrorEntity(
-                                            Throwable(
-                                                message = messageThrowable
-                                            ),
-                                        )
-                                    )
-                                )
-                            }
-                        } else {
-                            if (result is ResultState.Success) {
-                                viewModelScope.launch {
-                                    loginUseCase.getUser().collect { result ->
-                                        if (result is ResultState.Success) {
-                                            if (result.data.isVerification) {
-                                                loadDataFromRemote()
-                                            }
-                                        }
+                    .onEach { parseUser ->
+                        val user = UserConverter.toData(parseUser)
+                        _uiState.update {
+                            it.copy(
+                                userState = ResultState.Success(user)
+                            )
+                        }
+                        viewModelScope.launch {
+                            loginUseCase.getUser().collect { result ->
+                                if (result is ResultState.Success) {
+                                    if (result.data.isVerification) {
+                                        loadDataFromRemote()
                                     }
                                 }
                             }
-                            _uiState.update {
-                                it.copy(
-                                    userState = result
-                                )
-                            }
                         }
-                    }.launchIn(viewModelScope)
-            delay(TIME_OUT)
-            _uiState.update {
-                it.copy(
-                    userState = ResultState.Error(entity = ErrorEntity(Throwable(message = "Слабый сигнал! Проверьте интернет соединение.")))
-                )
-            }
-            loginWithEmailJob?.cancel()
+                    }
+                    .catch { throwable ->
+                        val messageThrowable = getMessageThrowable(throwable)
+                        _uiState.update {
+                            it.copy(
+                                userState = ResultState.Error(
+                                    entity = ErrorEntity(
+                                        Throwable(
+                                            message = messageThrowable
+                                        ),
+                                    )
+                                )
+                            )
+                        }
+                    }
+                    .launchIn(viewModelScope)
+//            delay(TIME_OUT)
+//            _uiState.update {
+//                it.copy(
+//                    userState = ResultState.Error(entity = ErrorEntity(Throwable(message = "Слабый сигнал! Проверьте интернет соединение.")))
+//                )
+//            }
+//            loginWithEmailJob?.cancel()
         }
     }
 

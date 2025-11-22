@@ -1,4 +1,4 @@
-package com.z_company.login.navigation
+package com.z_company.route.navigation.login
 
 import com.z_company.core.navigation.AppRoutes
 

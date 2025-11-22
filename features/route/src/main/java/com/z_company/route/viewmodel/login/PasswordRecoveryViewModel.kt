@@ -1,9 +1,8 @@
-package com.z_company.login.viewmodel
+package com.z_company.route.viewmodel.login
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.parse.ParseUser
-import com.parse.RequestPasswordResetCallback
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.util.isEmailValid

@@ -3,8 +3,11 @@ package com.z_company.route.component
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -72,7 +75,7 @@ fun OutlinedTextFieldApp(
     )
 
     BasicTextField(
-        modifier = modifier.shadow(elevation = 2.dp, shape = shape),
+        modifier = modifier,
         value = value,
         singleLine = singleLine,
         readOnly = readOnly,
@@ -100,17 +103,29 @@ fun OutlinedTextFieldApp(
             prefix = prefix,
             suffix = suffix,
             placeholder = placeholder,
-            contentPadding = PaddingValues(start = 16.dp, top = 10.dp, end = 16.dp, bottom = 10.dp),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                top = 10.dp,
+                end = 16.dp,
+                bottom = 10.dp
+            ),
             container = {
-                OutlinedTextFieldDefaults.ContainerBox(
-                    enabled = enabled,
-                    isError = isError,
-                    interactionSource = interactionSource,
-                    colors = color,
-                    shape = shape,
-                    focusedBorderThickness = 0.4.dp,
-                    unfocusedBorderThickness = 0.4.dp
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(elevation = 2.dp, shape = shape) // тень только здесь!
+                        .background(animatedBackgroundColorsNumber, shape)   // если нужен фон
+                ) {
+                    OutlinedTextFieldDefaults.ContainerBox(
+                        enabled = enabled,
+                        isError = isError,
+                        interactionSource = interactionSource,
+                        colors = color,
+                        shape = shape,
+                        focusedBorderThickness = 0.4.dp,
+                        unfocusedBorderThickness = 0.4.dp,
+                    )
+                }
             }
         )
     }

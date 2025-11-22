@@ -58,4 +58,6 @@
     <string name="test_period">Пробный период</string>
     <string name="available_for_free_route">Бесплатно доступно 10 маршрутов. </string>
     <string name="subscription_period_has_expired">Cрок подписки истек</string>
+
+    <string name="url_to_license_agreement">https://disk.yandex.ru/i/gTAxov93J0PZRQ</string>
 </resources>

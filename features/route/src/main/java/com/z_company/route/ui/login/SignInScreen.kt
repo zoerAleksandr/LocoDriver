@@ -1,4 +1,4 @@
-package com.z_company.login.ui
+package com.z_company.route.ui.login
 
 import android.app.Activity
 import androidx.compose.foundation.BorderStroke
@@ -14,7 +14,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -34,20 +33,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.z_company.route.R
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.GenericLoading
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.theme.Shapes
-import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.domain.entities.User
-import com.z_company.login.R
-import com.z_company.login.viewmodel.MIN_LENGTH_PASSWORD
+import com.z_company.route.component.OutlinedTextFieldApp
+import com.z_company.route.viewmodel.login.MIN_LENGTH_PASSWORD
 import kotlinx.coroutines.launch
 
 @Composable
@@ -82,17 +79,10 @@ fun SignInScreen(
     val scope = rememberCoroutineScope()
     val paddingBetweenView = 12.dp
 
-    val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
-    val subTitleTextStyle = AppTypography.getType().titleLarge
-        .copy(
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Normal
-        )
-    val styleHint = AppTypography.getType().titleLarge
-        .copy(
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Light
-        )
+    val dataStyle = MaterialTheme.typography.bodyLarge
+    val hintStyle = MaterialTheme.typography.bodyMedium
+    val buttonTextStyle = MaterialTheme.typography.bodySmall
+
     if (userState is ResultState.Loading) {
         GenericLoading(
             message = "Выполняется вход...",
@@ -123,11 +113,10 @@ fun SignInScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .padding(24.dp)
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
         ) {
             Column(
-                modifier = Modifier
-                    .align(Alignment.Center),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -136,31 +125,34 @@ fun SignInScreen(
                     modifier = Modifier
                         .fillMaxWidth(),
                     text = "Вход",
-                    style = AppTypography.getType().headlineMedium.copy(fontWeight = FontWeight.Light)
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
                 )
-                OutlinedTextField(
+
+                OutlinedTextFieldApp(
                     value = email,
                     onValueChange = { setEmail(it) },
-                    placeholder = { Text(text = "email", style = dataTextStyle) },
+                    placeholder = { Text(text = "email", style = dataStyle) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = paddingBetweenView * 5),
+                        .padding(top = paddingBetweenView * 3),
                     singleLine = true,
-                    textStyle = dataTextStyle,
+                    textStyle = dataStyle,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
                 )
-                OutlinedTextField(
+
+                OutlinedTextFieldApp(
                     value = password,
                     onValueChange = { setPassword(it) },
-                    label = { Text(text = "пароль", style = dataTextStyle) },
+                    placeholder = { Text(text = "пароль", style = dataStyle) },
                     modifier = Modifier
                         .padding(top = paddingBetweenView)
                         .fillMaxWidth(),
                     singleLine = true,
-                    textStyle = dataTextStyle,
+                    textStyle = dataStyle,
                     supportingText = {
                         if (password.isNotEmpty() && password.length < MIN_LENGTH_PASSWORD) {
-                            Text(text = "Минимум $MIN_LENGTH_PASSWORD символа")
+                            Text(text = "Минимум $MIN_LENGTH_PASSWORD символа", style = hintStyle)
                         }
                     },
                     visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -184,15 +176,23 @@ fun SignInScreen(
                         .padding(top = paddingBetweenView * 3),
                     onClick = { logInUser(email, password) },
                     shape = Shapes.medium,
-                    enabled = isEnableButtonSignIn
+                    enabled = isEnableButtonSignIn,
+                    elevation = ButtonDefaults.elevatedButtonElevation(
+                        defaultElevation = 2.dp
+                    ),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                        disabledContainerColor = MaterialTheme.colorScheme.surface,
+                    )
                 ) {
-                    Text(text = "Войти", style = subTitleTextStyle)
+                    Text(text = "Войти", style = buttonTextStyle, color = MaterialTheme.colorScheme.secondary)
                 }
+
                 TextButton(
                     modifier = Modifier
                         .padding(top = paddingBetweenView),
                     onClick = { onPasswordRecovery() }) {
-                    Text(text = "Забыли пароль?", style = styleHint)
+                    Text(text = "Забыли пароль?", style = buttonTextStyle, color = MaterialTheme.colorScheme.tertiary)
                 }
 
             }
@@ -203,13 +203,16 @@ fun SignInScreen(
                     .align(Alignment.BottomCenter),
                 onClick = { onRegisteredClick() },
                 shape = Shapes.medium,
+                elevation = ButtonDefaults.elevatedButtonElevation(
+                    defaultElevation = 2.dp
+                ),
                 colors = ButtonDefaults.buttonColors().copy(
                     containerColor = MaterialTheme.colorScheme.background,
                     contentColor = MaterialTheme.colorScheme.primary
                 ),
                 border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary)
             ) {
-                Text(text = "Регистрация", style = subTitleTextStyle)
+                Text(text = "Регистрация", style = buttonTextStyle, color = MaterialTheme.colorScheme.primary)
             }
         }
     }

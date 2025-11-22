@@ -8,7 +8,7 @@ import com.z_company.domain.entities.SearchStateScreen
 fun <T> AsyncData(
     resultState: ResultState<T?>?,
     loadingContent: @Composable () -> Unit = { GenericLoading() },
-    errorContent: @Composable () -> Unit = { GenericError() },
+    errorContent: @Composable (error: ResultState.Error) -> Unit = { GenericError() },
     content: @Composable (data: T?) -> Unit
 ) {
     resultState.let { state ->
@@ -18,7 +18,7 @@ fun <T> AsyncData(
             }
 
             is ResultState.Error -> {
-                errorContent()
+                errorContent(state)
             }
 
             null -> {

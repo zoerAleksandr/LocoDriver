@@ -8,11 +8,12 @@ import com.z_company.core.ResultState.Companion.flowRequest
 import com.z_company.UserConverter
 import com.z_company.domain.entities.User
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 
 class AuthUseCase {
-    fun loginWithEmail(email: String, password: String): Flow<ResultState<User>> {
-        return flowRequest {
-            UserConverter.toData(parseLogIn(email, password))
+    fun loginWithEmail(email: String, password: String): Flow<ParseUser> {
+        return flow {
+            emit(parseLogIn(email, password))
         }
     }
 

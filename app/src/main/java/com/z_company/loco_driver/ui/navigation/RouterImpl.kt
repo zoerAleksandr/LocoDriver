@@ -6,10 +6,6 @@ import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.navigation.Router
-import com.z_company.login.navigation.AuthFeature
-import com.z_company.login.navigation.LogInScreenRoute
-import com.z_company.login.navigation.SignInScreenRoute
-import com.z_company.login.navigation.RecoveryPasswordRoute
 import com.z_company.route.navigation.AllRouteScreenRoute
 import com.z_company.route.navigation.CreatePhotoRoute
 import com.z_company.route.navigation.DetailsRoute
@@ -28,29 +24,37 @@ import com.z_company.route.navigation.SettingSalaryRoute
 import com.z_company.route.navigation.SettingsScreenRoute
 import com.z_company.route.navigation.ViewingImageRoute
 import com.z_company.route.navigation.WorkScheduleScreenRoute
+import com.z_company.route.navigation.login.AuthFeature
+import com.z_company.route.navigation.login.LogInScreenRoute
+import com.z_company.route.navigation.login.RecoveryPasswordRoute
+import com.z_company.route.navigation.login.SignInScreenRoute
 import com.z_company.settings.navigation.SelectReleaseDaysScreenRoute
 import com.z_company.settings.navigation.SettingHomeScreenRoute
-import com.z_company.settings.navigation.SettingsFeature
 
 class RouterImpl(
-    private val navController: NavHostController
 ) : Router {
+    private var navController: NavHostController? = null
+    fun updateNavController(controller: NavHostController) {
+        this.navController = controller
+    }
+    private fun requireNavController() = navController ?: throw IllegalStateException("NavController not set")
+
     override fun showSignIn() {
-        navController.navigate(SignInScreenRoute.route) {
+        requireNavController().navigate(SignInScreenRoute.route) {
             popUpTo(0)
         }
     }
 
     override fun showLogIn() {
-        navController.navigate(LogInScreenRoute.route)
+        requireNavController().navigate(LogInScreenRoute.route)
     }
 
     override fun showRecoveryPassword() {
-        navController.navigate(RecoveryPasswordRoute.route)
+        requireNavController().navigate(RecoveryPasswordRoute.route)
     }
 
     override fun showStartScreen() {
-        navController.navigate(HomeFeature.route) {
+        requireNavController().navigate(HomeFeature.route) {
             popUpTo(AuthFeature.route) {
                 inclusive = true
                 saveState = false
@@ -59,143 +63,145 @@ class RouterImpl(
     }
 
     override fun showHome(startingRoute: String) {
-        navController.navigate(HomeRoute.route) {
-            popUpTo(startingRoute) {
-                inclusive = true
-                saveState = false
+        requireNavController().navigate(HomeRoute.route) {
+            popUpTo(requireNavController().graph.startDestinationId) {  // или popUpTo(HomeFeature.route)
+                inclusive = false
+                saveState = true
             }
+            launchSingleTop = true
+            restoreState = true
         }
     }
 
     override fun showRouteForm(basicId: String?, isMakeCopy: Boolean) {
-        navController.navigate(
+        requireNavController().navigate(
             FormRoute.buildDetailsRoute(basicId, isMakeCopy)
         )
     }
 
     override fun showRouteDetails(basicData: BasicData) {
-        navController.navigate(
+        requireNavController().navigate(
             DetailsRoute.buildDetailsRoute(basicData.id)
         )
     }
 
     override fun showSearch() {
-        navController.navigate(
+        requireNavController().navigate(
             SearchRoute.route
         )
     }
 
     override fun back() {
-        navController.popBackStack()
+        requireNavController().popBackStack()
     }
 
     override fun navigationUp(): Boolean {
-        return navController.navigateUp()
+        return requireNavController().navigateUp()
     }
 
     override fun showChangedLocoForm(locomotive: Locomotive) {
-        navController.navigate(
+        requireNavController().navigate(
             FormLoco.buildDetailsRoute(locomotive.locoId, locomotive.basicId)
         )
     }
 
     override fun showEmptyLocoForm(basicId: String) {
-        navController.navigate(
+        requireNavController().navigate(
             FormLoco.buildDetailsRoute(locoId = null, basicId = basicId)
         )
     }
 
     override fun showChangeTrainForm(train: Train) {
-        navController.navigate(
+        requireNavController().navigate(
             FormTrain.buildDetailsRoute(train.trainId, train.basicId)
         )
     }
 
     override fun showEmptyTrainForm(basicId: String) {
-        navController.navigate(
+        requireNavController().navigate(
             FormTrain.buildDetailsRoute(trainId = null, basicId = basicId)
         )
     }
 
     override fun showChangePassengerForm(passenger: Passenger) {
-        navController.navigate(
+        requireNavController().navigate(
             FormPassenger.buildDetailsRoute(passenger.passengerId, passenger.basicId)
         )
     }
 
     override fun showEmptyPassengerForm(basicId: String) {
-        navController.navigate(
+        requireNavController().navigate(
             FormPassenger.buildDetailsRoute(passengerId = null, basicId = basicId)
         )
     }
 
     override fun showCameraScreen(basicId: String) {
-        navController.navigate(
+        requireNavController().navigate(
             CreatePhotoRoute.buildRoute(basicId)
         )
     }
 
     override fun showPreviewPhotoScreen(photo: String, basicId: String) {
-        navController.navigate(
+        requireNavController().navigate(
             PreviewPhotoRoute.buildRoute(photo, basicId)
         )
     }
 
     override fun showViewingImageScreen(imageId: String) {
-        navController.navigate(
+        requireNavController().navigate(
             ViewingImageRoute.buildRoute(imageId)
         )
     }
 
     override fun showSelectReleaseDayScreen() {
-        navController.navigate(
+        requireNavController().navigate(
             SelectReleaseDaysScreenRoute.route
         )
     }
 
     override fun showPurchasesScreen() {
-        navController.navigate(
+        requireNavController().navigate(
             PurchasesRoute.route
         )
     }
 
     override fun showMoreInfo(monthOfYearId: String) {
-        navController.navigate(
+        requireNavController().navigate(
             MoreInfoRoute.buildRoute(monthOfYearId)
         )
     }
 
     override fun showSalaryCalculation() {
-        navController.navigate(
+        requireNavController().navigate(
             SalaryCalculationRoute.route
         )
     }
 
     override fun showSettingSalary() {
-        navController.navigate(
+        requireNavController().navigate(
             SettingSalaryRoute.route
         )
     }
 
     override fun showSettingHomeScreen() {
-        navController.navigate(
+        requireNavController().navigate(
             SettingHomeScreenRoute.route
         )
     }
 
     override fun showAllRoute() {
-        navController.navigate(
+        requireNavController().navigate(
             AllRouteScreenRoute.route
         )
     }
 
     override fun showWorkScheduleScreen() {
-        navController.navigate(
+        requireNavController().navigate(
             WorkScheduleScreenRoute.route
         )
     }
 
     override fun showSettings() {
-        navController.navigate(SettingsScreenRoute.route)
+        requireNavController().navigate(SettingsScreenRoute.route)
     }
 }

@@ -15,12 +15,10 @@ fun SettingDestination(
     val settingsViewModel: SettingsViewModel = viewModel()
     val uiState by settingsViewModel.uiState.collectAsState()
     SettingsScreen(
+        viewModel = settingsViewModel,
         settingsUiState = uiState,
         currentSettings = settingsViewModel.currentSettings,
         currentUserState = uiState.userDetailsState,
-        resetSaveState = settingsViewModel::resetSaveState,
-        onSaveClick = settingsViewModel::saveSettings,
-        onBack = router::back,
         onSettingSaved = router::back,
         onLogOut = settingsViewModel::logOut,
         onDownloadFromRemote = settingsViewModel::onDownloadFromRemote,
@@ -45,7 +43,6 @@ fun SettingDestination(
         onBillingClick = router::showPurchasesScreen,
         isRefreshing = uiState.isRefreshing,
         onRefresh = settingsViewModel::refreshingUserData,
-        onSettingHomeScreenClick = router::showSettingHomeScreen,
         timeZoneRussiaList = settingsViewModel.timeZoneList,
         setTimeZone = settingsViewModel::setTimeZone,
         servicePhases = uiState.servicePhases,
@@ -54,9 +51,6 @@ fun SettingDestination(
         addServicePhase = settingsViewModel::addServicePhase,
         deleteServicePhase = settingsViewModel::deleteServicePhase,
         updateServicePhase = settingsViewModel::selectToUpdateServicePhase,
-        setInputDateTimeType = settingsViewModel::setInputDateTimeType,
-        inputDateTimeType = uiState.inputDateTimeType,
-        getAllRouteRemote = settingsViewModel::getAllRouteRemote,
         dateAndTimeConverter = uiState.dateAndTimeConverter
     )
 }

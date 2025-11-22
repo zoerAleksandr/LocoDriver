@@ -1,11 +1,11 @@
-package com.z_company.login.navigation
+package com.z_company.route.navigation.login
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import com.z_company.domain.navigation.Router
-import com.z_company.login.ui.SignInScreen
-import com.z_company.login.viewmodel.SignInViewModel
+import com.z_company.route.ui.login.SignInScreen
+import com.z_company.route.viewmodel.login.SignInViewModel
 import org.koin.androidx.compose.koinViewModel
 
 @Composable

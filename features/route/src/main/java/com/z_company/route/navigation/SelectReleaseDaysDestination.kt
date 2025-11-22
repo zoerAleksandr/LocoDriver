@@ -12,8 +12,8 @@ import com.z_company.route.viewmodel.SelectReleaseDaysViewModel
 fun SelectReleaseDaysDestination(router: Router) {
     val viewModel : SelectReleaseDaysViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
+
     SelectReleaseDaysScreen(
-        onBack = router::back,
         onSaveClick = viewModel::saveNormaHours,
         monthOfYear = viewModel.currentMonthOfYear,
         releasePeriodListState = uiState.releaseDaysPeriodState,

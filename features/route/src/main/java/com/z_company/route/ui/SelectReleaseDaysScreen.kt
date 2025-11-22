@@ -6,52 +6,47 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
-import androidx.compose.material3.DateRangePicker
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
-import com.z_company.core.R as CoreR
-import com.z_company.core.ui.theme.custom.AppTypography
-import java.util.Calendar
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Clear
-import androidx.compose.material3.DateRangePickerState
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SheetState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.draw.shadow
 import com.z_company.core.ResultState
+import com.z_company.core.ui.component.DateRangePickerBottomSheet
+import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
@@ -59,13 +54,11 @@ import com.z_company.core.util.MonthFullText.getMonthFullText
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ReleasePeriod
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
-import com.z_company.route.component.DialogSelectMonthOfYear
-import kotlinx.coroutines.launch
+import com.z_company.route.component.ChipApp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SelectReleaseDaysScreen(
-    onBack: () -> Unit,
     onSaveClick: () -> Unit,
     saveReleaseDaysState: ResultState<Unit>?,
     onReleaseDaysSaved: () -> Unit,
@@ -82,29 +75,22 @@ fun SelectReleaseDaysScreen(
         topBar = {
             TopAppBar(
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = ImageVector.vectorResource(id = CoreR.drawable.ic_arrow_back),
-                            contentDescription = stringResource(id = CoreR.string.cd_back)
+                    TextButton(
+                        onClick = onSaveClick,
+                        colors = ButtonDefaults.buttonColors(
+                            disabledContainerColor = Color.Transparent,
+                            disabledContentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                            contentColor = MaterialTheme.colorScheme.tertiary,
+                            containerColor = Color.Transparent
                         )
-                    }
-                },
-                title = {
-                    Text(text = stringResource(id = CoreR.string.norma_hours))
-                },
-                actions = {
-                    TextButton(onClick = onSaveClick) {
+                    ) {
                         Text(
-                            text = "Сохранить",
-                            style = AppTypography.getType().titleLarge
-                                .copy(
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Light,
-                                    color = MaterialTheme.colorScheme.tertiary
-                                ),
+                            text = "Готово",
+                            style = MaterialTheme.typography.bodySmall,
                         )
                     }
                 },
+                title = {},
                 colors = TopAppBarDefaults.topAppBarColors().copy(
                     containerColor = Color.Transparent,
                 )
@@ -131,7 +117,10 @@ fun SelectReleaseDaysScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(
+    ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class,
+    ExperimentalLayoutApi::class
+)
 @Composable
 fun SelectReleaseDaysContent(
     monthOfYear: MonthOfYear?,
@@ -143,58 +132,119 @@ fun SelectReleaseDaysContent(
     selectMonthOfYear: (Pair<Int, Int>) -> Unit,
     dateAndTimeConverter: DateAndTimeConverter?
 ) {
-    val dateRangePickerState = rememberDateRangePickerState()
-    val scope = rememberCoroutineScope()
+    val styleData = MaterialTheme.typography.bodyLarge
 
-    val styleTitle = AppTypography.getType().titleLarge
-        .copy(
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Normal
-        )
-    val styleData = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
-
-    val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = true
-    )
     var showBottomSheet by remember { mutableStateOf(false) }
 
     if (showBottomSheet) {
-        SelectRangeDateBottomSheet(
-            onConfirmRequest = { period ->
-                addingReleasePeriod(period)
+        DateRangePickerBottomSheet(
+            onDateRangeSelected = { list ->
+                val releasePeriod = ReleasePeriod(days = list)
+                addingReleasePeriod(releasePeriod)
             },
-            onDismissRequest = {
-                scope.launch { sheetState.hide() }.invokeOnCompletion {
-                    if (!sheetState.isVisible) {
-                        showBottomSheet = false
-                    }
-                }
+            onDismiss = {
+                showBottomSheet = false
             },
-            sheetState = sheetState,
-            dateRangePickerState = dateRangePickerState
+            title = "Период отвлечения"
         )
     }
 
-    val showMonthSelectorDialog = remember {
+    var showMonthSelectorDialog by remember {
         mutableStateOf(false)
     }
 
-    if (showMonthSelectorDialog.value) {
-        monthOfYear?.let {
-            DialogSelectMonthOfYear(
-                showMonthSelectorDialog,
-                monthOfYear,
-                monthList = monthList,
-                yearList = yearList,
-                selectMonthOfYear = selectMonthOfYear
-            )
+    val monthSheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true
+    )
+
+    if (showMonthSelectorDialog) {
+        monthOfYear?.let { currentMonthOfYear ->
+            ModalBottomSheet(
+                onDismissRequest = { showMonthSelectorDialog = false },
+                sheetState = monthSheetState,
+                containerColor = MaterialTheme.colorScheme.secondary,
+                tonalElevation = 8.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = "Выберите месяц и год",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+
+                    var selectedMonth by remember { mutableIntStateOf(currentMonthOfYear.month) }
+
+                    var selectedYear by remember { mutableIntStateOf(currentMonthOfYear.year) }
+
+                    FlowRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        monthList.forEach { m ->
+                            val selected = selectedMonth == m
+                            ChipApp(
+                                selected = selected,
+                                onClick = { selectedMonth = m },
+                                label = getMonthFullText(m)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    FlowRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        yearList.forEach { y ->
+                            val selected = selectedYear == y
+                            ChipApp(
+                                selected = selected,
+                                onClick = { selectedYear = y },
+                                label = "$y"
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Button(
+                        onClick = {
+                            selectMonthOfYear(selectedYear to selectedMonth)
+                            showMonthSelectorDialog = false
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = Shapes.medium,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                        )
+                    ) {
+                        Text(
+                            text = "Применить",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+
+                    }
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                }
+
+            }
         }
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 12.dp),
+            .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Column(
@@ -203,38 +253,42 @@ fun SelectReleaseDaysContent(
         ) {
             Box(
                 modifier = Modifier
+                    .noRippleEffect {
+                        showMonthSelectorDialog = true
+                    }
+                    .shadow(elevation = 2.dp, shape = Shapes.medium)
                     .background(
-                        color = MaterialTheme.colorScheme.surface,
+                        color = MaterialTheme.colorScheme.secondary,
                         shape = Shapes.medium
                     )
-                    .padding(16.dp)
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        modifier = Modifier.clickable {
-                            showMonthSelectorDialog.value = true
-                        },
                         text = getMonthFullText(monthOfYear?.month),
-                        style = styleData
+                        style = styleData,
+                        color = MaterialTheme.colorScheme.primary
                     )
                     Text(
                         text = ConverterLongToTime.getTimeInStringFormat(
                             monthOfYear?.getPersonalNormaHours()?.toLong()?.times(3_600_000)
                         ),
-                        style = styleData
+                        style = styleData,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
             Box(
                 modifier = Modifier
+                    .shadow(elevation = 2.dp, shape = Shapes.medium)
                     .background(
-                        color = MaterialTheme.colorScheme.surface,
+                        color = MaterialTheme.colorScheme.secondary,
                         shape = Shapes.medium
                     )
-                    .padding(16.dp)
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -244,7 +298,8 @@ fun SelectReleaseDaysContent(
                         Text(
                             modifier = Modifier.fillMaxWidth(),
                             text = "Периоды отвлечения: ",
-                            style = styleData
+                            style = styleData,
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                     releasePeriodListState?.let { releaseDayList ->
@@ -275,16 +330,22 @@ fun SelectReleaseDaysContent(
                                                 text = dateAndTimeConverter?.getDateFromDateLong(
                                                     period.days.first().timeInMillis
                                                 ) ?: "",
-                                                style = styleData
+                                                style = styleData,
+                                                color = MaterialTheme.colorScheme.primary
                                             )
                                             if (period.days.size > 1) {
                                                 period.days.last().let {
-                                                    Text(text = " - ", style = styleData)
+                                                    Text(
+                                                        text = " - ",
+                                                        style = styleData,
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
                                                     Text(
                                                         text = dateAndTimeConverter?.getDateFromDateLong(
                                                             it.timeInMillis
                                                         ) ?: "",
-                                                        style = styleData
+                                                        style = styleData,
+                                                        color = MaterialTheme.colorScheme.primary
                                                     )
                                                 }
                                             }
@@ -294,7 +355,8 @@ fun SelectReleaseDaysContent(
                                                 removingReleasePeriod(period)
                                             },
                                             imageVector = Icons.Outlined.Clear,
-                                            contentDescription = null
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary
                                         )
                                     }
                                 }
@@ -308,107 +370,18 @@ fun SelectReleaseDaysContent(
         Button(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 16.dp),
+                .padding(bottom = 24.dp),
             shape = Shapes.medium,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ),
             onClick = {
                 showBottomSheet = true
             }) {
-            Text("Добавить отвлечение", style = styleTitle)
-        }
-    }
-}
-
-
-@Composable
-@OptIn(ExperimentalMaterial3Api::class)
-private fun SelectRangeDateBottomSheet(
-    onDismissRequest: () -> Unit,
-    onConfirmRequest: (ReleasePeriod) -> Unit,
-    sheetState: SheetState,
-    dateRangePickerState: DateRangePickerState
-) {
-    val styleData = AppTypography.getType().titleMedium.copy(color = MaterialTheme.colorScheme.tertiary)
-
-    ModalBottomSheet(
-        onDismissRequest = onDismissRequest,
-        dragHandle = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-
-            ) {
-                TextButton(onClick = {
-                    dateRangePickerState.setSelection(null, null)
-                }) {
-                    Text(
-                        text = "Сбросить",
-                        style = styleData,
-                        color = MaterialTheme.colorScheme.tertiary
-                    )
-                }
-
-                TextButton(onClick = {
-                    val startRangeInMillis = dateRangePickerState.selectedStartDateMillis
-                    val endRangeInMillis = dateRangePickerState.selectedEndDateMillis
-
-                    var startRangeCalendar: Calendar? = null
-                    startRangeInMillis?.let {
-                        startRangeCalendar = Calendar.getInstance().also { calendar ->
-                            calendar.timeInMillis = it
-                        }
-                    }
-
-                    var endRangeCalendar: Calendar? = null
-                    endRangeInMillis?.let {
-                        endRangeCalendar = Calendar.getInstance().also { calendar ->
-                            calendar.timeInMillis = it
-                        }
-                    }
-                    val list = mutableListOf<Calendar>()
-                    startRangeCalendar?.let { start ->
-                        list.add(start)
-                        endRangeCalendar?.let { end ->
-                            val day = Calendar.getInstance().also {
-                                it.timeInMillis = start.timeInMillis
-                            }
-                            while (day.before(end)) {
-                                day.add(Calendar.DATE, 1)
-                                val nextDay = Calendar.getInstance().also {
-                                    it.timeInMillis = day.timeInMillis
-                                }
-                                list.add(nextDay)
-                            }
-                        }
-
-                        onConfirmRequest(
-                            ReleasePeriod(
-                                days = list
-                            )
-                        )
-                    }
-                    onDismissRequest()
-                }) {
-                    Text(
-                        text = "Выбрать",
-                        style = styleData,
-                        color = MaterialTheme.colorScheme.tertiary
-                    )
-                }
-            }
-        },
-        sheetState = sheetState
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            DateRangePicker(
-                state = dateRangePickerState,
-                showModeToggle = false
+            Text(
+                text = "Добавить отвлечение",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary
             )
         }
     }

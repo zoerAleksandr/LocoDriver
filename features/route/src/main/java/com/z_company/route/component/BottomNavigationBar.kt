@@ -32,7 +32,6 @@ fun BottomNavigationBar(
         val navBackStackEntry = navController.currentBackStackEntryAsState().value
         val currentRoute = navBackStackEntry?.destination?.route
 
-
         items.forEach { item ->
             BottomNavigationItem(
                 icon = { Icon(painterResource(id = item.icon), contentDescription = item.title) },
@@ -50,18 +49,24 @@ fun BottomNavigationBar(
                 alwaysShowLabel = true,
                 selected = currentRoute == item.route.route,
                 onClick = {
-                    navController.navigate(item.route.route){
-                        navController.graph.startDestinationRoute?.let { route ->
-                            popUpTo(route) {
-                                saveState = true
-                            }
+                    if (currentRoute != item.route.route) {
+                        navController.navigate(item.route.route) {
+                            // УБИРАЕМ popUpTo + saveState + restoreState полностью!
+                            launchSingleTop = true
                         }
-                        // Avoid multiple copies of the same destination when
-                        // reselecting the same item
-                        launchSingleTop = true
-                        // Restore state when reselecting a previously selected item
-                        restoreState = true
                     }
+//                    navController.navigate(item.route.route){
+//                        navController.graph.startDestinationRoute?.let { route ->
+//                            popUpTo(route) {
+//                                saveState = true
+//                            }
+//                        }
+//                        // Avoid multiple copies of the same destination when
+//                        // reselecting the same item
+//                        launchSingleTop = true
+//                        // Restore state when reselecting a previously selected item
+//                        restoreState = true
+//                    }
                 }
             )
         }

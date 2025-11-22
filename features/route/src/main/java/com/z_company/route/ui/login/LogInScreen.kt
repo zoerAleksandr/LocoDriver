@@ -1,7 +1,6 @@
-package com.z_company.login.ui
+package com.z_company.route.ui.login
 
 import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,12 +12,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -41,22 +40,21 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.z_company.route.R
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.GenericLoading
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.theme.Shapes
-import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.domain.entities.User
-import com.z_company.login.R
-import com.z_company.login.viewmodel.MIN_LENGTH_PASSWORD
+import com.z_company.route.component.OutlinedTextFieldApp
+import com.z_company.route.viewmodel.login.MIN_LENGTH_PASSWORD
 import kotlinx.coroutines.launch
+import androidx.core.net.toUri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,17 +79,10 @@ fun LogInScreen(
         mutableStateOf(false)
     }
     val scope = rememberCoroutineScope()
-    val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
-    val subTitleTextStyle = AppTypography.getType().titleLarge
-        .copy(
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Normal
-        )
-    val hintStyle = AppTypography.getType().titleLarge
-        .copy(
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Light
-        )
+
+    val dataStyle = MaterialTheme.typography.bodyLarge
+    val hintStyle = MaterialTheme.typography.bodyMedium
+    val buttonTextStyle = MaterialTheme.typography.bodySmall
 
     if (userState is ResultState.Loading) {
         GenericLoading(onCloseClick = cancelRegistered)
@@ -139,32 +130,33 @@ fun LogInScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .padding(24.dp)
+                .padding(16.dp)
         ) {
             Text(
                 modifier = Modifier
                     .fillMaxWidth(),
                 text = "Регистрация",
-                style = AppTypography.getType().headlineMedium.copy(fontWeight = FontWeight.Light)
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
             )
-            OutlinedTextField(
+            OutlinedTextFieldApp(
                 value = email,
                 onValueChange = {
                     setEmail(it)
                 },
-                label = { Text(text = "email", style = dataTextStyle) },
+                placeholder = { Text(text = "email", style = dataStyle) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = paddingBetweenView * 5),
-                textStyle = dataTextStyle,
+                textStyle = dataStyle,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
             )
-            OutlinedTextField(
+            OutlinedTextFieldApp(
                 value = password,
                 onValueChange = {
                     setPassword(it)
                 },
-                placeholder = { Text(text = "пароль", style = dataTextStyle) },
+                placeholder = { Text(text = "пароль", style = dataStyle) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = paddingBetweenView + 20.dp),
@@ -181,15 +173,16 @@ fun LogInScreen(
                         Icon(painter = painterResource(id = image), description)
                     }
                 },
-                textStyle = dataTextStyle,
+                textStyle = dataStyle,
                 supportingText = {
                     if (password.isNotEmpty() && password.length < MIN_LENGTH_PASSWORD) {
-                        Text(text = "Минимум $MIN_LENGTH_PASSWORD символа")
+                        Text(text = "Минимум $MIN_LENGTH_PASSWORD символа", style = hintStyle, color = MaterialTheme.colorScheme.primary)
                     }
                 },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
             )
-            OutlinedTextField(
+
+            OutlinedTextFieldApp(
                 value = confirm,
                 onValueChange = {
                     setConfirm(it)
@@ -197,10 +190,10 @@ fun LogInScreen(
                 placeholder = {
                     Text(
                         text = "подтвердите пароль",
-                        style = dataTextStyle
+                        style = dataStyle
                     )
                 },
-                textStyle = dataTextStyle,
+                textStyle = dataStyle,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = paddingBetweenView),
@@ -233,7 +226,7 @@ fun LogInScreen(
                 val ctx = LocalContext.current
                 val urlIntent = Intent(
                     Intent.ACTION_VIEW,
-                    Uri.parse(stringResource(id = R.string.url_to_license_agreement))
+                    stringResource(id = R.string.url_to_license_agreement).toUri()
                 )
 
                 val text = "Я принимаю условия Лицензионного соглашения"
@@ -262,10 +255,17 @@ fun LogInScreen(
                     .fillMaxWidth()
                     .padding(top = paddingBetweenView),
                 enabled = isEnableButton && isLicenseAgreementAccepted,
+                elevation = ButtonDefaults.elevatedButtonElevation(
+                    defaultElevation = 2.dp
+                ),
                 shape = Shapes.medium,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    disabledContainerColor = MaterialTheme.colorScheme.surface,
+                ),
                 onClick = { onRegisteredClick(email, password, email) }
             ) {
-                Text(text = "Зарегистрировать", style = subTitleTextStyle)
+                Text(text = "Зарегистрировать", style = buttonTextStyle, color = MaterialTheme.colorScheme.secondary)
             }
         }
     }

@@ -1,4 +1,4 @@
-package com.z_company.login.viewmodel
+package com.z_company.route.viewmodel.login
 
 import com.z_company.core.ResultState
 

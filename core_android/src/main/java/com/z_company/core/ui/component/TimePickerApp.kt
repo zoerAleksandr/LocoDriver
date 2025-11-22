@@ -429,7 +429,7 @@ fun TimeInputOverlay(
 // ViewModel и State
 class TimePickerViewModel(initialTimestamp: Long) {
     private val calendar =
-        java.util.Calendar.getInstance().apply { timeInMillis = initialTimestamp }
+        java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("GMT+0")).apply { timeInMillis = initialTimestamp }
 
     private val _uiState = MutableStateFlow(
         TimePickerState(

@@ -1,4 +1,4 @@
-package com.z_company.login.ui
+package com.z_company.route.ui.login
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -9,10 +9,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -28,15 +29,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.GenericLoading
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.theme.Shapes
-import com.z_company.core.ui.theme.custom.AppTypography
+import com.z_company.route.component.OutlinedTextFieldApp
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -56,12 +55,9 @@ fun PasswordRecoveryScreen(
     }
     val paddingBetweenView = 12.dp
     val scope = rememberCoroutineScope()
-    val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
-    val subTitleTextStyle = AppTypography.getType().titleLarge
-        .copy(
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Normal
-        )
+
+    val dataStyle = MaterialTheme.typography.bodyLarge
+    val buttonTextStyle = MaterialTheme.typography.bodySmall
 
     LaunchedEffect(requestHasBeenSend) {
         if (requestHasBeenSend) {
@@ -113,10 +109,11 @@ fun PasswordRecoveryScreen(
         ) {
             Text(
                 text = "Восстановление пароля",
-                style = AppTypography.getType().headlineMedium.copy(fontWeight = FontWeight.Light)
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
             )
 
-            OutlinedTextField(
+            OutlinedTextFieldApp(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = paddingBetweenView * 7),
@@ -128,12 +125,12 @@ fun PasswordRecoveryScreen(
                 placeholder = {
                     Text(
                         text = "email",
-                        style = dataTextStyle
+                        style = dataStyle
                     )
                 },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 singleLine = true,
-                textStyle = dataTextStyle
+                textStyle = dataStyle
             )
             Button(
                 modifier = Modifier
@@ -141,9 +138,16 @@ fun PasswordRecoveryScreen(
                     .fillMaxWidth(),
                 onClick = { requestPasswordReset(email) },
                 enabled = isEnableButton,
-                shape = Shapes.medium
+                elevation = ButtonDefaults.elevatedButtonElevation(
+                    defaultElevation = 2.dp
+                ),
+                shape = Shapes.medium,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    disabledContainerColor = MaterialTheme.colorScheme.surface,
+                ),
             ) {
-                Text(text = "Отправить код", style = subTitleTextStyle)
+                Text(text = "Отправить код", style = buttonTextStyle, color = MaterialTheme.colorScheme.secondary)
             }
         }
     }

@@ -1,4 +1,4 @@
-package com.z_company.login.ui
+package com.z_company.route.ui.login
 
 import androidx.compose.runtime.Composable
 import com.z_company.core.ui.component.OnBoardingItems

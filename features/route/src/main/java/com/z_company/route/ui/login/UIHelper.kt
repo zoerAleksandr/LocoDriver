@@ -1,4 +1,4 @@
-package com.z_company.login.ui
+package com.z_company.route.ui.login
 
 fun getMessageThrowable(throwable: Throwable?): String {
     return if (throwable == null) {

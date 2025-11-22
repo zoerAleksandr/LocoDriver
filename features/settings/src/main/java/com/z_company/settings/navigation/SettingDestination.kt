@@ -15,6 +15,7 @@ fun SettingDestination(
     val settingsViewModel: SettingsViewModel = viewModel()
     val uiState by settingsViewModel.uiState.collectAsState()
     SettingsScreen(
+        viewModel = settingsViewModel,
         settingsUiState = uiState,
         currentSettings = settingsViewModel.currentSettings,
         currentUserState = uiState.userDetailsState,

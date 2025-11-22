@@ -190,8 +190,6 @@ fun HomeScreen(
     val backgroundColor = MaterialTheme.colorScheme.background
     val primaryColor = MaterialTheme.colorScheme.primary
 
-    val redOrange = Color(0xFFf1642e)
-
     // для изменения color status bar после изменения в PresentationBlock
     if (!view.isInEditMode) {
         SideEffect {
