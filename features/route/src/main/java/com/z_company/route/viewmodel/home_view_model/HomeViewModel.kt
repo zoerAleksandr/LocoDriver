@@ -523,7 +523,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
             }
             try {
                 val timeState =
-                    salaryCalculationHelper.getTimeListSurchargeServicePhaseFlow().first().sum()
+                    salaryCalculationHelper.getTotalTimeSurchargeServicePhaseFlow().first()
                 withContext(Dispatchers.Main) {
                     _uiState.update {
                         it.copy(
@@ -597,8 +597,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                 }
             }
             try {
-                val timeState =
-                    salaryCalculationHelper.getTimeListSurchargeHeavyTrainsFlow().first().sum()
+                val timeState = salaryCalculationHelper.getTotalTimeHeavyTrainsFlow().first()
                 withContext(Dispatchers.Main) {
                     _uiState.update {
                         it.copy(

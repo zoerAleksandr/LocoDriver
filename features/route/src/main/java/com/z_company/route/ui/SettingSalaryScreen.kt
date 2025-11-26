@@ -1,6 +1,7 @@
 package com.z_company.route.ui
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -57,15 +58,19 @@ import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncDataValue
 import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.ui.component.CustomSnackBar
+import com.z_company.core.ui.component.DateRangePickerBottomSheet
+import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.ui.component.rememberDatePickerStateInLocale
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.MonthFullText.getMonthFullText
 import com.z_company.domain.entities.MonthOfYear
+import com.z_company.domain.entities.ReleasePeriod
 import com.z_company.domain.entities.SurchargeExtendedServicePhase
 import com.z_company.domain.entities.SurchargeHeavyTrains
 import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.CustomDatePickerDialog
+import com.z_company.route.component.OutlinedTextFieldApp
 import com.z_company.route.viewmodel.SettingSalaryUIState
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -135,17 +140,14 @@ fun SettingSalaryScreen(
     currentMonthOfYear: MonthOfYear?,
     setDateNewTariffRate: (Int) -> Unit
 ) {
-    val styleDataLight = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val styleDataLight = MaterialTheme.typography.bodyLarge
     val titleStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Medium)
-    val styleDataMedium = AppTypography.getType().titleMedium.copy(fontWeight = FontWeight.Normal)
-    val hintStyle = AppTypography.getType().titleLarge
-        .copy(
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Light
-        )
+    val styleDataMedium = MaterialTheme.typography.bodyLarge
+    val hintStyle = MaterialTheme.typography.bodyMedium
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    val paddingLarge = 12.dp
+    val paddingLarge = 6.dp
     val paddingSmall = 6.dp
 
     val maxTextSize = 18.sp
@@ -185,29 +187,44 @@ fun SettingSalaryScreen(
 
         val datePickerState = rememberDatePickerStateInLocale(currentCalendar.timeInMillis)
 
-        CustomDatePickerDialog(
-            datePickerState = datePickerState,
-            title = {
-                Text(
-                    modifier = Modifier.padding(16.dp),
-                    text = "Дата начала действия нового тарифа",
-                    overflow = TextOverflow.Ellipsis,
-                    maxLines = 1,
-                    style = hintStyle
-                )
-            },
-            onDismissRequest = {
+        // изменить !!!!!
+        DateRangePickerBottomSheet(
+            onDateRangeSelected = { list ->
+                if (list.isNotEmpty()) {
+                    setDateNewTariffRate(list.first().get(Calendar.DAY_OF_MONTH))
+                }
                 isShowSetDateTariffRateDialog = false
             },
-            onConfirmRequest = {
-                val date = Calendar.getInstance().also {
-                    it.timeInMillis = datePickerState.selectedDateMillis!!
-                }.get(Calendar.DAY_OF_MONTH)
-
-                setDateNewTariffRate(date)
+            onDismiss = {
                 isShowSetDateTariffRateDialog = false
-            }
+            },
+            title = "Дата начала действия нового тарифа",
+//            singleMode = false
         )
+
+//        CustomDatePickerDialog(
+//            datePickerState = datePickerState,
+//            title = {
+//                Text(
+//                    modifier = Modifier.padding(16.dp),
+//                    text = "Дата начала действия нового тарифа",
+//                    overflow = TextOverflow.Ellipsis,
+//                    maxLines = 1,
+//                    style = hintStyle
+//                )
+//            },
+//            onDismissRequest = {
+//                isShowSetDateTariffRateDialog = false
+//            },
+//            onConfirmRequest = {
+//                val date = Calendar.getInstance().also {
+//                    it.timeInMillis = datePickerState.selectedDateMillis!!
+//                }.get(Calendar.DAY_OF_MONTH)
+//
+//                setDateNewTariffRate(date)
+//                isShowSetDateTariffRateDialog = false
+//            }
+//        )
     }
 
     AnimationDialog(
@@ -224,62 +241,81 @@ fun SettingSalaryScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
+                    .background(color = MaterialTheme.colorScheme.secondary, shape = Shapes.medium)
                     .padding(horizontal = 16.dp, vertical = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                AutoSizeText(
-                    maxTextSize = maxTextSize,
-                    modifier = Modifier,
+                Text(
                     text = "Изменилась тарифная ставка",
                     overflow = TextOverflow.Visible,
-                    style = styleDataMedium.copy(color = MaterialTheme.colorScheme.primary),
-                    alignment = Alignment.CenterEnd
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.bodyMedium,
                 )
-                AutoSizeText(
-                    maxTextSize = maxTextSize,
+                Text(
                     text = "Для какого месяца сохранить тариф?",
                     overflow = TextOverflow.Visible,
-                    style = styleDataLight.copy(color = MaterialTheme.colorScheme.primary)
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.bodyMedium,
                 )
-                TextButton(
-                    onClick = { isShowSetDateTariffRateDialog = true }
-                ) {
-                    AutoSizeText(
-                        maxTextSize = maxTextSize,
-                        text = "Новый тариф начнет действовать с $currentDateSetTariffRate ${getMonthFullText(currentMonthOfYear?.month)} ${currentMonthOfYear?.year.toString()}",
-                        overflow = TextOverflow.Visible,
-                        style = styleDataLight.copy(color = MaterialTheme.colorScheme.tertiary)
-                    )
-                }
+
+                Text(
+                    modifier = Modifier.noRippleEffect {
+                        isShowSetDateTariffRateDialog = true
+                    },
+                    text = "Новый тариф начнет действовать с $currentDateSetTariffRate ${
+                        getMonthFullText(
+                            currentMonthOfYear?.month
+                        )
+                    } ${currentMonthOfYear?.year.toString()}",
+                    overflow = TextOverflow.Visible,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 18.dp),
+                        .padding(top = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Button(
                         modifier = Modifier.fillMaxWidth(),
                         shape = Shapes.medium,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondary
+                        ),
+                        border = BorderStroke(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.primary
+                        ),
+                        elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 2.dp),
                         onClick = saveOnlyMonthTariffRate
                     ) {
-                        AutoSizeText(
-                            maxTextSize = maxTextSize,
-                            modifier = Modifier,
-                            style = styleDataMedium,
-                            text = "Только для этого"
+                        Text(
+                            text = "Только для этого",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                     Button(
                         modifier = Modifier.fillMaxWidth(),
                         shape = Shapes.medium,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondary
+                        ),
+                        border = BorderStroke(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.primary
+                        ),
+                        elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 2.dp),
                         onClick = saveTariffRateCurrentAndNextMonth
                     ) {
-                        AutoSizeText(
-                            maxTextSize = maxTextSize,
-                            modifier = Modifier,
-                            style = styleDataMedium,
-                            text = "Для этого и следующих"
+                        Text(
+                            text = "Для этого и следующих",
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 2,
+                            overflow = TextOverflow.Visible,
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                     Button(
@@ -287,13 +323,20 @@ fun SettingSalaryScreen(
                             .fillMaxWidth()
                             .padding(top = 24.dp),
                         shape = Shapes.medium,
-                        onClick = onHideDialogChangeTariffRate
+                        elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 2.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondary
+                        ),
+                        border = BorderStroke(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.error
+                        ),
+                        onClick = onHideDialogChangeTariffRate,
                     ) {
-                        AutoSizeText(
-                            maxTextSize = maxTextSize,
-                            modifier = Modifier,
-                            style = styleDataMedium,
-                            text = "Отмена"
+                        Text(
+                            style = MaterialTheme.typography.bodySmall,
+                            text = "Отмена",
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
@@ -305,43 +348,23 @@ fun SettingSalaryScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        modifier = Modifier.fillMaxWidth(),
-                        text = "Тарифная ставка и коэффициенты",
-                        overflow = TextOverflow.Visible,
-                        maxLines = 2,
-                        style = titleStyle
-                    )
-                },
+                title = {},
                 navigationIcon = {
-                    IconButton(onClick = {
-                        onBack()
-                    }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Назад"
-                        )
+                    TextButton(
+                        modifier = Modifier
+                            .padding(end = 16.dp),
+                        enabled = isEnableSaveButton,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Transparent,
+                            disabledContainerColor = Color.Transparent,
+                            contentColor = MaterialTheme.colorScheme.tertiary
+                        ),
+                        onClick = { onSaveClick() }
+                    ) {
+                        Text(text = "Готово", style = MaterialTheme.typography.bodySmall)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                actions = {
-                    AsyncDataValue(resultState = saveSettingState) {
-                        TextButton(
-                            modifier = Modifier
-                                .padding(end = 16.dp),
-                            enabled = isEnableSaveButton,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.Transparent,
-                                disabledContainerColor = Color.Transparent,
-                                contentColor = MaterialTheme.colorScheme.tertiary
-                            ),
-                            onClick = { onSaveClick() }
-                        ) {
-                            Text(text = "Сохранить", style = hintStyle)
-                        }
-                    }
-                }
             )
         },
         snackbarHost = {
@@ -363,7 +386,7 @@ fun SettingSalaryScreen(
                         .padding(top = paddingLarge),
                     text = "Начисления",
                     overflow = TextOverflow.Visible,
-                    style = styleDataLight,
+                    style = MaterialTheme.typography.titleSmall,
                     textAlign = TextAlign.End
                 )
             }
@@ -378,53 +401,46 @@ fun SettingSalaryScreen(
                         .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
+                    Text(
+                        text = "Тарифная ставка, руб.",
+                        overflow = TextOverflow.Visible,
+                        style = hintStyle,
+                        color = primaryColor,
+                        maxLines = 2,
+                    )
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        modifier = Modifier.clickable(
+                            onClick = {
+                                isShowSetDateTariffRateDialog = true
+                            }
+                        ),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        AutoSizeText(
-                            maxTextSize = maxTextSize,
-                            text = "Тарифная ставка, руб. ",
+                        Text(
+                            text = "на $dateSetTariffRate",
                             overflow = TextOverflow.Visible,
-                            style = styleDataMedium
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.tertiary
                         )
-                        Row(
-                            modifier = Modifier.clickable(
-                                onClick = {
-                                    isShowSetDateTariffRateDialog = true
-                                }
-                            ),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            AutoSizeText(
-                                maxTextSize = maxTextSize,
-                                text = "на $dateSetTariffRate",
-                                overflow = TextOverflow.Visible,
-                                style = styleDataMedium,
-                                color = MaterialTheme.colorScheme.tertiary
-                            )
 
-                            AutoSizeText(
-                                maxTextSize = maxTextSize,
-                                text = getMonthFullText(currentMonthOfYear?.month),
-                                overflow = TextOverflow.Visible,
-                                style = styleDataMedium,
-                                color = MaterialTheme.colorScheme.tertiary
-                            )
+                        Text(
+                            text = getMonthFullText(currentMonthOfYear?.month),
+                            overflow = TextOverflow.Visible,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
 
-                            AutoSizeText(
-                                maxTextSize = maxTextSize,
-                                text = currentMonthOfYear?.year.toString(),
-                                overflow = TextOverflow.Visible,
-                                style = styleDataMedium,
-                                color = MaterialTheme.colorScheme.tertiary
-                            )
-                        }
+                        Text(
+                            text = currentMonthOfYear?.year.toString(),
+                            overflow = TextOverflow.Visible,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
                     }
+
                     AsyncDataValue(resultState = tariffRateValueState) { tariffRateValue ->
                         tariffRateValue?.let {
-                            OutlinedTextField(
+                            OutlinedTextFieldApp(
                                 modifier = Modifier
                                     .fillMaxWidth(),
                                 value = tariffRateValue,
@@ -438,13 +454,6 @@ fun SettingSalaryScreen(
                                     }
                                 },
                                 singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent
-                                ),
-                                shape = Shapes.medium,
                                 keyboardOptions = KeyboardOptions(
                                     keyboardType = KeyboardType.Decimal
                                 )
@@ -453,16 +462,16 @@ fun SettingSalaryScreen(
                     }
 
                     if (currentMonthOfYear?.dateSetTariffRate != null) {
-                        Row(
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            AutoSizeText(
-                                maxTextSize = maxTextSize,
+                            Text(
                                 text = "Тарифная ставка, руб. ",
                                 overflow = TextOverflow.Visible,
-                                style = styleDataMedium
+                                style = hintStyle,
+                                maxLines = 2,
+                                color = primaryColor
                             )
                             Row(
                                 modifier = Modifier.clickable(
@@ -472,34 +481,31 @@ fun SettingSalaryScreen(
                                 ),
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                AutoSizeText(
-                                    maxTextSize = maxTextSize,
+                                Text(
                                     text = "до $dateSetTariffRate",
                                     overflow = TextOverflow.Visible,
-                                    style = styleDataMedium,
+                                    style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.tertiary
                                 )
 
-                                AutoSizeText(
-                                    maxTextSize = maxTextSize,
+                                Text(
                                     text = getMonthFullText(currentMonthOfYear.month),
                                     overflow = TextOverflow.Visible,
-                                    style = styleDataMedium,
+                                    style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.tertiary
                                 )
 
-                                AutoSizeText(
-                                    maxTextSize = maxTextSize,
+                                Text(
                                     text = currentMonthOfYear.year.toString(),
                                     overflow = TextOverflow.Visible,
-                                    style = styleDataMedium,
+                                    style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.tertiary
                                 )
                             }
                         }
                         AsyncDataValue(resultState = oldTariffRateValueState) { oldTariffRateValue ->
                             oldTariffRateValue?.let {
-                                OutlinedTextField(
+                                OutlinedTextFieldApp(
                                     modifier = Modifier
                                         .fillMaxWidth(),
                                     value = oldTariffRateValue,
@@ -513,13 +519,6 @@ fun SettingSalaryScreen(
                                         }
                                     },
                                     singleLine = true,
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                        focusedBorderColor = Color.Transparent,
-                                        unfocusedBorderColor = Color.Transparent
-                                    ),
-                                    shape = Shapes.medium,
                                     keyboardOptions = KeyboardOptions(
                                         keyboardType = KeyboardType.Decimal
                                     )
@@ -536,15 +535,16 @@ fun SettingSalaryScreen(
                         .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
-                    AutoSizeText(
-                        maxTextSize = maxTextSize,
+                    Text(
                         text = "Средний час, руб.",
                         overflow = TextOverflow.Visible,
-                        style = styleDataMedium
+                        style = hintStyle,
+                        maxLines = 2,
+                        color = primaryColor
                     )
                     AsyncDataValue(resultState = uiState.averagePaymentHour) { averagePaymentHourValue ->
                         averagePaymentHourValue?.let {
-                            OutlinedTextField(
+                            OutlinedTextFieldApp(
                                 modifier = Modifier
                                     .fillMaxWidth(),
                                 value = averagePaymentHourValue,
@@ -558,13 +558,6 @@ fun SettingSalaryScreen(
                                     }
                                 },
                                 singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent
-                                ),
-                                shape = Shapes.medium,
                                 keyboardOptions = KeyboardOptions(
                                     keyboardType = KeyboardType.Decimal
                                 )
@@ -581,15 +574,16 @@ fun SettingSalaryScreen(
                         .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
-                    AutoSizeText(
-                        maxTextSize = maxTextSize,
+                    Text(
                         text = "Зональная надбавка, %",
                         overflow = TextOverflow.Visible,
-                        style = styleDataMedium
+                        maxLines = 2,
+                        style = hintStyle,
+                        color = primaryColor
                     )
                     AsyncDataValue(resultState = zonalSurchargeValueState) { zonalSurchargeValue ->
                         zonalSurchargeValue?.let {
-                            OutlinedTextField(
+                            OutlinedTextFieldApp(
                                 modifier = Modifier
                                     .fillMaxWidth(),
                                 value = zonalSurchargeValue,
@@ -603,16 +597,9 @@ fun SettingSalaryScreen(
                                     }
                                 },
                                 singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent
-                                ),
                                 keyboardOptions = KeyboardOptions(
                                     keyboardType = KeyboardType.Decimal
                                 ),
-                                shape = Shapes.medium,
                             )
                         }
                     }
@@ -625,15 +612,16 @@ fun SettingSalaryScreen(
                         .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
-                    AutoSizeText(
-                        maxTextSize = maxTextSize,
+                    Text(
                         text = "Доплаты за класс и права, %",
                         overflow = TextOverflow.Visible,
-                        style = styleDataMedium
+                        maxLines = 2,
+                        style = hintStyle,
+                        color = primaryColor
                     )
                     AsyncDataValue(resultState = surchargeQualificationClassValueState) { surchargeQualificationClassValue ->
                         surchargeQualificationClassValue?.let {
-                            OutlinedTextField(
+                            OutlinedTextFieldApp(
                                 modifier = Modifier
                                     .fillMaxWidth(),
                                 value = surchargeQualificationClassValue,
@@ -647,13 +635,6 @@ fun SettingSalaryScreen(
                                     }
                                 },
                                 singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent
-                                ),
-                                shape = Shapes.medium,
                                 keyboardOptions = KeyboardOptions(
                                     keyboardType = KeyboardType.Decimal
                                 )
@@ -670,15 +651,16 @@ fun SettingSalaryScreen(
                         .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
-                    AutoSizeText(
-                        maxTextSize = maxTextSize,
-                        text = "Работа в одно лицо, %",
+                    Text(
+                        text = "Работа в одно лицо (грузовой), %",
                         overflow = TextOverflow.Visible,
-                        style = styleDataMedium
+                        maxLines = 2,
+                        style = hintStyle,
+                        color = primaryColor
                     )
                     AsyncDataValue(resultState = onePersonOperationPercent) { onePersonPercent ->
                         onePersonPercent?.let {
-                            OutlinedTextField(
+                            OutlinedTextFieldApp(
                                 modifier = Modifier
                                     .fillMaxWidth(),
                                 value = onePersonPercent,
@@ -692,13 +674,6 @@ fun SettingSalaryScreen(
                                     }
                                 },
                                 singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent
-                                ),
-                                shape = Shapes.medium,
                                 keyboardOptions = KeyboardOptions(
                                     keyboardType = KeyboardType.Decimal
                                 )
@@ -715,15 +690,16 @@ fun SettingSalaryScreen(
                         .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
-                    AutoSizeText(
-                        maxTextSize = maxTextSize,
-                        text = "Работа в одно лицо пассажирский, %",
+                    Text(
+                        text = "Работа в одно лицо (пассажирский), %",
                         overflow = TextOverflow.Visible,
-                        style = styleDataMedium
+                        maxLines = 2,
+                        style = hintStyle,
+                        color = primaryColor
                     )
                     AsyncDataValue(resultState = onePersonOperationPassengerTrainPercent) { onePersonOperationPassengerTrainPercent ->
                         onePersonOperationPassengerTrainPercent?.let {
-                            OutlinedTextField(
+                            OutlinedTextFieldApp(
                                 modifier = Modifier
                                     .fillMaxWidth(),
                                 value = onePersonOperationPassengerTrainPercent,
@@ -737,13 +713,6 @@ fun SettingSalaryScreen(
                                     }
                                 },
                                 singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent
-                                ),
-                                shape = Shapes.medium,
                                 keyboardOptions = KeyboardOptions(
                                     keyboardType = KeyboardType.Decimal
                                 )
@@ -760,15 +729,16 @@ fun SettingSalaryScreen(
                         .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
-                    AutoSizeText(
-                        maxTextSize = maxTextSize,
+                    Text(
                         text = "Доплата за вредность, %",
                         overflow = TextOverflow.Visible,
-                        style = styleDataMedium
+                        maxLines = 2,
+                        style = hintStyle,
+                        color = primaryColor
                     )
                     AsyncDataValue(resultState = harmfulnessPercentState) { harmfulnessPercent ->
                         harmfulnessPercent?.let {
-                            OutlinedTextField(
+                            OutlinedTextFieldApp(
                                 modifier = Modifier
                                     .fillMaxWidth(),
                                 value = harmfulnessPercent,
@@ -782,13 +752,6 @@ fun SettingSalaryScreen(
                                     }
                                 },
                                 singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent
-                                ),
-                                shape = Shapes.medium,
                                 keyboardOptions = KeyboardOptions(
                                     keyboardType = KeyboardType.Decimal
                                 )
@@ -805,15 +768,16 @@ fun SettingSalaryScreen(
                         .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
-                    AutoSizeText(
-                        maxTextSize = maxTextSize,
+                    Text(
                         text = "Северная надбавка, %",
                         overflow = TextOverflow.Visible,
-                        style = styleDataMedium
+                        maxLines = 2,
+                        style = hintStyle,
+                        color = primaryColor
                     )
                     AsyncDataValue(resultState = uiState.nordicCoefficient) { nordicCoefficient ->
                         nordicCoefficient?.let {
-                            OutlinedTextField(
+                            OutlinedTextFieldApp(
                                 modifier = Modifier
                                     .fillMaxWidth(),
                                 value = nordicCoefficient,
@@ -827,13 +791,6 @@ fun SettingSalaryScreen(
                                     }
                                 },
                                 singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent
-                                ),
-                                shape = Shapes.medium,
                                 keyboardOptions = KeyboardOptions(
                                     keyboardType = KeyboardType.Decimal
                                 )
@@ -850,15 +807,17 @@ fun SettingSalaryScreen(
                         .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
-                    AutoSizeText(
-                        maxTextSize = maxTextSize,
-                        text = "Районный коэффициент",
+                    Text(
+                        text = "Районный коэффициент, %",
                         overflow = TextOverflow.Visible,
-                        style = styleDataMedium
+                        maxLines = 2,
+                        style = hintStyle,
+                        color = primaryColor
                     )
+
                     AsyncDataValue(resultState = uiState.districtCoefficient) { districtCoefficient ->
                         districtCoefficient?.let {
-                            OutlinedTextField(
+                            OutlinedTextFieldApp(
                                 modifier = Modifier
                                     .fillMaxWidth(),
                                 value = districtCoefficient,
@@ -872,13 +831,6 @@ fun SettingSalaryScreen(
                                     }
                                 },
                                 singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent
-                                ),
-                                shape = Shapes.medium,
                                 keyboardOptions = KeyboardOptions(
                                     keyboardType = KeyboardType.Decimal
                                 )
@@ -895,16 +847,16 @@ fun SettingSalaryScreen(
                         .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
-                    AutoSizeText(
-                        maxTextSize = maxTextSize,
+                    Text(
                         text = "Доплата за длинносоставные поезда",
                         overflow = TextOverflow.Visible,
-                        style = styleDataMedium
+                        maxLines = 2,
+                        style = hintStyle,
+                        color = primaryColor
                     )
 
                     Row(
                         modifier = Modifier
-                            .padding(top = 6.dp)
                             .background(
                                 color = MaterialTheme.colorScheme.background,
                                 shape = Shapes.medium
@@ -914,7 +866,7 @@ fun SettingSalaryScreen(
                     ) {
                         AsyncDataValue(resultState = lengthLongDistanceTrainState) { lengthLongDistanceTrain ->
                             lengthLongDistanceTrain?.let { lengthInAxle ->
-                                OutlinedTextField(
+                                OutlinedTextFieldApp(
                                     modifier = Modifier.weight(1f),
                                     value = lengthInAxle,
                                     onValueChange = { value ->
@@ -924,7 +876,7 @@ fun SettingSalaryScreen(
                                     suffix = {
                                         Text(
                                             text = "у.д.",
-                                            style = styleDataMedium
+                                            style = hintStyle
                                         )
                                     },
                                     isError = isErrorInputLengthLongDistance,
@@ -933,13 +885,6 @@ fun SettingSalaryScreen(
                                             Text(text = "Некорректные данные")
                                         }
                                     },
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                        focusedBorderColor = Color.Transparent,
-                                        unfocusedBorderColor = Color.Transparent
-                                    ),
-                                    shape = Shapes.medium,
                                     keyboardOptions = KeyboardOptions(
                                         keyboardType = KeyboardType.Decimal
                                     )
@@ -948,7 +893,7 @@ fun SettingSalaryScreen(
                         }
                         AsyncDataValue(resultState = surchargeLongDistanceTrainState) { surchargeLongDistanceTrain ->
                             surchargeLongDistanceTrain?.let { surcharge ->
-                                OutlinedTextField(
+                                OutlinedTextFieldApp(
                                     modifier = Modifier.weight(1f),
                                     value = surcharge,
                                     onValueChange = { value ->
@@ -958,7 +903,7 @@ fun SettingSalaryScreen(
                                     suffix = {
                                         Text(
                                             text = "%",
-                                            style = styleDataMedium
+                                            style = hintStyle
                                         )
                                     },
                                     isError = isErrorInputSurchargeLongDistance,
@@ -967,13 +912,6 @@ fun SettingSalaryScreen(
                                             Text(text = "Некорректные данные")
                                         }
                                     },
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                        focusedBorderColor = Color.Transparent,
-                                        unfocusedBorderColor = Color.Transparent
-                                    ),
-                                    shape = Shapes.medium,
                                     keyboardOptions = KeyboardOptions(
                                         keyboardType = KeyboardType.Decimal
                                     )
@@ -986,25 +924,30 @@ fun SettingSalaryScreen(
 
             item {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = paddingLarge),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    AutoSizeText(
-                        maxTextSize = maxTextSize,
+                    Text(
+                        modifier = Modifier.weight(1f),
                         text = "Доплата за тяж. поезда",
                         overflow = TextOverflow.Visible,
-                        style = styleDataMedium
+                        style = hintStyle,
+                        color = primaryColor,
+                        maxLines = 2
                     )
-                    TextButton(
-                        onClick = addSurchargeHeavyTran
-                    ) {
-                        AutoSizeText(
-                            maxTextSize = maxTextSize,
-                            text = "Добавить",
-                            style = styleDataMedium.copy(color = MaterialTheme.colorScheme.tertiary)
-                        )
-                    }
+
+                    Text(
+                        modifier = Modifier.noRippleEffect {
+                            addSurchargeHeavyTran()
+                        },
+                        text = "Добавить",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+
                 }
             }
 
@@ -1029,8 +972,8 @@ fun SettingSalaryScreen(
                         )
                         Box(
                             Modifier
-                                .fillMaxSize()
                                 .padding(top = 6.dp)
+                                .fillMaxSize()
                                 .background(color = color, shape = Shapes.medium),
                             contentAlignment = Alignment.CenterEnd
                         ) {
@@ -1053,7 +996,7 @@ fun SettingSalaryScreen(
                             .fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        OutlinedTextField(
+                        OutlinedTextFieldApp(
                             modifier = Modifier.weight(1f),
                             value = item.weight,
                             onValueChange = { value ->
@@ -1063,21 +1006,14 @@ fun SettingSalaryScreen(
                             suffix = {
                                 Text(
                                     text = "т.",
-                                    style = styleDataMedium
+                                    style = hintStyle
                                 )
                             },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                focusedBorderColor = Color.Transparent,
-                                unfocusedBorderColor = Color.Transparent
-                            ),
-                            shape = Shapes.medium,
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Decimal
                             )
                         )
-                        OutlinedTextField(
+                        OutlinedTextFieldApp(
                             modifier = Modifier.weight(1f),
                             value = item.percentSurcharge,
                             onValueChange = { value ->
@@ -1087,16 +1023,9 @@ fun SettingSalaryScreen(
                             suffix = {
                                 Text(
                                     text = "%",
-                                    style = styleDataMedium
+                                    style = hintStyle
                                 )
                             },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                focusedBorderColor = Color.Transparent,
-                                unfocusedBorderColor = Color.Transparent
-                            ),
-                            shape = Shapes.medium,
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Decimal
                             )
@@ -1107,26 +1036,29 @@ fun SettingSalaryScreen(
 
             item {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 18.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    AutoSizeText(
-                        modifier = Modifier.weight(1f).padding(top = 6.dp),
-                        maxTextSize = maxTextSize,
+                    Text(
+                        modifier = Modifier
+                            .weight(1f),
                         text = "Доплата за удлиненное плечо",
                         overflow = TextOverflow.Ellipsis,
-                        style = styleDataMedium
+                        style = hintStyle,
+                        maxLines = 2,
+                        color = primaryColor
                     )
-                    TextButton(
-                        onClick = addServicePhase
-                    ) {
-                        AutoSizeText(
-                            maxTextSize = maxTextSize,
-                            text = "Добавить",
-                            style = styleDataMedium.copy(color = MaterialTheme.colorScheme.tertiary)
-                        )
-                    }
+                    Text(
+                        modifier = Modifier.noRippleEffect {
+                            addServicePhase()
+                        },
+                        text = "Добавить",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
                 }
             }
 
@@ -1177,7 +1109,7 @@ fun SettingSalaryScreen(
                             .fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        OutlinedTextField(
+                        OutlinedTextFieldApp(
                             modifier = Modifier.weight(1f),
                             value = item.distance,
                             onValueChange = { value ->
@@ -1187,21 +1119,15 @@ fun SettingSalaryScreen(
                             suffix = {
                                 Text(
                                     text = "км",
-                                    style = styleDataMedium
+                                    style = hintStyle
                                 )
                             },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                focusedBorderColor = Color.Transparent,
-                                unfocusedBorderColor = Color.Transparent
-                            ),
-                            shape = Shapes.medium,
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Decimal
                             )
                         )
-                        OutlinedTextField(
+
+                        OutlinedTextFieldApp(
                             modifier = Modifier.weight(1f),
                             value = item.percentSurcharge,
                             onValueChange = { value ->
@@ -1211,16 +1137,9 @@ fun SettingSalaryScreen(
                             suffix = {
                                 Text(
                                     text = "%",
-                                    style = styleDataMedium
+                                    style = hintStyle
                                 )
                             },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                focusedBorderColor = Color.Transparent,
-                                unfocusedBorderColor = Color.Transparent
-                            ),
-                            shape = Shapes.medium,
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Decimal
                             )
@@ -1233,18 +1152,19 @@ fun SettingSalaryScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = paddingLarge),
+                        .padding(top = 18.dp),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
-                    AutoSizeText(
-                        maxTextSize = maxTextSize,
+                    Text(
                         text = "Другие надбавки, %",
                         overflow = TextOverflow.Visible,
-                        style = styleDataMedium
+                        style = hintStyle,
+                        color = primaryColor,
+                        maxLines = 2
                     )
                     AsyncDataValue(resultState = uiState.otherSurchargeState) { otherSurcharge ->
                         otherSurcharge?.let {
-                            OutlinedTextField(
+                            OutlinedTextFieldApp(
                                 modifier = Modifier
                                     .fillMaxWidth(),
                                 value = otherSurcharge,
@@ -1258,13 +1178,6 @@ fun SettingSalaryScreen(
                                     }
                                 },
                                 singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent
-                                ),
-                                shape = Shapes.medium,
                                 keyboardOptions = KeyboardOptions(
                                     keyboardType = KeyboardType.Decimal
                                 )
@@ -1278,7 +1191,7 @@ fun SettingSalaryScreen(
                 Text(
                     "Удержания",
                     overflow = TextOverflow.Visible,
-                    style = styleDataLight,
+                    style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = paddingLarge),
@@ -1293,15 +1206,16 @@ fun SettingSalaryScreen(
                         .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
-                    AutoSizeText(
-                        maxTextSize = maxTextSize,
+                    Text(
                         text = "Подоходный налог, %",
                         overflow = TextOverflow.Visible,
-                        style = styleDataMedium
+                        style = hintStyle,
+                        maxLines = 2,
+                        color = primaryColor
                     )
                     AsyncDataValue(resultState = ndflValueState) { ndflValue ->
                         ndflValue?.let {
-                            OutlinedTextField(
+                            OutlinedTextFieldApp(
                                 modifier = Modifier
                                     .fillMaxWidth(),
                                 value = ndflValue,
@@ -1315,13 +1229,6 @@ fun SettingSalaryScreen(
                                     }
                                 },
                                 singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent
-                                ),
-                                shape = Shapes.medium,
                                 keyboardOptions = KeyboardOptions(
                                     keyboardType = KeyboardType.Decimal
                                 )
@@ -1338,15 +1245,16 @@ fun SettingSalaryScreen(
                         .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
-                    AutoSizeText(
-                        maxTextSize = maxTextSize,
+                    Text(
                         text = "Профсоюз, %",
                         overflow = TextOverflow.Visible,
-                        style = styleDataMedium
+                        style = hintStyle,
+                        maxLines = 2,
+                        color = primaryColor
                     )
                     AsyncDataValue(resultState = unionistsRetentionState) { unionistsRetention ->
                         unionistsRetention?.let {
-                            OutlinedTextField(
+                            OutlinedTextFieldApp(
                                 modifier = Modifier
                                     .fillMaxWidth(),
                                 value = unionistsRetention,
@@ -1360,13 +1268,6 @@ fun SettingSalaryScreen(
                                     }
                                 },
                                 singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent
-                                ),
-                                shape = Shapes.medium,
                                 keyboardOptions = KeyboardOptions(
                                     keyboardType = KeyboardType.Decimal
                                 )
@@ -1383,15 +1284,16 @@ fun SettingSalaryScreen(
                         .padding(top = paddingLarge),
                     verticalArrangement = Arrangement.spacedBy(paddingSmall)
                 ) {
-                    AutoSizeText(
-                        maxTextSize = maxTextSize,
+                    Text(
                         text = "Прочие удержания, %",
                         overflow = TextOverflow.Visible,
-                        style = styleDataMedium
+                        style = hintStyle,
+                        maxLines = 2,
+                        color = primaryColor
                     )
                     AsyncDataValue(resultState = otherRetentionValueState) { otherRetentionValue ->
                         otherRetentionValue?.let {
-                            OutlinedTextField(
+                            OutlinedTextFieldApp(
                                 modifier = Modifier
                                     .fillMaxWidth(),
                                 value = otherRetentionValue,
@@ -1405,13 +1307,6 @@ fun SettingSalaryScreen(
                                     }
                                 },
                                 singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent
-                                ),
-                                shape = Shapes.medium,
                                 keyboardOptions = KeyboardOptions(
                                     keyboardType = KeyboardType.Decimal
                                 )

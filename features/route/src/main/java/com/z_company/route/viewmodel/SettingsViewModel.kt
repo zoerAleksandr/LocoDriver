@@ -60,9 +60,9 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private var loadLoginJob: Job? = null
     private var loadCalendarJob: Job? = null
 
-    fun getAllRouteRemote() {
+    fun cleanRepo() {
         viewModelScope.launch(Dispatchers.IO) {
-            back4AppManager.getAllRouteRemote()
+            back4AppManager.cleanUpRoutesForAllUsers()
         }
     }
 

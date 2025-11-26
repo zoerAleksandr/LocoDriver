@@ -24,7 +24,7 @@ class SalarySettingUseCase(
     }
 
     fun getSalarySetting(): SalarySetting = repository.getSalarySetting()
-    fun getFlowSalarySetting(): Flow<ResultState<SalarySetting?>> =
+    fun getFlowSalarySetting(): Flow<ResultState<SalarySetting>> =
         repository.getSalarySettingState()
 
     fun saveSalarySetting(setting: SalarySetting): Flow<ResultState<Unit>> =

@@ -1496,6 +1496,25 @@ fun SettingsScreen(
                                 )
                             }
                         }
+                        item {
+                            Button(
+                                modifier = Modifier
+                                    .padding(top = 16.dp)
+                                    .fillMaxWidth(),
+                                shape = Shapes.medium,
+                                elevation = ButtonDefaults.elevatedButtonElevation(
+                                    defaultElevation = 2.dp
+                                ),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                onClick = { viewModel.cleanRepo() }
+                            ) {
+                                Text(
+                                    text = "Очистка",
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
 
                         item {
                             Spacer(modifier = Modifier.height(24.dp))

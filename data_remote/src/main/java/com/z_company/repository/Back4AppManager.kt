@@ -6,6 +6,7 @@ import com.parse.ParseException
 import com.parse.ParseObject
 import com.parse.ParseQuery
 import com.parse.ParseUser
+import com.parse.coroutines.suspendFind
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.util.ConverterLongToTime
@@ -86,6 +87,53 @@ class Back4AppManager : KoinComponent {
         } catch (e: ParseException) {
             // Handle errors such as network issues
             println("Error fetching routes: ${e.message}")
+        }
+    }
+
+    suspend fun cleanUpRoutesForAllUsers() = withContext(Dispatchers.IO) {
+        try {
+            // Step 1: Retrieve all users
+            val userQuery = ParseQuery.getQuery<ParseUser>("_User")
+            val users = userQuery.suspendFind()
+
+            // Step 2: For each user, process their routes
+            for (user in users) {
+                val userId = user.objectId ?: continue
+                Log.d("zzz","Processing user: ${user.email}")
+
+                // Query to find routes associated with this user
+                val routeQuery = ParseQuery.getQuery<ParseObject>("Route")
+                routeQuery.whereEqualTo("user", user)
+                val routes = routeQuery.find()
+
+                // Group routes by the 'data' field
+                val groupedRoutes = routes.groupBy { it.getString("data") }
+
+                var routesDeleted = 0
+                var routesRemaining = 0
+
+                // Step 3: Identify and remove duplicates
+                groupedRoutes.forEach { (_, userRoutes) ->
+                    if (userRoutes.size > 1) {
+                        // Sort the routes by creation or updated date, descending
+                        val sortedRoutes = userRoutes.sortedByDescending { it.createdAt }
+
+                        // Keep the most recently saved route and set the duplicates to delete
+                        val duplicatesToDelete = sortedRoutes.drop(1)
+
+                        // Delete the duplicates
+                        ParseObject.deleteAll(duplicatesToDelete)
+
+                        routesDeleted += duplicatesToDelete.size
+                    }
+                    routesRemaining += 1 // Count the one that remains
+                }
+
+                // Log the results for the user
+                Log.d("zzz", "User: ${user.email} $userId, Routes Deleted: $routesDeleted, Routes Remaining: $routesRemaining")
+            }
+        } catch (e: ParseException) {
+            Log.e("Error", "Error fetching users or processing routes: ${e.message}")
         }
     }
 

@@ -489,6 +489,7 @@ class FormViewModel(
 
     // Сохранение
     fun saveRoute() {
+        Log.d("zzz", "saveRoute")
         saveRouteJob?.cancel()
         saveRouteJob = viewModelScope.launch(Dispatchers.IO) {
             currentRoute.value?.let { route ->
@@ -501,6 +502,7 @@ class FormViewModel(
                     passengers = passengers
                 )
                 routeUseCase.saveRoute(routeToSave).collectLatest { result ->
+                    Log.d("zzz", "saveResult $result")
                     _uiState.update { it.copy(saveRouteState = result) }
                     if (result is ResultState.Success) {
                         deletedLocoList.forEach { loco ->

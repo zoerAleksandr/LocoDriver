@@ -145,7 +145,8 @@ fun SelectReleaseDaysContent(
             onDismiss = {
                 showBottomSheet = false
             },
-            title = "Период отвлечения"
+            title = "Период отвлечения",
+            singleMode = false
         )
     }
 

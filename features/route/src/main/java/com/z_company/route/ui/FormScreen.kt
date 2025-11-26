@@ -195,10 +195,10 @@ fun FormScreen(
             },
             actions = listOf(
                 BottomSheetAction(text = stringResource(id = R.string.billing_common_ok)) {
-                    viewModel::saveRoute
+                    viewModel.saveRoute()
                 },
                 BottomSheetAction(text = "Оформить подписку за 44 руб/мес") {
-                    viewModel::checkPurchasesAvailability
+                    viewModel.checkPurchasesAvailability()
                 }
             ),
         )

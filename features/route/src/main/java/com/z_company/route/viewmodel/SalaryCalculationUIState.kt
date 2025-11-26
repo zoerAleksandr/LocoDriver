@@ -54,7 +54,7 @@ data class SalaryCalculationUIState(
     val restInExcessOfTheNormMoney: Double? = null,
     val harmfulnessSurchargePercent: Double? = null,
     val harmfulnessSurchargeMoney: Double? = null,
-    val averagePaymentHours: Int? = null,
+    val averagePaymentHours: Long? = null,
     val averagePaymentMoney: Double? = null,
     val totalChargedMoney: Double? = null,
     val retentionNdfl: Double? = null,
