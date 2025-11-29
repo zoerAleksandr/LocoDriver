@@ -92,48 +92,67 @@ class Back4AppManager : KoinComponent {
 
     suspend fun cleanUpRoutesForAllUsers() = withContext(Dispatchers.IO) {
         try {
-            // Step 1: Retrieve all users
-            val userQuery = ParseQuery.getQuery<ParseUser>("_User")
-            val users = userQuery.suspendFind()
+            var skip = 0
+            val pageSize = 1000
 
-            // Step 2: For each user, process their routes
-            for (user in users) {
-                val userId = user.objectId ?: continue
-                Log.d("zzz","Processing user: ${user.email}")
+            while (true) {
+                // Step 1: Retrieve a batch of users
+                val userQuery = ParseQuery.getQuery<ParseUser>("_User")
+                userQuery.limit = pageSize
+                userQuery.skip = skip
 
-                // Query to find routes associated with this user
-                val routeQuery = ParseQuery.getQuery<ParseObject>("Route")
-                routeQuery.whereEqualTo("user", user)
-                val routes = routeQuery.find()
+                val users = userQuery.find()
 
-                // Group routes by the 'data' field
-                val groupedRoutes = routes.groupBy { it.getString("data") }
-
-                var routesDeleted = 0
-                var routesRemaining = 0
-
-                // Step 3: Identify and remove duplicates
-                groupedRoutes.forEach { (_, userRoutes) ->
-                    if (userRoutes.size > 1) {
-                        // Sort the routes by creation or updated date, descending
-                        val sortedRoutes = userRoutes.sortedByDescending { it.createdAt }
-
-                        // Keep the most recently saved route and set the duplicates to delete
-                        val duplicatesToDelete = sortedRoutes.drop(1)
-
-                        // Delete the duplicates
-                        ParseObject.deleteAll(duplicatesToDelete)
-
-                        routesDeleted += duplicatesToDelete.size
-                    }
-                    routesRemaining += 1 // Count the one that remains
+                if (users.isEmpty()) {
+                    break
                 }
 
-                // Log the results for the user
-                Log.d("zzz", "User: ${user.email} $userId, Routes Deleted: $routesDeleted, Routes Remaining: $routesRemaining")
+                for (user in users) {
+                    val userId = user.objectId ?: continue
+
+                    // Step 2: Query for routes associated with the user
+                    val routeQuery = ParseQuery.getQuery<ParseObject>("Route")
+                    routeQuery.whereEqualTo("user", user)
+                    routeQuery.limit = 1 // Check if at least one route exists
+                    val routes = routeQuery.find()
+
+                    if (routes.isNotEmpty()) {
+                        println("Processing user: $userId")
+
+                        // Retrieve all routes for this user
+                        val allRoutesQuery = ParseQuery.getQuery<ParseObject>("Route")
+                        allRoutesQuery.whereEqualTo("user", user)
+                        val allRoutes = allRoutesQuery.find()
+
+                        // Step 3: Group routes by the 'data' field
+                        val groupedRoutes = allRoutes.groupBy { it.getString("data") }
+
+                        var routesDeleted = 0
+                        var routesRemaining = 0
+
+                        // Identify and remove duplicates
+                        groupedRoutes.forEach { (_, userRoutes) ->
+                            if (userRoutes.size > 1) {
+                                val sortedRoutes = userRoutes.sortedByDescending { it.createdAt }
+                                val duplicatesToDelete = sortedRoutes.drop(1)
+
+                                // Delete the duplicates
+                                ParseObject.deleteAll(duplicatesToDelete)
+
+                                routesDeleted += duplicatesToDelete.size
+                            }
+                            routesRemaining += 1
+                        }
+
+                        // Log the results for the user
+                        println("User: $userId, Routes Deleted: $routesDeleted, Routes Remaining: $routesRemaining")
+                    }
+                }
+
+                skip += users.size // Move to the next batch of users
             }
         } catch (e: ParseException) {
-            Log.e("Error", "Error fetching users or processing routes: ${e.message}")
+            println("Error fetching users or processing routes: ${e.message}")
         }
     }
 
@@ -359,6 +378,8 @@ class Back4AppManager : KoinComponent {
                     if (resultRemote is ResultState.Success) {
                         saveRouteToRemoteStorage().collect { resultSync ->
                             if (resultSync is ResultState.Success) {
+                                val timestamp = Calendar.getInstance().timeInMillis
+                                settingsUseCase.setUpdateAt(timestamp).first()
                                 trySend(ResultState.Success(resultSync.data))
                             }
                             if (resultSync is ResultState.Error) {
@@ -398,6 +419,8 @@ class Back4AppManager : KoinComponent {
                         totalCount += it.data
                     }
                 }
+                val timestamp = Calendar.getInstance().timeInMillis
+                settingsUseCase.setUpdateAt(timestamp).first()
                 trySend(ResultState.Success(totalCount))
             } catch (e: TimeoutCancellationException) {
                 trySend(ResultState.Error(ErrorEntity(message = "TimeOut: Время ожидания истекло")))
@@ -420,7 +443,7 @@ class Back4AppManager : KoinComponent {
                 var timestamp: Long
                 if (notSynchronizedList.isEmpty()) {
                     timestamp = Calendar.getInstance().timeInMillis
-                    settingsUseCase.setUpdateAt(timestamp).collect()
+                    settingsUseCase.setUpdateAt(timestamp).first()
                     trySend(ResultState.Success(0))
                 } else {
                     var syncRouteCount = 0

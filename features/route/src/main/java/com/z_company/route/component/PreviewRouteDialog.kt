@@ -82,7 +82,7 @@ fun PreviewRouteDialog(
     val redOrange = Color(0xFFf1642e)
     val heightScreen = LocalConfiguration.current.screenHeightDp
 
-    Column(
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(bottom = 32.dp)
@@ -96,59 +96,62 @@ fun PreviewRouteDialog(
         horizontalAlignment = Alignment.End,
         verticalArrangement = Arrangement.Bottom
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .requiredHeightIn(
-                    min = heightScreen.times(0.3f).dp,
-                    max = heightScreen.times(0.65f).dp
-                )
-                .padding(start = 12.dp, end = 12.dp, top = 30.dp, bottom = 12.dp)
-                .background(
-                    color = MaterialTheme.colorScheme.secondary,
-                    shape = Shapes.medium
-                )
-                .clickable {}
-        ) {
-            PreviewRoute(
-                routeForPreview,
-                minTimeRest,
-                homeRest,
-                dateAndTimeConverter
-            )
-        }
-
-        Column(
-            modifier = Modifier
-                .padding(end = 12.dp)
-                .fillMaxWidth(0.6f)
-                .background(
-                    color = MaterialTheme.colorScheme.secondary,
-                    shape = Shapes.medium
-                )
-        ) {
-            Row(
+        item {
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .clickable {
-                        showContextDialog(false)
-                        syncRoute(routeForPreview)
-                    },
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .requiredHeightIn(
+                        min = heightScreen.times(0.3f).dp,
+                        max = heightScreen.times(0.65f).dp
+                    )
+                    .padding(start = 12.dp, end = 12.dp, top = 30.dp, bottom = 12.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.secondary,
+                        shape = Shapes.medium
+                    )
+                    .clickable {}
             ) {
-                Text(
-                    text = "Сохранить в облаке",
-                    style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
-                )
-                Image(
-                    modifier = Modifier.size(25.dp),
-                    painter = painterResource(id = R.drawable.sync_on_icon),
-                    contentDescription = null,
+                PreviewRoute(
+                    routeForPreview,
+                    minTimeRest,
+                    homeRest,
+                    dateAndTimeConverter
                 )
             }
-            HorizontalDivider()
+        }
+
+        item {
+            Column(
+                modifier = Modifier
+                    .padding(end = 12.dp)
+                    .fillMaxWidth(0.6f)
+                    .background(
+                        color = MaterialTheme.colorScheme.secondary,
+                        shape = Shapes.medium
+                    )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .clickable {
+                            showContextDialog(false)
+                            syncRoute(routeForPreview)
+                        },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Сохранить в облаке",
+                        style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
+                    )
+                    Image(
+                        modifier = Modifier.size(25.dp),
+                        painter = painterResource(id = R.drawable.sync_on_icon),
+                        contentDescription = null,
+                    )
+                }
+                HorizontalDivider()
 //                Row(
 //                    modifier = Modifier
 //                        .fillMaxWidth()
@@ -181,104 +184,105 @@ fun PreviewRouteDialog(
 //                    )
 //                }
 //                HorizontalDivider()
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .clickable {
-                        showContextDialog(false)
-                        setFavoriteState(routeForPreview)
-                    },
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val text =
-                    if (routeForPreview.basicData.isFavorite) "Убрать из избранного" else "В избранное"
-                val icon =
-                    if (routeForPreview.basicData.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder
-                val tint =
-                    if (routeForPreview.basicData.isFavorite) redOrange else MaterialTheme.colorScheme.primary
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .clickable {
+                            showContextDialog(false)
+                            setFavoriteState(routeForPreview)
+                        },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val text =
+                        if (routeForPreview.basicData.isFavorite) "Убрать из избранного" else "В избранное"
+                    val icon =
+                        if (routeForPreview.basicData.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder
+                    val tint =
+                        if (routeForPreview.basicData.isFavorite) redOrange else MaterialTheme.colorScheme.primary
 
 
-                Text(
-                    text = text,
-                    style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
-                )
-                Icon(
-                    modifier = Modifier.size(25.dp),
-                    imageVector = icon,
-                    tint = tint,
-                    contentDescription = null,
-                )
-            }
-            HorizontalDivider()
+                    Text(
+                        text = text,
+                        style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
+                    )
+                    Icon(
+                        modifier = Modifier.size(25.dp),
+                        imageVector = icon,
+                        tint = tint,
+                        contentDescription = null,
+                    )
+                }
+                HorizontalDivider()
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .clickable {
-                        showContextDialog(false)
-                        onRouteClick(routeForPreview.basicData.id)
-                    },
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Просмотр",
-                    style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
-                )
-                Icon(
-                    painter = painterResource(id = R.drawable.rounded_visibility_24),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-            HorizontalDivider()
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .clickable {
-                        showContextDialog(false)
-                        makeCopyRoute(routeForPreview.basicData.id)
-                    },
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Дублировать",
-                    style = AppTypography.getType().bodyMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Icon(
-                    painter = painterResource(id = R.drawable.outline_content_copy_24),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-            HorizontalDivider()
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .clickable {
-                        showContextDialog(false)
-                        showDialogConfirmRemove(true, routeForPreview)
-                    },
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Удалить",
-                    style = AppTypography.getType().bodyMedium,
-                    color = MaterialTheme.colorScheme.error
-                )
-                Icon(
-                    painter = painterResource(id = R.drawable.delete_24px),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .clickable {
+                            showContextDialog(false)
+                            onRouteClick(routeForPreview.basicData.id)
+                        },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Просмотр",
+                        style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
+                    )
+                    Icon(
+                        painter = painterResource(id = R.drawable.rounded_visibility_24),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+                HorizontalDivider()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .clickable {
+                            showContextDialog(false)
+                            makeCopyRoute(routeForPreview.basicData.id)
+                        },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Дублировать",
+                        style = AppTypography.getType().bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Icon(
+                        painter = painterResource(id = R.drawable.outline_content_copy_24),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+                HorizontalDivider()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .clickable {
+                            showContextDialog(false)
+                            showDialogConfirmRemove(true, routeForPreview)
+                        },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Удалить",
+                        style = AppTypography.getType().bodyMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    Icon(
+                        painter = painterResource(id = R.drawable.delete_24px),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
             }
         }
     }

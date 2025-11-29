@@ -1,17 +1,17 @@
 package com.z_company.loco_driver.ui
 
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -50,7 +50,6 @@ fun LocoDriverApp(
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding(),
-            color = Color.Transparent
         ) {
             // Определяем, нужно ли показывать нижнее меню
             val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -64,8 +63,7 @@ fun LocoDriverApp(
                 ProfileRoute.route
             )
 
-            val showBottomBar = true
-//                isLoggedIn && currentRoute in bottomBarRoutes
+            val showBottomBar = isLoggedIn && currentRoute in bottomBarRoutes
 
             Scaffold(
                 bottomBar = {
@@ -73,14 +71,13 @@ fun LocoDriverApp(
                         BottomNavigationBar(navController = navController)
                     }
                 },
-                containerColor = Color.Transparent,
-                contentColor = MaterialTheme.colorScheme.onBackground
             ) { paddingValues ->
                 NavHost(
                     navController = navController,
-                    startDestination = HomeFeature.route,
-//                        if (isLoggedIn) HomeFeature.route else AuthFeature.route,
-                    modifier = Modifier.padding(paddingValues)
+                    startDestination = if (isLoggedIn) HomeFeature.route else AuthFeature.route,
+                    modifier = Modifier.padding(paddingValues),
+                    enterTransition = { fadeIn() },
+                    exitTransition = { fadeOut() },
                 ) {
                     // Граф авторизации
                     loginGraph(

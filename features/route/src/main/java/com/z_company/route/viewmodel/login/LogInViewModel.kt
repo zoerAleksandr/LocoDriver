@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.z_company.SessionManager
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.util.isEmailValid
@@ -23,6 +24,8 @@ import org.koin.core.component.inject
 
 class LogInViewModel : ViewModel(), KoinComponent {
     private val authUseCase: AuthUseCase by inject()
+    private val sessionManager: SessionManager by inject()
+
     private val _uiState = MutableStateFlow(LogInUiState())
     val uiState = _uiState.asStateFlow()
     private var parentRegisteredJob: Job? = null
@@ -32,6 +35,9 @@ class LogInViewModel : ViewModel(), KoinComponent {
             registeredUserByEmailJob?.cancel()
             registeredUserByEmailJob =
                 authUseCase.registeredUserByEmail(name, password, email).onEach { resultState ->
+                    if (resultState is ResultState.Success){
+                        sessionManager.updateLoggedIn()
+                    }
                     if (resultState is ResultState.Error) {
                         val messageThrowable = getMessageThrowable(resultState.entity.throwable)
                         _uiState.update {

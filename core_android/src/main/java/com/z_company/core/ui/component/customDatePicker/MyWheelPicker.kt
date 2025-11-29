@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.LocalContentColor
@@ -32,10 +33,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.sp
+import com.z_company.core.ui.component.AutoSizeText
 
 @Composable
 fun MyWheelTextPicker(
@@ -52,6 +56,7 @@ fun MyWheelTextPicker(
     dampingRatio: Float = Spring.DampingRatioLowBouncy,
     stiffness: Float = Spring.StiffnessLow,
     frictionMultiplier: Float = 0.5f,
+    changeWidth: (Dp) -> Unit = {},
     onScrollFinished: (snappedIndex: Int) -> Int? = { null },
 ) {
     MyWheelPicker(
@@ -68,6 +73,7 @@ fun MyWheelTextPicker(
         contentArrangement = contentArrangement,
         dampingRatio = dampingRatio,
         stiffness = stiffness,
+//        changeWidth = changeWidth,
         frictionMultiplier = frictionMultiplier
     )
 }
@@ -92,18 +98,7 @@ fun MyWheelPicker(
 ) {
     val snapperLayoutInfo = rememberLazyListSnapperLayoutInfo(lazyListState = lazyListState)
     val isScrollInProgress = lazyListState.isScrollInProgress
-    val haptic = LocalHapticFeedback.current
-    var previousSnapped by remember { mutableIntStateOf(startIndex) }
 
-
-    LaunchedEffect(isScrollInProgress, snapperLayoutInfo.currentItem) {
-        val currentSnapped = calculateSnappedItemIndex(snapperLayoutInfo) ?: startIndex
-        if (currentSnapped != previousSnapped) {
-            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-            previousSnapped = currentSnapped
-            Log.d("zzz", "вибрация")
-        }
-    }
     LaunchedEffect(isScrollInProgress, count) {
         if (!isScrollInProgress) {
             onScrollFinished(calculateSnappedItemIndex(snapperLayoutInfo) ?: startIndex)?.let {
@@ -149,10 +144,12 @@ fun MyWheelPicker(
                     horizontalArrangement = contentArrangement,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
+                    AutoSizeText(
+                        maxTextSize = 26.sp,
+                        minTextSize = 18.sp,
                         modifier = Modifier.fillMaxWidth(),
                         text = texts[index],
-                        textAlign = TextAlign.Center,
+                        alignment = Alignment.Center,
                         color = color.copy(alpha = alpha),
                         style = style
                     )

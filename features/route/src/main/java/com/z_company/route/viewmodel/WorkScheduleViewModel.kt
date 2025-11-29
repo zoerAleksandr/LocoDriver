@@ -24,6 +24,7 @@ import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
+import com.z_company.domain.util.plus
 import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
 import com.z_company.use_case.SubscriptionHelper
 import kotlinx.coroutines.channels.BufferOverflow
@@ -363,25 +364,27 @@ class WorkScheduleViewModel() : ViewModel(), KoinComponent {
                         val startMillis =
                             cal.timeInMillis // or adjust with tzOffset if your codebase needs (startMillis - tzOffset or +tz)
 
-                        val endMillis = workDuration?.let { duration ->
-                            // если workDuration передаётся как millis from midnight (или как длина?) — адаптируйте
-                            // Предположим workDuration — millis from midnight (как в вашем TimePicker)
-                            val endHour = ConverterLongToTime.getHour(duration)
-                            val endMinute =
-                                ConverterLongToTime.getRemainingMinuteFromHour(duration)
-                            val calEnd = Calendar.getInstance().also {
-                                it.set(Calendar.YEAR, month.year)
-                                it.set(Calendar.MONTH, month.month)
-                                it.set(Calendar.DAY_OF_MONTH, day)
-                                it.set(Calendar.HOUR_OF_DAY, endHour)
-                                it.set(Calendar.MINUTE, endMinute)
-                                it.set(Calendar.SECOND, 0)
-                                it.set(Calendar.MILLISECOND, 0)
-                            }
-                            var rawEnd = calEnd.timeInMillis
-                            if (rawEnd <= startMillis) rawEnd += 24 * 3_600_000L // перенос на следующий день
-                            rawEnd
-                        }
+                        val endMillis = workDuration.plus(startMillis)
+//                            ?.let { duration ->
+//                            // если workDuration передаётся как millis from midnight (или как длина?) — адаптируйте
+//                            // Предположим workDuration — millis from midnight (как в вашем TimePicker)
+//                            val endHour = ConverterLongToTime.getHour(duration)
+//
+//                            val endMinute =
+//                                ConverterLongToTime.getRemainingMinuteFromHour(duration)
+//                            val calEnd = Calendar.getInstance().also {
+//                                it.set(Calendar.YEAR, month.year)
+//                                it.set(Calendar.MONTH, month.month)
+//                                it.set(Calendar.DAY_OF_MONTH, day)
+//                                it.set(Calendar.HOUR_OF_DAY, endHour)
+//                                it.set(Calendar.MINUTE, endMinute)
+//                                it.set(Calendar.SECOND, 0)
+//                                it.set(Calendar.MILLISECOND, 0)
+//                            }
+//                            var rawEnd = calEnd.timeInMillis
+//                            if (rawEnd <= startMillis) rawEnd += 24 * 3_600_000L // перенос на следующий день
+//                            rawEnd
+//                        }
 
                         val routeToSave =
                             createRouteForStartTime(startMillis, endMillis)

@@ -16,10 +16,10 @@ fun NavGraphBuilder.composableScreen(
     composable(
         route = route,
         arguments = arguments,
-        enterTransition = { slideInHorizontally { it } + fadeIn() },
-        exitTransition = { slideOutHorizontally { -it } + fadeOut() },
-        popEnterTransition = { slideInHorizontally { -it } + fadeIn() },
-        popExitTransition = { slideOutHorizontally { it } + fadeOut() },
+        enterTransition = { fadeIn() },
+        exitTransition = { fadeOut() },
+        popEnterTransition = { fadeIn() },
+        popExitTransition = { fadeOut() },
         content = content
     )
 }

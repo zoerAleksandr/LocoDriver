@@ -68,6 +68,7 @@ fun OutlinedTextFieldApp(
     val color = OutlinedTextFieldDefaults.colors(
         focusedTextColor = MaterialTheme.colorScheme.primary,
         unfocusedTextColor = MaterialTheme.colorScheme.primary,
+        disabledTextColor = MaterialTheme.colorScheme.primary,
         unfocusedContainerColor = animatedBackgroundColorsNumber,
         focusedContainerColor = animatedBackgroundColorsNumber,
         focusedBorderColor = borderColor,

@@ -1,10 +1,15 @@
 package com.z_company.route.ui
 
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,8 +42,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -59,6 +66,7 @@ import kotlinx.coroutines.launch
 import com.z_company.core.R as CoreR
 import androidx.compose.ui.text.style.TextOverflow
 import com.z_company.core.ui.component.AutoSizeText
+import com.z_company.core.ui.component.CustomDivider
 import com.z_company.core.ui.component.TimePickerApp
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.util.DateAndTimeConverter
@@ -72,6 +80,7 @@ import com.z_company.route.component.SwitchApp
 import com.z_company.route.viewmodel.SettingsViewModel
 import com.z_company.route.viewmodel.SettingsUiState
 import com.z_company.route.viewmodel.TimeZoneRussia
+import androidx.core.net.toUri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -194,12 +203,6 @@ fun SettingsScreen(
                 onSettingSaved()
             }
         }
-
-//        LaunchedEffect(settingsUiState.saveSettingsState) {
-//            if (settingsUiState.saveSettingsState is ResultState.Success) {
-//                onSettingSaved()
-//            }
-//        }
 
         LaunchedEffect(settingsUiState.logOutState) {
             if (settingsUiState.logOutState is ResultState.Success) {
@@ -651,7 +654,7 @@ fun SettingsScreen(
                                             color = primaryColor,
                                         )
                                     }
-                                    HorizontalDivider()
+                                    CustomDivider(orientation = Orientation.Horizontal)
 
                                     Text(
                                         modifier = Modifier.clickable {
@@ -709,6 +712,9 @@ fun SettingsScreen(
                                             }
                                         ) {
                                             OutlinedTextFieldApp(
+                                                modifier = Modifier
+                                                    .menuAnchor()
+                                                    .fillMaxWidth(),
                                                 value = selectedTimeZone.description,
                                                 onValueChange = {},
                                                 readOnly = true,
@@ -717,9 +723,7 @@ fun SettingsScreen(
                                                         expanded = expanded
                                                     )
                                                 },
-                                                modifier = Modifier
-                                                    .menuAnchor()
-                                                    .fillMaxWidth(),
+                                                textStyle = styleData.copy(color = MaterialTheme.colorScheme.primary)
                                             )
 
                                             ExposedDropdownMenu(
@@ -802,7 +806,7 @@ fun SettingsScreen(
                                             color = primaryColor
                                         )
                                     }
-                                    HorizontalDivider()
+                                    CustomDivider(orientation = Orientation.Horizontal)
 
                                     Row(
                                         modifier = Modifier
@@ -832,7 +836,7 @@ fun SettingsScreen(
                                             color = primaryColor
                                         )
                                     }
-                                    HorizontalDivider()
+                                    CustomDivider(orientation = Orientation.Horizontal)
 
                                     Row(
                                         modifier = Modifier
@@ -1037,7 +1041,8 @@ fun SettingsScreen(
                                             color = primaryColor
                                         )
                                     }
-                                    HorizontalDivider()
+
+                                    CustomDivider(orientation = Orientation.Horizontal)
 
                                     Row(
                                         modifier = Modifier
@@ -1064,7 +1069,7 @@ fun SettingsScreen(
                                     }
 
                                     AnimatedVisibility(visible = currentSettings.usingDefaultWorkTime) {
-                                        HorizontalDivider()
+                                        CustomDivider(orientation = Orientation.Horizontal)
                                         Spacer(modifier = Modifier.height(8.dp))
 
                                         Row(
@@ -1154,365 +1159,84 @@ fun SettingsScreen(
                             }
                         }
 
-                        // аккаунт
                         item {
                             Text(
-                                modifier = Modifier
-                                    .padding(start = 16.dp, bottom = 6.dp, top = 16.dp),
-                                text = "Аккаунт",
+                                modifier = Modifier.padding(top = 16.dp, start = 16.dp, bottom = 6.dp),
+                                text = "О приложении",
                                 style = styleTitle
                             )
-                            Box(
-                                modifier = Modifier
-                                    .shadow(elevation = 2.dp, shape = Shapes.medium)
-                                    .background(
-                                        color = MaterialTheme.colorScheme.secondary,
-                                        shape = Shapes.medium
-                                    )
-                                    .padding(horizontal = 16.dp, vertical = 12.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
 
-                                        Text(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .padding(end = 12.dp),
-                                            text = "E-mail",
-                                            style = styleData,
-                                            color = primaryColor
-                                        )
-                                        AsyncData(
-                                            resultState = currentUserState,
-                                            loadingContent = {
-                                                CircularProgressIndicator(
-                                                    modifier = Modifier.size(24.dp),
-                                                    strokeWidth = 2.dp
-                                                )
-                                            },
-                                            errorContent = {
-                                                Text(
-                                                    text = "Ошибка загрузки",
-                                                    style = styleData,
-                                                    color = primaryColor
-                                                )
-                                            }) { user ->
-                                            user?.let {
-                                                Text(
-                                                    text = user.email,
-                                                    style = styleData,
-                                                    color = primaryColor
-                                                )
-                                            }
-                                        }
-                                    }
-
-                                    HorizontalDivider()
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .padding(end = 12.dp),
-                                            text = "Статус",
-                                            style = styleData,
-                                            color = primaryColor
-                                        )
-                                        AsyncData(
-                                            resultState = currentUserState,
-                                            loadingContent = {
-                                                CircularProgressIndicator(
-                                                    modifier = Modifier.size(24.dp),
-                                                    strokeWidth = 2.dp
-                                                )
-                                            }, errorContent = {
-                                                Text(
-                                                    text = "Ошибка загрузки",
-                                                    style = styleData,
-                                                    color = primaryColor
-                                                )
-                                            }) { user ->
-                                            user?.let {
-                                                val dataText =
-                                                    if (user.isVerification) {
-                                                        "Подтвержден"
-                                                    } else {
-                                                        "Не подтвержден"
-                                                    }
-
-                                                Text(
-                                                    modifier = Modifier.clickable(
-                                                        enabled = !user.isVerification
-                                                    ) {
-                                                        showConfirmEmailDialog = true
-                                                    },
-                                                    text = dataText,
-                                                    style = styleData,
-                                                    color = if (!user.isVerification) MaterialTheme.colorScheme.tertiary else primaryColor
-                                                )
-
-                                            }
-                                        }
-                                    }
-                                    HorizontalDivider()
-
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable { onBillingClick() },
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .padding(end = 12.dp),
-                                            text = "Подписка",
-                                            style = styleData
-                                        )
-                                        AsyncData(
-                                            resultState = purchasesState,
-                                            loadingContent = {
-                                                CircularProgressIndicator(
-                                                    modifier = Modifier.size(24.dp),
-                                                    strokeWidth = 2.dp
-                                                )
-                                            },
-                                            errorContent = {
-                                                Text(
-                                                    text = "Ошибка загрузки",
-                                                    style = styleData,
-                                                    color = primaryColor
-                                                )
-                                            }
-                                        ) { purchaseInfo ->
-                                            if (purchaseInfo.isNullOrEmpty()) {
-                                                Text(
-                                                    text = "Отсутствует",
-                                                    style = styleData,
-                                                    color = primaryColor
-                                                )
-                                            } else {
-                                                Text(
-                                                    text = "до $purchaseInfo",
-                                                    style = styleData,
-                                                    color = primaryColor
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            Text(
-                                modifier = Modifier.padding(start = 16.dp, top = 8.dp),
-                                text = "Подтверждение e-mail нужно для синхронизации с облачным хранилищем.",
-                                style = styleHint,
-                                color = primaryColor
-                            )
-                        }
-
-                        item {
-                            Text(
-                                modifier = Modifier
-                                    .padding(start = 16.dp, bottom = 6.dp, top = 16.dp),
-                                text = "Синхронизация",
-                                style = styleTitle
-                            )
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .shadow(elevation = 2.dp, shape = Shapes.medium)
-                                    .background(
-                                        color = MaterialTheme.colorScheme.secondary,
-                                        shape = Shapes.medium
-                                    )
+                                    .background(color = MaterialTheme.colorScheme.secondary, shape = Shapes.medium)
                                     .padding(16.dp)
                             ) {
-                                AsyncData(
-                                    resultState = currentUserState,
-                                    loadingContent = {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween
-                                        ) {
-                                            Text(
-                                                modifier = Modifier.padding(end = 12.dp),
-                                                text = "Загрузка...",
-                                                style = styleData,
-                                                color = primaryColor
+                                val context = LocalContext.current
+
+                                val versionName = remember {
+                                    try {
+                                        val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                            context.packageManager.getPackageInfo(
+                                                context.packageName,
+                                                PackageManager.PackageInfoFlags.of(0L)
                                             )
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(24.dp),
-                                                strokeWidth = 2.dp
-                                            )
+                                        } else {
+                                            @Suppress("DEPRECATION")
+                                            context.packageManager.getPackageInfo(context.packageName, 0)
                                         }
-                                    },
-                                    errorContent = { error ->
-                                        Text(
-                                            text = "Ошибка загрузки ${error.entity.message}",
-                                            style = styleData,
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis,
-                                            color = primaryColor
-                                        )
-                                    }
-                                ) { user ->
-                                    user?.let {
-                                        if (user.isVerification) {
-                                            Column(
-                                                modifier = Modifier
-                                                    .fillMaxWidth(),
-                                                verticalArrangement = Arrangement.spacedBy(
-                                                    12.dp
-                                                )
-                                            ) {
-                                                Box(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                ) {
-                                                    settingsUiState.updateAt?.let { timeInMillis ->
-                                                        val textSyncDate =
-                                                            dateAndTimeConverter?.getDateAndTime(
-                                                                timeInMillis
-                                                            ) ?: ""
-
-                                                        Text(
-                                                            text = "Последнее обновление\n$textSyncDate",
-                                                            style = styleData,
-                                                            overflow = TextOverflow.Visible,
-                                                            color = primaryColor
-                                                        )
-                                                    }
-                                                }
-                                                HorizontalDivider()
-
-                                                Row(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .clickable { onUploadToRemote() },
-                                                    horizontalArrangement = Arrangement.SpaceBetween
-                                                ) {
-                                                    Text(
-                                                        modifier = Modifier
-                                                            .weight(1f)
-                                                            .padding(end = 12.dp),
-                                                        maxLines = 2,
-                                                        text = "Отправить в облако",
-                                                        style = styleData,
-                                                        color = primaryColor
-                                                    )
-                                                    AsyncData(
-                                                        resultState = settingsUiState.uploadState,
-                                                        loadingContent = {
-                                                            CircularProgressIndicator(
-                                                                modifier = Modifier.size(
-                                                                    24.dp
-                                                                ),
-                                                                strokeWidth = 2.dp
-                                                            )
-                                                        },
-                                                        errorContent = {}
-                                                    ) {
-                                                        Icon(
-                                                            tint = MaterialTheme.colorScheme.tertiary,
-                                                            painter = painterResource(id = CoreR.drawable.rounded_cloud_upload_24),
-                                                            contentDescription = null
-                                                        )
-                                                    }
-                                                }
-                                                HorizontalDivider()
-
-                                                Row(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .clickable { onDownloadFromRemote() },
-                                                    horizontalArrangement = Arrangement.SpaceBetween
-                                                ) {
-                                                    Text(
-                                                        modifier = Modifier
-                                                            .weight(1f)
-                                                            .padding(end = 12.dp),
-                                                        maxLines = 2,
-                                                        color = primaryColor,
-                                                        text = "Загрузить из облака",
-                                                        style = styleData
-                                                    )
-                                                    AsyncData(
-                                                        resultState = settingsUiState.downloadState,
-                                                        loadingContent = {
-                                                            CircularProgressIndicator(
-                                                                modifier = Modifier.size(
-                                                                    24.dp
-                                                                ),
-                                                                strokeWidth = 2.dp
-                                                            )
-                                                        },
-                                                        errorContent = {}
-                                                    ) {
-                                                        Icon(
-                                                            tint = MaterialTheme.colorScheme.tertiary,
-                                                            painter = painterResource(id = CoreR.drawable.rounded_cloud_download_24),
-                                                            contentDescription = null
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        }
+                                        packageInfo.versionName ?: "Unknown"
+                                    } catch (e: Exception) {
+                                        "Unknown"
                                     }
                                 }
-                            }
 
-                            Text(
-                                modifier = Modifier.padding(start = 16.dp, top = 8.dp),
-                                text = "Выгрузка на сервер маршрутных листов выполняется автоматически при наличии подписки и с подтвержденным e-mail",
-                                style = styleHint,
-                                color = primaryColor,
-                            )
-                        }
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    val context = LocalContext.current
+                                    val email = "locodriver.app@yandex.ru"
+                                    Text(
+                                        text = "Версия приложения",
+                                        style = styleHint,
+                                        color = primaryColor.copy(alpha = 0.7f)
+                                    )
+                                    Text(
+                                        text = versionName,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = primaryColor
+                                    )
 
-                        item {
-                            Button(
-                                modifier = Modifier
-                                    .padding(top = 16.dp)
-                                    .fillMaxWidth(),
-                                shape = Shapes.medium,
-                                elevation = ButtonDefaults.elevatedButtonElevation(
-                                    defaultElevation = 2.dp
-                                ),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                onClick = { onLogOut() }) {
-                                Text(
-                                    text = "Выйти",
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                        }
-                        item {
-                            Button(
-                                modifier = Modifier
-                                    .padding(top = 16.dp)
-                                    .fillMaxWidth(),
-                                shape = Shapes.medium,
-                                elevation = ButtonDefaults.elevatedButtonElevation(
-                                    defaultElevation = 2.dp
-                                ),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                onClick = { viewModel.cleanRepo() }
-                            ) {
-                                Text(
-                                    text = "Очистка",
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
+                                    CustomDivider(orientation = Orientation.Horizontal)
+
+                                    Text(
+                                        text = "Поддержка",
+                                        style = styleHint,
+                                        color = primaryColor.copy(alpha = 0.7f)
+                                    )
+
+                                    Text(
+                                        modifier = Modifier.noRippleEffect{
+                                            val selector = Intent(Intent.ACTION_SENDTO).apply {
+                                                data = "mailto:".toUri() // ← обязательно, чтобы открывались только почтовые приложения
+                                            }
+
+                                            val mailIntent = Intent(Intent.ACTION_SENDTO).apply {
+                                                data = "mailto:$email".toUri()
+                                            }
+
+                                            try {
+                                                context.startActivity(mailIntent)
+                                            } catch (e: Exception) {
+                                                context.startActivity(selector)
+                                            }
+                                        },
+                                        text = "locodriver.app@yandex.ru",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = primaryColor,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Visible
+                                    )
+                                }
                             }
                         }
 

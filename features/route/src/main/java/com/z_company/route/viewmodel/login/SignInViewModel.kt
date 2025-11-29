@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.z_company.SessionManager
 import com.z_company.UserConverter
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
@@ -15,7 +16,6 @@ import com.z_company.route.ui.login.getMessageThrowable
 import com.z_company.use_case.AuthUseCase
 import com.z_company.use_case.LoginUseCase
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
@@ -34,6 +34,7 @@ class SignInViewModel : ViewModel(), KoinComponent {
     private val back4AppManager: Back4AppManager by inject()
     private val authUseCase: AuthUseCase by inject()
     private val loginUseCase: LoginUseCase by inject()
+    private val sessionManager: SessionManager by inject()
 
     private val _uiState = MutableStateFlow(SignInUiState())
     val uiState = _uiState.asStateFlow()
@@ -78,6 +79,7 @@ class SignInViewModel : ViewModel(), KoinComponent {
                         viewModelScope.launch {
                             loginUseCase.getUser().collect { result ->
                                 if (result is ResultState.Success) {
+                                    sessionManager.updateLoggedIn()
                                     if (result.data.isVerification) {
                                         loadDataFromRemote()
                                     }

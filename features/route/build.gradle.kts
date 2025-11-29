@@ -49,6 +49,7 @@ dependencies {
 
     implementation(Libs.parse_sdk_android)
 
+//    implementation(Libs.lifecycle_runtime_compose)
     implementation(Libs.activity_compose)
     implementation(Libs.core_ktx)
     implementation(Libs.lifecycle_viewmodel_ktx)

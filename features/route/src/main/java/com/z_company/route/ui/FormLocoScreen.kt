@@ -156,6 +156,8 @@ fun FormLocoScreen(
     var showTime by remember { mutableStateOf(false) }
     var resultVisible by remember { mutableStateOf(false) }
 
+    val noValueColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+
     Scaffold(
         modifier = Modifier
             .fillMaxWidth(),
@@ -260,6 +262,7 @@ fun FormLocoScreen(
                 val focusManager = LocalFocusManager.current
                 val scope = rememberCoroutineScope()
                 val dataTextStyle = MaterialTheme.typography.bodyLarge
+
                 val subTitleTextStyle = MaterialTheme.typography.bodyMedium
 
                 AnimatedVisibility(
@@ -456,7 +459,8 @@ fun FormLocoScreen(
                                             placeholder = {
                                                 Text(
                                                     text = "Ток 1",
-                                                    style = dataTextStyle
+                                                    style = dataTextStyle,
+                                                    color = noValueColor
                                                 )
                                             },
                                             textStyle = dataTextStyle,
@@ -480,7 +484,8 @@ fun FormLocoScreen(
                                                     placeholder = {
                                                         Text(
                                                             text = "Ток 2",
-                                                            style = dataTextStyle
+                                                            style = dataTextStyle,
+                                                            color = noValueColor
                                                         )
                                                     },
                                                     textStyle = dataTextStyle,
@@ -679,8 +684,8 @@ fun FormLocoScreen(
                                     placeholder = {
                                         Text(
                                             text = "Серия",
-                                            style = dataTextStyle,
-                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = noValueColor
                                         )
                                     },
                                     textStyle = dataTextStyle,
@@ -752,7 +757,8 @@ fun FormLocoScreen(
                                 placeholder = {
                                     Text(
                                         text = "Номер",
-                                        style = dataTextStyle
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = noValueColor
                                     )
                                 },
                                 onValueChange = { onNumberChanged(it) },
@@ -865,9 +871,21 @@ fun FormLocoScreen(
                                                 locomotive.timeStartOfAcceptance?.let {
                                                     dateAndTimeConverter?.getDateMiniAndTime(it)
                                                 } ?: "Начало"
+
+                                            val color = locomotive.timeStartOfAcceptance?.let {
+                                                MaterialTheme.colorScheme.primary
+                                            } ?: noValueColor
+
+                                            val style = locomotive.timeStartOfAcceptance?.let {
+                                                dataTextStyle
+                                            } ?: MaterialTheme.typography.bodyMedium
+
                                             Text(
                                                 text = dateStartText,
-                                                style = dataTextStyle,
+                                                style = style,
+                                                color = color,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                         }
 
@@ -896,9 +914,20 @@ fun FormLocoScreen(
                                                 dateAndTimeConverter?.getDateMiniAndTime(it)
                                             } ?: "Окончание"
 
+                                            val color = locomotive.timeStartOfAcceptance?.let {
+                                                MaterialTheme.colorScheme.primary
+                                            } ?: noValueColor
+
+                                            val style = locomotive.timeStartOfAcceptance?.let {
+                                                dataTextStyle
+                                            } ?: MaterialTheme.typography.bodyMedium
+
                                             Text(
                                                 text = dateEndText,
-                                                style = dataTextStyle,
+                                                style = style,
+                                                color = color,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                         }
                                     }
@@ -992,9 +1021,20 @@ fun FormLocoScreen(
                                                     dateAndTimeConverter?.getDateMiniAndTime(it)
                                                 } ?: "Начало"
 
+                                            val color = locomotive.timeStartOfDelivery?.let {
+                                                MaterialTheme.colorScheme.primary
+                                            } ?: noValueColor
+
+                                            val style = locomotive.timeStartOfDelivery?.let {
+                                                dataTextStyle
+                                            } ?: MaterialTheme.typography.bodyMedium
+
                                             Text(
                                                 text = dateStartText,
-                                                style = dataTextStyle,
+                                                style = style,
+                                                color = color,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                         }
 
@@ -1022,9 +1062,21 @@ fun FormLocoScreen(
                                             val dateEndText = locomotive.timeEndOfDelivery?.let {
                                                 dateAndTimeConverter?.getDateMiniAndTime(it)
                                             } ?: "Окончание"
+
+                                            val color = locomotive.timeEndOfDelivery?.let {
+                                                MaterialTheme.colorScheme.primary
+                                            } ?: noValueColor
+
+                                            val style = locomotive.timeEndOfDelivery?.let {
+                                                dataTextStyle
+                                            } ?: MaterialTheme.typography.bodyMedium
+
                                             Text(
                                                 text = dateEndText,
-                                                style = dataTextStyle,
+                                                style = style,
+                                                color = color,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                         }
                                     }
@@ -1065,7 +1117,7 @@ fun FormLocoScreen(
                                         value = accepted,
                                         textStyle = dataTextStyle,
                                         placeholder = {
-                                            Text(text = "Принял", style = dataTextStyle)
+                                            Text(text = "Принял", style = dataTextStyle, color = noValueColor)
                                         },
                                         onValueChange = {
                                             viewModel.setHeatingCounterAccepted(it)
@@ -1088,7 +1140,7 @@ fun FormLocoScreen(
                                         value = delivered,
                                         textStyle = dataTextStyle,
                                         placeholder = {
-                                            Text(text = "Сдал", style = dataTextStyle)
+                                            Text(text = "Сдал", style = dataTextStyle, color = noValueColor)
                                         },
                                         onValueChange = {
                                             viewModel.setHeatingCounterDelivery(it)

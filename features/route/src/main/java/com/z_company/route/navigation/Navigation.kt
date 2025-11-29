@@ -36,10 +36,8 @@ fun NavGraphBuilder.homeGraph(
         }
 
         composableScreen(ProfileRoute.route) {
-//            ProfileScreen()
+            ProfileDestination(router = router)
         }
-
-
 
         composableScreen(
             route = FormRoute.route,

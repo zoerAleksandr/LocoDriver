@@ -1,5 +1,6 @@
 package com.z_company.route.viewmodel
 
+import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
@@ -81,56 +82,53 @@ class LocoFormViewModel(
 
     init {
         viewModelScope.launch {
-            settingsUseCase.getFlowCurrentSettingsState().collect { result ->
-                if (result is ResultState.Success) {
-                    _settings.value = result.data
-                    _uiState.update {
-                        it.copy(
-                            dateAndTimeConverter = DateAndTimeConverter(result.data)
-                        )
-                    }
-                    _seriesList.update { list ->
-                        list.addAllOrSkip(result.data.locomotiveSeriesList.toMutableStateList())
-                        list
-                    }
-                    mutableSeriesList.addAllOrSkip(result.data.locomotiveSeriesList.toMutableStateList())
-                    timeZoneText = "GMT+${result.data?.timeZone ?: 3}"
+            this.launch {
+                val sett = settingsUseCase.getUserSettingFlow().first()
+                _settings.value = sett
+                _uiState.update {
+                    it.copy(
+                        dateAndTimeConverter = DateAndTimeConverter(sett)
+                    )
                 }
-            }
-        }
-
-
-        if (locoId == NULLABLE_ID) {
-            isNewLoco = true
-            _currentLoco.value = Locomotive(
-                basicId = basicId,
-                type = _settings.value?.defaultLocoType ?: LocoType.ELECTRIC
-            )
-            _electricSectionListState.update { list ->
-                list.add(
-                    ElectricSectionFormState(
-                        sectionId = SectionElectric().sectionId
-                    )
+                _seriesList.update { list ->
+                    list.addAllOrSkip(sett.locomotiveSeriesList.toMutableStateList())
+                    list
+                }
+                mutableSeriesList.addAllOrSkip(sett.locomotiveSeriesList.toMutableStateList())
+                timeZoneText = "GMT+${sett.timeZone}"
+            }.join()
+            if (locoId == NULLABLE_ID) {
+                isNewLoco = true
+                _currentLoco.value = Locomotive(
+                    basicId = basicId,
+                    type = _settings.value?.defaultLocoType ?: LocoType.ELECTRIC
                 )
-                list
-            }
-            val coefficient = _settings.value?.lastEnteredDieselCoefficient
-
-            _dieselSectionListState.update { list ->
-                list.add(
-                    DieselSectionFormState(
-                        sectionId = SectionDiesel().sectionId,
-                        coefficient = DieselSectionFieldState(
-                            coefficient?.str() ?: "",
-                            DieselSectionType.COEFFICIENT
+                _electricSectionListState.update { list ->
+                    list.add(
+                        ElectricSectionFormState(
+                            sectionId = SectionElectric().sectionId
                         )
                     )
-                )
-                list
+                    list
+                }
+                val coefficient = _settings.value?.lastEnteredDieselCoefficient
+
+                _dieselSectionListState.update { list ->
+                    list.add(
+                        DieselSectionFormState(
+                            sectionId = SectionDiesel().sectionId,
+                            coefficient = DieselSectionFieldState(
+                                coefficient?.str() ?: "",
+                                DieselSectionType.COEFFICIENT
+                            )
+                        )
+                    )
+                    list
+                }
+            } else {
+                isNewLoco = false
+                loadLoco(locoId!!)
             }
-        } else {
-            isNewLoco = false
-            loadLoco(locoId!!)
         }
     }
 
@@ -154,106 +152,113 @@ class LocoFormViewModel(
         var otherCurrent =
             locomotive.normaElectricCurrent2 != null && locomotive.normaElectricCurrent2 != 0
 
-        locomotive.dieselSectionList.forEach { section ->
-            _dieselSectionListState.update { list ->
-                list.addOrReplace(
-                    DieselSectionFormState(
-                        sectionId = section.sectionId,
-                        accepted = DieselSectionFieldState(
-                            data = section.acceptedFuel?.str() ?: "",
-                            type = DieselSectionType.ACCEPTED
-                        ),
-                        delivery = DieselSectionFieldState(
-                            data = section.deliveryFuel?.str() ?: "",
-                            type = DieselSectionType.DELIVERY
-                        ),
-                        coefficient = DieselSectionFieldState(
-                            data = section.coefficient?.str() ?: "",
-                            type = DieselSectionType.COEFFICIENT
-                        ),
-                        refuel = DieselSectionFieldState(
-                            data = section.fuelSupply?.str() ?: "",
-                            type = DieselSectionType.REFUEL
-                        ),
-                        refuelInKilo = DieselSectionFieldState(
-                            data = section.fuelSupplyInKilo?.str() ?: "",
-                            type = DieselSectionType.REFUEL
-                        ),
-                        refuelCoefficient = DieselSectionFieldState(
-                            data = section.coefficientSupply?.str() ?: "",
-                            type = DieselSectionType.REFUEL
-                        ),
+        // добавить очистку одного списка при инициализации
+        if (locomotive.type == LocoType.DIESEL) {
+//            _dieselSectionListState.value.clear()
+            locomotive.dieselSectionList.forEach { section ->
+                _dieselSectionListState.update { list ->
+                    list.addOrReplace(
+                        DieselSectionFormState(
+                            sectionId = section.sectionId,
+                            accepted = DieselSectionFieldState(
+                                data = section.acceptedFuel?.str() ?: "",
+                                type = DieselSectionType.ACCEPTED
+                            ),
+                            delivery = DieselSectionFieldState(
+                                data = section.deliveryFuel?.str() ?: "",
+                                type = DieselSectionType.DELIVERY
+                            ),
+                            coefficient = DieselSectionFieldState(
+                                data = section.coefficient?.str() ?: "",
+                                type = DieselSectionType.COEFFICIENT
+                            ),
+                            refuel = DieselSectionFieldState(
+                                data = section.fuelSupply?.str() ?: "",
+                                type = DieselSectionType.REFUEL
+                            ),
+                            refuelInKilo = DieselSectionFieldState(
+                                data = section.fuelSupplyInKilo?.str() ?: "",
+                                type = DieselSectionType.REFUEL
+                            ),
+                            refuelCoefficient = DieselSectionFieldState(
+                                data = section.coefficientSupply?.str() ?: "",
+                                type = DieselSectionType.REFUEL
+                            ),
+                        )
                     )
-                )
-                list
+                    list
+                }
             }
         }
-        locomotive.electricSectionList.forEach { section ->
-            _electricSectionListState.update { list ->
-                list.addOrReplace(
-                    ElectricSectionFormState(
-                        sectionId = section.sectionId,
-                        accepted = ElectricSectionFieldState(
-                            data = section.acceptedEnergy?.toPlainString() ?: "",
-                            type = ElectricSectionType.ACCEPTED
-                        ),
-                        delivery = ElectricSectionFieldState(
-                            data = section.deliveryEnergy?.toPlainString() ?: "",
-                            type = ElectricSectionType.DELIVERY
-                        ),
-                        recoveryAccepted = ElectricSectionFieldState(
-                            data = section.acceptedRecovery?.toPlainString() ?: "",
-                            type = ElectricSectionType.RECOVERY_ACCEPTED
-                        ),
-                        recoveryDelivery = ElectricSectionFieldState(
-                            data = section.deliveryRecovery?.toPlainString() ?: "",
-                            type = ElectricSectionType.RECOVERY_DELIVERY
-                        ),
-                        accepted2 = ElectricSectionFieldState(
-                            data = section.acceptedEnergyOtherCurrent?.toPlainString() ?: "",
-                            type = ElectricSectionType.ACCEPTED2
-                        ),
-                        delivery2 = ElectricSectionFieldState(
-                            data = section.deliveryEnergyOtherCurrent?.toPlainString() ?: "",
-                            type = ElectricSectionType.DELIVERY2
-                        ),
-                        recoveryAccepted2 = ElectricSectionFieldState(
-                            data = section.acceptedRecoveryOtherCurrent?.toPlainString() ?: "",
-                            type = ElectricSectionType.RECOVERY_ACCEPTED2
-                        ),
-                        recoveryDelivery2 = ElectricSectionFieldState(
-                            data = section.deliveryRecoveryOtherCurrent?.toPlainString() ?: "",
-                            type = ElectricSectionType.RECOVERY_DELIVERY2
-                        ),
+        if (locomotive.type == LocoType.ELECTRIC) {
+//            _electricSectionListState.value.clear()
+            locomotive.electricSectionList.forEach { section ->
+                _electricSectionListState.update { list ->
+                    list.addOrReplace(
+                        ElectricSectionFormState(
+                            sectionId = section.sectionId,
+                            accepted = ElectricSectionFieldState(
+                                data = section.acceptedEnergy?.toPlainString() ?: "",
+                                type = ElectricSectionType.ACCEPTED
+                            ),
+                            delivery = ElectricSectionFieldState(
+                                data = section.deliveryEnergy?.toPlainString() ?: "",
+                                type = ElectricSectionType.DELIVERY
+                            ),
+                            recoveryAccepted = ElectricSectionFieldState(
+                                data = section.acceptedRecovery?.toPlainString() ?: "",
+                                type = ElectricSectionType.RECOVERY_ACCEPTED
+                            ),
+                            recoveryDelivery = ElectricSectionFieldState(
+                                data = section.deliveryRecovery?.toPlainString() ?: "",
+                                type = ElectricSectionType.RECOVERY_DELIVERY
+                            ),
+                            accepted2 = ElectricSectionFieldState(
+                                data = section.acceptedEnergyOtherCurrent?.toPlainString() ?: "",
+                                type = ElectricSectionType.ACCEPTED2
+                            ),
+                            delivery2 = ElectricSectionFieldState(
+                                data = section.deliveryEnergyOtherCurrent?.toPlainString() ?: "",
+                                type = ElectricSectionType.DELIVERY2
+                            ),
+                            recoveryAccepted2 = ElectricSectionFieldState(
+                                data = section.acceptedRecoveryOtherCurrent?.toPlainString() ?: "",
+                                type = ElectricSectionType.RECOVERY_ACCEPTED2
+                            ),
+                            recoveryDelivery2 = ElectricSectionFieldState(
+                                data = section.deliveryRecoveryOtherCurrent?.toPlainString() ?: "",
+                                type = ElectricSectionType.RECOVERY_DELIVERY2
+                            ),
 
-                        resultVisibility = isVisibilityResultElectricSection(
-                            section.acceptedEnergy?.toPlainString() ?: "",
-                            section.deliveryEnergy?.toPlainString() ?: "",
-                            section.acceptedRecovery?.toPlainString() ?: "",
-                            section.deliveryRecovery?.toPlainString() ?: "",
-                            section.acceptedEnergyOtherCurrent?.toPlainString() ?: "",
-                            section.deliveryEnergyOtherCurrent?.toPlainString() ?: "",
-                            section.acceptedRecoveryOtherCurrent?.toPlainString() ?: "",
-                            section.deliveryRecoveryOtherCurrent?.toPlainString() ?: "",
-                        ),
+                            resultVisibility = isVisibilityResultElectricSection(
+                                section.acceptedEnergy?.toPlainString() ?: "",
+                                section.deliveryEnergy?.toPlainString() ?: "",
+                                section.acceptedRecovery?.toPlainString() ?: "",
+                                section.deliveryRecovery?.toPlainString() ?: "",
+                                section.acceptedEnergyOtherCurrent?.toPlainString() ?: "",
+                                section.deliveryEnergyOtherCurrent?.toPlainString() ?: "",
+                                section.acceptedRecoveryOtherCurrent?.toPlainString() ?: "",
+                                section.deliveryRecoveryOtherCurrent?.toPlainString() ?: "",
+                            ),
 
-                        expandItemState = isExpandElectricItem(
-                            section.acceptedRecovery,
-                            section.deliveryRecovery,
-                            section.acceptedRecoveryOtherCurrent,
-                            section.deliveryRecoveryOtherCurrent
-                        ),
+                            expandItemState = isExpandElectricItem(
+                                section.acceptedRecovery,
+                                section.deliveryRecovery,
+                                section.acceptedRecoveryOtherCurrent,
+                                section.deliveryRecoveryOtherCurrent
+                            ),
+                        )
                     )
-                )
-                list
-            }
+                    list
+                }
 
-            if (section.acceptedEnergyOtherCurrent != null ||
-                section.deliveryEnergyOtherCurrent != null ||
-                section.acceptedRecoveryOtherCurrent != null ||
-                section.deliveryRecoveryOtherCurrent != null
-            ) {
-                otherCurrent = true
+                if (section.acceptedEnergyOtherCurrent != null ||
+                    section.deliveryEnergyOtherCurrent != null ||
+                    section.acceptedRecoveryOtherCurrent != null ||
+                    section.deliveryRecoveryOtherCurrent != null
+                ) {
+                    otherCurrent = true
+                }
             }
         }
 
@@ -278,14 +283,6 @@ class LocoFormViewModel(
     fun changeLocoType(locoType: LocoType) {
         _currentLoco.update { it?.copy(type = locoType) }
         changesHave()
-        // Clear sections and add initial for new type
-        if (locoType == LocoType.DIESEL) {
-            _electricSectionListState.value.clear()
-            addingSectionDiesel()
-        } else {
-            _dieselSectionListState.value.clear()
-            addingSectionElectric()
-        }
     }
 
     fun setNormaElectricCurrent1(value: String) {

@@ -64,7 +64,7 @@ class DateAndTimeConverter(userSettings: UserSettings) : KoinComponent {
                 val instant = Instant.ofEpochMilli(millis)
                 val time = OffsetDateTime.ofInstant(instant, ZoneId.of(timeZoneText))
                 val formatterWithThreeDecimals =
-                    DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
+                    DateTimeFormatter.ofPattern("dd.MM.yy HH:mm")
                 return ("${time.format(formatterWithThreeDecimals)}")
             }
         } else {

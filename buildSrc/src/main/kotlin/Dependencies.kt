@@ -18,6 +18,7 @@ import Versions.gson_version
 import Versions.koin_version
 import Versions.kotlinx_date_time_ver
 import Versions.ksp_ver
+import Versions.lifecycle_runtime_compose_ver
 import Versions.lifecycle_runtime_version
 import Versions.lifecycle_viewmodel_version
 import Versions.material_compose3
@@ -100,7 +101,7 @@ object Versions {
     const val splash_screen_ver = "1.0.1"
     const val parse_sdk_android_ver = "4.3.0"
     const val work_manager_version = "2.9.0"
-    const val rustore_bom_ver = "2025.08.01"
+    const val rustore_bom_ver = "2025.11.01"
     const val accompanist_ui_controller_version = "0.32.0"
     const val rebugger_ver = "1.0.0-rc03"
     const val desugaring_ver = "2.0.4"
@@ -111,6 +112,7 @@ object Versions {
     const val ru_ok_tracer_platform_ver = "1.1.2"
     const val mytracker_sdk_ver = "3.3.2"
     const val retrofit_ver = "2.11.0"
+    const val lifecycle_runtime_compose_ver = "2.8.7"
 }
 
 object Libs {
@@ -125,6 +127,7 @@ object Libs {
     const val project_feature_settings = ":features:settings"
 
     // Libs
+    const val lifecycle_runtime_compose = "androidx.lifecycle:lifecycle-runtime-compose:$lifecycle_runtime_compose_ver"
     const val retrofit2 = "com.squareup.retrofit2:retrofit:$retrofit_ver"
     const val ksp_api = "com.google.devtools.ksp:symbol-processing-api:$ksp_ver"
     const val ru_ok_tracer_platform = "ru.ok.tracer:tracer-platform:$ru_ok_tracer_platform_ver"

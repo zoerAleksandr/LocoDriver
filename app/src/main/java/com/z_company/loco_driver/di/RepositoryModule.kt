@@ -1,5 +1,6 @@
 package com.z_company.loco_driver.di
 
+import com.z_company.SessionManager
 import com.z_company.data_local.SharedPreferenceStorage
 import com.z_company.data_local.calendar.CalendarStorageLocalImpl
 import com.z_company.data_local.route.RoomRouteRepository
@@ -32,6 +33,8 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
 val repositoryModule = module {
+    single { SessionManager(get()) }
+
     single<ISnackbarManager> { SnackbarManagerImpl() }
 
     single<RouteRepository> {

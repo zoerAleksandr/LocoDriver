@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
@@ -23,14 +22,12 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.component.customDatePicker.Hour
@@ -138,8 +135,6 @@ fun TimePickerApp(
                                 onDone = { viewModel.toggleEditMode() },
                             )
                         }
-
-
                     }
 
                     Spacer(modifier = Modifier.height(48.dp))
@@ -177,7 +172,9 @@ fun TimePickerApp(
                             Text(
                                 text = "Применить",
                                 color = MaterialTheme.colorScheme.secondary,
-                                style = MaterialTheme.typography.bodySmall
+                                style = MaterialTheme.typography.bodySmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -198,7 +195,6 @@ fun TimeScrollPicker(
     onMinuteChange: (Int) -> Unit,
     onChangeEditTime: () -> Unit
 ) {
-    val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
 
     var snappedTime by remember {
@@ -210,7 +206,7 @@ fun TimeScrollPicker(
         )
     }
 
-    val height = 120.dp
+    var height = 145.dp
     val rowCount = 5
 
     val itemHeight = height / rowCount
@@ -315,13 +311,20 @@ fun TimeScrollPicker(
                 snappedTime = snappedTime.withHour(newHour)
                 if (!isEditing) {
                     onHourChange(newHour)
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 }
                 snappedIndex
             }
 
             Box(modifier = Modifier.height(height), contentAlignment = Alignment.Center) {
-                Text(":", style = textStyle.copy(), color = textColor, )
+                AutoSizeText(
+                    maxTextSize = 26.sp,
+                    minTextSize = 22.sp,
+                    text = ":",
+                    style = textStyle.copy(
+                        textAlign = TextAlign.Center
+                    ),
+                    color = textColor
+                )
             }
 
             MyWheelTextPicker(
@@ -342,7 +345,7 @@ fun TimeScrollPicker(
                 snappedTime = snappedTime.withMinute(newMinute)
                 if (!isEditing) {
                     onMinuteChange(newMinute)
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+//                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 }
                 snappedIndex
             }
@@ -354,12 +357,16 @@ fun TimeScrollPicker(
                 .padding(horizontal = 24.dp)
         ) {
             Divider(
-                modifier = Modifier.align(Alignment.Center).offset(y = -(itemHeight / 2)),
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .offset(y = -(itemHeight / 2)),
                 color = Color.LightGray.copy(alpha = 0.8f),
                 thickness = 1.dp
             )
             Divider(
-                modifier = Modifier.align(Alignment.Center).offset(y = (itemHeight / 2)),
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .offset(y = (itemHeight / 2)),
                 color = Color.LightGray.copy(alpha = 0.8f),
                 thickness = 1.dp
             )
@@ -429,7 +436,8 @@ fun TimeInputOverlay(
 // ViewModel и State
 class TimePickerViewModel(initialTimestamp: Long) {
     private val calendar =
-        java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("GMT+0")).apply { timeInMillis = initialTimestamp }
+        java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("GMT+0"))
+            .apply { timeInMillis = initialTimestamp }
 
     private val _uiState = MutableStateFlow(
         TimePickerState(

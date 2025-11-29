@@ -137,6 +137,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     )
     val updateEvents = _updateEvents.asSharedFlow()
 
+    // month/year lists for pickers
+    private val _monthList = MutableStateFlow<List<Int>>(emptyList())
+    val monthList: StateFlow<List<Int>> = _monthList.asStateFlow()
+
+    private val _yearList = MutableStateFlow<List<Int>>(emptyList())
+    val yearList: StateFlow<List<Int>> = _yearList.asStateFlow()
+
     override fun onCleared() {
         super.onCleared()
         ruStoreAppUpdateManager.unregisterListener(installStateUpdateListener)
@@ -760,13 +767,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
             }.launchIn(viewModelScope)
     }
 
-    private suspend fun loadMonthList() {
-        val list = calendarUseCase.loadFlowMonthOfYearListState().first()
-        _uiState.update { state ->
-            state.copy(
-                monthList = list.map { it.month }.distinct().sorted(),
-                yearList = list.map { it.year }.distinct().sorted()
-            )
+    private fun loadMonthList() {
+        viewModelScope.launch {
+            calendarUseCase.loadFlowMonthOfYearListState()
+                .collect { list ->
+                    val months = list.map { it.month }.distinct().sorted()
+                    val years = list.map { it.year }.distinct().sorted()
+                    _monthList.value = months
+                    _yearList.value = years
+                }
         }
     }
 

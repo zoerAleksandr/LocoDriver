@@ -1,8 +1,10 @@
 package com.z_company.route.ui
 
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,7 +24,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -51,6 +52,7 @@ import com.z_company.core.util.ConverterLongToTime
 import com.z_company.domain.util.str2decimalSign
 import com.z_company.route.viewmodel.SalaryCalculationUIState
 import androidx.compose.ui.text.rememberTextMeasurer
+import com.z_company.core.ui.component.CustomDivider
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,6 +68,7 @@ fun SalaryCalculationScreen(
     var infoSetTariffRate by remember { mutableStateOf(false) }
 
     // Определяем, нужно ли показывать предупреждение о тарифной ставке
+    Log.d("zzz", "tariffRate ${uiState.tariffRate}")
     LaunchedEffect(uiState.tariffRate) {
         infoSetTariffRate = uiState.tariffRate == "0,00 ₽" || uiState.tariffRate == null
     }
@@ -514,7 +517,7 @@ private fun EarningsTable(uiState: SalaryCalculationUIState) {
             )
         }
 
-        HorizontalDivider()
+        CustomDivider(orientation = Orientation.Horizontal)
 
         // Строки таблицы
         rows.forEach { row ->
@@ -545,7 +548,7 @@ private fun EarningsTable(uiState: SalaryCalculationUIState) {
                     contentAlignment = Alignment.CenterEnd
                 )
             }
-            HorizontalDivider(thickness = 0.5.dp)
+            CustomDivider(orientation = Orientation.Horizontal)
         }
     }
 }
@@ -630,7 +633,7 @@ private fun RetentionsTable(uiState: SalaryCalculationUIState) {
             )
         }
 
-        HorizontalDivider()
+        CustomDivider(orientation = Orientation.Horizontal)
 
         rows.forEach { row ->
             Row(
@@ -650,7 +653,7 @@ private fun RetentionsTable(uiState: SalaryCalculationUIState) {
                     contentAlignment = Alignment.CenterEnd
                 )
             }
-            HorizontalDivider(thickness = 0.5.dp)
+            CustomDivider(orientation = Orientation.Horizontal)
         }
     }
 }

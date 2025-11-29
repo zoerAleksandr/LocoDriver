@@ -1,6 +1,7 @@
 package com.z_company.core.ui.component
 
 import android.annotation.SuppressLint
+import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -41,7 +42,8 @@ fun DateRangePickerBottomSheet(
     singleMode: Boolean = true
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val viewModel = remember { DateRangePickerViewModel(initialTimestamp = startDate, singleMode = singleMode) }
+    val viewModel =
+        remember { DateRangePickerViewModel(initialTimestamp = startDate, singleMode = singleMode) }
     val uiState by viewModel.uiState.collectAsState()
 
     ModalBottomSheet(
@@ -93,21 +95,12 @@ fun DateRangePickerBottomSheet(
                         .padding(horizontal = 16.dp),
                     contentAlignment = Alignment.CenterEnd
                 ) {
-//                    Row {
-                        Text(
-                            text = if (uiState.isCompactCalendar) "Неделя" else "Месяц",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.clickable { viewModel.toggleCalendarView() }
-                        )
-//                        Spacer(modifier = Modifier.width(24.dp))
-//                        Text(
-//                            text = if (uiState.isSingleMode) "Одна дата" else "Период",
-//                            style = MaterialTheme.typography.bodySmall,
-//                            color = MaterialTheme.colorScheme.tertiary,
-//                            modifier = Modifier.clickable { viewModel.toggleSingleMode() }
-//                        )
-//                    }
+                    Text(
+                        text = if (uiState.isCompactCalendar) "Неделя" else "Месяц",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.clickable { viewModel.toggleCalendarView() }
+                    )
                 }
             }
 
@@ -160,9 +153,11 @@ fun DateRangePickerBottomSheet(
                         uiState.startDate == null -> {
                             "Выберите ${if (uiState.isSingleMode) "дату" else "период"}"
                         }
+
                         uiState.endDate == null -> {
                             dateFormat.format(uiState.startDate!!)
                         }
+
                         else -> {
                             "${dateFormat.format(uiState.startDate!!)} - ${dateFormat.format(uiState.endDate!!)}"
                         }
@@ -184,11 +179,13 @@ fun DateRangePickerBottomSheet(
                     onClick = {
                         val selectedDates = mutableListOf<Calendar>()
                         uiState.startDate?.let { startMillis ->
-                            val startCal = Calendar.getInstance().apply { timeInMillis = startMillis }
+                            val startCal =
+                                Calendar.getInstance().apply { timeInMillis = startMillis }
                             if (uiState.isSingleMode || uiState.endDate == null) {
                                 selectedDates.add(startCal)
                             } else {
-                                val endCal = Calendar.getInstance().apply { timeInMillis = uiState.endDate!! }
+                                val endCal = Calendar.getInstance()
+                                    .apply { timeInMillis = uiState.endDate!! }
                                 var current = startCal.clone() as Calendar
                                 while (!current.after(endCal)) {
                                     selectedDates.add(current.clone() as Calendar)
@@ -251,7 +248,8 @@ fun CompactCalendarForRange(
                 add(Calendar.DAY_OF_MONTH, index - offset)
             }
             val currentDate = currentDateCal.timeInMillis
-            val isCurrentMonthDay = currentDateCal.get(Calendar.MONTH) == month && currentDateCal.get(Calendar.YEAR) == year
+            val isCurrentMonthDay =
+                currentDateCal.get(Calendar.MONTH) == month && currentDateCal.get(Calendar.YEAR) == year
 
             val isInRange = isDateInRange(currentDate, startDate, endDate, isSingleMode)
             val isStart = currentDate == startDate
@@ -266,7 +264,7 @@ fun CompactCalendarForRange(
                 Box(
                     modifier = Modifier
                         .width(48.dp)
-                        .height(24.dp)
+                        .wrapContentHeight()
                         .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
                         .background(Color.Transparent)
                         .padding(top = 8.dp),
@@ -274,7 +272,7 @@ fun CompactCalendarForRange(
                 ) {
                     Text(
                         text = dayName,
-                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                        style = MaterialTheme.typography.bodyMedium,
                         color = if (isInRange) MaterialTheme.colorScheme.secondary
                         else MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
                     )
@@ -333,7 +331,10 @@ fun FullCalendarForRange(
     val monthNameFormat = SimpleDateFormat("LLLL", Locale("ru"))
     val yearFormat = SimpleDateFormat("yyyy", Locale("ru"))
 
-    var displayedMonth by remember { mutableStateOf(Calendar.getInstance().apply { time = currentMonth }) }
+    var displayedMonth by remember {
+        mutableStateOf(
+            Calendar.getInstance().apply { time = currentMonth })
+    }
 
     // Синхронизация с внешним currentMonth
     LaunchedEffect(currentMonth) {
@@ -365,7 +366,10 @@ fun FullCalendarForRange(
                     tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
                 )
                 Text(
-                    text = "${monthNameFormat.format(prev.time).replaceFirstChar { it.lowercase() }} ${yearFormat.format(prev.time)}",
+                    text = "${monthNameFormat.format(prev.time).capitalize(Locale.ROOT)} " +
+                            (if (prev.get(Calendar.YEAR) != (currentMonth.year + 1900))
+                                yearFormat.format(prev.time)
+                            else ""),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
                     overflow = TextOverflow.Ellipsis,
@@ -375,7 +379,8 @@ fun FullCalendarForRange(
 
             // Текущий месяц
             Text(
-                text = monthNameFormat.format(displayedMonth.time).replaceFirstChar { it.lowercase() },
+                text = monthNameFormat.format(displayedMonth.time)
+                    .replaceFirstChar { it.lowercase() },
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -393,7 +398,10 @@ fun FullCalendarForRange(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "${monthNameFormat.format(next.time).replaceFirstChar { it.lowercase() }} ${yearFormat.format(next.time)}",
+                    text = "${monthNameFormat.format(next.time).capitalize()} " +
+                            (if (next.get(Calendar.YEAR) != (currentMonth.year + 1900))
+                                yearFormat.format(next.time)
+                            else ""),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
                     overflow = TextOverflow.Ellipsis,
@@ -414,7 +422,10 @@ fun FullCalendarForRange(
             daysOfWeek.forEach { day ->
                 Text(
                     text = day,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)),
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                    ),
                     modifier = Modifier.weight(1f),
                     textAlign = TextAlign.Center
                 )
@@ -432,17 +443,27 @@ fun FullCalendarForRange(
         AnimatedContent(
             targetState = displayedMonth,
             transitionSpec = {
-                val direction = if (targetState.time > initialState.time) AnimatedContentTransitionScope.SlideDirection.Left
-                else AnimatedContentTransitionScope.SlideDirection.Right
+                val direction =
+                    if (targetState.time > initialState.time) AnimatedContentTransitionScope.SlideDirection.Left
+                    else AnimatedContentTransitionScope.SlideDirection.Right
 
-                slideIntoContainer(towards = direction, animationSpec = tween(300, easing = FastOutSlowInEasing)) togetherWith
-                        slideOutOfContainer(towards = direction, animationSpec = tween(300, easing = FastOutSlowInEasing))
+                slideIntoContainer(
+                    towards = direction,
+                    animationSpec = tween(300, easing = FastOutSlowInEasing)
+                ) togetherWith
+                        slideOutOfContainer(
+                            towards = direction,
+                            animationSpec = tween(300, easing = FastOutSlowInEasing)
+                        )
             },
             label = "month_change"
         ) { monthCal ->
             Column {
                 for (week in 0 until weeks) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
                         for (dayOfWeek in 0 until 7) {
                             val dayNumber = week * 7 + dayOfWeek - firstDayOfWeek + 1
                             if (dayNumber in 1..daysInMonth) {
@@ -452,10 +473,12 @@ fun FullCalendarForRange(
                                 }
                                 val dateMillis = dayCal.timeInMillis
 
-                                val isInRange = isDateInRange(dateMillis, startDate, endDate, isSingleMode)
+                                val isInRange =
+                                    isDateInRange(dateMillis, startDate, endDate, isSingleMode)
                                 val isStart = dateMillis == startDate
                                 val isEnd = dateMillis == (endDate ?: startDate)
-                                val isIntermediate = isInRange && !isStart && !isEnd && !isSingleMode
+                                val isIntermediate =
+                                    isInRange && !isStart && !isEnd && !isSingleMode
 
                                 val highlightColor = MaterialTheme.colorScheme.tertiary
                                 val intermediateColor = highlightColor.copy(alpha = 0.5f)
@@ -513,7 +536,7 @@ private fun isDateInRange(date: Long, start: Long?, end: Long?, isSingleMode: Bo
 
 class DateRangePickerViewModel(initialTimestamp: Long? = null, singleMode: Boolean) {
     private val initialCal = Calendar.getInstance().apply {
-            timeInMillis = initialTimestamp ?: System.currentTimeMillis()
+        timeInMillis = initialTimestamp ?: System.currentTimeMillis()
 //        initialTimestamp?.let {
 //        } ?: timeInMillis = System.currentTimeMillis()
     }

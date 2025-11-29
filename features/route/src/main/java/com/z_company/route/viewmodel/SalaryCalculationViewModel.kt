@@ -33,9 +33,6 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
     val uiState = _uiState.asStateFlow()
 
     init {
-        // Изменение: Автоматическая реактивная загрузка и пересчет при изменении settings.
-        // Combine flows: при любом обновлении SalarySetting или UserSettings — пересчет.
-        // Это сработает сразу при init и при изменениях (например, после save в SettingSalaryScreen).
         viewModelScope.launch {
             combine(
                 settingsUseCase.getFlowCurrentSettingsState(),
@@ -48,7 +45,6 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                     _uiState.update { it.copy(screenState = ResultState.Loading("Пересчет...")) }
                     calculationSalary(userRes.data, salaryRes.data)
                 } else {
-                    // Обработка ошибок (если один из flows в Error)
                     val errorMsg = when {
                         userRes is ResultState.Error -> userRes.entity.message
                         salaryRes is ResultState.Error -> salaryRes.entity.message
@@ -68,13 +64,10 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    // Метод для выполнения расчета зарплаты. Загружает маршруты, фильтрует их (если нужно),
-    // создает помощника для расчетов и последовательно вызывает методы установки данных в UI.
     private suspend fun calculationSalary(
         userSettings: UserSettings,
         salarySetting: SalarySetting
     ) {
-        Log.d("zzz", "calculationSalary")
         val currentTimeInMillis = Calendar.getInstance().timeInMillis
         val currentMonthOfYear = userSettings.selectMonthOfYear
         val loadRouteState =

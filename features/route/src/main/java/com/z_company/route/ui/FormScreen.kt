@@ -530,7 +530,6 @@ fun FormScreen(
 
                 LazyColumn(
                     modifier = Modifier
-//                        .fillMaxSize()
                         .padding(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(24.dp),
@@ -1023,19 +1022,17 @@ fun FormScreen(
                                         color = MaterialTheme.colorScheme.primary.copy(
                                             alpha = 0.6f
                                         ),
-                                        style = MaterialTheme.typography.bodyLarge
+                                        style = MaterialTheme.typography.bodyMedium
                                     )
                                 },
                                 prefix = {
                                     Text(
                                         text = "№ ",
                                         color = prefixTextColor,
-                                        style = MaterialTheme.typography.bodyLarge
+                                        style = MaterialTheme.typography.bodyMedium
                                     )
                                 },
                                 singleLine = true,
-                                textStyle = MaterialTheme.typography.bodyLarge,
-                                shape = Shapes.medium,
                                 keyboardOptions = KeyboardOptions.Default.copy(
                                     keyboardType = KeyboardType.Number
                                 )
@@ -1075,22 +1072,20 @@ fun FormScreen(
                                 Text(
                                     text = "Явка",
                                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                                    style = MaterialTheme.typography.bodyLarge
+                                    style = MaterialTheme.typography.bodyMedium
                                 )
                                 Row(
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    var textColor =
-                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                                    var textColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
                                     val dateAndTimeStartText =
                                         startTimeInLong?.let {
-                                            textColor =
-                                                MaterialTheme.colorScheme.primary
+                                            textColor = MaterialTheme.colorScheme.primary
                                             dateAndTimeConverter?.getDateAndTime(
                                                 startTimeInLong
                                             )
-                                        } ?: "укажите время"
+                                        } ?: ""
 
                                     Text(
                                         text = dateAndTimeStartText,
@@ -1134,7 +1129,7 @@ fun FormScreen(
                                 Text(
                                     text = "Сдача",
                                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                                    style = MaterialTheme.typography.bodyLarge
+                                    style = MaterialTheme.typography.bodyMedium
                                 )
                                 Row(
                                     horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -1147,7 +1142,7 @@ fun FormScreen(
                                         dateAndTimeConverter?.getDateAndTime(
                                             endTimeInLong
                                         )
-                                    } ?: "укажите время"
+                                    } ?: ""
                                     Text(
                                         text = dateAndTimeEndText,
                                         color = textColor,
@@ -1232,10 +1227,14 @@ fun <T> ItemAddingScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
+                modifier = Modifier.weight(1f),
                 text = title,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.titleSmall
             )
-            TextButton(onClick = { onNewElementClick(basicId) }) {
+            TextButton(
+                onClick = { onNewElementClick(basicId) }) {
                 Text(
                     text = "Добавить",
                     style = MaterialTheme.typography.bodySmall,
@@ -1391,10 +1390,9 @@ fun ItemNotes(
                 Text(
                     text = "Примечания",
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                    style = MaterialTheme.typography.bodyLarge
+                    style = MaterialTheme.typography.bodyMedium
                 )
             },
-            textStyle = MaterialTheme.typography.bodyLarge,
             shape = Shapes.medium
         )
     }

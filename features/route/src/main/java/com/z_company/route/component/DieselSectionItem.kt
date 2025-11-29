@@ -89,6 +89,8 @@ fun DieselSectionItem(
     val focusManager = LocalFocusManager.current
     val revealState = rememberRevealState()
 
+    val noValueColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+
     val acceptedText = item.accepted.data ?: ""
     val deliveryText = item.delivery.data ?: ""
     val acceptedInKilo =
@@ -178,7 +180,7 @@ fun DieselSectionItem(
                                     onRefuelValueChanged(index, it.take(6))
                                 },
                                 suffix = {
-                                    Text(text = "л.", style = MaterialTheme.typography.bodyMedium)
+                                    Text(text = "л.", style = MaterialTheme.typography.bodyMedium, color = noValueColor)
                                 },
                                 textStyle = MaterialTheme.typography.bodyLarge,
                                 keyboardOptions = KeyboardOptions(
@@ -195,7 +197,7 @@ fun DieselSectionItem(
                                     onRefuelInKiloValueChanged(index, it.take(6))
                                 },
                                 suffix = {
-                                    Text(text = "кг.", style = MaterialTheme.typography.bodyMedium)
+                                    Text(text = "кг.", style = MaterialTheme.typography.bodyMedium, color = noValueColor)
                                 },
                                 textStyle = MaterialTheme.typography.bodyLarge,
                                 keyboardOptions = KeyboardOptions(
@@ -212,7 +214,7 @@ fun DieselSectionItem(
                                 onRefuelCoefficientValueChanged(index, it.take(6))
                             },
                             suffix = {
-                                Text(text = "k", style = MaterialTheme.typography.bodyMedium)
+                                Text(text = "k", style = MaterialTheme.typography.bodyMedium, color = noValueColor)
                             },
                             textStyle = MaterialTheme.typography.bodyLarge,
                             keyboardOptions = KeyboardOptions(
@@ -311,7 +313,7 @@ fun DieselSectionItem(
                             onCoefficientValueChanged(index, it.take(6))
                         },
                         suffix = {
-                            Text(text = "k", style = MaterialTheme.typography.bodyMedium)
+                            Text(text = "k", style = MaterialTheme.typography.bodyMedium, color = noValueColor)
                         },
                         textStyle = MaterialTheme.typography.bodyLarge,
                         keyboardOptions = KeyboardOptions(
@@ -445,10 +447,10 @@ fun DieselSectionItem(
                         focusChangedDieselSection(index, DieselSectionType.ACCEPTED)
                     },
                     placeholder = {
-                        Text(text = "Принято", style = hintStyle)
+                        Text(text = "Принял", style = hintStyle, color = noValueColor)
                     },
                     suffix = {
-                        Text(text = "л.", style = MaterialTheme.typography.bodyMedium)
+                        Text(text = "л.", style = MaterialTheme.typography.bodyMedium, color = noValueColor)
                     },
                     textStyle = dataTextStyle,
                     keyboardOptions = KeyboardOptions(
@@ -472,10 +474,10 @@ fun DieselSectionItem(
                         focusChangedDieselSection(index, DieselSectionType.DELIVERY)
                     },
                     placeholder = {
-                        Text(text = "Сдано", style = hintStyle)
+                        Text(text = "Сдал", style = hintStyle, color = noValueColor)
                     },
                     suffix = {
-                        Text(text = "л.", style = MaterialTheme.typography.bodyMedium)
+                        Text(text = "л.", style = MaterialTheme.typography.bodyMedium, color = noValueColor)
                     },
                     textStyle = dataTextStyle,
                     keyboardOptions = KeyboardOptions(

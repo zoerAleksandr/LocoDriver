@@ -100,6 +100,8 @@ fun ElectricSectionItem(
     val dataTextStyle = MaterialTheme.typography.bodyLarge
     val hintStyle = MaterialTheme.typography.bodyMedium
 
+    val noValueColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+
     RevealSwipe(
         modifier = Modifier
             .fillMaxWidth(),
@@ -177,7 +179,7 @@ fun ElectricSectionItem(
                     },
                     textStyle = dataTextStyle,
                     placeholder = {
-                        Text(text = "Принято", style = hintStyle)
+                        Text(text = "Принял", style = hintStyle, color = noValueColor)
                     },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next
@@ -201,7 +203,7 @@ fun ElectricSectionItem(
                         focusChangedElectricSection(index, ElectricSectionType.DELIVERY)
                     },
                     placeholder = {
-                        Text(text = "Сдано", style = hintStyle)
+                        Text(text = "Сдал", style = hintStyle, color = noValueColor)
                     },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Number, imeAction = ImeAction.Done
@@ -239,7 +241,7 @@ fun ElectricSectionItem(
                             },
                             textStyle = dataTextStyle,
                             placeholder = {
-                                Text(text = "Принято", style = hintStyle)
+                                Text(text = "Принял", style = hintStyle, color = noValueColor)
                             },
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next
@@ -262,7 +264,7 @@ fun ElectricSectionItem(
                                 focusChangedElectricSection(index, ElectricSectionType.DELIVERY2)
                             },
                             placeholder = {
-                                Text(text = "Сдано", style = hintStyle)
+                                Text(text = "Сдал", style = hintStyle, color = noValueColor)
                             },
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Number, imeAction = ImeAction.Done
@@ -304,8 +306,9 @@ fun ElectricSectionItem(
                                 textStyle = dataTextStyle,
                                 placeholder = {
                                     Text(
-                                        text = "Принято",
-                                        style = hintStyle
+                                        text = "Принял",
+                                        style = hintStyle,
+                                        color = noValueColor
                                     )
                                 },
                                 keyboardOptions = KeyboardOptions(
@@ -334,8 +337,9 @@ fun ElectricSectionItem(
                                 textStyle = dataTextStyle,
                                 placeholder = {
                                     Text(
-                                        text = "Сдано",
-                                        style = hintStyle
+                                        text = "Сдал",
+                                        style = hintStyle,
+                                        color = noValueColor
                                     )
                                 },
                                 keyboardOptions = KeyboardOptions(
@@ -375,8 +379,9 @@ fun ElectricSectionItem(
                                     textStyle = dataTextStyle,
                                     placeholder = {
                                         Text(
-                                            text = "Принято",
-                                            style = hintStyle
+                                            text = "Принял",
+                                            style = hintStyle,
+                                            color = noValueColor
                                         )
                                     },
                                     keyboardOptions = KeyboardOptions(
@@ -405,8 +410,9 @@ fun ElectricSectionItem(
                                     textStyle = dataTextStyle,
                                     placeholder = {
                                         Text(
-                                            text = "Сдано",
-                                            style = hintStyle
+                                            text = "Сдал",
+                                            style = hintStyle,
+                                            color = noValueColor
                                         )
                                     },
                                     keyboardOptions = KeyboardOptions(

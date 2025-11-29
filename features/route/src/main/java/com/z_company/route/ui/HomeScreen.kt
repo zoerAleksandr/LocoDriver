@@ -2,6 +2,7 @@ package com.z_company.route.ui
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.util.Log
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.BasicTooltipBox
 import androidx.compose.foundation.BorderStroke
@@ -13,6 +14,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -64,6 +66,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -95,6 +98,7 @@ import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.AsyncDataValue
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
+import com.z_company.core.ui.component.customDateTimePicker.noRippleEffect
 import com.z_company.core.ui.component.toDp
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.ui.theme.Shapes
@@ -191,18 +195,16 @@ fun HomeScreen(
     val primaryColor = MaterialTheme.colorScheme.primary
 
     // для изменения color status bar после изменения в PresentationBlock
-    if (!view.isInEditMode) {
-        SideEffect {
-            val window = (view.context as Activity).window
-            window.statusBarColor = backgroundColor.toArgb()
-            window.navigationBarColor = primaryColor.toArgb()
-        }
-    }
-
+//    if (!view.isInEditMode) {
+//        SideEffect {
+//            val window = (view.context as Activity).window
+//            window.statusBarColor = backgroundColor.toArgb()
+//            window.navigationBarColor = primaryColor.toArgb()
+//        }
+//    }
 
     val scope = rememberCoroutineScope()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-
 
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
@@ -229,7 +231,8 @@ fun HomeScreen(
                         launch {
                             try {
                                 onAction()
-                            } catch (_: Exception) { /* optional logging */ }
+                            } catch (_: Exception) { /* optional logging */
+                            }
                         }
                     }
                 }
@@ -365,8 +368,8 @@ fun HomeScreen(
                 onRouteClick = onRouteClick,
                 makeCopyRoute = makeCopyRoute,
                 showDialogConfirmRemove = { showDialog, route ->
-                    isShowDialogConfirmRemoveRoute = true
                     routeForRemove = route
+                    isShowDialogConfirmRemoveRoute = true
                 }
             )
         }
@@ -481,12 +484,23 @@ fun HomeScreen(
         )
     }
 
-    val brushMain = Brush.linearGradient(
+    val lightBrushMain = Brush.linearGradient(
         0.1f to MaterialTheme.colorScheme.primary,
         1500.0f to Color(0xFF6B6A67),
         start = Offset.Zero,
         end = Offset.Infinite
     )
+
+    val darkBrushMain = Brush.linearGradient(
+        1f to Color(0xFFdae3f5),
+        1f to Color(0xFFdae3f5),
+//        1.0f to Color(0xFFE5E2D6),
+        start = Offset.Zero,
+        end = Offset.Infinite
+    )
+
+    val brushMain = if (isSystemInDarkTheme()) darkBrushMain else lightBrushMain
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -512,7 +526,10 @@ fun HomeScreen(
                             val textMonth = currentMonthOfYear?.month?.let {
                                 getMonthFullText(it)
                             } ?: "загрузка"
-                            FlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Start
+                            ) {
                                 Text(
                                     text = "$textMonth ",
                                     style = MaterialTheme.typography.titleMedium,
@@ -544,129 +561,6 @@ fun HomeScreen(
                     }
                 }
             )
-        },
-        bottomBar = {
-//            BottomNavigationBar()
-//            val colors: NavigationBarItemColors = NavigationBarItemDefaults.colors(
-//                unselectedTextColor = MaterialTheme.colorScheme.primary,
-//                selectedTextColor = MaterialTheme.colorScheme.primary,
-//                unselectedIconColor = MaterialTheme.colorScheme.primary,
-//                selectedIconColor = MaterialTheme.colorScheme.primary,
-//                indicatorColor = MaterialTheme.colorScheme.secondary
-//            )
-//            NavigationBar(
-//                containerColor = MaterialTheme.colorScheme.surface
-//            ) {
-//                NavigationBarItem(
-//                    modifier = Modifier.padding(start = 8.dp),
-//                    colors = colors,
-//                    selected = true,
-//                    icon = {
-//                        Icon(
-//                            modifier = Modifier.size(32.dp),
-//                            imageVector = Icons.Outlined.Home, contentDescription = null
-//                        )
-//                    },
-//                    label = {
-//                        Text(
-//                            text = "Главная",
-//                            maxLines = 1,
-//                            overflow = TextOverflow.Ellipsis
-//                        )
-//                    },
-//                    onClick = {}
-//                )
-//
-//                NavigationBarItem(
-//                    colors = colors,
-//                    selected = false,
-//                    icon = {
-//                        Icon(
-//                            modifier = Modifier.size(32.dp),
-//                            painter = painterResource(R.drawable.rub),
-//                            contentDescription = null
-//                        )
-//                    },
-//                    label = {
-//                        Text(
-//                            text = "Зарплата",
-//                            maxLines = 1,
-//                            overflow = TextOverflow.Ellipsis
-//                        )
-//                    },
-//                    onClick = {
-//                        currentMonthOfYear?.let {
-//                            onMoreInfoClick(it.id)
-//                        }
-//                    }
-//                )
-//
-//                NavigationBarItem(
-//                    colors = NavigationBarItemDefaults.colors(
-//                        unselectedIconColor = MaterialTheme.colorScheme.primary,
-//                        selectedIconColor = MaterialTheme.colorScheme.primary,
-//                        indicatorColor = MaterialTheme.colorScheme.surface
-//                    ),
-//                    selected = false,
-//                    icon = {
-//                        Icon(
-//                            modifier = Modifier.size(32.dp),
-//                            tint = MaterialTheme.colorScheme.primary,
-//                            painter = painterResource(R.drawable.add_circle_24px),
-//                            contentDescription = null
-//                        )
-//                    },
-//                    label = {
-//
-//                    },
-//                    onClick = {
-//                        onNewRouteClick()
-//                    }
-//                )
-//
-//
-//
-//                NavigationBarItem(
-//                    colors = colors,
-//                    selected = false,
-//                    icon = {
-//                        Icon(
-//                            modifier = Modifier.size(32.dp),
-//                            imageVector = Icons.Outlined.Settings,
-//                            contentDescription = null
-//                        )
-//                    },
-//                    label = {
-//                        Text(
-//                            text = "Настройки",
-//                            maxLines = 1,
-//                            overflow = TextOverflow.Ellipsis
-//                        )
-//                    },
-//                    onClick = onSettingsClick
-//                )
-//
-//                NavigationBarItem(
-//                    modifier = Modifier.padding(end = 8.dp),
-//                    colors = colors,
-//                    selected = false,
-//                    icon = {
-//                        Icon(
-//                            modifier = Modifier.size(32.dp),
-//                            imageVector = Icons.Outlined.Person,
-//                            contentDescription = null
-//                        )
-//                    },
-//                    label = {
-//                        Text(
-//                            text = "Профиль",
-//                            maxLines = 1,
-//                            overflow = TextOverflow.Ellipsis
-//                        )
-//                    },
-//                    onClick = {}
-//                )
-//            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
@@ -868,26 +762,36 @@ fun HomeScreen(
                                                         )
                                                     }
                                                 } else {
+                                                    val loco = route.locomotives.last()
                                                     Column(
                                                         modifier = Modifier
-                                                            .padding(bottom = 8.dp),
+                                                            .padding(bottom = 8.dp)
+                                                            .pointerInput(Unit) {
+                                                                detectTapGestures(
+                                                                    onPress = {
+                                                                        onChangedLocoClick(
+                                                                            loco
+                                                                        )
+                                                                    }
+                                                                )
+                                                            },
                                                         verticalArrangement = Arrangement.spacedBy(4.dp)
                                                     ) {
-                                                        val loco = route.locomotives.last()
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .pointerInput(Unit) {
-                                                                    detectTapGestures(
-                                                                        onPress = {
-                                                                            onChangedLocoClick(
-                                                                                loco
-                                                                            )
-                                                                        }
-                                                                    )
+                                                        Box(modifier = Modifier.fillMaxWidth()) {
+                                                            val text =
+                                                                if (!loco.series.isNullOrBlank() && !loco.number.isNullOrBlank()) {
+                                                                    "${loco.series} №${loco.number}"
+                                                                } else if (loco.series.isNullOrBlank() && loco.number.isNullOrBlank()) {
+                                                                    "Локо №1"
+                                                                } else if (loco.series.isNullOrBlank() && !loco.number.isNullOrBlank()) {
+                                                                    "Локо №${loco.number}"
+                                                                } else if (!loco.series.isNullOrBlank() && loco.number.isNullOrBlank()) {
+                                                                    "${loco.series}"
+                                                                } else {
+                                                                    ""
                                                                 }
-                                                        ) {
                                                             Text(
-                                                                text = "${loco.series ?: ""} ${loco.number ?: ""}",
+                                                                text = text,
                                                                 color = MaterialTheme.colorScheme.primary,
                                                                 maxLines = 1,
                                                                 style = MaterialTheme.typography.bodyMedium,
@@ -975,6 +879,7 @@ fun HomeScreen(
                                                         val train = route.trains.last()
                                                         Column(
                                                             modifier = Modifier
+                                                                .fillMaxWidth()
                                                                 .pointerInput(Unit) {
                                                                     detectTapGestures(
                                                                         onPress = {
@@ -985,15 +890,15 @@ fun HomeScreen(
                                                                     )
                                                                 }
                                                         ) {
-                                                            train.number?.let {
-                                                                Text(
-                                                                    text = "№ $it",
-                                                                    color = MaterialTheme.colorScheme.primary,
-                                                                    maxLines = 1,
-                                                                    style = MaterialTheme.typography.bodyMedium,
-                                                                    overflow = TextOverflow.Ellipsis
-                                                                )
-                                                            }
+                                                            val numberTrainText =
+                                                                train.number ?: "???"
+                                                            Text(
+                                                                text = "№ $numberTrainText",
+                                                                color = MaterialTheme.colorScheme.primary,
+                                                                maxLines = 1,
+                                                                style = MaterialTheme.typography.bodyMedium,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
                                                             val firstStation =
                                                                 train.stations.firstOrNull()
                                                                     ?.let { it.stationName ?: "" }
@@ -1242,8 +1147,10 @@ fun HomeScreen(
                                     val dismissState =
                                         rememberDismissState(confirmStateChange = { newState ->
                                             if (newState == DismissValue.DismissedToStart) {
-                                                isShowDialogConfirmRemoveRoute = true
                                                 routeForRemove = route
+                                                isShowDialogConfirmRemoveRoute = true
+                                                val time = dateAndTimeConverter.getDateMiniAndTime(value = route.basicData.timeStartWork)
+                                                Log.d("zzz", "route $time")
                                                 false
                                             } else {
                                                 true
@@ -1255,8 +1162,8 @@ fun HomeScreen(
                                         dismissState = dismissState,
                                         route = route,
                                         onDelete = {
-                                            isShowDialogConfirmRemoveRoute = true
                                             routeForRemove = route
+                                            isShowDialogConfirmRemoveRoute = true
                                         },
                                         requiredSizeText = requiredSize,
                                         changingTextSize = ::changingTextSize,
@@ -1297,8 +1204,8 @@ fun HomeScreen(
                                     val dismissState =
                                         rememberDismissState(confirmStateChange = { newState ->
                                             if (newState == DismissValue.DismissedToStart) {
-                                                isShowDialogConfirmRemoveRoute = true
                                                 routeForRemove = route
+                                                isShowDialogConfirmRemoveRoute = true
                                                 false
                                             } else {
                                                 true
@@ -1310,8 +1217,8 @@ fun HomeScreen(
                                         route = route,
                                         dismissState = dismissState,
                                         onDelete = {
-                                            isShowDialogConfirmRemoveRoute = true
                                             routeForRemove = route
+                                            isShowDialogConfirmRemoveRoute = true
                                         },
                                         requiredSizeText = requiredSize,
                                         changingTextSize = ::changingTextSize,
@@ -1633,7 +1540,7 @@ fun MainInfo(
                         LinearProgressIndicator(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(2.dp),
+                                .height(3.dp),
                             trackColor = MaterialTheme.colorScheme.primary.copy(
                                 alpha = 0.8f
                             ),
@@ -1679,7 +1586,7 @@ fun MainInfo(
                         LinearProgressIndicator(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(2.dp),
+                                .height(3.dp),
                             trackColor = MaterialTheme.colorScheme.primary.copy(
                                 alpha = 0.8f
                             ),

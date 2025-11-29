@@ -18,6 +18,10 @@ fun HomeDestination(
     val uiState by homeViewModel.uiState.collectAsState()
     val previewRouteUiState by homeViewModel.previewRouteUiState.collectAsState()
 
+    val months by homeViewModel.monthList.collectAsState()
+    val years by homeViewModel.yearList.collectAsState()
+
+
     HomeScreen(
         listRouteState = uiState.listItemState,
         onRouteClick = {
@@ -31,8 +35,8 @@ fun HomeDestination(
         onSearchClick = { router.showSearch() },
         totalTime = homeViewModel.timeWithoutHoliday,
         currentMonthOfYear = homeViewModel.currentMonthOfYear,
-        yearList = uiState.yearList,
-        monthList = uiState.monthList,
+        yearList = years,
+        monthList = months,
         selectYearAndMonth = homeViewModel::setCurrentMonth,
         minTimeRest = uiState.minTimeRest,
         nightTimeState = uiState.nightTimeInRouteList,

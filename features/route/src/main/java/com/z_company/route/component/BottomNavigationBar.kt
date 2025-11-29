@@ -25,48 +25,40 @@ fun BottomNavigationBar(
         NavigationItem.Profile
     )
     BottomNavigation(
-        backgroundColor = MaterialTheme.colorScheme.primary,
-        contentColor = MaterialTheme.colorScheme.secondary,
-        elevation = 2.dp
+        backgroundColor = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.primary,
+        elevation = 4.dp
     ) {
         val navBackStackEntry = navController.currentBackStackEntryAsState().value
         val currentRoute = navBackStackEntry?.destination?.route
 
         items.forEach { item ->
             BottomNavigationItem(
-                icon = { Icon(painterResource(id = item.icon), contentDescription = item.title) },
+                icon = {
+                    Icon(
+                        painterResource(id = item.icon),
+                        contentDescription = item.title
+                    )
+                },
                 label = {
                     Text(
                         text = item.title,
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.secondary,
+                        color = MaterialTheme.colorScheme.primary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 },
-                selectedContentColor = MaterialTheme.colorScheme.secondary,
-                unselectedContentColor = MaterialTheme.colorScheme.secondary.copy(0.4f),
+                selectedContentColor = MaterialTheme.colorScheme.primary,
+                unselectedContentColor = MaterialTheme.colorScheme.primary.copy(0.4f),
                 alwaysShowLabel = true,
                 selected = currentRoute == item.route.route,
                 onClick = {
                     if (currentRoute != item.route.route) {
                         navController.navigate(item.route.route) {
-                            // УБИРАЕМ popUpTo + saveState + restoreState полностью!
                             launchSingleTop = true
                         }
                     }
-//                    navController.navigate(item.route.route){
-//                        navController.graph.startDestinationRoute?.let { route ->
-//                            popUpTo(route) {
-//                                saveState = true
-//                            }
-//                        }
-//                        // Avoid multiple copies of the same destination when
-//                        // reselecting the same item
-//                        launchSingleTop = true
-//                        // Restore state when reselecting a previously selected item
-//                        restoreState = true
-//                    }
                 }
             )
         }

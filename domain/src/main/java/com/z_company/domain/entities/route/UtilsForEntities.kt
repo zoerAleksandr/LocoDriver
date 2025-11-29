@@ -889,7 +889,6 @@ object UtilsForEntities : KoinComponent {
                 val endWork = this.basicData.timeEndWork
                 if (startWork != null && endWork != null) {
                     resultTime += endWork - startWork
-                    println("zzz resultTime $resultTime")
                     return resultTime
                 }
             }
