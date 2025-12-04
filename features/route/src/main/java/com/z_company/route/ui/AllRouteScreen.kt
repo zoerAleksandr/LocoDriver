@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.DismissValue
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
@@ -551,7 +550,10 @@ fun AllRouteScreen(
                         contentPadding = PaddingValues(8.dp)
                     ) {
                         viewModel.dateAndTimeConverter?.let { converter ->
-                            items(displayedRoutes) { routeState ->
+                            items(
+                                items = displayedRoutes,
+                                key = { it.route.basicData.id }
+                            ) { routeState ->
                                 val route = routeState.route
                                 background =
                                     if (route.basicData.timeStartWork!! > Calendar.getInstance().timeInMillis) {
@@ -564,23 +566,14 @@ fun AllRouteScreen(
                                         }
                                     }
 
-                                val dismissState =
-                                    rememberDismissState(confirmStateChange = { newState ->
-                                        if (newState == DismissValue.DismissedToStart) {
-                                            isShowDialogConfirmRemoveRoute = true
-                                            routeForRemove = route
-                                            false
-                                        } else {
-                                            true
-                                        }
-                                    })
+                                val dismissState = rememberDismissState()
 
                                 ItemHomeScreen(
                                     modifier = Modifier.animateItemPlacement(),
                                     dismissState = dismissState,
                                     route = route,
                                     onClick = { onRouteClick(route.basicData.id) },
-                                    onDelete = {
+                                    onRequestDelete = {
                                         isShowDialogConfirmRemoveRoute = true
                                         routeForRemove = route
                                     },

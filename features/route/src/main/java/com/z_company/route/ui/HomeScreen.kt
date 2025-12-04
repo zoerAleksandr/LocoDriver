@@ -1,8 +1,6 @@
 package com.z_company.route.ui
 
 import android.annotation.SuppressLint
-import android.app.Activity
-import android.util.Log
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.BasicTooltipBox
 import androidx.compose.foundation.BorderStroke
@@ -34,7 +32,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberBasicTooltipState
-import androidx.compose.material.DismissValue
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material3.Card
 import androidx.compose.material.icons.Icons
@@ -65,8 +62,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -79,7 +74,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -97,8 +91,6 @@ import androidx.lifecycle.flowWithLifecycle
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.component.AsyncDataValue
-import com.z_company.core.ui.component.customDatePicker.noRippleEffect
-import com.z_company.core.ui.component.customDateTimePicker.noRippleEffect
 import com.z_company.core.ui.component.toDp
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.ui.theme.Shapes
@@ -485,15 +477,15 @@ fun HomeScreen(
     }
 
     val lightBrushMain = Brush.linearGradient(
-        0.1f to MaterialTheme.colorScheme.primary,
-        1500.0f to Color(0xFF6B6A67),
+        1f to MaterialTheme.colorScheme.surfaceContainerLow,
+        1f to MaterialTheme.colorScheme.surfaceContainerLow,
         start = Offset.Zero,
         end = Offset.Infinite
     )
 
     val darkBrushMain = Brush.linearGradient(
-        1f to Color(0xFFdae3f5),
-        1f to Color(0xFFdae3f5),
+        1f to MaterialTheme.colorScheme.surfaceContainerLow,
+        1f to MaterialTheme.colorScheme.surfaceContainerLow,
 //        1.0f to Color(0xFFE5E2D6),
         start = Offset.Zero,
         end = Offset.Infinite
@@ -1144,24 +1136,13 @@ fun HomeScreen(
                                             background = MaterialTheme.colorScheme.surfaceDim
                                         }
                                     }
-                                    val dismissState =
-                                        rememberDismissState(confirmStateChange = { newState ->
-                                            if (newState == DismissValue.DismissedToStart) {
-                                                routeForRemove = route
-                                                isShowDialogConfirmRemoveRoute = true
-                                                val time = dateAndTimeConverter.getDateMiniAndTime(value = route.basicData.timeStartWork)
-                                                Log.d("zzz", "route $time")
-                                                false
-                                            } else {
-                                                true
-                                            }
-                                        })
+                                    val dismissState = rememberDismissState()
 
                                     ItemHomeScreen(
                                         modifier = Modifier.animateItemPlacement(),
                                         dismissState = dismissState,
                                         route = route,
-                                        onDelete = {
+                                        onRequestDelete = {
                                             routeForRemove = route
                                             isShowDialogConfirmRemoveRoute = true
                                         },
@@ -1201,22 +1182,13 @@ fun HomeScreen(
                                             background = MaterialTheme.colorScheme.surfaceDim
                                         }
                                     }
-                                    val dismissState =
-                                        rememberDismissState(confirmStateChange = { newState ->
-                                            if (newState == DismissValue.DismissedToStart) {
-                                                routeForRemove = route
-                                                isShowDialogConfirmRemoveRoute = true
-                                                false
-                                            } else {
-                                                true
-                                            }
-                                        })
+                                    val dismissState = rememberDismissState()
 
                                     ItemHomeScreen(
                                         modifier = Modifier.animateItemPlacement(),
                                         route = route,
                                         dismissState = dismissState,
-                                        onDelete = {
+                                        onRequestDelete = {
                                             routeForRemove = route
                                             isShowDialogConfirmRemoveRoute = true
                                         },
@@ -1540,10 +1512,8 @@ fun MainInfo(
                         LinearProgressIndicator(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(3.dp),
-                            trackColor = MaterialTheme.colorScheme.primary.copy(
-                                alpha = 0.8f
-                            ),
+                                .height(4.dp),
+                            trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                             color = MaterialTheme.colorScheme.secondary,
                             strokeCap = StrokeCap.Round,
                             progress = { percent.toFloat() },
@@ -1586,10 +1556,8 @@ fun MainInfo(
                         LinearProgressIndicator(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(3.dp),
-                            trackColor = MaterialTheme.colorScheme.primary.copy(
-                                alpha = 0.8f
-                            ),
+                                .height(4.dp),
+                            trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                             color = MaterialTheme.colorScheme.secondary,
                             strokeCap = StrokeCap.Round,
                             progress = { percent.toFloat() },
@@ -1747,10 +1715,8 @@ fun DetailWorkTimeCard(
                                         LinearProgressIndicator(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .height(2.dp),
-                                            trackColor = MaterialTheme.colorScheme.primary.copy(
-                                                alpha = 0.8f
-                                            ),
+                                                .height(4.dp),
+                                            trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                                             color = MaterialTheme.colorScheme.secondary,
                                             strokeCap = StrokeCap.Round,
                                             progress = { percent.toFloat() },
@@ -1794,10 +1760,8 @@ fun DetailWorkTimeCard(
                                         LinearProgressIndicator(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .height(2.dp),
-                                            trackColor = MaterialTheme.colorScheme.primary.copy(
-                                                alpha = 0.8f
-                                            ),
+                                                .height(4.dp),
+                                            trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                                             color = MaterialTheme.colorScheme.secondary,
                                             strokeCap = StrokeCap.Round,
                                             progress = { percent.toFloat() },
@@ -1841,10 +1805,8 @@ fun DetailWorkTimeCard(
                                         LinearProgressIndicator(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .height(2.dp),
-                                            trackColor = MaterialTheme.colorScheme.primary.copy(
-                                                alpha = 0.8f
-                                            ),
+                                                .height(4.dp),
+                                            trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                                             color = MaterialTheme.colorScheme.secondary,
                                             strokeCap = StrokeCap.Round,
                                             progress = { percent.toFloat() },
@@ -2012,10 +1974,8 @@ fun DetailTrainCard(
                                         LinearProgressIndicator(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .height(2.dp),
-                                            trackColor = MaterialTheme.colorScheme.primary.copy(
-                                                alpha = 0.8f
-                                            ),
+                                                .height(4.dp),
+                                            trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                                             color = MaterialTheme.colorScheme.secondary,
                                             strokeCap = StrokeCap.Round,
                                             progress = { percent.toFloat() },
@@ -2059,10 +2019,8 @@ fun DetailTrainCard(
                                         LinearProgressIndicator(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .height(2.dp),
-                                            trackColor = MaterialTheme.colorScheme.primary.copy(
-                                                alpha = 0.8f
-                                            ),
+                                                .height(4.dp),
+                                            trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                                             color = MaterialTheme.colorScheme.secondary,
                                             strokeCap = StrokeCap.Round,
                                             progress = { percent.toFloat() },
@@ -2106,10 +2064,8 @@ fun DetailTrainCard(
                                         LinearProgressIndicator(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .height(2.dp),
-                                            trackColor = MaterialTheme.colorScheme.primary.copy(
-                                                alpha = 0.8f
-                                            ),
+                                                .height(4.dp),
+                                            trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                                             color = MaterialTheme.colorScheme.secondary,
                                             strokeCap = StrokeCap.Round,
                                             progress = { percent.toFloat() },
@@ -2153,10 +2109,8 @@ fun DetailTrainCard(
                                         LinearProgressIndicator(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .height(2.dp),
-                                            trackColor = MaterialTheme.colorScheme.primary.copy(
-                                                alpha = 0.8f
-                                            ),
+                                                .height(4.dp),
+                                            trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                                             color = MaterialTheme.colorScheme.secondary,
                                             strokeCap = StrokeCap.Round,
                                             progress = { percent.toFloat() },

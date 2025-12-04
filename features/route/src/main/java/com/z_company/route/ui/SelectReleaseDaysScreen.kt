@@ -305,14 +305,20 @@ fun SelectReleaseDaysContent(
                     }
                     releasePeriodListState?.let { releaseDayList ->
                         if (releaseDayList.isNotEmpty()) {
-                            releaseDayList.forEach { period ->
-                                if (period.days.isNotEmpty()) {
-                                    releaseDayList.sortBy { periodDays ->
-                                        periodDays.days.first().timeInMillis
-                                    }
-                                }
-                            }
-                            items(releaseDayList, key = { period ->
+
+                            // Сортируем список один раз, только по периодам с непустыми днями
+                            val sortedReleasePeriods = releaseDayList
+                                .filter { it.days.isNotEmpty() }                    // убираем пустые
+                                .sortedBy { it.days.minOf { day -> day.timeInMillis } }  // берём самую раннюю дату в периоде
+//
+//                            releaseDayList.forEach { period ->
+//                                if (period.days.isNotEmpty()) {
+//                                    releaseDayList.sortBy { periodDays ->
+//                                        periodDays.days.first().timeInMillis
+//                                    }
+//                                }
+//                            }
+                            items(sortedReleasePeriods, key = { period ->
                                 period.id
                             }) { period ->
                                 if (period.days.isNotEmpty()) {

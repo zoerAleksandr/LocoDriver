@@ -3,10 +3,12 @@ package com.z_company.loco_driver.ui
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -28,8 +30,10 @@ import com.z_company.route.navigation.SettingsScreenRoute
 import com.z_company.route.navigation.UpdatePresentationBlockDestination
 import com.z_company.route.navigation.homeGraph
 import androidx.compose.runtime.getValue
+import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import com.z_company.route.navigation.login.AuthFeature
 
+//@RequiresApi(Build.VERSION_CODES.Q)
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun LocoDriverApp(
@@ -64,6 +68,32 @@ fun LocoDriverApp(
             )
 
             val showBottomBar = isLoggedIn && currentRoute in bottomBarRoutes
+
+            val backgroundColor = MaterialTheme.colorScheme.background
+            val surfaceColor = MaterialTheme.colorScheme.surface
+
+            val systemUiController = rememberSystemUiController()
+            val navBarColor = if (currentRoute in bottomBarRoutes) {
+                surfaceColor
+            } else {
+                backgroundColor
+            }
+            if(isSystemInDarkTheme()){
+                systemUiController.setNavigationBarColor(
+                    color =  navBarColor
+                )
+                systemUiController.setSystemBarsColor(
+                    color = backgroundColor
+                )
+            }else{
+                systemUiController.setNavigationBarColor(
+                    color =  navBarColor
+                )
+                systemUiController.setSystemBarsColor(
+                    color = backgroundColor
+                )
+            }
+
 
             Scaffold(
                 bottomBar = {

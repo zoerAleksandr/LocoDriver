@@ -50,7 +50,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
@@ -76,7 +75,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.ui.component.TimePickerApp
-import com.z_company.core.ui.component.TimePickerDialog
+import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
@@ -574,7 +573,7 @@ fun WorkScheduleScreen(
             }
             // Row of time buttons
             item {
-                val minChipHeight = 24.dp
+                val minChipHeight = 48.dp
 
                 AnimatedVisibility(
                     visible = !isDeleteMode,
@@ -614,13 +613,23 @@ fun WorkScheduleScreen(
                                 selectedBackgroundColor = MaterialTheme.colorScheme.tertiary
                             )
                         }
+                        val density = LocalDensity.current
+                        val chipHeightDp = with(density) { chipHeightPx.toDp() }
 
-                        TextButton(
+                        Box(
                             modifier = Modifier
-                                .height(chipHeightDp.coerceAtLeast(minChipHeight)),
-                            onClick = { showCustomTimeSheet = true }
+                                .height(chipHeightDp.coerceAtLeast(40.dp)) // 40.dp — минимальная высота чипа, подгоните под ваш дизайн
+                                .noRippleEffect { showCustomTimeSheet = true }
+                                .padding(
+                                    horizontal = 8.dp,
+                                    vertical = 4.dp
+                                ),
+                            contentAlignment = Alignment.Center,
                         ) {
                             Text(
+                                modifier = Modifier.clickable {
+                                    showCustomTimeSheet = true
+                                },
                                 text = "Добавить время",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.tertiary
@@ -685,7 +694,11 @@ fun WorkScheduleScreen(
                             viewModel.resetSelectedDays()
                         },
                     ) {
-                        Text("Сбросить", style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            "Сбросить",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
             }
@@ -712,10 +725,13 @@ fun WorkScheduleScreen(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = red,
                             contentColor = MaterialTheme.colorScheme.secondary
-                            ),
+                        ),
                         onClick = { showDialogConfirmRemoveRoute = true },
                     ) {
-                        Text(text = "Удалить выбранные ($totalSelectedRoutes)", style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            text = "Удалить выбранные ($totalSelectedRoutes)",
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
                 }
 

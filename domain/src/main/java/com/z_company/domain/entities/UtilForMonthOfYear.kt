@@ -54,6 +54,9 @@ object UtilForMonthOfYear {
         var normaOfMonth = 0
         if (currentDate.get(Calendar.MONTH) == this.month) {
             this.days.forEach { day ->
+                if (day.isReleaseDay) {
+                    return@forEach
+                }
                 if (currentDate.get(Calendar.DAY_OF_MONTH) >= day.dayOfMonth) {
                     normaOfMonth += when (day.tag) {
                         TagForDay.WORKING_DAY -> 8

@@ -18,13 +18,8 @@ import org.koin.core.component.inject
 import com.z_company.route.viewmodel.all_route_view_model.RouteFilter
 import com.z_company.route.viewmodel.home_view_model.ItemState
 import java.util.Calendar
-import com.z_company.domain.entities.route.UtilsForEntities.getHomeRest
 import com.z_company.domain.entities.route.UtilsForEntities.isTimeWorkValid
 import com.z_company.domain.use_cases.SettingsUseCase
-import com.z_company.domain.util.addOrReplace
-import com.z_company.domain.util.minus
-import com.z_company.domain.util.moreThan
-import com.z_company.domain.util.plus
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.*
@@ -62,6 +57,7 @@ class RouteActionsHelper() : KoinComponent {
         isMakeCopy: Boolean = false
     ): NewRouteResult {
         return try {
+            val countFreeRoutes = 20
             val currentTime = Calendar.getInstance().timeInMillis
             val gracePeriod = 24 * 3_600_000 // 1 day in ms
             val endTimeSubscription =
@@ -77,11 +73,11 @@ class RouteActionsHelper() : KoinComponent {
                     NewRouteResult.NeedSubscribeDialog
                 }
 
-                routesSize > 10 && sharedPreferenceStorage.getSubscriptionExpiration() == 0L -> {
+                routesSize > countFreeRoutes && sharedPreferenceStorage.getSubscriptionExpiration() == 0L -> {
                     NewRouteResult.NeedSubscribeDialog
                 }
 
-                routesSize <= 10 && sharedPreferenceStorage.getSubscriptionExpiration() == 0L -> {
+                routesSize <= countFreeRoutes && sharedPreferenceStorage.getSubscriptionExpiration() == 0L -> {
                     NewRouteResult.AlertSubscribeDialog
                 }
 

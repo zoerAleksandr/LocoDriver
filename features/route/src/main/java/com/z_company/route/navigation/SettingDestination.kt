@@ -19,7 +19,7 @@ fun SettingDestination(
         settingsUiState = uiState,
         currentSettings = settingsViewModel.currentSettings,
         currentUserState = uiState.userDetailsState,
-        onSettingSaved = router::back,
+        onSettingSaved = { router.showHome(HomeRoute.route) },
         onLogOut = settingsViewModel::logOut,
         onDownloadFromRemote = settingsViewModel::onDownloadFromRemote,
         onUploadToRemote = settingsViewModel::onUploadToServer,

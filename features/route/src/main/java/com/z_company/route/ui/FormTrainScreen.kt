@@ -12,6 +12,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,7 +39,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -79,6 +79,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.z_company.core.R
 import com.z_company.core.ResultState
+import com.z_company.core.ui.component.CustomDivider
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.ui.theme.Shapes
@@ -268,7 +269,7 @@ fun FormTrainScreen(
                         key = { _, item -> item.id }
                     ) { index, item ->
                         if (index != 0) {
-                            HorizontalDivider()
+                            CustomDivider(orientation = Orientation.Horizontal)
                         }
                         Row(
                             modifier = Modifier

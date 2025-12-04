@@ -143,7 +143,7 @@ fun SalaryCalculationScreen(
                             )
                             Button(
                                 shape = Shapes.medium,
-                                colors = ButtonDefaults.buttonColors(containerColor = colorPrimary),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                                 onClick = { infoBlockVisible = false }
                             ) {
                                 Text(

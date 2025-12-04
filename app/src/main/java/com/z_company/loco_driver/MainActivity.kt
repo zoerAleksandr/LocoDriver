@@ -34,20 +34,30 @@ class MainActivity : ComponentActivity(), KoinComponent {
     @OptIn(ExperimentalAnimationApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        installSplashScreen()
-            .apply {
-                setKeepOnScreenCondition { !mainViewModel.appInitialized.value }
-                // Опционально: анимация выхода (рекомендую)
-                setOnExitAnimationListener { viewProvider ->
-                    val splashView = viewProvider.view
-                    splashView.animate()
-                        .alpha(0f)
-                        .setDuration(300L)
-                        .withEndAction { viewProvider.remove() }
-                        .start()
-                }
+        installSplashScreen().apply {
+            setKeepOnScreenCondition { !mainViewModel.appInitialized.value }
+            setOnExitAnimationListener { viewProvider ->
+                viewProvider.view.animate()
+                    .alpha(0f)
+                    .setDuration(1L)
+                    .withEndAction { viewProvider.remove() }
+                    .start()
             }
+        }
+
+//        installSplashScreen()
+//            .apply {
+//                setKeepOnScreenCondition { !mainViewModel.appInitialized.value }
+//                // Опционально: анимация выхода (рекомендую)
+//                setOnExitAnimationListener { viewProvider ->
+//                    val splashView = viewProvider.view
+//                    splashView.animate()
+//                        .alpha(0f)
+//                        .setDuration(300L)
+//                        .withEndAction { viewProvider.remove() }
+//                        .start()
+//                }
+//            }
         if (savedInstanceState == null) {
             payClient.getIntentInteractor().proceedIntent(intent)
         }

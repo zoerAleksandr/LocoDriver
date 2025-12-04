@@ -14,11 +14,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -33,6 +31,8 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material.DismissValue
+import androidx.compose.material.FractionalThreshold
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -40,10 +40,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
@@ -51,7 +54,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.z_company.domain.entities.route.Route
 import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.ui.theme.Shapes
@@ -60,6 +62,7 @@ import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.route.R
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 @SuppressLint("StateFlowValueCalledInComposition")
@@ -73,7 +76,7 @@ fun ItemHomeScreen(
     dismissState: DismissState,
     route: Route,
     isExpand: Boolean = false,
-    onDelete: (Route) -> Unit,
+    onRequestDelete: (Route) -> Unit,
     requiredSizeText: TextUnit,
     changingTextSize: (TextUnit) -> Unit,
     onLongClick: () -> Unit = {},
@@ -108,29 +111,46 @@ fun ItemHomeScreen(
     val scope = rememberCoroutineScope()
     val interactionSource = remember { MutableInteractionSource() }
 
-    // Outer box so we can place a local SnackbarHost (Undo) overlayed on the item
+    LaunchedEffect(dismissState) {
+        snapshotFlow { dismissState.progress }
+            .collectLatest { progress ->
+                if (progress.fraction > 0.3f && progress.fraction != 1.0f) {                     // ← порог можно менять (0.3f–0.5f)
+                    onRequestDelete(route)
+                    dismissState.snapTo(DismissValue.Default) // мгновенный отскок назад
+                }
+            }
+    }
+
     SwipeToDismiss(
         state = dismissState,
         modifier = Modifier
             .fillMaxWidth()
             .defaultMinSize(minHeight = 65.dp),
+        dismissThresholds = { FractionalThreshold(0.4f) },
         directions = setOf(DismissDirection.EndToStart),
         background = {
+            val progress = dismissState.progress.fraction.coerceIn(0f, 1f)
+            val scale = 0.8f + progress * 0.4f
+            val alpha = progress.coerceAtMost(0.9f)
+
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(color = MaterialTheme.colorScheme.error, shape = CardDefaults.shape)
+                    .background(
+                        color = MaterialTheme.colorScheme.error.copy(alpha = alpha),
+                        shape = CardDefaults.shape
+                    )
                     .padding(end = 8.dp),
                 contentAlignment = Alignment.CenterEnd
             ) {
                 IconButton(onClick = {
-                    // Manual delete via icon: show same snackbar with Undo option
-                    onDelete(route)
+                    onRequestDelete(route)
                 }) {
                     Icon(
                         painter = painterResource(id = R.drawable.delete_24px),
                         tint = MaterialTheme.colorScheme.background,
-                        contentDescription = null
+                        contentDescription = null,
+                        modifier = Modifier.scale(scale)
                     )
                 }
             }

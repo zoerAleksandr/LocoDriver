@@ -86,7 +86,7 @@ fun OutlinedTextFieldApp(
         keyboardOptions = keyboardOptions,
         keyboardActions = keyboardActions,
         onValueChange = onValueChange,
-        textStyle = textStyle,
+        textStyle = textStyle.copy(color = MaterialTheme.colorScheme.primary),
         maxLines = maxLines,
         minLines = minLines,
     ) { innerTextField ->
@@ -98,6 +98,7 @@ fun OutlinedTextFieldApp(
             interactionSource = interactionSource,
             visualTransformation = VisualTransformation.None,
             label = label,
+            colors = color,
             leadingIcon = leadingIcon,
             trailingIcon = trailingIcon,
             supportingText = supportingText,
@@ -187,7 +188,7 @@ fun OutlinedTextFieldApp(
         keyboardOptions = keyboardOptions,
         keyboardActions = keyboardActions,
         onValueChange = onValueChange,
-        textStyle = textStyle,
+        textStyle = textStyle.copy(color = MaterialTheme.colorScheme.primary),
         maxLines = maxLines,
         minLines = minLines,
     ) { innerTextField ->
