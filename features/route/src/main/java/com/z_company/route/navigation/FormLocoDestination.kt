@@ -22,21 +22,24 @@ fun FormLocoDestination(
         parameters = { parametersOf(locoId, basicId) }
     )
     val formUiState by viewModel.uiState.collectAsState()
+    val currentLocomotive by viewModel.currentLoco.collectAsState()
+    val locoSeriesList by viewModel.seriesList.collectAsState()
+    val electricSectionList by viewModel.electricSectionListState.collectAsState()
+    val dieselSectionList by viewModel.dieselSectionListState.collectAsState()
 
     FormLocoScreen(
-        currentLoco = viewModel.currentLoco,
-        dieselSectionListState = formUiState.dieselSectionList,
-        electricSectionListState = formUiState.electricSectionList,
-        onBackPressed = viewModel::checkBeforeExitTheScreen,
-        onSaveClick = viewModel::saveLoco,
+        viewModel = viewModel,
+        currentLoco = currentLocomotive,
+        dieselSectionListState = dieselSectionList,
+        electricSectionListState = electricSectionList,
         onLocoSaved = router::back,
         formUiState = formUiState,
         resetSaveState = viewModel::resetSaveState,
         onNumberChanged = viewModel::setNumber,
         onSeriesChanged = viewModel::setSeries,
         onChangedTypeLoco = viewModel::changeLocoType,
-        onStartAcceptedTimeChanged = viewModel::setStartAcceptedTime,
-        onEndAcceptedTimeChanged = viewModel::setEndAcceptedTime,
+        onStartAcceptedTimeChanged = viewModel::setStartAcceptanceTime,
+        onEndAcceptedTimeChanged = viewModel::setEndAcceptanceTime,
         onStartDeliveryTimeChanged = viewModel::setStartDeliveryTime,
         onEndDeliveryTimeChanged = viewModel::setEndDeliveryTime,
         onFuelAcceptedChanged = viewModel::setFuelAccepted,
@@ -44,26 +47,20 @@ fun FormLocoDestination(
         onDeleteSectionDiesel = viewModel::deleteSectionDiesel,
         addingSectionDiesel = viewModel::addingSectionDiesel,
         focusChangedDieselSection = viewModel::focusChangedDieselSection,
-        onEnergyAcceptedChanged = viewModel::setEnergyAccepted,
-        onEnergyDeliveryChanged = viewModel::setEnergyDelivery,
-        onRecoveryAcceptedChanged = viewModel::setRecoveryAccepted,
-        onRecoveryDeliveryChanged = viewModel::setRecoveryDelivery,
         onDeleteSectionElectric = viewModel::deleteSectionElectric,
         addingSectionElectric = viewModel::addingSectionElectric,
         focusChangedElectricSection = viewModel::focusChangedElectricSection,
         onExpandStateElectricSection = viewModel::isExpandElectricItem,
-        onRefuelValueChanged = viewModel::setRefuel,
+        onRefuelValueChanged = viewModel::setRefuelDiesel,
+        onRefuelInKiloValueChanged = viewModel::setRefuelInKiloDiesel,
+        onRefuelCoefficientValueChanged = viewModel::setRefuelCoefficientDiesel,
         onCoefficientValueChanged = viewModel::setCoefficient,
         exitScreen = router::back,
-        changeShowConfirmExitDialog = viewModel::changeShowConfirmDialog,
-        exitWithoutSave = viewModel::exitWithoutSaving,
-        menuList = viewModel.seriesList,
+        dropDownSeriesMenuList = viewModel.dropDownSeriesList,
         isExpandedMenu = formUiState.isExpandedDropDownMenuSeries,
         onExpandedMenuChange = viewModel::changeExpandedMenu,
         onChangedContentMenu = viewModel::onChangedDropDownContent,
         onDeleteSeries = viewModel::removeSeries,
-        onSettingClick = router::showSettings,
-        timeZoneText = viewModel.timeZoneText,
         dateAndTimeConverter = formUiState.dateAndTimeConverter
     )
 }

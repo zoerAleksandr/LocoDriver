@@ -11,7 +11,8 @@ internal object DieselSectionConverter {
         deliveryFuel = section.deliveryFuel,
         coefficient = section.coefficient,
         fuelSupply = section.fuelSupply,
-        coefficientSupply = section.coefficientSupply
+        fuelSupplyInKilo = section.fuelSupplyInKilo,
+        coefficientSupply = section.coefficientSupply,
     )
 
     private fun toData(sectionEntity: SectionDieselEntity) = SectionDiesel(
@@ -21,6 +22,7 @@ internal object DieselSectionConverter {
         deliveryFuel = sectionEntity.deliveryFuel,
         coefficient = sectionEntity.coefficient,
         fuelSupply = sectionEntity.fuelSupply,
+        fuelSupplyInKilo = sectionEntity.fuelSupplyInKilo,
         coefficientSupply = sectionEntity.coefficientSupply,
     )
 

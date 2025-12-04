@@ -1,9 +1,6 @@
 package com.z_company.loco_driver.di
 
 import com.z_company.loco_driver.viewmodel.MainViewModel
-import com.z_company.login.viewmodel.LogInViewModel
-import com.z_company.login.viewmodel.SignInViewModel
-import com.z_company.login.viewmodel.PasswordRecoveryViewModel
 import com.z_company.route.viewmodel.all_route_view_model.AllRouteViewModel
 import com.z_company.route.viewmodel.CreatePhotoViewModel
 import com.z_company.route.viewmodel.FormViewModel
@@ -18,6 +15,10 @@ import com.z_company.route.viewmodel.SearchViewModel
 import com.z_company.route.viewmodel.SettingSalaryViewModel
 import com.z_company.route.viewmodel.TrainFormViewModel
 import com.z_company.route.viewmodel.ViewingImageViewModel
+import com.z_company.route.viewmodel.WorkScheduleViewModel
+import com.z_company.route.viewmodel.login.LogInViewModel
+import com.z_company.route.viewmodel.login.PasswordRecoveryViewModel
+import com.z_company.route.viewmodel.login.SignInViewModel
 import com.z_company.settings.viewmodel.SelectReleaseDaysViewModel
 import com.z_company.settings.viewmodel.SettingsViewModel
 import org.koin.android.ext.koin.androidApplication
@@ -59,4 +60,5 @@ val viewModelModule = module {
     viewModel { SalaryCalculationViewModel() }
     viewModel { SettingSalaryViewModel() }
     viewModel { AllRouteViewModel() }
+    viewModel { WorkScheduleViewModel() }
 }

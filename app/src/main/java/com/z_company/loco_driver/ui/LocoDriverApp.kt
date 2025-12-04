@@ -1,22 +1,40 @@
 package com.z_company.loco_driver.ui
 
 import androidx.compose.animation.ExperimentalAnimationApi
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import com.z_company.loco_driver.ui.navigation.MainNavigation
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import com.z_company.loco_driver.ui.navigation.RouterImpl
+import com.z_company.loco_driver.ui.navigation.loginGraph
 import com.z_company.loco_driver.ui.theme.LocoDriverTheme
+import com.z_company.route.component.BottomNavigationBar
+import com.z_company.route.navigation.FormRoute
+import com.z_company.route.navigation.HomeFeature
+import com.z_company.route.navigation.HomeRoute
+import com.z_company.route.navigation.ProfileRoute
+import com.z_company.route.navigation.SalaryCalculationRoute
+import com.z_company.route.navigation.SettingsScreenRoute
+import com.z_company.route.navigation.UpdatePresentationBlockDestination
+import com.z_company.route.navigation.homeGraph
+import androidx.compose.runtime.getValue
+import com.google.accompanist.systemuicontroller.rememberSystemUiController
+import com.z_company.route.navigation.login.AuthFeature
 
-@OptIn(
-    ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class,
-    ExperimentalAnimationApi::class
-)
+//@RequiresApi(Build.VERSION_CODES.Q)
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun LocoDriverApp(
     appState: LocoDriverAppState,
@@ -25,14 +43,87 @@ fun LocoDriverApp(
     isShowUpdatePresentation: Boolean
 ) {
     LocoDriverTheme {
+        val navController = rememberNavController()
+
+        LaunchedEffect(navController) {
+            (appState.router as? RouterImpl)?.updateNavController(navController)
+        }
+
         Surface(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding(),
-            color = Color.Transparent
         ) {
-            MainNavigation(appState, isLoggedIn, isShowFirstPresentation, isShowUpdatePresentation)
+            // Определяем, нужно ли показывать нижнее меню
+            val navBackStackEntry by navController.currentBackStackEntryAsState()
+            val currentRoute = navBackStackEntry?.destination?.route
+
+            val bottomBarRoutes = setOf(
+                HomeRoute.route,
+                SalaryCalculationRoute.route,
+                FormRoute.route,
+                SettingsScreenRoute.route,
+                ProfileRoute.route
+            )
+
+            val showBottomBar = isLoggedIn && currentRoute in bottomBarRoutes
+
+            val backgroundColor = MaterialTheme.colorScheme.background
+            val surfaceColor = MaterialTheme.colorScheme.surface
+
+            val systemUiController = rememberSystemUiController()
+            val navBarColor = if (currentRoute in bottomBarRoutes) {
+                surfaceColor
+            } else {
+                backgroundColor
+            }
+            if(isSystemInDarkTheme()){
+                systemUiController.setNavigationBarColor(
+                    color =  navBarColor
+                )
+                systemUiController.setSystemBarsColor(
+                    color = backgroundColor
+                )
+            }else{
+                systemUiController.setNavigationBarColor(
+                    color =  navBarColor
+                )
+                systemUiController.setSystemBarsColor(
+                    color = backgroundColor
+                )
+            }
+
+
+            Scaffold(
+                bottomBar = {
+                    if (showBottomBar) {
+                        BottomNavigationBar(navController = navController)
+                    }
+                },
+            ) { paddingValues ->
+                NavHost(
+                    navController = navController,
+                    startDestination = if (isLoggedIn) HomeFeature.route else AuthFeature.route,
+                    modifier = Modifier.padding(paddingValues),
+                    enterTransition = { fadeIn() },
+                    exitTransition = { fadeOut() },
+                ) {
+                    // Граф авторизации
+                    loginGraph(
+                        router = appState.router,
+                        isShowFirstPresentation = isShowFirstPresentation
+                    )
+
+                    // Всё основное приложение
+                    homeGraph(router = appState.router)
+                }
+            }
+
+            // Презентация обновления — поверх всего
+            if (isLoggedIn && isShowUpdatePresentation) {
+                UpdatePresentationBlockDestination(router = appState.router)
+            }
         }
     }
 }

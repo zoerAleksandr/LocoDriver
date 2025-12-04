@@ -16,7 +16,12 @@ internal object LocomotiveConverter {
         timeStartOfAcceptance = locomotive.timeStartOfAcceptance,
         timeEndOfAcceptance = locomotive.timeEndOfAcceptance,
         timeStartOfDelivery = locomotive.timeStartOfDelivery,
-        timeEndOfDelivery = locomotive.timeEndOfDelivery
+        timeEndOfDelivery = locomotive.timeEndOfDelivery,
+        normaElectricCurrent1 = locomotive.normaElectricCurrent1,
+        normaElectricCurrent2 = locomotive.normaElectricCurrent2,
+        normaDiesel = locomotive.normaDiesel,
+        heatingCounterAccepted = locomotive.heatingCounterAccepted,
+        heatingCounterDelivery = locomotive.heatingCounterDelivery
     )
 
 
@@ -33,6 +38,12 @@ internal object LocomotiveConverter {
         timeEndOfAcceptance = entity.timeEndOfAcceptance,
         timeStartOfDelivery = entity.timeStartOfDelivery,
         timeEndOfDelivery = entity.timeEndOfDelivery,
+        normaElectricCurrent1 = entity.normaElectricCurrent1,
+        normaElectricCurrent2 = entity.normaElectricCurrent2,
+        normaDiesel = entity.normaDiesel,
+        heatingCounterAccepted = entity.heatingCounterAccepted,
+        heatingCounterDelivery = entity.heatingCounterDelivery
+
     )
 
     fun fromDataList(list: List<Locomotive>): MutableList<LocomotiveEntity> {

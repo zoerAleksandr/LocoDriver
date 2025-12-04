@@ -6,6 +6,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.parse.ParseUser
+import com.z_company.SessionManager
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.Day
 import com.z_company.domain.entities.MonthOfYear
@@ -22,12 +23,13 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import ru.rustore.sdk.billingclient.RuStoreBillingClient
-import ru.rustore.sdk.billingclient.model.purchase.PurchaseState
 import java.util.Calendar
 import java.util.Calendar.MONTH
 import java.util.Calendar.YEAR
@@ -41,7 +43,6 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private val settingsUseCase: SettingsUseCase by inject()
     private val remoteRouteUseCase: RemoteRouteUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
-    private val billingClient: RuStoreBillingClient by inject()
     private val ruStoreUseCase: RuStoreUseCase by inject()
 
     private var saveCalendarInLocalJob: Job? = null
@@ -51,18 +52,18 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     val showUpdatePresentation =
         sharedPreferenceStorage.isShowUpdatePresentation() && !sharedPreferenceStorage.tokenIsFirstAppEntry()
 
-    private var _inProgress = MutableLiveData(true)
-    val inProgress: MutableLiveData<Boolean> get() = _inProgress
+    private val _appInitialized = MutableStateFlow(false)
+    val appInitialized: StateFlow<Boolean> = _appInitialized.asStateFlow()
 
-    private var _isRegistered = MutableLiveData<Boolean>()
-    val isRegistered: MutableLiveData<Boolean> get() = _isRegistered
+    private val sessionManager: SessionManager by inject()
 
     init {
+        sessionManager.updateLoggedIn() // ← мгновенно + запускает sync если нужно
+
         viewModelScope.launch {
-            syncRuStoreSubscription()
             loadCalendar()
-            delay(1000L)
-            getSession()
+            delay(1500L) // минимальное время сплеша
+            _appInitialized.value = true
         }
     }
 
@@ -85,10 +86,10 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
                 // загрузил старые и сохранил их в список
                 calendarUseCase.loadFlowMonthOfYearListState().collect { monthListResult ->
 //                    if (monthListResult is ResultState.Success) {
-                        monthListResult.forEach { monthOfYear ->
-                            monthOfYearList.add(monthOfYear)
-                        }
-                        this.cancel()
+                    monthListResult.forEach { monthOfYear ->
+                        monthOfYearList.add(monthOfYear)
+                    }
+                    this.cancel()
 //                    }
                 }
             }.join()
@@ -179,58 +180,58 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     }
 
     // при вызове метода происходит утечка памяти на Pixel API 34 Android 14
-    private fun syncRuStoreSubscription() {
-        var job: Job? = null
-        try {
-            billingClient.purchases.getPurchases()
-                .addOnSuccessListener { purchases ->
-                    viewModelScope.launch {
-                        purchases.forEach { purchase ->
-                            job?.cancel()
-                            job = this.launch(Dispatchers.IO) {
-                                if (purchase.purchaseState == PurchaseState.CONFIRMED) {
-                                    ruStoreUseCase.getExpiryTimeMillis(
-                                        productId = purchase.productId,
-                                        subscriptionToken = purchase.subscriptionToken ?: ""
-                                    ).collect { resultState ->
-                                        if (resultState is ResultState.Success) {
-                                            sharedPreferenceStorage.setSubscriptionExpiration(
-                                                resultState.data
-                                            )
-                                            job?.cancel()
-                                        }
-                                    }
-                                }
-                            }
-                            job.join()
-                        }
-                    }
+//    private fun syncRuStoreSubscription() {
+//        var job: Job? = null
+//        try {
+//            billingClient.purchases.getPurchases()
+//                .addOnSuccessListener { purchases ->
+//                    viewModelScope.launch {
+//                        purchases.forEach { purchase ->
+//                            job?.cancel()
+//                            job = this.launch(Dispatchers.IO) {
+//                                if (purchase.purchaseState == PurchaseState.CONFIRMED) {
+//                                    ruStoreUseCase.getExpiryTimeMillis(
+//                                        productId = purchase.productId,
+//                                        subscriptionToken = purchase.subscriptionToken ?: ""
+//                                    ).collect { resultState ->
+//                                        if (resultState is ResultState.Success) {
+//                                            sharedPreferenceStorage.setSubscriptionExpiration(
+//                                                resultState.data
+//                                            )
+//                                            job?.cancel()
+//                                        }
+//                                    }
+//                                }
+//                            }
+//                            job.join()
+//                        }
+//                    }
+//
+//                }
+//                .addOnFailureListener {
+//                    Log.w(TAG, "${it.message}")
+//                }
+//        } catch (e: Exception) {
+//            Log.w(TAG, "${e.message}")
+//        }
+//    }
 
-                }
-                .addOnFailureListener {
-                    Log.w(TAG, "${it.message}")
-                }
-        } catch (e: Exception) {
-            Log.w(TAG, "${e.message}")
-        }
-    }
-
-    private suspend fun getSession() {
-        val isRegisteredJob = viewModelScope.launch {
-            val session = ParseUser.getCurrentUser()
-            if (session != null) {
-                _isRegistered.postValue(true)
-                if (session.getBoolean(UserFieldName.EMAIL_VERIFIED_FIELD_NAME_REMOTE)) {
-                    enableSynchronisedRoute()
-                }
-
-            } else {
-                _isRegistered.postValue(false)
-            }
-        }
-        delay(500L)
-        isRegisteredJob.join()
-
-        inProgress.postValue(false)
-    }
+//    private suspend fun getSession() {
+//        val isRegisteredJob = viewModelScope.launch {
+//            val session = ParseUser.getCurrentUser()
+//            if (session != null) {
+//                _isRegistered.postValue(true)
+//                if (session.getBoolean(UserFieldName.EMAIL_VERIFIED_FIELD_NAME_REMOTE)) {
+//                    enableSynchronisedRoute()
+//                }
+//
+//            } else {
+//                _isRegistered.postValue(false)
+//            }
+//        }
+//        delay(500L)
+//        isRegisteredJob.join()
+//
+//        inProgress.postValue(false)
+//    }
 }

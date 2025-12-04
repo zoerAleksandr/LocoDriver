@@ -20,42 +20,39 @@
         tools:targetApi="35">
 
         <activity
-            android:name=".MainActivity"
+            android:name=".SplashVideoActivity"
             android:exported="true"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.LocoDriver.Splash">
-<!--            <intent-filter>-->
-<!--                <action android:name="android.intent.action.VIEW" />-->
-<!--                <action android:name="android.intent.action.SEND" />-->
-<!--                <category android:name="android.intent.category.OPENABLE" />-->
-<!--                <category android:name="android.intent.category.DEFAULT" />-->
-<!--                <data-->
-<!--                    android:mimeType="application/route"-->
-<!--                    android:scheme="content" />-->
-
-<!--                <data android:scheme="content" />-->
-<!--                <data android:scheme="*" />-->
-<!--                <data android:mimeType="*/*" />-->
-<!--&lt;!&ndash;                <data android:mimeType="application/vnd.com.z_company.loco_driver.route" />&ndash;&gt;-->
-<!--            </intent-filter>-->
-
-
+            android:theme="@style/Theme.LocoDriver.VideoSplash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".MainActivity"
+            android:launchMode="singleTask"
+            android:exported="true"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.LocoDriver.Splash">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="z_company_loco_driver_scheme" />
+            </intent-filter>
 
         </activity>
 
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="com.z_company.loco_driver.fileprovider"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
+        <meta-data
+            android:name="sdk_pay_scheme_value"
+            android:value="z_company_loco_driver_scheme" />
+
+        <!-- В value требуется указать id своего приложения -->
+        <meta-data
+            android:name="console_app_id_value"
+            android:value="2063566563" />
 
         <meta-data
             android:name="com.parse.SERVER_URL"
@@ -68,16 +65,4 @@
             android:value="@string/back4app_client_key" />
 
     </application>
-
-    <!--    <queries>-->
-    <!--        <intent>-->
-    <!--            <action android:name="android.intent.action.VIEW" />-->
-    <!--            <data android:mimeType="application/vnd.com.z_company.loco_driver.route" />-->
-    <!--        </intent>-->
-    <!--        <intent>-->
-    <!--            <action android:name="android.intent.action.SEND" />-->
-    <!--            <data android:mimeType="application/vnd.com.z_company.loco_driver.route" />-->
-    <!--        </intent>-->
-    <!--    </queries>-->
-
 </manifest>

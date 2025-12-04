@@ -48,8 +48,9 @@ class SalaryCalculationHelper(
             val paymentHolidayHours = getHolidayTime(routeList)
             val overtime = getOvertime(totalWorkTime, personalNormaHoursInLong)
 
-            val result =
+            var result =
                 totalWorkTime - passengerTime - singleLocoTime - paymentHolidayHours - overtime
+            if (result < 0) result = 0
             trySend(result)
             awaitClose()
         }
@@ -298,6 +299,32 @@ class SalaryCalculationHelper(
                 timeList.add(totalTimeInServicePhase)
             }
             trySend(timeList)
+            awaitClose()
+        }
+    }
+
+    fun getTotalTimeSurchargeServicePhaseFlow(routes: List<Route> = routeList): Flow<Long> {
+        return channelFlow {
+            val phaseList = salarySetting.surchargeExtendedServicePhaseList.sortedBy { it.distance }
+            val numCats = phaseList.size
+            var totalServicePhaseTime = 0L
+            routes.forEach { route ->
+                var selectedTime = 0L
+                for (index in numCats - 1 downTo 0) {
+                    val time = route.getTimeInServicePhase(
+                        phaseList.map { it.distance.toIntOrNull() ?: 0 },
+                        index
+                    )
+                    if (time > 0) {
+                        selectedTime = time
+                        break
+                    }
+                }
+                totalServicePhaseTime += selectedTime
+            }
+            val totalWorkTime = getTotalWorkTime(routes).first()
+            totalServicePhaseTime = minOf(totalServicePhaseTime, totalWorkTime)
+            trySend(totalServicePhaseTime)
             awaitClose()
         }
     }
@@ -579,6 +606,32 @@ class SalaryCalculationHelper(
         }
     }
 
+    fun getTotalTimeHeavyTrainsFlow(routes: List<Route> = routeList): Flow<Long> {
+        return channelFlow {
+            val surchargeListSorted = salarySetting.surchargeHeavyTrainsList.sortedBy { it.weight }
+            val numCats = surchargeListSorted.size
+            var totalHeavyTime = 0L
+            routes.forEach { route ->
+                var selectedTime = 0L
+                for (index in numCats - 1 downTo 0) {
+                    val time = route.getTimeInHeavyTrain(
+                        surchargeListSorted.map { it.weight.toIntOrZero() },
+                        index
+                    )
+                    if (time > 0) {
+                        selectedTime = time
+                        break
+                    }
+                }
+                totalHeavyTime += selectedTime
+            }
+            val totalWorkTime = getTotalWorkTime(routes).first()
+            totalHeavyTime = minOf(totalHeavyTime, totalWorkTime)
+            trySend(totalHeavyTime)
+            awaitClose()
+        }
+    }
+
     fun getMoneyListSurchargeExtendedHeavyTrainsFlow(): Flow<List<Double>> {
         return channelFlow {
             val percentList = getPercentListSurchargeExtendedHeavyTrainsFlow().first()
@@ -684,7 +737,11 @@ class SalaryCalculationHelper(
             val totalWorkTime = getTotalWorkTime().first()
             val personalNormaHoursInLong = getPersonalNormaInLong()
             val overTime = getOvertime(totalWorkTime, personalNormaHoursInLong)
-            val overtimeMoneyOfOneHour = baseMoneyForOvertime / totalWorkTime
+            val overtimeMoneyOfOneHour = if (totalWorkTime == 0L) {
+                0.0
+            } else {
+                baseMoneyForOvertime / totalWorkTime
+            }
             val result = overTime.times(overtimeMoneyOfOneHour)
             emit(result)
         }
@@ -728,7 +785,11 @@ class SalaryCalculationHelper(
             val baseMoneyForOvertime = getBasicMoneyForOvertimeCalculation().first()
             val totalWorkTime = getTotalWorkTime().first()
             val surchargeAtOvertimeHour = getTimeSurchargeAtOvertimeFlow().first()
-            val overtimeMoneyOfOneHour = baseMoneyForOvertime / totalWorkTime
+            val overtimeMoneyOfOneHour = if (totalWorkTime == 0L) {
+                0.0
+            } else {
+                baseMoneyForOvertime / totalWorkTime
+            }
             val money = surchargeAtOvertimeHour.times(overtimeMoneyOfOneHour)
             emit(money)
         }
@@ -766,16 +827,18 @@ class SalaryCalculationHelper(
         }
     }
 
-    fun getDayOffHoursFlow(): Flow<Int> {
+    fun getDayOffHoursFlow(): Flow<Long> {
         return flow {
             val hours = currentMonthOfYear.getDayoffHours()
-            emit(hours)
+            val hoursInLong: Long = hours.times(3_600_000).toLong()
+            emit(hoursInLong)
         }
     }
 
     fun getMoneyAverageFlow(): Flow<Double> {
         return flow {
-            val dayOffHours = getDayOffHoursFlow().first()
+            val dayOffHoursInLong = getDayOffHoursFlow().first()
+            val dayOffHours = dayOffHoursInLong.div(3_600_000)
             val averagePaymentHour = salarySetting.averagePaymentHour
             val money = averagePaymentHour.times(dayOffHours)
             emit(money)
@@ -827,6 +890,7 @@ class SalaryCalculationHelper(
 
             val totalMoney =
                 baseMoney + holidayMoney + averageMoney + nordicSurcharge + districtSurcharge
+
             emit(totalMoney)
         }
     }
@@ -951,6 +1015,7 @@ class SalaryCalculationHelper(
                     +surchargeOnePersonOperationPassengerTrainFlow +
                     surchargeHarmfulnessSurchargeMoney + surchargeLongDistanceTrainsMoney +
                     surchargeHeavyTrains + otherSurcharge
+
             emit(basicMoney)
         }
     }

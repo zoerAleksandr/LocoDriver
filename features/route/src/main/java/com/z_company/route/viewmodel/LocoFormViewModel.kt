@@ -1,5 +1,6 @@
 package com.z_company.route.viewmodel
 
+import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
@@ -21,19 +22,20 @@ import com.z_company.domain.util.str
 import com.z_company.route.Const.NULLABLE_ID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.math.BigDecimal
+import kotlin.String
 import kotlin.properties.Delegates
 
 class LocoFormViewModel(
     private val locoId: String?,
-    basicId: String
+    private val basicId: String
 ) : ViewModel(), KoinComponent {
     private val locomotiveUseCase: LocomotiveUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
@@ -46,202 +48,83 @@ class LocoFormViewModel(
 
     var timeZoneText: String = "GMT+3"
 
-    private val locomotiveSeriesList = mutableStateListOf<String>()
-    private var isNewLoco by Delegates.notNull<Boolean>()
+    private val _seriesList = MutableStateFlow(mutableStateListOf<String>())
+    val seriesList = _seriesList.asStateFlow()
 
-    var currentLoco: Locomotive?
-        get() {
-            return _uiState.value.locoDetailState.let {
-                if (it is ResultState.Success) it.data else null
-            }
-        }
-        private set(value) {
-            _uiState.update {
-                it.copy(
-                    locoDetailState = ResultState.Success(value),
-                )
-            }
+    private var mutableSeriesList = mutableStateListOf<String>()
+        .also {
+            it.addAll(seriesList.value)
         }
 
-    private var electricSectionListState: SnapshotStateList<ElectricSectionFormState>
+    var dropDownSeriesList: SnapshotStateList<String>
         get() {
-            return _uiState.value.electricSectionList ?: mutableStateListOf()
-        }
-        private set(value) {
-            _uiState.update {
-                it.copy(
-                    electricSectionList = value
-                )
-            }
-        }
-
-    private var dieselSectionListState: SnapshotStateList<DieselSectionFormState>
-        get() {
-            return _uiState.value.dieselSectionList ?: mutableStateListOf()
-        }
-        private set(value) {
-            _uiState.update {
-                it.copy(
-                    dieselSectionList = value
-                )
-            }
-        }
-    private var currentSetting: UserSettings?
-        get() {
-            return _uiState.value.settingsState.let {
-                if (it is ResultState.Success) it.data else null
-            }
+            return mutableSeriesList
         }
         set(value) {
-            _uiState.update {
-                it.copy(
-                    settingsState = ResultState.Success(value)
-                )
-            }
+            mutableSeriesList = value
         }
 
-    private fun changesHave() {
-        if (!_uiState.value.changesHaveState) {
-            _uiState.update {
-                it.copy(
-                    changesHaveState = true
-                )
-            }
-        }
-    }
+    private var isNewLoco by Delegates.notNull<Boolean>()
 
-    fun exitWithoutSaving() {
-        if (isNewLoco) {
-            val state = _uiState.value.locoDetailState
-            if (state is ResultState.Success) {
-                state.data?.let { loco ->
-                    viewModelScope.launch {
-                        locomotiveUseCase.removeLoco(loco).collect { result ->
-                            if (result is ResultState.Success) {
-                                _uiState.update {
-                                    it.copy(
-                                        confirmExitDialogShow = false,
-                                        exitFromScreen = true
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        } else {
-            _uiState.update {
-                it.copy(
-                    confirmExitDialogShow = false,
-                    exitFromScreen = true
-                )
-            }
-        }
-    }
+    private val _currentLoco = MutableStateFlow<Locomotive?>(null)
+    val currentLoco = _currentLoco.asStateFlow()
 
-    fun checkBeforeExitTheScreen() {
-        if (_uiState.value.changesHaveState) {
-            _uiState.update {
-                it.copy(confirmExitDialogShow = true)
-            }
-        } else {
-            _uiState.update {
-                it.copy(exitFromScreen = true)
-            }
-        }
-    }
+    private val _electricSectionListState =
+        MutableStateFlow<SnapshotStateList<ElectricSectionFormState>>(mutableStateListOf())
+    val electricSectionListState = _electricSectionListState.asStateFlow()
 
-    fun changeShowConfirmDialog(isShow: Boolean) {
-        _uiState.update {
-            it.copy(confirmExitDialogShow = isShow)
-        }
-    }
+    private val _dieselSectionListState =
+        MutableStateFlow<SnapshotStateList<DieselSectionFormState>>(mutableStateListOf())
+    val dieselSectionListState = _dieselSectionListState.asStateFlow()
 
-    private fun setSectionData(locomotive: Locomotive) {
-        locomotive.dieselSectionList.forEach { section ->
-            dieselSectionListState.addOrReplace(
-                DieselSectionFormState(
-                    sectionId = section.sectionId,
-                    accepted = DieselSectionFieldState(
-                        data = section.acceptedFuel?.str() ?: "",
-                        type = DieselSectionType.ACCEPTED
-                    ),
-                    delivery = DieselSectionFieldState(
-                        data = section.deliveryFuel?.str() ?: "",
-                        type = DieselSectionType.DELIVERY
-                    ),
-                    coefficient = DieselSectionFieldState(
-                        data = section.coefficient?.str() ?: "",
-                        type = DieselSectionType.COEFFICIENT
-                    ),
-                    refuel = DieselSectionFieldState(
-                        data = section.fuelSupply?.str() ?: "",
-                        type = DieselSectionType.REFUEL
-                    )
-                )
-            )
-        }
-        locomotive.electricSectionList.forEach { section ->
-            electricSectionListState.addOrReplace(
-                ElectricSectionFormState(
-                    sectionId = section.sectionId,
-                    accepted = ElectricSectionFieldState(
-                        data = section.acceptedEnergy?.toPlainString() ?: "",
-                        type = ElectricSectionType.ACCEPTED
-                    ),
-                    delivery = ElectricSectionFieldState(
-                        data = section.deliveryEnergy?.toPlainString() ?: "",
-                        type = ElectricSectionType.DELIVERY
-                    ),
-                    recoveryAccepted = ElectricSectionFieldState(
-                        data = section.acceptedRecovery?.toPlainString() ?: "",
-                        type = ElectricSectionType.RECOVERY_ACCEPTED
-                    ),
-                    recoveryDelivery = ElectricSectionFieldState(
-                        data = section.deliveryRecovery?.toPlainString() ?: "",
-                        type = ElectricSectionType.RECOVERY_DELIVERY
-                    ),
-                    resultVisibility = isVisibilityResultElectricSection(
-                        section.acceptedEnergy?.toPlainString() ?: "",
-                        section.deliveryEnergy?.toPlainString() ?: "",
-                        section.acceptedRecovery?.toPlainString() ?: "",
-                        section.deliveryRecovery?.toPlainString() ?: ""
-                    ),
-                    expandItemState = isExpandElectricItem(
-                        section.acceptedRecovery,
-                        section.deliveryRecovery
-                    )
-                )
-            )
-        }
-    }
+    private val _settings = MutableStateFlow<UserSettings?>(null)
+    val settings = _settings.asStateFlow()
 
     init {
         viewModelScope.launch {
-            loadSetting().join()
-
+            this.launch {
+                val sett = settingsUseCase.getUserSettingFlow().first()
+                _settings.value = sett
+                _uiState.update {
+                    it.copy(
+                        dateAndTimeConverter = DateAndTimeConverter(sett)
+                    )
+                }
+                _seriesList.update { list ->
+                    list.addAllOrSkip(sett.locomotiveSeriesList.toMutableStateList())
+                    list
+                }
+                mutableSeriesList.addAllOrSkip(sett.locomotiveSeriesList.toMutableStateList())
+                timeZoneText = "GMT+${sett.timeZone}"
+            }.join()
             if (locoId == NULLABLE_ID) {
                 isNewLoco = true
-                currentLoco = Locomotive(
+                _currentLoco.value = Locomotive(
                     basicId = basicId,
-                    type = currentSetting?.defaultLocoType ?: LocoType.ELECTRIC
+                    type = _settings.value?.defaultLocoType ?: LocoType.ELECTRIC
                 )
-                electricSectionListState.add(
-                    ElectricSectionFormState(
-                        sectionId = SectionElectric().sectionId
-                    )
-                )
-
-                val coefficient = currentSetting?.lastEnteredDieselCoefficient
-                dieselSectionListState.add(
-                    DieselSectionFormState(
-                        sectionId = SectionDiesel().sectionId,
-                        coefficient = DieselSectionFieldState(
-                            coefficient.str(),
-                            DieselSectionType.COEFFICIENT
+                _electricSectionListState.update { list ->
+                    list.add(
+                        ElectricSectionFormState(
+                            sectionId = SectionElectric().sectionId
                         )
                     )
-                )
+                    list
+                }
+                val coefficient = _settings.value?.lastEnteredDieselCoefficient
+
+                _dieselSectionListState.update { list ->
+                    list.add(
+                        DieselSectionFormState(
+                            sectionId = SectionDiesel().sectionId,
+                            coefficient = DieselSectionFieldState(
+                                coefficient?.str() ?: "",
+                                DieselSectionType.COEFFICIENT
+                            )
+                        )
+                    )
+                    list
+                }
             } else {
                 isNewLoco = false
                 loadLoco(locoId!!)
@@ -249,500 +132,511 @@ class LocoFormViewModel(
         }
     }
 
-    private fun loadSetting(): Job {
-        return viewModelScope.launch {
-            settingsUseCase.getFlowCurrentSettingsState().collect {
-                if (it is ResultState.Success) {
-                    currentSetting = it.data
-                    currentSetting?.let { setting ->
-                        currentSetting = setting
-                        _uiState.update {
-                            it.copy(
-                                dateAndTimeConverter = DateAndTimeConverter(setting)
-                            )
-                        }
-                        timeZoneText = settingsUseCase.getTimeZone(setting.timeZone)
-                        locomotiveSeriesList.addAllOrSkip(setting.locomotiveSeriesList.toMutableStateList())
-                    }
-                    this.cancel()
-                }
-            }
-        }
-    }
-
-    private fun saveCoefficient(data: String?) {
-        viewModelScope.launch {
-            saveCoefficientJob?.cancel()
-            val double = data?.toDoubleOrNull()
-            double?.let {
-                settingsUseCase.setDieselCoefficient(double).collect {}
-            }
-        }
-    }
-
-    private fun saveLocomotiveSeries(value: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            settingsUseCase.setLocomotiveSeries(value)
-        }
-    }
-
-    private var mutableLocomotiveSeriesList = mutableStateListOf<String>()
-        .also {
-            it.addAll(locomotiveSeriesList)
-        }
-
-    var seriesList: SnapshotStateList<String>
-        get() {
-            return mutableLocomotiveSeriesList
-        }
-        set(value) {
-            mutableLocomotiveSeriesList = value
-        }
-
-    fun changeExpandedMenu(value: Boolean) {
-        _uiState.update {
-            it.copy(
-                isExpandedDropDownMenuSeries = value
-            )
-        }
-    }
-
-    fun onChangedDropDownContent(value: String) {
-        if (value.isEmpty()) {
-            changeExpandedMenu(false)
-            mutableLocomotiveSeriesList.addAllOrSkip(locomotiveSeriesList)
-        } else {
-            mutableLocomotiveSeriesList.clear()
-            val newSeriesList =
-                locomotiveSeriesList
-                    .filter { it.startsWith(prefix = value, ignoreCase = true) }
-                    .filterNot { it == value }
-                    .toMutableStateList()
-            newSeriesList.forEach { series ->
-                mutableLocomotiveSeriesList.add(series)
-                changeExpandedMenu(true)
-            }
-        }
-    }
-
-    fun removeSeries(value: String) {
-        viewModelScope.launch {
-            seriesList.remove(value)
-            mutableLocomotiveSeriesList.remove(value)
-            settingsUseCase.removeLocomotiveSeries(value)
-        }
-    }
-
-    private fun loadLoco(id: String) {
-        if (locoId == currentLoco?.locoId) return
+    private fun loadLoco(locoId: String) {
         loadLocoJob?.cancel()
         loadLocoJob = viewModelScope.launch {
-            locomotiveUseCase.getLocoById(id).collect { routeState ->
-                _uiState.update {
-                    if (routeState is ResultState.Success) {
-                        currentLoco = routeState.data
-                        routeState.data?.let { loco ->
-                            setSectionData(loco)
-                        }
-                    }
-                    it.copy(locoDetailState = routeState)
+            val result = locomotiveUseCase.getLocoById(locoId)
+                .first { it is ResultState.Success || it is ResultState.Error }
+            if (result is ResultState.Success) {
+                result.data?.let { loco ->
+                    _currentLoco.value = loco
+                    setSectionData(loco)
                 }
             }
         }
     }
 
-    fun saveLoco() {
-        val state = _uiState.value.locoDetailState
-        if (state is ResultState.Success) {
-            state.data?.let { loco ->
-                loco.series?.let { series ->
-                    saveLocomotiveSeries(series)
-                }
-                when (loco.type) {
-                    LocoType.ELECTRIC -> {
-                        loco.electricSectionList = electricSectionListState.map { state ->
-                            SectionElectric(
-                                sectionId = state.sectionId,
-                                acceptedEnergy = state.accepted.data?.toBigDecimalOrNull(),
-                                deliveryEnergy = state.delivery.data?.toBigDecimalOrNull(),
-                                acceptedRecovery = state.recoveryAccepted.data?.toBigDecimalOrNull(),
-                                deliveryRecovery = state.recoveryDelivery.data?.toBigDecimalOrNull()
-                            )
-                        }.toMutableList()
-                    }
+    private fun setSectionData(locomotive: Locomotive) {
+        val heating =
+            locomotive.heatingCounterAccepted != null || locomotive.heatingCounterDelivery != null
+        var otherCurrent =
+            locomotive.normaElectricCurrent2 != null && locomotive.normaElectricCurrent2 != 0
 
-                    LocoType.DIESEL -> {
-                        loco.dieselSectionList = dieselSectionListState.map { state ->
-                            SectionDiesel(
-                                sectionId = state.sectionId,
-                                acceptedFuel = state.accepted.data?.toDoubleOrNull(),
-                                deliveryFuel = state.delivery.data?.toDoubleOrNull(),
-                                coefficient = state.coefficient.data?.toDoubleOrNull(),
-                                fuelSupply = state.refuel.data?.toDoubleOrNull(),
-                                coefficientSupply = 0.0
-                            )
-                        }.toMutableStateList()
-                    }
-                }
-
-                saveLocoJob?.cancel()
-                saveLocoJob = viewModelScope.launch {
-                    locomotiveUseCase.saveLocomotive(loco).collect { saveLocoState ->
-                        _uiState.update {
-                            it.copy(saveLocoState = saveLocoState)
-                        }
-                    }
+        // добавить очистку одного списка при инициализации
+        if (locomotive.type == LocoType.DIESEL) {
+//            _dieselSectionListState.value.clear()
+            locomotive.dieselSectionList.forEach { section ->
+                _dieselSectionListState.update { list ->
+                    list.addOrReplace(
+                        DieselSectionFormState(
+                            sectionId = section.sectionId,
+                            accepted = DieselSectionFieldState(
+                                data = section.acceptedFuel?.str() ?: "",
+                                type = DieselSectionType.ACCEPTED
+                            ),
+                            delivery = DieselSectionFieldState(
+                                data = section.deliveryFuel?.str() ?: "",
+                                type = DieselSectionType.DELIVERY
+                            ),
+                            coefficient = DieselSectionFieldState(
+                                data = section.coefficient?.str() ?: "",
+                                type = DieselSectionType.COEFFICIENT
+                            ),
+                            refuel = DieselSectionFieldState(
+                                data = section.fuelSupply?.str() ?: "",
+                                type = DieselSectionType.REFUEL
+                            ),
+                            refuelInKilo = DieselSectionFieldState(
+                                data = section.fuelSupplyInKilo?.str() ?: "",
+                                type = DieselSectionType.REFUEL
+                            ),
+                            refuelCoefficient = DieselSectionFieldState(
+                                data = section.coefficientSupply?.str() ?: "",
+                                type = DieselSectionType.REFUEL
+                            ),
+                        )
+                    )
+                    list
                 }
             }
         }
-    }
+        if (locomotive.type == LocoType.ELECTRIC) {
+//            _electricSectionListState.value.clear()
+            locomotive.electricSectionList.forEach { section ->
+                _electricSectionListState.update { list ->
+                    list.addOrReplace(
+                        ElectricSectionFormState(
+                            sectionId = section.sectionId,
+                            accepted = ElectricSectionFieldState(
+                                data = section.acceptedEnergy?.toPlainString() ?: "",
+                                type = ElectricSectionType.ACCEPTED
+                            ),
+                            delivery = ElectricSectionFieldState(
+                                data = section.deliveryEnergy?.toPlainString() ?: "",
+                                type = ElectricSectionType.DELIVERY
+                            ),
+                            recoveryAccepted = ElectricSectionFieldState(
+                                data = section.acceptedRecovery?.toPlainString() ?: "",
+                                type = ElectricSectionType.RECOVERY_ACCEPTED
+                            ),
+                            recoveryDelivery = ElectricSectionFieldState(
+                                data = section.deliveryRecovery?.toPlainString() ?: "",
+                                type = ElectricSectionType.RECOVERY_DELIVERY
+                            ),
+                            accepted2 = ElectricSectionFieldState(
+                                data = section.acceptedEnergyOtherCurrent?.toPlainString() ?: "",
+                                type = ElectricSectionType.ACCEPTED2
+                            ),
+                            delivery2 = ElectricSectionFieldState(
+                                data = section.deliveryEnergyOtherCurrent?.toPlainString() ?: "",
+                                type = ElectricSectionType.DELIVERY2
+                            ),
+                            recoveryAccepted2 = ElectricSectionFieldState(
+                                data = section.acceptedRecoveryOtherCurrent?.toPlainString() ?: "",
+                                type = ElectricSectionType.RECOVERY_ACCEPTED2
+                            ),
+                            recoveryDelivery2 = ElectricSectionFieldState(
+                                data = section.deliveryRecoveryOtherCurrent?.toPlainString() ?: "",
+                                type = ElectricSectionType.RECOVERY_DELIVERY2
+                            ),
 
-    fun resetSaveState() {
+                            resultVisibility = isVisibilityResultElectricSection(
+                                section.acceptedEnergy?.toPlainString() ?: "",
+                                section.deliveryEnergy?.toPlainString() ?: "",
+                                section.acceptedRecovery?.toPlainString() ?: "",
+                                section.deliveryRecovery?.toPlainString() ?: "",
+                                section.acceptedEnergyOtherCurrent?.toPlainString() ?: "",
+                                section.deliveryEnergyOtherCurrent?.toPlainString() ?: "",
+                                section.acceptedRecoveryOtherCurrent?.toPlainString() ?: "",
+                                section.deliveryRecoveryOtherCurrent?.toPlainString() ?: "",
+                            ),
+
+                            expandItemState = isExpandElectricItem(
+                                section.acceptedRecovery,
+                                section.deliveryRecovery,
+                                section.acceptedRecoveryOtherCurrent,
+                                section.deliveryRecoveryOtherCurrent
+                            ),
+                        )
+                    )
+                    list
+                }
+
+                if (section.acceptedEnergyOtherCurrent != null ||
+                    section.deliveryEnergyOtherCurrent != null ||
+                    section.acceptedRecoveryOtherCurrent != null ||
+                    section.deliveryRecoveryOtherCurrent != null
+                ) {
+                    otherCurrent = true
+                }
+            }
+        }
+
         _uiState.update {
-            it.copy(saveLocoState = null)
+            it.copy(
+                isShowHeatingCounter = heating,
+                isShowOtherCurrent = otherCurrent
+            )
         }
     }
 
     fun setNumber(number: String) {
-        currentLoco = currentLoco?.copy(
-            number = number.ifBlank { null }
-        )
+        _currentLoco.update { it?.copy(number = number) }
         changesHave()
     }
 
     fun setSeries(series: String) {
-        currentLoco = currentLoco?.copy(
-            series = series.ifBlank { null }
-        )
+        _currentLoco.update { it?.copy(series = series) }
         changesHave()
     }
 
-    fun changeLocoType(index: Int) {
-        val type = when (index) {
-            0 -> {
-                LocoType.ELECTRIC
-            }
-
-            1 -> {
-                LocoType.DIESEL
-            }
-
-            else -> {
-                LocoType.ELECTRIC
-            }
-        }
-        currentLoco = currentLoco?.copy(
-            type = type
-        )
+    fun changeLocoType(locoType: LocoType) {
+        _currentLoco.update { it?.copy(type = locoType) }
         changesHave()
     }
 
-    fun setStartAcceptedTime(timeInLong: Long?) {
-        currentLoco = currentLoco?.copy(
-            timeStartOfAcceptance = timeInLong
-        )
-        isValidAcceptedTime()
-        changesHave()
+    fun setNormaElectricCurrent1(value: String) {
+        _currentLoco.update { it?.copy(normaElectricCurrent1 = value.toIntOrNull()) }
     }
 
-    fun setEndAcceptedTime(timeInLong: Long?) {
-        currentLoco = currentLoco?.copy(
-            timeEndOfAcceptance = timeInLong
-        )
-        isValidAcceptedTime()
-        changesHave()
+    fun setNormaElectricCurrent2(value: String) {
+        _currentLoco.update { it?.copy(normaElectricCurrent2 = value.toIntOrNull()) }
     }
 
-    private fun isValidAcceptedTime() {
-        val locoDetailState = _uiState.value.locoDetailState
+    fun setNormaDiesel(value: String) {
+        _currentLoco.update { it?.copy(normaDiesel = value) }
+    }
 
-        if (locoDetailState is ResultState.Success) {
-            locoDetailState.data?.let {
-                val errorMessage = if (!locomotiveUseCase.isValidAcceptedTime(it)) {
-                    "Ошибка"
-                } else {
-                    null
-                }
-                _uiState.update { formState ->
-                    formState.copy(errorMessage = errorMessage)
-                }
-            }
+    fun setHeatingCounterAccepted(value: String) {
+        _currentLoco.update { it?.copy(heatingCounterAccepted = value.toBigDecimalOrNull()) }
+    }
+
+    fun setHeatingCounterDelivery(value: String) {
+        _currentLoco.update { it?.copy(heatingCounterDelivery = value.toBigDecimalOrNull()) }
+    }
+
+    fun showHeatingCounter(value: Boolean) {
+        _uiState.update { it.copy(isShowHeatingCounter = value) }
+    }
+
+    fun showOtherCurrent(value: Boolean) {
+        _uiState.update {
+            it.copy(
+                isShowOtherCurrent = value
+            )
         }
     }
 
-    fun setEndDeliveryTime(timeInLong: Long?) {
-        currentLoco = currentLoco?.copy(
-            timeEndOfDelivery = timeInLong
-        )
-        isValidDeliveryTime()
+    fun setStartAcceptanceTime(time: Long?) {
+        _currentLoco.update { it?.copy(timeStartOfAcceptance = time) }
         changesHave()
     }
 
-    fun setStartDeliveryTime(timeInLong: Long?) {
-        currentLoco = currentLoco?.copy(
-            timeStartOfDelivery = timeInLong
-        )
-        isValidDeliveryTime()
+    fun setEndAcceptanceTime(time: Long?) {
+        _currentLoco.update { it?.copy(timeEndOfAcceptance = time) }
         changesHave()
     }
 
-    private fun isValidDeliveryTime() {
-        val locoDetailState = _uiState.value.locoDetailState
+    fun setStartDeliveryTime(time: Long?) {
+        _currentLoco.update { it?.copy(timeStartOfDelivery = time) }
+        changesHave()
+    }
 
-        if (locoDetailState is ResultState.Success) {
-            locoDetailState.data?.let {
-                val errorMessage = if (!locomotiveUseCase.isValidDeliveryTime(it)) {
-                    "Ошибка"
-                } else {
-                    null
+    fun setEndDeliveryTime(time: Long?) {
+        _currentLoco.update { it?.copy(timeEndOfDelivery = time) }
+        changesHave()
+    }
+
+    fun setFuelAccepted(index: Int, value: String?) {
+        updateDieselSection(index) { copy(accepted = accepted.copy(data = value ?: "")) }
+        changesHave()
+    }
+
+    fun setFuelDelivery(index: Int, value: String?) {
+        updateDieselSection(index) { copy(delivery = delivery.copy(data = value ?: "")) }
+        changesHave()
+    }
+
+    fun setCoefficient(index: Int, value: String?) {
+        updateDieselSection(index) { copy(coefficient = coefficient.copy(data = value ?: "")) }
+        changesHave()
+    }
+
+    fun setRefuelDiesel(index: Int, inputValue: String?) {
+        updateDieselSection(index) {
+            val coeff = refuelCoefficient.data?.toDoubleOrNull()
+            val kiloValue = coeff?.let { c ->
+                inputValue?.toDoubleOrNull()?.let { liters ->
+                    CalculationEnergy.rounding(liters * c, 2)?.str() ?: ""
                 }
-                _uiState.update { formState ->
-                    formState.copy(errorMessage = errorMessage)
-                }
-            }
+            } ?: refuelInKilo.data
+
+            copy(
+                refuel = DieselSectionFieldState(inputValue, DieselSectionType.REFUEL),
+                refuelInKilo = DieselSectionFieldState(kiloValue, DieselSectionType.REFUEL_IN_KILO)
+            )
+        }
+        changesHave()
+        val isValid = validateDieselSection(index, inputValue, DieselSectionType.REFUEL)
+        updateDieselSection(index) {
+            copy(
+                formValid = isValid,
+                errorMessage = if (!isValid) "Ошибка валидации" else ""
+            )
         }
     }
 
-    fun setFuelAccepted(index: Int, s: String?) {
-        onDieselSectionEvent(
-            DieselSectionEvent.EnteredAccepted(
-                index, s
+    fun setRefuelInKiloDiesel(index: Int, inputValue: String?) {
+        updateDieselSection(index) {
+            val coeff = refuelCoefficient.data?.toDoubleOrNull()
+            val literValue = if (coeff != null && coeff != 0.0) {
+                inputValue?.toDoubleOrNull()?.let { kg ->
+                    CalculationEnergy.rounding(kg / coeff, 2)?.str() ?: ""
+                }
+            } else refuel.data
+
+            copy(
+                refuelInKilo = DieselSectionFieldState(
+                    inputValue,
+                    DieselSectionType.REFUEL_IN_KILO
+                ),
+                refuel = DieselSectionFieldState(literValue, DieselSectionType.REFUEL)
             )
-        )
+        }
+        changesHave()
+        val isValid = validateDieselSection(index, inputValue, DieselSectionType.REFUEL_IN_KILO)
+        updateDieselSection(index) {
+            copy(
+                formValid = isValid,
+                errorMessage = if (!isValid) "Ошибка валидации" else ""
+            )
+        }
     }
 
-    fun setFuelDelivery(index: Int, s: String?) {
-        onDieselSectionEvent(
-            DieselSectionEvent.EnteredDelivery(
-                index, s
+    fun setRefuelCoefficientDiesel(index: Int, inputValue: String?) {
+        updateDieselSection(index) {
+            val coeff = inputValue?.toDoubleOrNull()
+            val liters = refuel.data?.toDoubleOrNull()
+            val kiloValue = if (coeff != null && liters != null) {
+                CalculationEnergy.rounding(liters * coeff, 2)?.str() ?: ""
+            } else refuelInKilo.data
+
+            copy(
+                refuelCoefficient = DieselSectionFieldState(
+                    inputValue,
+                    DieselSectionType.REFUEL_COEFFICIENT
+                ),
+                refuelInKilo = DieselSectionFieldState(kiloValue, DieselSectionType.REFUEL_IN_KILO)
             )
-        )
+        }
+        changesHave()
+        val isValid = validateDieselSection(index, inputValue, DieselSectionType.REFUEL_COEFFICIENT)
+        updateDieselSection(index) {
+            copy(
+                formValid = isValid,
+                errorMessage = if (!isValid) "Ошибка валидации" else ""
+            )
+        }
     }
 
-    fun setRefuel(index: Int, d: String?) {
-        onDieselSectionEvent(
-            DieselSectionEvent.EnteredRefuel(
-                index, d?.toDoubleOrNull()
-            )
-        )
-    }
-
-    fun setCoefficient(index: Int, coefficient: String?) {
-        onDieselSectionEvent(
-            DieselSectionEvent.EnteredCoefficient(
-                index, coefficient?.toDoubleOrNull()
-            )
-        )
+    fun setEnergyAccepted(index: Int, value: String?) {
+        updateElectricSection(index) { copy(accepted = accepted.copy(data = value ?: "")) }
         changesHave()
     }
 
-    fun deleteSectionDiesel(dieselSectionFormState: DieselSectionFormState) {
-        dieselSectionListState.remove(dieselSectionFormState)
+    fun setEnergyDelivery(index: Int, value: String?) {
+        updateElectricSection(index) { copy(delivery = delivery.copy(data = value ?: "")) }
         changesHave()
     }
 
-    fun setEnergyAccepted(index: Int, data: String?) {
-        onElectricSectionEvent(
-            ElectricSectionEvent.EnteredAccepted(
-                index = index, data = data
+    fun setRecoveryAccepted(index: Int, value: String?) {
+        updateElectricSection(index) {
+            copy(
+                recoveryAccepted = recoveryAccepted.copy(
+                    data = value ?: ""
+                )
             )
-        )
+        }
+        changesHave()
     }
 
-    fun setEnergyDelivery(index: Int, data: String?) {
-        onElectricSectionEvent(
-            ElectricSectionEvent.EnteredDelivery(
-                index = index, data = data
+    fun setRecoveryDelivery(index: Int, value: String?) {
+        updateElectricSection(index) {
+            copy(
+                recoveryDelivery = recoveryDelivery.copy(
+                    data = value ?: ""
+                )
             )
-        )
+        }
+        changesHave()
     }
 
-    fun setRecoveryAccepted(index: Int, data: String?) {
-        onElectricSectionEvent(
-            ElectricSectionEvent.EnteredRecoveryAccepted(
-                index = index, data = data
-            )
-        )
+    fun setEnergyAccepted2(index: Int, value: String?) {
+        updateElectricSection(index) { copy(accepted2 = accepted2.copy(data = value ?: "")) }
+        changesHave()
     }
 
-    fun setRecoveryDelivery(index: Int, data: String?) {
-        onElectricSectionEvent(
-            ElectricSectionEvent.EnteredRecoveryDelivery(
-                index = index, data = data
-            )
-        )
+    fun setEnergyDelivery2(index: Int, value: String?) {
+        updateElectricSection(index) { copy(delivery2 = delivery2.copy(data = value ?: "")) }
+        changesHave()
     }
 
-    fun focusChangedElectricSection(index: Int, fieldName: ElectricSectionType) {
-        onElectricSectionEvent(
-            ElectricSectionEvent.FocusChange(
-                index, fieldName
+    fun setRecoveryAccepted2(index: Int, value: String?) {
+        updateElectricSection(index) {
+            copy(
+                recoveryAccepted2 = recoveryAccepted2.copy(
+                    data = value ?: ""
+                )
             )
-        )
+        }
+        changesHave()
     }
 
-    fun focusChangedDieselSection(index: Int, fieldName: DieselSectionType) {
-        onDieselSectionEvent(
-            DieselSectionEvent.FocusChange(
-                index, fieldName
+    fun setRecoveryDelivery2(index: Int, value: String?) {
+        updateElectricSection(index) {
+            copy(
+                recoveryDelivery2 = recoveryDelivery2.copy(
+                    data = value ?: ""
+                )
             )
-        )
+        }
+        changesHave()
     }
 
-    fun deleteSectionElectric(sectionElectricForm: ElectricSectionFormState) {
-        electricSectionListState.remove(sectionElectricForm)
+    private fun updateDieselSection(
+        index: Int,
+        block: DieselSectionFormState.() -> DieselSectionFormState
+    ) {
+        _dieselSectionListState.update { list ->
+            val updatedList = list.toMutableList()
+            if (index in updatedList.indices) {
+                updatedList[index] = updatedList[index].block()
+            }
+            updatedList.toMutableStateList()
+        }
+    }
+
+    private fun updateElectricSection(
+        index: Int,
+        block: ElectricSectionFormState.() -> ElectricSectionFormState
+    ) {
+        _electricSectionListState.update { list ->
+            val updatedList = list.toMutableList()
+            if (index in updatedList.indices) {
+                val current = updatedList[index]
+                val updatedState = current.block()
+                // Добавляем расчёт видимости результата
+                val resultVisibility = isVisibilityResultElectricSection(
+                    accepted = updatedState.accepted.data ?: "",
+                    delivery = updatedState.delivery.data ?: "",
+                    acceptedRecovery = updatedState.recoveryAccepted.data ?: "",
+                    deliveryRecovery = updatedState.recoveryDelivery.data ?: "",
+                    accepted2 = updatedState.accepted2.data ?: "",
+                    delivery2 = updatedState.delivery2.data ?: "",
+                    acceptedRecovery2 = updatedState.recoveryAccepted2.data ?: "",
+                    deliveryRecovery2 = updatedState.recoveryDelivery2.data ?: ""
+                )
+
+                updatedList[index] = updatedState.copy(resultVisibility = resultVisibility)
+            }
+            updatedList.toMutableStateList()
+        }
+        changesHave()
+    }
+
+    fun deleteSectionDiesel(section: DieselSectionFormState) {
+        _dieselSectionListState.update { list ->
+            list.remove(section)
+            list
+        }
         changesHave()
     }
 
     fun addingSectionDiesel() {
-        val coefficient = currentSetting?.lastEnteredDieselCoefficient
-        dieselSectionListState.add(
-            DieselSectionFormState(
-                sectionId = SectionDiesel().sectionId,
-                coefficient = DieselSectionFieldState(
-                    coefficient.str(),
-                    DieselSectionType.COEFFICIENT
+        val coefficient = settings.value?.lastEnteredDieselCoefficient
+        _dieselSectionListState.update { list ->
+            list.add(
+                DieselSectionFormState(
+                    sectionId = SectionDiesel().sectionId,
+                    coefficient = DieselSectionFieldState(
+                        coefficient?.str() ?: "",
+                        DieselSectionType.COEFFICIENT
+                    )
                 )
             )
-        )
-        electricSectionListState.clear()
+            list
+        }
+        changesHave()
+    }
+
+    fun deleteSectionElectric(section: ElectricSectionFormState) {
+        _electricSectionListState.update { list ->
+            list.remove(section)
+            list
+        }
         changesHave()
     }
 
     fun addingSectionElectric() {
-        electricSectionListState.add(
-            ElectricSectionFormState(
-                sectionId = SectionElectric().sectionId
-            )
-        )
-        dieselSectionListState.clear()
+        _electricSectionListState.update { list ->
+            list.add(ElectricSectionFormState(sectionId = SectionElectric().sectionId))
+            list
+        }
         changesHave()
+    }
+
+    fun focusChangedDieselSection(index: Int, type: DieselSectionType) {
+        val inputValue = when (type) {
+            DieselSectionType.ACCEPTED -> _dieselSectionListState.value.getOrNull(index)?.accepted?.data
+            DieselSectionType.DELIVERY -> _dieselSectionListState.value.getOrNull(index)?.delivery?.data
+            DieselSectionType.COEFFICIENT -> {
+                saveCoefficient(_dieselSectionListState.value.getOrNull(index)?.coefficient?.data)
+                _dieselSectionListState.value.getOrNull(index)?.coefficient?.data
+            }
+
+            DieselSectionType.REFUEL -> _dieselSectionListState.value.getOrNull(index)?.refuel?.data
+            DieselSectionType.REFUEL_IN_KILO -> _dieselSectionListState.value.getOrNull(index)?.refuelInKilo?.data
+            DieselSectionType.REFUEL_COEFFICIENT -> _dieselSectionListState.value.getOrNull(index)?.refuelCoefficient?.data
+        }
+        val isValid = validateDieselSection(index, inputValue, type)
+        updateDieselSection(index) {
+            copy(
+                formValid = isValid,
+                errorMessage = if (!isValid) "Ошибка валидации" else "" // Адаптировать errorMessage
+            )
+        }
+    }
+
+    fun focusChangedElectricSection(index: Int, type: ElectricSectionType) {
+        val inputValue = when (type) {
+            ElectricSectionType.ACCEPTED -> _electricSectionListState.value.getOrNull(index)?.accepted?.data
+            ElectricSectionType.DELIVERY -> _electricSectionListState.value.getOrNull(index)?.delivery?.data
+            ElectricSectionType.RECOVERY_ACCEPTED -> _electricSectionListState.value.getOrNull(index)?.recoveryAccepted?.data
+            ElectricSectionType.RECOVERY_DELIVERY -> _electricSectionListState.value.getOrNull(index)?.recoveryDelivery?.data
+            ElectricSectionType.ACCEPTED2 -> _electricSectionListState.value.getOrNull(index)?.accepted2?.data
+            ElectricSectionType.DELIVERY2 -> _electricSectionListState.value.getOrNull(index)?.delivery2?.data
+            ElectricSectionType.RECOVERY_ACCEPTED2 -> _electricSectionListState.value.getOrNull(
+                index
+            )?.recoveryAccepted2?.data
+
+            ElectricSectionType.RECOVERY_DELIVERY2 -> _electricSectionListState.value.getOrNull(
+                index
+            )?.recoveryDelivery2?.data
+
+        }
+        val isValid = validateElectricSection(index, inputValue, type)
+        updateElectricSection(index) {
+            copy(
+                formValid = isValid,
+                errorMessage = if (!isValid) "Ошибка валидации" else ""
+            )
+        }
     }
 
     private fun isExpandElectricItem(
         acceptedRecovery: BigDecimal?,
         deliveryRecovery: BigDecimal?,
+        acceptedRecovery2: BigDecimal?,
+        deliveryRecovery2: BigDecimal?,
     ): Boolean {
-        return (acceptedRecovery != null || deliveryRecovery != null)
+        return (acceptedRecovery != null || deliveryRecovery != null || acceptedRecovery2 != null || deliveryRecovery2 != null)
     }
 
     fun isExpandElectricItem(isExpand: Boolean) {
-        electricSectionListState.forEachIndexed { index, _ ->
-            electricSectionListState[index] = electricSectionListState[index].copy(
+        electricSectionListState.value.forEachIndexed { index, _ ->
+            electricSectionListState.value[index] = electricSectionListState.value[index].copy(
                 expandItemState = isExpand
             )
-        }
-    }
-
-    private fun onElectricSectionEvent(event: ElectricSectionEvent) {
-        changesHave()
-        when (event) {
-            is ElectricSectionEvent.EnteredAccepted -> {
-                electricSectionListState[event.index] = electricSectionListState[event.index].copy(
-                    accepted = electricSectionListState[event.index].accepted.copy(
-                        data = event.data
-                    )
-                )
-            }
-
-            is ElectricSectionEvent.EnteredDelivery -> {
-                electricSectionListState[event.index] = electricSectionListState[event.index].copy(
-                    delivery = electricSectionListState[event.index].delivery.copy(
-                        data = event.data
-                    )
-                )
-            }
-
-            is ElectricSectionEvent.EnteredRecoveryAccepted -> {
-                electricSectionListState[event.index] = electricSectionListState[event.index].copy(
-                    recoveryAccepted = electricSectionListState[event.index].recoveryAccepted.copy(
-                        data = event.data
-                    )
-                )
-            }
-
-            is ElectricSectionEvent.EnteredRecoveryDelivery -> {
-                electricSectionListState[event.index] = electricSectionListState[event.index].copy(
-                    recoveryDelivery = electricSectionListState[event.index].recoveryDelivery.copy(
-                        data = event.data
-                    )
-                )
-            }
-
-            is ElectricSectionEvent.FocusChange -> {
-                val accepted = electricSectionListState[event.index].accepted.data
-                val delivery = electricSectionListState[event.index].delivery.data
-                val acceptedRecovery =
-                    electricSectionListState[event.index].recoveryAccepted.data
-                val deliveryRecovery =
-                    electricSectionListState[event.index].recoveryDelivery.data
-
-                val isVisibilityResult = isVisibilityResultElectricSection(
-                    accepted, delivery, acceptedRecovery, deliveryRecovery
-                )
-                val isExpand = isExpandElectricItem(
-                    acceptedRecovery?.toBigDecimalOrNull(),
-                    deliveryRecovery?.toBigDecimalOrNull()
-                )
-                electricSectionListState[event.index] = electricSectionListState[event.index].copy(
-                    resultVisibility = isVisibilityResult,
-                    expandItemState = isExpand
-                )
-
-                when (event.fieldName) {
-                    ElectricSectionType.ACCEPTED -> {
-                        val isValid = validateElectricSection(
-                            index = event.index,
-                            inputValue = electricSectionListState[event.index].accepted.data,
-                            type = ElectricSectionType.ACCEPTED
-                        )
-
-                        electricSectionListState[event.index] =
-                            electricSectionListState[event.index].copy(
-                                formValid = isValid
-                            )
-                    }
-
-                    ElectricSectionType.DELIVERY -> {
-                        val isValid = validateElectricSection(
-                            index = event.index,
-                            inputValue = electricSectionListState[event.index].delivery.data,
-                            type = ElectricSectionType.DELIVERY
-                        )
-
-                        electricSectionListState[event.index] =
-                            electricSectionListState[event.index].copy(
-                                formValid = isValid
-                            )
-                    }
-
-                    ElectricSectionType.RECOVERY_ACCEPTED -> {
-                        val isValid = validateElectricSection(
-                            index = event.index,
-                            inputValue = electricSectionListState[event.index].recoveryAccepted.data,
-                            type = ElectricSectionType.RECOVERY_ACCEPTED
-                        )
-
-                        electricSectionListState[event.index] =
-                            electricSectionListState[event.index].copy(
-                                formValid = isValid
-                            )
-                    }
-
-                    ElectricSectionType.RECOVERY_DELIVERY -> {
-                        val isValid = validateElectricSection(
-                            index = event.index,
-                            inputValue = electricSectionListState[event.index].recoveryDelivery.data,
-                            type = ElectricSectionType.RECOVERY_DELIVERY
-                        )
-
-                        electricSectionListState[event.index] =
-                            electricSectionListState[event.index].copy(
-                                formValid = isValid
-                            )
-                    }
-                }
-            }
         }
     }
 
@@ -750,10 +644,14 @@ class LocoFormViewModel(
         accepted: String?,
         delivery: String?,
         acceptedRecovery: String?,
-        deliveryRecovery: String?
+        deliveryRecovery: String?,
+        accepted2: String?,
+        delivery2: String?,
+        acceptedRecovery2: String?,
+        deliveryRecovery2: String?
     ): Boolean {
-        return ((accepted != null && delivery != null)
-                || (acceptedRecovery != null && deliveryRecovery != null))
+        return ((accepted != null && delivery != null) || (acceptedRecovery != null && deliveryRecovery != null)) ||
+                ((accepted2 != null && delivery2 != null) || (acceptedRecovery2 != null && deliveryRecovery2 != null))
     }
 
     private fun validateElectricSection(
@@ -761,33 +659,27 @@ class LocoFormViewModel(
         inputValue: String?,
         type: ElectricSectionType
     ): Boolean {
-        return when (type) {
-
+        // Исходная логика валидации
+        when (type) {
             ElectricSectionType.ACCEPTED -> {
-                val delivery = electricSectionListState[index].delivery.data
-
+                val delivery = _electricSectionListState.value[index].delivery.data
                 delivery?.let { del ->
                     inputValue?.let { acc ->
                         if (acc > del) {
-                            electricSectionListState[index] = electricSectionListState[index].copy(
-                                errorMessage = "Принято больше чем сдано"
-                            )
+                            updateElectricSection(index) { copy(errorMessage = "Принято больше чем сдано") }
                             return false
                         }
                     }
                 }
-                true
             }
 
             ElectricSectionType.DELIVERY -> {
-                val accepted = electricSectionListState[index].accepted.data
+                val accepted = electricSectionListState.value[index].accepted.data
 
                 accepted?.let { acc ->
                     inputValue?.let { del ->
                         if (del < acc) {
-                            electricSectionListState[index] = electricSectionListState[index].copy(
-                                errorMessage = "Сдано меньше чем принято"
-                            )
+                            updateElectricSection(index) { copy(errorMessage = "Сдано меньше чем принято") }
                             return false
                         }
                     }
@@ -796,15 +688,12 @@ class LocoFormViewModel(
             }
 
             ElectricSectionType.RECOVERY_ACCEPTED -> {
-                val delivery =
-                    electricSectionListState[index].recoveryDelivery.data
+                val delivery = electricSectionListState.value[index].recoveryDelivery.data
 
                 delivery?.let { del ->
                     inputValue?.let { acc ->
                         if (acc > del) {
-                            electricSectionListState[index] = electricSectionListState[index].copy(
-                                errorMessage = "Принято больше чем сдано"
-                            )
+                            updateElectricSection(index) { copy(errorMessage = "Принято больше чем сдано") }
                             return false
                         }
                     }
@@ -813,15 +702,66 @@ class LocoFormViewModel(
             }
 
             ElectricSectionType.RECOVERY_DELIVERY -> {
-                val accepted =
-                    electricSectionListState[index].recoveryAccepted.data
+                val accepted = electricSectionListState.value[index].recoveryAccepted.data
 
                 accepted?.let { acc ->
                     inputValue?.let { del ->
                         if (del < acc) {
-                            electricSectionListState[index] = electricSectionListState[index].copy(
-                                errorMessage = "Сдано меньше чем принято"
-                            )
+                            updateElectricSection(index) { copy(errorMessage = "Сдано меньше чем принято") }
+                            return false
+                        }
+                    }
+                }
+                true
+            }
+
+            ElectricSectionType.ACCEPTED2 -> {
+                val delivery2 = _electricSectionListState.value[index].delivery2.data
+                delivery2?.let { del ->
+                    inputValue?.let { acc ->
+                        if (acc > del) {
+                            updateElectricSection(index) { copy(errorMessage = "Принято больше чем сдано") }
+                            return false
+                        }
+                    }
+                }
+            }
+
+            ElectricSectionType.DELIVERY2 -> {
+                val accepted2 = electricSectionListState.value[index].accepted2.data
+
+                accepted2?.let { acc ->
+                    inputValue?.let { del ->
+                        if (del < acc) {
+                            updateElectricSection(index) { copy(errorMessage = "Сдано меньше чем принято") }
+                            return false
+                        }
+                    }
+                }
+                true
+            }
+
+            ElectricSectionType.RECOVERY_ACCEPTED2 -> {
+                val delivery2 = electricSectionListState.value[index].recoveryDelivery2.data
+
+                delivery2?.let { del ->
+                    inputValue?.let { acc ->
+                        if (acc > del) {
+                            updateElectricSection(index) { copy(errorMessage = "Принято больше чем сдано") }
+                            return false
+                        }
+                    }
+                }
+                true
+            }
+
+            ElectricSectionType.RECOVERY_DELIVERY2 -> {
+                val accepted2 = electricSectionListState.value[index].recoveryAccepted2.data
+
+                accepted2?.let { acc ->
+                    inputValue?.let { del ->
+                        if (del < acc) {
+                            updateElectricSection(index) { copy(errorMessage = "Сдано меньше чем принято") }
                             return false
                         }
                     }
@@ -829,96 +769,7 @@ class LocoFormViewModel(
                 true
             }
         }
-    }
-
-    private fun onDieselSectionEvent(event: DieselSectionEvent) {
-        changesHave()
-        when (event) {
-            is DieselSectionEvent.EnteredAccepted -> {
-                dieselSectionListState[event.index] = dieselSectionListState[event.index].copy(
-                    accepted = dieselSectionListState[event.index].accepted.copy(
-                        data = event.data
-                    )
-                )
-            }
-
-            is DieselSectionEvent.EnteredDelivery -> {
-                dieselSectionListState[event.index] = dieselSectionListState[event.index].copy(
-                    delivery = dieselSectionListState[event.index].delivery.copy(
-                        data = event.data
-                    )
-                )
-            }
-
-            is DieselSectionEvent.EnteredCoefficient -> {
-                dieselSectionListState[event.index] = dieselSectionListState[event.index].copy(
-                    coefficient = dieselSectionListState[event.index].coefficient.copy(
-                        data = event.data?.str()
-                    )
-                )
-            }
-
-            is DieselSectionEvent.EnteredRefuel -> {
-                dieselSectionListState[event.index] = dieselSectionListState[event.index].copy(
-                    refuel = dieselSectionListState[event.index].coefficient.copy(
-                        data = event.data?.str()
-                    )
-                )
-            }
-
-            is DieselSectionEvent.FocusChange -> {
-                when (event.fieldName) {
-                    DieselSectionType.ACCEPTED -> {
-                        val isValid = validateDieselSection(
-                            index = event.index,
-                            inputValue = dieselSectionListState[event.index].accepted.data,
-                            type = DieselSectionType.ACCEPTED
-                        )
-                        dieselSectionListState[event.index] =
-                            dieselSectionListState[event.index].copy(
-                                formValid = isValid
-                            )
-                    }
-
-                    DieselSectionType.DELIVERY -> {
-                        val isValid = validateDieselSection(
-                            index = event.index,
-                            inputValue = dieselSectionListState[event.index].delivery.data,
-                            type = DieselSectionType.DELIVERY
-                        )
-                        dieselSectionListState[event.index] =
-                            dieselSectionListState[event.index].copy(
-                                formValid = isValid
-                            )
-                    }
-
-                    DieselSectionType.COEFFICIENT -> {
-                        val isValid = validateDieselSection(
-                            index = event.index,
-                            inputValue = dieselSectionListState[event.index].coefficient.data,
-                            type = DieselSectionType.COEFFICIENT
-                        )
-                        dieselSectionListState[event.index] =
-                            dieselSectionListState[event.index].copy(
-                                formValid = isValid
-                            )
-                        saveCoefficient(dieselSectionListState[event.index].coefficient.data)
-                    }
-
-                    DieselSectionType.REFUEL -> {
-                        val isValid = validateDieselSection(
-                            index = event.index,
-                            inputValue = dieselSectionListState[event.index].refuel.data,
-                            type = DieselSectionType.REFUEL
-                        )
-                        dieselSectionListState[event.index] =
-                            dieselSectionListState[event.index].copy(
-                                formValid = isValid
-                            )
-                    }
-                }
-            }
-        }
+        return true
     }
 
     private fun validateDieselSection(
@@ -926,35 +777,31 @@ class LocoFormViewModel(
         inputValue: String?,
         type: DieselSectionType
     ): Boolean {
-        return when (type) {
+        // Исходная логика валидации
+        when (type) {
             DieselSectionType.ACCEPTED -> {
                 val accepted = inputValue?.toDoubleOrNull()
-                val delivery = dieselSectionListState[index].delivery.data?.toDoubleOrNull()
-                val refuel = dieselSectionListState[index].refuel.data?.toDoubleOrNull()
+                val delivery = _dieselSectionListState.value[index].delivery.data?.toDoubleOrNull()
+                val refuel = _dieselSectionListState.value[index].refuel.data?.toDoubleOrNull()
 
                 val result = CalculationEnergy.getTotalFuelConsumption(accepted, delivery, refuel)
                 result?.let {
                     if (it < 0) {
-                        dieselSectionListState[index] = dieselSectionListState[index].copy(
-                            errorMessage = "Принял меньше чем сдал"
-                        )
+                        updateDieselSection(index) { copy(errorMessage = "Принял меньше чем сдал") }
                         return false
                     }
                 }
-                true
             }
 
             DieselSectionType.DELIVERY -> {
-                val accepted = dieselSectionListState[index].accepted.data?.toDoubleOrNull()
+                val accepted = dieselSectionListState.value[index].accepted.data?.toDoubleOrNull()
                 val delivery = inputValue?.toDoubleOrNull()
-                val refuel = dieselSectionListState[index].refuel.data?.toDoubleOrNull()
+                val refuel = dieselSectionListState.value[index].refuel.data?.toDoubleOrNull()
 
                 val result = CalculationEnergy.getTotalFuelConsumption(accepted, delivery, refuel)
                 result?.let {
                     if (it < 0) {
-                        dieselSectionListState[index] = dieselSectionListState[index].copy(
-                            errorMessage = "Сдал больше чем принял"
-                        )
+                        updateDieselSection(index) { copy(errorMessage = "Сдал больше чем принял") }
                         return false
                     }
                 }
@@ -965,9 +812,7 @@ class LocoFormViewModel(
                 val coefficient = inputValue?.toDoubleOrNull()
                 coefficient?.let {
                     if (it > 1) {
-                        dieselSectionListState[index] = dieselSectionListState[index].copy(
-                            errorMessage = "Коэффициент больше 1.0"
-                        )
+                        updateDieselSection(index) { copy(errorMessage = "Коэффициент больше 1.0") }
                         return false
                     }
                 }
@@ -975,21 +820,133 @@ class LocoFormViewModel(
             }
 
             DieselSectionType.REFUEL -> {
-                val accepted = dieselSectionListState[index].accepted.data?.toDoubleOrNull()
-                val delivery = dieselSectionListState[index].delivery.data?.toDoubleOrNull()
+                val accepted = dieselSectionListState.value[index].accepted.data?.toDoubleOrNull()
+                val delivery = dieselSectionListState.value[index].delivery.data?.toDoubleOrNull()
                 val refuel = inputValue?.toDoubleOrNull()
 
                 val result = CalculationEnergy.getTotalFuelConsumption(accepted, delivery, refuel)
                 result?.let {
                     if (it < 0) {
-                        dieselSectionListState[index] = dieselSectionListState[index].copy(
-                            errorMessage = "Не хватает экипировки"
-                        )
+                        updateDieselSection(index) { copy(errorMessage = "Не хватает экипировки") }
                         return false
                     }
                 }
                 true
             }
+
+            DieselSectionType.REFUEL_IN_KILO -> {
+                val accepted = dieselSectionListState.value[index].accepted.data?.toDoubleOrNull()
+                val delivery = dieselSectionListState.value[index].delivery.data?.toDoubleOrNull()
+                val refuel = inputValue?.toDoubleOrNull()
+
+                val result = CalculationEnergy.getTotalFuelConsumption(accepted, delivery, refuel)
+                result?.let {
+                    if (it < 0) {
+                        updateDieselSection(index) { copy(errorMessage = "Не хватает экипировки") }
+                        return false
+                    }
+                }
+                true
+            }
+
+            DieselSectionType.REFUEL_COEFFICIENT -> {
+                val coefficient = inputValue?.toDoubleOrNull()
+                coefficient?.let {
+                    if (it > 1) {
+                        updateDieselSection(index) { copy(errorMessage = "Коэффициент больше 1.0") }
+                        return false
+                    }
+                }
+                true
+            }
+        }
+        return true
+    }
+
+    fun saveCoefficient(coefficient: String?) {
+        viewModelScope.launch {
+            saveCoefficientJob?.cancel()
+            val double = coefficient?.toDoubleOrNull()
+            double?.let {
+                settingsUseCase.setDieselCoefficient(double).collect {}
+            }
+        }
+    }
+
+    fun changeExpandedMenu(expanded: Boolean) {
+        _uiState.update { it.copy(isExpandedDropDownMenuSeries = expanded) }
+    }
+
+
+    fun onChangedDropDownContent(content: String) {
+        if (content.isEmpty()) {
+            mutableSeriesList.addAllOrSkip(seriesList.value)
+        } else {
+            mutableSeriesList.clear()
+            val newSeriesList =
+                seriesList.value
+                    .filter { it.startsWith(prefix = content, ignoreCase = true) }
+                    .filterNot { it == content }
+                    .toMutableStateList()
+            newSeriesList.forEach { ser ->
+                mutableSeriesList.add(ser)
+                changeExpandedMenu(true)
+            }
+        }
+    }
+
+    fun removeSeries(series: String) {
+        viewModelScope.launch {
+            dropDownSeriesList.remove(series)
+            settingsUseCase.removeLocomotiveSeries(series)
+            changesHave()
+        }
+    }
+
+    fun saveLoco() {
+        saveLocoJob?.cancel()
+        saveLocoJob = viewModelScope.launch(Dispatchers.IO) {
+            _currentLoco.value?.let { loco ->
+                val updatedLoco = loco.copy(
+                    dieselSectionList = _dieselSectionListState.value.map { state ->
+                        SectionDiesel(
+                            sectionId = state.sectionId,
+                            acceptedFuel = state.accepted.data?.toDoubleOrNull(),
+                            deliveryFuel = state.delivery.data?.toDoubleOrNull(),
+                            coefficient = state.coefficient.data?.toDoubleOrNull(),
+                            fuelSupply = state.refuel.data?.toDoubleOrNull(),
+                            fuelSupplyInKilo = state.refuelInKilo.data?.toDoubleOrNull(),
+                            coefficientSupply = state.refuelCoefficient.data?.toDoubleOrNull(),
+                        )
+                    }.toMutableStateList(),
+
+                    electricSectionList = _electricSectionListState.value.map { state ->
+                        SectionElectric(
+                            sectionId = state.sectionId,
+                            acceptedEnergy = state.accepted.data?.toBigDecimalOrNull(),
+                            deliveryEnergy = state.delivery.data?.toBigDecimalOrNull(),
+                            acceptedRecovery = state.recoveryAccepted.data?.toBigDecimalOrNull(),
+                            deliveryRecovery = state.recoveryDelivery.data?.toBigDecimalOrNull()
+                        )
+                    }.toMutableList()
+                )
+                updatedLoco.series?.let { series ->
+                    settingsUseCase.setLocomotiveSeries(series)
+                }
+                locomotiveUseCase.saveLocomotive(updatedLoco).collect { result ->
+                    _uiState.update { it.copy(saveLocoState = result) }
+                }
+            }
+        }
+    }
+
+    fun resetSaveState() {
+        _uiState.update { it.copy(saveLocoState = ResultState.Loading()) }
+    }
+
+    private fun changesHave() {
+        if (!_uiState.value.changesHaveState) {
+            _uiState.update { it.copy(changesHaveState = true) }
         }
     }
 }

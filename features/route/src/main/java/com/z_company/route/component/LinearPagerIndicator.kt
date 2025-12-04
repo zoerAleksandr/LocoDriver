@@ -41,9 +41,9 @@ fun LinearPagerIndicator(
                 modifier = Modifier
                     .padding(horizontal = 2.dp)
                     .weight(1f + (offset * 3f))
-                    .height(8.dp)
+                    .height(6.dp)
                     .background(
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
                         shape = CircleShape
                     ),
                 contentAlignment = Alignment.Center

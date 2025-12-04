@@ -49,10 +49,11 @@ object CalculationEnergy {
     }
 
     fun getTotalFuelInKiloConsumption(
-        consumption: Double?,
-        coefficient: Double?
+        acceptedInKilo: Double?,
+        deliveryInKilo: Double?,
+        refuelInKilo: Double?
     ): Double? {
-        return consumption * coefficient
+        return reverseDifferenceBetweenDouble(acceptedInKilo, deliveryInKilo).plusNullableValue(refuelInKilo)
     }
 
     fun getTotalEnergyConsumption(

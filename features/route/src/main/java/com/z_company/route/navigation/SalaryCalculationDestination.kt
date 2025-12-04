@@ -15,9 +15,7 @@ fun SalaryCalculationDestination(router: Router){
     val uiState by viewModel.uiState.collectAsState()
 
     SalaryCalculationScreen(
-        onBack = router::back,
         uiState = uiState,
         onSettingsSalaryClick = router::showSettingSalary,
-        updateData = viewModel::loadData
     )
 }

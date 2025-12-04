@@ -14,7 +14,6 @@ data class RouteFormUiState(
     val nightTime: Long? = null,
     val passengerTime: Long? = null,
     val isCopy: Boolean = false,
-    var dateAndTimeConverter: DateAndTimeConverter? = null
 )
 
 data class SalaryForRouteState(

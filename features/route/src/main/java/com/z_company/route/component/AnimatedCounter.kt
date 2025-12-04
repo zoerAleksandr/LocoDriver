@@ -7,6 +7,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 
 @OptIn(ExperimentalAnimationApi::class)
@@ -14,7 +15,8 @@ import androidx.compose.ui.text.TextStyle
 fun AnimatedCounter(
     count: String,
     modifier: Modifier = Modifier,
-    style: TextStyle = MaterialTheme.typography.titleLarge
+    style: TextStyle = MaterialTheme.typography.titleLarge,
+    color: Color = MaterialTheme.colorScheme.primary
 ) {
     var oldCount by remember {
         mutableStateOf(count)
@@ -43,6 +45,7 @@ fun AnimatedCounter(
                 Text(
                     text = char.toString(),
                     style = style,
+                    color = color,
                     softWrap = false
                 )
             }

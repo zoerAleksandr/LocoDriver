@@ -34,14 +34,11 @@ android {
     buildFeatures {
         compose = true
     }
-//    composeOptions {
-//        kotlinCompilerExtensionVersion = Versions.kotlin_compiler_ext_version
-//    }
 }
 
 dependencies {
     implementation(platform(Libs.rustore_bom))
-    implementation(Libs.rustore_bulling)
+    implementation(Libs.rustore_pay)
     implementation(Libs.rustore_review)
     implementation(Libs.rustore_sdk_appupdate)
     implementation(Libs.gson)
@@ -50,6 +47,9 @@ dependencies {
     implementation(project(Libs.project_domain))
     implementation(project(Libs.project_data_remote))
 
+    implementation(Libs.parse_sdk_android)
+
+//    implementation(Libs.lifecycle_runtime_compose)
     implementation(Libs.activity_compose)
     implementation(Libs.core_ktx)
     implementation(Libs.lifecycle_viewmodel_ktx)

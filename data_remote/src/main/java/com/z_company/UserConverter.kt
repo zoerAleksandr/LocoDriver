@@ -4,7 +4,7 @@ import com.parse.ParseUser
 import com.z_company.domain.entities.User
 import com.z_company.work_manager.UserFieldName
 
-internal object UserConverter {
+object UserConverter {
     fun toData(parseUser: ParseUser): User {
         return User(
             name = parseUser.username,

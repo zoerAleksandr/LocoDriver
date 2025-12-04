@@ -35,25 +35,26 @@ fun SearchTextField(
 
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
-
-    val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
-
+    val dataTextStyle = MaterialTheme.typography.bodyLarge
     val keyboardController = LocalSoftwareKeyboardController.current
-    OutlinedTextField(
+    val primaryColor = MaterialTheme.colorScheme.primary
+
+    val lineCount = query.text.count { it == '\n' } + 1
+    val dynamicMaxLines = lineCount.coerceAtMost(5)
+
+    OutlinedTextFieldApp(
         value = query,
         onValueChange = onQueryChange,
         modifier = modifier
             .focusRequester(focusRequester),
-        singleLine = true,
         placeholder = {
             Text(
-                color = MaterialTheme.colorScheme.primary,
+                color = primaryColor,
                 text = "Я хочу найти...",
                 style = dataTextStyle
             )
         },
-        textStyle = dataTextStyle.copy(color = MaterialTheme.colorScheme.primary),
-        colors = transparentColorForTextField(),
+        textStyle = dataTextStyle,
         leadingIcon = {
             IconButton(onClick = {
                 focusManager.clearFocus()
@@ -62,6 +63,7 @@ fun SearchTextField(
             }) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    tint = primaryColor,
                     contentDescription = null
                 )
             }
@@ -78,7 +80,7 @@ fun SearchTextField(
                             Icon(
                                 imageVector = Icons.Outlined.Search,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onBackground
+                                tint = primaryColor
                             )
                         }
                     }
@@ -87,7 +89,7 @@ fun SearchTextField(
                     Icon(
                         painter = painterResource(id = R.drawable.baseline_tune_24),
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onBackground
+                        tint = primaryColor
                     )
                 }
             }
@@ -99,6 +101,7 @@ fun SearchTextField(
                 focusManager.clearFocus()
             }
         ),
-        shape = Shapes.medium
+        shape = Shapes.medium,
+        maxLines = dynamicMaxLines
     )
 }

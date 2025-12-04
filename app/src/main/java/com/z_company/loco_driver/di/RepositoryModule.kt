@@ -1,5 +1,6 @@
 package com.z_company.loco_driver.di
 
+import com.z_company.SessionManager
 import com.z_company.data_local.SharedPreferenceStorage
 import com.z_company.data_local.calendar.CalendarStorageLocalImpl
 import com.z_company.data_local.route.RoomRouteRepository
@@ -26,11 +27,14 @@ import com.z_company.repository.remote_rest.RemoteRestClient
 import com.z_company.repository.remote_rest.RemoteRestRouteRepository
 import com.z_company.repository.ru_store_api.RuStoreRepositoryKtor
 import com.z_company.route.viewmodel.RouteActionsHelper
+import com.z_company.use_case.SubscriptionHelper
 import org.koin.android.ext.koin.androidApplication
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
 val repositoryModule = module {
+    single { SessionManager(get()) }
+
     single<ISnackbarManager> { SnackbarManagerImpl() }
 
     single<RouteRepository> {
@@ -65,4 +69,5 @@ val repositoryModule = module {
     single<RemoteRestApi> { RemoteRestClient.routeApi }
     single<RemoteRestRouteRepository> { RemoteRestRouteRepository(api = get()) }
     single { RouteActionsHelper() }
+    single { SubscriptionHelper() }
 }

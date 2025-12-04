@@ -13,6 +13,7 @@ import androidx.lifecycle.viewModelScope
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.ui.snackbar.ISnackbarManager
+import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.SalarySetting
@@ -21,6 +22,7 @@ import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHours
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
+import com.z_company.domain.entities.route.UtilsForEntities.findCurrentRoute
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getOnePersonOperationTime
 import com.z_company.domain.entities.route.UtilsForEntities.getOnePersonOperationTimePassengerTrain
@@ -31,6 +33,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeWithoutHo
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.isCurrentRoute
 import com.z_company.domain.entities.route.UtilsForEntities.isExtendedServicePhaseTrains
+import com.z_company.domain.entities.route.UtilsForEntities.isFuture
 import com.z_company.domain.entities.route.UtilsForEntities.isHeavyTrains
 import com.z_company.domain.entities.route.UtilsForEntities.isHolidayTimeInRoute
 import com.z_company.domain.repositories.SharedPreferencesRepositories
@@ -44,6 +47,7 @@ import com.z_company.route.viewmodel.PreviewRouteUiState
 import com.z_company.route.viewmodel.RouteActionsHelper
 import com.z_company.route.viewmodel.SalaryCalculationHelper
 import com.z_company.use_case.RuStoreUseCase
+import com.z_company.use_case.SubscriptionHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
@@ -74,15 +78,11 @@ import ru.rustore.sdk.appupdate.model.AppUpdateOptions
 import ru.rustore.sdk.appupdate.model.AppUpdateType
 import ru.rustore.sdk.appupdate.model.InstallStatus
 import ru.rustore.sdk.appupdate.model.UpdateAvailability
-import ru.rustore.sdk.billingclient.RuStoreBillingClient
-import ru.rustore.sdk.billingclient.model.purchase.PurchaseState
-import ru.rustore.sdk.billingclient.utils.pub.checkPurchasesAvailability
 import java.util.Calendar
 import java.util.Calendar.getInstance
 import java.util.TimeZone
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
-import ru.rustore.sdk.core.feature.model.FeatureAvailabilityResult
 
 data class OpenRouteFormEvent(val basicId: String?, val isMakeCopy: Boolean)
 
@@ -94,18 +94,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     private val settingsUseCase: SettingsUseCase by inject()
     private val salarySettingUseCase: SalarySettingUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
-    private val billingClient: RuStoreBillingClient by inject()
-    private val ruStoreUseCase: RuStoreUseCase by inject()
     private val ruStoreAppUpdateManager: RuStoreAppUpdateManager by inject()
-    private val shareManager: ShareManager by inject()
     private val routeHelper: RouteActionsHelper by inject()
     private val snackbarManager: ISnackbarManager by inject()
-
-    private val _openRouteFormEvent = MutableSharedFlow<OpenRouteFormEvent>(
-        extraBufferCapacity = 1,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST
-    )
-    val openRouteFormEvent: SharedFlow<OpenRouteFormEvent> = _openRouteFormEvent.asSharedFlow()
 
     var timeWithoutHoliday by mutableLongStateOf(0L)
         private set
@@ -140,24 +131,18 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     private val _previewRouteUiState = MutableStateFlow(PreviewRouteUiState())
     val previewRouteUiState = _previewRouteUiState.asStateFlow()
 
-    private val _purchasesEvent = MutableSharedFlow<StartPurchasesEvent>(
-        extraBufferCapacity = 1,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST
-    )
-    val purchasesEvent = _purchasesEvent.asSharedFlow()
-
-    private val _alertBeforePurchasesEvent = MutableSharedFlow<AlertBeforePurchasesEvent>(
-        extraBufferCapacity = 1,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST
-    )
-
-    val alertBeforePurchasesEvent = _alertBeforePurchasesEvent.asSharedFlow()
-
     private val _updateEvents = MutableSharedFlow<UpdateEvent>(
         extraBufferCapacity = 1,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
     val updateEvents = _updateEvents.asSharedFlow()
+
+    // month/year lists for pickers
+    private val _monthList = MutableStateFlow<List<Int>>(emptyList())
+    val monthList: StateFlow<List<Int>> = _monthList.asStateFlow()
+
+    private val _yearList = MutableStateFlow<List<Int>>(emptyList())
+    val yearList: StateFlow<List<Int>> = _yearList.asStateFlow()
 
     override fun onCleared() {
         super.onCleared()
@@ -245,134 +230,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                         snackbarManager.show(message = message)
                         _uiState.update { it.copy(removeRouteState = ResultState.Error(result.entity)) }
                     }
-                }
-            }
-        }
-    }
-
-    fun checkPurchasesAvailability() {
-        RuStoreBillingClient.checkPurchasesAvailability()
-            .addOnSuccessListener { result ->
-                when (result) {
-                    is FeatureAvailabilityResult.Available -> {
-                        _purchasesEvent.tryEmit(StartPurchasesEvent.PurchasesAvailability(result))
-                    }
-
-                    is FeatureAvailabilityResult.Unavailable -> {
-                        snackbarManager.show(
-                            message = "Ошибка ${result.cause.message}",
-                            showOnceKey = "checkPurchasesAvailability"
-                        )
-                    }
-                }
-            }
-            .addOnFailureListener { throwable ->
-                snackbarManager.show(
-                    message = "Ошибка ${throwable.message}",
-                    showOnceKey = "checkPurchasesAvailability"
-                )
-            }
-    }
-
-    fun restorePurchases() {
-        viewModelScope.launch {
-            withContext(Dispatchers.IO) {
-                try {
-                    val currentTimeInMillis = getInstance().timeInMillis
-                    var maxEndTime = 0L
-                    var job: Job? = null
-                    billingClient.purchases.getPurchases()
-                        .addOnSuccessListener { purchases ->
-                            viewModelScope.launch {
-                                purchases.forEach { purchase ->
-                                    job?.cancel()
-                                    job = this.launch(Dispatchers.IO) {
-                                        if (purchase.purchaseState == PurchaseState.CONFIRMED) {
-                                            ruStoreUseCase.getExpiryTimeMillis(
-                                                purchase.productId,
-                                                purchase.subscriptionToken ?: ""
-                                            ).collect { resultState ->
-                                                if (resultState is ResultState.Success) {
-                                                    if (resultState.data > maxEndTime) {
-                                                        maxEndTime = resultState.data
-                                                    }
-                                                    job?.cancel()
-                                                }
-                                                if (resultState is ResultState.Error) {
-                                                    snackbarManager.show(
-                                                        message = "Ошибка ruStoreUseCase.getExpiryTimeMillis ${resultState.entity.message}",
-                                                        showOnceKey = "restore_purchases_none"
-                                                    )
-                                                    job?.cancel()
-                                                }
-                                            }
-                                        }
-                                    }
-                                    job.join()
-                                }
-                                if (maxEndTime > currentTimeInMillis) {
-                                    sharedPreferenceStorage.setSubscriptionExpiration(maxEndTime)
-                                    snackbarManager.show(
-                                        message = "Покупки восстановлены",
-                                        showOnceKey = "restore_purchases_success"
-                                    )
-                                }
-                                if (maxEndTime < currentTimeInMillis) {
-                                    snackbarManager.show(
-                                        message = "Действующих подписок не найдено",
-                                        showOnceKey = "restore_purchases_none"
-                                    )
-                                }
-                            }
-                        }
-                        .addOnFailureListener {
-                            snackbarManager.show(
-                                message = "Ошибка получения данных от сервера",
-                            )
-                        }
-                } catch (e: Exception) {
-                    snackbarManager.show(message = e.message ?: "Ошибка при восстановлении")
-                }
-            }
-        }
-    }
-
-    fun newRouteClick(basicId: String? = null) {
-        _uiState.update {
-            it.copy(
-                isLoadingStateAddButton = true
-            )
-        }
-        viewModelScope.launch {
-            when (val decision =
-                routeHelper.newRouteClick(basicId = basicId, isMakeCopy = basicId != null)) {
-                is RouteActionsHelper.NewRouteResult.NeedSubscribeDialog -> {
-                    _alertBeforePurchasesEvent.tryEmit(AlertBeforePurchasesEvent.ShowDialogNeedSubscribe)
-                    _uiState.update { it.copy(isLoadingStateAddButton = false) }
-                }
-
-                is RouteActionsHelper.NewRouteResult.AlertSubscribeDialog -> {
-                    _alertBeforePurchasesEvent.tryEmit(AlertBeforePurchasesEvent.ShowDialogAlertSubscribe)
-                    _uiState.update { it.copy(isLoadingStateAddButton = false) }
-                }
-
-                is RouteActionsHelper.NewRouteResult.ShowNewRouteScreen -> {
-                    _openRouteFormEvent.tryEmit(
-                        OpenRouteFormEvent(
-                            decision.basicId,
-                            decision.isMakeCopy
-                        )
-                    )
-
-                    _uiState.update {
-                        it.copy(
-                            isLoadingStateAddButton = false
-                        )
-                    }
-                }
-
-                is RouteActionsHelper.NewRouteResult.Error -> {
-                    _uiState.update { it.copy(isLoadingStateAddButton = false) }
                 }
             }
         }
@@ -673,7 +530,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
             }
             try {
                 val timeState =
-                    salaryCalculationHelper.getTimeListSurchargeServicePhaseFlow().first().sum()
+                    salaryCalculationHelper.getTotalTimeSurchargeServicePhaseFlow().first()
                 withContext(Dispatchers.Main) {
                     _uiState.update {
                         it.copy(
@@ -747,8 +604,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                 }
             }
             try {
-                val timeState =
-                    salaryCalculationHelper.getTimeListSurchargeHeavyTrainsFlow().first().sum()
+                val timeState = salaryCalculationHelper.getTotalTimeHeavyTrainsFlow().first()
                 withContext(Dispatchers.Main) {
                     _uiState.update {
                         it.copy(
@@ -837,6 +693,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
 
     fun syncRoute(route: Route) {
         viewModelScope.launch {
+//            routeHelper.deleteDublicateRoute()
             routeHelper.syncRoute(route).collect { result ->
                 when (result) {
                     is ResultState.Success -> {
@@ -910,13 +767,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
             }.launchIn(viewModelScope)
     }
 
-    private suspend fun loadMonthList() {
-        val list = calendarUseCase.loadFlowMonthOfYearListState().first()
-        _uiState.update { state ->
-            state.copy(
-                monthList = list.map { it.month }.distinct().sorted(),
-                yearList = list.map { it.year }.distinct().sorted()
-            )
+    private fun loadMonthList() {
+        viewModelScope.launch {
+            calendarUseCase.loadFlowMonthOfYearListState()
+                .collect { list ->
+                    val months = list.map { it.month }.distinct().sorted()
+                    val years = list.map { it.year }.distinct().sorted()
+                    _monthList.value = months
+                    _yearList.value = years
+                }
         }
     }
 
@@ -924,12 +783,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         viewModelScope.launch {
             val result = routeHelper.calculationHomeRest(
                 route = route,
-            )
+            ).first()
             when (result) {
                 is ResultState.Success -> { /* result.data is Long? */
                     _previewRouteUiState.update {
                         it.copy(
-                            homeRest = result.data
+                            homeRest = result.data?.second
                         )
                     }
                 }
@@ -992,10 +851,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
             )
         }
         sharedPreferenceStorage.setTokenIsFirstAppEntry(false)
-    }
-
-    fun getUriToRoute(route: Route): Intent {
-        return shareManager.createShareIntent(route)
     }
 
     init {
@@ -1104,14 +959,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                                 }
                             }
 
-                            currentRoute = null
-                            routeList.forEach { route ->
-                                if (route.isCurrentRoute(currentTimeInMillis)) {
-                                    currentRoute = route
-                                    route.basicData.timeStartWork?.let { startWork ->
-                                        workTimer(startWork)
-                                    }
-                                }
+                            currentRoute = routeList.findCurrentRoute(
+                                currentTimeInMillis = currentTimeInMillis,
+                                userSettings = userSettings
+                            )
+
+                            currentRoute?.let {
+                                workTimer(it.basicData.timeStartWork!!)
                             }
 
                             withContext(Dispatchers.Main) {

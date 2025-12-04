@@ -11,6 +11,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 
 class SettingsUseCase(private val settingsRepository: SettingsRepository) {
@@ -77,7 +78,7 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
         return settingsRepository.setSettings(setting)
     }
 
-    fun getFlowCurrentSettingsState(): Flow<ResultState<UserSettings?>> {
+    fun getFlowCurrentSettingsState(): Flow<ResultState<UserSettings>> {
         return settingsRepository.getFlowSettingsState()
     }
 
@@ -149,44 +150,46 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
     }
 
     suspend fun setLocomotiveSeries(series: String) {
-        coroutineScope {
-            withContext(Dispatchers.IO) {
-                settingsRepository.getFlowSettingsState().collect { result ->
-                    if (result is ResultState.Success) {
-                        result.data?.let { settings ->
-                            val oldSeries = settings.locomotiveSeriesList
-                            val newList = mutableListOf<String>()
-                            newList.add(series)
-                            newList.addAll(oldSeries)
-                            val uniqueSeriesName: MutableList<String> =
-                                newList.filter { it.isNotBlank() }.distinct().toMutableList()
-                            settingsRepository.setLocomotiveSeriesList(uniqueSeriesName).collect()
-                        }
-                        this.cancel()
-                    }
-                }
+        withContext(Dispatchers.IO) {
+            var result = settingsRepository.getFlowSettingsState().first { it is ResultState.Success || it is ResultState.Error }
+            var settings = if (result is ResultState.Success) {
+                result.data
+            } else {
+                // Create default settings if not exist
+                val defaultSettings = UserSettings() // Adjust with appropriate defaults
+                settingsRepository.setSettings(defaultSettings).first { it is ResultState.Success || it is ResultState.Error }
+                defaultSettings
             }
+
+            val oldSeries = settings?.locomotiveSeriesList ?: emptyList()
+            val newList = mutableListOf<String>()
+            newList.add(series)
+            newList.addAll(oldSeries)
+            val uniqueSeriesName: MutableList<String> =
+                newList.filter { it.isNotBlank() }.distinct().toMutableList()
+            settingsRepository.setLocomotiveSeriesList(uniqueSeriesName).first { it is ResultState.Success || it is ResultState.Error }
         }
     }
 
     suspend fun setLocomotiveSeriesList(series: List<String>) {
-        coroutineScope {
-            withContext(Dispatchers.IO) {
-                settingsRepository.getFlowSettingsState().collect { result ->
-                    if (result is ResultState.Success) {
-                        result.data?.let { settings ->
-                            val oldSeries = settings.locomotiveSeriesList
-                            val newList = mutableListOf<String>()
-                            newList.addAll(series)
-                            newList.addAll(oldSeries)
-                            val uniqueSeriesName: MutableList<String> =
-                                newList.filter { it.isNotBlank() }.distinct().toMutableList()
-                            settingsRepository.setLocomotiveSeriesList(uniqueSeriesName).collect()
-                        }
-                        this.cancel()
-                    }
-                }
+        withContext(Dispatchers.IO) {
+            var result = settingsRepository.getFlowSettingsState().first { it is ResultState.Success || it is ResultState.Error }
+            var settings = if (result is ResultState.Success) {
+                result.data
+            } else {
+                // Create default settings if not exist
+                val defaultSettings = UserSettings() // Adjust with appropriate defaults
+                settingsRepository.setSettings(defaultSettings).first { it is ResultState.Success || it is ResultState.Error }
+                defaultSettings
             }
+
+            val oldSeries = settings?.locomotiveSeriesList ?: emptyList()
+            val newList = mutableListOf<String>()
+            newList.addAll(series)
+            newList.addAll(oldSeries)
+            val uniqueSeriesName: MutableList<String> =
+                newList.filter { it.isNotBlank() }.distinct().toMutableList()
+            settingsRepository.setLocomotiveSeriesList(uniqueSeriesName).first { it is ResultState.Success || it is ResultState.Error }
         }
     }
 }

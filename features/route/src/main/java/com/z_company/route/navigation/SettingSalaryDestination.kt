@@ -16,7 +16,7 @@ fun SettingSalaryDestination(
     val uiState by viewModel.uiState.collectAsState()
 
     SettingSalaryScreen(
-        onBack = router::back,
+        onBack = { router.showHome(HomeRoute.route) },
         onSaveClick = viewModel::checkForChangesTariffRate,
         saveSettingState = uiState.saveSettingState,
         uiState = uiState,

@@ -25,6 +25,8 @@ fun FormPassengerDestination(
     val formUiState by viewModel.uiState.collectAsState()
 
     FormPassengerScreen(
+        viewModel = viewModel,
+        formUiState = formUiState,
         currentPassenger = viewModel.currentPassenger,
         passengerDetailState = formUiState.passengerDetailState,
         changeHaveState = formUiState.changesHaveState,

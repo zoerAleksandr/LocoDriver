@@ -22,11 +22,13 @@ class RoomSalarySettingRepository : SalarySettingRepository, KoinComponent {
         }
     }
 
-    override fun getSalarySettingState(): Flow<ResultState<SalarySetting?>> {
+    override fun getSalarySettingState(): Flow<ResultState<SalarySetting>> {
         return ResultState.flowMap {
             salarySettingDao.getFlowSalarySetting().map { setting ->
                 ResultState.Success(
-                    setting?.let {
+                    if (setting == null) {
+                        SalarySetting()  // Default значение, как в getSalarySetting()
+                    } else {
                         SalarySettingConverter.toData(setting)
                     }
                 )

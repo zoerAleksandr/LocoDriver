@@ -43,6 +43,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -52,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.z_company.core.ui.component.SearchAsyncData
+import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.DateAndTimeConverter
@@ -97,20 +99,21 @@ fun SearchScreen(
     searchHistoryList: List<SearchResponse>,
     removeHistoryResponse: (String) -> Unit,
     onSearch: () -> Unit,
-    entityString: EntityString,
-    dateAndTimeConverter: DateAndTimeConverter
+    entityString: EntityString?,
+    dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val scope = rememberCoroutineScope()
     var openBottomSheet by rememberSaveable { mutableStateOf(false) }
     val bottomSheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
     )
+    val scrollState = rememberLazyListState()
 
-    val hintStyle = AppTypography.getType().titleLarge
-        .copy(
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Light
-        )
+
+    val hintStyle = MaterialTheme.typography.bodyMedium
+    val dataStyle = MaterialTheme.typography.bodyLarge
+
+    val primaryColor = MaterialTheme.colorScheme.primary
 
     val closeSheet: () -> Unit = {
         scope.launch {
@@ -137,10 +140,8 @@ fun SearchScreen(
             modifier = Modifier
                 .padding(paddingValues)
                 .fillMaxSize()
-                .padding(12.dp)
+                .padding(16.dp)
         ) {
-            val scrollState = rememberLazyListState()
-
             SearchBar(
                 modifier = Modifier
                     .fillMaxWidth(),
@@ -173,28 +174,36 @@ fun SearchScreen(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         hints.forEach { s ->
-                            AssistChip(onClick = {
-                                if (s.contains(query.text)) {
-                                    setQueryValue(TextFieldValue(s))
-                                } else {
-                                    setQueryValue(TextFieldValue("${query.text} $s"))
-                                }
-                            }, label = {
-                                Box(
-                                    modifier = Modifier
-                                        .wrapContentSize()
-                                        .padding(4.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(text = s.trim(), style = hintStyle)
-                                }
-                            })
+                            AssistChip(
+                                onClick = {
+                                    if (s.contains(query.text)) {
+                                        setQueryValue(TextFieldValue(s))
+                                    } else {
+                                        setQueryValue(TextFieldValue("${query.text} $s"))
+                                    }
+                                    onSearch()
+                                }, label = {
+                                    Box(
+                                        modifier = Modifier
+                                            .wrapContentSize()
+                                            .padding(4.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = s.trim(),
+                                            style = hintStyle,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                })
                         }
                     }
                 }) { resultList ->
                 resultList?.let { list ->
                     LazyColumn(
-                        verticalArrangement = Arrangement.Top, state = scrollState
+                        modifier = Modifier.padding(top = 12.dp),
+                        verticalArrangement = Arrangement.Top,
+                        state = scrollState
                     ) {
                         if (list.isEmpty()) {
                             item {
@@ -270,12 +279,14 @@ fun HistoryResponse(
 }
 
 @Composable
-fun HistoryItem(modifier: Modifier, request: String, removeOnClick: () -> Unit, itemOnClick: () -> Unit) {
-    val hintStyle = AppTypography.getType().titleLarge
-        .copy(
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Light
-        )
+fun HistoryItem(
+    modifier: Modifier,
+    request: String,
+    removeOnClick: () -> Unit,
+    itemOnClick: () -> Unit
+) {
+    val hintStyle = MaterialTheme.typography.bodyMedium
+
     Column(modifier = modifier) {
         Row(
             modifier = Modifier
@@ -285,17 +296,23 @@ fun HistoryItem(modifier: Modifier, request: String, removeOnClick: () -> Unit, 
         ) {
             Icon(
                 painterResource(id = R.drawable.outline_history_24),
-                contentDescription = null
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
             )
             Text(
                 modifier = Modifier
                     .weight(1f)
                     .padding(start = 8.dp),
                 text = request,
-                style = hintStyle
+                style = hintStyle,
+                color = MaterialTheme.colorScheme.primary
             )
             IconButton(onClick = { removeOnClick.invoke() }) {
-                Icon(imageVector = Icons.Default.Close, contentDescription = null)
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
             }
         }
         HorizontalDivider(modifier = Modifier.padding(start = 48.dp, end = 12.dp))
@@ -307,47 +324,48 @@ private fun SearchListItem(
     route: Route,
     searchTag: SearchTag,
     searchValue: String,
-    entityString: EntityString,
+    entityString: EntityString?,
     onClick: () -> Unit
 ) {
     val date = SimpleDateFormat(
         DateAndTimeFormat.DATE_FORMAT, Locale.getDefault()
     ).format(route.basicData.timeStartWork)
 
-    val hintStyle = AppTypography.getType().titleLarge
-        .copy(
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Light
+    val hintStyle = MaterialTheme.typography.bodyMedium
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .noRippleEffect {
+                onClick.invoke()
+            }) {
+        Text(
+            text = date,
+            style = hintStyle,
+            color = MaterialTheme.colorScheme.primary
         )
-    Column(modifier = Modifier
-        .fillMaxWidth()
-        .padding(start = 24.dp, end = 12.dp, top = 16.dp)
-        .clickable {
-            onClick.invoke()
-        }) {
-        Text(text = date,
-            style = hintStyle)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 8.dp, start = 16.dp)
+                .shadow(elevation = 2.dp, shape = Shapes.medium)
                 .background(
-                    color = MaterialTheme.colorScheme.surface, shape = Shapes.extraSmall
+                    color = MaterialTheme.colorScheme.surface, shape = Shapes.medium
                 )
                 .padding(8.dp)
         ) {
             val shownText = when (searchTag) {
                 SearchTag.BASIC_DATA -> {
-                    StringBuilder(entityString.basicDataStr(route.basicData))
+                    StringBuilder(entityString?.basicDataStr(route.basicData) ?: "")
                 }
 
                 SearchTag.LOCO -> {
                     val text = StringBuilder()
                     route.locomotives.forEachIndexed { index, loco ->
                         if (index == 0) {
-                            text.append(entityString.locomotiveStr(loco))
+                            text.append(entityString?.locomotiveStr(loco))
                         } else {
-                            text.append("\n\n${entityString.locomotiveStr(loco)}")
+                            text.append("\n\n${entityString?.locomotiveStr(loco)}")
                         }
                     }
                     text
@@ -357,9 +375,9 @@ private fun SearchListItem(
                     val text = StringBuilder()
                     route.trains.forEachIndexed { index, train ->
                         if (index == 0) {
-                            text.append(entityString.trainStr(train))
+                            text.append(entityString?.trainStr(train))
                         } else {
-                            text.append("\n\n${entityString.trainStr(train)}")
+                            text.append("\n\n${entityString?.trainStr(train)}")
                         }
                     }
                     text
@@ -369,9 +387,9 @@ private fun SearchListItem(
                     val text = StringBuilder()
                     route.passengers.forEachIndexed { index, passenger ->
                         if (index == 0) {
-                            text.append(entityString.passengerStr(passenger))
+                            text.append(entityString?.passengerStr(passenger))
                         } else {
-                            text.append("\n\n${entityString.passengerStr(passenger)}")
+                            text.append("\n\n${entityString?.passengerStr(passenger)}")
                         }
                     }
                     text
@@ -401,23 +419,26 @@ private fun SearchListItem(
                 }
             }
 
-            Text(text = textWithSelection, style = hintStyle)
+            Text(
+                text = textWithSelection,
+                style = hintStyle,
+                color = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }
 
 @Composable
 private fun ItemEmptyList() {
-    val hintStyle = AppTypography.getType().titleLarge
-        .copy(
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Light
-        )
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(24.dp), contentAlignment = Alignment.Center
     ) {
-        Text(text = "Ничего не найдено", style = hintStyle)
+        Text(
+            text = "Ничего не найдено",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.primary
+        )
     }
 }

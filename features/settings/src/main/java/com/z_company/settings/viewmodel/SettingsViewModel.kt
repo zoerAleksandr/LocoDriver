@@ -349,7 +349,6 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         viewModelScope.launch {
             authUseCase.logout().collect { result ->
                 if (result is ResultState.Success) {
-                    routeUseCase.clearLocalRouteRepository().launchIn(viewModelScope)
                     remoteRouteUseCase.cancelingSync()
                 }
                 _uiState.update {

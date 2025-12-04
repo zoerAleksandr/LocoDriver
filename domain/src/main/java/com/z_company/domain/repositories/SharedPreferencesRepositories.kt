@@ -13,5 +13,6 @@ interface SharedPreferencesRepositories {
     fun setTokenIsLoadStationAndLocomotiveSeries(value: Boolean)
     fun tokenDateTimePickerType(): String
     fun setTokenDateTimePickerType(type: String)
-
+    fun toggleStationsSortOrder(value: Boolean)
+    fun isReversedSortStationList(): Boolean
 }

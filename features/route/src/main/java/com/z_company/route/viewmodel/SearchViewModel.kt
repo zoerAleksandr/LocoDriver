@@ -48,8 +48,8 @@ class SearchViewModel : ViewModel(), KoinComponent {
     var query by mutableStateOf(TextFieldValue(""))
         private set
 
-    lateinit var entityString: EntityString
-    lateinit var dateAndTimeConverter: DateAndTimeConverter
+    var entityString: EntityString? = null
+    var dateAndTimeConverter: DateAndTimeConverter? = null
 
     private fun setPreliminarySearch(value: Boolean) {
         _uiState.update {
@@ -61,13 +61,22 @@ class SearchViewModel : ViewModel(), KoinComponent {
 
     fun sendRequest(value: String) {
         viewModelScope.launch(Dispatchers.IO) {
+            // ADDED: Wait for settings to load if not initialized
+            if (entityString == null) {
+                delay(100) // Small delay to allow loading; better to use a StateFlow signal if possible
+                if (entityString == null) {
+                    Log.e("SearchViewModel", "EntityString not initialized; aborting request")
+                    return@launch
+                }
+            }
+
             val correctValue = value.trim()
             if (correctValue.isNotEmpty()) {
                 searchRouteUseCase.searchRoute(
                     correctValue,
                     uiState.value.searchFilter,
                     uiState.value.preliminarySearch,
-                    entityString
+                    entityString!!
                 ).collect { result ->
                     if (result is SearchStateScreen.Loading) {
                         withContext(Dispatchers.Main) {
@@ -234,7 +243,7 @@ class SearchViewModel : ViewModel(), KoinComponent {
         loadSettingJob = viewModelScope.launch {
             settingsUseCase.getFlowCurrentSettingsState().collect { result ->
                 if (result is ResultState.Success) {
-                    result.data?.let { setting ->
+                    result.data.let { setting ->
                         entityString = EntityString(setting)
                         dateAndTimeConverter = DateAndTimeConverter(setting)
                     }

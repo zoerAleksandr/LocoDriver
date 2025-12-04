@@ -3,29 +3,40 @@ package com.z_company.route.navigation
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.navigation
-import com.z_company.core.ui.navigation.composablePopup
 import com.z_company.core.ui.navigation.composableScreen
 import com.z_company.domain.navigation.Router
 
 @OptIn(ExperimentalAnimationApi::class)
 fun NavGraphBuilder.homeGraph(
     router: Router,
-    isShowUpdatePresentation: Boolean
 ) {
-    val startDestination =
-        if (isShowUpdatePresentation) {
-            UpdatePresentationBlockRoute.route
-        } else {
-            HomeRoute.route
-        }
     navigation(
         route = HomeFeature.route,
-        startDestination = startDestination
+        startDestination = HomeRoute.route
     ) {
-        composableScreen(
+        // главное меню
+        composableScreen (
             route = HomeRoute.route,
         ) {
             HomeDestination(router = router)
+        }
+        composableScreen(
+            route = SalaryCalculationRoute.route
+        ) {
+            SalaryCalculationDestination(router = router)
+        }
+        composableScreen(
+            route = FormRoute.route,
+            arguments = FormRoute.navArguments
+        ) { backStackEntry ->
+            FormDestination(router = router, backStackEntry = backStackEntry)
+        }
+        composableScreen(SettingsScreenRoute.route) {
+            SettingDestination(router = router)
+        }
+
+        composableScreen(ProfileRoute.route) {
+            ProfileDestination(router = router)
         }
 
         composableScreen(
@@ -106,10 +117,21 @@ fun NavGraphBuilder.homeGraph(
         ){
             UpdatePresentationBlockDestination(router = router)
         }
-        composablePopup(
+        composableScreen(
+            route = WorkScheduleScreenRoute.route
+        ){
+            WorkScheduleDestination(router = router)
+        }
+        composableScreen(
             route = AllRouteScreenRoute.route
         ){
             AllRouteScreenDestination(router = router)
+        }
+        composableScreen(SettingsScreenRoute.route) {
+            SettingDestination(router = router)
+        }
+        composableScreen(SelectReleaseDaysScreenRoute.route) {
+            SelectReleaseDaysDestination(router = router)
         }
     }
 }

@@ -1,17 +1,32 @@
 package com.z_company.route.navigation
 
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.flowWithLifecycle
 import androidx.navigation.NavBackStackEntry
+import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.domain.navigation.Router
 import com.z_company.route.Const.NULLABLE_ID
+import com.z_company.route.navigation.HomeRoute
 import com.z_company.route.ui.FormScreen
-import com.z_company.route.ui.TestFormScreen
+import com.z_company.route.viewmodel.FormScreenEvent
 import com.z_company.route.viewmodel.FormViewModel
 import com.z_company.route.viewmodel.TestFormViewModel
+import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
+import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
+import org.koin.core.component.inject
 import org.koin.core.parameter.parametersOf
+import org.koin.java.KoinJavaComponent.inject
+import ru.rustore.sdk.pay.model.PurchaseAvailabilityResult
+import kotlin.getValue
 
 @Composable
 fun FormDestination(
@@ -27,29 +42,74 @@ fun FormDestination(
     val dialogRestUiState by viewModel.dialogRestUiState.collectAsState()
     val salaryState by viewModel.salaryForRouteState.collectAsState()
 
-//    TestFormScreen(
-//        uiState = formUiState,
-//        onBack = router::back,
-//        setFavoriteState = viewModel::setFavoriteState,
-//        onNumberChanged = viewModel::setNumber
-//    )
+    val scope = rememberCoroutineScope()
+    val snackbarManager: ISnackbarManager = koinInject()
+
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+
+    val currentRoute by viewModel.currentRoute.collectAsState()
+    val dateAndTimeConverter by viewModel.dateAndTimeConverter.collectAsState()
+
+    LaunchedEffect(Unit) {
+        scope.launch {
+            viewModel.events.flowWithLifecycle(lifecycle).collect { event ->
+                when (event) {
+                    FormScreenEvent.ActivatedFavoriteRoute -> {
+                        snackbarManager.show(message = "Добавлен в избранное")
+                    }
+
+                    FormScreenEvent.DeactivatedFavoriteRoute -> {
+                        snackbarManager.show(message = "Удален из избранного")
+                    }
+
+                    FormScreenEvent.RouteSaved -> {
+                        snackbarManager.show(message = "Маршрут сохранен")
+                        viewModel::prepareReviewDialog
+                    }
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.purchasesEvent.collect { event ->
+            when (event) {
+                is StartPurchasesEvent.PurchasesAvailability -> {
+                    when (val avail = event.availability) {
+                        is PurchaseAvailabilityResult.Available -> {
+                            // UI performs navigation
+                            router.showPurchasesScreen()
+                        }
+
+                        is PurchaseAvailabilityResult.Unavailable -> {
+                            // ViewModel already showed snackbar; optionally handle here
+                        }
+                    }
+                }
+
+                is StartPurchasesEvent.Error -> {
+                    // event.throwable - show fallback snackbar or handle
+                    // you can also rely on ViewModel to show snackbar via snackbarManager
+                }
+            }
+        }
+    }
 
     FormScreen(
+        viewModel = viewModel,
         formUiState = formUiState,
         dialogRestUiState = dialogRestUiState,
-        currentRoute = viewModel.currentRoute,
-        exitScreen = router::back,
+        currentRoute = currentRoute,
+        exitScreen = { router.showHome(HomeRoute.route) },
         isCopy = formUiState.isCopy,
-        onSaveClick = viewModel::saveRoute,
-        onBack = viewModel::checkBeforeExitTheScreen,
         onNumberChanged = viewModel::setNumber,
-        checkedOnePersonOperation = viewModel::setOnePersonOperation,
+        checkedOnePersonOperation = viewModel::checkedOnePersonOperation,
         onNotesChanged = viewModel::setNotes,
         onSettingClick = router::showSettings,
         resetSaveState = viewModel::resetSaveState,
         onTimeStartWorkChanged = viewModel::setTimeStartWork,
         onTimeEndWorkChanged = viewModel::setTimeEndWork,
-        onRestChanged = viewModel::setRestValue,
+        onRestChanged = viewModel::onRestChanged,
         onChangedLocoClick = router::showChangedLocoForm,
         onNewLocoClick = {
             router.showEmptyLocoForm(it)
@@ -69,14 +129,9 @@ fun FormDestination(
         },
         onDeletePassenger = viewModel::onDeletePassenger,
         nightTime = formUiState.nightTime,
-        changeShowConfirmExitDialog = viewModel::changeShowConfirmDialog,
-        exitWithoutSave = viewModel::exitWithoutSaving,
         salaryForRouteState = salaryState,
         onSalarySettingClick = router::showSettingSalary,
-        event = viewModel.events,
         setFavoriteState = viewModel::setFavoriteRoute,
-        checkIsCorrectTime = viewModel::isValidTime,
-        timeZoneText = viewModel.timeZoneText,
-        dateAndTimeConverter = formUiState.dateAndTimeConverter
+        dateAndTimeConverter = dateAndTimeConverter
     )
 }

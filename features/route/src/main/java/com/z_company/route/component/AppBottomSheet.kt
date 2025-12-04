@@ -55,7 +55,7 @@ fun AppBottomSheet(
     // optional composable slot for extra content between header and actions
     contentAfterHeader: (@Composable ColumnScope.() -> Unit)? = null,
     // appearance customization hooks (colors / shapes) if needed
-    sheetBackgroundColor: Color = MaterialTheme.colorScheme.background,
+    sheetBackgroundColor: Color = MaterialTheme.colorScheme.secondary,
     sheetCornerRadius: Int = 16,
 ) {
     ModalBottomSheet(
@@ -89,8 +89,8 @@ fun AppBottomSheet(
                         Text(
                             text = it,
                             textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onBackground,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 8.dp),
@@ -112,7 +112,7 @@ fun AppBottomSheet(
                 ) {
                     actions.forEach { action ->
                         HorizontalDivider(
-                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
                             thickness = 0.5.dp
                         )
                         TextButton(
@@ -131,7 +131,7 @@ fun AppBottomSheet(
                                 text = action.text,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.titleMedium,
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.tertiary
                             )
                         }
@@ -150,20 +150,18 @@ fun AppBottomSheet(
                     .background(
                         color = sheetBackgroundColor,
                         shape = RoundedCornerShape(sheetCornerRadius.dp)
-                    ),
+                    ).clickable {
+                    onCancel()
+                },
                 contentAlignment = Alignment.Center
             ) {
                 // The cancel button should NOT auto-dismiss the sheet here; we call onCancel so caller can decide.
                 Text(
                     text = cancelText,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier
-                        .clickable {
-                            onCancel()
-                        }
                         .padding(vertical = 14.dp),
-                    // center the text
                 )
             }
 

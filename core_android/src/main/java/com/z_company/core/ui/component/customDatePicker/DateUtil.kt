@@ -335,6 +335,21 @@ fun calculateDayOfMonths(month: Int, year: Int): List<DayOfMonth> {
     }
 }
 
+abstract class Time(
+) {
+    open val text: String
+        get() {
+            TODO()
+        }
+    open val value: Int
+        get() {
+            TODO()
+        }
+    open val index: Int
+        get() {
+            TODO()
+        }
+}
 
 data class DayOfMonth(
     val text: String,
@@ -359,10 +374,10 @@ enum class TimeFormat {
 }
 
 data class Hour(
-    val text: String,
-    val value: Int,
-    val index: Int
-)
+    override val text: String,
+    override val value: Int,
+    override val index: Int,
+): Time()
 
 data class AmPmHour(
     val text: String,

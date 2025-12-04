@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.z_company.core.ui.component.DateTimePickerBottomSheet
 import com.z_company.core.ui.component.customDatePicker.DateTimePickerView
 import com.z_company.core.ui.component.customDatePicker.MyWheelDatePickerView
 import com.z_company.core.ui.theme.Shapes
@@ -41,14 +42,12 @@ fun SearchSettingBottomSheet(
     closeSheet: () -> Unit,
     clearFilter: () -> Unit,
     setPeriodFilter: (TimePeriod) -> Unit,
-    dateAndTimeConverter: DateAndTimeConverter
+    dateAndTimeConverter: DateAndTimeConverter?
 ) {
-    val dataTextStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Light)
-    val subTitleTextStyle = AppTypography.getType().titleLarge
-        .copy(
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Normal
-        )
+    val hintStyle = MaterialTheme.typography.bodyMedium
+    val dataStyle = MaterialTheme.typography.bodyLarge
+
+    val primaryColor = MaterialTheme.colorScheme.primary
 
     var startDate: Long? by remember {
         mutableStateOf(null)
@@ -67,67 +66,101 @@ fun SearchSettingBottomSheet(
         mutableStateOf(false)
     }
 
-    MyWheelDatePickerView(
-        showDatePicker = showDatePickerStart,
-        title = "Начало периода",
-        doneLabel = "Готово",
-        rowCount = 5,
-        height = 128.dp,
-        dateTextColor = MaterialTheme.colorScheme.onSurface,
-        dateTimePickerView = DateTimePickerView.DIALOG_VIEW,
-        startDate = ConverterLongToTime.timestampToDateTime(
-            startDate ?: Calendar.getInstance().timeInMillis
-        ).date,
-        onDoneClick = {
-            val localDateTime = it.atTime(0, 0, 0, 0)
-            val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
-            val millis = instant.toEpochMilliseconds()
-            startDate = millis
-            setPeriodFilter(
-                TimePeriod(
-                    startDate,
-                    endDate
+    if (showDatePickerStart) {
+        DateTimePickerBottomSheet(
+            title = "Начало периода",
+            onDateTimeSelected = { timestamp ->
+                startDate = timestamp
+                setPeriodFilter(
+                    TimePeriod(
+                        startDate,
+                        endDate
+                    )
                 )
-            )
-            showDatePickerStart = false
-        },
-        onDismiss = {
-            showDatePickerStart = false
-        }
-    )
+            },
+            onDismiss = { showDatePickerStart = false },
+            startDateTime = startDate ?: Calendar.getInstance().timeInMillis,
+        )
+    }
+
+//    MyWheelDatePickerView(
+//        showDatePicker = showDatePickerStart,
+//        title = "Начало периода",
+//        doneLabel = "Готово",
+//        rowCount = 5,
+//        height = 128.dp,
+//        dateTextColor = MaterialTheme.colorScheme.onSurface,
+//        dateTimePickerView = DateTimePickerView.DIALOG_VIEW,
+//        startDate = ConverterLongToTime.timestampToDateTime(
+//            startDate ?: Calendar.getInstance().timeInMillis
+//        ).date,
+//        onDoneClick = {
+//            val localDateTime = it.atTime(0, 0, 0, 0)
+//            val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+//            val millis = instant.toEpochMilliseconds()
+//            startDate = millis
+//            setPeriodFilter(
+//                TimePeriod(
+//                    startDate,
+//                    endDate
+//                )
+//            )
+//            showDatePickerStart = false
+//        },
+//        onDismiss = {
+//            showDatePickerStart = false
+//        }
+//    )
 
     var showDatePickerEnd by rememberSaveable {
         mutableStateOf(false)
     }
 
-    MyWheelDatePickerView(
-        showDatePicker = showDatePickerEnd,
-        title = "Конец периода",
-        doneLabel = "Готово",
-        rowCount = 5,
-        height = 128.dp,
-        dateTextColor = MaterialTheme.colorScheme.onSurface,
-        dateTimePickerView = DateTimePickerView.DIALOG_VIEW,
-        startDate = ConverterLongToTime.timestampToDateTime(
-            endDate ?: Calendar.getInstance().timeInMillis
-        ).date,
-        onDoneClick = {
-            val localDateTime = it.atTime(23, 59, 59, 0)
-            val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
-            val millis = instant.toEpochMilliseconds()
-            endDate = millis
-            setPeriodFilter(
-                TimePeriod(
-                    startDate,
-                    endDate
+    if (showDatePickerEnd) {
+        DateTimePickerBottomSheet(
+            title = "Конец периода",
+            onDateTimeSelected = { timestamp ->
+                endDate = timestamp
+                setPeriodFilter(
+                    TimePeriod(
+                        startDate,
+                        endDate
+                    )
                 )
-            )
-            showDatePickerEnd = false
-        },
-        onDismiss = {
-            showDatePickerEnd = false
-        }
-    )
+            },
+            onDismiss = { showDatePickerEnd = false },
+            startDateTime = endDate ?: Calendar.getInstance().timeInMillis,
+        )
+    }
+
+//    MyWheelDatePickerView(
+//        showDatePicker = showDatePickerEnd,
+//        title = "Конец периода",
+//        doneLabel = "Готово",
+//        rowCount = 5,
+//        height = 128.dp,
+//        dateTextColor = MaterialTheme.colorScheme.onSurface,
+//        dateTimePickerView = DateTimePickerView.DIALOG_VIEW,
+//        startDate = ConverterLongToTime.timestampToDateTime(
+//            endDate ?: Calendar.getInstance().timeInMillis
+//        ).date,
+//        onDoneClick = {
+//            val localDateTime = it.atTime(23, 59, 59, 0)
+//            val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
+//            val millis = instant.toEpochMilliseconds()
+//            endDate = millis
+//            setPeriodFilter(
+//                TimePeriod(
+//                    startDate,
+//                    endDate
+//                )
+//            )
+//            showDatePickerEnd = false
+//        },
+//        onDismiss = {
+//            showDatePickerEnd = false
+//        }
+//    )
 
     ModalBottomSheet(
         sheetState = bottomSheetState,
@@ -146,7 +179,11 @@ fun SearchSettingBottomSheet(
                     IconButton(
                         onClick = closeSheet
                     ) {
-                        Icon(imageVector = Icons.Default.Close, contentDescription = null)
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            tint = primaryColor,
+                            contentDescription = null
+                        )
                     }
                     TextButton(
                         onClick = {
@@ -155,7 +192,7 @@ fun SearchSettingBottomSheet(
                     ) {
                         Text(
                             text = "Сбросить",
-                            style = subTitleTextStyle,
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.tertiary
                         )
                     }
@@ -165,7 +202,8 @@ fun SearchSettingBottomSheet(
                         .padding(top = 6.dp)
                         .align(Alignment.TopCenter),
                     text = "Параметры",
-                    style = AppTypography.getType().headlineMedium.copy(fontWeight = FontWeight.Light)
+                    color = primaryColor,
+                    style = MaterialTheme.typography.titleMedium
                 )
             }
         }
@@ -177,7 +215,8 @@ fun SearchSettingBottomSheet(
             Text(
                 modifier = Modifier.padding(top = 32.dp),
                 text = "Где искать",
-                style = subTitleTextStyle,
+                style = dataStyle,
+                color = primaryColor,
                 textAlign = TextAlign.Center
             )
             FlowRow(
@@ -199,17 +238,18 @@ fun SearchSettingBottomSheet(
                             Text(
                                 modifier = Modifier.padding(4.dp),
                                 text = pair.first,
-                                style = dataTextStyle
+                                style = hintStyle,
+                                color = primaryColor
                             )
                         },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f),
+                            selectedContainerColor = MaterialTheme.colorScheme.surfaceDim,
                         ),
                         border = FilterChipDefaults.filterChipBorder(
                             selected = pair.second,
                             enabled = pair.second,
                             selectedBorderWidth = 1.dp,
-                            selectedBorderColor = MaterialTheme.colorScheme.primary,
+                            selectedBorderColor = MaterialTheme.colorScheme.tertiary,
                             disabledBorderColor = Color.Transparent
                         )
                     )
@@ -230,17 +270,18 @@ fun SearchSettingBottomSheet(
                             Text(
                                 modifier = Modifier.padding(4.dp),
                                 text = pair.first,
-                                style = dataTextStyle
+                                style = hintStyle,
+                                color = primaryColor
                             )
                         },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)
+                            selectedContainerColor = MaterialTheme.colorScheme.surfaceDim
                         ),
                         border = FilterChipDefaults.filterChipBorder(
                             selected = pair.second,
                             enabled = pair.second,
                             selectedBorderWidth = 1.dp,
-                            selectedBorderColor = MaterialTheme.colorScheme.primary,
+                            selectedBorderColor = MaterialTheme.colorScheme.tertiary,
                             disabledBorderColor = Color.Transparent
                         )
                     )
@@ -261,17 +302,18 @@ fun SearchSettingBottomSheet(
                             Text(
                                 modifier = Modifier.padding(4.dp),
                                 text = pair.first,
-                                style = dataTextStyle
+                                style = hintStyle,
+                                color = primaryColor
                             )
                         },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)
+                            selectedContainerColor = MaterialTheme.colorScheme.surfaceDim
                         ),
                         border = FilterChipDefaults.filterChipBorder(
                             selected = pair.second,
                             enabled = pair.second,
                             selectedBorderWidth = 1.dp,
-                            selectedBorderColor = MaterialTheme.colorScheme.primary,
+                            selectedBorderColor = MaterialTheme.colorScheme.tertiary,
                             disabledBorderColor = Color.Transparent
                         )
                     )
@@ -292,17 +334,18 @@ fun SearchSettingBottomSheet(
                             Text(
                                 modifier = Modifier.padding(4.dp),
                                 text = pair.first,
-                                style = dataTextStyle
+                                style = hintStyle,
+                                color = primaryColor
                             )
                         },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)
+                            selectedContainerColor = MaterialTheme.colorScheme.surfaceDim
                         ),
                         border = FilterChipDefaults.filterChipBorder(
                             selected = pair.second,
                             enabled = pair.second,
                             selectedBorderWidth = 1.dp,
-                            selectedBorderColor = MaterialTheme.colorScheme.primary,
+                            selectedBorderColor = MaterialTheme.colorScheme.tertiary,
                             disabledBorderColor = Color.Transparent
                         )
                     )
@@ -323,17 +366,18 @@ fun SearchSettingBottomSheet(
                             Text(
                                 modifier = Modifier.padding(4.dp),
                                 text = pair.first,
-                                style = dataTextStyle
+                                style = hintStyle,
+                                color = primaryColor
                             )
                         },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)
+                            selectedContainerColor = MaterialTheme.colorScheme.surfaceDim
                         ),
                         border = FilterChipDefaults.filterChipBorder(
                             selected = pair.second,
                             enabled = pair.second,
                             selectedBorderWidth = 1.dp,
-                            selectedBorderColor = MaterialTheme.colorScheme.primary,
+                            selectedBorderColor = MaterialTheme.colorScheme.tertiary,
                             disabledBorderColor = Color.Transparent
                         )
                     )
@@ -342,14 +386,15 @@ fun SearchSettingBottomSheet(
             Text(
                 modifier = Modifier.padding(top = 32.dp),
                 text = "Период времени",
-                style = subTitleTextStyle,
-                textAlign = TextAlign.Center
+                style = dataStyle,
+                textAlign = TextAlign.Center,
+                color = primaryColor
             )
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Box(
                     modifier = Modifier
@@ -364,12 +409,13 @@ fun SearchSettingBottomSheet(
                         )
                         .padding(horizontal = 18.dp, vertical = 6.dp),
                 ) {
-                    val dateStartText = dateAndTimeConverter.getDateFromDateLong(startDate)
+                    val dateStartText = dateAndTimeConverter?.getDateFromDateLong(startDate) ?: ""
                     val startPeriodText = "c $dateStartText"
 
                     Text(
                         text = startPeriodText,
-                        style = dataTextStyle,
+                        style = hintStyle,
+                        color = primaryColor
                     )
                 }
 
@@ -386,12 +432,13 @@ fun SearchSettingBottomSheet(
                         )
                         .padding(horizontal = 18.dp, vertical = 6.dp),
                 ) {
-                    val dateEndText = dateAndTimeConverter.getDateFromDateLong(endDate)
+                    val dateEndText = dateAndTimeConverter?.getDateFromDateLong(endDate) ?: ""
                     val endPeriodText = "по $dateEndText"
 
                     Text(
                         text = endPeriodText,
-                        style = dataTextStyle,
+                        style = hintStyle,
+                        color = primaryColor
                     )
                 }
             }

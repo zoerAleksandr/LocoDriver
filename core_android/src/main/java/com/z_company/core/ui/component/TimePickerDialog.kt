@@ -4,8 +4,11 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -27,7 +30,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.R
 import com.z_company.core.ui.theme.custom.AppTypography
@@ -35,14 +37,18 @@ import com.z_company.domain.entities.TypeDateTimePicker
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import org.koin.compose.koinInject
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun TimePickerDialog(
+    cancelText: String = stringResource(id = R.string.text_btn_dismiss),
+    confirmText: String = stringResource(id = R.string.text_btn_confirm),
     timePickerState: TimePickerState,
     onDismissRequest: () -> Unit,
+    onCancelRequest: () -> Unit = onDismissRequest,
     onConfirmRequest: () -> Unit,
     isPicker: Boolean = true,
-    header: String? = null
+    header: String? = null,
+    showSelectTypeDateTimePicker: Boolean = true
 ) {
     val preferences = koinInject<SharedPreferencesRepositories>()
 
@@ -54,7 +60,7 @@ fun TimePickerDialog(
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                color = MaterialTheme.colorScheme.surface,
+                color = MaterialTheme.colorScheme.secondary,
                 shape = Shapes.medium
             )
     ) {
@@ -64,7 +70,7 @@ fun TimePickerDialog(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            val styleTitle = AppTypography.getType().headlineMedium
+            val styleTitle = AppTypography.getType().titleLarge
                 .copy(
                     fontWeight = FontWeight.Light
                 )
@@ -77,23 +83,26 @@ fun TimePickerDialog(
                 )
             }
 
+            Spacer(modifier = Modifier.height(36.dp))
+
             if (showingPicker.value && configuration.screenHeightDp > 400) {
                 TimePicker(state = timePickerState)
             } else {
                 TimeInput(state = timePickerState)
             }
 
-            Row(
+            FlowRow(
                 modifier = Modifier
                     .padding(top = 16.dp)
                     .fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                if (configuration.screenHeightDp > 400) {
+                if (configuration.screenHeightDp > 400 && showSelectTypeDateTimePicker) {
                     IconButton(
+                        modifier = Modifier.weight(1f),
                         onClick = {
                             showingPicker.value = !showingPicker.value
-                            if (showingPicker.value){
+                            if (showingPicker.value) {
                                 preferences.setTokenDateTimePickerType(TypeDateTimePicker.ROUND.text)
                             } else {
                                 preferences.setTokenDateTimePickerType(TypeDateTimePicker.INPUT.text)
@@ -102,49 +111,45 @@ fun TimePickerDialog(
                     ) {
                         val icon = painterResource(
                             id =
-                            if (showingPicker.value) {
-                                R.drawable.outline_keyboard_24
-                            } else {
-                                R.drawable.outline_access_time_24
-                            }
+                                if (showingPicker.value) {
+                                    R.drawable.outline_keyboard_24
+                                } else {
+                                    R.drawable.outline_access_time_24
+                                }
                         )
                         Icon(
                             icon,
                             contentDescription =
-                            if (showingPicker.value) {
-                                "Switch to Text Input"
-                            } else {
-                                "Switch to Touch Input"
-                            }
+                                if (showingPicker.value) {
+                                    "Switch to Text Input"
+                                } else {
+                                    "Switch to Touch Input"
+                                }
                         )
                     }
                 }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    val subTitleTextStyle = AppTypography.getType().titleLarge
-                        .copy(
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Normal
-                        )
-                    TextButton(onClick = onDismissRequest) {
-                        Text(
-                            text = stringResource(id = R.string.text_btn_dismiss),
-                            style = subTitleTextStyle,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
 
-                    TextButton(
-                        onClick = onConfirmRequest,
-                        shape = Shapes.medium,
-                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary)
-                    ) {
-                        Text(
-                            text = stringResource(id = R.string.text_btn_confirm),
-                            style = subTitleTextStyle
-                        )
-                    }
+
+                TextButton(
+                    modifier = Modifier.padding(start = 12.dp),
+                    onClick = onCancelRequest
+                ) {
+                    Text(
+                        text = cancelText,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+
+
+                TextButton(
+                    modifier = Modifier.padding(start = 12.dp),
+                    onClick = onConfirmRequest,
+                    shape = Shapes.medium,
+                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary)
+                ) {
+                    Text(
+                        text = confirmText,
+                    )
                 }
             }
         }

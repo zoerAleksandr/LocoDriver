@@ -3,13 +3,10 @@ package com.z_company.route.ui
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.DismissValue
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
@@ -27,7 +24,6 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.flowWithLifecycle
-import com.z_company.core.ResultState
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
@@ -39,20 +35,17 @@ import com.z_company.route.R
 import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.BottomSheetAction
-import com.z_company.route.component.Chip
+import com.z_company.route.component.ChipApp
 import com.z_company.route.component.ItemHomeScreen
 import com.z_company.route.component.PreviewRouteDialog
 import com.z_company.route.component.RadioButtonWithLabel
 import com.z_company.route.viewmodel.all_route_view_model.AllRouteViewModel
 import com.z_company.route.viewmodel.all_route_view_model.RouteFilter
-import com.z_company.route.viewmodel.all_route_view_model.RoutesUiState
 import com.z_company.route.viewmodel.all_route_view_model.SortOption
 import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
-import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import org.koin.androidx.compose.get
-import ru.rustore.sdk.core.feature.model.FeatureAvailabilityResult
+import org.koin.compose.koinInject
 import java.util.Calendar
 
 @OptIn(
@@ -113,7 +106,7 @@ fun AllRouteScreen(
     var routeForRemove by remember { mutableStateOf<Route?>(null) }
     var showContextDialog by remember { mutableStateOf(false) }
 
-    val snackbarManager: ISnackbarManager = get()
+    val snackbarManager: ISnackbarManager = koinInject()
 
     LaunchedEffect(Unit) {
         snackbarManager.events
@@ -175,7 +168,8 @@ fun AllRouteScreen(
                     ) {
                         Text(
                             text = "Выберите месяц и год",
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(bottom = 12.dp)
                         )
                         // month chips
@@ -185,7 +179,6 @@ fun AllRouteScreen(
                         var selectedMonth by remember { mutableIntStateOf(monthOfYear.month) }
 
                         var selectedYear by remember { mutableIntStateOf(monthOfYear.year) }
-
                         FlowRow(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -194,9 +187,9 @@ fun AllRouteScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             // разобраться !!!
-                            months.forEach { m ->
+                            months.forEachIndexed { index, m ->
                                 val selected = selectedMonth == m
-                                Chip(
+                                ChipApp(
                                     selected = selected,
                                     onClick = { selectedMonth = m },
                                     label = getMonthFullText(m)
@@ -213,7 +206,7 @@ fun AllRouteScreen(
                         ) {
                             years.forEach { y ->
                                 val selected = selectedYear == y
-                                Chip(
+                                ChipApp(
                                     selected = selected,
                                     onClick = { selectedYear = y },
                                     label = "$y"
@@ -226,9 +219,17 @@ fun AllRouteScreen(
                                 viewModel.setCurrentMonth(selectedYear to selectedMonth)
                                 isMonthSheetVisible = false
                             },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = Shapes.medium,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                            )
                         ) {
-                            Text("Применить")
+                            Text(
+                                text = "Применить",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
                         }
                         Spacer(modifier = Modifier.height(24.dp))
                     }
@@ -549,7 +550,10 @@ fun AllRouteScreen(
                         contentPadding = PaddingValues(8.dp)
                     ) {
                         viewModel.dateAndTimeConverter?.let { converter ->
-                            items(displayedRoutes) { routeState ->
+                            items(
+                                items = displayedRoutes,
+                                key = { it.route.basicData.id }
+                            ) { routeState ->
                                 val route = routeState.route
                                 background =
                                     if (route.basicData.timeStartWork!! > Calendar.getInstance().timeInMillis) {
@@ -562,23 +566,14 @@ fun AllRouteScreen(
                                         }
                                     }
 
-                                val dismissState =
-                                    rememberDismissState(confirmStateChange = { newState ->
-                                        if (newState == DismissValue.DismissedToStart) {
-                                            isShowDialogConfirmRemoveRoute = true
-                                            routeForRemove = route
-                                            false
-                                        } else {
-                                            true
-                                        }
-                                    })
+                                val dismissState = rememberDismissState()
 
                                 ItemHomeScreen(
                                     modifier = Modifier.animateItemPlacement(),
                                     dismissState = dismissState,
                                     route = route,
                                     onClick = { onRouteClick(route.basicData.id) },
-                                    onDelete = {
+                                    onRequestDelete = {
                                         isShowDialogConfirmRemoveRoute = true
                                         routeForRemove = route
                                     },
@@ -619,13 +614,13 @@ private fun FiltersRow(selected: Set<RouteFilter>, onToggle: (RouteFilter) -> Un
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Chip(
+        ChipApp(
             selected = selected.contains(RouteFilter.ALL),
             onClick = { onToggle(RouteFilter.ALL) },
             label = "Все"
         )
 
-        Chip(
+        ChipApp(
             selected = selected.contains(RouteFilter.FAVORITES),
             onClick = { onToggle(RouteFilter.FAVORITES) },
             leading = {
@@ -639,7 +634,7 @@ private fun FiltersRow(selected: Set<RouteFilter>, onToggle: (RouteFilter) -> Un
             label = "Избранные"
         )
 
-        Chip(
+        ChipApp(
             selected = selected.contains(RouteFilter.HEAVY),
             onClick = { onToggle(RouteFilter.HEAVY) },
             leading = {
@@ -653,7 +648,7 @@ private fun FiltersRow(selected: Set<RouteFilter>, onToggle: (RouteFilter) -> Un
             label = "Тяжелые"
         )
 
-        Chip(
+        ChipApp(
             selected = selected.contains(RouteFilter.EXTENDED_SERVICE),
             onClick = { onToggle(RouteFilter.EXTENDED_SERVICE) },
             leading = {
@@ -667,7 +662,7 @@ private fun FiltersRow(selected: Set<RouteFilter>, onToggle: (RouteFilter) -> Un
             label = "Удлинённые плечи"
         )
 
-        Chip(
+        ChipApp(
             selected = selected.contains(RouteFilter.FOLLOWING_RESERVE),
             onClick = { onToggle(RouteFilter.FOLLOWING_RESERVE) },
             leading = {
@@ -681,7 +676,7 @@ private fun FiltersRow(selected: Set<RouteFilter>, onToggle: (RouteFilter) -> Un
             label = "Резервом"
         )
 
-        Chip(
+        ChipApp(
             selected = selected.contains(RouteFilter.ONE_PERSON),
             onClick = { onToggle(RouteFilter.ONE_PERSON) },
             leading = {
@@ -695,7 +690,7 @@ private fun FiltersRow(selected: Set<RouteFilter>, onToggle: (RouteFilter) -> Un
             label = "Одно лицо"
         )
 
-        Chip(
+        ChipApp(
             selected = selected.contains(RouteFilter.OVER_12_HOURS),
             onClick = { onToggle(RouteFilter.OVER_12_HOURS) },
             leading = {
@@ -708,7 +703,7 @@ private fun FiltersRow(selected: Set<RouteFilter>, onToggle: (RouteFilter) -> Un
             label = "Свыше 12ч"
         )
 
-        Chip(
+        ChipApp(
             selected = selected.contains(RouteFilter.LONG_TRAINS),
             onClick = { onToggle(RouteFilter.LONG_TRAINS) },
             leading = {

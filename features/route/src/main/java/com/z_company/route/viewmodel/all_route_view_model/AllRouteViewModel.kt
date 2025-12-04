@@ -29,15 +29,13 @@ import com.z_company.route.viewmodel.home_view_model.ItemState
 import com.z_company.route.viewmodel.home_view_model.OpenRouteFormEvent
 import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
 import com.z_company.use_case.RuStoreUseCase
+import com.z_company.use_case.SubscriptionHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import ru.rustore.sdk.billingclient.RuStoreBillingClient
-import ru.rustore.sdk.billingclient.model.purchase.PurchaseState
-import ru.rustore.sdk.billingclient.utils.pub.checkPurchasesAvailability
 import ru.rustore.sdk.core.feature.model.FeatureAvailabilityResult
 import java.util.Calendar.getInstance
 import java.util.TimeZone
@@ -80,7 +78,7 @@ class AllRouteViewModel() : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
     private val routeHelper: RouteActionsHelper by inject()
-    private val billingClient: RuStoreBillingClient by inject()
+    private val subscriptionHelper: SubscriptionHelper by inject()
     private val ruStoreUseCase: RuStoreUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val snackbarManager: ISnackbarManager by inject()
@@ -197,106 +195,111 @@ class AllRouteViewModel() : ViewModel(), KoinComponent {
     }
 
     fun checkPurchasesAvailability() {
-        RuStoreBillingClient.checkPurchasesAvailability()
-            .addOnSuccessListener { result ->
-                when (result) {
-                    is FeatureAvailabilityResult.Available -> {
-                        _purchasesEvent.tryEmit(StartPurchasesEvent.PurchasesAvailability(result))
-                    }
-
-                    is FeatureAvailabilityResult.Unavailable -> {
-                        snackbarManager.show(
-                            message = "Ошибка ${result.cause.message}",
-                            showOnceKey = "checkPurchasesAvailability"
-                        )
-                    }
+        viewModelScope.launch(Dispatchers.IO) {
+            when (val checkResult = subscriptionHelper.checkPurchasesAvailabilitySuspend()) {
+                is ResultState.Success -> {
+                    _purchasesEvent.tryEmit(StartPurchasesEvent.PurchasesAvailability(checkResult.data))
+                    snackbarManager.show(message = "Подписки доступны")
                 }
+
+                is ResultState.Error -> {
+                    snackbarManager.show(
+                        message = checkResult.entity.message
+                            ?: "Ошибка. Подписки пока недоступны"
+                    )
+                }
+
+                else -> {}
             }
-            .addOnFailureListener { throwable ->
-                 snackbarManager.show(message = "Ошибка ${throwable.message}", showOnceKey = "checkPurchasesAvailability")
-            }
+        }
     }
 
     fun restorePurchases() {
-        _uiState.update {
-            it.copy(
-                restoreSubscriptionState = ResultState.Loading()
-            )
-        }
-        viewModelScope.launch {
-            withContext(Dispatchers.IO) {
-                try {
-                    val currentTimeInMillis = getInstance().timeInMillis
-                    var maxEndTime = 0L
-                    var job: Job? = null
-                    billingClient.purchases.getPurchases()
-                        .addOnSuccessListener { purchases ->
-                            viewModelScope.launch {
-                                purchases.forEach { purchase ->
-                                    job?.cancel()
-                                    job = this.launch(Dispatchers.IO) {
-                                        if (purchase.purchaseState == PurchaseState.CONFIRMED) {
-                                            ruStoreUseCase.getExpiryTimeMillis(
-                                                purchase.productId,
-                                                purchase.subscriptionToken ?: ""
-                                            ).collect { resultState ->
-                                                if (resultState is ResultState.Success) {
-                                                    if (resultState.data > maxEndTime) {
-                                                        maxEndTime = resultState.data
-                                                    }
-                                                    job?.cancel()
-                                                }
-                                                if (resultState is ResultState.Error) {
-                                                    _uiState.update {
-                                                        it.copy(
-                                                            restoreSubscriptionState = ResultState.Error(
-                                                                resultState.entity
-                                                            )
-                                                        )
-                                                    }
-                                                    job?.cancel()
-                                                }
-                                            }
-                                        }
-                                    }
-                                    job?.join()
-                                }
-                                if (maxEndTime > currentTimeInMillis) {
-                                    sharedPreferenceStorage.setSubscriptionExpiration(maxEndTime)
-                                    snackbarManager.show(
-                                        message = "Покупки восстановлены",
-                                        showOnceKey = "restore_purchases_success"
-                                    )
-                                    _uiState.update { it.copy(restoreSubscriptionState = null) }
-                                }
-                                if (maxEndTime < currentTimeInMillis) {
-                                    snackbarManager.show(
-                                        message = "Действующих подписок не найдено",
-                                        showOnceKey = "restore_purchases_none"
-                                    )
-                                    _uiState.update { it.copy(restoreSubscriptionState = null) }
-                                }
-                            }
-                        }
-                        .addOnFailureListener {
-                            snackbarManager.show(
-                                message = "Ошибка получения данных от сервера",
-                            )
-                            _uiState.update { it.copy(restoreSubscriptionState = null) }
-                        }
-                } catch (e: Exception) {
-                    _uiState.update {
-                        it.copy(
-                            restoreSubscriptionState = ResultState.Error(
-                                ErrorEntity(e)
-                            )
-                        )
-                    }
-                    snackbarManager.show(message = e.message ?: "Ошибка при восстановлении")
-                }
-            }
+        viewModelScope.launch(Dispatchers.IO) {
+            subscriptionHelper.restorePurchasesSuspend(snackbarManager)
         }
     }
+
+//    fun restorePurchases() {
+//        _uiState.update {
+//            it.copy(
+//                restoreSubscriptionState = ResultState.Loading()
+//            )
+//        }
+//        viewModelScope.launch {
+//            withContext(Dispatchers.IO) {
+//                try {
+//                    val currentTimeInMillis = getInstance().timeInMillis
+//                    var maxEndTime = 0L
+//                    var job: Job? = null
+//                    billingClient.purchases.getPurchases()
+//                        .addOnSuccessListener { purchases ->
+//                            viewModelScope.launch {
+//                                purchases.forEach { purchase ->
+//                                    job?.cancel()
+//                                    job = this.launch(Dispatchers.IO) {
+//                                        if (purchase.purchaseState == PurchaseState.CONFIRMED) {
+//                                            ruStoreUseCase.getExpiryTimeMillis(
+//                                                purchase.productId,
+//                                                purchase.subscriptionToken ?: ""
+//                                            ).collect { resultState ->
+//                                                if (resultState is ResultState.Success) {
+//                                                    if (resultState.data > maxEndTime) {
+//                                                        maxEndTime = resultState.data
+//                                                    }
+//                                                    job?.cancel()
+//                                                }
+//                                                if (resultState is ResultState.Error) {
+//                                                    _uiState.update {
+//                                                        it.copy(
+//                                                            restoreSubscriptionState = ResultState.Error(
+//                                                                resultState.entity
+//                                                            )
+//                                                        )
+//                                                    }
+//                                                    job?.cancel()
+//                                                }
+//                                            }
+//                                        }
+//                                    }
+//                                    job?.join()
+//                                }
+//                                if (maxEndTime > currentTimeInMillis) {
+//                                    sharedPreferenceStorage.setSubscriptionExpiration(maxEndTime)
+//                                    snackbarManager.show(
+//                                        message = "Покупки восстановлены",
+//                                        showOnceKey = "restore_purchases_success"
+//                                    )
+//                                    _uiState.update { it.copy(restoreSubscriptionState = null) }
+//                                }
+//                                if (maxEndTime < currentTimeInMillis) {
+//                                    snackbarManager.show(
+//                                        message = "Действующих подписок не найдено",
+//                                        showOnceKey = "restore_purchases_none"
+//                                    )
+//                                    _uiState.update { it.copy(restoreSubscriptionState = null) }
+//                                }
+//                            }
+//                        }
+//                        .addOnFailureListener {
+//                            snackbarManager.show(
+//                                message = "Ошибка получения данных от сервера",
+//                            )
+//                            _uiState.update { it.copy(restoreSubscriptionState = null) }
+//                        }
+//                } catch (e: Exception) {
+//                    _uiState.update {
+//                        it.copy(
+//                            restoreSubscriptionState = ResultState.Error(
+//                                ErrorEntity(e)
+//                            )
+//                        )
+//                    }
+//                    snackbarManager.show(message = e.message ?: "Ошибка при восстановлении")
+//                }
+//            }
+//        }
+//    }
 
     fun newRouteClick(basicId: String? = null) {
         viewModelScope.launch {
@@ -408,12 +411,12 @@ class AllRouteViewModel() : ViewModel(), KoinComponent {
         viewModelScope.launch {
             val result = routeHelper.calculationHomeRest(
                 route = route,
-            )
+            ).first()
             when (result) {
-                is ResultState.Success -> { /* result.data is Long? */
+                is ResultState.Success -> {
                     _previewRouteUiState.update {
                         it.copy(
-                            homeRest = result.data
+                            homeRest = result.data?.second
                         )
                     }
                 }

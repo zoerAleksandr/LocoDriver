@@ -1,11 +1,15 @@
 package com.z_company.route.component
 
 import android.annotation.SuppressLint
+import androidx.compose.foundation.BasicTooltipBox
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.MutatePriority
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,47 +20,63 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberBasicTooltipState
 import androidx.compose.material.DismissDirection
 import androidx.compose.material.DismissState
-import androidx.compose.material.DismissValue
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.SwipeToDismiss
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.rememberDismissState
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material.DismissValue
+import androidx.compose.material.FractionalThreshold
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TooltipDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.z_company.domain.entities.route.Route
 import com.z_company.core.ui.component.AutoSizeText
-import com.z_company.core.ui.theme.custom.AppTypography
+import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.route.R
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 @SuppressLint("StateFlowValueCalledInComposition")
-@OptIn(ExperimentalMaterialApi::class, ExperimentalFoundationApi::class)
+@OptIn(
+    ExperimentalMaterialApi::class, ExperimentalFoundationApi::class,
+    ExperimentalMaterial3Api::class
+)
 @Composable
 fun ItemHomeScreen(
     modifier: Modifier = Modifier,
     dismissState: DismissState,
     route: Route,
     isExpand: Boolean = false,
-    onDelete: (Route) -> Unit,
+    onRequestDelete: (Route) -> Unit,
     requiredSizeText: TextUnit,
     changingTextSize: (TextUnit) -> Unit,
     onLongClick: () -> Unit = {},
@@ -85,31 +105,52 @@ fun ItemHomeScreen(
         val workTimeString = ConverterLongToTime.getTimeInStringFormat(workTimeValue)
         timeText to workTimeString
     }
-    // Dismiss state with confirmStateChange -> show Snackbar for Undo, and only delete after timeout if not undone
 
-    // Outer box so we can place a local SnackbarHost (Undo) overlayed on the item
+    val tooltipPosition = TooltipDefaults.rememberPlainTooltipPositionProvider()
+    val tooltipState = rememberBasicTooltipState()
+    val scope = rememberCoroutineScope()
+    val interactionSource = remember { MutableInteractionSource() }
+
+    LaunchedEffect(dismissState) {
+        snapshotFlow { dismissState.progress }
+            .collectLatest { progress ->
+                if (progress.fraction > 0.3f && progress.fraction != 1.0f) {                     // ← порог можно менять (0.3f–0.5f)
+                    onRequestDelete(route)
+                    dismissState.snapTo(DismissValue.Default) // мгновенный отскок назад
+                }
+            }
+    }
+
     SwipeToDismiss(
         state = dismissState,
         modifier = Modifier
             .fillMaxWidth()
             .defaultMinSize(minHeight = 65.dp),
+        dismissThresholds = { FractionalThreshold(0.4f) },
         directions = setOf(DismissDirection.EndToStart),
         background = {
+            val progress = dismissState.progress.fraction.coerceIn(0f, 1f)
+            val scale = 0.8f + progress * 0.4f
+            val alpha = progress.coerceAtMost(0.9f)
+
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(color = MaterialTheme.colorScheme.error, shape = CardDefaults.shape)
+                    .background(
+                        color = MaterialTheme.colorScheme.error.copy(alpha = alpha),
+                        shape = CardDefaults.shape
+                    )
                     .padding(end = 8.dp),
                 contentAlignment = Alignment.CenterEnd
             ) {
                 IconButton(onClick = {
-                    // Manual delete via icon: show same snackbar with Undo option
-                    onDelete(route)
+                    onRequestDelete(route)
                 }) {
                     Icon(
                         painter = painterResource(id = R.drawable.delete_24px),
                         tint = MaterialTheme.colorScheme.background,
-                        contentDescription = null
+                        contentDescription = null,
+                        modifier = Modifier.scale(scale)
                     )
                 }
             }
@@ -121,6 +162,11 @@ fun ItemHomeScreen(
                     .wrapContentHeight()
                     .defaultMinSize(minHeight = 65.dp)
                     .combinedClickable(
+                        interactionSource = interactionSource,
+                        indication = rememberRipple(
+                            color = MaterialTheme.colorScheme.background,
+                            bounded = true
+                        ),
                         onClick = onClick,
                         onLongClick = onLongClick
                     ),
@@ -140,7 +186,7 @@ fun ItemHomeScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                    horizontalAlignment = Alignment.End,
                     verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)
                 ) {
                     Row(
@@ -158,9 +204,9 @@ fun ItemHomeScreen(
                                 text = timeTextMemo,
                                 maxTextSize = requiredSizeText,
                                 maxLines = 1,
+                                fontWeight = FontWeight.Medium,
                                 overflow = TextOverflow.Ellipsis,
-                                style = AppTypography.getType().headlineSmall,
-                                fontWeight = FontWeight.Normal,
+                                style = MaterialTheme.typography.bodyLarge,
                                 onTextLayout = { textLayoutResult ->
                                     val size = textLayoutResult.layoutInput.style.fontSize
                                     changingTextSize(size)
@@ -175,9 +221,9 @@ fun ItemHomeScreen(
                         ) {
                             AutoSizeText(
                                 text = workTimeStringMemo,
-                                style = AppTypography.getType().headlineSmall,
-                                fontWeight = FontWeight.Normal,
+                                style = MaterialTheme.typography.bodyLarge,
                                 maxTextSize = requiredSizeText,
+                                fontWeight = FontWeight.Medium,
                                 onTextLayout = { textLayoutResult ->
                                     val size = textLayoutResult.layoutInput.style.fontSize
                                     changingTextSize(size)
@@ -216,8 +262,7 @@ fun ItemHomeScreen(
                                                 maxTextSize = requiredSizeText,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis,
-                                                style = AppTypography.getType().headlineSmall,
-                                                fontWeight = FontWeight.Light,
+                                                style = MaterialTheme.typography.bodyLarge,
                                                 onTextLayout = { textLayoutResult ->
                                                     val size =
                                                         textLayoutResult.layoutInput.style.fontSize
@@ -236,35 +281,16 @@ fun ItemHomeScreen(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         AutoSizeText(
-                                            maxTextSize = requiredSizeText.value.minus(4).sp,
+                                            maxTextSize = requiredSizeText,
                                             maxLines = 1,
                                             text = "${loco.series ?: ""} ${loco.number ?: ""}",
-                                            style = AppTypography.getType().bodyLarge,
+                                            style = MaterialTheme.typography.bodyLarge,
                                             overflow = TextOverflow.Ellipsis,
                                         )
                                     }
                                 }
                             }
                         }
-//                    if (route.passengers.isNotEmpty()) {
-//                        Column(modifier = Modifier.fillMaxWidth()) {
-//                            route.passengers.forEach { passenger ->
-//                                val timeFollowing = ConverterLongToTime.getTimeInStringFormat(passenger.getFollowingTime())
-//                                Row(
-//                                    modifier = Modifier.fillMaxWidth(),
-//                                    verticalAlignment = Alignment.CenterVertically
-//                                ) {
-//                                    Text(
-//                                        text = "Пассажиром $timeFollowing",
-//                                        style = AppTypography.getType().bodyLarge,
-//                                        maxLines = 1,
-//                                        overflow = TextOverflow.Ellipsis
-//                                    )
-//                                }
-//                            }
-//                        }
-//                    }
-
                     } else {
                         // compact: show only last locomotive/train/passenger (if any)
                         route.trains.firstOrNull()?.let { train ->
@@ -296,8 +322,7 @@ fun ItemHomeScreen(
                                         maxTextSize = requiredSizeText,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
-                                        style = AppTypography.getType().headlineSmall,
-                                        fontWeight = FontWeight.Light,
+                                        style = MaterialTheme.typography.bodyLarge,
                                         onTextLayout = { textLayoutResult ->
                                             val size =
                                                 textLayoutResult.layoutInput.style.fontSize
@@ -308,87 +333,284 @@ fun ItemHomeScreen(
                             }
                         }
                     }
+                    BasicTooltipBox(
+                        modifier = Modifier
+                            .wrapContentWidth(),
+                        positionProvider = tooltipPosition,
+                        tooltip = {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .padding(horizontal = 8.dp)
+                                    .wrapContentWidth()
+                                    .background(
+                                        shape = Shapes.medium,
+                                        color = MaterialTheme.colorScheme.surface
+                                    )
+                                    .padding(horizontal = 16.dp, vertical = 24.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                item {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Image(
+                                            modifier = Modifier.size(20.dp),
+                                            painter = painterResource(id = R.drawable.icon_holiday),
+                                            contentDescription = null
+                                        )
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
+                                        Text(
+                                            overflow = TextOverflow.Visible,
+                                            text = " - ",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+
+                                        Text(
+                                            overflow = TextOverflow.Visible,
+                                            text = "Работа в праздничный день",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                    }
+                                }
+                                item {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp),
+                                            painter = painterResource(id = R.drawable.long_distance_24px),
+                                            contentDescription = null
+                                        )
+                                        Text(
+                                            overflow = TextOverflow.Visible,
+                                            text = " - ",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Text(
+                                            overflow = TextOverflow.Visible,
+                                            text = "Поезда повышенной длины",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                    }
+                                }
+                                item {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp),
+                                            painter = painterResource(id = R.drawable.weight_24px),
+                                            contentDescription = null
+                                        )
+                                        Text(
+                                            overflow = TextOverflow.Visible,
+                                            text = " - ",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Text(
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            overflow = TextOverflow.Visible,
+                                            text = "Поезда повышенной массы",
+                                        )
+                                    }
+                                }
+                                item {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp),
+                                            painter = painterResource(id = R.drawable.person_24px),
+                                            contentDescription = null
+                                        )
+                                        Text(
+                                            overflow = TextOverflow.Visible,
+                                            text = " - ",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Text(
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            overflow = TextOverflow.Visible,
+                                            text = "Работа в одно лицо",
+                                        )
+                                    }
+                                }
+                                item {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp),
+                                            painter = painterResource(id = R.drawable.passenger_24px),
+                                            contentDescription = null
+                                        )
+                                        Text(
+                                            overflow = TextOverflow.Visible,
+                                            text = " - ",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Text(
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            overflow = TextOverflow.Visible,
+                                            text = "Следование пассажиром",
+                                        )
+                                    }
+                                }
+                                item {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Image(
+                                            modifier = Modifier.size(20.dp),
+                                            painter = painterResource(id = R.drawable.orden),
+                                            contentDescription = null,
+                                        )
+                                        Text(
+                                            overflow = TextOverflow.Visible,
+                                            text = " - ",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Text(
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            overflow = TextOverflow.Visible,
+                                            text = "Работа свыше 12-ти часов",
+                                        )
+                                    }
+                                }
+                                item {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Image(
+                                            modifier = Modifier.size(20.dp),
+                                            painter = painterResource(id = R.drawable.sync_on_icon),
+                                            contentDescription = null,
+                                        )
+                                        Text(
+                                            overflow = TextOverflow.Visible,
+                                            text = " - ",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Text(
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            overflow = TextOverflow.Visible,
+                                            text = "Статус синхронизации маршрута",
+                                        )
+                                    }
+                                }
+                            }
+                        },
+                        state = tooltipState
                     ) {
-                        if (isHolidayTimeInRoute) {
-                            Icon(
-                                tint = Color(0xFFf1642e),
-                                modifier = Modifier.size(20.dp),
-                                painter = painterResource(id = R.drawable.icon_holiday_hours),
-                                contentDescription = null
-                            )
-                        }
-                        if (isExtendedServicePhaseTrains) {
-                            Icon(
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp),
-                                painter = painterResource(id = R.drawable.long_distance_24px),
-                                contentDescription = null
-                            )
-                        }
-                        if (isHeavyTrains) {
-                            Icon(
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp),
-                                painter = painterResource(id = R.drawable.weight_24px),
-                                contentDescription = null
-                            )
-                        }
-                        if (route.basicData.isOnePersonOperation) {
-                            Icon(
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp),
-                                painter = painterResource(id = R.drawable.person_24px),
-                                contentDescription = null
-                            )
-                        }
-                        route.getPassengerTime()?.let { time ->
-                            if (time > 0L) {
-                                Icon(
-                                    tint = MaterialTheme.colorScheme.primary,
+                        Row(
+                            modifier = Modifier
+                                .wrapContentWidth()
+                                .pointerInput(Unit) {
+                                    detectTapGestures(
+                                        onLongPress = {
+                                            scope.launch {
+                                                tooltipState.show(MutatePriority.Default)
+                                            }
+                                        }
+                                    )
+                                },
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
+                        ) {
+                            if (isHolidayTimeInRoute) {
+                                Image(
                                     modifier = Modifier.size(20.dp),
-                                    painter = painterResource(id = R.drawable.passenger_24px),
+                                    painter = painterResource(id = R.drawable.icon_holiday),
                                     contentDescription = null
                                 )
                             }
-                        }
-                        route.getWorkTime()?.let { time ->
-                            val oneHourInMillis = 3600000
-                            val normaHours = 12
-                            if (time > normaHours * oneHourInMillis) {
-                                Image(
+                            if (isExtendedServicePhaseTrains) {
+                                Icon(
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(20.dp),
-                                    painter = painterResource(id = R.drawable.orden),
+                                    painter = painterResource(id = R.drawable.long_distance_24px),
+                                    contentDescription = null
+                                )
+                            }
+                            if (isHeavyTrains) {
+                                Icon(
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp),
+                                    painter = painterResource(id = R.drawable.weight_24px),
+                                    contentDescription = null
+                                )
+                            }
+                            if (route.basicData.isOnePersonOperation) {
+                                Icon(
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp),
+                                    painter = painterResource(id = R.drawable.person_24px),
+                                    contentDescription = null
+                                )
+                            }
+                            route.getPassengerTime()?.let { time ->
+                                if (time > 0L) {
+                                    Icon(
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp),
+                                        painter = painterResource(id = R.drawable.passenger_24px),
+                                        contentDescription = null
+                                    )
+                                }
+                            }
+                            route.getWorkTime()?.let { time ->
+                                val oneHourInMillis = 3600000
+                                val normaHours = 12
+                                if (time > normaHours * oneHourInMillis) {
+                                    Image(
+                                        modifier = Modifier.size(20.dp),
+                                        painter = painterResource(id = R.drawable.orden),
+                                        contentDescription = null,
+                                    )
+                                }
+                            }
+                            if (route.basicData.isFavorite) {
+                                Icon(
+                                    tint = Color(0xFFf1642e),
+                                    modifier = Modifier.size(20.dp),
+                                    imageVector = androidx.compose.material.icons.Icons.Default.Favorite,
                                     contentDescription = null,
                                 )
                             }
-                        }
-                        if (route.basicData.isFavorite) {
-                            Icon(
-                                tint = Color(0xFFf1642e),
-                                modifier = Modifier.size(20.dp),
-                                imageVector = androidx.compose.material.icons.Icons.Default.Favorite,
-                                contentDescription = null,
-                            )
-                        }
 
-                        if (route.basicData.isSynchronizedRoute) {
-                            Image(
-                                modifier = Modifier.size(20.dp),
-                                painter = painterResource(id = R.drawable.sync_on_icon),
-                                contentDescription = null,
-                            )
-                        } else {
-                            Icon(
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp),
-                                painter = painterResource(id = R.drawable.not_sync_icon),
-                                contentDescription = null,
-                            )
+                            if (route.basicData.isSynchronizedRoute) {
+                                Image(
+                                    modifier = Modifier.size(20.dp),
+                                    painter = painterResource(id = R.drawable.sync_on_icon),
+                                    contentDescription = null,
+                                )
+                            } else {
+                                Icon(
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp),
+                                    painter = painterResource(id = R.drawable.not_sync_icon),
+                                    contentDescription = null,
+                                )
+                            }
                         }
                     }
                 }

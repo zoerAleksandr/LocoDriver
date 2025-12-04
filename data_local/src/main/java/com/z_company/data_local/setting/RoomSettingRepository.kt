@@ -13,6 +13,7 @@ import com.z_company.domain.entities.SETTINGS_KEY
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.repositories.SettingsRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -50,11 +51,11 @@ class RoomSettingRepository : SettingsRepository, KoinComponent {
         }
     }
 
-    override fun getFlowSettingsState(): Flow<ResultState<UserSettings?>> {
+    override fun getFlowSettingsState(): Flow<ResultState<UserSettings>> {
         return flowMap {
             dao.getFlowSettings().map { settings ->
                 ResultState.Success(
-                    settings?.let {
+                    settings.let {
                         UserSettingsConverter.toData(settings)
                     }
                 )
@@ -69,7 +70,7 @@ class RoomSettingRepository : SettingsRepository, KoinComponent {
     }
 
     override fun getUserSettings(): UserSettings {
-       return UserSettingsConverter.toData(dao.getUserSettings())
+        return UserSettingsConverter.toData(dao.getUserSettings())
     }
 
     override fun setUpdateAt(timestamp: Long): Flow<ResultState<Unit>> {
@@ -115,7 +116,7 @@ class RoomSettingRepository : SettingsRepository, KoinComponent {
         }
     }
 
-    override  fun getLocomotiveSeriesList(): List<String> {
+    override fun getLocomotiveSeriesList(): List<String> {
         return dao.getLocomotiveSeriesList()
     }
 }

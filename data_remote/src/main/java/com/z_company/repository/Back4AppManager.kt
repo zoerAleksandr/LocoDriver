@@ -6,8 +6,10 @@ import com.parse.ParseException
 import com.parse.ParseObject
 import com.parse.ParseQuery
 import com.parse.ParseUser
+import com.parse.coroutines.suspendFind
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
+import com.z_company.core.util.ConverterLongToTime
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -31,12 +33,14 @@ import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.skip
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.util.Calendar
+import kotlin.compareTo
 
 
 const val TIMEOUT_LOADING = 360_000L
@@ -83,6 +87,72 @@ class Back4AppManager : KoinComponent {
         } catch (e: ParseException) {
             // Handle errors such as network issues
             println("Error fetching routes: ${e.message}")
+        }
+    }
+
+    suspend fun cleanUpRoutesForAllUsers() = withContext(Dispatchers.IO) {
+        try {
+            var skip = 0
+            val pageSize = 1000
+
+            while (true) {
+                // Step 1: Retrieve a batch of users
+                val userQuery = ParseQuery.getQuery<ParseUser>("_User")
+                userQuery.limit = pageSize
+                userQuery.skip = skip
+
+                val users = userQuery.find()
+
+                if (users.isEmpty()) {
+                    break
+                }
+
+                for (user in users) {
+                    val userId = user.objectId ?: continue
+
+                    // Step 2: Query for routes associated with the user
+                    val routeQuery = ParseQuery.getQuery<ParseObject>("Route")
+                    routeQuery.whereEqualTo("user", user)
+                    routeQuery.limit = 1 // Check if at least one route exists
+                    val routes = routeQuery.find()
+
+                    if (routes.isNotEmpty()) {
+                        println("Processing user: $userId")
+
+                        // Retrieve all routes for this user
+                        val allRoutesQuery = ParseQuery.getQuery<ParseObject>("Route")
+                        allRoutesQuery.whereEqualTo("user", user)
+                        val allRoutes = allRoutesQuery.find()
+
+                        // Step 3: Group routes by the 'data' field
+                        val groupedRoutes = allRoutes.groupBy { it.getString("data") }
+
+                        var routesDeleted = 0
+                        var routesRemaining = 0
+
+                        // Identify and remove duplicates
+                        groupedRoutes.forEach { (_, userRoutes) ->
+                            if (userRoutes.size > 1) {
+                                val sortedRoutes = userRoutes.sortedByDescending { it.createdAt }
+                                val duplicatesToDelete = sortedRoutes.drop(1)
+
+                                // Delete the duplicates
+                                ParseObject.deleteAll(duplicatesToDelete)
+
+                                routesDeleted += duplicatesToDelete.size
+                            }
+                            routesRemaining += 1
+                        }
+
+                        // Log the results for the user
+                        println("User: $userId, Routes Deleted: $routesDeleted, Routes Remaining: $routesRemaining")
+                    }
+                }
+
+                skip += users.size // Move to the next batch of users
+            }
+        } catch (e: ParseException) {
+            println("Error fetching users or processing routes: ${e.message}")
         }
     }
 
@@ -308,6 +378,8 @@ class Back4AppManager : KoinComponent {
                     if (resultRemote is ResultState.Success) {
                         saveRouteToRemoteStorage().collect { resultSync ->
                             if (resultSync is ResultState.Success) {
+                                val timestamp = Calendar.getInstance().timeInMillis
+                                settingsUseCase.setUpdateAt(timestamp).first()
                                 trySend(ResultState.Success(resultSync.data))
                             }
                             if (resultSync is ResultState.Error) {
@@ -347,6 +419,8 @@ class Back4AppManager : KoinComponent {
                         totalCount += it.data
                     }
                 }
+                val timestamp = Calendar.getInstance().timeInMillis
+                settingsUseCase.setUpdateAt(timestamp).first()
                 trySend(ResultState.Success(totalCount))
             } catch (e: TimeoutCancellationException) {
                 trySend(ResultState.Error(ErrorEntity(message = "TimeOut: Время ожидания истекло")))
@@ -369,7 +443,7 @@ class Back4AppManager : KoinComponent {
                 var timestamp: Long
                 if (notSynchronizedList.isEmpty()) {
                     timestamp = Calendar.getInstance().timeInMillis
-                    settingsUseCase.setUpdateAt(timestamp).collect()
+                    settingsUseCase.setUpdateAt(timestamp).first()
                     trySend(ResultState.Success(0))
                 } else {
                     var syncRouteCount = 0
@@ -419,6 +493,64 @@ class Back4AppManager : KoinComponent {
             }
             awaitClose()
         }
+
+    suspend fun processAllRoutes() = withContext(Dispatchers.IO) {
+        val pageSize =
+            10000 // Set a limit for each batch, can be adjusted based on memory considerations
+        var skip = 0 // Start from the first record
+        var count = 0
+
+        while (true) {
+            try {
+                // Create a query with pagination
+                val query = ParseQuery.getQuery<ParseObject>("Route")
+
+                query.limit = pageSize
+                query.skip = skip
+
+                val routes = query.find()
+
+                // Process the current batch of routes
+                if (routes.isNotEmpty()) {
+                    println("Processing ${routes.size} routes starting at skip $skip")
+                    // Group by the 'data' field
+                    val groupedRoutes = routes.groupBy { it.getString("data") }
+                    // Process each group
+                    groupedRoutes.forEach { (_, routeList) ->
+                        if (routeList.size > 1) { // More than one object with the same 'data'
+                            // Sort the routes by creation or updated date, descending
+                            val sortedRoutes = routeList.sortedByDescending { it.createdAt }
+
+                            // Retain only the most recent object
+                            val routesToDelete =
+                                sortedRoutes.drop(1) // Drops the first (most recent) element
+
+                            // Delete the duplicate routes
+                            ParseObject.deleteAll(routesToDelete)
+
+                            Log.d("zzz", "Deleted ${routesToDelete.size} duplicates for data: ${
+                                sortedRoutes.first().getString("data")
+                            }" )
+                            count += routesToDelete.size
+                        }
+                    }
+
+                    // Increment skip to get the next batch
+                    skip += routes.size
+                }
+
+                // Break loop if no more objects are returned
+                if (routes.size < pageSize) {
+                    Log.d("zzz", "All routes processed. count = $count")
+                    break
+                }
+            } catch (e: ParseException) {
+                // Handle errors, e.g., network issues
+                println("Error fetching routes: ${e.message}")
+                break
+            }
+        }
+    }
 
     fun saveOneRouteToRemoteStorage(route: Route): Flow<ResultState<Unit>> =
         channelFlow {
