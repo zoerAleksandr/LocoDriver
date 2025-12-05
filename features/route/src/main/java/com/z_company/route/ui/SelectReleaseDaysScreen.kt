@@ -85,7 +85,7 @@ fun SelectReleaseDaysScreen(
                         )
                     ) {
                         Text(
-                            text = "Готово",
+                            text = "Сохранить",
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }

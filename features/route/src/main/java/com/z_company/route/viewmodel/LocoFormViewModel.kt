@@ -1,6 +1,5 @@
 package com.z_company.route.viewmodel
 
-import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
@@ -191,7 +190,6 @@ class LocoFormViewModel(
             }
         }
         if (locomotive.type == LocoType.ELECTRIC) {
-//            _electricSectionListState.value.clear()
             locomotive.electricSectionList.forEach { section ->
                 _electricSectionListState.update { list ->
                     list.addOrReplace(
@@ -926,7 +924,11 @@ class LocoFormViewModel(
                             acceptedEnergy = state.accepted.data?.toBigDecimalOrNull(),
                             deliveryEnergy = state.delivery.data?.toBigDecimalOrNull(),
                             acceptedRecovery = state.recoveryAccepted.data?.toBigDecimalOrNull(),
-                            deliveryRecovery = state.recoveryDelivery.data?.toBigDecimalOrNull()
+                            deliveryRecovery = state.recoveryDelivery.data?.toBigDecimalOrNull(),
+                            acceptedEnergyOtherCurrent = state.accepted2.data?.toBigDecimalOrNull(),
+                            deliveryEnergyOtherCurrent = state.delivery2.data?.toBigDecimalOrNull(),
+                            acceptedRecoveryOtherCurrent = state.recoveryAccepted2.data?.toBigDecimalOrNull(),
+                            deliveryRecoveryOtherCurrent = state.recoveryDelivery2.data?.toBigDecimalOrNull(),
                         )
                     }.toMutableList()
                 )

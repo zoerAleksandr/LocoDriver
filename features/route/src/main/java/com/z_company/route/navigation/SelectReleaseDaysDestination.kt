@@ -19,7 +19,7 @@ fun SelectReleaseDaysDestination(router: Router) {
         releasePeriodListState = uiState.releaseDaysPeriodState,
         addingReleasePeriod = viewModel::addReleasePeriod,
         removingReleasePeriod = viewModel::deleteReleasePeriod,
-        onReleaseDaysSaved = router::back,
+        onReleaseDaysSaved = { router.showHome(HomeRoute.route) },
         saveReleaseDaysState = uiState.saveReleaseDaysState,
         yearList = uiState.yearList,
         monthList = uiState.monthList,

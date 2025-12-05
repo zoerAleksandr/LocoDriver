@@ -361,7 +361,7 @@ fun SettingSalaryScreen(
                         ),
                         onClick = { onSaveClick() }
                     ) {
-                        Text(text = "Готово", style = MaterialTheme.typography.bodySmall)
+                        Text(text = "Сохранить", style = MaterialTheme.typography.bodySmall)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),

@@ -176,7 +176,7 @@ fun FormLocoScreen(
                         )
                     ) {
                         Text(
-                            text = "Готово",
+                            text = "Сохранить",
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }

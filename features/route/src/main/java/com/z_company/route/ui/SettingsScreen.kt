@@ -151,7 +151,7 @@ fun SettingsScreen(
                         )
                     ) {
                         Text(
-                            text = "Готово",
+                            text = "Сохранить",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.tertiary
                         )

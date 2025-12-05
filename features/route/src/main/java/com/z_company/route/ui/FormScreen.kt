@@ -295,7 +295,7 @@ fun FormScreen(
                         )
                     ) {
                         Text(
-                            text = "Готово",
+                            text = "Сохранить",
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }

@@ -1563,6 +1563,50 @@ fun MainInfo(
                             progress = { percent.coerceIn(0f, 1f) },
                         )
                     }
+//                    Spacer(modifier = Modifier.height(7.dp))
+//                    Column(
+//                        modifier = Modifier
+//                            .fillMaxWidth(),
+//                        verticalArrangement = Arrangement.spacedBy(4.dp),
+//                    ) {
+//                        val currentTime = Calendar.getInstance()
+//                        val normaHoursToday =
+//                            month.getNormaHoursInDate(currentTime.timeInMillis)
+//                        val percent =
+//                            ((totalTime * 100).toFloat() / (normaHoursToday * 3_600_000L).toFloat()) / 100f
+//                        Row(
+//                            modifier = Modifier.fillMaxWidth(),
+//                            horizontalArrangement = Arrangement.SpaceBetween,
+//                            verticalAlignment = Alignment.CenterVertically
+//                        ) {
+//                            Text(
+//                                text = "Норма на ${
+//                                    dateAndTimeConverter?.getDate(
+//                                        currentTime.timeInMillis
+//                                    ) ?: ""
+//                                }",
+//                                maxLines = 1,
+//                                modifier = Modifier.weight(1f),
+//                                overflow = TextOverflow.Ellipsis,
+//                                style = MaterialTheme.typography.bodyMedium,
+//                                color = MaterialTheme.colorScheme.secondary
+//                            )
+//                            Text(
+//                                text = "$normaHoursToday ч.",
+//                                style = MaterialTheme.typography.bodyMedium,
+//                                color = MaterialTheme.colorScheme.secondary
+//                            )
+//                        }
+//                        LinearProgressIndicator(
+//                            modifier = Modifier
+//                                .fillMaxWidth()
+//                                .height(4.dp),
+//                            trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+//                            color = MaterialTheme.colorScheme.secondary,
+//                            strokeCap = StrokeCap.Round,
+//                            progress = { percent.coerceIn(0f, 1f) },
+//                        )
+//                    }
                 }
             }
         }
