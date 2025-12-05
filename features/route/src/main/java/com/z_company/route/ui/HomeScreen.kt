@@ -1516,7 +1516,7 @@ fun MainInfo(
                             trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                             color = MaterialTheme.colorScheme.secondary,
                             strokeCap = StrokeCap.Round,
-                            progress = { percent.toFloat() },
+                            progress = { percent.coerceIn(0f, 1f) },
                         )
                     }
                     Spacer(modifier = Modifier.height(7.dp))
@@ -1560,7 +1560,7 @@ fun MainInfo(
                             trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                             color = MaterialTheme.colorScheme.secondary,
                             strokeCap = StrokeCap.Round,
-                            progress = { percent.toFloat() },
+                            progress = { percent.coerceIn(0f, 1f) },
                         )
                     }
                 }
@@ -1597,6 +1597,8 @@ fun DetailWorkTimeCard(
         ) {
             AsyncDataValue(resultState = totalTimeWithHoliday) { totalTimeWithHoliday ->
                 totalTimeWithHoliday?.let {
+                    val safeTotal = totalTimeWithHoliday.coerceAtLeast(1)  // никогда не будет 0
+
                     val tooltipPosition = TooltipDefaults.rememberPlainTooltipPositionProvider()
                     val state = rememberBasicTooltipState(isPersistent = false)
                     val scope = rememberCoroutineScope()
@@ -1691,8 +1693,16 @@ fun DetailWorkTimeCard(
                                     ) {
                                         val nightTimeText =
                                             ConverterLongToTime.getTimeInStringFormat(nightTime)
-                                        val percent =
-                                            ((nightTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
+//                                        val percent =
+//                                            ((nightTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
+                                        val percent = if (totalTimeWithHoliday > 0) {
+                                            (nightTime.toFloat() / totalTimeWithHoliday.toFloat()).coerceIn(0f, 1f)
+                                        } else {
+                                            0f
+                                        }
+
+                                        val percentNight = (nightTime.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
+
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1719,7 +1729,7 @@ fun DetailWorkTimeCard(
                                             trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                                             color = MaterialTheme.colorScheme.secondary,
                                             strokeCap = StrokeCap.Round,
-                                            progress = { percent.toFloat() },
+                                            progress = { percentNight },
                                         )
                                     }
                                 }
@@ -1738,6 +1748,8 @@ fun DetailWorkTimeCard(
                                             )
                                         val percent =
                                             ((passengerTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
+
+                                        val percentPassenger = (passengerTime.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1764,7 +1776,7 @@ fun DetailWorkTimeCard(
                                             trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                                             color = MaterialTheme.colorScheme.secondary,
                                             strokeCap = StrokeCap.Round,
-                                            progress = { percent.toFloat() },
+                                            progress = { percentPassenger },
                                         )
                                     }
                                 }
@@ -1783,6 +1795,9 @@ fun DetailWorkTimeCard(
                                             )
                                         val percent =
                                             ((singleLocomotiveTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
+
+                                        val percentSingleLocomotive = (singleLocomotiveTime.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
+
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1809,7 +1824,7 @@ fun DetailWorkTimeCard(
                                             trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                                             color = MaterialTheme.colorScheme.secondary,
                                             strokeCap = StrokeCap.Round,
-                                            progress = { percent.toFloat() },
+                                            progress = { percentSingleLocomotive },
                                         )
                                     }
                                 }
@@ -1852,6 +1867,8 @@ fun DetailTrainCard(
 
             AsyncDataValue(resultState = totalTimeWithHoliday) { totalTimeWithHoliday ->
                 totalTimeWithHoliday?.let {
+                    val safeTotal = totalTimeWithHoliday.coerceAtLeast(1)  // никогда не будет 0
+
                     val tooltipPosition = TooltipDefaults.rememberPlainTooltipPositionProvider()
                     val state = rememberBasicTooltipState(isPersistent = false)
                     val scope = rememberCoroutineScope()
@@ -1950,6 +1967,10 @@ fun DetailTrainCard(
                                             )
                                         val percent =
                                             ((extendedServicePhaseTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
+
+                                        val percentExtendedServicePhase = (extendedServicePhaseTime.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
+
+
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1978,7 +1999,7 @@ fun DetailTrainCard(
                                             trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                                             color = MaterialTheme.colorScheme.secondary,
                                             strokeCap = StrokeCap.Round,
-                                            progress = { percent.toFloat() },
+                                            progress = { percentExtendedServicePhase },
                                         )
                                     }
                                 }
@@ -1997,6 +2018,9 @@ fun DetailTrainCard(
                                             )
                                         val percent =
                                             ((longDistanceTrainsTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
+
+                                        val percentLong = (longDistanceTrainsTime.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
+
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -2023,7 +2047,7 @@ fun DetailTrainCard(
                                             trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                                             color = MaterialTheme.colorScheme.secondary,
                                             strokeCap = StrokeCap.Round,
-                                            progress = { percent.toFloat() },
+                                            progress = { percentLong },
                                         )
                                     }
                                 }
@@ -2042,6 +2066,7 @@ fun DetailTrainCard(
                                             )
                                         val percent =
                                             ((heavyTrainsTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
+                                        val percentHeavy = (heavyTrainsTime.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -2068,7 +2093,7 @@ fun DetailTrainCard(
                                             trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                                             color = MaterialTheme.colorScheme.secondary,
                                             strokeCap = StrokeCap.Round,
-                                            progress = { percent.toFloat() },
+                                            progress = { percentHeavy },
                                         )
                                     }
                                 }
@@ -2087,6 +2112,7 @@ fun DetailTrainCard(
                                             )
                                         val percent =
                                             ((onePersonOperationTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
+                                        val percentOnePerson = (onePersonOperationTime.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -2113,7 +2139,7 @@ fun DetailTrainCard(
                                             trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                                             color = MaterialTheme.colorScheme.secondary,
                                             strokeCap = StrokeCap.Round,
-                                            progress = { percent.toFloat() },
+                                            progress = { percentOnePerson },
                                         )
                                     }
                                 }

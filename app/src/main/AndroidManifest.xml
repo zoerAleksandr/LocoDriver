@@ -35,7 +35,7 @@
             android:launchMode="singleTask"
             android:exported="true"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.LocoDriver.Splash">
+            android:theme="@style/Theme.LocoDriver">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
