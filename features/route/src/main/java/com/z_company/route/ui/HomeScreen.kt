@@ -182,19 +182,6 @@ fun HomeScreen(
     onWorkScheduleScreen: () -> Unit,
     onClickVacation: () -> Unit
 ) {
-    val view = LocalView.current
-    val backgroundColor = MaterialTheme.colorScheme.background
-    val primaryColor = MaterialTheme.colorScheme.primary
-
-    // для изменения color status bar после изменения в PresentationBlock
-//    if (!view.isInEditMode) {
-//        SideEffect {
-//            val window = (view.context as Activity).window
-//            window.statusBarColor = backgroundColor.toArgb()
-//            window.navigationBarColor = primaryColor.toArgb()
-//        }
-//    }
-
     val scope = rememberCoroutineScope()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 

@@ -1,5 +1,6 @@
 package com.z_company.use_case
 
+import android.util.Log
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.ui.snackbar.ISnackbarManager
@@ -22,6 +23,7 @@ import ru.rustore.sdk.pay.model.Purchase
 import ru.rustore.sdk.pay.model.PurchaseAvailabilityResult
 import ru.rustore.sdk.pay.model.ProductPurchaseResult
 import ru.rustore.sdk.pay.model.PurchaseId
+import ru.rustore.sdk.pay.model.PurchaseStatus
 import ru.rustore.sdk.pay.model.RuStorePaymentException.ProductPurchaseCancelled
 import ru.rustore.sdk.pay.model.RuStorePaymentException.ProductPurchaseException
 import ru.rustore.sdk.pay.model.SubscriptionPurchase
@@ -142,6 +144,7 @@ class SubscriptionHelper() : KoinComponent {
                                     )
                                 )
                             }
+
                             else -> {}
                         }
                     }
@@ -195,20 +198,31 @@ class SubscriptionHelper() : KoinComponent {
 
                 // Получаем покупки
                 val purchases = suspendCoroutine<List<Purchase>> { continuation ->
-                    payClient.getPurchaseInteractor().getPurchases(
-                        purchaseStatus = SubscriptionPurchaseStatus.ACTIVE
-                    ).addOnSuccessListener { continuation.resume(it) }
+                    payClient.getPurchaseInteractor().getPurchases()
+                        .addOnSuccessListener {
+                            continuation.resume(it)
+                        }
                         .addOnFailureListener {
+                            snackbarManager?.show(message = "ошибка $it")
+                            snackbarManager?.show(message = "message ${it.message}")
                             continuation.resumeWithException(it)
                         }
                 }
 
+                snackbarManager?.show(message = "${purchases.size} подписок")
+                Log.d("zzz", "${purchases.size} подписок")
                 // Обработка каждой покупки
                 purchases.forEach { purchase ->
+                    snackbarManager?.show(message = "purchase.javaClass = ${purchase.javaClass}")
                     val subscriptionPurchase = purchase as SubscriptionPurchase
 
                     // Получаем время истечения подписки
                     val currentExpiration = subscriptionPurchase.expirationDate.time
+                    snackbarManager?.show(message = "status = ${purchase.status}")
+                    snackbarManager?.show(message = "purchaseTime = ${subscriptionPurchase.purchaseTime?.time}")
+                    snackbarManager?.show(message = "expirationDate = $currentExpiration")
+                    Log.d("zzz", "purchaseTime = ${subscriptionPurchase.purchaseTime?.time}")
+                    Log.d("zzz", "expirationDate = $currentExpiration")
                     if (currentExpiration > expirationDate) {
                         expirationDate = currentExpiration
                     }

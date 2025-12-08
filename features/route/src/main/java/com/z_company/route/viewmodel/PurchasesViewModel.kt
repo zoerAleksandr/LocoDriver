@@ -1,12 +1,16 @@
 package com.z_company.route.viewmodel
 
+import androidx.compose.animation.core.snap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.z_company.core.ui.snackbar.ISnackbarManager
+import com.z_company.core.ui.snackbar.SnackbarManagerImpl
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.route.Const.LOCO_DRIVER_ANNUAL_SUBSCRIPTION
 import com.z_company.route.Const.LOCO_DRIVER_MONTHLY_SUBSCRIPTION
+import com.z_company.use_case.SubscriptionHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -42,6 +46,8 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
     private val ruStorePayClient: RuStorePayClient by inject()
     private val sharedPrefs: SharedPreferencesRepositories by inject()
     private val settingsUseCase: SettingsUseCase by inject()
+    private val subscriptionHelper: SubscriptionHelper by inject()
+    private val snackbarManager: ISnackbarManager by inject()
 
     private val availableProductIds = listOf<ProductId>(
         ProductId(LOCO_DRIVER_MONTHLY_SUBSCRIPTION),
@@ -114,8 +120,8 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                 }
 
                 // Сохраняем самое позднее окончание подписки (для синхронизации и Profile)
-                val maxExpiration = expirationMap.values.maxOrNull() ?: 0L
-                sharedPrefs.setSubscriptionExpiration(maxExpiration)
+//                val maxExpiration = expirationMap.values.maxOrNull() ?: 0L
+//                sharedPrefs.setSubscriptionExpiration(maxExpiration)
 
                 _state.update {
                     it.copy(
@@ -128,6 +134,12 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                 _event.tryEmit(BillingEvent.ShowError(t))
                 _state.update { it.copy(isLoading = false) }
             }
+        }
+    }
+
+    fun restoreSubscription() {
+        viewModelScope.launch(Dispatchers.IO) {
+            subscriptionHelper.restorePurchasesSuspend(snackbarManager = snackbarManager)
         }
     }
 

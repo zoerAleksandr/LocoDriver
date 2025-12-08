@@ -24,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -57,11 +58,16 @@ import kotlinx.coroutines.launch
 import ru.rustore.sdk.core.exception.RuStoreException
 import ru.rustore.sdk.pay.model.Product
 import androidx.compose.ui.draw.shadow
+import com.z_company.core.ui.snackbar.ISnackbarManager
+import com.z_company.route.viewmodel.PurchasesViewModel
+import kotlinx.coroutines.flow.collectLatest
+import org.koin.compose.koinInject
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PurchasesScreen(
+    viewModel: PurchasesViewModel,
     billingState: BillingState,
     onProductClick: (Product) -> Unit,
     onBack: () -> Unit,
@@ -104,19 +110,38 @@ fun PurchasesScreen(
             }
         )
     }
+
+    val snackbarManager: ISnackbarManager = koinInject()
+
+    LaunchedEffect(Unit) {
+        snackbarManager.events
+            .flowWithLifecycle(lifecycle)
+            .collect { event ->
+                val result = snackbarHostState.showSnackbar(
+                    message = event.message,
+                    actionLabel = event.actionLabel,
+                    duration = event.duration
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    event.onAction?.let { onAction ->
+                        // запускаем suspend-колбек в scope
+                        launch {
+                            try {
+                                onAction()
+                            } catch (_: Exception) { /* optional logging */
+                            }
+                        }
+                    }
+                }
+            }
+    }
+
     LaunchedEffect(Unit) {
         scope.launch {
             eventSharedFlow.flowWithLifecycle(lifecycle).collect { event ->
                 when (event) {
-//                    is BillingEvent.ShowDialog -> {
-//                        alertDialogShow = true
-//                        titleAlertDialog = event.dialogInfo.titleRes
-//                        textAlertDialog = event.dialogInfo.message
-//                    }
-
                     is BillingEvent.ShowError -> {
                         if (event.error is RuStoreException) {
-//                            event.error.resolveForBilling(context)
                         }
                         event.error.message?.let {
                             if (it.contains("Range timestamp not valid")) {
@@ -257,6 +282,23 @@ fun PurchasesScreen(
                             }
                         }
                     }
+                }
+            }
+
+            item {
+                TextButton(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    onClick = {
+                        viewModel.restoreSubscription()
+                    }
+                ) {
+
+                Text(
+                    text = "Восстановить покупки",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
                 }
             }
 
