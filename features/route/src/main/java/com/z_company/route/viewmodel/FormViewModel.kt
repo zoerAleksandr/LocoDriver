@@ -578,7 +578,7 @@ class FormViewModel(
 
     fun restorePurchases() {
         viewModelScope.launch {
-            subscriptionHelper.restorePurchasesSuspend(snackbarManager)
+            subscriptionHelper.restorePurchases(snackbarManager)
         }
     }
 

@@ -1,6 +1,7 @@
 package com.z_company.use_case
 
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
@@ -66,6 +67,7 @@ class RuStoreUseCase(val ruStoreRepositoryKtor: RuStoreRepositoryKtor) {
             withContext(Dispatchers.IO) {
                 getJWE()
                     .onSuccess { answer ->
+                        Log.d("zzz", "getExpiryTimeMillis onSuccess $answer")
                         getSubscriptionDetails(
                             jweToken = answer.body.jwe,
                             subscriptionId = productId,
@@ -75,6 +77,7 @@ class RuStoreUseCase(val ruStoreRepositoryKtor: RuStoreRepositoryKtor) {
                                     p0: Call<SubscriptionAnswerDTO>,
                                     p1: Response<SubscriptionAnswerDTO>
                                 ) {
+                                    Log.d("zzz", "getExpiryTimeMillis onSuccess onResponse ${p1.body()?.expiryTimeMillis}")
                                     val timeInMillis: Long? =
                                         p1.body()?.expiryTimeMillis?.toLongOrNull()
                                     if (timeInMillis == null) {
@@ -90,6 +93,7 @@ class RuStoreUseCase(val ruStoreRepositoryKtor: RuStoreRepositoryKtor) {
                                     p0: Call<SubscriptionAnswerDTO>,
                                     p1: Throwable
                                 ) {
+                                    Log.d("zzz", "getExpiryTimeMillis onSuccess onFailure ${p1}")
                                     trySend(ResultState.Error(ErrorEntity(p1)))
                                 }
 
@@ -97,6 +101,7 @@ class RuStoreUseCase(val ruStoreRepositoryKtor: RuStoreRepositoryKtor) {
                         )
                     }
                     .onFailure {
+                        Log.d("zzz", "getExpiryTimeMillis onFailure $it")
                         trySend(ResultState.Error(ErrorEntity(it)))
                     }
             }

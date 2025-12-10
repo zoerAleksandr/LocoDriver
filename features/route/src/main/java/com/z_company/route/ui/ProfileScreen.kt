@@ -259,7 +259,7 @@ fun ProfileScreen(
                                 }
                             ) { purchaseInfo ->
                                 val text =
-                                    if (purchaseInfo.isNullOrEmpty()) "Оформить за 44₽ в месяц" else "Активна до $purchaseInfo"
+                                    if (purchaseInfo.isNullOrEmpty()) "Оформить за 69₽ в месяц" else "Активна до $purchaseInfo"
                                 Text(text = text, style = styleData, color = primaryColor)
                             }
                         }

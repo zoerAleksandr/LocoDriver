@@ -1,8 +1,10 @@
 package com.z_company.route.viewmodel
 
+import android.util.Log
 import androidx.compose.animation.core.snap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.z_company.core.ResultState
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.ui.snackbar.SnackbarManagerImpl
 import com.z_company.core.util.DateAndTimeConverter
@@ -10,8 +12,10 @@ import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.route.Const.LOCO_DRIVER_ANNUAL_SUBSCRIPTION
 import com.z_company.route.Const.LOCO_DRIVER_MONTHLY_SUBSCRIPTION
+import com.z_company.use_case.RuStoreUseCase
 import com.z_company.use_case.SubscriptionHelper
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,9 +30,11 @@ import ru.rustore.sdk.pay.RuStorePayClient
 import ru.rustore.sdk.pay.model.Product
 import ru.rustore.sdk.pay.model.ProductId
 import ru.rustore.sdk.pay.model.ProductPurchaseParams
-import ru.rustore.sdk.pay.model.ProductType
 import ru.rustore.sdk.pay.model.SubscriptionPurchase
 import ru.rustore.sdk.pay.model.SubscriptionPurchaseStatus
+
+//import ru.rustore.sdk.pay.model.SubscriptionPurchase
+//import ru.rustore.sdk.pay.model.SubscriptionPurchaseStatus
 
 data class BillingState(
     val isLoading: Boolean = false,
@@ -89,7 +95,7 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                 // 2. Все покупки
                 val purchases = ruStorePayClient
                     .getPurchaseInteractor()
-                    .getPurchases(ProductType.SUBSCRIPTION) // можно добавить productType = ProductType.SUBSCRIPTION если нужно
+                    .getPurchases() // можно добавить productType = ProductType.SUBSCRIPTION если нужно
                     .await()
 
                 // 3. Очистка/конфирм неоконченных покупок
@@ -137,9 +143,9 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun restoreSubscription() {
-        viewModelScope.launch(Dispatchers.IO) {
-            subscriptionHelper.restorePurchasesSuspend(snackbarManager = snackbarManager)
+    fun restoreSubscribe(){
+        viewModelScope.launch(Dispatchers.IO){
+            subscriptionHelper.restorePurchases(snackbarManager)
         }
     }
 

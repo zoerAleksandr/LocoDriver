@@ -2,7 +2,6 @@ package com.z_company.route.viewmodel.home_view_model
 
 import android.app.Activity
 import android.app.Application
-import android.content.Intent
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -13,7 +12,6 @@ import androidx.lifecycle.viewModelScope
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.ui.snackbar.ISnackbarManager
-import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.SalarySetting
@@ -31,9 +29,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getSingleLocomotiveT
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeWithoutHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
-import com.z_company.domain.entities.route.UtilsForEntities.isCurrentRoute
 import com.z_company.domain.entities.route.UtilsForEntities.isExtendedServicePhaseTrains
-import com.z_company.domain.entities.route.UtilsForEntities.isFuture
 import com.z_company.domain.entities.route.UtilsForEntities.isHeavyTrains
 import com.z_company.domain.entities.route.UtilsForEntities.isHolidayTimeInRoute
 import com.z_company.domain.repositories.SharedPreferencesRepositories
@@ -42,12 +38,9 @@ import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.use_cases.TrainUseCase
-import com.z_company.repository.ShareManager
 import com.z_company.route.viewmodel.PreviewRouteUiState
 import com.z_company.route.viewmodel.RouteActionsHelper
 import com.z_company.route.viewmodel.SalaryCalculationHelper
-import com.z_company.use_case.RuStoreUseCase
-import com.z_company.use_case.SubscriptionHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
@@ -269,10 +262,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     fun workTimer(startWork: Long) {
         timerJob?.cancel()
         timerJob = viewModelScope.launch {
-            val timeZone = uiState.value.dateAndTimeConverter?.timeZoneText ?: "GMT+3"
+            val timeZone =
+                uiState.value.dateAndTimeConverter?.timeZoneText ?: "GMT+3"
             val currentTimeCalendar = getInstance(TimeZone.getTimeZone(timeZone))
             val currentTime: Long = currentTimeCalendar.timeInMillis
-            val startWorkTime: Long = startWork
+            val startWorkTime: Long = startWork + uiState.value.offsetInMoscow
 
             val second = currentTimeCalendar
                 .get(Calendar.SECOND)
@@ -922,6 +916,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
 
                     is ResultState.Success -> {
                         // all further processing must run on IO or Default depending on heavy computations
+                        val fullRouteList = result.data
                         val userSettings = currentUserSetting
                         val salarySetting = currentSalarySetting
                         if (userSettings != null && salarySetting != null) {
@@ -931,14 +926,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                                 getInstance(TimeZone.getTimeZone(timeZone))
                             val currentTimeInMillis = currentTimeCalendar.timeInMillis
 
-                            val routeList = if (userSettings.isConsiderFutureRoute) {
-                                result.data
-                            } else {
-                                result.data.filter { it.basicData.timeStartWork!! < currentTimeInMillis }
-                            }
+
                             val routeStateList = mutableListOf<ItemState>()
                             currentMonthOfYear?.let { monthOfYear ->
-                                routeList.forEach { route ->
+                                fullRouteList.forEach { route ->
                                     val routeState = ItemState(
                                         route = route,
                                         isHoliday = isHolidayTimeInRoute(
@@ -959,7 +950,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                                 }
                             }
 
-                            currentRoute = routeList.findCurrentRoute(
+                            currentRoute = fullRouteList.findCurrentRoute(
                                 currentTimeInMillis = currentTimeInMillis,
                                 userSettings = userSettings
                             )
@@ -976,10 +967,16 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                                 }
                             }
 
+                            val filteredRouteList = if (userSettings.isConsiderFutureRoute) {
+                                result.data
+                            } else {
+                                result.data.filter { it.basicData.timeStartWork!! < currentTimeInMillis }
+                            }
+
                             val salaryCalculationHelper = SalaryCalculationHelper(
                                 userSettings = userSettings,
                                 salarySetting = salarySetting,
-                                routeList = routeList
+                                routeList = filteredRouteList
                             )
 
                             // launch background jobs for calculations (same as before)
@@ -987,13 +984,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                             calculationOfLongDistanceTrainsTime(salaryCalculationHelper)
                             calculationOfHeavyTrainsTime(salaryCalculationHelper)
 
-                            calculationOfOnePersonOperationTime(routeList, userSettings)
-                            calculationTotalTime(routeList, userSettings.timeZone)
-                            calculationOfTimeWithoutHoliday(routeList, userSettings.timeZone)
-                            calculationOfNightTime(routeList, userSettings)
-                            calculationOfSingleLocomotiveTime(routeList)
-                            calculationPassengerTime(routeList, userSettings.timeZone)
-                            calculationHolidayTime(routeList, userSettings.timeZone)
+                            calculationOfOnePersonOperationTime(filteredRouteList, userSettings)
+                            calculationTotalTime(filteredRouteList, userSettings.timeZone)
+                            calculationOfTimeWithoutHoliday(filteredRouteList, userSettings.timeZone)
+                            calculationOfNightTime(filteredRouteList, userSettings)
+                            calculationOfSingleLocomotiveTime(filteredRouteList)
+                            calculationPassengerTime(filteredRouteList, userSettings.timeZone)
+                            calculationHolidayTime(filteredRouteList, userSettings.timeZone)
                         } else {
                             // settings not ready - update UI accordingly if needed
                             withContext(Dispatchers.Main) {

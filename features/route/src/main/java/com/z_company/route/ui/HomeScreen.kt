@@ -1,6 +1,7 @@
 package com.z_company.route.ui
 
 import android.annotation.SuppressLint
+import android.util.Log
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.BasicTooltipBox
 import androidx.compose.foundation.BorderStroke
@@ -1117,12 +1118,15 @@ fun HomeScreen(
                                     var background = MaterialTheme.colorScheme.secondary
 
                                     if (route.isFuture(offsetInMoscow)) {
+                                        Log.d("zzz", "isFuture")
                                         background = MaterialTheme.colorScheme.surfaceBright
                                     } else {
+                                        Log.d("zzz", "not isFuture")
                                         if (route.isTransition(offsetInMoscow)) {
                                             background = MaterialTheme.colorScheme.surfaceDim
                                         }
                                     }
+
                                     val dismissState = rememberDismissState()
 
                                     ItemHomeScreen(
@@ -1162,7 +1166,7 @@ fun HomeScreen(
                                     val route = listRouteState[1].route
                                     var background = MaterialTheme.colorScheme.secondary
 
-                                    if (route.basicData.timeStartWork!! > Calendar.getInstance().timeInMillis) {
+                                    if (route.isFuture(offsetInMoscow)) {
                                         background = MaterialTheme.colorScheme.surfaceBright
                                     } else {
                                         if (route.isTransition(offsetInMoscow)) {

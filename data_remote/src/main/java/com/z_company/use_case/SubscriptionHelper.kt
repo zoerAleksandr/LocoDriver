@@ -1,6 +1,7 @@
 package com.z_company.use_case
 
 import android.util.Log
+import androidx.compose.material3.SnackbarDuration
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.ui.snackbar.ISnackbarManager
@@ -8,11 +9,17 @@ import com.z_company.domain.repositories.SharedPreferencesRepositories
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.timeout
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import ru.rustore.sdk.billingclient.RuStoreBillingClient
+import ru.rustore.sdk.billingclient.model.purchase.PurchaseState
 import ru.rustore.sdk.pay.RuStorePayClient
 import ru.rustore.sdk.pay.model.DeveloperPayload
 import ru.rustore.sdk.pay.model.PreferredPurchaseType
@@ -23,19 +30,25 @@ import ru.rustore.sdk.pay.model.Purchase
 import ru.rustore.sdk.pay.model.PurchaseAvailabilityResult
 import ru.rustore.sdk.pay.model.ProductPurchaseResult
 import ru.rustore.sdk.pay.model.PurchaseId
-import ru.rustore.sdk.pay.model.PurchaseStatus
 import ru.rustore.sdk.pay.model.RuStorePaymentException.ProductPurchaseCancelled
 import ru.rustore.sdk.pay.model.RuStorePaymentException.ProductPurchaseException
 import ru.rustore.sdk.pay.model.SubscriptionPurchase
-import ru.rustore.sdk.pay.model.SubscriptionPurchaseStatus
+import java.util.Calendar
+import java.util.Calendar.getInstance
+//import ru.rustore.sdk.pay.model.SubscriptionPurchase
+//import ru.rustore.sdk.pay.model.SubscriptionPurchaseStatus
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 import kotlin.getValue
+import kotlin.time.Duration.Companion.seconds
+import ru.rustore.sdk.billingclient.model.purchase.Purchase as PurchaseBillingClient
 
 class SubscriptionHelper() : KoinComponent {
     private val payClient: RuStorePayClient by inject()
     private val sharedPreferences: SharedPreferencesRepositories by inject()
+    private val billingClient: RuStoreBillingClient by inject()
+    private val ruStoreUseCase: RuStoreUseCase by inject()
 
     // 1. Проверка доступности покупок
     suspend fun checkPurchasesAvailabilitySuspend(): ResultState<PurchaseAvailabilityResult> =
@@ -190,7 +203,37 @@ class SubscriptionHelper() : KoinComponent {
 //        }
 
     // 5. Восстановление подписок
-    suspend fun restorePurchasesSuspend(snackbarManager: ISnackbarManager? = null): ResultState<Unit> =
+    suspend fun restorePurchases(snackbarManager: ISnackbarManager? = null): ResultState<Unit> {
+        snackbarManager?.show(
+            message = "Выполняем поиск активной подписки...",
+        )
+        val result2 = restoreSubscribeBillingClient(snackbarManager)
+        if (result2 is ResultState.Error) {
+            return result2
+        }
+
+        val result1 = restoreSubscribePaySDK(snackbarManager)
+        if (result1 is ResultState.Error) {
+            return result1
+        }
+
+        val maxExpiration2 = if (result2 is ResultState.Success) result2.data else 0L
+        val maxExpiration1 = if (result1 is ResultState.Success) result1.data else 0L
+
+        val overallMaxExpiration = maxOf(maxExpiration1, maxExpiration2)
+
+        val now = getInstance().timeInMillis
+        if (overallMaxExpiration > now) {
+            sharedPreferences.setSubscriptionExpiration(overallMaxExpiration)
+            snackbarManager?.show(message = "Подписки восстановлены")
+            return ResultState.Success(Unit)
+        } else {
+            snackbarManager?.show(message = "Действующих подписок не найдено")
+            return ResultState.Success(Unit)
+        }
+    }
+
+    suspend fun restoreSubscribePaySDK(snackbarManager: ISnackbarManager? = null): ResultState<Long> =
         withContext(Dispatchers.IO) {
             try {
                 val now = System.currentTimeMillis()
@@ -204,42 +247,91 @@ class SubscriptionHelper() : KoinComponent {
                         }
                         .addOnFailureListener {
                             snackbarManager?.show(message = "ошибка $it")
-                            snackbarManager?.show(message = "message ${it.message}")
                             continuation.resumeWithException(it)
                         }
                 }
 
-                snackbarManager?.show(message = "${purchases.size} подписок")
-                Log.d("zzz", "${purchases.size} подписок")
+                Log.d("zzz", "paySDK ${purchases.size} подписок")
                 // Обработка каждой покупки
                 purchases.forEach { purchase ->
-                    snackbarManager?.show(message = "purchase.javaClass = ${purchase.javaClass}")
                     val subscriptionPurchase = purchase as SubscriptionPurchase
 
                     // Получаем время истечения подписки
                     val currentExpiration = subscriptionPurchase.expirationDate.time
-                    snackbarManager?.show(message = "status = ${purchase.status}")
-                    snackbarManager?.show(message = "purchaseTime = ${subscriptionPurchase.purchaseTime?.time}")
-                    snackbarManager?.show(message = "expirationDate = $currentExpiration")
-                    Log.d("zzz", "purchaseTime = ${subscriptionPurchase.purchaseTime?.time}")
-                    Log.d("zzz", "expirationDate = $currentExpiration")
                     if (currentExpiration > expirationDate) {
                         expirationDate = currentExpiration
                     }
                 }
-
+                ResultState.Success(expirationDate)
                 // Обновляем expiration
-                if (expirationDate > now) {
-                    sharedPreferences.setSubscriptionExpiration(expirationDate)
-                    snackbarManager?.show(message = "Подписки восстановлены")
-                    ResultState.Success(Unit)
-                } else {
-                    snackbarManager?.show(message = "Действующих подписок не найдено")
-                    ResultState.Success(Unit)
-                }
+//                if (expirationDate > now) {
+//                    sharedPreferences.setSubscriptionExpiration(expirationDate)
+//                    Log.d("zzz", "Подписки восстановлены paySDK")
+//                    snackbarManager?.show(message = "Подписки восстановлены")
+//                    ResultState.Success(Unit)
+//                } else {
+//                    Log.d("zzz", "Действующих подписок не найдено paySDK")
+//                    snackbarManager?.show(message = "Действующих подписок не найдено")
+//                    ResultState.Success(Unit)
+//                }
             } catch (t: Throwable) {
+                Log.d("zzz", "message = ${t.message}")
                 snackbarManager?.show(message = t.message ?: "Ошибка при восстановлении подписок")
                 ResultState.Error(ErrorEntity(t))
+            }
+        }
+
+    suspend fun restoreSubscribeBillingClient(snackbarManager: ISnackbarManager? = null): ResultState<Long> =
+        withContext(Dispatchers.IO) {
+            try {
+                var maxEndTime = 0L
+
+                // Suspend ждём покупки из колбэка
+                val purchases =
+                    suspendCancellableCoroutine<List<PurchaseBillingClient>> { continuation ->
+                        billingClient.purchases.getPurchases()
+                            .addOnSuccessListener { purchasesList ->
+                                continuation.resume(purchasesList)
+                            }
+                            .addOnFailureListener { e ->
+                                snackbarManager?.show(message = "Ошибка получения покупок: $e")
+                                continuation.resumeWithException(e)
+                            }
+                    }
+
+                // Последовательно обрабатываем каждую покупку (collect — suspend, так что ждём)
+                purchases.forEach { purchase ->
+                    if (purchase.purchaseState == PurchaseState.CONFIRMED) {
+                        val resultState = ruStoreUseCase.getExpiryTimeMillis(
+                            purchase.productId,
+                            purchase.subscriptionToken ?: ""
+                        ).first { it is ResultState.Success || it is ResultState.Error }
+
+                        if (resultState is ResultState.Success) {
+                            if (resultState.data > maxEndTime) {
+                                maxEndTime = resultState.data
+                                Log.d("zzz", "billing client maxEndTime $maxEndTime")
+                            }
+                        }
+                        if (resultState is ResultState.Error) {
+                            snackbarManager?.show(
+                                message = "Ошибка ruStoreUseCase.getExpiryTimeMillis ${resultState.entity.message}",
+                                showOnceKey = "restore_purchases_none"
+                            )
+                        }
+                    }
+                }
+                ResultState.Success(maxEndTime)
+            } catch (e: Exception) {
+                snackbarManager?.show(
+                    message = e.message ?: "Ошибка при восстановлении",
+                    actionLabel = "Повторить",
+                    onAction = {
+                        this.cancel()
+                        restorePurchases()
+                    }
+                )
+                ResultState.Error(ErrorEntity(e))
             }
         }
 
@@ -252,16 +344,16 @@ class SubscriptionHelper() : KoinComponent {
                 payClient.getPurchaseInteractor().getPurchase(PurchaseId(purchaseId))
                     .addOnSuccessListener { purchase: Purchase ->
                         when (purchase) {
-                            is SubscriptionPurchase -> {
-                                // Логика обработки результата покупки подписки
-                                val expiration = purchase.expirationDate.time
-
-                                val prev = sharedPreferences.getSubscriptionExpiration()
-                                if (expiration > prev) {
-                                    sharedPreferences.setSubscriptionExpiration(expiration)
-                                }
-                                continuation.resume(ResultState.Success(Unit))
-                            }
+//                            is SubscriptionPurchase -> {
+//                                // Логика обработки результата покупки подписки
+//                                val expiration = purchase.expirationDate.time
+//
+//                                val prev = sharedPreferences.getSubscriptionExpiration()
+//                                if (expiration > prev) {
+//                                    sharedPreferences.setSubscriptionExpiration(expiration)
+//                                }
+//                                continuation.resume(ResultState.Success(Unit))
+//                            }
 
                             else -> {
                                 // Логика обработки результата покупки c базовыми полями
@@ -278,4 +370,5 @@ class SubscriptionHelper() : KoinComponent {
             ResultState.Error(ErrorEntity(t))
         }
     }
+
 }

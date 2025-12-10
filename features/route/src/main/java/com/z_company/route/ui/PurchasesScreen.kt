@@ -52,13 +52,13 @@ import com.z_company.core.ui.component.GenericLoading
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.route.viewmodel.BillingEvent
-import com.z_company.route.viewmodel.BillingState
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import ru.rustore.sdk.core.exception.RuStoreException
 import ru.rustore.sdk.pay.model.Product
 import androidx.compose.ui.draw.shadow
 import com.z_company.core.ui.snackbar.ISnackbarManager
+import com.z_company.route.viewmodel.BillingState
 import com.z_company.route.viewmodel.PurchasesViewModel
 import kotlinx.coroutines.flow.collectLatest
 import org.koin.compose.koinInject
@@ -290,7 +290,7 @@ fun PurchasesScreen(
                     modifier = Modifier
                         .fillMaxWidth(),
                     onClick = {
-                        viewModel.restoreSubscription()
+                        viewModel.restoreSubscribe()
                     }
                 ) {
 

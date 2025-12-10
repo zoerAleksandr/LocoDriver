@@ -247,7 +247,7 @@ class WorkScheduleViewModel() : ViewModel(), KoinComponent {
 
     fun restorePurchases() {
         viewModelScope.launch(Dispatchers.IO) {
-            subscriptionHelper.restorePurchasesSuspend(snackbarManager)
+            subscriptionHelper.restorePurchases(snackbarManager)
         }
     }
 

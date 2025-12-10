@@ -324,7 +324,8 @@ object UtilsForEntities : KoinComponent {
             return false
         } else {
             val startCalendar = getInstance(TimeZone.getDefault()).also {
-                it.timeInMillis = this.basicData.timeStartWork!! + offsetInMoscow
+                it.timeInMillis += offsetInMoscow
+//                    this.basicData.timeStartWork!! + offsetInMoscow
             }
             return this.basicData.timeStartWork!! > startCalendar.timeInMillis
         }

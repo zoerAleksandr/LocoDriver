@@ -58,8 +58,8 @@ object Apps {
     const val min_sdk_version = 26
     const val target_sdk_version = 35
 
-    const val version_code = 51
-    const val version_name = "2.0.3.test"
+    const val version_code = 52
+    const val version_name = "2.0.4"
 
     const val jvm_target_version = "21"
     val java_compatibility_version = JavaVersion.VERSION_21
@@ -204,6 +204,7 @@ object Libs {
 
     const val rustore_bom = "ru.rustore.sdk:bom:$rustore_bom_ver"
     const val rustore_pay = "ru.rustore.sdk:pay"
+    const val rustore_billing_client = "ru.rustore.sdk:billingclient"
     const val rustore_review = "ru.rustore.sdk:review"
     const val rustore_sdk_appupdate = "ru.rustore.sdk:appupdate"
 

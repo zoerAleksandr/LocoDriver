@@ -30,6 +30,7 @@ import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.MonthFullText.getMonthFullText
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
+import com.z_company.domain.entities.route.UtilsForEntities.isFuture
 import com.z_company.domain.entities.route.UtilsForEntities.isTransition
 import com.z_company.route.R
 import com.z_company.route.component.AnimationDialog
@@ -556,7 +557,7 @@ fun AllRouteScreen(
                             ) { routeState ->
                                 val route = routeState.route
                                 background =
-                                    if (route.basicData.timeStartWork!! > Calendar.getInstance().timeInMillis) {
+                                    if (route.isFuture(viewModel.offsetInMoscow)) {
                                         MaterialTheme.colorScheme.surfaceBright
                                     } else {
                                         if (route.isTransition(viewModel.offsetInMoscow)) {

@@ -86,14 +86,13 @@ tracer {
 
 
 dependencies {
-    implementation("androidx.media3:media3-exoplayer:1.4.1")
-    implementation("androidx.media3:media3-ui:1.4.1")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
     implementation (Libs.ksp_api)
 
     implementation(Libs.mytracker_sdk)
     implementation(platform(Libs.rustore_bom))
     implementation(Libs.rustore_pay)
+    implementation(Libs.rustore_billing_client)
     implementation(Libs.rustore_sdk_appupdate)
 
     implementation(platform(Libs.ru_ok_tracer_platform))

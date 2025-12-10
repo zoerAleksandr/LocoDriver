@@ -216,7 +216,7 @@ class AllRouteViewModel() : ViewModel(), KoinComponent {
 
     fun restorePurchases() {
         viewModelScope.launch(Dispatchers.IO) {
-            subscriptionHelper.restorePurchasesSuspend(snackbarManager)
+            subscriptionHelper.restorePurchases(snackbarManager)
         }
     }
 
@@ -438,16 +438,8 @@ class AllRouteViewModel() : ViewModel(), KoinComponent {
 
                         is ResultState.Success -> {
                             if (salarySetting != null && dateAndTimeConverter != null) {
-                                val timeZone = dateAndTimeConverter!!.timeZoneText
-                                val currentTimeCalendar =
-                                    getInstance(TimeZone.getTimeZone(timeZone))
-                                val currentTimeInMillis = currentTimeCalendar.timeInMillis
+                                val routeList = result.data
 
-                                val routeList = if (userSettings.isConsiderFutureRoute) {
-                                    result.data
-                                } else {
-                                    result.data.filter { it.basicData.timeStartWork!! < currentTimeInMillis }
-                                }
                                 val routeStateList = mutableListOf<ItemState>()
                                 routeList.forEach { route ->
                                     val routeState = ItemState(

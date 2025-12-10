@@ -17,6 +17,7 @@ import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.use_case.RemoteRouteUseCase
 import com.z_company.use_case.RuStoreUseCase
+import com.z_company.use_case.SubscriptionHelper
 import com.z_company.work_manager.UserFieldName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -44,6 +45,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private val remoteRouteUseCase: RemoteRouteUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val ruStoreUseCase: RuStoreUseCase by inject()
+    private val subscriptionHelper: SubscriptionHelper by inject()
 
     private var saveCalendarInLocalJob: Job? = null
     private var setDefaultSetting: Job? = null
@@ -62,8 +64,9 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
 
         viewModelScope.launch {
             loadCalendar()
-            delay(1500L) // минимальное время сплеша
+            delay(400L) // минимальное время сплеша
             _appInitialized.value = true
+            subscriptionHelper.restorePurchases()
         }
     }
 
