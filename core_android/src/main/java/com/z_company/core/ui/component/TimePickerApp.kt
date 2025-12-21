@@ -49,7 +49,8 @@ fun TimePickerApp(
     onDismiss: () -> Unit,
     initialTimeMillis: Long = 0L,
     title: String = "Выберите время",
-    cancelButtonText: String = "Пропустить"
+    cancelButtonText: String = "Пропустить",
+    onCancelButton: () -> Unit = onDismiss
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val viewModel = remember { TimePickerViewModel(initialTimeMillis) }
@@ -149,7 +150,7 @@ fun TimePickerApp(
                             .padding(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        TextButton(onClick = onDismiss) {
+                        TextButton(onClick = onCancelButton) {
                             Text(
                                 text = cancelButtonText,
                                 color = MaterialTheme.colorScheme.primary,

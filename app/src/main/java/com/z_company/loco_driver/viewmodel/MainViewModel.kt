@@ -2,10 +2,8 @@ package com.z_company.loco_driver.viewmodel
 
 import android.util.Log
 import androidx.lifecycle.DefaultLifecycleObserver
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.parse.ParseUser
 import com.z_company.SessionManager
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.Day
@@ -18,10 +16,8 @@ import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.use_case.RemoteRouteUseCase
 import com.z_company.use_case.RuStoreUseCase
 import com.z_company.use_case.SubscriptionHelper
-import com.z_company.work_manager.UserFieldName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -66,7 +62,6 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
             loadCalendar()
             delay(400L) // минимальное время сплеша
             _appInitialized.value = true
-            subscriptionHelper.restorePurchases()
         }
     }
 
@@ -88,20 +83,17 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
             this.launch {
                 // загрузил старые и сохранил их в список
                 calendarUseCase.loadFlowMonthOfYearListState().collect { monthListResult ->
-//                    if (monthListResult is ResultState.Success) {
                     monthListResult.forEach { monthOfYear ->
                         monthOfYearList.add(monthOfYear)
                     }
                     this.cancel()
-//                    }
                 }
             }.join()
             // проверил, если этот месяц ранее был сохранен, проверил помечен ли он isRelease
             // оставляем это поле без изменений, остальное обновляем, если месяц ранее не сохранялся,
             // тогда записываем его в room без изменений
             this.launch {
-                val salarySetting = this.async { salarySettingUseCase.getSalarySetting() }.await()
-                val currentTariffRate = salarySetting.tariffRate
+                val lastTariffRate = salarySettingUseCase.getTariffRateFromCurrentMonthOfYear(monthOfYearList.findLast { it.tariffRate != 0.0 } ?: monthOfYearList.last())
 
                 loadCalendarFromStorage.getMonthOfYearList()
                     .collect { resultState ->
@@ -130,14 +122,14 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
                                     // если указан, то оставить без изменений
                                     if (month.tariffRate == 0.0) {
                                         month = month.copy(
-                                            tariffRate = currentTariffRate
+                                            tariffRate = lastTariffRate
                                         )
                                     }
                                     newMonthOfYearList.add(month)
                                 } else {
                                     // добавить последний тариф
                                     val monthOfYearWithTariffRate = monthOfYear.copy(
-                                        tariffRate = currentTariffRate
+                                        tariffRate = lastTariffRate
                                     )
                                     newMonthOfYearList.add(monthOfYearWithTariffRate)
                                 }

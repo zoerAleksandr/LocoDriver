@@ -6,6 +6,9 @@ import java.util.UUID
 
 const val SETTINGS_KEY = "User_Settings_Key"
 val timestamp = Calendar.getInstance().timeInMillis
+const val oneHourInMillis = 3_600_000
+const val hourInMillis8 = oneHourInMillis * 8L
+const val hourInMillis20 = oneHourInMillis * 20L
 
 data class UserSettings(
     var key: String = SETTINGS_KEY,
@@ -29,7 +32,7 @@ data class UserSettings(
     val timeZone: Long = 0L,
     var servicePhases: List<ServicePhase> = listOf(),
     var dateTimePickerType: String = TypeDateTimePicker.WHEEL.text,
-    val standardTimesStartWork: List<Long> = listOf()
+    val standardTimesStartWork: List<Long> = listOf(hourInMillis8, hourInMillis20)
 )
 
 

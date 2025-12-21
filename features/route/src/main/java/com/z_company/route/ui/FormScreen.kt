@@ -312,7 +312,13 @@ fun FormScreen(
                             label = ""
                         ) {
                             IconButton(
-                                onClick = setFavoriteState
+                                onClick = {
+                                    setFavoriteState()
+                                    val textSnackbar = if (it) "Убрали из избранного" else "Маршрут добавлен в избранное"
+                                    scope.launch {
+                                        snackbarManager.show(textSnackbar)
+                                    }
+                                }
                             ) {
                                 Icon(
                                     tint = if (it) MaterialTheme.colorScheme.error else LocalContentColor.current,
@@ -327,7 +333,13 @@ fun FormScreen(
                             label = ""
                         ) {
                             IconButton(
-                                onClick = { checkedOnePersonOperation(!it) }
+                                onClick = {
+                                    checkedOnePersonOperation(!it)
+                                    val textSnackbar = if (it) "Работа в два лица" else "Работа в одно лицо"
+                                    scope.launch {
+                                        snackbarManager.show(textSnackbar)
+                                    }
+                                }
                             ) {
                                 val painter =
                                     if (it) R.drawable.person_rounded_24px else R.drawable.group_24px
@@ -344,7 +356,13 @@ fun FormScreen(
                             label = ""
                         ) {
                             IconButton(
-                                onClick = { onRestChanged(!it) }
+                                onClick = {
+                                    onRestChanged(!it)
+                                    val textSnackbar = if (it) "Домашний отдых" else "Отдых в ПО"
+                                    scope.launch {
+                                        snackbarManager.show(textSnackbar)
+                                    }
+                                }
                             ) {
                                 val painter =
                                     if (it) R.drawable.hotel_24px else R.drawable.home_24px
@@ -940,16 +958,16 @@ fun FormScreen(
                                     .fillMaxWidth(),
                                 contentAlignment = Alignment.CenterEnd
                             ) {
-                                    Text(
-                                        modifier = Modifier.noRippleEffect(
-                                            onClick = {
-                                                isVisibleDetailRest = !isVisibleDetailRest
-                                            },
-                                        ),
-                                        text = "Рассчитать отдых",
-                                        color = MaterialTheme.colorScheme.tertiary,
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
+                                Text(
+                                    modifier = Modifier.noRippleEffect(
+                                        onClick = {
+                                            isVisibleDetailRest = !isVisibleDetailRest
+                                        },
+                                    ),
+                                    text = "Рассчитать отдых",
+                                    color = MaterialTheme.colorScheme.tertiary,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
                             }
 
                             AnimatedVisibility(
@@ -1078,7 +1096,8 @@ fun FormScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    var textColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                                    var textColor =
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
                                     val dateAndTimeStartText =
                                         startTimeInLong?.let {
                                             textColor = MaterialTheme.colorScheme.primary

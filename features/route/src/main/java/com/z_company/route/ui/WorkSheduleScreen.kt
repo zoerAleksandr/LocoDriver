@@ -39,6 +39,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -68,12 +69,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.flowWithLifecycle
 import com.z_company.core.ui.component.AutoSizeText
+import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.component.TimePickerApp
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.ui.snackbar.ISnackbarManager
@@ -154,20 +158,32 @@ fun WorkScheduleScreen(
     // bottom sheet for custom time input
     var showCustomTimeSheet by remember { mutableStateOf(false) }
 
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val lifecycle = lifecycleOwner.lifecycle
+
     val snackbarManager: ISnackbarManager = koinInject()
 
-    // подписка на события manager
     LaunchedEffect(Unit) {
-        snackbarManager.events.collect { event ->
-            val res = snackbarHostState.showSnackbar(
-                message = event.message,
-                actionLabel = event.actionLabel,
-                duration = event.duration
-            )
-            if (res == SnackbarResult.ActionPerformed) {
-                event.onAction?.invoke()
+        snackbarManager.events
+            .flowWithLifecycle(lifecycle)
+            .collect { event ->
+                val result = snackbarHostState.showSnackbar(
+                    message = event.message,
+                    actionLabel = event.actionLabel,
+                    duration = event.duration
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    event.onAction?.let { onAction ->
+                        // запускаем suspend-колбек в scope
+                        launch {
+                            try {
+                                onAction()
+                            } catch (_: Exception) { /* optional logging */
+                            }
+                        }
+                    }
+                }
             }
-        }
     }
 
     val isDeleteMode by viewModel.isDeleteMode.collectAsState()
@@ -359,7 +375,6 @@ fun WorkScheduleScreen(
                         modifier = Modifier
                             .onGloballyPositioned { coordinates ->
                                 maxHeightCell = with(density) { coordinates.size.height.toDp() }
-                                Log.d("zzz", "maxHeightCell $maxHeightCell")
                             }
                             .wrapContentHeight()
                             .fillMaxWidth()
@@ -394,369 +409,381 @@ fun WorkScheduleScreen(
         }
     }
 
+    val isLoading by viewModel.isLoading.collectAsState()
+
     Scaffold(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { snackBarData ->
+                CustomSnackBar(snackBarData = snackBarData)
+            }
+        },
         modifier = modifier.fillMaxSize()
     ) { padding ->
         // Top: month title with picker
         var chipHeightPx by remember { mutableIntStateOf(44) }
         val chipHeightDp: Dp = with(density) { chipHeightPx.toDp() }
 
-        LazyColumn(
-            modifier = modifier
-                .padding(12.dp)
-        ) {
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
+        if (isLoading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator() // Показ loading
+            }
+        } else {
+            LazyColumn(
+                modifier = modifier
+                    .padding(12.dp)
+            ) {
+                item {
                     Row(
                         modifier = Modifier
-                            .pointerInput(Unit) {
-                                detectTapGestures(
-                                    onPress = {
-                                        showMonthSheet = true
-                                    }
-                                )
-                            },
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(
-                            text = currentMonth?.let { getMonthFullText(it.month) } ?: "Месяц",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = currentMonth?.let { (it.year.toString()) } ?: "Год",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-
-                    IconButton(onClick = { viewModel.toggleDeleteMode() }) {
-                        val tint =
-                            if (isDeleteMode) red else MaterialTheme.colorScheme.primary
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = null,
-                            tint = tint
-                        )
-                    }
-                }
-            }
-
-            item {
-                Text(
-                    style = MaterialTheme.typography.titleMedium,
-                    text = ConverterLongToTime.getTimeInStringFormat(totalTimeWork),
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-
-            item {
-                AnimatedVisibility(
-                    enter = fadeIn(animationSpec = tween(durationMillis = 100)) + slideInVertically(
-                        animationSpec = tween(durationMillis = 100)
-                    ),
-                    exit = fadeOut(animationSpec = tween(durationMillis = 100)),
-                    visible = isDeleteMode
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .padding(top = 8.dp)
-                            .animateItemPlacement()
-                            .border(
-                                width = 1.dp,
-                                color = MaterialTheme.colorScheme.primary,
-                                shape = Shapes.medium
-                            )
                             .fillMaxWidth(),
-                        contentAlignment = Alignment.Center
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
-                            text = "Режим удаления маршрутов",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary,
+                        Row(
                             modifier = Modifier
-                                .padding(8.dp)
-                        )
+                                .pointerInput(Unit) {
+                                    detectTapGestures(
+                                        onPress = {
+                                            showMonthSheet = true
+                                        }
+                                    )
+                                },
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(
+                                text = currentMonth?.let { getMonthFullText(it.month) } ?: "Месяц",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = currentMonth?.let { (it.year.toString()) } ?: "Год",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+
+                        IconButton(onClick = { viewModel.toggleDeleteMode() }) {
+                            val tint =
+                                if (isDeleteMode) red else MaterialTheme.colorScheme.primary
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = null,
+                                tint = tint
+                            )
+                        }
                     }
                 }
-            }
 
-            item {
-                Spacer(modifier = Modifier.height(28.dp))
-            }
+                item {
+                    Text(
+                        style = MaterialTheme.typography.titleMedium,
+                        text = ConverterLongToTime.getTimeInStringFormat(totalTimeWork),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
 
-            item {
-                currentMonth?.let { month ->
-                    val isDeleteMode by viewModel.isDeleteMode.collectAsState()
-                    val activeTime by viewModel.activeTime.collectAsState()
-                    val snackbarManager: ISnackbarManager = koinInject()
+                item {
+                    AnimatedVisibility(
+                        enter = fadeIn(animationSpec = tween(durationMillis = 100)) + slideInVertically(
+                            animationSpec = tween(durationMillis = 100)
+                        ),
+                        exit = fadeOut(animationSpec = tween(durationMillis = 100)),
+                        visible = isDeleteMode
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .padding(top = 8.dp)
+                                .animateItemPlacement()
+                                .border(
+                                    width = 1.dp,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    shape = Shapes.medium
+                                )
+                                .fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Режим удаления маршрутов",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .padding(8.dp)
+                            )
+                        }
+                    }
+                }
 
-                    val onDayClick: (Int) -> Unit = { day ->
-                        if (isDeleteMode) {
-                            // режим удаления: переадресуем в VM (там логика: если нет маршрутов -> snackbar, если 1 -> toggleRouteSelection, если >1 -> show dialog)
-                            viewModel.onDayDeleteClicked(day)
-                        } else {
-                            // обычный режим: добавляем/удаляем плановую явку для дня с текущим активным временем
-                            val time = activeTime
-                            if (time == null) {
-                                // можно показывать snackbar через snackbarManager.events, но тут - прямой вызов show
-                                snackbarManager.show(message = "Выберите время явки")
+                item {
+                    Spacer(modifier = Modifier.height(28.dp))
+                }
+
+                item {
+                    currentMonth?.let { month ->
+                        val isDeleteMode by viewModel.isDeleteMode.collectAsState()
+                        val activeTime by viewModel.activeTime.collectAsState()
+                        val snackbarManager: ISnackbarManager = koinInject()
+
+                        val onDayClick: (Int) -> Unit = { day ->
+                            if (isDeleteMode) {
+                                // режим удаления: переадресуем в VM (там логика: если нет маршрутов -> snackbar, если 1 -> toggleRouteSelection, если >1 -> show dialog)
+                                viewModel.onDayDeleteClicked(day)
                             } else {
-                                // toggle — если уже есть такой план в этот день, удалит одну копию; иначе добавит
-                                viewModel.togglePlannedTimeForDay(day, time)
+                                // обычный режим: добавляем/удаляем плановую явку для дня с текущим активным временем
+                                val time = activeTime
+                                if (time == null) {
+                                    // можно показывать snackbar через snackbarManager.events, но тут - прямой вызов show
+                                    snackbarManager.show(message = "Выберите время явки")
+                                } else {
+                                    // toggle — если уже есть такой план в этот день, удалит одну копию; иначе добавит
+                                    viewModel.togglePlannedTimeForDay(day, time)
+                                }
                             }
                         }
-                    }
 
-                    val cells = remember(month) {
-                        // формируем список ячеек (null = пустая)
-                        val cal = Calendar.getInstance().also {
-                            it.set(Calendar.YEAR, month.year)
-                            it.set(Calendar.MONTH, month.month)
-                            it.set(Calendar.DAY_OF_MONTH, 1)
-                        }
-                        val firstDayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
-                        val leadingEmpty =
-                            (firstDayOfWeek - Calendar.MONDAY).let { if (it >= 0) it else it + 7 } // 0..6
-                        val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
-                        val list = mutableListOf<Int?>()
-                        repeat(leadingEmpty) { list.add(null) }
-                        for (d in 1..daysInMonth) list.add(d)
-                        while (list.size % 7 != 0) list.add(null)
-                        list
-                    }
-
-                    val rowsCount = (cells.size + 6) / 7
-
-                    val verticalSpacingDp = 4.dp
-
-                    // вычисляем высоту календаря только если unifiedCellHeightDp известен
-                    val calendarHeightDp: Dp =
-                        if (maxHeightCell != null && headerHeightDp != null) {
-                            // rowsCount ячеек, плюс междустрочные spacing (rowsCount - 1) * verticalSpacing
-                            headerHeightDp!! + (maxHeightCell!! * rowsCount.toFloat()) + (verticalSpacingDp * (rowsCount - 1)) + 24.dp
-                        } else {
-                            // запасной fallback: минимальная высота (одна строка)
-                            24.dp + unifiedCellHeightDpOrDefault() // реализуйте fallback функцию
+                        val cells = remember(month) {
+                            // формируем список ячеек (null = пустая)
+                            val cal = Calendar.getInstance().also {
+                                it.set(Calendar.YEAR, month.year)
+                                it.set(Calendar.MONTH, month.month)
+                                it.set(Calendar.DAY_OF_MONTH, 1)
+                            }
+                            val firstDayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
+                            val leadingEmpty =
+                                (firstDayOfWeek - Calendar.MONDAY).let { if (it >= 0) it else it + 7 } // 0..6
+                            val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
+                            val list = mutableListOf<Int?>()
+                            repeat(leadingEmpty) { list.add(null) }
+                            for (d in 1..daysInMonth) list.add(d)
+                            while (list.size % 7 != 0) list.add(null)
+                            list
                         }
 
-                    Box(
-                        modifier = Modifier
-                            .animateItemPlacement()
-                            .fillMaxWidth()
-                            .height(calendarHeightDp)
-                    ) {
-                        CalendarView(
-                            cells = cells,
-                            routesByDay = routesByDay,
-                            plannedTimesByDay = plannedMap,
-                            onDayClick = onDayClick,
-                            daysToDelete = selectedRoutesToDeleteMap.keys, // set<Int> дней, которые имеют пометки
-                            isDeleteMode = isDeleteMode,
-                            timeConverter = dateAndTimeConverter,
-                            maxHeightPx = maxHeightCell ?: 24.dp
-                        )
-                    }
-                }
+                        val rowsCount = (cells.size + 6) / 7
 
-            }
+                        val verticalSpacingDp = 4.dp
 
-            item {
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-            // Row of time buttons
-            item {
-                val minChipHeight = 48.dp
-
-                AnimatedVisibility(
-                    visible = !isDeleteMode,
-                    enter = fadeIn(
-                        animationSpec = tween(
-                            delayMillis = 300,
-                            durationMillis = 100
-                        )
-                    ) + slideInVertically(
-                        animationSpec = tween(durationMillis = 100)
-                    ),
-                    exit = fadeOut(animationSpec = tween(durationMillis = 100))
-                ) {
-                    FlowRow(
-                        modifier = Modifier
-                            .animateItemPlacement(),
-                        horizontalArrangement = Arrangement.spacedBy(space = 6.dp),
-                        verticalArrangement = Arrangement.spacedBy(space = 6.dp),
-                    ) {
-                        timeButtonsState.forEach { time ->
-                            val selected = time == activeTime
-                            ChipApp(
-                                modifier = Modifier
-                                    .onGloballyPositioned { coordinates ->
-                                        chipHeightPx = coordinates.size.height
-                                    },
-                                label = ConverterLongToTime.getTimeInStringFormat(time),
-                                selected = time == activeTime,
-                                onClick = {
-                                    if (selected) viewModel.setActiveTime(null)
-                                    else viewModel.setActiveTime(time)
-                                },
-                                onLongClick = {
-                                    viewModel.setActiveTime(time)
-                                    showRemoveSheet = true
-                                },
-                                selectedBackgroundColor = MaterialTheme.colorScheme.tertiary
-                            )
-                        }
-                        val density = LocalDensity.current
-                        val chipHeightDp = with(density) { chipHeightPx.toDp() }
+                        // вычисляем высоту календаря только если unifiedCellHeightDp известен
+                        val calendarHeightDp: Dp =
+                            if (maxHeightCell != null && headerHeightDp != null) {
+                                // rowsCount ячеек, плюс междустрочные spacing (rowsCount - 1) * verticalSpacing
+                                headerHeightDp!! + (maxHeightCell!! * rowsCount.toFloat()) + (verticalSpacingDp * (rowsCount - 1)) + 24.dp
+                            } else {
+                                // запасной fallback: минимальная высота (одна строка)
+                                24.dp + unifiedCellHeightDpOrDefault() // реализуйте fallback функцию
+                            }
 
                         Box(
                             modifier = Modifier
-                                .height(chipHeightDp.coerceAtLeast(40.dp)) // 40.dp — минимальная высота чипа, подгоните под ваш дизайн
-                                .noRippleEffect { showCustomTimeSheet = true }
-                                .padding(
-                                    horizontal = 8.dp,
-                                    vertical = 4.dp
-                                ),
-                            contentAlignment = Alignment.Center,
+                                .animateItemPlacement()
+                                .fillMaxWidth()
+                                .height(calendarHeightDp)
+                        ) {
+                            CalendarView(
+                                cells = cells,
+                                routesByDay = routesByDay,
+                                plannedTimesByDay = plannedMap,
+                                onDayClick = onDayClick,
+                                daysToDelete = selectedRoutesToDeleteMap.keys, // set<Int> дней, которые имеют пометки
+                                isDeleteMode = isDeleteMode,
+                                timeConverter = dateAndTimeConverter,
+                                maxHeightPx = maxHeightCell ?: 24.dp
+                            )
+                        }
+                    }
+
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+                // Row of time buttons
+                item {
+                    val minChipHeight = 48.dp
+
+                    AnimatedVisibility(
+                        visible = !isDeleteMode,
+                        enter = fadeIn(
+                            animationSpec = tween(
+                                delayMillis = 300,
+                                durationMillis = 100
+                            )
+                        ) + slideInVertically(
+                            animationSpec = tween(durationMillis = 100)
+                        ),
+                        exit = fadeOut(animationSpec = tween(durationMillis = 100))
+                    ) {
+                        FlowRow(
+                            modifier = Modifier
+                                .animateItemPlacement(),
+                            horizontalArrangement = Arrangement.spacedBy(space = 6.dp),
+                            verticalArrangement = Arrangement.spacedBy(space = 6.dp),
+                        ) {
+                            timeButtonsState.forEach { time ->
+                                val selected = time == activeTime
+                                ChipApp(
+                                    modifier = Modifier
+                                        .onGloballyPositioned { coordinates ->
+                                            chipHeightPx = coordinates.size.height
+                                        },
+                                    label = ConverterLongToTime.getTimeInStringFormat(time),
+                                    selected = time == activeTime,
+                                    onClick = {
+                                        if (selected) viewModel.setActiveTime(null)
+                                        else viewModel.setActiveTime(time)
+                                    },
+                                    onLongClick = {
+                                        viewModel.setActiveTime(time)
+                                        showRemoveSheet = true
+                                    },
+                                    selectedBackgroundColor = MaterialTheme.colorScheme.tertiary
+                                )
+                            }
+                            val density = LocalDensity.current
+                            val chipHeightDp = with(density) { chipHeightPx.toDp() }
+
+                            Box(
+                                modifier = Modifier
+                                    .height(chipHeightDp.coerceAtLeast(40.dp)) // 40.dp — минимальная высота чипа, подгоните под ваш дизайн
+                                    .noRippleEffect { showCustomTimeSheet = true }
+                                    .padding(
+                                        horizontal = 8.dp,
+                                        vertical = 4.dp
+                                    ),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    modifier = Modifier.clickable {
+                                        showCustomTimeSheet = true
+                                    },
+                                    text = "Добавить время",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.tertiary
+                                )
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(48.dp))
+                }
+                // Save button row
+                item {
+                    AnimatedVisibility(
+                        visible = selectedDaysMap.isNotEmpty(),
+                        enter = fadeIn(animationSpec = tween(durationMillis = 100)) + slideInVertically(
+                            animationSpec = tween(durationMillis = 100)
+                        ),
+                        exit = fadeOut(animationSpec = tween(durationMillis = 100))
+                    ) {
+                        Button(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(chipHeightDp),
+                            shape = Shapes.medium,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                contentColor = MaterialTheme.colorScheme.secondary
+                            ),
+                            onClick = {
+                                showEndTimeSheet = true
+                            },
+                        ) {
+                            Text("Сохранить маршруты", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                item {
+                    AnimatedVisibility(
+                        visible = selectedDaysMap.isNotEmpty(),
+                        enter = fadeIn(animationSpec = tween(durationMillis = 100)) + slideInVertically(
+                            animationSpec = tween(durationMillis = 100)
+                        ),
+                        exit = fadeOut(animationSpec = tween(durationMillis = 100))
+                    ) {
+                        Button(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(chipHeightDp),
+                            shape = Shapes.medium,
+                            colors = ButtonDefaults.buttonColors(
+                                contentColor = MaterialTheme.colorScheme.secondary,
+                                containerColor = red
+                            ),
+                            onClick = {
+                                viewModel.resetSelectedDays()
+                            },
                         ) {
                             Text(
-                                modifier = Modifier.clickable {
-                                    showCustomTimeSheet = true
-                                },
-                                text = "Добавить время",
+                                "Сбросить",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.tertiary
+                                color = MaterialTheme.colorScheme.primary
                             )
                         }
                     }
                 }
-            }
 
-            item {
-                Spacer(modifier = Modifier.height(48.dp))
-            }
-            // Save button row
-            item {
-                AnimatedVisibility(
-                    visible = selectedDaysMap.isNotEmpty(),
-                    enter = fadeIn(animationSpec = tween(durationMillis = 100)) + slideInVertically(
-                        animationSpec = tween(durationMillis = 100)
-                    ),
-                    exit = fadeOut(animationSpec = tween(durationMillis = 100))
-                ) {
-                    Button(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(chipHeightDp),
-                        shape = Shapes.medium,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                            contentColor = MaterialTheme.colorScheme.secondary
+                item {
+                    AnimatedVisibility(
+                        visible = isDeleteMode && totalSelectedRoutes > 0,
+                        enter = fadeIn(
+                            animationSpec = tween(
+                                delayMillis = 300,
+                                durationMillis = 100
+                            )
+                        ) + slideInVertically(
+                            animationSpec = tween(durationMillis = 200)
                         ),
-                        onClick = {
-                            showEndTimeSheet = true
-                        },
+                        exit = fadeOut(animationSpec = tween(durationMillis = 100))
                     ) {
-                        Text("Сохранить маршруты", style = MaterialTheme.typography.bodySmall)
+                        Button(
+                            modifier = Modifier
+                                .animateItemPlacement()
+                                .fillMaxWidth()
+                                .height(chipHeightDp),
+                            shape = Shapes.medium,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = red,
+                                contentColor = MaterialTheme.colorScheme.secondary
+                            ),
+                            onClick = { showDialogConfirmRemoveRoute = true },
+                        ) {
+                            Text(
+                                text = "Удалить выбранные ($totalSelectedRoutes)",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
                     }
-                }
-            }
 
-            item {
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-
-            item {
-                AnimatedVisibility(
-                    visible = selectedDaysMap.isNotEmpty(),
-                    enter = fadeIn(animationSpec = tween(durationMillis = 100)) + slideInVertically(
-                        animationSpec = tween(durationMillis = 100)
-                    ),
-                    exit = fadeOut(animationSpec = tween(durationMillis = 100))
-                ) {
-                    Button(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(chipHeightDp),
-                        shape = Shapes.medium,
-                        colors = ButtonDefaults.buttonColors(
-                            contentColor = MaterialTheme.colorScheme.secondary,
-                            containerColor = red
+                    AnimatedVisibility(
+                        visible = isDeleteMode && totalSelectedRoutes == 0,
+                        enter = fadeIn(
+                            animationSpec = tween(
+                                delayMillis = 300,
+                                durationMillis = 100
+                            )
+                        ) + slideInVertically(
+                            animationSpec = tween(durationMillis = 100)
                         ),
-                        onClick = {
-                            viewModel.resetSelectedDays()
-                        },
+                        exit = fadeOut(animationSpec = tween(durationMillis = 100))
                     ) {
-                        Text(
-                            "Сбросить",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-
-            item {
-                AnimatedVisibility(
-                    visible = isDeleteMode && totalSelectedRoutes > 0,
-                    enter = fadeIn(
-                        animationSpec = tween(
-                            delayMillis = 300,
-                            durationMillis = 100
-                        )
-                    ) + slideInVertically(
-                        animationSpec = tween(durationMillis = 200)
-                    ),
-                    exit = fadeOut(animationSpec = tween(durationMillis = 100))
-                ) {
-                    Button(
-                        modifier = Modifier
-                            .animateItemPlacement()
-                            .fillMaxWidth()
-                            .height(chipHeightDp),
-                        shape = Shapes.medium,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = red,
-                            contentColor = MaterialTheme.colorScheme.secondary
-                        ),
-                        onClick = { showDialogConfirmRemoveRoute = true },
-                    ) {
-                        Text(
-                            text = "Удалить выбранные ($totalSelectedRoutes)",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                }
-
-                AnimatedVisibility(
-                    visible = isDeleteMode && totalSelectedRoutes == 0,
-                    enter = fadeIn(
-                        animationSpec = tween(
-                            delayMillis = 300,
-                            durationMillis = 100
-                        )
-                    ) + slideInVertically(
-                        animationSpec = tween(durationMillis = 100)
-                    ),
-                    exit = fadeOut(animationSpec = tween(durationMillis = 100))
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .animateItemPlacement()
-                            .fillMaxWidth(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Выбери маршруты для удаления", modifier = Modifier
-                                .padding(8.dp)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .animateItemPlacement()
+                                .fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Выбери маршруты для удаления", modifier = Modifier
+                                    .padding(8.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -970,7 +997,14 @@ fun WorkScheduleScreen(
                 showEndTimeSheet = false
             },
             onDismiss = { showEndTimeSheet = false },
-            title = "Продолжительность работы"
+            initialTimeMillis = 3_600_000 * 12,
+            title = "Продолжительность работы",
+            onCancelButton = {
+                scope.launch {
+                    viewModel.newRouteClick()
+                }
+                showEndTimeSheet = false
+            },
         )
     }
 }

@@ -1,5 +1,6 @@
 package com.z_company.route.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
@@ -122,6 +123,7 @@ class WorkScheduleViewModel() : ViewModel(), KoinComponent {
      * timeInMillis is time-from-midnight (hour*3600000 + minute*60000), same format as your chips.
      */
     fun togglePlannedTimeForDay(day: Int, timeInMillis: Long) {
+        Log.d("zzz", "togglePlannedTimeForDay")
         val mutable = _selectedDays.value.toMutableMap()
         val list = mutable[day]?.toMutableList() ?: mutableListOf()
         val idx = list.indexOf(timeInMillis)
@@ -143,6 +145,7 @@ class WorkScheduleViewModel() : ViewModel(), KoinComponent {
      * Call before showing the screen: fetch current month from settings and load months/year lists and routes.
      */
     fun prepareScreen() {
+        Log.d("zzz", "prepareScreen")
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -173,6 +176,7 @@ class WorkScheduleViewModel() : ViewModel(), KoinComponent {
     }
 
     private suspend fun loadMonthYearLists() {
+        Log.d("zzz", "loadMonthYearLists")
         // get month list from calendarUseCase
         withContext(Dispatchers.IO) {
             val list = calendarUseCase.loadFlowMonthOfYearListState().first()
@@ -183,6 +187,7 @@ class WorkScheduleViewModel() : ViewModel(), KoinComponent {
     }
 
     private suspend fun loadRoutesForCurrentMonth(timeZone: Long) {
+        Log.d("zzz", "loadRoutesForCurrentMonth")
         val month = _currentMonth.value ?: return
         // collect first ResultState from routeUseCase.listRoutesByMonth
         withContext(Dispatchers.IO) {
@@ -209,6 +214,7 @@ class WorkScheduleViewModel() : ViewModel(), KoinComponent {
                             _totalTimeWork.value = totalTimeWork
                         }
                         _routesByDay.value = map
+                        _isLoading.value = false
                     }
 
                     is ResultState.Error -> {
@@ -216,6 +222,7 @@ class WorkScheduleViewModel() : ViewModel(), KoinComponent {
                             message = result.entity.message ?: "Ошибка загрузки маршрутов",
                         )
                         _routesByDay.value = emptyMap()
+                        _isLoading.value = false
                     }
 
                     else -> {
@@ -227,6 +234,7 @@ class WorkScheduleViewModel() : ViewModel(), KoinComponent {
     }
 
     fun checkPurchasesAvailability() {
+        Log.d("zzz", "checkPurchasesAvailability")
         viewModelScope.launch(Dispatchers.IO) {
             when (val checkResult = subscriptionHelper.checkPurchasesAvailabilitySuspend()) {
                 is ResultState.Success -> {
@@ -281,6 +289,7 @@ class WorkScheduleViewModel() : ViewModel(), KoinComponent {
      * We reproduce the same logic: iterate calendar list, find, save, and reload routes after success.
      */
     fun setCurrentMonth(yearAndMonth: Pair<Int, Int>) {
+        Log.d("zzz", "setCurrentMonth")
         viewModelScope.launch {
             calendarUseCase.loadFlowMonthOfYearListState().collect { list ->
                 val found =
@@ -320,7 +329,8 @@ class WorkScheduleViewModel() : ViewModel(), KoinComponent {
         }
     }
 
-    suspend fun saveSelectedSchedules(workDuration: Long? = null) {
+    fun saveSelectedSchedules(workDuration: Long? = null) {
+        Log.d("zzz", "saveSelectedSchedules")
         val month = _currentMonth.value ?: run {
             snackbarManager.show(
                 message = "Месяц не выбран",
@@ -515,6 +525,7 @@ class WorkScheduleViewModel() : ViewModel(), KoinComponent {
 
     // Устанавливаем конкретный набор выбранных routeId для дня (используется из UI после подтверждения диалога)
     fun setSelectedRoutesForDay(day: Int, routeIds: Set<String>) {
+        Log.d("zzz", "setSelectedRoutesForDay")
         val mutable = _selectedRoutesToDelete.value.toMutableMap()
         if (routeIds.isEmpty()) mutable.remove(day) else mutable[day] = routeIds
         _selectedRoutesToDelete.value = mutable
