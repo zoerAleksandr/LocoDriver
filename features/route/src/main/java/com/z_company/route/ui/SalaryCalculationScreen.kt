@@ -68,7 +68,6 @@ fun SalaryCalculationScreen(
     var infoSetTariffRate by remember { mutableStateOf(false) }
 
     // Определяем, нужно ли показывать предупреждение о тарифной ставке
-    Log.d("zzz", "tariffRate ${uiState.tariffRate}")
     LaunchedEffect(uiState.tariffRate) {
         infoSetTariffRate = uiState.tariffRate == "0,00 ₽" || uiState.tariffRate == null
     }
@@ -277,6 +276,13 @@ private fun EarningsTable(uiState: SalaryCalculationUIState) {
             null,
             uiState.averagePaymentMoney
         ),
+        EarningsRow(
+            "По уходу за ребенком-инвалидом",
+            uiState.caringForDisableChildrenHours,
+            null,
+            uiState.caringForDisableChildrenMoney
+        ),
+
 
         // Надбавки
         uiState.zonalSurchargePercent?.let {

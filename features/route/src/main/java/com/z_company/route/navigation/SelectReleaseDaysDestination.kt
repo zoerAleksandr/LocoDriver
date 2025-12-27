@@ -24,6 +24,7 @@ fun SelectReleaseDaysDestination(router: Router) {
         yearList = uiState.yearList,
         monthList = uiState.monthList,
         selectMonthOfYear = viewModel::setCurrentMonth,
-        dateAndTimeConverter = uiState.dateAndTimeConverter
+        dateAndTimeConverter = uiState.dateAndTimeConverter,
+        allMonthOfYear = viewModel.allMonthOfYear
     )
 }

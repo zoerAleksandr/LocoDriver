@@ -525,7 +525,7 @@ fun FullCalendarForRange(
     }
 }
 
-private fun isDateInRange(date: Long, start: Long?, end: Long?, isSingleMode: Boolean): Boolean {
+fun isDateInRange(date: Long, start: Long?, end: Long?, isSingleMode: Boolean): Boolean {
     if (start == null) return false
     if (isSingleMode) return date == start
     val effectiveEnd = end ?: start

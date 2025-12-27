@@ -56,6 +56,8 @@ data class SalaryCalculationUIState(
     val harmfulnessSurchargeMoney: Double? = null,
     val averagePaymentHours: Long? = null,
     val averagePaymentMoney: Double? = null,
+    val caringForDisableChildrenHours: Long? = null,
+    val caringForDisableChildrenMoney: Double? = null,
     val totalChargedMoney: Double? = null,
     val retentionNdfl: Double? = null,
     val unionistsRetention: Double? = null,

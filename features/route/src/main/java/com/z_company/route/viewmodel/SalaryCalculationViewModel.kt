@@ -106,6 +106,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
             setDistrictSurchargeData(salaryCalculationHelper)
             setNordicSurchargeData(salaryCalculationHelper)
             setAveragePaymentData(salaryCalculationHelper)
+            setCaringForDisableChildrenPaymentData(salaryCalculationHelper)
             setOtherSurchargeData(salaryCalculationHelper)
             setTotalCharged(salaryCalculationHelper)
             setRetentionData(salaryCalculationHelper)
@@ -371,6 +372,18 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
             it.copy(
                 averagePaymentHours = hours,
                 averagePaymentMoney = money
+            )
+        }
+    }
+
+    // Метод для установки данных по уходу за ребенком инвалидом
+    private suspend fun setCaringForDisableChildrenPaymentData(helper: SalaryCalculationHelper) {
+        val hours = helper.getHoursCaringForDisableChildren().first()
+        val money = helper.getMoneyCaringForDisableChildren().first()
+        _uiState.update {
+            it.copy(
+                caringForDisableChildrenHours = hours,
+                caringForDisableChildrenMoney = money
             )
         }
     }

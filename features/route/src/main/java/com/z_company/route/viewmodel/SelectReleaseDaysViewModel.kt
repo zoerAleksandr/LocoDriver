@@ -1,5 +1,6 @@
 package com.z_company.route.viewmodel
 
+import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.lifecycle.ViewModel
@@ -8,6 +9,7 @@ import com.z_company.core.ResultState
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ReleasePeriod
+import com.z_company.domain.entities.ReleaseType
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import kotlinx.coroutines.Job
@@ -24,6 +26,7 @@ import java.util.Calendar.DAY_OF_MONTH
 import java.util.Calendar.MONTH
 import java.util.Calendar.YEAR
 import java.util.Calendar.getInstance
+import kotlin.collections.find
 
 class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
     private val calendarUseCase: CalendarUseCase by inject()
@@ -60,7 +63,7 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
             }
         }
 
-    private var allMonthOfYear: List<MonthOfYear> = listOf()
+    var allMonthOfYear: List<MonthOfYear> = listOf()
     private var newMonthList: MutableList<MonthOfYear> = mutableListOf()
 
     fun setCurrentMonth(yearAndMonth: Pair<Int, Int>) {
@@ -130,7 +133,7 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
                     day?.let {
                         val indexDay = newMonthList[indexMonthList].days.indexOf(it)
                         val days = newMonthList[indexMonthList].days.toMutableList()
-                        days[indexDay] = day.copy(isReleaseDay = true)
+                        days[indexDay] = day.copy(isReleaseDay = true, releaseType = period.type)
                         val newMonth = newMonthList[indexMonthList].copy(
                             days = days
                         )
@@ -158,7 +161,7 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
                     day?.let {
                         val indexDay = newMonthList[indexMonthList].days.indexOf(it)
                         val days = newMonthList[indexMonthList].days.toMutableList()
-                        days[indexDay] = day.copy(isReleaseDay = false)
+                        days[indexDay] = day.copy(isReleaseDay = false, releaseType = null)
                         val newMonth = newMonthList[indexMonthList].copy(
                             days = days
                         )
@@ -217,15 +220,18 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
         releasePeriodListState.clear()
         val listReleasePeriod = mutableListOf<Calendar>()
         var isBegunCounting = false
+        var currentType: ReleaseType? = null
         monthOfYear.days.forEachIndexed { index, day ->
             if (day.isReleaseDay) {
                 if (!isBegunCounting) {
                     isBegunCounting = true
+                    currentType = day.releaseType
                 }
                 listReleasePeriod.add(
                     getInstance().also {
                         it.set(DAY_OF_MONTH, day.dayOfMonth)
                         it.set(MONTH, monthOfYear.month)
+                        it.set(YEAR, monthOfYear.year)
                     }
                 )
                 if ((index + 1 == monthOfYear.days.size)) {
@@ -234,7 +240,8 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
                     copyList.addAll(listReleasePeriod)
                     releasePeriodListState.add(
                         ReleasePeriod(
-                            days = copyList
+                            days = copyList,
+                            type = currentType
                         )
                     )
                     listReleasePeriod.clear()
@@ -247,9 +254,11 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
                     copyList.addAll(listReleasePeriod)
                     releasePeriodListState.add(
                         ReleasePeriod(
-                            days = copyList
+                            days = copyList,
+                            type = currentType
                         )
                     )
+                    currentType = null
                     listReleasePeriod.clear()
                 }
             }

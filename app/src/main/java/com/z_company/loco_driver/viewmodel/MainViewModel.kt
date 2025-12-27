@@ -110,7 +110,8 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
                                         } else {
                                             newDays.add(
                                                 monthOfYear.days[index].copy(
-                                                    isReleaseDay = true
+                                                    isReleaseDay = true,
+                                                    releaseType = day.releaseType
                                                 )
                                             )
                                         }

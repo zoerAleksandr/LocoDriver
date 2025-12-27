@@ -6,7 +6,6 @@ import com.z_company.route.viewmodel.CreatePhotoViewModel
 import com.z_company.route.viewmodel.FormViewModel
 import com.z_company.route.viewmodel.home_view_model.HomeViewModel
 import com.z_company.route.viewmodel.LocoFormViewModel
-import com.z_company.route.viewmodel.MoreInfoViewModel
 import com.z_company.route.viewmodel.PassengerFormViewModel
 import com.z_company.route.viewmodel.PreviewPhotoViewModel
 import com.z_company.route.viewmodel.PurchasesViewModel
@@ -56,7 +55,6 @@ val viewModelModule = module {
     viewModel { SelectReleaseDaysViewModel() }
     viewModel { SearchViewModel() }
     viewModel { PurchasesViewModel() }
-    viewModel { MoreInfoViewModel() }
     viewModel { SalaryCalculationViewModel() }
     viewModel { SettingSalaryViewModel() }
     viewModel { AllRouteViewModel() }

@@ -7,26 +7,20 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -48,28 +42,22 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncDataValue
-import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.component.DateRangePickerBottomSheet
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.ui.component.rememberDatePickerStateInLocale
 import com.z_company.core.ui.theme.Shapes
-import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.MonthFullText.getMonthFullText
 import com.z_company.domain.entities.MonthOfYear
-import com.z_company.domain.entities.ReleasePeriod
 import com.z_company.domain.entities.SurchargeExtendedServicePhase
 import com.z_company.domain.entities.SurchargeHeavyTrains
 import com.z_company.route.component.AnimationDialog
-import com.z_company.route.component.CustomDatePickerDialog
 import com.z_company.route.component.OutlinedTextFieldApp
 import com.z_company.route.viewmodel.SettingSalaryUIState
 import kotlinx.coroutines.launch
@@ -141,16 +129,11 @@ fun SettingSalaryScreen(
     setDateNewTariffRate: (Int) -> Unit
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
-    val styleDataLight = MaterialTheme.typography.bodyLarge
-    val titleStyle = AppTypography.getType().titleLarge.copy(fontWeight = FontWeight.Medium)
-    val styleDataMedium = MaterialTheme.typography.bodyLarge
     val hintStyle = MaterialTheme.typography.bodyMedium
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val paddingLarge = 6.dp
     val paddingSmall = 6.dp
-
-    val maxTextSize = 18.sp
 
     if (saveSettingState is ResultState.Success) {
         LaunchedEffect(Unit) {
@@ -184,8 +167,6 @@ fun SettingSalaryScreen(
                 currentCalendar.set(Calendar.DAY_OF_MONTH, date.dateNewRate)
             }
         }
-
-        val datePickerState = rememberDatePickerStateInLocale(currentCalendar.timeInMillis)
 
         // изменить !!!!!
         DateRangePickerBottomSheet(

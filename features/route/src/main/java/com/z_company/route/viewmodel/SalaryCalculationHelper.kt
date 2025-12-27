@@ -3,6 +3,8 @@ package com.z_company.route.viewmodel
 import com.z_company.domain.entities.SalarySetting
 import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHours
+import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHoursExcludingWeekends
+import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHoursIncludingWeekends
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHoursInPeriod
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.route.Route
@@ -829,7 +831,7 @@ class SalaryCalculationHelper(
 
     fun getDayOffHoursFlow(): Flow<Long> {
         return flow {
-            val hours = currentMonthOfYear.getDayoffHours()
+            val hours = currentMonthOfYear.getDayoffHoursIncludingWeekends()
             val hoursInLong: Long = hours.times(3_600_000).toLong()
             emit(hoursInLong)
         }
@@ -841,6 +843,24 @@ class SalaryCalculationHelper(
             val dayOffHours = dayOffHoursInLong.div(3_600_000)
             val averagePaymentHour = salarySetting.averagePaymentHour
             val money = averagePaymentHour.times(dayOffHours)
+            emit(money)
+        }
+    }
+
+    fun getHoursCaringForDisableChildren(): Flow<Long> {
+        return flow {
+            val hours = currentMonthOfYear.getDayoffHoursExcludingWeekends()
+            val hoursInLong: Long = hours.times(3_600_000).toLong()
+            emit(hoursInLong)
+        }
+    }
+
+    fun getMoneyCaringForDisableChildren(): Flow<Double>{
+        return flow {
+            val hoursCaringForDisableChildrenInLong = getHoursCaringForDisableChildren().first()
+            val hoursCaringForDisableChildren = hoursCaringForDisableChildrenInLong.div(3_600_000)
+            val averagePaymentHour = salarySetting.averagePaymentHour
+            val money = averagePaymentHour.times(hoursCaringForDisableChildren)
             emit(money)
         }
     }

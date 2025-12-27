@@ -32,6 +32,36 @@ object UtilForMonthOfYear {
         }
         return totalRelease
     }
+    fun MonthOfYear.getDayoffHoursIncludingWeekends(): Int {
+        var totalRelease = 0
+        this.days.forEach { day ->
+            if (day.isReleaseDay && day.releaseType != ReleaseType.ChildCare) {
+                totalRelease += when (day.tag) {
+                    TagForDay.WORKING_DAY -> 8
+                    TagForDay.SHORTENED_DAY -> 7
+                    TagForDay.NON_WORKING_DAY -> 0
+                    TagForDay.HOLIDAY -> 0
+                }
+            }
+        }
+        return totalRelease
+    }
+
+    // расчет количества часов в отвлечении без учета выходных (для оплаты по уходу за ребенком-инвалидом)
+    fun MonthOfYear.getDayoffHoursExcludingWeekends(): Int {
+        var totalRelease = 0
+        this.days.forEach { day ->
+            if (day.isReleaseDay && day.releaseType == ReleaseType.ChildCare) {
+                totalRelease += when (day.tag) {
+                    TagForDay.WORKING_DAY -> 8
+                    TagForDay.SHORTENED_DAY -> 7
+                    TagForDay.NON_WORKING_DAY -> 8
+                    TagForDay.HOLIDAY -> 8
+                }
+            }
+        }
+        return totalRelease
+    }
 
     fun MonthOfYear.getStandardNormaHours(): Int {
         var normaOfMonth = 0
