@@ -546,7 +546,7 @@ fun SelectReleaseDaysContent(
                                 )
 
                                 val periodColor: Color =
-                                    period.type?.let { typeColors[it] } ?: Color.Cyan
+                                    period.type?.let { typeColors[it] } ?: MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f)
 
                                 if (period.days.isNotEmpty()) {
                                     HorizontalDivider()

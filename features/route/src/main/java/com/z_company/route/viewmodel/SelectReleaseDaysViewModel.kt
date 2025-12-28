@@ -69,7 +69,6 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
     fun setCurrentMonth(yearAndMonth: Pair<Int, Int>) {
         setCalendarJob?.cancel()
         setCalendarJob = calendarUseCase.loadFlowMonthOfYearListState().onEach { result ->
-//            if (result is ResultState.Success) {
                 result.find {
                     it.year == yearAndMonth.first && it.month == yearAndMonth.second
                 }?.let { selectMonthOfYear ->
@@ -77,7 +76,6 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
                     saveCurrentMonthInLocal(selectMonthOfYear)
                     setReleasePeriodState(selectMonthOfYear)
                 }
-//            }
         }.launchIn(viewModelScope)
     }
 

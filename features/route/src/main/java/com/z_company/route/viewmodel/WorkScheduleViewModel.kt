@@ -35,6 +35,12 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlin.collections.sorted
+import com.z_company.domain.entities.ReleaseType
+import com.z_company.domain.entities.ReleasePeriod
+import com.z_company.domain.entities.Day
+import com.z_company.domain.entities.TagForDay
+import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHoursExcludingWeekends
+import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHoursIncludingWeekends
 
 
 /**
@@ -57,6 +63,18 @@ class WorkScheduleViewModel() : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val routeHelper: RouteActionsHelper by inject()
     private val subscriptionHelper: SubscriptionHelper by inject()
+
+    private val _currentMonthFull = MutableStateFlow<MonthOfYear?>(null)
+    val currentMonthFull: StateFlow<MonthOfYear?> = _currentMonthFull
+
+    private val _releasePeriods = MutableStateFlow<List<ReleasePeriod>>(emptyList())
+    val releasePeriods: StateFlow<List<ReleasePeriod>> = _releasePeriods
+
+    private val _releaseByDay = MutableStateFlow<Map<Int, Pair<ReleaseType?, Int>>>(emptyMap())
+    val releaseByDay: StateFlow<Map<Int, Pair<ReleaseType?, Int>>> = _releaseByDay
+
+    private val _totalReleaseHours = MutableStateFlow<Long>(0L)
+    val totalReleaseHours: StateFlow<Long> = _totalReleaseHours
 
     private val _isDeleteMode = MutableStateFlow(false)
     val isDeleteMode: StateFlow<Boolean> = _isDeleteMode.asStateFlow()
@@ -145,7 +163,6 @@ class WorkScheduleViewModel() : ViewModel(), KoinComponent {
      * Call before showing the screen: fetch current month from settings and load months/year lists and routes.
      */
     fun prepareScreen() {
-        Log.d("zzz", "prepareScreen")
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -176,7 +193,6 @@ class WorkScheduleViewModel() : ViewModel(), KoinComponent {
     }
 
     private suspend fun loadMonthYearLists() {
-        Log.d("zzz", "loadMonthYearLists")
         // get month list from calendarUseCase
         withContext(Dispatchers.IO) {
             val list = calendarUseCase.loadFlowMonthOfYearListState().first()
@@ -187,7 +203,6 @@ class WorkScheduleViewModel() : ViewModel(), KoinComponent {
     }
 
     private suspend fun loadRoutesForCurrentMonth(timeZone: Long) {
-        Log.d("zzz", "loadRoutesForCurrentMonth")
         val month = _currentMonth.value ?: return
         // collect first ResultState from routeUseCase.listRoutesByMonth
         withContext(Dispatchers.IO) {
@@ -214,6 +229,81 @@ class WorkScheduleViewModel() : ViewModel(), KoinComponent {
                             _totalTimeWork.value = totalTimeWork
                         }
                         _routesByDay.value = map
+
+                        withContext(Dispatchers.IO) {
+                                    val fullMonth = currentMonth.value
+                                if (fullMonth != null) {
+                                    // Вычисляем totalRelease
+                                    val excluding = fullMonth.getDayoffHoursExcludingWeekends().times(3_600_000L)
+                                    val including = fullMonth.getDayoffHoursIncludingWeekends().times(3_600_000L)
+                                    _totalReleaseHours.value = excluding + including
+
+                                    // Строим releasePeriods аналогично setReleasePeriodState
+                                    val periods = mutableListOf<ReleasePeriod>()
+                                    val listReleasePeriod = mutableListOf<Calendar>()
+                                    var isBegunCounting = false
+                                    var currentType: ReleaseType? = null
+                                    fullMonth.days.forEachIndexed { index, day ->
+                                        if (day.isReleaseDay) {
+                                            if (!isBegunCounting) {
+                                                isBegunCounting = true
+                                                currentType = day.releaseType
+                                            }
+                                            listReleasePeriod.add(
+                                                Calendar.getInstance().also {
+                                                    it.set(Calendar.YEAR, fullMonth.year)
+                                                    it.set(Calendar.MONTH, fullMonth.month)
+                                                    it.set(Calendar.DAY_OF_MONTH, day.dayOfMonth)
+                                                    it.set(Calendar.HOUR_OF_DAY, 0)
+                                                    it.set(Calendar.MINUTE, 0)
+                                                    it.set(Calendar.SECOND, 0)
+                                                    it.set(Calendar.MILLISECOND, 0)
+                                                }
+                                            )
+                                            if ((index + 1 == fullMonth.days.size)) {
+                                                isBegunCounting = false
+                                                val copyList = mutableListOf<Calendar>().apply { addAll(listReleasePeriod) }
+                                                periods.add(ReleasePeriod(days = copyList, type = currentType))
+                                                listReleasePeriod.clear()
+                                            }
+                                        } else {
+                                            if (isBegunCounting) {
+                                                isBegunCounting = false
+                                                val copyList = mutableListOf<Calendar>().apply { addAll(listReleasePeriod) }
+                                                periods.add(ReleasePeriod(days = copyList, type = currentType))
+                                                currentType = null
+                                                listReleasePeriod.clear()
+                                            }
+                                        }
+                                    }
+                                    _releasePeriods.value = periods
+
+                                    // Строим releaseByDay: для каждого дня с isReleaseDay, вычисляем hours
+                                    val releaseMap = mutableMapOf<Int, Pair<ReleaseType?, Int>>()
+                                    fullMonth.days.forEach { day ->
+                                        if (day.isReleaseDay) {
+                                            val hours = if (day.releaseType == ReleaseType.ChildCare) {
+                                                when (day.tag) {
+                                                    TagForDay.WORKING_DAY -> 8
+                                                    TagForDay.SHORTENED_DAY -> 7
+                                                    TagForDay.NON_WORKING_DAY -> 8
+                                                    TagForDay.HOLIDAY -> 8
+                                                }
+                                            } else {
+                                                when (day.tag) {
+                                                    TagForDay.WORKING_DAY -> 8
+                                                    TagForDay.SHORTENED_DAY -> 7
+                                                    TagForDay.NON_WORKING_DAY -> 0
+                                                    TagForDay.HOLIDAY -> 0
+                                                }
+                                            }
+                                            releaseMap[day.dayOfMonth] = Pair(day.releaseType, hours)
+                                        }
+                                    }
+                                    _releaseByDay.value = releaseMap
+                                }
+                        }
+
                         _isLoading.value = false
                     }
 
@@ -289,7 +379,6 @@ class WorkScheduleViewModel() : ViewModel(), KoinComponent {
      * We reproduce the same logic: iterate calendar list, find, save, and reload routes after success.
      */
     fun setCurrentMonth(yearAndMonth: Pair<Int, Int>) {
-        Log.d("zzz", "setCurrentMonth")
         viewModelScope.launch {
             calendarUseCase.loadFlowMonthOfYearListState().collect { list ->
                 val found =

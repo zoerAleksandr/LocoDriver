@@ -28,7 +28,11 @@ object ConverterLongToTime {
     fun getTimeInStringFormat(long: Long?): String {
         return if (long == null) {
             "          "
-        } else {
+        }
+        else if (long < 0) {
+            "00:00"
+        }
+        else {
             val hour = getHour(long)
             val hourText = if (hour < 10) {
                 "0$hour"

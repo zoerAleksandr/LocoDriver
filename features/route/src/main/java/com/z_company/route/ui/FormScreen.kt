@@ -666,21 +666,23 @@ fun FormScreen(
                                             )
                                         }
 
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Image(
-                                                modifier = Modifier
-                                                    .size(32.dp)
-                                                    .padding(end = 8.dp),
-                                                painter = painterResource(id = R.drawable.icon_holiday),
-                                                contentDescription = null
-                                            )
-                                            Text(
-                                                text = ConverterLongToTime.getTimeInStringFormat(
-                                                    holidayTime ?: 0L
-                                                ),
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
+                                        holidayTime?.let { time ->
+                                            if (time > 0L) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Image(
+                                                        modifier = Modifier
+                                                            .size(32.dp)
+                                                            .padding(end = 8.dp),
+                                                        painter = painterResource(id = R.drawable.icon_holiday),
+                                                        contentDescription = null
+                                                    )
+                                                    Text(
+                                                        text = ConverterLongToTime.getTimeInStringFormat(time),
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }

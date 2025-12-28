@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
@@ -31,6 +33,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -52,7 +55,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -65,6 +67,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -100,6 +103,7 @@ import java.util.Calendar
 import kotlin.collections.isNotEmpty
 import kotlin.collections.map
 import kotlin.collections.plus
+import com.z_company.domain.entities.ReleaseType
 
 /**
  * WorkScheduleScreen - calendar view for creating schedules fast.
@@ -118,7 +122,8 @@ import kotlin.collections.plus
 @Composable
 fun WorkScheduleScreen(
     viewModel: WorkScheduleViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onReleaseDayScreenClick: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -144,16 +149,17 @@ fun WorkScheduleScreen(
 
     val plannedMap by viewModel.selectedDays.collectAsState() // now Map<Int, List<Long>>
 
+    val currentMonthFull by viewModel.currentMonthFull.collectAsState()
+    val releasePeriods by viewModel.releasePeriods.collectAsState()
+    val releaseByDay by viewModel.releaseByDay.collectAsState()
+    val totalReleaseHours by viewModel.totalReleaseHours.collectAsState()
+
     // bottom sheet state for month picker
     val monthSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showMonthSheet by remember { mutableStateOf(false) }
     var showRemoveSheet by remember { mutableStateOf(false) }
     var showEndTimeSheet by remember { mutableStateOf(false) }
     var showDialogConfirmRemoveRoute by remember { mutableStateOf(false) }
-
-    val timePickerStateTimeStartWork = rememberTimePickerState(is24Hour = true)
-    val timePickerStateWorkDuration = rememberTimePickerState(initialHour = 12, is24Hour = true)
-
 
     // bottom sheet for custom time input
     var showCustomTimeSheet by remember { mutableStateOf(false) }
@@ -475,12 +481,36 @@ fun WorkScheduleScreen(
                     }
                 }
 
-                item {
-                    Text(
-                        style = MaterialTheme.typography.titleMedium,
-                        text = ConverterLongToTime.getTimeInStringFormat(totalTimeWork),
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                if (totalReleaseHours > 0L) {
+                    val textWorkTime = ConverterLongToTime.getTimeInStringFormat(totalTimeWork)
+                    val textReleaseTime =
+                        ConverterLongToTime.getTimeInStringFormat(totalReleaseHours)
+
+                    item {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                style = MaterialTheme.typography.titleSmall,
+                                text = "$textWorkTime - рабочие",
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                modifier = Modifier.noRippleEffect {
+                                    onReleaseDayScreenClick()
+                                },
+                                style = MaterialTheme.typography.titleSmall,
+                                text = "$textReleaseTime - отвлечения",
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                } else {
+                    item {
+                        Text(
+                            style = MaterialTheme.typography.titleMedium,
+                            text = ConverterLongToTime.getTimeInStringFormat(totalTimeWork),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
 
                 item {
@@ -587,7 +617,8 @@ fun WorkScheduleScreen(
                                 daysToDelete = selectedRoutesToDeleteMap.keys, // set<Int> дней, которые имеют пометки
                                 isDeleteMode = isDeleteMode,
                                 timeConverter = dateAndTimeConverter,
-                                maxHeightPx = maxHeightCell ?: 24.dp
+                                maxHeightPx = maxHeightCell ?: 24.dp,
+                                releaseByDay = releaseByDay
                             )
                         }
                     }
@@ -1027,6 +1058,7 @@ private fun unifiedCellHeightDpOrDefault(): Dp {
 @OptIn(FlowPreview::class)
 @Composable
 private fun CalendarView(
+    releaseByDay: Map<Int, Pair<ReleaseType?, Int>>,
     cells: MutableList<Int?>,
     routesByDay: Map<Int, List<Route>>,
     plannedTimesByDay: Map<Int, List<Long>>,
@@ -1077,7 +1109,8 @@ private fun CalendarView(
                     timeConverter = timeConverter,
                     isDeleteMode = isDeleteMode,
                     isMarkedForDelete = daysToDelete.contains(day),
-                    height = maxHeightPx
+                    height = maxHeightPx,
+                    releaseByDay = releaseByDay
                 )
             }
         }
@@ -1097,16 +1130,38 @@ private fun DayCell(
     isDeleteMode: Boolean,
     isMarkedForDelete: Boolean,
     height: Dp,
+    releaseByDay: Map<Int, Pair<ReleaseType?, Int>>,
 ) {
-    val redColor = Color(0xFFD20119)
-    val bgColor =
-        if (isDeleteMode && isMarkedForDelete) redColor else MaterialTheme.colorScheme.secondary
+    val redColor = MaterialTheme.colorScheme.error
+
+    val typeColors = mapOf(
+        ReleaseType.Vacation to Color.Green,
+        ReleaseType.SickLeave to Color.Red,
+        ReleaseType.Donor to Color.Blue,
+        ReleaseType.Courses to Color.Yellow,
+        ReleaseType.ChildCare to Color.Magenta,
+        ReleaseType.Other to Color.Gray
+    )
+
+    val bgColor = if (isDeleteMode && isMarkedForDelete) redColor
+//    else if (releaseByDay.containsKey(day)) typeColors[releaseByDay[day]?.first]
+//        ?: MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f)
+    else MaterialTheme.colorScheme.secondary
+
     val borderColor =
-        if (isDeleteMode && isMarkedForDelete) redColor.copy(alpha = 0.4f) else MaterialTheme.colorScheme.secondary
+        if (isDeleteMode && isMarkedForDelete) redColor.copy(alpha = 0.4f)
+//        else if (releaseByDay.containsKey(day)) typeColors[releaseByDay[day]?.first]
+//            ?: MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f)
+        else MaterialTheme.colorScheme.secondary
 
     val textColor = if (isDeleteMode && isMarkedForDelete)
         MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
 
+    val releaseInfo = releaseByDay[day]
+    val releaseHours = releaseInfo?.second ?: 0
+    val releaseTexts = if (releaseHours > 0) listOf("$releaseHours") else emptyList()
+    val releaseType = releaseInfo?.first  // Для цвета полоски
+    val indicatorColor = typeColors[releaseType] ?: Color.Transparent
     Card(
         modifier = Modifier
             .defaultMinSize(
@@ -1118,76 +1173,196 @@ private fun DayCell(
         colors = CardDefaults.cardColors(containerColor = bgColor),
         shape = RoundedCornerShape(6.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .wrapContentHeight()
-                .fillMaxWidth()
-                .padding(6.dp),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            // top row - day number
-            Text(
-                text = day.toString(),
-                style = MaterialTheme.typography.bodyMedium,
-                color = textColor
+        Box(modifier = Modifier.height(height)) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .wrapContentHeight()
+                    .fillMaxWidth()
+                    .padding(6.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                // top row - day number
+                Text(
+                    text = day.toString(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = textColor
+                )
+
+                val plannedTexts = plannedTime
+                    .map { ConverterLongToTime.getTimeInStringFormat(it) }
+
+                val routeTexts = routeTimes
+                    .map {
+                        timeConverter?.getTime(it) ?: ConverterLongToTime.getTimeInStringFormat(it)
+                    }
+
+                val combined: List<Pair<String, Int>> =
+                    plannedTexts.map { it to 1 } + routeTexts.map { it to 0 } + releaseTexts.map { it to 2 }
+
+                val (toShow: List<Pair<String, Int>>, remainingCount: Int) = when {
+                    combined.isEmpty() -> Pair(emptyList(), 0)
+
+                    combined.size < 2 -> {
+                        Pair(combined, 0)
+                    }
+
+                    combined.size == 2 -> {
+                        Pair(listOf(combined[0], combined[1]), 0)
+                    }
+
+                    else -> {
+                        val firstPlannedIndex = combined.indexOfFirst { it.second == 1 }
+                        val firstItem =
+                            if (firstPlannedIndex >= 0) combined[firstPlannedIndex] else combined[0]
+                        Pair(listOf(firstItem), combined.size - 1)
+                    }
+                }
+
+                Column(modifier = Modifier.padding(top = 3.dp)) {
+                    toShow.forEach { (label, type) ->
+                        AutoSizeText(
+                            text = label,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = when (type) {
+                                1 -> MaterialTheme.colorScheme.tertiary
+                                2 -> redColor
+                                else -> textColor
+                            },
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            maxTextSize = 18.sp
+                        )
+                    }
+
+                    // If nothing to show (shouldn't happen) keep spacing; else show remaining if >0
+                    if (toShow.isEmpty()) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+
+                    if (remainingCount > 0) {
+                        AutoSizeText(
+                            text = "+$remainingCount",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = textColor,
+                            maxTextSize = 12.sp
+                        )
+                    }
+                }
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .align(Alignment.BottomCenter)
+                    .background(indicatorColor)
             )
-
-            val plannedTexts = plannedTime
-                .map { ConverterLongToTime.getTimeInStringFormat(it) }
-
-            val routeTexts = routeTimes
-                .map {
-                    timeConverter?.getTime(it) ?: ConverterLongToTime.getTimeInStringFormat(it)
-                }
-
-            val combined: List<Pair<String, Boolean>> =
-                plannedTexts.map { it to true } + routeTexts.map { it to false }
-
-            val (toShow: List<Pair<String, Boolean>>, remainingCount: Int) = when {
-                combined.isEmpty() -> Pair(emptyList(), 0)
-
-                combined.size < 2 -> {
-                    Pair(combined, 0)
-                }
-
-                combined.size == 2 -> {
-                    Pair(listOf(combined[0], combined[1]), 0)
-                }
-
-                else -> {
-                    val firstPlannedIndex = combined.indexOfFirst { it.second }
-                    val firstItem =
-                        if (firstPlannedIndex >= 0) combined[firstPlannedIndex] else combined[0]
-                    Pair(listOf(firstItem), combined.size - 1)
-                }
-            }
-
-            Column(modifier = Modifier.padding(top = 3.dp)) {
-                toShow.forEach { (label, isPlanned) ->
-                    AutoSizeText(
-                        text = label,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (isPlanned) MaterialTheme.colorScheme.tertiary else textColor,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        maxTextSize = 18.sp
-                    )
-                }
-
-                // If nothing to show (shouldn't happen) keep spacing; else show remaining if >0
-                if (toShow.isEmpty()) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
-
-                if (remainingCount > 0) {
-                    AutoSizeText(
-                        text = "+$remainingCount",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = textColor,
-                        maxTextSize = 12.sp
-                    )
-                }
-            }
         }
     }
 }
+
+//@Composable
+//private fun DayCell(
+//    day: Int,
+//    routeTimes: List<Long>,
+//    plannedTime: List<Long>,
+//    onClick: () -> Unit,
+//    timeConverter: DateAndTimeConverter?,
+//    isDeleteMode: Boolean,
+//    isMarkedForDelete: Boolean,
+//    height: Dp,
+//    releaseByDay: Map<Int, Pair<ReleaseType?, Int>>,
+//) {
+//    val redColor = Color(0xFFD20119)
+//    val bgColor =
+//        if (isDeleteMode && isMarkedForDelete) redColor else MaterialTheme.colorScheme.secondary
+//    val borderColor =
+//        if (isDeleteMode && isMarkedForDelete) redColor.copy(alpha = 0.4f) else MaterialTheme.colorScheme.secondary
+//
+//    val textColor = if (isDeleteMode && isMarkedForDelete)
+//        MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+//
+//    Card(
+//        modifier = Modifier
+//            .defaultMinSize(
+//                minHeight = height
+//            )
+//            .clickable { onClick() },
+//        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
+//        border = BorderStroke(width = 1.dp, color = borderColor),
+//        colors = CardDefaults.cardColors(containerColor = bgColor),
+//        shape = RoundedCornerShape(6.dp)
+//    ) {
+//        Column(
+//            modifier = Modifier
+//                .wrapContentHeight()
+//                .fillMaxWidth()
+//                .padding(6.dp),
+//            verticalArrangement = Arrangement.SpaceBetween
+//        ) {
+//            // top row - day number
+//            Text(
+//                text = day.toString(),
+//                style = MaterialTheme.typography.bodyMedium,
+//                color = textColor
+//            )
+//
+//            val plannedTexts = plannedTime
+//                .map { ConverterLongToTime.getTimeInStringFormat(it) }
+//
+//            val routeTexts = routeTimes
+//                .map {
+//                    timeConverter?.getTime(it) ?: ConverterLongToTime.getTimeInStringFormat(it)
+//                }
+//
+//            val combined: List<Pair<String, Boolean>> =
+//                plannedTexts.map { it to true } + routeTexts.map { it to false }
+//
+//            val (toShow: List<Pair<String, Boolean>>, remainingCount: Int) = when {
+//                combined.isEmpty() -> Pair(emptyList(), 0)
+//
+//                combined.size < 2 -> {
+//                    Pair(combined, 0)
+//                }
+//
+//                combined.size == 2 -> {
+//                    Pair(listOf(combined[0], combined[1]), 0)
+//                }
+//
+//                else -> {
+//                    val firstPlannedIndex = combined.indexOfFirst { it.second }
+//                    val firstItem =
+//                        if (firstPlannedIndex >= 0) combined[firstPlannedIndex] else combined[0]
+//                    Pair(listOf(firstItem), combined.size - 1)
+//                }
+//            }
+//
+//            Column(modifier = Modifier.padding(top = 3.dp)) {
+//                toShow.forEach { (label, isPlanned) ->
+//                    AutoSizeText(
+//                        text = label,
+//                        style = MaterialTheme.typography.bodySmall,
+//                        color = if (isPlanned) MaterialTheme.colorScheme.tertiary else textColor,
+//                        fontWeight = FontWeight.Medium,
+//                        maxLines = 1,
+//                        maxTextSize = 18.sp
+//                    )
+//                }
+//
+//                // If nothing to show (shouldn't happen) keep spacing; else show remaining if >0
+//                if (toShow.isEmpty()) {
+//                    Spacer(modifier = Modifier.height(12.dp))
+//                }
+//
+//                if (remainingCount > 0) {
+//                    AutoSizeText(
+//                        text = "+$remainingCount",
+//                        style = MaterialTheme.typography.bodySmall,
+//                        color = textColor,
+//                        maxTextSize = 12.sp
+//                    )
+//                }
+//            }
+//        }
+//    }
+//}

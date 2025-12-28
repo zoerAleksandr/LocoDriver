@@ -12,6 +12,7 @@ fun WorkScheduleDestination(
 ){
     val viewModel : WorkScheduleViewModel = viewModel()
     WorkScheduleScreen(
-        viewModel = viewModel
+        viewModel = viewModel,
+        onReleaseDayScreenClick = router::showSelectReleaseDayScreen
     )
 }
