@@ -151,7 +151,6 @@ class FormViewModel(
 
     // Инициализация реактивных flows
     private fun initializeFlows() {
-        Log.d("zzz", "initializeFlows")
         // Flow для настроек
         viewModelScope.launch {
             settingsUseCase.getFlowCurrentSettingsState().collectLatest { result ->
