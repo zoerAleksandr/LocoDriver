@@ -1,7 +1,6 @@
 package com.z_company.route.ui
 
 import android.annotation.SuppressLint
-import android.util.Log
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.BasicTooltipBox
 import androidx.compose.foundation.BorderStroke
@@ -39,7 +38,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.rememberDismissState
-import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
@@ -61,11 +59,13 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -254,16 +254,24 @@ fun HomeScreen(
         mutableStateOf(false)
     }
 
-    var currentRouteWorkTime by remember { mutableStateOf("") }
-
-    LaunchedEffect(Unit) {
-        scope.launch {
-            currentRouteTimeWork.flowWithLifecycle(lifecycle).collect { time ->
-                currentRouteWorkTime =
-                    ConverterLongToTime.getTimeInStringFormat(time)
+    val currentRouteWorkTime by produceState(initialValue = "") {
+        currentRouteTimeWork
+            .flowWithLifecycle(lifecycle)
+            .collect { time ->
+                value = ConverterLongToTime.getTimeInStringFormat(time)
             }
-        }
     }
+
+//    var currentRouteWorkTime by remember { mutableStateOf("") }
+
+//    LaunchedEffect(Unit) {
+//        scope.launch {
+//            currentRouteTimeWork.flowWithLifecycle(lifecycle).collect { time ->
+//                currentRouteWorkTime =
+//                    ConverterLongToTime.getTimeInStringFormat(time)
+//            }
+//        }
+//    }
 
     LaunchedEffect(saveTimeEvent) {
         saveTimeEvent.collectLatest {
@@ -562,7 +570,7 @@ fun HomeScreen(
                         verticalArrangement = Arrangement.Top
                     ) {
                         HorizontalPager(
-                            modifier = Modifier.animateItemPlacement(),
+                            modifier = Modifier.animateItem(),
                             state = pagerState
                         ) { page ->
                             when (page) {
@@ -602,7 +610,7 @@ fun HomeScreen(
                         }
                         LinearPagerIndicator(
                             modifier = Modifier
-                                .animateItemPlacement(),
+                                .animateItem(),
                             state = pagerState
                         )
                     }
@@ -615,7 +623,7 @@ fun HomeScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .animateItemPlacement()
+                                .animateItem()
                         ) {
                             Text(
                                 modifier = Modifier
@@ -1075,7 +1083,7 @@ fun HomeScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .animateItemPlacement()
+                            .animateItem()
                     ) {
                         Row(
                             modifier = Modifier
@@ -1118,20 +1126,18 @@ fun HomeScreen(
                                     var background = MaterialTheme.colorScheme.secondary
 
                                     if (route.isFuture(offsetInMoscow)) {
-                                        Log.d("zzz", "isFuture")
                                         background = MaterialTheme.colorScheme.surfaceBright
                                     } else {
-                                        Log.d("zzz", "not isFuture")
                                         if (route.isTransition(offsetInMoscow)) {
                                             background = MaterialTheme.colorScheme.surfaceDim
                                         }
                                     }
 
-                                    val dismissState = rememberDismissState()
+//                                    val dismissState = rememberDismissState()
 
                                     ItemHomeScreen(
-                                        modifier = Modifier.animateItemPlacement(),
-                                        dismissState = dismissState,
+                                        modifier = Modifier.animateItem(),
+//                                        dismissState = dismissState,
                                         route = route,
                                         onRequestDelete = {
                                             routeForRemove = route
@@ -1150,12 +1156,13 @@ fun HomeScreen(
                                         dateAndTimeConverter = dateAndTimeConverter,
                                         isHeavyTrains = listRouteState[0].isHeavyTrains,
                                         isExtendedServicePhaseTrains = listRouteState[0].isExtendedServicePhaseTrains,
-                                        isHolidayTimeInRoute = listRouteState[0].isHoliday
+                                        isHolidayTimeInRoute = listRouteState[0].isHoliday,
+                                        number = listRouteState.size
                                     )
                                 } else {
                                     Text(
                                         modifier = Modifier
-                                            .animateItemPlacement()
+                                            .animateItem()
                                             .fillMaxWidth(),
                                         textAlign = TextAlign.Center,
                                         text = "Список пуст\n\nНажмите  +  чтобы добавить маршрут\nили создайте график работы",
@@ -1176,9 +1183,9 @@ fun HomeScreen(
                                     val dismissState = rememberDismissState()
 
                                     ItemHomeScreen(
-                                        modifier = Modifier.animateItemPlacement(),
+                                        modifier = Modifier.animateItem(),
                                         route = route,
-                                        dismissState = dismissState,
+//                                        dismissState = dismissState,
                                         onRequestDelete = {
                                             routeForRemove = route
                                             isShowDialogConfirmRemoveRoute = true
@@ -1194,7 +1201,8 @@ fun HomeScreen(
                                         dateAndTimeConverter = dateAndTimeConverter,
                                         isHeavyTrains = listRouteState[1].isHeavyTrains,
                                         isExtendedServicePhaseTrains = listRouteState[1].isExtendedServicePhaseTrains,
-                                        isHolidayTimeInRoute = listRouteState[1].isHoliday
+                                        isHolidayTimeInRoute = listRouteState[1].isHoliday,
+                                        number = listRouteState.size - 1
                                     )
                                 }
                             }
@@ -1207,7 +1215,7 @@ fun HomeScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .animateItemPlacement()
+                            .animateItem()
                     ) {
                         Text(
                             modifier = Modifier
@@ -1237,7 +1245,7 @@ fun HomeScreen(
                                         )
                                         .indication(
                                             interactionSource = interactionSource,
-                                            indication = rememberRipple(
+                                            indication = ripple(
                                                 color = MaterialTheme.colorScheme.background,
                                                 bounded = true
                                             )
@@ -1299,7 +1307,7 @@ fun HomeScreen(
                                         )
                                         .indication(
                                             interactionSource = interactionSource,
-                                            indication = rememberRipple(
+                                            indication = ripple(
                                                 color = MaterialTheme.colorScheme.background,
                                                 bounded = true
                                             )
@@ -1352,7 +1360,7 @@ fun HomeScreen(
                     Spacer(
                         modifier = Modifier
                             .height(50.dp)
-                            .animateItemPlacement()
+                            .animateItem()
                     )
                 }
             }
@@ -1481,6 +1489,9 @@ fun MainInfo(
                             month.getPersonalNormaHours()
                         val percent =
                             ((totalTime * 100).toFloat() / (normaHoursInMonth * 3_600_000L).toFloat()) / 100f
+
+                        val percentNormaInMonth = (totalTime.toFloat() / (normaHoursInMonth * 3_600_000L).coerceAtLeast(1).toFloat()).coerceIn(0f, 1f)
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1506,8 +1517,9 @@ fun MainInfo(
                                 .height(4.dp),
                             trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                             color = MaterialTheme.colorScheme.secondary,
-                            strokeCap = StrokeCap.Round,
-                            progress = { percent.coerceIn(0f, 1f) },
+                            gapSize = 4.dp,
+                            drawStopIndicator = {},
+                            progress = { percentNormaInMonth },
                         )
                     }
                     Spacer(modifier = Modifier.height(7.dp))
@@ -1521,6 +1533,8 @@ fun MainInfo(
                             month.getNormaHoursInDate(currentTime.timeInMillis)
                         val percent =
                             ((totalTime * 100).toFloat() / (normaHoursToday * 3_600_000L).toFloat()) / 100f
+
+                        val percentNormaInDay = (totalTime.toFloat() / (normaHoursToday * 3_600_000L).coerceAtLeast(1).toFloat()).coerceIn(0f, 1f)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1550,8 +1564,9 @@ fun MainInfo(
                                 .height(4.dp),
                             trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                             color = MaterialTheme.colorScheme.secondary,
-                            strokeCap = StrokeCap.Round,
-                            progress = { percent.coerceIn(0f, 1f) },
+                            gapSize = 4.dp,
+                            drawStopIndicator = {},
+                            progress = { percentNormaInDay },
                         )
                     }
 //                    Spacer(modifier = Modifier.height(7.dp))
@@ -1763,104 +1778,108 @@ fun DetailWorkTimeCard(
                                                 .height(4.dp),
                                             trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                                             color = MaterialTheme.colorScheme.secondary,
-                                            strokeCap = StrokeCap.Round,
+//                                            strokeCap = StrokeCap.Round,
+                                            gapSize = 4.dp,
+                                            drawStopIndicator = {},
                                             progress = { percentNight },
                                         )
                                     }
                                 }
-                            }
-                            Spacer(modifier = Modifier.height(7.dp))
-                            AsyncDataValue(passengerTimeState) { passengerTime ->
-                                passengerTime?.let {
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth(),
-                                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                                    ) {
-                                        val passengerTimeText =
-                                            ConverterLongToTime.getTimeInStringFormat(
-                                                passengerTime
-                                            )
-                                        val percent =
-                                            ((passengerTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
-
-                                        val percentPassenger = (passengerTime.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
+                                Spacer(modifier = Modifier.height(7.dp))
+                                AsyncDataValue(passengerTimeState) { passengerTime ->
+                                    passengerTime?.let {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth(),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp),
                                         ) {
-                                            Text(
-                                                text = "Пассажиром",
-                                                maxLines = 1,
-                                                modifier = Modifier.weight(1f),
-                                                overflow = TextOverflow.Ellipsis,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.secondary
-                                            )
-                                            Text(
-                                                text = passengerTimeText,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.secondary
+                                            val passengerTimeText =
+                                                ConverterLongToTime.getTimeInStringFormat(
+                                                    passengerTime
+                                                )
+                                            val percent =
+                                                ((passengerTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
+
+                                            val percentPassenger = (passengerTime.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = "Пассажиром",
+                                                    maxLines = 1,
+                                                    modifier = Modifier.weight(1f),
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.secondary
+                                                )
+                                                Text(
+                                                    text = passengerTimeText,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.secondary
+                                                )
+                                            }
+                                            LinearProgressIndicator(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .height(4.dp),
+                                                trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                                                color = MaterialTheme.colorScheme.secondary,
+                                                gapSize = 4.dp,
+                                                drawStopIndicator = {},
+                                                progress = { percentPassenger },
                                             )
                                         }
-                                        LinearProgressIndicator(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(4.dp),
-                                            trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
-                                            color = MaterialTheme.colorScheme.secondary,
-                                            strokeCap = StrokeCap.Round,
-                                            progress = { percentPassenger },
-                                        )
                                     }
                                 }
-                            }
-                            Spacer(modifier = Modifier.height(7.dp))
-                            AsyncDataValue(singleLocomotiveTimeState) { singleLocomotiveTime ->
-                                singleLocomotiveTime?.let {
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth(),
-                                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                                    ) {
-                                        val passengerTimeText =
-                                            ConverterLongToTime.getTimeInStringFormat(
-                                                singleLocomotiveTime
-                                            )
-                                        val percent =
-                                            ((singleLocomotiveTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
-
-                                        val percentSingleLocomotive = (singleLocomotiveTime.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
-
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
+                                Spacer(modifier = Modifier.height(7.dp))
+                                AsyncDataValue(singleLocomotiveTimeState) { singleLocomotiveTime ->
+                                    singleLocomotiveTime?.let {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth(),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp),
                                         ) {
-                                            Text(
-                                                text = "Резервом",
-                                                maxLines = 1,
-                                                modifier = Modifier.weight(1f),
-                                                overflow = TextOverflow.Ellipsis,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.secondary
-                                            )
-                                            Text(
-                                                text = passengerTimeText,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.secondary
+                                            val passengerTimeText =
+                                                ConverterLongToTime.getTimeInStringFormat(
+                                                    singleLocomotiveTime
+                                                )
+                                            val percent =
+                                                ((singleLocomotiveTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
+
+                                            val percentSingleLocomotive = (singleLocomotiveTime.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
+
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = "Резервом",
+                                                    maxLines = 1,
+                                                    modifier = Modifier.weight(1f),
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.secondary
+                                                )
+                                                Text(
+                                                    text = passengerTimeText,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.secondary
+                                                )
+                                            }
+                                            LinearProgressIndicator(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .height(4.dp),
+                                                trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                                                color = MaterialTheme.colorScheme.secondary,
+                                                gapSize = 4.dp,
+                                                drawStopIndicator = {},
+                                                progress = { percentSingleLocomotive },
                                             )
                                         }
-                                        LinearProgressIndicator(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(4.dp),
-                                            trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
-                                            color = MaterialTheme.colorScheme.secondary,
-                                            strokeCap = StrokeCap.Round,
-                                            progress = { percentSingleLocomotive },
-                                        )
                                     }
                                 }
                             }
@@ -2033,7 +2052,8 @@ fun DetailTrainCard(
                                                 .height(4.dp),
                                             trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                                             color = MaterialTheme.colorScheme.secondary,
-                                            strokeCap = StrokeCap.Round,
+                                            gapSize = 4.dp,
+                                            drawStopIndicator = {},
                                             progress = { percentExtendedServicePhase },
                                         )
                                     }
@@ -2081,7 +2101,8 @@ fun DetailTrainCard(
                                                 .height(4.dp),
                                             trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                                             color = MaterialTheme.colorScheme.secondary,
-                                            strokeCap = StrokeCap.Round,
+                                            gapSize = 4.dp,
+                                            drawStopIndicator = {},
                                             progress = { percentLong },
                                         )
                                     }
@@ -2127,7 +2148,8 @@ fun DetailTrainCard(
                                                 .height(4.dp),
                                             trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                                             color = MaterialTheme.colorScheme.secondary,
-                                            strokeCap = StrokeCap.Round,
+                                            gapSize = 4.dp,
+                                            drawStopIndicator = {},
                                             progress = { percentHeavy },
                                         )
                                     }
@@ -2173,7 +2195,8 @@ fun DetailTrainCard(
                                                 .height(4.dp),
                                             trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                                             color = MaterialTheme.colorScheme.secondary,
-                                            strokeCap = StrokeCap.Round,
+                                            gapSize = 4.dp,
+                                            drawStopIndicator = {},
                                             progress = { percentOnePerson },
                                         )
                                     }
@@ -2184,43 +2207,6 @@ fun DetailTrainCard(
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-fun DetailInfo() {
-    val localDensity = LocalDensity.current
-    var cardWidthDp by remember {
-        mutableStateOf(0.dp)
-    }
-
-    Card(
-        modifier = Modifier
-            .padding(12.dp)
-            .onGloballyPositioned { coordinates ->
-                cardWidthDp = with(localDensity) { coordinates.size.width.toDp() }
-            },
-        colors = CardDefaults.cardColors(
-            containerColor = Color.Transparent
-        ),
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(IntrinsicSize.Max),
-            contentAlignment = Alignment.Center
-        ) {
-            PieChart(
-                data = mapOf(
-                    Pair("Пассажиром", 19),
-                    Pair("Резервом", 8),
-                    Pair("Остальные", 220)
-                ),
-                centerText = "247:00",
-                radiusOuter = cardWidthDp * 0.18f,
-                nightTime = 80
-            )
         }
     }
 }

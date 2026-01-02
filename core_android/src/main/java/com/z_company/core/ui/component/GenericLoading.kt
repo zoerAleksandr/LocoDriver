@@ -2,8 +2,6 @@ package com.z_company.core.ui.component
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -12,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -42,7 +41,7 @@ fun GenericLoading(
                 onClick = onCloseClick
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.Close,
+                    painter = painterResource(R.drawable.ic_clear),
                     tint = MaterialTheme.colorScheme.primary,
                     contentDescription = null
                 )

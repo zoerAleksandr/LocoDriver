@@ -553,7 +553,7 @@ fun SelectReleaseDaysContent(
                                     Column(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .animateItemPlacement()
+                                            .animateItem()
                                     ) {
                                         Row(
                                             modifier = Modifier

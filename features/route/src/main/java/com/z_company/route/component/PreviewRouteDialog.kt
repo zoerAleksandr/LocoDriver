@@ -336,7 +336,7 @@ fun PreviewRoute(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = paddingBetweenBlocks)
-                        .animateItemPlacement(),
+                        .animateItem(),
                     horizontalArrangement = Arrangement.Center
                 ) {
                     Text(
@@ -351,7 +351,7 @@ fun PreviewRoute(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = paddingBetweenBlocks)
-                            .animateItemPlacement(),
+                            .animateItem(),
                         contentAlignment = Alignment.CenterStart
                     ) {
                         Text(
@@ -367,7 +367,7 @@ fun PreviewRoute(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = paddingBetweenBlocks)
-                        .animateItemPlacement(),
+                        .animateItem(),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     Text(
@@ -382,7 +382,7 @@ fun PreviewRoute(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = paddingInsideBlock)
-                            .animateItemPlacement(),
+                            .animateItem(),
                     ) {
                         // Icon
                         Box(
@@ -438,7 +438,7 @@ fun PreviewRoute(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = paddingInsideBlock)
-                            .animateItemPlacement(),
+                            .animateItem(),
                         verticalAlignment = Alignment.Top
                     ) {
                         Box(
@@ -511,7 +511,7 @@ fun PreviewRoute(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = paddingBetweenBlocks)
-                            .animateItemPlacement(),
+                            .animateItem(),
                         contentAlignment = Alignment.CenterStart
                     ) {
                         Text(
@@ -552,7 +552,7 @@ fun PreviewRoute(
                         label = ""
                     )
 
-                Column(modifier = Modifier.animateItemPlacement()) {
+                Column(modifier = Modifier.animateItem()) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -845,9 +845,13 @@ fun PreviewRoute(
                                                 delivery = sectionDiesel.deliveryFuel,
                                                 refuel = sectionDiesel.fuelSupply
                                             )
-                                        val consumptionText = consumption.str()
-                                        val acceptedText = sectionDiesel.acceptedFuel.str()
-                                        val deliveryText = sectionDiesel.deliveryFuel.str()
+                                        val consumptionText = rounding(consumption, 2).str()
+                                        val acceptedText = rounding(
+                                            sectionDiesel.acceptedFuel, 2
+                                        ).str()
+                                        val deliveryText = rounding(
+                                            sectionDiesel.deliveryFuel, 2
+                                        ).str()
                                         val acceptedInKilo =
                                             sectionDiesel.acceptedFuel.times(sectionDiesel.coefficient)
                                         val acceptedInKiloText =
@@ -974,7 +978,7 @@ fun PreviewRoute(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = paddingBetweenBlocks)
-                            .animateItemPlacement(),
+                            .animateItem(),
                         contentAlignment = Alignment.CenterStart
                     ) {
                         Text(
@@ -999,7 +1003,7 @@ fun PreviewRoute(
                         label = ""
                     )
 
-                Column(modifier = Modifier.animateItemPlacement()) {
+                Column(modifier = Modifier.animateItem()) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1138,7 +1142,7 @@ fun PreviewRoute(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = paddingBetweenBlocks)
-                            .animateItemPlacement(),
+                            .animateItem(),
                         contentAlignment = Alignment.CenterStart
                     ) {
                         Text(
@@ -1163,7 +1167,7 @@ fun PreviewRoute(
                         .ifNullOrBlank { "" }
                 val notesText = passenger.notes.ifNullOrBlank { "" }
 
-                Column(modifier = Modifier.animateItemPlacement()) {
+                Column(modifier = Modifier.animateItem()) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1245,7 +1249,7 @@ fun PreviewRoute(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = paddingBetweenBlocks)
-                            .animateItemPlacement(),
+                            .animateItem(),
                         contentAlignment = Alignment.CenterStart
                     ) {
                         Text(

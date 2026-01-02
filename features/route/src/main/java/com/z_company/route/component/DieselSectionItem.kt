@@ -1,8 +1,10 @@
 package com.z_company.route.component
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +21,7 @@ import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
@@ -30,11 +33,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,10 +47,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,6 +64,7 @@ import com.z_company.domain.util.CalculationEnergy.rounding
 import com.z_company.domain.util.str
 import kotlinx.coroutines.launch
 import com.z_company.domain.util.times
+import com.z_company.domain.util.toDoubleOrZero
 import com.z_company.route.R
 import com.z_company.route.ui.maskInKilo
 import com.z_company.route.ui.maskInLiter
@@ -83,16 +88,19 @@ fun DieselSectionItem(
     onRefuelInKiloValueChanged: (Int, String?) -> Unit,
     onRefuelCoefficientValueChanged: (Int, String?) -> Unit,
     onCoefficientValueChanged: (Int, String?) -> Unit,
-    sheetState: SheetState
+    sheetState: SheetState,
+    isKiloMode: Boolean,
+    changeIsKiloMode: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
     val revealState = rememberRevealState()
 
+//    var isKiloMode by remember { mutableStateOf(false) }
+    val coeff = item.coefficient.data?.toDoubleOrNull() ?: 1.0
+
     val noValueColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
 
-    val acceptedText = item.accepted.data ?: ""
-    val deliveryText = item.delivery.data ?: ""
     val acceptedInKilo =
         item.accepted.data?.toDoubleOrNull().times(item.coefficient.data?.toDoubleOrNull())
     val deliveryInKilo =
@@ -177,10 +185,14 @@ fun DieselSectionItem(
                                     .weight(1f),
                                 value = item.refuel.data ?: "",
                                 onValueChange = {
-                                    onRefuelValueChanged(index, it.take(6))
+                                    onRefuelValueChanged(index, it.take(7))
                                 },
                                 suffix = {
-                                    Text(text = "л.", style = MaterialTheme.typography.bodyMedium, color = noValueColor)
+                                    Text(
+                                        text = "л.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = noValueColor
+                                    )
                                 },
                                 textStyle = MaterialTheme.typography.bodyLarge,
                                 keyboardOptions = KeyboardOptions(
@@ -194,10 +206,14 @@ fun DieselSectionItem(
                                     .weight(1f),
                                 value = item.refuelInKilo.data ?: "",
                                 onValueChange = {
-                                    onRefuelInKiloValueChanged(index, it.take(6))
+                                    onRefuelInKiloValueChanged(index, it.take(7))
                                 },
                                 suffix = {
-                                    Text(text = "кг.", style = MaterialTheme.typography.bodyMedium, color = noValueColor)
+                                    Text(
+                                        text = "кг.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = noValueColor
+                                    )
                                 },
                                 textStyle = MaterialTheme.typography.bodyLarge,
                                 keyboardOptions = KeyboardOptions(
@@ -214,7 +230,11 @@ fun DieselSectionItem(
                                 onRefuelCoefficientValueChanged(index, it.take(6))
                             },
                             suffix = {
-                                Text(text = "k", style = MaterialTheme.typography.bodyMedium, color = noValueColor)
+                                Text(
+                                    text = "k",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = noValueColor
+                                )
                             },
                             textStyle = MaterialTheme.typography.bodyLarge,
                             keyboardOptions = KeyboardOptions(
@@ -313,7 +333,11 @@ fun DieselSectionItem(
                             onCoefficientValueChanged(index, it.take(6))
                         },
                         suffix = {
-                            Text(text = "k", style = MaterialTheme.typography.bodyMedium, color = noValueColor)
+                            Text(
+                                text = "k",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = noValueColor
+                            )
                         },
                         textStyle = MaterialTheme.typography.bodyLarge,
                         keyboardOptions = KeyboardOptions(
@@ -435,26 +459,71 @@ fun DieselSectionItem(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    .padding(start = 16.dp, end = 16.dp, bottom = 3.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                val calculatedAccepted = if (isKiloMode) {
+                    item.accepted.data?.toDoubleOrNull()?.let { liters ->
+                        rounding(liters * coeff, 2)?.str() ?: ""
+                    } ?: ""
+                } else {
+                    rounding(item.accepted.data?.toDoubleOrZero(), 2).str()
+                }
+                var localAccepted by remember { mutableStateOf(calculatedAccepted) }
+
+                LaunchedEffect(
+                    isKiloMode,
+                    item.accepted.data,
+                    coeff
+                ) {  // Запускается при смене mode/данных/коэффициента, обновляет local для показа пересчитанного значения
+                    localAccepted = calculatedAccepted
+                }
+
                 OutlinedTextFieldApp(
                     modifier = Modifier
                         .weight(1f),
-                    value = acceptedText,
-                    onValueChange = {
-                        onFuelAcceptedChanged(index, it.take(5))
-                        focusChangedDieselSection(index, DieselSectionType.ACCEPTED)
+                    value = localAccepted,
+                    onValueChange = { newVal ->
+                        val filtered = newVal.filter { it.isDigit() || it == '.' }.take(6)
+                        if (filtered.isEmpty()) {
+                            onFuelAcceptedChanged(index, "")
+                            focusChangedDieselSection(index, DieselSectionType.ACCEPTED)
+                        }
+                        if (filtered.count { it == '.' } > 1) return@OutlinedTextFieldApp  // Запрещаем >1 точки
+                        localAccepted = filtered  // Показываем filtered как есть (включая ".")
+                        try {
+                            val input = filtered.toDouble()  // Если валидно, парсим
+                            val liters = if (isKiloMode) {
+                                if (coeff != 0.0) rounding(input / coeff, 2)?.str() ?: "" else ""
+                            } else {
+                                rounding(input, 2).str()
+                            }
+                            onFuelAcceptedChanged(index, liters)  // Сохраняем только валидное
+                            focusChangedDieselSection(index, DieselSectionType.ACCEPTED)
+                        } catch (e: NumberFormatException) {
+                            // Игнорируем invalid (e.g., "."), не меняем VM, только local
+                        }
                     },
                     placeholder = {
-                        Text(text = "Принял", style = hintStyle, color = noValueColor)
+                        Text(
+                            text = "Принял",
+                            style = LocalTextStyle.current.copy(
+                                fontWeight = FontWeight.Light
+                            ),
+                            color = noValueColor
+                        )
                     },
                     suffix = {
-                        Text(text = "л.", style = MaterialTheme.typography.bodyMedium, color = noValueColor)
+                        Text(
+                            text = if (isKiloMode) "кг." else "л.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = noValueColor
+                        )
                     },
                     textStyle = dataTextStyle,
                     keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Number, imeAction = ImeAction.Next
+                        keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next
                     ),
                     keyboardActions = KeyboardActions(onNext = {
                         scope.launch {
@@ -465,23 +534,67 @@ fun DieselSectionItem(
                     shape = Shapes.medium,
                 )
 
+                val calculatedDelivery = if (isKiloMode) {
+                    item.delivery.data?.toDoubleOrNull()?.let { liters ->
+                        rounding(liters * coeff, 2)?.str() ?: ""
+                    } ?: ""
+                } else {
+                    rounding(item.delivery.data?.toDoubleOrZero(), 2).str()
+                }
+                var localDelivery by remember { mutableStateOf(calculatedDelivery) }
+
+                LaunchedEffect(
+                    isKiloMode,
+                    item.delivery.data,
+                    coeff
+                ) {  // Запускается при смене mode/данных/коэффициента, обновляет local для показа пересчитанного значения
+                    localDelivery = calculatedDelivery
+                }
+
                 OutlinedTextFieldApp(
                     modifier = Modifier
                         .weight(1f),
-                    value = deliveryText,
-                    onValueChange = {
-                        onFuelDeliveredChanged(index, it.take(5))
-                        focusChangedDieselSection(index, DieselSectionType.DELIVERY)
+                    value = localDelivery,
+                    onValueChange = { newVal ->
+                        val filtered = newVal.filter { it.isDigit() || it == '.' }.take(6)
+                        if (filtered.isEmpty()) {
+                            onFuelDeliveredChanged(index, "")
+                            focusChangedDieselSection(index, DieselSectionType.DELIVERY)
+                        }
+                        if (filtered.count { it == '.' } > 1) return@OutlinedTextFieldApp
+                        localDelivery = filtered
+                        try {
+                            val input = filtered.toDouble()
+                            val liters = if (isKiloMode) {
+                                if (coeff != 0.0) rounding(input / coeff, 2)?.str() ?: "" else ""
+                            } else {
+                                rounding(input, 2).str()
+                            }
+                            onFuelDeliveredChanged(index, liters)
+                            focusChangedDieselSection(index, DieselSectionType.DELIVERY)
+                        } catch (e: NumberFormatException) {
+                            // Игнорируем
+                        }
                     },
                     placeholder = {
-                        Text(text = "Сдал", style = hintStyle, color = noValueColor)
+                        Text(
+                            text = "Сдал",
+                            style = LocalTextStyle.current.copy(
+                                fontWeight = FontWeight.Light
+                            ),
+                            color = noValueColor
+                        )
                     },
                     suffix = {
-                        Text(text = "л.", style = MaterialTheme.typography.bodyMedium, color = noValueColor)
+                        Text(
+                            text = if (isKiloMode) "кг." else "л.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = noValueColor
+                        )
                     },
                     textStyle = dataTextStyle,
                     keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Number, imeAction = ImeAction.Done
+                        keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done
                     ),
                     keyboardActions = KeyboardActions(onDone = {
                         scope.launch {
@@ -490,6 +603,31 @@ fun DieselSectionItem(
                     }),
                     singleLine = true,
                     shape = Shapes.medium,
+                )
+                val animatedRotation by animateFloatAsState(
+                    targetValue = if (isKiloMode) 180f else 0f,
+                    animationSpec =
+                        tween(
+                            durationMillis = 300,  // Длительность анимации 300ms
+                            easing = FastOutSlowInEasing  // Мягкий старт и финиш
+                        ),
+//                                + spring(  // Добавляем spring для отскока в конце (мягкий bounce)
+//                        dampingRatio = Spring.DampingRatioLowBouncy,  // Низкий damping для заметного отскока
+//                        stiffness = Spring.StiffnessMedium  // Средняя жёсткость для контроля
+//                    ),
+                    label = "rotation_animation"
+                )
+
+                Icon(
+                    modifier = Modifier
+                        .size(18.dp)
+                        .graphicsLayer {
+                            rotationX = animatedRotation
+                        }  // Добавлено: анимация переворота на 180° по Y
+                        .noRippleEffect { changeIsKiloMode() },
+                    painter = painterResource(R.drawable.sync_24px),
+                    tint = MaterialTheme.colorScheme.primary,
+                    contentDescription = null
                 )
             }
 
@@ -506,60 +644,69 @@ fun DieselSectionItem(
                             .weight(1f),
                         contentAlignment = Alignment.TopStart
                     ) {
-                        val acceptedInKiloText = rounding(acceptedInKilo, 2)?.str()
+                        val acceptedText = if (isKiloMode) rounding(
+                            item.accepted.data?.toDoubleOrZero(),
+                            2
+                        ).str() else rounding(acceptedInKilo, 2)?.str()
                         Text(
-                            text = maskInKilo(acceptedInKiloText) ?: "",
+                            text = if (isKiloMode) maskInLiter(acceptedText) ?: "" else maskInKilo(
+                                acceptedText
+                            ) ?: "",
                             style = hintStyle,
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
                     Box(
                         modifier = Modifier
-                            .padding(start = 12.dp)
+//                            .padding(start = 12.dp)
                             .weight(1f),
                         contentAlignment = Alignment.TopStart
                     ) {
-                        val deliveryInKiloText = rounding(deliveryInKilo, 2)?.str()
+                        val deliveryText = if (isKiloMode)
+                            rounding(item.delivery.data?.toDoubleOrZero(), 2).str()
+                        else rounding(deliveryInKilo, 2)?.str()
                         Text(
-                            text = maskInKilo(deliveryInKiloText) ?: "",
+                            text = if (isKiloMode) maskInLiter(deliveryText) ?: "" else maskInKilo(
+                                deliveryText
+                            ) ?: "",
                             style = hintStyle,
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
             }
+        }
+    }
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                ClickableText(
-                    text = AnnotatedString(
-                        text = "k = ${item.coefficient.data ?: 0.0}",
-                        spanStyle = SpanStyle(
-                            color = MaterialTheme.colorScheme.tertiary,
-                            fontFamily = hintStyle.fontFamily,
-                            fontSize = hintStyle.fontSize,
-                            fontWeight = hintStyle.fontWeight
-                        )
-                    ),
-                    style = hintStyle,
-                    onClick = {
-                        showCoefficient = true
-                    })
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        ClickableText(
+            text = AnnotatedString(
+                text = "k = ${item.coefficient.data ?: 0.0}",
+                spanStyle = SpanStyle(
+                    color = MaterialTheme.colorScheme.tertiary,
+                    fontFamily = hintStyle.fontFamily,
+                    fontSize = hintStyle.fontSize,
+                    fontWeight = hintStyle.fontWeight
+                )
+            ),
+            style = hintStyle,
+            onClick = {
+                showCoefficient = true
+            })
 
-                result?.let {
-                    val resultInLiterText = maskInLiter(it.str())
-                    val resultInKiloText = maskInKilo(rounding(resultInKilo, 2)?.str())
-                    Text(
-                        text = "${resultInLiterText ?: ""} / ${resultInKiloText ?: ""}",
-                        style = hintStyle,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
+        result?.let {
+            val resultInLiterText = maskInLiter(rounding(it, 2).str())
+            val resultInKiloText = maskInKilo(rounding(resultInKilo, 2)?.str())
+            Text(
+                text = "${resultInLiterText ?: ""} / ${resultInKiloText ?: ""}",
+                style = hintStyle,
+                color = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }

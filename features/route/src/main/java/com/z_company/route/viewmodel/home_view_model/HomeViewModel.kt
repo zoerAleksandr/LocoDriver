@@ -1,5 +1,6 @@
 package com.z_company.route.viewmodel.home_view_model
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.Application
 import android.util.Log
@@ -42,8 +43,11 @@ import com.z_company.route.viewmodel.PreviewRouteUiState
 import com.z_company.route.viewmodel.RouteActionsHelper
 import com.z_company.route.viewmodel.SalaryCalculationHelper
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -54,6 +58,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
@@ -99,11 +104,18 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     private val routeParams = MutableStateFlow<Pair<MonthOfYear, Long>?>(null)
 
     // will switch to the latest listRoutesByMonth when routeParams changes
+    @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
     private val routesFlow = routeParams
         .filterNotNull()
+        .debounce(300)
         .flatMapLatest { (month, tz) ->
             routeUseCase.listRoutesByMonth(month, tz)
         }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000), // кэш 5 сек после отписки
+            initialValue = ResultState.Loading()
+        )
 
     // keep current salary setting for use in routesFlow processing
     private var currentSalarySetting: SalarySetting? = null
@@ -418,62 +430,57 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         }
     }
 
+    @SuppressLint("SuspiciousIndentation")
     private fun calculationOfNightTime(routes: List<Route>, settings: UserSettings) {
         viewModelScope.launch(Dispatchers.IO) {
-            withContext(Dispatchers.Main) {
                 _uiState.update {
                     it.copy(
                         nightTimeInRouteList = ResultState.Loading()
                     )
                 }
-            }
             try {
                 val nightTimeState = routes.getNightTime(settings)
-                withContext(Dispatchers.Main) {
                     _uiState.update {
                         it.copy(
                             nightTimeInRouteList = ResultState.Success(nightTimeState)
                         )
                     }
-                }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
                     _uiState.update {
                         it.copy(
                             nightTimeInRouteList = ResultState.Error(ErrorEntity(e))
                         )
                     }
-                }
             }
         }
     }
 
     private fun calculationOfSingleLocomotiveTime(routes: List<Route>) {
         viewModelScope.launch(Dispatchers.IO) {
-            withContext(Dispatchers.Main) {
+//            withContext(Dispatchers.Main) {
                 _uiState.update {
                     it.copy(
                         singleLocomotiveTimeState = ResultState.Loading()
                     )
                 }
-            }
+//            }
             try {
                 val timeState = routes.getSingleLocomotiveTime()
-                withContext(Dispatchers.Main) {
+//                withContext(Dispatchers.Main) {
                     _uiState.update {
                         it.copy(
                             singleLocomotiveTimeState = ResultState.Success(timeState)
                         )
                     }
-                }
+//                }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
+//                withContext(Dispatchers.Main) {
                     _uiState.update {
                         it.copy(
                             singleLocomotiveTimeState = ResultState.Error(ErrorEntity(e))
                         )
                     }
-                }
+//                }
             }
         }
     }
@@ -482,31 +489,31 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         salaryCalculationHelper: SalaryCalculationHelper
     ) {
         viewModelScope.launch(Dispatchers.IO) {
-            withContext(Dispatchers.Main) {
+//            withContext(Dispatchers.Main) {
                 _uiState.update {
                     it.copy(
                         longDistanceTrainsTime = ResultState.Loading()
                     )
                 }
-            }
+//            }
             try {
                 val timeState = salaryCalculationHelper.getTimeLongDistanceTrainFlow().first()
-                withContext(Dispatchers.Main) {
+//                withContext(Dispatchers.Main) {
                     _uiState.update {
                         it.copy(
                             longDistanceTrainsTime = ResultState.Success(timeState)
                         )
                     }
-                }
+//                }
 
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
+//                withContext(Dispatchers.Main) {
                     _uiState.update {
                         it.copy(
                             longDistanceTrainsTime = ResultState.Error(ErrorEntity(e))
                         )
                     }
-                }
+//                }
             }
         }
     }
@@ -515,32 +522,32 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         salaryCalculationHelper: SalaryCalculationHelper
     ) {
         viewModelScope.launch(Dispatchers.IO) {
-            withContext(Dispatchers.Main) {
+//            withContext(Dispatchers.Main) {
                 _uiState.update {
                     it.copy(
                         extendedServicePhaseTime = ResultState.Loading()
                     )
-                }
+//                }
             }
             try {
                 val timeState =
                     salaryCalculationHelper.getTotalTimeSurchargeServicePhaseFlow().first()
-                withContext(Dispatchers.Main) {
+//                withContext(Dispatchers.Main) {
                     _uiState.update {
                         it.copy(
                             extendedServicePhaseTime = ResultState.Success(timeState)
                         )
-                    }
+//                    }
                 }
 
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
+//                withContext(Dispatchers.Main) {
                     _uiState.update {
                         it.copy(
                             extendedServicePhaseTime = ResultState.Error(ErrorEntity(e))
                         )
                     }
-                }
+//                }
             }
         }
     }
@@ -549,13 +556,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         routes: List<Route>, userSettings: UserSettings
     ) {
         viewModelScope.launch(Dispatchers.IO) {
-            withContext(Dispatchers.Main) {
+//            withContext(Dispatchers.Main) {
                 _uiState.update {
                     it.copy(
                         onePersonOperationTime = ResultState.Loading()
                     )
                 }
-            }
+//            }
             try {
                 currentMonthOfYear?.let { monthOfYear ->
                     val passengerTime = routes.getOnePersonOperationTimePassengerTrain(
@@ -565,23 +572,23 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                         monthOfYear, userSettings.timeZone
                     )
                     val resultTIme = time + passengerTime
-                    withContext(Dispatchers.Main) {
+//                    withContext(Dispatchers.Main) {
                         _uiState.update {
                             it.copy(
                                 onePersonOperationTime = ResultState.Success(resultTIme)
                             )
                         }
-                    }
+//                    }
                 }
 
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
+//                withContext(Dispatchers.Main) {
                     _uiState.update {
                         it.copy(
                             onePersonOperationTime = ResultState.Error(ErrorEntity(e))
                         )
                     }
-                }
+//                }
             }
         }
     }
@@ -590,30 +597,30 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         salaryCalculationHelper: SalaryCalculationHelper
     ) {
         viewModelScope.launch(Dispatchers.IO) {
-            withContext(Dispatchers.Main) {
+//            withContext(Dispatchers.Main) {
                 _uiState.update {
                     it.copy(
                         heavyTrainsTime = ResultState.Loading()
                     )
                 }
-            }
+//            }
             try {
                 val timeState = salaryCalculationHelper.getTotalTimeHeavyTrainsFlow().first()
-                withContext(Dispatchers.Main) {
+//                withContext(Dispatchers.Main) {
                     _uiState.update {
                         it.copy(
                             heavyTrainsTime = ResultState.Success(timeState)
                         )
                     }
-                }
+//                }
 
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
+//                withContext(Dispatchers.Main) {
                     _uiState.update {
                         it.copy(
                             heavyTrainsTime = ResultState.Error(ErrorEntity(e))
                         )
-                    }
+//                    }
                 }
             }
         }
@@ -622,33 +629,33 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
 
     private fun calculationHolidayTime(routes: List<Route>, offsetInMoscow: Long) {
         viewModelScope.launch(Dispatchers.IO) {
-            withContext(Dispatchers.Main) {
+//            withContext(Dispatchers.Main) {
                 _uiState.update {
                     it.copy(
                         holidayHours = ResultState.Loading()
                     )
                 }
-            }
+//            }
             try {
                 currentMonthOfYear?.let { monthOfYear ->
                     val holidayTime =
                         routes.getWorkingTimeOnAHoliday(monthOfYear, offsetInMoscow).first()
-                    withContext(Dispatchers.Main) {
+//                    withContext(Dispatchers.Main) {
                         _uiState.update {
                             it.copy(
                                 holidayHours = ResultState.Success(holidayTime)
                             )
                         }
-                    }
+//                    }
                 }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
+//                withContext(Dispatchers.Main) {
                     _uiState.update {
                         it.copy(
                             nightTimeInRouteList = ResultState.Error(ErrorEntity(e))
                         )
                     }
-                }
+//                }
             }
         }
     }
@@ -909,9 +916,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                     is ResultState.Loading -> {
                         // optional: reflect loading state in UI if you want
                         // we update UI on Main thread
-                        withContext(Dispatchers.Main) {
+//                        withContext(Dispatchers.Main) {
                             _uiState.update { it.copy(listItemState = mutableListOf()) }
-                        }
+//                        }
                     }
 
                     is ResultState.Success -> {
@@ -959,12 +966,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                                 workTimer(it.basicData.timeStartWork!!)
                             }
 
-                            withContext(Dispatchers.Main) {
+//                            withContext(Dispatchers.Main) {
                                 _uiState.update {
                                     it.copy(
                                         listItemState = routeStateList
                                     )
-                                }
+//                                }
                             }
 
                             val filteredRouteList = if (userSettings.isConsiderFutureRoute) {
@@ -980,35 +987,48 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                             )
 
                             // launch background jobs for calculations (same as before)
-                            calculationOfExtendedServicePhaseTime(salaryCalculationHelper)
-                            calculationOfLongDistanceTrainsTime(salaryCalculationHelper)
-                            calculationOfHeavyTrainsTime(salaryCalculationHelper)
+                            viewModelScope.launch(Dispatchers.Default) { // Default лучше для CPU-intensive
+                                coroutineScope {
+                                    calculationOfExtendedServicePhaseTime(salaryCalculationHelper)
+                                    calculationOfLongDistanceTrainsTime(salaryCalculationHelper)
+                                    calculationOfHeavyTrainsTime(salaryCalculationHelper)
 
-                            calculationOfOnePersonOperationTime(filteredRouteList, userSettings)
-                            calculationTotalTime(filteredRouteList, userSettings.timeZone)
-                            calculationOfTimeWithoutHoliday(filteredRouteList, userSettings.timeZone)
-                            calculationOfNightTime(filteredRouteList, userSettings)
-                            calculationOfSingleLocomotiveTime(filteredRouteList)
-                            calculationPassengerTime(filteredRouteList, userSettings.timeZone)
-                            calculationHolidayTime(filteredRouteList, userSettings.timeZone)
+                                    calculationOfOnePersonOperationTime(
+                                        filteredRouteList,
+                                        userSettings
+                                    )
+                                    calculationTotalTime(filteredRouteList, userSettings.timeZone)
+                                    calculationOfTimeWithoutHoliday(
+                                        filteredRouteList,
+                                        userSettings.timeZone
+                                    )
+                                    calculationOfNightTime(filteredRouteList, userSettings)
+                                    calculationOfSingleLocomotiveTime(filteredRouteList)
+                                    calculationPassengerTime(
+                                        filteredRouteList,
+                                        userSettings.timeZone
+                                    )
+                                    calculationHolidayTime(filteredRouteList, userSettings.timeZone)
+                                }
+                            }
                         } else {
                             // settings not ready - update UI accordingly if needed
-                            withContext(Dispatchers.Main) {
+//                            withContext(Dispatchers.Main) {
                                 _uiState.update {
                                     it.copy(listItemState = mutableListOf())
                                 }
-                            }
+//                            }
                         }
                     }
 
                     is ResultState.Error -> {
-                        withContext(Dispatchers.Main) {
+//                        withContext(Dispatchers.Main) {
                             _uiState.update {
                                 it.copy(
                                     uiState = ResultState.Error(result.entity)
                                 )
                             }
-                        }
+//                        }
                     }
                 }
             }

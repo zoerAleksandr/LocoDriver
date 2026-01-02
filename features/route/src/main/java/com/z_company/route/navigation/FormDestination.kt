@@ -1,11 +1,9 @@
 package com.z_company.route.navigation
 
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.flowWithLifecycle
@@ -13,20 +11,15 @@ import androidx.navigation.NavBackStackEntry
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.domain.navigation.Router
 import com.z_company.route.Const.NULLABLE_ID
-import com.z_company.route.navigation.HomeRoute
 import com.z_company.route.ui.FormScreen
 import com.z_company.route.viewmodel.FormScreenEvent
 import com.z_company.route.viewmodel.FormViewModel
-import com.z_company.route.viewmodel.TestFormViewModel
 import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
-import org.koin.core.component.inject
 import org.koin.core.parameter.parametersOf
-import org.koin.java.KoinJavaComponent.inject
 import ru.rustore.sdk.pay.model.PurchaseAvailabilityResult
-import kotlin.getValue
 
 @Composable
 fun FormDestination(

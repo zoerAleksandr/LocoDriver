@@ -524,7 +524,7 @@ fun WorkScheduleScreen(
                         Box(
                             modifier = Modifier
                                 .padding(top = 8.dp)
-                                .animateItemPlacement()
+                                .animateItem()
                                 .border(
                                     width = 1.dp,
                                     color = MaterialTheme.colorScheme.primary,
@@ -605,7 +605,7 @@ fun WorkScheduleScreen(
 
                         Box(
                             modifier = Modifier
-                                .animateItemPlacement()
+                                .animateItem()
                                 .fillMaxWidth()
                                 .height(calendarHeightDp)
                         ) {
@@ -646,7 +646,7 @@ fun WorkScheduleScreen(
                     ) {
                         FlowRow(
                             modifier = Modifier
-                                .animateItemPlacement(),
+                                .animateItem(),
                             horizontalArrangement = Arrangement.spacedBy(space = 6.dp),
                             verticalArrangement = Arrangement.spacedBy(space = 6.dp),
                         ) {
@@ -775,7 +775,7 @@ fun WorkScheduleScreen(
                     ) {
                         Button(
                             modifier = Modifier
-                                .animateItemPlacement()
+                                .animateItem()
                                 .fillMaxWidth()
                                 .height(chipHeightDp),
                             shape = Shapes.medium,
@@ -806,7 +806,7 @@ fun WorkScheduleScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .animateItemPlacement()
+                                .animateItem()
                                 .fillMaxWidth(),
                             contentAlignment = Alignment.Center
                         ) {

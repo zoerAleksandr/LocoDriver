@@ -26,9 +26,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -50,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.z_company.core.R
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -115,7 +113,7 @@ fun TopSection(onBackClick: () -> Unit = {}, onSkipClick: () -> Unit = {}) {
         // Back button
         IconButton(onClick = onBackClick, modifier = Modifier.align(Alignment.CenterStart)) {
             Icon(
-                imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
+                painter = painterResource(R.drawable.keyboard_arrow_left_24px),
                 tint = MaterialTheme.colorScheme.onBackground,
                 contentDescription = null
             )
@@ -163,7 +161,7 @@ fun BottomSection(size: Int, index: Int, onButtonClick: () -> Unit = {}) {
                 )
 
                 Icon(
-                    Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                    painter = painterResource(R.drawable.keyboard_arrow_right_24px),
                     tint = MaterialTheme.colorScheme.onPrimary,
                     contentDescription = "Localized description"
                 )

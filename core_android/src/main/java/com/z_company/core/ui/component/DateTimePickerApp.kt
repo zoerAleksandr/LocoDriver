@@ -1,7 +1,6 @@
 package com.z_company.core.ui.component
 
 import android.annotation.SuppressLint
-import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -12,26 +11,23 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.z_company.core.R
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.ui.theme.Shapes
-import com.z_company.domain.entities.route.UtilsForEntities
 import com.z_company.domain.use_cases.SettingsUseCase
-import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -378,7 +374,8 @@ fun FullCalendar(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                    painter = painterResource(R.drawable.keyboard_arrow_left_24px),
+
                     contentDescription = "Предыдущий месяц",
                     tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
                 )
@@ -426,7 +423,7 @@ fun FullCalendar(
                     maxLines = 1
                 )
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    painter = painterResource(R.drawable.keyboard_arrow_right_24px),
                     contentDescription = "Следующий месяц",
                     tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
                 )
@@ -547,6 +544,17 @@ class DateTimePickerViewModel(initialTimestamp: Long? = null) : ViewModel(), Koi
     private val initialCalendar = Calendar.getInstance(TimeZone.getTimeZone(timeZone.value))
         .apply { initialTimestamp?.let { timeInMillis = it } }
 
+
+    private val _uiState = MutableStateFlow(
+        DateTimePickerState(
+            selectedDate = initialCalendar.timeInMillis,
+            currentMonth = initialCalendar.time,
+            hour = initialCalendar.get(Calendar.HOUR_OF_DAY),
+            minute = initialCalendar.get(Calendar.MINUTE)
+        )
+    )
+    val uiState: StateFlow<DateTimePickerState> = _uiState
+
     init {
         viewModelScope.launch {
             val setting = settingsUseCase.getUserSettingFlow().first()
@@ -561,16 +569,6 @@ class DateTimePickerViewModel(initialTimestamp: Long? = null) : ViewModel(), Koi
             )
         }
     }
-
-    private val _uiState = MutableStateFlow(
-        DateTimePickerState(
-            selectedDate = initialCalendar.timeInMillis,
-            currentMonth = initialCalendar.time,
-            hour = initialCalendar.get(Calendar.HOUR_OF_DAY),
-            minute = initialCalendar.get(Calendar.MINUTE)
-        )
-    )
-    val uiState: StateFlow<DateTimePickerState> = _uiState
 
     fun selectDate(long: Long) {
         _uiState.value = _uiState.value.copy(selectedDate = long)

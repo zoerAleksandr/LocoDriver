@@ -23,12 +23,15 @@ object CalculationEnergy {
     private fun reverseDifferenceBetweenDouble(value1: Double?, value2: Double?): Double? {
         val countAfterPoint1: Int = value1?.countCharsAfterDecimalPoint() ?: 0
         val countAfterPoint2: Int = value2?.countCharsAfterDecimalPoint() ?: 0
-        val maxCount = if (countAfterPoint1 > countAfterPoint2) {
+        var maxCount = if (countAfterPoint1 > countAfterPoint2) {
             countAfterPoint1
         } else {
             countAfterPoint2
         }
-        val result = value1 - value2
+        if (maxCount > 2){
+            maxCount = 2
+        }
+        val result = rounding(value1, 2).minus(rounding(value2, 2))
         return result?.let {
             rounding(it, maxCount)
         }

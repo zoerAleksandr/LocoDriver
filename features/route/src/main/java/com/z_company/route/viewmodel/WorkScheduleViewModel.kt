@@ -166,21 +166,15 @@ class WorkScheduleViewModel() : ViewModel(), KoinComponent {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // get user settings (this returns a Flow<UserSettings> in your app).
-                settingsUseCase.getUserSettingFlow().collect { setting ->
-                    // userSettings.selectMonthOfYear is expected to be MonthOfYear
-                    val month = setting.selectMonthOfYear
-                    _userSettings.value = setting
-                    _timeButtons.value = setting.standardTimesStartWork
-                    _currentMonth.value = month
-                    _dateAndTimeConverter.value = DateAndTimeConverter(setting)
+                val setting = settingsUseCase.getUserSettingFlow().first()
+                val month = setting.selectMonthOfYear
+                _userSettings.value = setting
+                _timeButtons.value = setting.standardTimesStartWork
+                _currentMonth.value = month
+                _dateAndTimeConverter.value = DateAndTimeConverter(setting)
+                loadMonthYearLists()
+                loadRoutesForCurrentMonth(setting.timeZone)
 
-                    // load month/year list to populate bottom sheet
-                    loadMonthYearLists()
-
-                    // load routes for the month
-                    loadRoutesForCurrentMonth(setting.timeZone)
-                }
             } catch (t: Throwable) {
                 if (t is CancellationException) throw t
                 snackbarManager.show(
@@ -231,77 +225,93 @@ class WorkScheduleViewModel() : ViewModel(), KoinComponent {
                         _routesByDay.value = map
 
                         withContext(Dispatchers.IO) {
-                                    val fullMonth = currentMonth.value
-                                if (fullMonth != null) {
-                                    // Вычисляем totalRelease
-                                    val excluding = fullMonth.getDayoffHoursExcludingWeekends().times(3_600_000L)
-                                    val including = fullMonth.getDayoffHoursIncludingWeekends().times(3_600_000L)
-                                    _totalReleaseHours.value = excluding + including
+                            val fullMonth = currentMonth.value
+                            if (fullMonth != null) {
+                                // Вычисляем totalRelease
+                                val excluding =
+                                    fullMonth.getDayoffHoursExcludingWeekends().times(3_600_000L)
+                                val including =
+                                    fullMonth.getDayoffHoursIncludingWeekends().times(3_600_000L)
+                                _totalReleaseHours.value = excluding + including
 
-                                    // Строим releasePeriods аналогично setReleasePeriodState
-                                    val periods = mutableListOf<ReleasePeriod>()
-                                    val listReleasePeriod = mutableListOf<Calendar>()
-                                    var isBegunCounting = false
-                                    var currentType: ReleaseType? = null
-                                    fullMonth.days.forEachIndexed { index, day ->
-                                        if (day.isReleaseDay) {
-                                            if (!isBegunCounting) {
-                                                isBegunCounting = true
-                                                currentType = day.releaseType
+                                // Строим releasePeriods аналогично setReleasePeriodState
+                                val periods = mutableListOf<ReleasePeriod>()
+                                val listReleasePeriod = mutableListOf<Calendar>()
+                                var isBegunCounting = false
+                                var currentType: ReleaseType? = null
+                                fullMonth.days.forEachIndexed { index, day ->
+                                    if (day.isReleaseDay) {
+                                        if (!isBegunCounting) {
+                                            isBegunCounting = true
+                                            currentType = day.releaseType
+                                        }
+                                        listReleasePeriod.add(
+                                            Calendar.getInstance().also {
+                                                it.set(Calendar.YEAR, fullMonth.year)
+                                                it.set(Calendar.MONTH, fullMonth.month)
+                                                it.set(Calendar.DAY_OF_MONTH, day.dayOfMonth)
+                                                it.set(Calendar.HOUR_OF_DAY, 0)
+                                                it.set(Calendar.MINUTE, 0)
+                                                it.set(Calendar.SECOND, 0)
+                                                it.set(Calendar.MILLISECOND, 0)
                                             }
-                                            listReleasePeriod.add(
-                                                Calendar.getInstance().also {
-                                                    it.set(Calendar.YEAR, fullMonth.year)
-                                                    it.set(Calendar.MONTH, fullMonth.month)
-                                                    it.set(Calendar.DAY_OF_MONTH, day.dayOfMonth)
-                                                    it.set(Calendar.HOUR_OF_DAY, 0)
-                                                    it.set(Calendar.MINUTE, 0)
-                                                    it.set(Calendar.SECOND, 0)
-                                                    it.set(Calendar.MILLISECOND, 0)
-                                                }
+                                        )
+                                        if ((index + 1 == fullMonth.days.size)) {
+                                            isBegunCounting = false
+                                            val copyList = mutableListOf<Calendar>().apply {
+                                                addAll(listReleasePeriod)
+                                            }
+                                            periods.add(
+                                                ReleasePeriod(
+                                                    days = copyList,
+                                                    type = currentType
+                                                )
                                             )
-                                            if ((index + 1 == fullMonth.days.size)) {
-                                                isBegunCounting = false
-                                                val copyList = mutableListOf<Calendar>().apply { addAll(listReleasePeriod) }
-                                                periods.add(ReleasePeriod(days = copyList, type = currentType))
-                                                listReleasePeriod.clear()
+                                            listReleasePeriod.clear()
+                                        }
+                                    } else {
+                                        if (isBegunCounting) {
+                                            isBegunCounting = false
+                                            val copyList = mutableListOf<Calendar>().apply {
+                                                addAll(listReleasePeriod)
+                                            }
+                                            periods.add(
+                                                ReleasePeriod(
+                                                    days = copyList,
+                                                    type = currentType
+                                                )
+                                            )
+                                            currentType = null
+                                            listReleasePeriod.clear()
+                                        }
+                                    }
+                                }
+                                _releasePeriods.value = periods
+
+                                // Строим releaseByDay: для каждого дня с isReleaseDay, вычисляем hours
+                                val releaseMap = mutableMapOf<Int, Pair<ReleaseType?, Int>>()
+                                fullMonth.days.forEach { day ->
+                                    if (day.isReleaseDay) {
+                                        val hours = if (day.releaseType == ReleaseType.ChildCare) {
+                                            when (day.tag) {
+                                                TagForDay.WORKING_DAY -> 8
+                                                TagForDay.SHORTENED_DAY -> 7
+                                                TagForDay.NON_WORKING_DAY -> 8
+                                                TagForDay.HOLIDAY -> 8
                                             }
                                         } else {
-                                            if (isBegunCounting) {
-                                                isBegunCounting = false
-                                                val copyList = mutableListOf<Calendar>().apply { addAll(listReleasePeriod) }
-                                                periods.add(ReleasePeriod(days = copyList, type = currentType))
-                                                currentType = null
-                                                listReleasePeriod.clear()
+                                            when (day.tag) {
+                                                TagForDay.WORKING_DAY -> 8
+                                                TagForDay.SHORTENED_DAY -> 7
+                                                TagForDay.NON_WORKING_DAY -> 0
+                                                TagForDay.HOLIDAY -> 0
                                             }
                                         }
+                                        releaseMap[day.dayOfMonth] = Pair(day.releaseType, hours)
                                     }
-                                    _releasePeriods.value = periods
-
-                                    // Строим releaseByDay: для каждого дня с isReleaseDay, вычисляем hours
-                                    val releaseMap = mutableMapOf<Int, Pair<ReleaseType?, Int>>()
-                                    fullMonth.days.forEach { day ->
-                                        if (day.isReleaseDay) {
-                                            val hours = if (day.releaseType == ReleaseType.ChildCare) {
-                                                when (day.tag) {
-                                                    TagForDay.WORKING_DAY -> 8
-                                                    TagForDay.SHORTENED_DAY -> 7
-                                                    TagForDay.NON_WORKING_DAY -> 8
-                                                    TagForDay.HOLIDAY -> 8
-                                                }
-                                            } else {
-                                                when (day.tag) {
-                                                    TagForDay.WORKING_DAY -> 8
-                                                    TagForDay.SHORTENED_DAY -> 7
-                                                    TagForDay.NON_WORKING_DAY -> 0
-                                                    TagForDay.HOLIDAY -> 0
-                                                }
-                                            }
-                                            releaseMap[day.dayOfMonth] = Pair(day.releaseType, hours)
-                                        }
-                                    }
-                                    _releaseByDay.value = releaseMap
                                 }
+                                _releaseByDay.value = releaseMap
+                            }
                         }
 
                         _isLoading.value = false
@@ -464,27 +474,6 @@ class WorkScheduleViewModel() : ViewModel(), KoinComponent {
                             cal.timeInMillis // or adjust with tzOffset if your codebase needs (startMillis - tzOffset or +tz)
 
                         val endMillis = workDuration.plus(startMillis)
-//                            ?.let { duration ->
-//                            // если workDuration передаётся как millis from midnight (или как длина?) — адаптируйте
-//                            // Предположим workDuration — millis from midnight (как в вашем TimePicker)
-//                            val endHour = ConverterLongToTime.getHour(duration)
-//
-//                            val endMinute =
-//                                ConverterLongToTime.getRemainingMinuteFromHour(duration)
-//                            val calEnd = Calendar.getInstance().also {
-//                                it.set(Calendar.YEAR, month.year)
-//                                it.set(Calendar.MONTH, month.month)
-//                                it.set(Calendar.DAY_OF_MONTH, day)
-//                                it.set(Calendar.HOUR_OF_DAY, endHour)
-//                                it.set(Calendar.MINUTE, endMinute)
-//                                it.set(Calendar.SECOND, 0)
-//                                it.set(Calendar.MILLISECOND, 0)
-//                            }
-//                            var rawEnd = calEnd.timeInMillis
-//                            if (rawEnd <= startMillis) rawEnd += 24 * 3_600_000L // перенос на следующий день
-//                            rawEnd
-//                        }
-
                         val routeToSave =
                             createRouteForStartTime(startMillis, endMillis)
 

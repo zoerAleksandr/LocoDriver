@@ -45,6 +45,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
@@ -72,6 +73,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
@@ -95,6 +97,7 @@ import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.route.viewmodel.LocoFormUiState
 import java.util.Calendar
 import com.z_company.domain.util.*
+import com.z_company.domain.util.CalculationEnergy.rounding
 import com.z_company.route.R
 import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.BottomSheetAction
@@ -459,7 +462,9 @@ fun FormLocoScreen(
                                             placeholder = {
                                                 Text(
                                                     text = "Ток 1",
-                                                    style = dataTextStyle,
+                                                    style = LocalTextStyle.current.copy(
+                                                        fontWeight = FontWeight.Light
+                                                    ),
                                                     color = noValueColor
                                                 )
                                             },
@@ -484,7 +489,9 @@ fun FormLocoScreen(
                                                     placeholder = {
                                                         Text(
                                                             text = "Ток 2",
-                                                            style = dataTextStyle,
+                                                            style = LocalTextStyle.current.copy(
+                                                                fontWeight = FontWeight.Light
+                                                            ),
                                                             color = noValueColor
                                                         )
                                                     },
@@ -684,7 +691,9 @@ fun FormLocoScreen(
                                     placeholder = {
                                         Text(
                                             text = "Серия",
-                                            style = MaterialTheme.typography.bodyMedium,
+                                            style = LocalTextStyle.current.copy(
+                                                fontWeight = FontWeight.Light
+                                            ),
                                             color = noValueColor
                                         )
                                     },
@@ -724,7 +733,11 @@ fun FormLocoScreen(
                                                         modifier = Modifier.fillMaxWidth(),
                                                         horizontalArrangement = Arrangement.SpaceBetween
                                                     ) {
-                                                        Text(text = selectionSeries, style = dataTextStyle, color = MaterialTheme.colorScheme.primary)
+                                                        Text(
+                                                            text = selectionSeries,
+                                                            style = dataTextStyle,
+                                                            color = MaterialTheme.colorScheme.primary
+                                                        )
                                                         Icon(
                                                             modifier = Modifier.clickable {
                                                                 onDeleteSeries(selectionSeries)
@@ -757,7 +770,9 @@ fun FormLocoScreen(
                                 placeholder = {
                                     Text(
                                         text = "Номер",
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        style = LocalTextStyle.current.copy(
+                                            fontWeight = FontWeight.Light
+                                        ),
                                         color = noValueColor
                                     )
                                 },
@@ -878,7 +893,9 @@ fun FormLocoScreen(
 
                                             val style = locomotive.timeStartOfAcceptance?.let {
                                                 dataTextStyle
-                                            } ?: MaterialTheme.typography.bodyMedium
+                                            } ?: LocalTextStyle.current.copy(
+                                                fontWeight = FontWeight.Light
+                                            )
 
                                             Text(
                                                 text = dateStartText,
@@ -920,7 +937,9 @@ fun FormLocoScreen(
 
                                             val style = locomotive.timeStartOfAcceptance?.let {
                                                 dataTextStyle
-                                            } ?: MaterialTheme.typography.bodyMedium
+                                            } ?: LocalTextStyle.current.copy(
+                                                fontWeight = FontWeight.Light
+                                            )
 
                                             Text(
                                                 text = dateEndText,
@@ -1027,7 +1046,9 @@ fun FormLocoScreen(
 
                                             val style = locomotive.timeStartOfDelivery?.let {
                                                 dataTextStyle
-                                            } ?: MaterialTheme.typography.bodyMedium
+                                            } ?: LocalTextStyle.current.copy(
+                                                fontWeight = FontWeight.Light
+                                            )
 
                                             Text(
                                                 text = dateStartText,
@@ -1069,7 +1090,9 @@ fun FormLocoScreen(
 
                                             val style = locomotive.timeEndOfDelivery?.let {
                                                 dataTextStyle
-                                            } ?: MaterialTheme.typography.bodyMedium
+                                            } ?: LocalTextStyle.current.copy(
+                                                fontWeight = FontWeight.Light
+                                            )
 
                                             Text(
                                                 text = dateEndText,
@@ -1117,7 +1140,13 @@ fun FormLocoScreen(
                                         value = accepted,
                                         textStyle = dataTextStyle,
                                         placeholder = {
-                                            Text(text = "Принял", style = dataTextStyle, color = noValueColor)
+                                            Text(
+                                                text = "Принял",
+                                                style = LocalTextStyle.current.copy(
+                                                    fontWeight = FontWeight.Light
+                                                ),
+                                                color = noValueColor
+                                            )
                                         },
                                         onValueChange = {
                                             viewModel.setHeatingCounterAccepted(it)
@@ -1140,7 +1169,13 @@ fun FormLocoScreen(
                                         value = delivered,
                                         textStyle = dataTextStyle,
                                         placeholder = {
-                                            Text(text = "Сдал", style = dataTextStyle, color = noValueColor)
+                                            Text(
+                                                text = "Сдал",
+                                                style = LocalTextStyle.current.copy(
+                                                    fontWeight = FontWeight.Light
+                                                ),
+                                                color = noValueColor
+                                            )
                                         },
                                         onValueChange = {
                                             viewModel.setHeatingCounterDelivery(it)
@@ -1360,9 +1395,7 @@ fun FormLocoScreen(
                                                 Icon(
                                                     painter = painterResource(R.drawable.electric_bolt_24px),
                                                     contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.primary.copy(
-                                                        alpha = 0.8f
-                                                    ),
+                                                    tint = MaterialTheme.colorScheme.secondary,
                                                 )
                                             }
 
@@ -1550,9 +1583,7 @@ fun FormLocoScreen(
                                                     Icon(
                                                         painter = painterResource(R.drawable.electric_bolt_24px),
                                                         contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.primary.copy(
-                                                            alpha = 0.8f
-                                                        ),
+                                                        tint = MaterialTheme.colorScheme.secondary,
                                                     )
                                                 }
                                                 Text(
@@ -1681,7 +1712,10 @@ fun FormLocoScreen(
                                                 color = MaterialTheme.colorScheme.primary
                                             )
                                             Text(
-                                                text = overResultDieselInLiter?.toString() ?: "0",
+                                                text = rounding(
+                                                    overResultDieselInLiter,
+                                                    2
+                                                )?.toString() ?: "0",
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 color = MaterialTheme.colorScheme.primary
                                             )
@@ -1726,7 +1760,8 @@ fun FormLocoScreen(
                                                 color = MaterialTheme.colorScheme.primary
                                             )
                                             Text(
-                                                text = overResultDieselInKilo?.str() ?: "0",
+                                                text = rounding(overResultDieselInKilo, 2)?.str()
+                                                    ?: "0",
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 color = MaterialTheme.colorScheme.primary
                                             )
@@ -1783,52 +1818,53 @@ fun FormLocoScreen(
                                             horizontalAlignment = Alignment.CenterHorizontally,
                                             verticalArrangement = Arrangement.spacedBy(4.dp)
                                         ) {
-                                            val result =
-                                                (locomotive.normaDiesel?.toDouble() - overResultDieselInKilo)
-                                                    ?: 0.0
+                                            if (!locomotive.normaDiesel.isNullOrBlank()) {
+                                                val result = (locomotive.normaDiesel?.toDoubleOrZero() - overResultDieselInKilo) ?: 0.0
 
-                                            val resultText = if (result > 0) {
-                                                "+${result}"
-                                            } else {
-                                                result.str2decimalSign()
-                                            }
-                                            val backgroundColor = if (result < 0) {
-                                                MaterialTheme.colorScheme.error
-                                            } else {
-                                                MaterialTheme.colorScheme.surfaceContainerLow
-                                            }
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(40.dp)
-                                                    .shadow(
-                                                        elevation = 2.dp,
-                                                        shape = CircleShape
+                                                val resultText = if (result > 0) {
+                                                    "+${rounding(result, 2).str()}"
+                                                } else {
+                                                    rounding(result, 2).str2decimalSign()
+                                                }
+                                                val backgroundColor = if (result < 0) {
+                                                    MaterialTheme.colorScheme.error
+                                                } else {
+                                                    MaterialTheme.colorScheme.surfaceContainerLow
+                                                }
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(40.dp)
+                                                        .shadow(
+                                                            elevation = 2.dp,
+                                                            shape = CircleShape
+                                                        )
+                                                        .background(
+                                                            color = backgroundColor,
+                                                            shape = CircleShape
+                                                        )
+                                                        .border(
+                                                            width = 0.5.dp,
+                                                            color = MaterialTheme.colorScheme.tertiary,
+                                                            shape = CircleShape
+                                                        ),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        painter = painterResource(R.drawable.opacity_24px),
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.secondary
                                                     )
-                                                    .background(
-                                                        color = backgroundColor,
-                                                        shape = CircleShape
-                                                    )
-                                                    .border(
-                                                        width = 0.5.dp,
-                                                        color = MaterialTheme.colorScheme.tertiary,
-                                                        shape = CircleShape
-                                                    ),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Icon(
-                                                    painter = painterResource(R.drawable.opacity_24px),
-                                                    contentDescription = null
+                                                }
+
+                                                Text(
+                                                    text = "Итог",
+                                                    style = MaterialTheme.typography.bodyMedium
+                                                )
+                                                Text(
+                                                    text = resultText,
+                                                    style = MaterialTheme.typography.bodyMedium
                                                 )
                                             }
-
-                                            Text(
-                                                text = "Итог",
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
-                                            Text(
-                                                text = resultText,
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
                                         }
                                     }
                                 }
@@ -1857,7 +1893,9 @@ fun FormLocoScreen(
                                             onRefuelInKiloValueChanged = onRefuelInKiloValueChanged,
                                             onRefuelCoefficientValueChanged = onRefuelCoefficientValueChanged,
                                             onCoefficientValueChanged = onCoefficientValueChanged,
-                                            sheetState = sheetState
+                                            sheetState = sheetState,
+                                            isKiloMode = formUiState.isKiloMode,
+                                            changeIsKiloMode = viewModel::toggleIsKiloMode
                                         )
                                         if (index == dieselSectionListState.lastIndex) {
                                             CustomDivider(orientation = Orientation.Horizontal)

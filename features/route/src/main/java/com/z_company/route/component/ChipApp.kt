@@ -1,6 +1,5 @@
 package com.z_company.route.component
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -13,10 +12,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
-import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -46,13 +45,13 @@ fun ChipApp(
 ) {
     val backgroundColor =
         if (selected) selectedBackgroundColor else unSelectedBackgroundColor
-    val border = if (selected) BorderStroke(
-        width = 0.5.dp,
-        color = MaterialTheme.colorScheme.secondary
-    ) else BorderStroke(
-        width = 0.5.dp,
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
-    )
+//    val border = if (selected) BorderStroke(
+//        width = 0.5.dp,
+//        color = MaterialTheme.colorScheme.secondary
+//    ) else BorderStroke(
+//        width = 0.5.dp,
+//        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+//    )
     val textColor =
         if (selected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
     val fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
@@ -71,7 +70,7 @@ fun ChipApp(
             .height(IntrinsicSize.Min)
             .combinedClickable(
                 interactionSource = interactionSource,
-                indication = rememberRipple(
+                indication = ripple(
                     color = MaterialTheme.colorScheme.background,
                     bounded = true
                 ),

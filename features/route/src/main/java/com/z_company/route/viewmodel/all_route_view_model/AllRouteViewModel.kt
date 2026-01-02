@@ -220,87 +220,6 @@ class AllRouteViewModel() : ViewModel(), KoinComponent {
         }
     }
 
-//    fun restorePurchases() {
-//        _uiState.update {
-//            it.copy(
-//                restoreSubscriptionState = ResultState.Loading()
-//            )
-//        }
-//        viewModelScope.launch {
-//            withContext(Dispatchers.IO) {
-//                try {
-//                    val currentTimeInMillis = getInstance().timeInMillis
-//                    var maxEndTime = 0L
-//                    var job: Job? = null
-//                    billingClient.purchases.getPurchases()
-//                        .addOnSuccessListener { purchases ->
-//                            viewModelScope.launch {
-//                                purchases.forEach { purchase ->
-//                                    job?.cancel()
-//                                    job = this.launch(Dispatchers.IO) {
-//                                        if (purchase.purchaseState == PurchaseState.CONFIRMED) {
-//                                            ruStoreUseCase.getExpiryTimeMillis(
-//                                                purchase.productId,
-//                                                purchase.subscriptionToken ?: ""
-//                                            ).collect { resultState ->
-//                                                if (resultState is ResultState.Success) {
-//                                                    if (resultState.data > maxEndTime) {
-//                                                        maxEndTime = resultState.data
-//                                                    }
-//                                                    job?.cancel()
-//                                                }
-//                                                if (resultState is ResultState.Error) {
-//                                                    _uiState.update {
-//                                                        it.copy(
-//                                                            restoreSubscriptionState = ResultState.Error(
-//                                                                resultState.entity
-//                                                            )
-//                                                        )
-//                                                    }
-//                                                    job?.cancel()
-//                                                }
-//                                            }
-//                                        }
-//                                    }
-//                                    job?.join()
-//                                }
-//                                if (maxEndTime > currentTimeInMillis) {
-//                                    sharedPreferenceStorage.setSubscriptionExpiration(maxEndTime)
-//                                    snackbarManager.show(
-//                                        message = "Покупки восстановлены",
-//                                        showOnceKey = "restore_purchases_success"
-//                                    )
-//                                    _uiState.update { it.copy(restoreSubscriptionState = null) }
-//                                }
-//                                if (maxEndTime < currentTimeInMillis) {
-//                                    snackbarManager.show(
-//                                        message = "Действующих подписок не найдено",
-//                                        showOnceKey = "restore_purchases_none"
-//                                    )
-//                                    _uiState.update { it.copy(restoreSubscriptionState = null) }
-//                                }
-//                            }
-//                        }
-//                        .addOnFailureListener {
-//                            snackbarManager.show(
-//                                message = "Ошибка получения данных от сервера",
-//                            )
-//                            _uiState.update { it.copy(restoreSubscriptionState = null) }
-//                        }
-//                } catch (e: Exception) {
-//                    _uiState.update {
-//                        it.copy(
-//                            restoreSubscriptionState = ResultState.Error(
-//                                ErrorEntity(e)
-//                            )
-//                        )
-//                    }
-//                    snackbarManager.show(message = e.message ?: "Ошибка при восстановлении")
-//                }
-//            }
-//        }
-//    }
-
     fun newRouteClick(basicId: String? = null) {
         viewModelScope.launch {
             when (val decision =
@@ -427,7 +346,7 @@ class AllRouteViewModel() : ViewModel(), KoinComponent {
     }
 
     fun loadRoutes(userSettings: UserSettings) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             routeUseCase.listRoutesByMonth(userSettings.selectMonthOfYear, userSettings.timeZone)
                 .onStart { _uiState.update { it.copy(isLoading = true, errorMessage = null) } }
                 .collect { result ->

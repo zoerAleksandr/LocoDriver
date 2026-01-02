@@ -20,6 +20,7 @@ import com.z_company.route.navigation.PreviewPhotoRoute
 import com.z_company.route.navigation.PurchasesRoute
 import com.z_company.route.navigation.SalaryCalculationRoute
 import com.z_company.route.navigation.SearchRoute
+import com.z_company.route.navigation.SelectReleaseDaysScreenRoute
 import com.z_company.route.navigation.SettingSalaryRoute
 import com.z_company.route.navigation.SettingsScreenRoute
 import com.z_company.route.navigation.ViewingImageRoute
@@ -28,8 +29,6 @@ import com.z_company.route.navigation.login.AuthFeature
 import com.z_company.route.navigation.login.LogInScreenRoute
 import com.z_company.route.navigation.login.RecoveryPasswordRoute
 import com.z_company.route.navigation.login.SignInScreenRoute
-import com.z_company.settings.navigation.SelectReleaseDaysScreenRoute
-import com.z_company.settings.navigation.SettingHomeScreenRoute
 
 class RouterImpl(
 ) : Router {
@@ -182,12 +181,6 @@ class RouterImpl(
     override fun showSettingSalary() {
         requireNavController().navigate(
             SettingSalaryRoute.route
-        )
-    }
-
-    override fun showSettingHomeScreen() {
-        requireNavController().navigate(
-            SettingHomeScreenRoute.route
         )
     }
 

@@ -40,6 +40,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
@@ -72,6 +73,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -394,7 +396,9 @@ fun FormTrainScreen(
                                     placeholder = {
                                         Text(
                                             text = "Плечо",
-                                            style = dataTextStyle,
+                                            style = LocalTextStyle.current.copy(
+                                                fontWeight = FontWeight.Light
+                                            ),
                                             color = noValueColor
                                         )
                                     },
@@ -433,7 +437,9 @@ fun FormTrainScreen(
                                     placeholder = {
                                         Text(
                                             text = "Номер",
-                                            style = dataTextStyle,
+                                            style = LocalTextStyle.current.copy(
+                                                fontWeight = FontWeight.Light
+                                            ),
                                             color = noValueColor
                                         )
                                     },
@@ -441,7 +447,9 @@ fun FormTrainScreen(
                                         if (!train.number.isNullOrBlank()) {
                                             Text(
                                                 text = "№ ",
-                                                style = hintStyle,
+                                                style = LocalTextStyle.current.copy(
+                                                    fontWeight = FontWeight.Light
+                                                ),
                                                 color = noValueColor
                                             )
                                         }
@@ -515,7 +523,9 @@ fun FormTrainScreen(
                                 placeholder = {
                                     Text(
                                         text = "Вес",
-                                        style = dataTextStyle,
+                                        style = LocalTextStyle.current.copy(
+                                            fontWeight = FontWeight.Light
+                                        ),
                                         color = noValueColor
                                     )
                                 },
@@ -553,7 +563,9 @@ fun FormTrainScreen(
                                 placeholder = {
                                     Text(
                                         text = "Оси",
-                                        style = dataTextStyle,
+                                        style = LocalTextStyle.current.copy(
+                                            fontWeight = FontWeight.Light
+                                        ),
                                         color = noValueColor
                                     )
                                 },
@@ -591,7 +603,9 @@ fun FormTrainScreen(
                                 placeholder = {
                                     Text(
                                         text = "у.д.",
-                                        style = dataTextStyle,
+                                        style = LocalTextStyle.current.copy(
+                                            fontWeight = FontWeight.Light
+                                        ),
                                         color = noValueColor
                                     )
                                 },
@@ -715,10 +729,10 @@ fun FormTrainScreen(
                             Spacer(
                                 modifier = Modifier
                                     .height(8.dp)
-                                    .animateItemPlacement()
+                                    .animateItem()
                             )
                             StationItem(
-                                modifier = Modifier.animateItemPlacement(),
+                                modifier = Modifier.animateItem(),
                                 index = originalIndex,
                                 isFirst = isFirst,
                                 stationFormState = item,

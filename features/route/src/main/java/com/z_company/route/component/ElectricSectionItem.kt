@@ -23,6 +23,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -35,6 +36,7 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -179,7 +181,9 @@ fun ElectricSectionItem(
                     },
                     textStyle = dataTextStyle,
                     placeholder = {
-                        Text(text = "Принял", style = hintStyle, color = noValueColor)
+                        Text(text = "Принял", style = LocalTextStyle.current.copy(
+                            fontWeight = FontWeight.Light
+                        ), color = noValueColor)
                     },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next
@@ -203,7 +207,9 @@ fun ElectricSectionItem(
                         focusChangedElectricSection(index, ElectricSectionType.DELIVERY)
                     },
                     placeholder = {
-                        Text(text = "Сдал", style = hintStyle, color = noValueColor)
+                        Text(text = "Сдал", style = LocalTextStyle.current.copy(
+                            fontWeight = FontWeight.Light
+                        ), color = noValueColor)
                     },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Number, imeAction = ImeAction.Done
@@ -241,7 +247,9 @@ fun ElectricSectionItem(
                             },
                             textStyle = dataTextStyle,
                             placeholder = {
-                                Text(text = "Принял", style = hintStyle, color = noValueColor)
+                                Text(text = "Принял", style = LocalTextStyle.current.copy(
+                                    fontWeight = FontWeight.Light
+                                ), color = noValueColor)
                             },
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next
@@ -264,7 +272,9 @@ fun ElectricSectionItem(
                                 focusChangedElectricSection(index, ElectricSectionType.DELIVERY2)
                             },
                             placeholder = {
-                                Text(text = "Сдал", style = hintStyle, color = noValueColor)
+                                Text(text = "Сдал", style = LocalTextStyle.current.copy(
+                                    fontWeight = FontWeight.Light
+                                ), color = noValueColor)
                             },
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Number, imeAction = ImeAction.Done
@@ -307,7 +317,9 @@ fun ElectricSectionItem(
                                 placeholder = {
                                     Text(
                                         text = "Принял",
-                                        style = hintStyle,
+                                        style = LocalTextStyle.current.copy(
+                                            fontWeight = FontWeight.Light
+                                        ),
                                         color = noValueColor
                                     )
                                 },
@@ -338,7 +350,9 @@ fun ElectricSectionItem(
                                 placeholder = {
                                     Text(
                                         text = "Сдал",
-                                        style = hintStyle,
+                                        style = LocalTextStyle.current.copy(
+                                            fontWeight = FontWeight.Light
+                                        ),
                                         color = noValueColor
                                     )
                                 },
@@ -380,7 +394,9 @@ fun ElectricSectionItem(
                                     placeholder = {
                                         Text(
                                             text = "Принял",
-                                            style = hintStyle,
+                                            style = LocalTextStyle.current.copy(
+                                                fontWeight = FontWeight.Light
+                                            ),
                                             color = noValueColor
                                         )
                                     },
@@ -411,7 +427,9 @@ fun ElectricSectionItem(
                                     placeholder = {
                                         Text(
                                             text = "Сдал",
-                                            style = hintStyle,
+                                            style = LocalTextStyle.current.copy(
+                                                fontWeight = FontWeight.Light
+                                            ),
                                             color = noValueColor
                                         )
                                     },

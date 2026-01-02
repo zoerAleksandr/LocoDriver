@@ -17,6 +17,7 @@ class LoadRoutesWorker(val context: Context, params: WorkerParameters) :
         val back4AppManager: Back4AppManager by inject()
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         try {
+            Log.d("ZZZ", "LoadRoutesWorker doWork")
             back4AppManager.loadRouteListFromRemote().first {
                 it is ResultState.Success
             }

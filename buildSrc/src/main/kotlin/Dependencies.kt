@@ -58,8 +58,8 @@ object Apps {
     const val min_sdk_version = 26
     const val target_sdk_version = 35
 
-    const val version_code = 52
-    const val version_name = "2.0.4"
+    const val version_code = 54
+    const val version_name = "2.0.6"
 
     const val jvm_target_version = "21"
     val java_compatibility_version = JavaVersion.VERSION_21
@@ -82,7 +82,7 @@ object Versions {
     const val coroutines_version = "1.7.1"
     const val lifecycle_runtime_version = "2.6.1"
     const val lifecycle_viewmodel_version = "2.6.1"
-    const val material_compose3 = "1.2.1"
+    const val material_compose3 = "1.4.0"
     const val reveal_swipe_version = "1.2.0"
     const val room_version = "2.7.1"
     const val test_ext_version = "1.1.5"

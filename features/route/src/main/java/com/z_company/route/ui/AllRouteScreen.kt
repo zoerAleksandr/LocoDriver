@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
@@ -567,11 +568,11 @@ fun AllRouteScreen(
                                         }
                                     }
 
-                                val dismissState = rememberDismissState()
+//                                val dismissState = rememberDismissState()
 
                                 ItemHomeScreen(
-                                    modifier = Modifier.animateItemPlacement(),
-                                    dismissState = dismissState,
+                                    modifier = Modifier.animateItem(),
+//                                    dismissState = dismissState,
                                     route = route,
                                     onClick = { onRouteClick(route.basicData.id) },
                                     onRequestDelete = {
@@ -590,6 +591,7 @@ fun AllRouteScreen(
                                     isHeavyTrains = routeState.isHeavyTrains,
                                     isHolidayTimeInRoute = routeState.isHoliday,
                                     isExtendedServicePhaseTrains = routeState.isExtendedServicePhaseTrains,
+                                    number = displayedRoutes.size - displayedRoutes.indexOf(routeState)
                                 )
 
                                 Spacer(modifier = Modifier.height(12.dp))

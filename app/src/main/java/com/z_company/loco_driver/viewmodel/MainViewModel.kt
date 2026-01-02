@@ -93,7 +93,18 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
             // оставляем это поле без изменений, остальное обновляем, если месяц ранее не сохранялся,
             // тогда записываем его в room без изменений
             this.launch {
-                val lastTariffRate = salarySettingUseCase.getTariffRateFromCurrentMonthOfYear(monthOfYearList.findLast { it.tariffRate != 0.0 } ?: monthOfYearList.last())
+                if (monthOfYearList.isEmpty()){
+                    Log.d("zzz", "monthOfYearList.isEmpty()")
+                } else {
+                    Log.d("zzz", "monthOfYearList.isNotEmpty()")
+                }
+                val lastMonthWithTariffRate = monthOfYearList.findLast { it.tariffRate != 0.0 }
+
+                val lastTariffRate = lastMonthWithTariffRate?.let { month ->
+                    salarySettingUseCase.getTariffRateFromCurrentMonthOfYear(month)
+                } ?: 0.0
+
+                Log.d("zzz", "lastMonthWithTariffRate $lastMonthWithTariffRate")
 
                 loadCalendarFromStorage.getMonthOfYearList()
                     .collect { resultState ->

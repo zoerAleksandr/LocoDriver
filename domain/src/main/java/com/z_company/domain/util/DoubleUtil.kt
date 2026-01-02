@@ -56,6 +56,13 @@ fun Double?.str(): String {
         this.toBigDecimal().toPlainString()
     }
 }
+//fun Double?.str(decimal: Int = 2): String {
+//    return if (this == null) {
+//        ""
+//    } else {
+//        "%.${decimal}f".format(this)
+//    }
+//}
 
 @Suppress("DefaultLocale")
 fun Double?.str2decimalSign(): String {

@@ -270,7 +270,7 @@ fun HistoryResponse(
     ) {
         items(historyList) { request ->
             HistoryItem(
-                modifier = Modifier.animateItemPlacement(),
+                modifier = Modifier.animateItem(),
                 request = request.responseText,
                 removeOnClick = { removeFromList.invoke(request.responseText) },
                 itemOnClick = { itemOnClick.invoke(TextFieldValue(request.responseText)) })

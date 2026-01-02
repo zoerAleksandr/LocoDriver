@@ -12,6 +12,7 @@ import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.SectionDiesel
 import com.z_company.domain.entities.route.SectionElectric
+import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.LocomotiveUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.util.CalculationEnergy
@@ -38,6 +39,8 @@ class LocoFormViewModel(
 ) : ViewModel(), KoinComponent {
     private val locomotiveUseCase: LocomotiveUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
+    private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
+
     private val _uiState = MutableStateFlow(LocoFormUiState())
     val uiState = _uiState.asStateFlow()
 
@@ -81,12 +84,15 @@ class LocoFormViewModel(
 
     init {
         viewModelScope.launch {
+            val isKiloMode = sharedPreferenceStorage.isInputDieselInKilo()
+
             this.launch {
                 val sett = settingsUseCase.getUserSettingFlow().first()
                 _settings.value = sett
                 _uiState.update {
                     it.copy(
-                        dateAndTimeConverter = DateAndTimeConverter(sett)
+                        dateAndTimeConverter = DateAndTimeConverter(sett),
+                        isKiloMode = isKiloMode
                     )
                 }
                 _seriesList.update { list ->
@@ -129,6 +135,12 @@ class LocoFormViewModel(
                 loadLoco(locoId!!)
             }
         }
+    }
+
+    fun toggleIsKiloMode() {
+        val isKiloMode = !_uiState.value.isKiloMode
+        _uiState.update { it.copy(isKiloMode = isKiloMode) }
+        sharedPreferenceStorage.toggleInputDieselInKilo(isKiloMode)
     }
 
     private fun loadLoco(locoId: String) {

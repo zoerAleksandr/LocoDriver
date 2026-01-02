@@ -44,6 +44,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -382,13 +383,17 @@ fun FormPassengerScreen(
                                 Text(
                                     text = "поезда",
                                     color = noValueColor,
-                                    style = dataTextStyle
+                                    style = LocalTextStyle.current.copy(
+                                        fontWeight = FontWeight.Light
+                                    )
                                 )
                             },
                             prefix = {
                                 Text(
                                     text = "№ ",
-                                    style = dataTextStyle,
+                                    style = LocalTextStyle.current.copy(
+                                        fontWeight = FontWeight.Light
+                                    ),
                                     color = noValueColor
                                 )
                             },
@@ -448,7 +453,9 @@ fun FormPassengerScreen(
                                 placeholder = {
                                     Text(
                                         text = "От станции",
-                                        style = dataTextStyle,
+                                        style = LocalTextStyle.current.copy(
+                                            fontWeight = FontWeight.Light
+                                        ),
                                         color = noValueColor
                                     )
                                 },
@@ -581,10 +588,13 @@ fun FormPassengerScreen(
                                 dateAndTimeConverter?.getDateAndTime(it)
                             } ?: "Время отправления"
 
+                            val style = passenger.timeDeparture?.let {
+                                dataTextStyle
+                            } ?: LocalTextStyle.current
 
                             Text(
                                 text = textDateAndTimeDeparture,
-                                style = dataTextStyle,
+                                style = style,
                                 color = animatedTextColorsDeparture
                             )
                         }
@@ -627,7 +637,9 @@ fun FormPassengerScreen(
                                 placeholder = {
                                     Text(
                                         text = "До станции",
-                                        style = dataTextStyle,
+                                        style = LocalTextStyle.current.copy(
+                                            fontWeight = FontWeight.Light
+                                        ),
                                         color = noValueColor
                                     )
                                 },
@@ -756,9 +768,12 @@ fun FormPassengerScreen(
                                     dateAndTimeConverter?.getDateAndTime(it)
                                 } ?: "Время прибытия"
 
+                            val style = passenger.timeArrival?.let {
+                                dataTextStyle
+                            } ?: LocalTextStyle.current
                             Text(
                                 text = textDateAndTimeArrival,
-                                style = dataTextStyle,
+                                style = style,
                                 color = animatedTextColorsTimeArrival
                             )
                         }
@@ -778,7 +793,9 @@ fun FormPassengerScreen(
                             placeholder = {
                                 Text(
                                     text = "Примечания",
-                                    style = dataTextStyle,
+                                    style = LocalTextStyle.current.copy(
+                                        fontWeight = FontWeight.Light
+                                    ),
                                     color = noValueColor
                                 )
                             },

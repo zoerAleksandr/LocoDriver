@@ -31,7 +31,6 @@ interface Router {
     fun showMoreInfo(monthOfYearId: String)
     fun showSalaryCalculation()
     fun showSettingSalary()
-    fun showSettingHomeScreen()
     fun showAllRoute()
     fun showWorkScheduleScreen()
 }

@@ -45,6 +45,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -563,7 +564,7 @@ fun FormScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .animateItemPlacement(),
+                                .animateItem(),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             val widthScreen =
@@ -580,7 +581,7 @@ fun FormScreen(
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .animateItemPlacement(),
+                                    .animateItem(),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 formUiState.errorMessage?.let { message ->
@@ -956,7 +957,7 @@ fun FormScreen(
 
                             Box(
                                 modifier = Modifier
-                                    .animateItemPlacement()
+                                    .animateItem()
                                     .fillMaxWidth(),
                                 contentAlignment = Alignment.CenterEnd
                             ) {
@@ -1023,7 +1024,7 @@ fun FormScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .animateItemPlacement(),
+                                .animateItem(),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             val prefixTextColor =
@@ -1042,7 +1043,9 @@ fun FormScreen(
                                         color = MaterialTheme.colorScheme.primary.copy(
                                             alpha = 0.6f
                                         ),
-                                        style = MaterialTheme.typography.bodyMedium
+                                        style = LocalTextStyle.current.copy(
+                                            fontWeight = FontWeight.Light
+                                        )
                                     )
                                 },
                                 prefix = {
@@ -1092,7 +1095,9 @@ fun FormScreen(
                                 Text(
                                     text = "Явка",
                                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                                    style = MaterialTheme.typography.bodyMedium
+                                    style = LocalTextStyle.current.copy(
+                                        fontWeight = FontWeight.Light
+                                    )
                                 )
                                 Row(
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -1150,7 +1155,9 @@ fun FormScreen(
                                 Text(
                                     text = "Сдача",
                                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                                    style = MaterialTheme.typography.bodyMedium
+                                    style = LocalTextStyle.current.copy(
+                                        fontWeight = FontWeight.Light
+                                    )
                                 )
                                 Row(
                                     horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -1178,7 +1185,7 @@ fun FormScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .animateItemPlacement()
+                                .animateItem()
                                 .padding(bottom = 32.dp, top = 16.dp),
                             horizontalAlignment = Alignment.End,
                             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -1411,7 +1418,9 @@ fun ItemNotes(
                 Text(
                     text = "Примечания",
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                    style = MaterialTheme.typography.bodyMedium
+                    style = LocalTextStyle.current.copy(
+                        fontWeight = FontWeight.Light
+                    )
                 )
             },
             shape = Shapes.medium

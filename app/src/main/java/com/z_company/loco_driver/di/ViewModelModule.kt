@@ -12,14 +12,13 @@ import com.z_company.route.viewmodel.PurchasesViewModel
 import com.z_company.route.viewmodel.SalaryCalculationViewModel
 import com.z_company.route.viewmodel.SearchViewModel
 import com.z_company.route.viewmodel.SettingSalaryViewModel
+import com.z_company.route.viewmodel.SettingsViewModel
 import com.z_company.route.viewmodel.TrainFormViewModel
 import com.z_company.route.viewmodel.ViewingImageViewModel
 import com.z_company.route.viewmodel.WorkScheduleViewModel
 import com.z_company.route.viewmodel.login.LogInViewModel
 import com.z_company.route.viewmodel.login.PasswordRecoveryViewModel
 import com.z_company.route.viewmodel.login.SignInViewModel
-import com.z_company.settings.viewmodel.SelectReleaseDaysViewModel
-import com.z_company.settings.viewmodel.SettingsViewModel
 import org.koin.android.ext.koin.androidApplication
 import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.dsl.module
@@ -52,7 +51,6 @@ val viewModelModule = module {
     viewModel { (imageId: String) ->
         ViewingImageViewModel(imageId = imageId)
     }
-    viewModel { SelectReleaseDaysViewModel() }
     viewModel { SearchViewModel() }
     viewModel { PurchasesViewModel() }
     viewModel { SalaryCalculationViewModel() }

@@ -15,4 +15,6 @@ interface SharedPreferencesRepositories {
     fun setTokenDateTimePickerType(type: String)
     fun toggleStationsSortOrder(value: Boolean)
     fun isReversedSortStationList(): Boolean
+    fun toggleInputDieselInKilo(value: Boolean)
+    fun isInputDieselInKilo(): Boolean
 }

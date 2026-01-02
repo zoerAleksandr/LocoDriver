@@ -19,11 +19,8 @@ import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.CalendarUseCase
-import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.repository.Back4AppManager
-import com.z_company.use_case.AuthUseCase
-import com.z_company.use_case.RemoteRouteUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -39,12 +36,9 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
 class SettingsViewModel : ViewModel(), KoinComponent {
-    private val authUseCase: AuthUseCase by inject()
     private val loginUseCase: LoginUseCase by inject()
-    private val remoteRouteUseCase: RemoteRouteUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
-    private val routeUseCase: RouteUseCase by inject()
     private val back4AppManager: Back4AppManager by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
 
@@ -161,17 +155,6 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             )
         }
         showDialogAddServicePhase(phase)
-    }
-
-    fun setInputDateTimeType(value: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            sharedPreferenceStorage.setTokenDateTimePickerType(value)
-            _uiState.update {
-                it.copy(
-                    inputDateTimeType = value
-                )
-            }
-        }
     }
 
     fun setEmail(value: String) {
@@ -352,47 +335,6 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             minTimeRestPointOfTurnover = time
         )
     }
-
-    fun logOut() {
-        viewModelScope.launch {
-            authUseCase.logout().collect { result ->
-                if (result is ResultState.Success) {
-//                    routeUseCase.clearLocalRouteRepository().launchIn(viewModelScope)
-                    remoteRouteUseCase.cancelingSync()
-                }
-                _uiState.update {
-                    it.copy(
-                        logOutState = result
-                    )
-                }
-            }
-        }
-    }
-
-    fun onDownloadFromRemote() {
-        viewModelScope.launch {
-            back4AppManager.loadRouteListFromRemote().collect { loadResult ->
-                _uiState.update {
-                    it.copy(
-                        downloadState = loadResult,
-                    )
-                }
-            }
-        }
-    }
-
-    fun onUploadToServer() {
-        viewModelScope.launch {
-            back4AppManager.synchronizedStorage().collect { syncResult ->
-                _uiState.update {
-                    it.copy(
-                        uploadState = syncResult,
-                    )
-                }
-            }
-        }
-    }
-
 
     fun resetUploadState() {
         _uiState.update {
