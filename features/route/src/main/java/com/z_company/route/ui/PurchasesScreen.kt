@@ -1,6 +1,7 @@
 package com.z_company.route.ui
 
 import android.annotation.SuppressLint
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -43,8 +44,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.flowWithLifecycle
 import com.z_company.core.ui.component.CustomSnackBar
@@ -60,7 +59,6 @@ import androidx.compose.ui.draw.shadow
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.route.viewmodel.BillingState
 import com.z_company.route.viewmodel.PurchasesViewModel
-import kotlinx.coroutines.flow.collectLatest
 import org.koin.compose.koinInject
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
@@ -198,13 +196,9 @@ fun PurchasesScreen(
             itemsIndexed(
                 items = billingState.products,
             ) { index, value ->
-                val product = billingState.products[index]
+                val isActive = billingState.activeExpirations.containsKey<String>(value.productId.value)
 
-                val isActive =
-                    billingState.activeExpirations.containsKey<String>(product.productId.value)
-
-                val expiryText =
-                    billingState.activeExpirations[product.productId.value]?.let { expiryMillis ->
+                val expiryText = billingState.activeExpirations[value.productId.value]?.let { expiryMillis ->
                         billingState.dateAndTimeConverter?.getDateAndTime(expiryMillis)
                     }
 
@@ -243,12 +237,12 @@ fun PurchasesScreen(
                         }
                     }
                     Text(
-                        text = product.title.value,
+                        text = value.title.value,
                         style = dataStyle,
                         color = MaterialTheme.colorScheme.primary
                     )
 
-                    product.description?.value?.let { desc ->
+                    value.description?.value?.let { desc ->
                         Text(
                             text = desc,
                             style = hintStyle,
@@ -259,20 +253,20 @@ fun PurchasesScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    if (!isActive) {
+//                    if (!isActive) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = product.amountLabel.value,
+                                text = value.amountLabel.value,
                                 style = dataStyle,
                                 color = MaterialTheme.colorScheme.primary,
                             )
 
                             TextButton(
-                                onClick = { onProductClick(product) }
+                                onClick = { onProductClick(value) }
                             ) {
                                 Text(
                                     text = "Оформить",
@@ -281,7 +275,7 @@ fun PurchasesScreen(
                                 )
                             }
                         }
-                    }
+//                    }
                 }
             }
 
@@ -294,11 +288,11 @@ fun PurchasesScreen(
                     }
                 ) {
 
-                Text(
-                    text = "Восстановить покупки",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.tertiary
-                )
+                    Text(
+                        text = "Восстановить покупки",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
                 }
             }
 

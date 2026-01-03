@@ -126,44 +126,31 @@ class SubscriptionHelper() : KoinComponent {
     suspend fun purchaseProductSuspend(
         productId: String,
         developerPayload: String = ""
-    ): ResultState<ProductPurchaseResult> = withContext(Dispatchers.IO) {
+    ): ResultState<Long> = withContext(Dispatchers.IO) {
         try {
-            suspendCoroutine<ResultState<ProductPurchaseResult>> { continuation ->
+            suspendCoroutine<ResultState<Long>> { continuation ->
                 payClient.getPurchaseInteractor().purchase(
                     params = ProductPurchaseParams(
                         productId = ProductId(productId),
                         developerPayload = DeveloperPayload(developerPayload),
                     ),
-                    // одностадийная оплата PreferredPurchaseType.ONE_STEP
-                    // двухстадийная оплата PreferredPurchaseType.TWO_STEP
-                    // при двухстадийной оплате:
-                    // RuStorePayClient.getPurchaseInteractor().confirmTwoStepPurchase() - подтверждение
-                    // RuStorePayClient.getPurchaseInteractor().cancelTwoStepPurchase() - отмена
                     preferredPurchaseType = PreferredPurchaseType.ONE_STEP
                 ).addOnSuccessListener { paymentResult ->
                     CoroutineScope(Dispatchers.IO).launch {
-                        val id = paymentResult.productId
-                        val expirationResult = setSubscriptionExpirationFromServer(id.toString())
-
-                        when (expirationResult) {
+                        val id = paymentResult.purchaseId.value
+                        when (val expirationResult = setSubscriptionExpirationFromServer(id)) {
                             is ResultState.Success -> {
-                                continuation.resume(ResultState.Success(paymentResult))
+                                continuation.resume(ResultState.Success(expirationResult.data))
                             }
 
                             is ResultState.Error -> {
-                                continuation.resume(
-                                    ResultState.Error(
-                                        ErrorEntity(Throwable("Failed to set subscription expiration: ${expirationResult.entity.message}"))
-                                    )
-                                )
+                                continuation.resume(ResultState.Success(-1L))
                             }
 
                             else -> {}
                         }
                     }
-
-
-                    continuation.resume(ResultState.Success(paymentResult))
+//                    continuation.resume(ResultState.Success(paymentResult))
                 }.addOnFailureListener { throwable ->
                     when (throwable) {
                         // общая ошибка
@@ -174,8 +161,11 @@ class SubscriptionHelper() : KoinComponent {
                         is ProductPurchaseCancelled -> {
                             continuation.resume(ResultState.Error(ErrorEntity(throwable)))
                         }
+
+                        else -> {
+                            continuation.resume(ResultState.Error(ErrorEntity(throwable)))
+                        }
                     }
-                    continuation.resume(ResultState.Error(ErrorEntity(throwable)))
                 }
             }
         } catch (t: Throwable) {
@@ -226,9 +216,11 @@ class SubscriptionHelper() : KoinComponent {
         if (overallMaxExpiration > now) {
             sharedPreferences.setSubscriptionExpiration(overallMaxExpiration)
             snackbarManager?.show(message = "Подписки восстановлены")
+            println("zzz, Подписки восстановлены")
             return ResultState.Success(Unit)
         } else {
             snackbarManager?.show(message = "Действующих подписок не найдено")
+            println("zzz, Действующих подписок не найдено")
             return ResultState.Success(Unit)
         }
     }
@@ -246,7 +238,7 @@ class SubscriptionHelper() : KoinComponent {
                             continuation.resume(it)
                         }
                         .addOnFailureListener {
-                            snackbarManager?.show(message = "ошибка $it")
+//                            snackbarManager?.show(message = "ошибка $it")
                             continuation.resumeWithException(it)
                         }
                 }
@@ -276,7 +268,13 @@ class SubscriptionHelper() : KoinComponent {
 //                }
             } catch (t: Throwable) {
                 Log.d("zzz", "message = ${t.message}")
-                snackbarManager?.show(message = t.message ?: "Ошибка при восстановлении подписок")
+                snackbarManager?.show(
+                    message = t.message ?: "Ошибка при восстановлении подписок",
+                    actionLabel = "Повторить",
+                    onAction = {
+                        this.cancel()
+                        restorePurchases()
+                    })
                 ResultState.Error(ErrorEntity(t))
             }
         }
@@ -294,7 +292,7 @@ class SubscriptionHelper() : KoinComponent {
                                 continuation.resume(purchasesList)
                             }
                             .addOnFailureListener { e ->
-                                snackbarManager?.show(message = "Ошибка получения покупок: $e")
+//                                snackbarManager?.show(message = "Ошибка получения покупок: $e")
                                 continuation.resumeWithException(e)
                             }
                     }
@@ -312,12 +310,6 @@ class SubscriptionHelper() : KoinComponent {
                                 maxEndTime = resultState.data
                                 Log.d("zzz", "billing client maxEndTime $maxEndTime")
                             }
-                        }
-                        if (resultState is ResultState.Error) {
-                            snackbarManager?.show(
-                                message = "Ошибка ruStoreUseCase.getExpiryTimeMillis ${resultState.entity.message}",
-                                showOnceKey = "restore_purchases_none"
-                            )
                         }
                     }
                 }
@@ -338,29 +330,35 @@ class SubscriptionHelper() : KoinComponent {
     // 6. Установка expiration через получение деталей подписки
     suspend fun setSubscriptionExpirationFromServer(
         purchaseId: String,
-    ): ResultState<Unit> = withContext(Dispatchers.IO) {
+    ): ResultState<Long> = withContext(Dispatchers.IO) {
         try {
-            suspendCoroutine<ResultState<Unit>> { continuation ->
+            suspendCoroutine<ResultState<Long>> { continuation ->
                 payClient.getPurchaseInteractor().getPurchase(PurchaseId(purchaseId))
                     .addOnSuccessListener { purchase: Purchase ->
+                        println("zzz getPurchase addOnSuccessListener")
                         when (purchase) {
-//                            is SubscriptionPurchase -> {
-//                                // Логика обработки результата покупки подписки
-//                                val expiration = purchase.expirationDate.time
-//
-//                                val prev = sharedPreferences.getSubscriptionExpiration()
-//                                if (expiration > prev) {
-//                                    sharedPreferences.setSubscriptionExpiration(expiration)
-//                                }
-//                                continuation.resume(ResultState.Success(Unit))
-//                            }
+                            is SubscriptionPurchase -> {
+                                println("zzz getPurchase is SubscriptionPurchase")
+                                // Логика обработки результата покупки подписки
+                                val expiration = purchase.expirationDate.time
+
+                                val prev = sharedPreferences.getSubscriptionExpiration()
+                                println("zzz getPurchase expiration $expiration")
+                                if (expiration > prev) {
+                                    sharedPreferences.setSubscriptionExpiration(expiration)
+                                    println("zzz getPurchase save expiration $expiration")
+                                }
+                                continuation.resume(ResultState.Success(expiration))
+                            }
 
                             else -> {
+                                println("zzz getPurchase is not SubscriptionPurchase")
                                 // Логика обработки результата покупки c базовыми полями
                             }
                         }
                     }
                     .addOnFailureListener { throwable: Throwable ->
+                        println("zzz getPurchase addOnFailureListener $throwable")
                         // Обработка ошибки
                         continuation.resumeWithException(throwable)
                     }

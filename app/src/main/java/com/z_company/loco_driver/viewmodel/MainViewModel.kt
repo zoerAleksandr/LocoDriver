@@ -59,6 +59,9 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
         sessionManager.updateLoggedIn() // ← мгновенно + запускает sync если нужно
 
         viewModelScope.launch {
+            subscriptionHelper.restorePurchases()
+        }
+        viewModelScope.launch {
             loadCalendar()
             delay(400L) // минимальное время сплеша
             _appInitialized.value = true
