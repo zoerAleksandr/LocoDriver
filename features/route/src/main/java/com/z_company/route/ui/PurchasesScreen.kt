@@ -70,12 +70,9 @@ fun PurchasesScreen(
     onProductClick: (Product) -> Unit,
     onBack: () -> Unit,
     eventSharedFlow: SharedFlow<BillingEvent>,
-    dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val scope = rememberCoroutineScope()
-
-    val context = LocalContext.current
 
     val dataStyle = MaterialTheme.typography.bodyLarge
     val hintStyle = MaterialTheme.typography.bodyMedium
@@ -196,9 +193,11 @@ fun PurchasesScreen(
             itemsIndexed(
                 items = billingState.products,
             ) { index, value ->
-                val isActive = billingState.activeExpirations.containsKey<String>(value.productId.value)
+                val isActive =
+                    billingState.activeExpirations.containsKey<String>(value.productId.value)
 
-                val expiryText = billingState.activeExpirations[value.productId.value]?.let { expiryMillis ->
+                val expiryText =
+                    billingState.activeExpirations[value.productId.value]?.let { expiryMillis ->
                         billingState.dateAndTimeConverter?.getDateAndTime(expiryMillis)
                     }
 
@@ -253,7 +252,7 @@ fun PurchasesScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-//                    if (!isActive) {
+                    if (!isActive) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -275,7 +274,7 @@ fun PurchasesScreen(
                                 )
                             }
                         }
-//                    }
+                    }
                 }
             }
 

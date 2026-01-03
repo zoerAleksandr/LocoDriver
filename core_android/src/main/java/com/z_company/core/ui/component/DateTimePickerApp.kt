@@ -279,10 +279,35 @@ fun CompactCalendar(selectedDate: Long, onDateSelected: (Long) -> Unit, timeZone
 
         daysOfWeek.forEachIndexed { index, day ->
             val adjustedIndex = (index + 1) % 7 + 1
-            val dayNumber =
-                calendar.get(Calendar.DAY_OF_MONTH) - ((selectedDayOfWeek - 2 + 7) % 7) + index
+//            val dayNumber =
+//                calendar.get(Calendar.DAY_OF_MONTH) - ((selectedDayOfWeek - 2 + 7) % 7) + index
             val isSelectedDay =
                 selectedDayOfWeek == adjustedIndex
+
+//            var currentMonth by remember {
+//                mutableStateOf(
+//                    Calendar.getInstance(TimeZone.getTimeZone(timeZoneStr)).apply { timeInMillis = selectedDate })
+//            }
+
+//            val firstDayOfMonth = Calendar.getInstance(TimeZone.getTimeZone(timeZoneStr)).apply {
+//                time = currentMonth.time
+//                set(Calendar.DAY_OF_MONTH, 1)
+//            }
+//            val firstDayOfWeek = (firstDayOfMonth.get(Calendar.DAY_OF_WEEK) - 2 + 7) % 7
+            val monthCal = Calendar.getInstance().apply { timeInMillis = selectedDate }
+            val month = monthCal.get(Calendar.MONTH)
+            val year = monthCal.get(Calendar.YEAR)
+
+//            val daysInMonth = firstDayOfMonth.getActualMaximum(Calendar.DAY_OF_MONTH)
+            val offset = (selectedDayOfWeek - 2 + 7) % 7
+            val currentDateCal = Calendar.getInstance().apply {
+                timeInMillis = selectedDate
+                add(Calendar.DAY_OF_MONTH, index - offset)
+            }
+
+            val isCurrentMonthDay =
+                currentDateCal.get(Calendar.MONTH) == month && currentDateCal.get(Calendar.YEAR) == year
+
             Column(
                 horizontalAlignment =
                     Alignment.CenterHorizontally
@@ -304,34 +329,40 @@ fun CompactCalendar(selectedDate: Long, onDateSelected: (Long) -> Unit, timeZone
                         )
                     )
                 }
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(
-                            RoundedCornerShape(
-                                bottomStart = 12.dp,
-                                bottomEnd = 12.dp
-                            )
-                        )
-                        .background(if (isSelectedDay) MaterialTheme.colorScheme.tertiary else Color.Transparent)
-                        .noRippleEffect {
-                            val newCalendar = Calendar.getInstance(TimeZone.getTimeZone(timeZoneStr)).apply {
-                                timeInMillis = selectedDate
-                                add(
-                                    Calendar.DAY_OF_MONTH,
-                                    index - ((selectedDayOfWeek - 2 + 7) % 7)
+//                if (dayNumber in 1..daysInMonth) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(
+                                RoundedCornerShape(
+                                    bottomStart = 12.dp,
+                                    bottomEnd = 12.dp
                                 )
-                            }
-                            onDateSelected(newCalendar.timeInMillis)
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = dayNumber.toString(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (isSelectedDay) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
-                    )
-                }
+                            )
+                            .background(if (isSelectedDay) MaterialTheme.colorScheme.tertiary else Color.Transparent)
+                            .noRippleEffect {
+                                val newCalendar = Calendar.getInstance(TimeZone.getTimeZone(timeZoneStr)).apply {
+                                    timeInMillis = selectedDate
+                                    add(
+                                        Calendar.DAY_OF_MONTH,
+                                        index - ((selectedDayOfWeek - 2 + 7) % 7)
+                                    )
+                                }
+                                onDateSelected(newCalendar.timeInMillis)
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = currentDateCal.get(Calendar.DAY_OF_MONTH).toString(),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (isSelectedDay) MaterialTheme.colorScheme.secondary
+                            else if (isCurrentMonthDay) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                        )
+                    }
+//                } else {
+//                    Spacer(modifier = Modifier.weight(1f))
+//                }
             }
         }
     }

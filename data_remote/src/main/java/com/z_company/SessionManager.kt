@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -28,36 +29,39 @@ class SessionManager @Inject constructor(
 
     private var syncJob: Job? = null
 
-    fun updateLoggedIn() {
-        val currentUser = ParseUser.getCurrentUser()
-        val loggedIn = currentUser != null
-        val verified = loggedIn && currentUser?.getBoolean(UserFieldName.EMAIL_VERIFIED_FIELD_NAME_REMOTE) == true
+    suspend fun updateLoggedIn() {
+        withContext(Dispatchers.IO) {
+            val currentUser = ParseUser.getCurrentUser()
+            val loggedIn = currentUser != null
+            val verified =
+                loggedIn && currentUser?.getBoolean(UserFieldName.EMAIL_VERIFIED_FIELD_NAME_REMOTE) == true
 
-        // ← МГНОВЕННО обновляем состояние логина (это главное!)
-        _isLoggedIn.value = loggedIn
+            // ← МГНОВЕННО обновляем состояние логина (это главное!)
+            _isLoggedIn.value = loggedIn
 
-        // Отменяем предыдущую синхронизацию
-        syncJob?.cancel()
-        syncJob = null
+            // Отменяем предыдущую синхронизацию
+            syncJob?.cancel()
+            syncJob = null
 
-        // Запускаем/отменяем синхронизацию в фоне
-        if (verified) {
-            syncJob = scope.launch {
-                try {
-                    remoteRouteUseCase.syncBasicDataPeriodic().collect {
-                        // если Flow эмитит что-то полезное — можно обработать
-                    }
-                } catch (e: Exception) {
-                    if (e !is CancellationException) {
-                        // опционально лог ошибки синхронизации
-                        Log.e("SessionManager", "Sync error", e)
+            // Запускаем/отменяем синхронизацию в фоне
+            if (verified) {
+                syncJob = scope.launch {
+                    try {
+                        remoteRouteUseCase.syncBasicDataPeriodic().collect {
+                            // если Flow эмитит что-то полезное — можно обработать
+                        }
+                    } catch (e: Exception) {
+                        if (e !is CancellationException) {
+                            // опционально лог ошибки синхронизации
+                            Log.e("SessionManager", "Sync error", e)
+                        }
                     }
                 }
-            }
-        } else {
-            // Если пользователь залогинен, но email не подтверждён — всё равно отменяем синхронизацию
+            } else {
+                // Если пользователь залогинен, но email не подтверждён — всё равно отменяем синхронизацию
 //            remoteRouteUseCase.cancelingSync() // если это suspend — scope.launch { it() }
-            scope.launch { remoteRouteUseCase.cancelingSync() }
+                scope.launch { remoteRouteUseCase.cancelingSync() }
+            }
         }
     }
 

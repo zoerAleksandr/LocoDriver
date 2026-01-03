@@ -9,6 +9,7 @@ import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.SalarySetting
 import com.z_company.domain.entities.SurchargeExtendedServicePhase
 import com.z_company.domain.entities.SurchargeHeavyTrains
+import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.util.addOrReplace
@@ -20,14 +21,17 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import java.util.Calendar
 
 class SettingSalaryViewModel : ViewModel(), KoinComponent {
     private val salarySettingUseCase: SalarySettingUseCase by inject()
+    private val calendarUseCase: CalendarUseCase by inject()
     private val userSettingUseCase: SettingsUseCase by inject()
 
     private var initialValueTariffRate: Double? = null
@@ -295,37 +299,71 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun setDateSetTariffRate(dayOfMonth: Int) {
-        if (dayOfMonth == 1) {
-            currentMonthOfYear = currentMonthOfYear?.copy(
-                dateSetTariffRate = null
-            )
-            _uiState.update {
-                it.copy(
-                    currentMonthOfYear = currentMonthOfYear,
-                )
-            }
-        } else {
-            val currentDateSetTariffRate = currentMonthOfYear?.dateSetTariffRate
-            currentMonthOfYear = if (currentDateSetTariffRate == null) {
-                currentMonthOfYear?.copy(
-                    dateSetTariffRate = DateSetTariffRate(
-                        dateNewRate = dayOfMonth,
-                        oldRate = 0.0,
+    fun setDateSetTariffRate(date: Calendar) {
+        val dayOfMonth = date.get(Calendar.DAY_OF_MONTH)
+        val month = date.get(Calendar.MONTH) // Месяцы в Calendar от 0 до 11
+        val year = date.get(Calendar.YEAR)
+        viewModelScope.launch(Dispatchers.IO) {
+            // Проверяем, совпадает ли месяц/год с текущим
+            if (currentMonthOfYear?.month != month || currentMonthOfYear?.year != year) {
+                // Загружаем список MonthOfYear
+                val monthList = calendarUseCase.loadFlowMonthOfYearListState().first()
+
+                // Ищем подходящий MonthOfYear по месяцу и году
+                val newMonthOfYear = monthList.find { it.month == month && it.year == year }
+
+                // Если найден, обновляем currentMonthOfYear
+                withContext(Dispatchers.Main) {
+                    currentMonthOfYear = newMonthOfYear ?: MonthOfYear(
+                        // Если не найден, создаем новый (дефолт)
+                        month = month,
+                        year = year,
                     )
-                )
-            } else {
-                currentMonthOfYear?.copy(
-                    dateSetTariffRate = currentMonthOfYear!!.dateSetTariffRate?.copy(
-                        dateNewRate = dayOfMonth,
-                    )
-                )
+                    _uiState.update {
+                        it.copy(
+                            currentMonthOfYear = currentMonthOfYear,
+                            tariffRate = ResultState.Success(
+                                currentMonthOfYear?.tariffRate.str() ?: "0.0"
+                            )
+                        )
+                    }
+                    initialValueTariffRate = currentMonthOfYear?.tariffRate
+                }
             }
-            _uiState.update {
-                it.copy(
-                    currentMonthOfYear = currentMonthOfYear,
-                    oldTariffRate = ResultState.Success(currentMonthOfYear!!.dateSetTariffRate!!.oldRate.toString()),
-                )
+
+            withContext(Dispatchers.Main) {
+                if (dayOfMonth == 1) {
+                    currentMonthOfYear = currentMonthOfYear?.copy(
+                        dateSetTariffRate = null
+                    )
+                    _uiState.update {
+                        it.copy(
+                            currentMonthOfYear = currentMonthOfYear,
+                        )
+                    }
+                } else {
+                    val currentDateSetTariffRate = currentMonthOfYear?.dateSetTariffRate
+                    currentMonthOfYear = if (currentDateSetTariffRate == null) {
+                        currentMonthOfYear?.copy(
+                            dateSetTariffRate = DateSetTariffRate(
+                                dateNewRate = dayOfMonth,
+                                oldRate = 0.0,
+                            )
+                        )
+                    } else {
+                        currentMonthOfYear?.copy(
+                            dateSetTariffRate = currentMonthOfYear!!.dateSetTariffRate?.copy(
+                                dateNewRate = dayOfMonth,
+                            )
+                        )
+                    }
+                    _uiState.update {
+                        it.copy(
+                            currentMonthOfYear = currentMonthOfYear,
+                            oldTariffRate = ResultState.Success(currentMonthOfYear!!.dateSetTariffRate!!.oldRate.toString()),
+                        )
+                    }
+                }
             }
         }
     }

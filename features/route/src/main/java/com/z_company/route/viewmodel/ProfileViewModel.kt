@@ -149,7 +149,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
     fun resetDownloadState() = _uiState.update { it.copy(downloadState = null) }
 
     fun logOut() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             authUseCase.logout().collect { result ->
                 if (result is ResultState.Success){
                     remoteRouteUseCase.cancelingSync()

@@ -56,7 +56,9 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private val sessionManager: SessionManager by inject()
 
     init {
-        sessionManager.updateLoggedIn() // ← мгновенно + запускает sync если нужно
+        viewModelScope.launch {
+            sessionManager.updateLoggedIn() // ← мгновенно + запускает sync если нужно
+        }
 
         viewModelScope.launch {
             subscriptionHelper.restorePurchases()
@@ -96,7 +98,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
             // оставляем это поле без изменений, остальное обновляем, если месяц ранее не сохранялся,
             // тогда записываем его в room без изменений
             this.launch {
-                if (monthOfYearList.isEmpty()){
+                if (monthOfYearList.isEmpty()) {
                     Log.d("zzz", "monthOfYearList.isEmpty()")
                 } else {
                     Log.d("zzz", "monthOfYearList.isNotEmpty()")

@@ -126,7 +126,7 @@ fun SettingSalaryScreen(
     saveTariffRateCurrentAndNextMonth: () -> Unit,
     setOtherSurcharge: (String) -> Unit,
     currentMonthOfYear: MonthOfYear?,
-    setDateNewTariffRate: (Int) -> Unit
+    setDateNewTariffRate: (Calendar) -> Unit
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
     val hintStyle = MaterialTheme.typography.bodyMedium
@@ -172,7 +172,7 @@ fun SettingSalaryScreen(
         DateRangePickerBottomSheet(
             onDateRangeSelected = { list ->
                 if (list.isNotEmpty()) {
-                    setDateNewTariffRate(list.first().get(Calendar.DAY_OF_MONTH))
+                    setDateNewTariffRate(list.first())
                 }
                 isShowSetDateTariffRateDialog = false
             },
@@ -180,32 +180,7 @@ fun SettingSalaryScreen(
                 isShowSetDateTariffRateDialog = false
             },
             title = "Дата начала действия нового тарифа",
-//            singleMode = false
         )
-
-//        CustomDatePickerDialog(
-//            datePickerState = datePickerState,
-//            title = {
-//                Text(
-//                    modifier = Modifier.padding(16.dp),
-//                    text = "Дата начала действия нового тарифа",
-//                    overflow = TextOverflow.Ellipsis,
-//                    maxLines = 1,
-//                    style = hintStyle
-//                )
-//            },
-//            onDismissRequest = {
-//                isShowSetDateTariffRateDialog = false
-//            },
-//            onConfirmRequest = {
-//                val date = Calendar.getInstance().also {
-//                    it.timeInMillis = datePickerState.selectedDateMillis!!
-//                }.get(Calendar.DAY_OF_MONTH)
-//
-//                setDateNewTariffRate(date)
-//                isShowSetDateTariffRateDialog = false
-//            }
-//        )
     }
 
     AnimationDialog(
@@ -218,7 +193,8 @@ fun SettingSalaryScreen(
             modifier = Modifier
                 .padding(16.dp)
                 .fillMaxWidth(),
-        ) {
+        )
+        {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
