@@ -7,7 +7,6 @@ import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.navigation.Router
 import com.z_company.route.navigation.AllRouteScreenRoute
-import com.z_company.route.navigation.CreatePhotoRoute
 import com.z_company.route.navigation.DetailsRoute
 import com.z_company.route.navigation.FormLoco
 import com.z_company.route.navigation.FormPassenger
@@ -16,16 +15,13 @@ import com.z_company.route.navigation.FormTrain
 import com.z_company.route.navigation.HomeFeature
 import com.z_company.route.navigation.HomeRoute
 import com.z_company.route.navigation.MoreInfoRoute
-import com.z_company.route.navigation.PreviewPhotoRoute
 import com.z_company.route.navigation.PurchasesRoute
 import com.z_company.route.navigation.SalaryCalculationRoute
 import com.z_company.route.navigation.SearchRoute
 import com.z_company.route.navigation.SelectReleaseDaysScreenRoute
 import com.z_company.route.navigation.SettingSalaryRoute
 import com.z_company.route.navigation.SettingsScreenRoute
-import com.z_company.route.navigation.ViewingImageRoute
 import com.z_company.route.navigation.WorkScheduleScreenRoute
-import com.z_company.route.navigation.login.AuthFeature
 import com.z_company.route.navigation.login.LogInScreenRoute
 import com.z_company.route.navigation.login.RecoveryPasswordRoute
 import com.z_company.route.navigation.login.SignInScreenRoute
@@ -133,24 +129,6 @@ class RouterImpl(
     override fun showEmptyPassengerForm(basicId: String) {
         requireNavController().navigate(
             FormPassenger.buildDetailsRoute(passengerId = null, basicId = basicId)
-        )
-    }
-
-    override fun showCameraScreen(basicId: String) {
-        requireNavController().navigate(
-            CreatePhotoRoute.buildRoute(basicId)
-        )
-    }
-
-    override fun showPreviewPhotoScreen(photo: String, basicId: String) {
-        requireNavController().navigate(
-            PreviewPhotoRoute.buildRoute(photo, basicId)
-        )
-    }
-
-    override fun showViewingImageScreen(imageId: String) {
-        requireNavController().navigate(
-            ViewingImageRoute.buildRoute(imageId)
         )
     }
 

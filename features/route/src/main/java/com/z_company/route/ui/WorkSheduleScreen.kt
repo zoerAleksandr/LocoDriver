@@ -267,7 +267,7 @@ fun WorkScheduleScreen(
                 BottomSheetAction(text = stringResource(id = R.string.billing_common_ok)) {
                     showEndTimeSheet = true
                 },
-                BottomSheetAction(text = "Оформить подписку за 44 руб/мес") {
+                BottomSheetAction(text = "Оформить подписку за 69 руб/мес") {
                     viewModel.checkPurchasesAvailability()
                 }
             ),
@@ -296,7 +296,7 @@ fun WorkScheduleScreen(
                 }
             },
             actions = listOf(
-                BottomSheetAction(text = "Оформить подписку за 44 руб/мес") {
+                BottomSheetAction(text = "Оформить подписку за 69 руб/мес") {
                     viewModel.checkPurchasesAvailability()
                 },
                 BottomSheetAction(text = "Восстановить покупки") {
@@ -787,7 +787,8 @@ fun WorkScheduleScreen(
                         ) {
                             Text(
                                 text = "Удалить выбранные ($totalSelectedRoutes)",
-                                style = MaterialTheme.typography.bodySmall
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
                             )
                         }
                     }

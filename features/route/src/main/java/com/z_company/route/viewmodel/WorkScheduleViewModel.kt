@@ -41,6 +41,7 @@ import com.z_company.domain.entities.Day
 import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHoursExcludingWeekends
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHoursIncludingWeekends
+import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
 
 
 /**
@@ -135,6 +136,12 @@ class WorkScheduleViewModel() : ViewModel(), KoinComponent {
 
     val alertBeforePurchasesEvent = _alertBeforePurchasesEvent.asSharedFlow()
 
+    private val _purchasesEvent = MutableSharedFlow<StartPurchasesEvent>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    val purchasesEvent = _purchasesEvent.asSharedFlow()
+
 
     /**
      * Toggle single planned time for a day (add if missing, remove if exists).
@@ -213,7 +220,9 @@ class WorkScheduleViewModel() : ViewModel(), KoinComponent {
                                 val cal = Calendar.getInstance()
                                     .also { it.timeInMillis = start + timeZone }
                                 val day = cal.get(Calendar.DAY_OF_MONTH)
-                                map.getOrPut(day) { mutableListOf() }.add(route)
+                                if (cal.get(Calendar.MONTH) == currentMonth.value?.month) {
+                                    map.getOrPut(day) { mutableListOf() }.add(route)
+                                }
                             }
                         }
 
@@ -338,7 +347,8 @@ class WorkScheduleViewModel() : ViewModel(), KoinComponent {
         viewModelScope.launch(Dispatchers.IO) {
             when (val checkResult = subscriptionHelper.checkPurchasesAvailabilitySuspend()) {
                 is ResultState.Success -> {
-                    snackbarManager.show(message = "Подписки доступны")
+                    _purchasesEvent.tryEmit(StartPurchasesEvent.PurchasesAvailability(checkResult.data))
+//                    snackbarManager.show(message = "Подписки доступны")
                 }
 
                 is ResultState.Error -> {
@@ -429,7 +439,6 @@ class WorkScheduleViewModel() : ViewModel(), KoinComponent {
     }
 
     fun saveSelectedSchedules(workDuration: Long? = null) {
-        Log.d("zzz", "saveSelectedSchedules")
         val month = _currentMonth.value ?: run {
             snackbarManager.show(
                 message = "Месяц не выбран",

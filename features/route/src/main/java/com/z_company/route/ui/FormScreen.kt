@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import android.util.Log
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -101,6 +102,8 @@ import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.util.minus
+import com.z_company.domain.util.moreThan
+import com.z_company.domain.util.str
 import com.z_company.domain.util.toMoneyString
 import com.z_company.route.R
 import com.z_company.route.component.AppBottomSheet
@@ -315,7 +318,8 @@ fun FormScreen(
                             IconButton(
                                 onClick = {
                                     setFavoriteState()
-                                    val textSnackbar = if (it) "Убрали из избранного" else "Маршрут добавлен в избранное"
+                                    val textSnackbar =
+                                        if (it) "Убрали из избранного" else "Маршрут добавлен в избранное"
                                     scope.launch {
                                         snackbarManager.show(textSnackbar)
                                     }
@@ -336,7 +340,8 @@ fun FormScreen(
                             IconButton(
                                 onClick = {
                                     checkedOnePersonOperation(!it)
-                                    val textSnackbar = if (it) "Работа в два лица" else "Работа в одно лицо"
+                                    val textSnackbar =
+                                        if (it) "Работа в два лица" else "Работа в одно лицо"
                                     scope.launch {
                                         snackbarManager.show(textSnackbar)
                                     }
@@ -678,7 +683,9 @@ fun FormScreen(
                                                         contentDescription = null
                                                     )
                                                     Text(
-                                                        text = ConverterLongToTime.getTimeInStringFormat(time),
+                                                        text = ConverterLongToTime.getTimeInStringFormat(
+                                                            time
+                                                        ),
                                                         style = MaterialTheme.typography.bodyMedium,
                                                         color = MaterialTheme.colorScheme.primary
                                                     )
@@ -687,6 +694,10 @@ fun FormScreen(
                                         }
                                     }
                                 }
+                            }
+
+                            LaunchedEffect(salaryForRouteState) {
+
                             }
 
                             Row(
@@ -762,7 +773,7 @@ fun FormScreen(
                                     verticalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
                                     if (salaryForRouteState.isCalculated) {
-                                        if (salaryForRouteState.paymentAtTariffRate == 0.0) {
+                                        if (!salaryForRouteState.isSetTariffRate) {
                                             val link = buildAnnotatedString {
                                                 val text =
                                                     "Установите значение тарифной ставки в настройках."
@@ -808,7 +819,9 @@ fun FormScreen(
                                                         }
                                                 }
                                             }
-                                        } else {
+                                        }
+
+                                        if (salaryForRouteState.paymentAtTariffRate.moreThan(0.0)) {
                                             Row(
                                                 modifier = Modifier
                                                     .fillMaxWidth(),
@@ -823,7 +836,6 @@ fun FormScreen(
                                                     style = MaterialTheme.typography.bodyMedium
                                                 )
                                             }
-
                                         }
 
                                         if (salaryForRouteState.paymentHolidayMoney != 0.0) {
@@ -953,6 +965,8 @@ fun FormScreen(
                                         }
                                     }
                                 }
+
+
                             }
 
                             Box(

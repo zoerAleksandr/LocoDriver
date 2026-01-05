@@ -2,6 +2,20 @@ package com.z_company.domain.util
 
 import java.math.BigDecimal
 
+/** Возвращает true если this < other && (this == null && other == null)
+ * */
+fun Double?.lessThan(other: Double?): Boolean {
+    return if (this == null || other == null) false
+    else this < other
+}
+
+/** Возвращает true если this > other && (this == null && other == null)
+ * */
+fun Double?.moreThan(other: Double?): Boolean {
+    return if (this == null || other == null) false
+    else this > other
+}
+
 operator fun Double?.minus(other: Double?): Double? =
     if (this != null && other != null) {
         this - other
@@ -77,7 +91,7 @@ fun Double?.toMoneyString(): String {
     return if (this == null) {
         "0 ₽"
     } else {
-        val value = this / 3_600_000.toDouble()
-        "${String.format(" % .2f", value)} ₽"
+//        val value = this / 3_600_000.toDouble()
+        "${String.format(" % .2f", this)} ₽"
     }
 }

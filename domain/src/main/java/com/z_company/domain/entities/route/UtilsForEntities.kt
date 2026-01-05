@@ -439,9 +439,10 @@ object UtilsForEntities : KoinComponent {
     fun List<Route>.getNewRoutesToDayRange(
         days: IntRange,
         monthOfYear: MonthOfYear,
-        offsetInMoscow: Long
+        offsetInMoscow: Long,
+        isLastDayOfMonth: Boolean
     ): List<Route> {
-        val firstData = Calendar.getInstance().also {
+        val firstDataInMillis = getInstance().also {
             it.set(Calendar.YEAR, monthOfYear.year)
             it.set(Calendar.MONTH, monthOfYear.month)
             it.set(Calendar.DAY_OF_MONTH, days.first)
@@ -451,7 +452,7 @@ object UtilsForEntities : KoinComponent {
             it.set(Calendar.MILLISECOND, 0)
         }.timeInMillis + offsetInMoscow
 
-        val secondData = Calendar.getInstance().also {
+        val secondData = getInstance().also {
             it.set(Calendar.YEAR, monthOfYear.year)
             it.set(Calendar.MONTH, monthOfYear.month)
             it.set(Calendar.DAY_OF_MONTH, days.last)
@@ -459,48 +460,110 @@ object UtilsForEntities : KoinComponent {
             it.set(Calendar.MINUTE, 0)
             it.set(Calendar.SECOND, 0)
             it.set(Calendar.MILLISECOND, 0)
-        }.timeInMillis + offsetInMoscow
+        }
+
+        if (isLastDayOfMonth) {
+            secondData.add(Calendar.DAY_OF_MONTH, 1)
+        }
+
+
+        val secondDataInMillis = secondData.timeInMillis + offsetInMoscow
+
+        println("zzz firstData $firstDataInMillis")
+        println("zzz secondData $secondDataInMillis")
 
         val newRouteList = mutableListOf<Route>()
 
         this.forEach { route ->
-            var newRoute = Route()
+            // Изменено: Убрана инициализация пустого Route() вне let-блоков, чтобы избежать добавления пустых объектов.
+            // Теперь newRoute создается только если есть timeStartWork и timeEndWork, и только если маршрут пересекается с диапазоном.
             route.basicData.timeStartWork?.let { timeStart ->
                 route.basicData.timeEndWork?.let { timeEnd ->
-                    if (timeEnd < firstData || timeStart > secondData) return@forEach
-                    if (firstData > timeStart) {
-                        if (secondData > timeEnd) {
-                            newRoute = route.copy(
-                                basicData = route.basicData.copy(
-                                    timeStartWork = firstData
-                                )
-                            )
-                        } else {
-                            newRoute = route.copy(
-                                basicData = route.basicData.copy(
-                                    timeStartWork = firstData,
-                                    timeEndWork = secondData
-                                )
-                            )
-                        }
-                    } else {
-                        if (secondData > timeEnd) {
-                            newRoute = route
+                    if (timeEnd < firstDataInMillis || timeStart > secondDataInMillis) return@forEach
 
-                        } else {
-                            newRoute = route.copy(
-                                basicData = route.basicData.copy(
-                                    timeEndWork = secondData
-                                )
-                            )
-                        }
-                    }
+                    // Изменено: Теперь всегда создаем копию маршрута на основе оригинального route,
+                    // чтобы сохранить все данные (включая информацию о поезде), и изменяем только время в basicData.
+                    // Ранее в случае полного совпадения диапазона присваивался оригинальный route без копирования,
+                    // но для единообразия теперь всегда копируем и изменяем только необходимые поля времени.
+                    val updatedBasicData = route.basicData.copy(
+                        timeStartWork = if (firstDataInMillis > timeStart) firstDataInMillis else timeStart,
+                        timeEndWork = if (secondDataInMillis < timeEnd) secondDataInMillis else timeEnd
+                    )
+                    val newRoute = route.copy(basicData = updatedBasicData)
+
                     newRouteList.add(newRoute)
                 }
             }
         }
         return newRouteList
     }
+
+//    fun List<Route>.getNewRoutesToDayRange(
+//        days: IntRange,
+//        monthOfYear: MonthOfYear,
+//        offsetInMoscow: Long
+//    ): List<Route> {
+//        val firstData = getInstance().also {
+//            it.set(Calendar.YEAR, monthOfYear.year)
+//            it.set(Calendar.MONTH, monthOfYear.month)
+//            it.set(Calendar.DAY_OF_MONTH, days.first)
+//            it.set(Calendar.HOUR_OF_DAY, 0)
+//            it.set(Calendar.MINUTE, 0)
+//            it.set(Calendar.SECOND, 0)
+//            it.set(Calendar.MILLISECOND, 0)
+//        }.timeInMillis + offsetInMoscow
+//
+//        val secondData = getInstance().also {
+//            it.set(Calendar.YEAR, monthOfYear.year)
+//            it.set(Calendar.MONTH, monthOfYear.month)
+//            it.set(Calendar.DAY_OF_MONTH, days.last)
+//            it.set(Calendar.HOUR_OF_DAY, 0)
+//            it.set(Calendar.MINUTE, 0)
+//            it.set(Calendar.SECOND, 0)
+//            it.set(Calendar.MILLISECOND, 0)
+//        }.timeInMillis + offsetInMoscow
+//
+//        val newRouteList = mutableListOf<Route>()
+//
+//        this.forEach { route ->
+//            var newRoute = Route()
+//            route.basicData.timeStartWork?.let { timeStart ->
+//                route.basicData.timeEndWork?.let { timeEnd ->
+//                    if (timeEnd < firstData || timeStart > secondData) return@forEach
+//                    if (firstData > timeStart) {
+//                        if (secondData > timeEnd) {
+//                            newRoute = route.copy(
+//                                basicData = route.basicData.copy(
+//                                    timeStartWork = firstData
+//                                )
+//                            )
+//                        } else {
+//                            newRoute = route.copy(
+//                                basicData = route.basicData.copy(
+//                                    timeStartWork = firstData,
+//                                    timeEndWork = secondData
+//                                )
+//                            )
+//                        }
+//                    } else {
+//                        if (secondData > timeEnd) {
+//                            newRoute = route
+//
+//                        } else {
+//                            newRoute = route.copy(
+//                                basicData = route.basicData.copy(
+//                                    timeEndWork = secondData
+//                                )
+//                            )
+//                        }
+//                    }
+//                    newRouteList.add(newRoute)
+//                    println("zzz new route $newRoute")
+//                }
+//            }
+//        }
+//        return newRouteList
+//    }
 
     fun List<Route>.getWorkTime(monthOfYear: MonthOfYear, offsetInMoscow: Long): Long {
         var totalTime = 0L

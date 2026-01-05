@@ -2,19 +2,16 @@ package com.z_company.loco_driver.di
 
 import com.z_company.loco_driver.viewmodel.MainViewModel
 import com.z_company.route.viewmodel.all_route_view_model.AllRouteViewModel
-import com.z_company.route.viewmodel.CreatePhotoViewModel
 import com.z_company.route.viewmodel.FormViewModel
 import com.z_company.route.viewmodel.home_view_model.HomeViewModel
 import com.z_company.route.viewmodel.LocoFormViewModel
 import com.z_company.route.viewmodel.PassengerFormViewModel
-import com.z_company.route.viewmodel.PreviewPhotoViewModel
 import com.z_company.route.viewmodel.PurchasesViewModel
 import com.z_company.route.viewmodel.SalaryCalculationViewModel
 import com.z_company.route.viewmodel.SearchViewModel
 import com.z_company.route.viewmodel.SettingSalaryViewModel
 import com.z_company.route.viewmodel.SettingsViewModel
 import com.z_company.route.viewmodel.TrainFormViewModel
-import com.z_company.route.viewmodel.ViewingImageViewModel
 import com.z_company.route.viewmodel.WorkScheduleViewModel
 import com.z_company.route.viewmodel.login.LogInViewModel
 import com.z_company.route.viewmodel.login.PasswordRecoveryViewModel
@@ -41,15 +38,6 @@ val viewModelModule = module {
     }
     viewModel { (passengerId: String?, basicId: String) ->
         PassengerFormViewModel(passengerId = passengerId, basicId = basicId)
-    }
-    viewModel { (notesId: String) ->
-        CreatePhotoViewModel(basicId = notesId)
-    }
-    viewModel { (basicId: String) ->
-        PreviewPhotoViewModel(basicId = basicId)
-    }
-    viewModel { (imageId: String) ->
-        ViewingImageViewModel(imageId = imageId)
     }
     viewModel { SearchViewModel() }
     viewModel { PurchasesViewModel() }

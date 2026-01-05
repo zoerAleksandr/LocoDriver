@@ -7,11 +7,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.rememberDismissState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -48,7 +46,6 @@ import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
-import java.util.Calendar
 
 @OptIn(
     ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class,
@@ -315,7 +312,7 @@ fun AllRouteScreen(
                     BottomSheetAction(text = stringResource(id = R.string.billing_common_ok)) {
                         showFormScreen()
                     },
-                    BottomSheetAction(text = "Оформить подписку за 44 руб/мес") {
+                    BottomSheetAction(text = "Оформить подписку за 69 руб/мес") {
                         viewModel.checkPurchasesAvailability()
                     }
                 ),
@@ -344,7 +341,7 @@ fun AllRouteScreen(
                     }
                 },
                 actions = listOf(
-                    BottomSheetAction(text = "Оформить подписку за 44 руб/мес") {
+                    BottomSheetAction(text = "Оформить подписку за 69 руб/мес") {
                         viewModel.checkPurchasesAvailability()
                     },
                     BottomSheetAction(text = "Восстановить покупки") {

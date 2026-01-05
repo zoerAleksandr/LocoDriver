@@ -199,7 +199,7 @@ class AllRouteViewModel() : ViewModel(), KoinComponent {
             when (val checkResult = subscriptionHelper.checkPurchasesAvailabilitySuspend()) {
                 is ResultState.Success -> {
                     _purchasesEvent.tryEmit(StartPurchasesEvent.PurchasesAvailability(checkResult.data))
-                    snackbarManager.show(message = "Подписки доступны")
+//                    snackbarManager.show(message = "Подписки доступны")
                 }
 
                 is ResultState.Error -> {

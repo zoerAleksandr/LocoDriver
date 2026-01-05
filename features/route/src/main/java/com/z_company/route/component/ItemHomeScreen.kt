@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberBasicTooltipState
 import androidx.compose.material.DismissDirection
-import androidx.compose.material.DismissState
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.SwipeToDismiss
 import androidx.compose.material.icons.filled.Favorite
@@ -74,7 +73,6 @@ import kotlinx.coroutines.launch
 @Composable
 fun ItemHomeScreen(
     modifier: Modifier = Modifier,
-//    dismissState: DismissState,
     route: Route,
     isExpand: Boolean = false,
     onRequestDelete: (Route) -> Unit,
@@ -292,6 +290,17 @@ fun ItemHomeScreen(
                                         )
                                     }
                                 }
+                            }
+                        }
+                        if (!route.basicData.notes.isNullOrBlank()) {
+                            Box(modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+                                AutoSizeText(
+                                    maxTextSize = requiredSizeText,
+                                    maxLines = 2,
+                                    text = "${route.basicData.notes}",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
                             }
                         }
                     } else {

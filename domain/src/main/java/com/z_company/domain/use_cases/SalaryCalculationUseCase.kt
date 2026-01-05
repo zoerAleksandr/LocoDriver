@@ -25,6 +25,7 @@ import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
+// НЕ ИСПОЛЬЗУЕТСЯ !!!
 class SalaryCalculationUseCase : KoinComponent {
     private val salarySettingUseCase: SalarySettingUseCase by inject()
     private suspend fun getWorkTimeAtTariff(
@@ -41,6 +42,21 @@ class SalaryCalculationUseCase : KoinComponent {
         val overtime = getOvertime(totalWorkTime, personalNormaHoursInLong)
 
         return totalWorkTime - passengerTime - singleLocoTime - paymentHolidayHours - overtime
+    }
+
+    private suspend fun getWorkTimeAtTariffInSingleRoute(
+        route: Route,
+        userSettings: UserSettings
+    ): Long {
+        val currentMonthOfYear = userSettings.selectMonthOfYear
+        val routeList = listOf(route)
+
+        val totalWorkTime = getTotalWorkTime(routeList, userSettings, currentMonthOfYear)
+        val passengerTime = getPassengerTime(routeList, userSettings, currentMonthOfYear)
+        val singleLocoTime = getSingleLocomotiveTime(routeList)
+        val paymentHolidayHours = getHolidayTime(routeList, userSettings, currentMonthOfYear)
+
+        return totalWorkTime - passengerTime - singleLocoTime - paymentHolidayHours
     }
 
     fun getMoneyAtSingleLocomotive(
@@ -127,6 +143,14 @@ class SalaryCalculationUseCase : KoinComponent {
         userSettings: UserSettings,
     ): Double {
         val workTimeAtTariffToLong = getWorkTimeAtTariff(routeList, userSettings)
+        return workTimeAtTariffToLong.times(userSettings.selectMonthOfYear.tariffRate)
+    }
+
+    suspend fun getMoneyAtWorkTimeAtTariffSingleRoute(
+        route: Route,
+        userSettings: UserSettings
+    ): Double {
+        val workTimeAtTariffToLong = getWorkTimeAtTariffInSingleRoute(route, userSettings)
         return workTimeAtTariffToLong.times(userSettings.selectMonthOfYear.tariffRate)
     }
 

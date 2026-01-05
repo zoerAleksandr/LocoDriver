@@ -66,27 +66,6 @@ fun NavGraphBuilder.homeGraph(
         ) { backStackEntry ->
             FormPassengerDestination(router = router, backStackEntry = backStackEntry)
         }
-
-        composableScreen(
-            route = CreatePhotoRoute.route,
-            arguments = CreatePhotoRoute.navArguments
-        ) { backStackEntry ->
-            CreatePhotoDestination(router = router, backStackEntry = backStackEntry)
-        }
-
-        composableScreen(
-            route = PreviewPhotoRoute.route,
-            arguments = PreviewPhotoRoute.navArguments
-        ) { backStackEntry ->
-            PreviewPhotoDestination(router = router, backStackEntry = backStackEntry)
-        }
-
-        composableScreen(
-            route = ViewingImageRoute.route,
-            arguments = ViewingImageRoute.navArguments
-        ) { navBackStackEntry ->
-            ViewingImageDestination(router = router, navBackStackEntry = navBackStackEntry)
-        }
         composableScreen(
             route = SearchRoute.route
         ) {

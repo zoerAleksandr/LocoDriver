@@ -117,56 +117,6 @@ object FormPassenger: AppRoutes("FormPassenger") {
         "$basicRoute/$basicId?$passengerId"
 }
 
-object CreatePhotoRoute: AppRoutes("CreatePhoto") {
-    private const val paramBasicId = "basicId"
-    override val route: String = "$basicRoute/{$paramBasicId}"
-    val navArguments = listOf(
-        navArgument(paramBasicId){
-            type = NavType.StringType
-            nullable = false
-        }
-    )
-    fun getBasicId(backStackEntry: NavBackStackEntry): String? =
-        backStackEntry.arguments?.getString(paramBasicId)
-    fun buildRoute(basicId: String) =
-        "$basicRoute/$basicId"
-}
-
-object PreviewPhotoRoute: AppRoutes("PreviewPhoto") {
-    private const val paramPhotoUrl = "paramPhotoUrl"
-    private const val paramBasicId = "paramBasicId"
-
-    override val route: String = "$basicRoute/{$paramBasicId}/{$paramPhotoUrl}"
-    val navArguments = listOf(
-        navArgument(paramPhotoUrl) {
-            type = NavType.StringType
-            nullable = false
-        }
-    )
-
-    fun getPhotoUrl(backStackEntry: NavBackStackEntry): String? =
-        backStackEntry.arguments?.getString(paramPhotoUrl)
-    fun getBasicId(backStackEntry: NavBackStackEntry): String? =
-        backStackEntry.arguments?.getString(paramBasicId)
-    fun buildRoute(photoUrl: String, basicId: String) =
-        "$basicRoute/$basicId/$photoUrl"
-}
-
-object ViewingImageRoute: AppRoutes("ViewingImage") {
-    private const val paramImageId = "paramImageId"
-
-    override val route: String = "$basicRoute/{$paramImageId}"
-    val navArguments = listOf(
-        navArgument(paramImageId) {
-            type = NavType.StringType
-            nullable = false
-        }
-    )
-    fun getImageId(backStackEntry: NavBackStackEntry): String? =
-        backStackEntry.arguments?.getString(paramImageId)
-    fun buildRoute(imageId: String) =
-        "$basicRoute/$imageId"
-}
 object SearchRoute: AppRoutes("SearchRoute")
 object PurchasesRoute: AppRoutes("PurchasesRoute")
 
@@ -190,7 +140,6 @@ object SettingSalaryRoute: AppRoutes("SettingSalaryRoute")
 object UpdatePresentationBlockRoute: AppRoutes("UpdatePresentationBlockRoute")
 object AllRouteScreenRoute: AppRoutes("AllRouteScreenRoute")
 object WorkScheduleScreenRoute: AppRoutes("WorkScheduleScreenRoute")
-
 object SettingsScreenRoute : AppRoutes("SettingsScreen")
 object SelectReleaseDaysScreenRoute: AppRoutes("SelectReleaseDaysScreen")
 object ProfileRoute: AppRoutes("ProfileRoute")

@@ -5,7 +5,6 @@ import android.os.Bundle
 import android.view.MotionEvent
 import android.view.inputmethod.InputMethodManager
 import androidx.activity.ComponentActivity
-import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -20,8 +19,6 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import ru.rustore.sdk.pay.RuStorePayClient
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 
 class MainActivity : ComponentActivity(), KoinComponent {
 
@@ -43,15 +40,7 @@ class MainActivity : ComponentActivity(), KoinComponent {
 
         lifecycle.addObserver(mainViewModel)
 
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(
-                scrim = Color.Transparent.toArgb(),
-            ),
-            navigationBarStyle = SystemBarStyle.light(
-                scrim = Color.Transparent.toArgb(),
-                darkScrim = Color.Transparent.toArgb()
-            )
-        )
+        enableEdgeToEdge()
 
         setContent {
             val isLoggedIn by sessionManager.isLoggedInFlow.collectAsState(initial = false)
