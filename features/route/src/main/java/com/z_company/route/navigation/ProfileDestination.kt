@@ -14,6 +14,7 @@ fun ProfileDestination(
     ProfileScreen(
         viewModel = viewModel,
         onBillingClick = router::showPurchasesScreen,
-        onLogOut = router::showSignIn
+//        onLogOut = router::showSignIn,
+//        onPasswordRecovery = router::showRecoveryPassword
     )
 }

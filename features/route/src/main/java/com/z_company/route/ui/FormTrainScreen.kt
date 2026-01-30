@@ -31,9 +31,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Clear
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -86,7 +83,7 @@ import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.DateAndTimeConverter
-import com.z_company.domain.entities.ServicePhase
+import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.trainCategory
 import com.z_company.route.component.BottomShadow
@@ -461,7 +458,7 @@ fun FormTrainScreen(
                                                     focusManager.clearFocus()
                                                     isTrainInfoVisible = !isTrainInfoVisible
                                                 },
-                                                imageVector = Icons.Outlined.Info,
+                                                painter = painterResource(com.z_company.route.R.drawable.info_24px),
                                                 contentDescription = null,
                                                 tint = MaterialTheme.colorScheme.tertiary
                                             )
@@ -681,7 +678,7 @@ fun FormTrainScreen(
                                     modifier = Modifier.clickable {
                                         onSelectServicePhase(null)
                                     },
-                                    imageVector = Icons.Outlined.Clear,
+                                    painter = painterResource(R.drawable.ic_clear),
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary
                                 )

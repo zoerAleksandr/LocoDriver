@@ -26,7 +26,6 @@ import androidx.compose.foundation.rememberBasicTooltipState
 import androidx.compose.material.DismissDirection
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.SwipeToDismiss
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material.DismissValue
@@ -74,6 +73,7 @@ import kotlinx.coroutines.launch
 fun ItemHomeScreen(
     modifier: Modifier = Modifier,
     route: Route,
+    convertTimeToString: (Long?) -> String,
     isExpand: Boolean = false,
     onRequestDelete: (Route) -> Unit,
     requiredSizeText: TextUnit,
@@ -103,7 +103,7 @@ fun ItemHomeScreen(
         }
         val timeText = "$startWork - $endWork"
         val workTimeValue = route.getWorkTime()
-        val workTimeString = ConverterLongToTime.getTimeInStringFormat(workTimeValue)
+        val workTimeString = convertTimeToString(workTimeValue)
         timeText to workTimeString
     }
 
@@ -617,7 +617,7 @@ fun ItemHomeScreen(
                                     Icon(
                                         tint = Color(0xFFf1642e),
                                         modifier = Modifier.size(20.dp),
-                                        imageVector = androidx.compose.material.icons.Icons.Default.Favorite,
+                                        painter = painterResource(R.drawable.favorite_fill_24px),
                                         contentDescription = null,
                                     )
                                 }

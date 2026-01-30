@@ -4,6 +4,8 @@ import android.util.Log
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.robokassa.library.params.PaymentParams
+import com.robokassa.library.pay.RobokassaPayLauncher
 import com.z_company.SessionManager
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.Day
@@ -13,6 +15,7 @@ import com.z_company.domain.use_cases.LoadCalendarFromStorage
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.route.viewmodel.PurchasesViewModel
 import com.z_company.use_case.RemoteRouteUseCase
 import com.z_company.use_case.RuStoreUseCase
 import com.z_company.use_case.SubscriptionHelper
@@ -34,6 +37,7 @@ import java.util.Calendar.YEAR
 private const val TAG = "MainViewModel_TAG"
 
 class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
+    private val purchasesViewModel: PurchasesViewModel by inject()
     private val salarySettingUseCase: SalarySettingUseCase by inject()
     private val loadCalendarFromStorage: LoadCalendarFromStorage by inject()
     private val calendarUseCase: CalendarUseCase by inject()
@@ -73,6 +77,17 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private fun enableSynchronisedRoute() {
         viewModelScope.launch {
             remoteRouteUseCase.syncBasicDataPeriodic().collect {}
+        }
+    }
+
+    fun handlePaymentReturn(params: PaymentParams?) {
+        viewModelScope.launch {
+            if (params != null) {
+                purchasesViewModel.emitStartPayment(params, onlyCheck = true)
+            } else {
+                Log.d("zzz", "Параметры платежа не найдены при возврате")
+                // Можно эмитировать ошибку через PurchasesViewModel, если нужно показать snackbar
+            }
         }
     }
 

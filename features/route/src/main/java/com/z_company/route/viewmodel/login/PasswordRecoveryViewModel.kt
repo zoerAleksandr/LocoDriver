@@ -49,7 +49,7 @@ class PasswordRecoveryViewModel : ViewModel() {
                 }
             }
 
-            delay(TIME_OUT)
+            delay(60_000)
             _uiState.update {
                 it.copy(
                     resultState = ResultState.Error(entity = ErrorEntity(Throwable(message = "Слабый сигнал! Проверьте интернет соединение.")))

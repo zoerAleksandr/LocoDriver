@@ -12,10 +12,9 @@ import com.parse.ParseUser
 import com.z_company.core.ResultState
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.isEmailValid
-import com.z_company.domain.entities.ServicePhase
-import com.z_company.use_case.LoginUseCase
+import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.domain.entities.User
-import com.z_company.domain.entities.UserSettings
+import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.CalendarUseCase
@@ -36,10 +35,8 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
 class SettingsViewModel : ViewModel(), KoinComponent {
-    private val loginUseCase: LoginUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
-    private val back4AppManager: Back4AppManager by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -50,15 +47,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
 
     private var loadSettingsJob: Job? = null
     private var saveSettingsJob: Job? = null
-
-    private var loadLoginJob: Job? = null
     private var loadCalendarJob: Job? = null
-
-    fun cleanRepo() {
-        viewModelScope.launch(Dispatchers.IO) {
-            back4AppManager.cleanUpRoutesForAllUsers()
-        }
-    }
 
     var currentSettings: UserSettings?
         get() {
@@ -100,19 +89,13 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         TimeZoneRussia("Анадырь (MSK+10, UTC+13)", oneHourInMillis * 10),
     )
 
-    private var currentUser: User?
-        get() {
-            return _uiState.value.userDetailsState.let {
-                if (it is ResultState.Success) it.data else null
-            }
+    fun changeTimeFormat(){
+        currentSettings?.let {
+            currentSettings = it.copy(
+                isDecimalTime = !it.isDecimalTime
+            )
         }
-        private set(value) {
-            _uiState.update {
-                it.copy(userDetailsState = ResultState.Success(value))
-            }
-        }
-
-    var currentEmail by mutableStateOf("")
+    }
 
     fun showDialogAddServicePhase(servicePhase: ServicePhase) {
         _uiState.update {
@@ -157,19 +140,6 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         showDialogAddServicePhase(phase)
     }
 
-    fun setEmail(value: String) {
-        currentEmail = value
-        if (value.isEmailValid()) {
-            _uiState.update {
-                it.copy(resentVerificationEmailButton = true)
-            }
-        } else {
-            _uiState.update {
-                it.copy(resentVerificationEmailButton = false)
-            }
-        }
-    }
-
     private fun loadPurchasesInfo() {
         viewModelScope.launch {
             val maxEndTime = sharedPreferenceStorage.getSubscriptionExpiration()
@@ -188,33 +158,8 @@ class SettingsViewModel : ViewModel(), KoinComponent {
 
     init {
         loadSettings()
-        loadLogin()
         loadMonthList()
         loadPurchasesInfo()
-    }
-
-    fun refreshingUserData() {
-        _uiState.update {
-            it.copy(isRefreshing = true)
-        }
-        viewModelScope.launch(Dispatchers.IO) {
-            loadPurchasesInfo()
-            loginUseCase.getUser().collect { resultState ->
-                if (resultState is ResultState.Success) {
-                    delay(500L)
-                    _uiState.update {
-                        it.copy(isRefreshing = false)
-                    }
-                    currentUser = resultState.data
-                    currentEmail = currentUser?.email ?: ""
-                }
-                if (resultState is ResultState.Error) {
-                    _uiState.update {
-                        it.copy(isRefreshing = false)
-                    }
-                }
-            }
-        }
     }
 
     fun resetSaveState() {
@@ -226,7 +171,6 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private fun loadMonthList() {
         loadCalendarJob?.cancel()
         loadCalendarJob = calendarUseCase.loadFlowMonthOfYearListState().onEach { result ->
-//            if (result is ResultState.Success) {
             _uiState.update { state ->
                 state.copy(
                     monthList = result.map { it.month }.distinct().sorted(),
@@ -234,19 +178,10 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                 )
 
             }
-        }
-//        }
-            .launchIn(viewModelScope)
+        }.launchIn(viewModelScope)
     }
 
     private fun loadSettings() {
-        viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    inputDateTimeType = sharedPreferenceStorage.tokenDateTimePickerType()
-                )
-            }
-        }
         loadSettingsJob?.cancel()
         loadSettingsJob = viewModelScope.launch {
             settingsUseCase.getFlowCurrentSettingsState().collect { result ->
@@ -270,7 +205,6 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         }
         viewModelScope.launch {
             calendarUseCase.loadFlowMonthOfYearListState().collect { result ->
-//                if (result is ResultState.Success) {
                 currentSettings?.let { setting ->
                     _uiState.update {
                         it.copy(
@@ -278,33 +212,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                         )
                     }
                 }
-//                }
             }
-        }
-    }
-
-    private fun loadLogin() {
-        loadLoginJob?.cancel()
-        loadLoginJob =
-            viewModelScope.launch(Dispatchers.IO) {
-                loginUseCase.getUser().collect { resultState ->
-                    _uiState.update {
-                        it.copy(userDetailsState = resultState)
-                    }
-                    if (resultState is ResultState.Success) {
-                        currentUser = resultState.data
-                        currentEmail = currentUser?.email ?: ""
-                    }
-                }
-            }
-    }
-
-    fun emailConfirmation() {
-        viewModelScope.launch {
-            val parseUser = ParseUser.getCurrentUser()
-            parseUser.email = currentEmail
-            parseUser.username = currentEmail
-            parseUser.saveInBackground()
         }
     }
 
@@ -319,11 +227,6 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                         if (result is ResultState.Success) {
                             _saveEvent.trySend(Unit)
                         }
-//                        _uiState.update {
-//                            it.copy(
-//                                saveSettingsState = result
-//                            )
-//                        }
                     }
                 }
             }
@@ -358,10 +261,22 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         )
     }
 
-    fun changeDefaultLocoType(locoType: LocoType) {
-        currentSettings = currentSettings?.copy(
-            defaultLocoType = locoType
-        )
+    fun changeDefaultLocoType() {
+        currentSettings?.let { settings ->
+            currentSettings = when (settings.defaultLocoType){
+                LocoType.ELECTRIC -> {
+                    settings.copy(
+                        defaultLocoType = LocoType.DIESEL
+                    )
+                }
+
+                LocoType.DIESEL -> {
+                    settings.copy(
+                        defaultLocoType = LocoType.ELECTRIC
+                    )
+                }
+            }
+        }
     }
 
     fun changeMinTimeHomeRest(time: Long) {

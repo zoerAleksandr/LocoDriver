@@ -20,7 +20,7 @@ import com.z_company.data_local.setting.entity.SalarySetting
     entities = [
         SalarySetting::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -28,6 +28,7 @@ import com.z_company.data_local.setting.entity.SalarySetting
         AutoMigration(from = 3, to = 4),
         AutoMigration(from = 4, to = 5),
         AutoMigration(from = 5, to = 6),
+        AutoMigration(from = 6, to = 7, spec = DeleteColumnTariffRate::class),
     ]
 )
 internal abstract class SalarySettingDB : RoomDatabase() {
@@ -36,3 +37,6 @@ internal abstract class SalarySettingDB : RoomDatabase() {
 
 @DeleteColumn(tableName = "SalarySetting", columnName = "surchargeHeavyLongDistanceTrains")
 class DeleteColumnSurchargeHeavyLongDistanceTrains : AutoMigrationSpec
+
+@DeleteColumn(tableName = "SalarySetting", columnName = "tariffRate")
+class DeleteColumnTariffRate : AutoMigrationSpec

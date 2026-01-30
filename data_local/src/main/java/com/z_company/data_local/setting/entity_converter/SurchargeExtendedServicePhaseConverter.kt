@@ -1,6 +1,6 @@
 package com.z_company.data_local.setting.entity_converter
 
-import com.z_company.domain.entities.SurchargeExtendedServicePhase
+import com.z_company.domain.entities.setting.SurchargeExtendedServicePhase
 import com.z_company.data_local.setting.entity.SurchargeExtendedServicePhase as SurchargeEntity
 
 internal object SurchargeExtendedServicePhaseConverter {

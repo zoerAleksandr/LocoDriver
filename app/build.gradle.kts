@@ -1,4 +1,8 @@
+import org.gradle.kotlin.dsl.invoke
 import java.util.Properties
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
+
 
 plugins {
     id(Plugins.android_app)
@@ -6,21 +10,47 @@ plugins {
     id(Plugins.ksp)
     id("ru.ok.tracer").version(Versions.ru_ok_tracer_platform_ver)
     id(Plugins.compose_compiler)
+    id(Plugins.vkIdManifest)
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
 
 android {
+    val properties = Properties()
+    properties.load(project.rootProject.file("secret.properties").inputStream())
+    val filePath: String = properties.getProperty("storeFile") ?: ""
+    val storePass: String = properties.getProperty("storePassword") ?: ""
+    val keyAliasValue: String = properties.getProperty("keyAlias") ?: ""
+    val keyPass: String = properties.getProperty("keyPassword") ?: ""
+
     signingConfigs {
         create("release") {
-            storeFile = file("/Users/zoer/Documents/key_store")
-            storePassword = "Zoer.1639"
-            keyAlias = "ZCompanyAppKey"
-            keyPassword = "Zoer.1639"
+            storeFile = file(filePath)
+            storePassword = storePass
+            keyAlias = keyAliasValue
+            keyPassword = keyPass
         }
     }
     namespace = "com.z_company.loco_driver"
     compileSdk = Apps.compile_sdk_version
-    val properties = Properties()
-    properties.load(project.rootProject.file("secret.properties").inputStream())
+
+    defaultConfig {
+        buildConfigField(
+            type = "String",
+            name = "MERCHANT_LOGIN",
+            value = "\"${properties.getProperty("MERCHANT_LOGIN", "default_value")}\""
+        )
+        buildConfigField(
+            type = "String",
+            name = "PASSWORD_1",
+            value = "\"${properties.getProperty("PASSWORD_1", "default_value")}\""
+        )
+        buildConfigField(
+            type = "String",
+            name = "PASSWORD_2",
+            value = "\"${properties.getProperty("PASSWORD_2", "default_value")}\""
+        )
+    }
+
 
     buildTypes {
         release {
@@ -33,14 +63,6 @@ android {
     }
 
     defaultConfig {
-        addManifestPlaceholders(
-            mapOf(
-                "VKIDRedirectHost" to "vk.com",
-                "VKIDRedirectScheme" to "vk51884740",
-                "VKIDClientID" to "51884740",
-                "VKIDClientSecret" to "l3G9HVocppd94ooNSBSs"
-            )
-        )
 
         applicationId = Apps.application_id
         minSdk = Apps.min_sdk_version
@@ -59,24 +81,24 @@ android {
         sourceCompatibility = Apps.java_compatibility_version
         targetCompatibility = Apps.java_compatibility_version
         isCoreLibraryDesugaringEnabled = true
+
     }
-    kotlinOptions {
-        jvmTarget = Apps.jvm_target_version
-    }
+//    kotlinOptions {
+//        jvmTarget = Apps.jvm_target_version
+//    }
     buildFeatures {
         buildConfig = true
         compose = true
     }
 
-//    composeOptions {
-//        kotlinCompilerExtensionVersion = Versions.kotlin_compiler_ext_version
-//    }
-//    packaging {
-//        resources {
-//            excludes += "/META-INF/{AL2.0,LGPL2.1}"
-//        }
-//    }
 }
+
+kotlin {
+    compilerOptions {
+        jvmTarget = JvmTarget.fromTarget(Apps.jvm_target_version)
+    }
+}
+
 tracer {
     create("defaultConfig") {
         pluginToken = "fXDqsEd0kMKfFaGKjIOyiNSkthd3jXtkvvvP1Ckevvf0"
@@ -87,8 +109,8 @@ tracer {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    implementation(project(Libs.project_robokassa_sdk))
     implementation (Libs.ksp_api)
-
     implementation(Libs.mytracker_sdk)
     implementation(platform(Libs.rustore_bom))
     implementation(Libs.rustore_pay)
@@ -107,7 +129,7 @@ dependencies {
     implementation(project(Libs.project_feature_settings))
     implementation(project(Libs.project_data_remote))
     implementation(Libs.parse_sdk_android)
-//    implementation(Libs.vkid)
+    implementation(Libs.vkId)
     implementation(Libs.appwrite)
     implementation(Libs.splash_screen)
     implementation(Libs.core_ktx)
@@ -116,9 +138,9 @@ dependencies {
     implementation(Libs.compose_ui)
     implementation(Libs.ui_tooling_preview)
     implementation(Libs.compose_material3)
+    implementation(Libs.kotlin_x_serialization_json)
 
     implementation(Libs.accompanist_navigation_animation)
-//    implementation(Libs.accompanist_ui_controller)
 
     implementation(Libs.koin_core)
     implementation(Libs.koin_android)

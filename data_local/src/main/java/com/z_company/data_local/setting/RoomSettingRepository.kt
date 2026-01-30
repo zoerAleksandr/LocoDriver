@@ -8,12 +8,11 @@ import com.z_company.data_local.setting.entity_converter.MonthOfYearConverter
 import com.z_company.data_local.setting.entity_converter.NightTimeConverter
 import com.z_company.data_local.setting.entity_converter.UserSettingsConverter
 import com.z_company.domain.entities.MonthOfYear
-import com.z_company.domain.entities.NightTime
-import com.z_company.domain.entities.SETTINGS_KEY
-import com.z_company.domain.entities.UserSettings
+import com.z_company.domain.entities.setting.NightTime
+import com.z_company.domain.entities.setting.SETTINGS_KEY
+import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.repositories.SettingsRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject

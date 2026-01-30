@@ -1,7 +1,10 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     id(Plugins.android_lib)
     id(Plugins.kotlin_android)
     id(Plugins.compose_compiler)
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
 
 android {
@@ -28,15 +31,22 @@ android {
         sourceCompatibility = Apps.java_compatibility_version
         targetCompatibility = Apps.java_compatibility_version
     }
-    kotlinOptions {
-        jvmTarget = Apps.jvm_target_version
-    }
+//    kotlinOptions {
+//        jvmTarget = Apps.jvm_target_version
+//    }
     buildFeatures {
         compose = true
     }
 }
+kotlin {
+    compilerOptions {
+        jvmTarget = JvmTarget.fromTarget(Apps.jvm_target_version)
+    }
+}
 
 dependencies {
+    implementation(Libs.oneTapVkId)
+    implementation(Libs.vkId)
     implementation(platform(Libs.rustore_bom))
     implementation(Libs.rustore_pay)
     implementation(Libs.rustore_review)
@@ -46,6 +56,7 @@ dependencies {
     implementation(project(Libs.project_core_android))
     implementation(project(Libs.project_domain))
     implementation(project(Libs.project_data_remote))
+    implementation(project(Libs.project_robokassa_sdk))
 
     implementation(Libs.parse_sdk_android)
 

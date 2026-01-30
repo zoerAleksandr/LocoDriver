@@ -3,19 +3,6 @@ package com.z_company.route.ui
 import android.annotation.SuppressLint
 import android.util.Log
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -27,7 +14,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -38,28 +24,39 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.flowWithLifecycle
 import com.z_company.core.ui.component.CustomSnackBar
-import com.z_company.core.ui.component.GenericLoading
-import com.z_company.core.ui.theme.Shapes
-import com.z_company.core.util.DateAndTimeConverter
-import com.z_company.route.viewmodel.BillingEvent
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.launch
-import ru.rustore.sdk.core.exception.RuStoreException
-import ru.rustore.sdk.pay.model.Product
-import androidx.compose.ui.draw.shadow
 import com.z_company.core.ui.snackbar.ISnackbarManager
+import com.z_company.core.ui.theme.Shapes
+import com.z_company.route.viewmodel.BillingEvent
 import com.z_company.route.viewmodel.BillingState
 import com.z_company.route.viewmodel.PurchasesViewModel
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
+import com.robokassa.library.pay.RobokassaPayLauncher
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.unit.dp
+import com.z_company.domain.entities.Product
+import com.z_company.domain.util.toMoneyString
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -131,20 +128,41 @@ fun PurchasesScreen(
             }
     }
 
+    val payLauncher = rememberLauncherForActivityResult(RobokassaPayLauncher.Contract) { result ->
+        when (result) {
+            is RobokassaPayLauncher.Success -> {
+                Log.d("zzz", "RobokassaPayLauncher.Success")
+                viewModel.handlePaymentSuccess(result)  // Сохраняем opKey
+            }
+
+            is RobokassaPayLauncher.Error -> {
+                Log.d("zzz", "RobokassaPayLauncher.Error")
+                snackbarManager.show("Ошибка оплаты: ${result.desc}")
+            }
+
+            is RobokassaPayLauncher.Canceled -> {
+                Log.d("zzz", "RobokassaPayLauncher.Canceled")
+                snackbarManager.show("Оплата отменена")
+            }
+        }
+    }
+
     LaunchedEffect(Unit) {
         scope.launch {
             eventSharedFlow.flowWithLifecycle(lifecycle).collect { event ->
                 when (event) {
                     is BillingEvent.ShowError -> {
-                        if (event.error is RuStoreException) {
-                        }
-                        event.error.message?.let {
-                            if (it.contains("Range timestamp not valid")) {
-                                snackbarHostState.showSnackbar(message = "Невозможно получить данные о подписках. На телефоне установлено неверное время. Установите автоматическое определение времени в настройках телефона.")
-                            } else {
-                                snackbarHostState.showSnackbar(message = "Ошибка: ${event.error.message.orEmpty()}")
-                            }
-                        }
+                        snackbarHostState.showSnackbar(message = "Ошибка: ${event.error.message.orEmpty()}")
+                    }
+
+                    is BillingEvent.StartPayment -> {
+                        payLauncher.launch(
+                            RobokassaPayLauncher.StartPay(
+                                paymentParams = event.params,
+                                onlyCheck = event.onlyChek,
+                                testMode = false
+                            )
+                        )
                     }
                 }
             }
@@ -156,7 +174,7 @@ fun PurchasesScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Подписки",
+                        text = "Покупки",
                         style = titleStyle,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -166,7 +184,7 @@ fun PurchasesScreen(
                     }) {
                         Icon(
                             tint = MaterialTheme.colorScheme.primary,
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            painter = painterResource(com.z_company.core.R.drawable.keyboard_arrow_left_24px),
                             contentDescription = "Назад"
                         )
                     }
@@ -180,27 +198,20 @@ fun PurchasesScreen(
             }
         },
     ) { padding ->
-        if (billingState.isLoading) {
-            GenericLoading()
-        }
-        LazyColumn(
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
                 .padding(padding)
                 .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            itemsIndexed(
-                items = billingState.products,
-            ) { index, value ->
+            billingState.products.forEach { product ->
                 val isActive =
-                    billingState.activeExpirations.containsKey<String>(value.productId.value)
+                    billingState.activeExpirations.containsKey<String>(product.name)
 
                 val expiryText =
-                    billingState.activeExpirations[value.productId.value]?.let { expiryMillis ->
+                    billingState.activeExpirations[product.name]?.let { expiryMillis ->
                         billingState.dateAndTimeConverter?.getDateAndTime(expiryMillis)
                     }
-
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -229,21 +240,20 @@ fun PurchasesScreen(
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Text(
-                                text = "Активна до $expiryText",
+                                text = "Оплачено до $expiryText",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.secondary
                             )
                         }
                     }
                     Text(
-                        text = value.title.value,
+                        text = product.name,
                         style = dataStyle,
                         color = MaterialTheme.colorScheme.primary
                     )
-
-                    value.description?.value?.let { desc ->
+                    if (product.desc.isNotEmpty()) {
                         Text(
-                            text = desc,
+                            text = product.desc,
                             style = hintStyle,
                             modifier = Modifier.padding(top = 4.dp),
                             color = MaterialTheme.colorScheme.primary
@@ -259,16 +269,16 @@ fun PurchasesScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = value.amountLabel.value,
+                                text = product.sum.toMoneyString(),
                                 style = dataStyle,
                                 color = MaterialTheme.colorScheme.primary,
                             )
 
                             TextButton(
-                                onClick = { onProductClick(value) }
+                                onClick = { onProductClick(product) }
                             ) {
                                 Text(
-                                    text = "Оформить",
+                                    text = "Купить",
                                     color = MaterialTheme.colorScheme.tertiary,
                                     style = MaterialTheme.typography.bodySmall
                                 )
@@ -276,35 +286,26 @@ fun PurchasesScreen(
                         }
                     }
                 }
+                Spacer(modifier = Modifier.height(16.dp))
             }
 
-            item {
-                TextButton(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    onClick = {
-                        viewModel.restoreSubscribe()
-                    }
-                ) {
+            Spacer(modifier = Modifier.height(16.dp))
 
-                    Text(
-                        text = "Восстановить покупки",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.tertiary
-                    )
-                }
-            }
-
-            item {
+            TextButton(onClick = viewModel::restoreSubscribe) {
                 Text(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 24.dp),
-                    style = dataStyle,
-                    text = "Управление вашими подписками доступно в личном кабинете RuStore",
-                    color = MaterialTheme.colorScheme.primary
+                    text = "Восстановить покупки",
+                    color = MaterialTheme.colorScheme.tertiary,
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Обращаем Ваше внимание, покупка автоматически не продлевается. По окончанию срока ее действия необходимо снова совершить покупку.",
+                color = MaterialTheme.colorScheme.primary,
+                style = hintStyle
+            )
         }
     }
 }

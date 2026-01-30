@@ -4,7 +4,7 @@ import com.z_company.core.ResultState
 import com.z_company.core.ResultState.Companion.flowRequest
 import com.z_company.data_local.setting.dao.SalarySettingDao
 import com.z_company.data_local.setting.entity_converter.SalarySettingConverter
-import com.z_company.domain.entities.SalarySetting
+import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.repositories.SalarySettingRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map

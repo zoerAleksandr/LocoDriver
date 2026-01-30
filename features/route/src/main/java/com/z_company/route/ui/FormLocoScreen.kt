@@ -34,9 +34,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material3.Switch
-import androidx.compose.material.icons.Icons
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -742,7 +740,7 @@ fun FormLocoScreen(
                                                             modifier = Modifier.clickable {
                                                                 onDeleteSeries(selectionSeries)
                                                             },
-                                                            imageVector = Icons.Outlined.Close,
+                                                            painter = painterResource(com.z_company.core.R.drawable.ic_clear),
                                                             contentDescription = null,
                                                             tint = MaterialTheme.colorScheme.primary
                                                         )

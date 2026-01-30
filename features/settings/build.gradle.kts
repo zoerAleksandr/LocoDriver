@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     id(Plugins.android_lib)
     id(Plugins.kotlin_android)
@@ -28,15 +30,20 @@ android {
         sourceCompatibility = Apps.java_compatibility_version
         targetCompatibility = Apps.java_compatibility_version
     }
-    kotlinOptions {
-        jvmTarget = Apps.jvm_target_version
-    }
+//    kotlinOptions {
+//        jvmTarget = Apps.jvm_target_version
+//    }
     buildFeatures {
         compose = true
     }
 //    composeOptions {
 //        kotlinCompilerExtensionVersion = Versions.kotlin_compiler_ext_version
 //    }
+}
+kotlin {
+    compilerOptions {
+        jvmTarget = JvmTarget.fromTarget(Apps.jvm_target_version)
+    }
 }
 
 dependencies {

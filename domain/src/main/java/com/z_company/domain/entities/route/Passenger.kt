@@ -1,7 +1,9 @@
 package com.z_company.domain.entities.route
 
+import kotlinx.serialization.Serializable
 import java.util.UUID
 
+@Serializable
 data class Passenger(
     var passengerId: String = UUID.randomUUID().toString(),
     var basicId: String = "",
@@ -12,4 +14,4 @@ data class Passenger(
     var timeArrival: Long? = null,
     var timeDeparture: Long? = null,
     var notes: String? = null
-): java.io.Serializable
+)

@@ -50,24 +50,10 @@ class RouterImpl(
 
     override fun showStartScreen() {
         requireNavController().navigate(HomeFeature.route)
-//        {
-//            popUpTo(AuthFeature.route) {
-//                inclusive = true
-//                saveState = false
-//            }
-//        }
     }
 
     override fun showHome(startingRoute: String) {
         requireNavController().navigate(HomeRoute.route)
-//        {
-//            popUpTo(requireNavController().graph.startDestinationId) {  // или popUpTo(HomeFeature.route)
-//                inclusive = false
-//                saveState = true
-//            }
-//            launchSingleTop = true
-//            restoreState = true
-//        }
     }
 
     override fun showRouteForm(basicId: String?, isMakeCopy: Boolean) {

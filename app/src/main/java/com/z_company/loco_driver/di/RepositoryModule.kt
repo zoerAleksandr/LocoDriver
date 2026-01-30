@@ -22,9 +22,9 @@ import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.ui.snackbar.SnackbarManagerImpl
 import com.z_company.repository.Back4AppManager
 import com.z_company.repository.ShareManager
+import com.z_company.repository.remote_rest.ApiForSendEmail
 import com.z_company.repository.remote_rest.RemoteRestApi
 import com.z_company.repository.remote_rest.RemoteRestClient
-import com.z_company.repository.remote_rest.RemoteRestRouteRepository
 import com.z_company.repository.ru_store_api.RuStoreRepositoryKtor
 import com.z_company.route.viewmodel.RouteActionsHelper
 import com.z_company.use_case.SubscriptionHelper
@@ -66,8 +66,8 @@ val repositoryModule = module {
     single<RuStoreRepositoryKtor> { RuStoreRepositoryKtor() }
     single<ShareManager> { ShareManager(androidContext()) }
 
-    single<RemoteRestApi> { RemoteRestClient.routeApi }
-    single<RemoteRestRouteRepository> { RemoteRestRouteRepository(api = get()) }
+    single<RemoteRestApi> { RemoteRestClient.remoteRestApi }
+    single<ApiForSendEmail> { RemoteRestClient.apiForSendEmail }
     single { RouteActionsHelper() }
     single { SubscriptionHelper() }
 }

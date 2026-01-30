@@ -2,7 +2,7 @@ package com.z_company.route.viewmodel
 
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
-import com.z_company.domain.entities.SalarySetting
+import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.getLongDistanceTime
 import com.z_company.domain.entities.route.UtilsForEntities.timeFollowingSingleLocomotive

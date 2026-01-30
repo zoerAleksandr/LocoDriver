@@ -29,7 +29,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.z_company.loco_driver.ui.navigation.RouterImpl
-import com.z_company.loco_driver.ui.navigation.loginGraph
 import com.z_company.loco_driver.ui.theme.LocoDriverTheme
 import com.z_company.route.component.BottomNavigationBar
 import com.z_company.route.navigation.FormRoute
@@ -40,7 +39,6 @@ import com.z_company.route.navigation.SalaryCalculationRoute
 import com.z_company.route.navigation.SettingsScreenRoute
 import com.z_company.route.navigation.UpdatePresentationBlockDestination
 import com.z_company.route.navigation.homeGraph
-import com.z_company.route.navigation.login.AuthFeature
 import androidx.activity.ComponentActivity // Изменено: Уже был, но подтверждено — нужен для доступа к window.
 import androidx.compose.foundation.layout.WindowInsets // Изменено: Уже были, но добавлены комментарии для ясности.
 import androidx.compose.foundation.layout.asPaddingValues
@@ -51,8 +49,6 @@ import androidx.compose.foundation.layout.systemBars // Изменено: Доб
 @Composable
 fun LocoDriverApp(
     appState: LocoDriverAppState,
-    isLoggedIn: Boolean,
-    isShowFirstPresentation: Boolean,
     isShowUpdatePresentation: Boolean
 ) {
     LocoDriverTheme {
@@ -77,7 +73,7 @@ fun LocoDriverApp(
             ProfileRoute.route
         )
 
-        val showBottomBar = isLoggedIn && currentRoute in bottomBarRoutes
+        val showBottomBar = currentRoute in bottomBarRoutes
 
         val navBarColor = if (currentRoute in bottomBarRoutes) {
             surfaceColor
@@ -85,11 +81,6 @@ fun LocoDriverApp(
             backgroundColor
         }
 
-        // Изменено: Обновлён SideEffect для динамического управления цветом иконок на основе luminance фонов.
-        // Зачем: В Android 15+ система не всегда автоматически адаптирует иконки; мы вычисляем, светлый ли фон (luminance > 0.5), и устанавливаем isAppearanceLight... соответственно.
-        // Если фон тёмный (luminance < 0.5) — isAppearanceLight = false → светлые иконки (как primary в тёмной теме).
-        // Если светлый — true → тёмные иконки. Это обеспечивает контраст, и решает проблему "systemBar светлый с светлыми иконками".
-        // Для status bar — на основе backgroundColor (всегда под ним). Для nav bar — на основе navBarColor (может меняться по маршрутам).
         SideEffect {
             val window = (localContext as? ComponentActivity)?.window ?: return@SideEffect
             val insetsController = WindowCompat.getInsetsController(window, window.decorView)
@@ -100,15 +91,11 @@ fun LocoDriverApp(
             insetsController.isAppearanceLightNavigationBars = isLightNavBar
         }
 
-        // Изменено: Добавлен modifier .background(backgroundColor) explicitly на root Box, но уже был; добавлено для ясности.
-        // Зачем: Убеждаемся, что фон рисуется под всеми барами (в edge-to-edge прозрачные бары покажут этот цвет).
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(backgroundColor) // Фон для всего экрана, включая под статус-баром и навигационным баром.
+                .background(backgroundColor)
         ) {
-            // Изменено: Уточнён Box для nav bar — добавлен background(navBarColor), но уже был; добавлено условие if (navHeight > 0.dp) для avoidance ошибок на устройствах без nav bar.
-            // Зачем: В gesture navigation nav bar может отсутствовать (height=0), так что не рисуем лишний Box; это предотвращает артефакты.
             val density = LocalDensity.current
             val navInsets = WindowInsets.navigationBars.asPaddingValues()
             val navHeight = navInsets.calculateBottomPadding()
@@ -122,8 +109,6 @@ fun LocoDriverApp(
                 )
             }
 
-            // Изменено: Surface сделан transparent (color.copy(alpha=0f)), но уже был; paddings заменены на WindowInsets.systemBars для полного покрытия (status + nav + cutouts).
-            // Зачем: Content отступает от баров, но фон root виден под ними; это решает "systemBar светлый" — он станет как backgroundColor.
             Surface(
                 color = MaterialTheme.colorScheme.background.copy(alpha = 0f), // Transparent, чтобы не перекрывать root-фон.
                 modifier = Modifier
@@ -138,25 +123,18 @@ fun LocoDriverApp(
                 ) { paddingValues ->
                     NavHost(
                         navController = navController,
-                        startDestination = if (isLoggedIn) HomeFeature.route else AuthFeature.route,
+                        startDestination = HomeFeature.route,
                         modifier = Modifier.padding(paddingValues),
                         enterTransition = { fadeIn() },
                         exitTransition = { fadeOut() },
                     ) {
-                        // Граф авторизации
-                        loginGraph(
-                            router = appState.router,
-                            isShowFirstPresentation = isShowFirstPresentation
-                        )
-
-                        // Всё основное приложение
                         homeGraph(router = appState.router)
                     }
                 }
             }
 
             // Презентация обновления — поверх всего
-            if (isLoggedIn && isShowUpdatePresentation) {
+            if (isShowUpdatePresentation) {
                 UpdatePresentationBlockDestination(router = appState.router)
             }
         }

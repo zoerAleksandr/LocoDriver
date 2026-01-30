@@ -118,6 +118,10 @@ class RouteUseCase(private val repository: RouteRepository) {
         return repository.loadRoutes()
     }
 
+    fun getListRoutesAsFlow(): Flow<ResultState<List<Route>>> {
+        return repository.loadRoutesAsFlow()
+    }
+
     fun routeDetails(routeId: String): Flow<ResultState<Route?>> {
         return repository.loadRoute(routeId)
     }

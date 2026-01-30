@@ -19,8 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -55,10 +53,14 @@ import com.z_company.domain.util.str2decimalSign
 import com.z_company.route.viewmodel.SalaryCalculationUIState
 import com.z_company.core.ui.component.CustomDivider
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.res.painterResource
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.z_company.route.viewmodel.SalaryCalculationViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SalaryCalculationScreen(
+    viewModel: SalaryCalculationViewModel,
     uiState: SalaryCalculationUIState,
     onSettingsSalaryClick: () -> Unit,
 ) {
@@ -93,7 +95,7 @@ fun SalaryCalculationScreen(
                         onClick = onSettingsSalaryClick
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Settings,
+                            painter = painterResource(com.z_company.route.R.drawable.settings_24px),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary
                         )
@@ -192,7 +194,7 @@ fun SalaryCalculationScreen(
 
                 // Таблица начислений
                 item {
-                    EarningsTable(uiState = uiState)
+                    EarningsTable(uiState = uiState, convertTimeToStringFormat = viewModel::convertTimeToStringFormat)
                 }
 
                 // Заголовок для таблицы удержаний
@@ -240,7 +242,7 @@ fun SalaryCalculationScreen(
 // Таблица начислений (с горизонтальной прокруткой)
 // ===========================================
 @Composable
-private fun EarningsTable(uiState: SalaryCalculationUIState) {
+private fun EarningsTable(uiState: SalaryCalculationUIState, convertTimeToStringFormat: (Long?) -> String) {
     val scrollState = rememberScrollState() // Состояние для горизонтальной прокрутки
     val hintStyle = MaterialTheme.typography.bodyMedium
 
@@ -458,7 +460,7 @@ private fun EarningsTable(uiState: SalaryCalculationUIState) {
                 Column(modifier = Modifier.width(IntrinsicSize.Max)) {
                     Text("Часы", style = hintStyle)
                     rows.forEach { row ->
-                        Text(row.hours?.let { ConverterLongToTime.getTimeInStringFormat(it) } ?: "",
+                        Text(row.hours?.let { convertTimeToStringFormat(it) } ?: "",
                             style = hintStyle,
                             modifier = Modifier
                                 .padding(horizontal = 4.dp, vertical = 4.dp)
@@ -564,7 +566,7 @@ private fun EarningsTable(uiState: SalaryCalculationUIState) {
                         contentAlignment = Alignment.CenterStart
                     )
                     TableCell(
-                        text = row.hours?.let { ConverterLongToTime.getTimeInStringFormat(it) }
+                        text = row.hours?.let { convertTimeToStringFormat(it) }
                             ?: "",
                         width = maxHoursWidth,
                         contentAlignment = Alignment.Center

@@ -42,16 +42,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.ui.input.pointer.pointerInput
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.ui.theme.Shapes
@@ -61,23 +56,19 @@ import com.z_company.core.util.MonthFullText.getMonthFullText
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.route.component.ChipApp
-import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
-import java.util.Locale
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.rememberCoroutineScope
 import com.z_company.domain.entities.ReleasePeriod
 import com.z_company.domain.entities.ReleaseType
-import com.z_company.route.viewmodel.SelectReleaseDaysViewModel
 import kotlinx.coroutines.launch
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.painterResource
 import com.z_company.route.component.OutlinedTextFieldApp
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -614,7 +605,7 @@ fun SelectReleaseDaysContent(
                                                 modifier = Modifier.clickable {
                                                     removingReleasePeriod(period)
                                                 },
-                                                imageVector = Icons.Outlined.Clear,
+                                                painter = painterResource(com.z_company.core.R.drawable.ic_clear),
                                                 contentDescription = null,
                                                 tint = MaterialTheme.colorScheme.primary
                                             )
@@ -713,11 +704,6 @@ fun FullCalendarForRelease(
 
     val daysOfWeek = listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс")
 
-    var displayedMonth by remember {
-        mutableStateOf(
-            Calendar.getInstance().apply { time = currentMonth })
-    }
-
     // Pager setup
     @OptIn(ExperimentalFoundationApi::class)
     val initialPage = remember(monthOfYear) {
@@ -759,7 +745,8 @@ fun FullCalendarForRelease(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
-        ) {
+        )
+        {
             // Предыдущий
             Row(
                 modifier = Modifier.clickable(enabled = pagerState.currentPage > 0) {
@@ -770,7 +757,7 @@ fun FullCalendarForRelease(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                    painter = painterResource(com.z_company.core.R.drawable.keyboard_arrow_left_24px),
                     contentDescription = "Предыдущий месяц",
                     tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
                 )
@@ -812,7 +799,7 @@ fun FullCalendarForRelease(
                     maxLines = 1
                 )
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    painter = painterResource(com.z_company.core.R.drawable.keyboard_arrow_right_24px),
                     contentDescription = "Следующий месяц",
                     tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
                 )
@@ -837,7 +824,8 @@ fun FullCalendarForRelease(
         }
 
         val firstDayOfMonth = Calendar.getInstance().apply {
-            time = displayedMonth.time
+            set(Calendar.YEAR, currentPageMonth.year)
+            set(Calendar.MONTH, currentPageMonth.month)
             set(Calendar.DAY_OF_MONTH, 1)
         }
 
@@ -848,8 +836,10 @@ fun FullCalendarForRelease(
         ) { page ->
             val thisMonth = sortedMonths[page]
 
-            val monthCal = Calendar.getInstance().apply {
-                set(thisMonth.year, thisMonth.month, 1)
+            val monthCal = Calendar.getInstance().also {
+                it.set(Calendar.YEAR, thisMonth.year)
+                it.set(Calendar.MONTH, thisMonth.month)
+                it.set(Calendar.DAY_OF_MONTH, 1)
             }
 
             val firstDayOfWeek = (firstDayOfMonth.get(Calendar.DAY_OF_WEEK) - 2 + 7) % 7

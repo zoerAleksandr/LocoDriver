@@ -6,7 +6,7 @@ import com.z_company.core.ResultState
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ReleasePeriod
-import com.z_company.domain.entities.UserSettings
+import com.z_company.domain.entities.setting.UserSettings
 
 data class SelectReleaseDaysUIState(
     val releaseDaysPeriodState: SnapshotStateList<ReleasePeriod>? = mutableStateListOf(),

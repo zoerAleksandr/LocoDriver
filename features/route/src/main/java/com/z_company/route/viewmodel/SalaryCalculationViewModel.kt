@@ -1,14 +1,14 @@
 package com.z_company.route.viewmodel
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
+import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.MonthFullText.getMonthFullText
 import com.z_company.domain.entities.MonthOfYear
-import com.z_company.domain.entities.SalarySetting
-import com.z_company.domain.entities.UserSettings
+import com.z_company.domain.entities.setting.SalarySetting
+import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getStandardNormaHours
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
@@ -36,7 +36,8 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val salarySettingUseCase: SalarySettingUseCase by inject()
-
+    private val _userSetting = MutableStateFlow(UserSettings())
+    val userSetting = _userSetting.asStateFlow()
     private var job: Job? = null
 
     private val _uiState = MutableStateFlow(SalaryCalculationUIState())
@@ -48,6 +49,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                 settingsUseCase.getUserSettingFlow(),
                 salarySettingUseCase.salarySettingFlow()
             ) { userRes, salaryRes ->
+                _userSetting.value = userRes
                 Pair(userRes, salaryRes)
             }.collectLatest { (userRes, salaryRes) ->
                 _uiState.update { it.copy(screenState = ResultState.Loading("Пересчет...")) }
@@ -60,6 +62,16 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         super.onCleared()
         job?.cancel()
         viewModelScope.coroutineContext.cancelChildren()  // Отмена всех дочерних корутин
+    }
+
+    fun convertTimeToStringFormat(timeToLong: Long?): String {
+        userSetting.value.let { settings ->
+            return if (settings.isDecimalTime) {
+                ConverterLongToTime.getTimeInStringDecimalFormat(timeToLong)
+            } else {
+                ConverterLongToTime.getTimeInStringFormat(timeToLong)
+            }
+        }
     }
 
     private suspend fun calculationSalary(

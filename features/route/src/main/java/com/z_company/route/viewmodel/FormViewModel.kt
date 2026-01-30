@@ -6,11 +6,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.core.ui.snackbar.ISnackbarManager
+import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.MonthOfYear
-import com.z_company.domain.entities.NightTime
-import com.z_company.domain.entities.SalarySetting
-import com.z_company.domain.entities.UserSettings
+import com.z_company.domain.entities.setting.NightTime
+import com.z_company.domain.entities.setting.SalarySetting
+import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.Passenger
@@ -235,6 +236,18 @@ class FormViewModel(
                 }
             }
         }
+    }
+
+    // передаем время в нужном формате в зависимости от выбора пользователя
+    fun convertTimeToStringFormat(timeToLong: Long?): String {
+        userSetting.value?.let { settings ->
+            return if (settings.isDecimalTime) {
+                ConverterLongToTime.getTimeInStringDecimalFormat(timeToLong)
+            } else {
+                ConverterLongToTime.getTimeInStringFormat(timeToLong)
+            }
+        }
+        return ConverterLongToTime.getTimeInStringFormat(timeToLong)
     }
 
     // Реактивные вычисления

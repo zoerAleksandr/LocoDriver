@@ -1,8 +1,11 @@
 package com.z_company.domain.entities.route
 
+import kotlinx.serialization.Contextual
 import java.math.BigDecimal
 import java.util.UUID
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class Locomotive(
     var locoId: String = UUID.randomUUID().toString(),
     var basicId: String,
@@ -19,23 +22,36 @@ data class Locomotive(
     var normaElectricCurrent1: Int? = null,
     var normaElectricCurrent2: Int? = null,
     var normaDiesel: String? = null,
+    @Contextual
     var heatingCounterAccepted: BigDecimal? = null,
+    @Contextual
     var heatingCounterDelivery: BigDecimal? = null,
-): java.io.Serializable
+)
 
+@Serializable
 data class SectionElectric(
     var sectionId: String = UUID.randomUUID().toString(),
     var locoId: String = "",
     var type: LocoType = LocoType.ELECTRIC,
+    @Contextual
     var acceptedEnergy: BigDecimal? = null,
+    @Contextual
     var deliveryEnergy: BigDecimal? = null,
+    @Contextual
     var acceptedRecovery: BigDecimal? = null,
+    @Contextual
     var deliveryRecovery: BigDecimal? = null,
+    @Contextual
     var acceptedEnergyOtherCurrent: BigDecimal? = null,
+    @Contextual
     var deliveryEnergyOtherCurrent: BigDecimal? = null,
+    @Contextual
     var acceptedRecoveryOtherCurrent: BigDecimal? = null,
+    @Contextual
     var deliveryRecoveryOtherCurrent: BigDecimal? = null
-): java.io.Serializable
+)
+
+@Serializable
 data class SectionDiesel(
     var sectionId: String = UUID.randomUUID().toString(),
     var locoId: String = "",
@@ -46,4 +62,4 @@ data class SectionDiesel(
     var fuelSupply: Double? = null,
     var fuelSupplyInKilo: Double? = null,
     var coefficientSupply: Double? = null,
-): java.io.Serializable
+)

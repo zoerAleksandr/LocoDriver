@@ -1,8 +1,7 @@
 package com.z_company.domain.use_cases
 
 import com.z_company.domain.entities.MonthOfYear
-import com.z_company.domain.entities.SalarySetting
-import com.z_company.domain.entities.UserSettings
+import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.getLongDistanceTime
@@ -18,10 +17,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.timeFollowingSingleL
 import com.z_company.domain.util.sum
 import com.z_company.domain.util.toDoubleOrZero
 import com.z_company.domain.util.toIntOrZero
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 

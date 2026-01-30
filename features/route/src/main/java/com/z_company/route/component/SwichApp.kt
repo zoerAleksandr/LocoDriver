@@ -75,6 +75,11 @@ fun SwitchApp(
 
     SubcomposeLayout(modifier = modifier.defaultMinSize(minHeight = androidx.compose.material3.ButtonDefaults.MinHeight)) { constraints ->
 
+        // Изменено: Добавлена проверка на фиксированную ширину (когда modifier.fillMaxWidth() применен, constraints имеют minWidth == maxWidth).
+        // Для чего: Чтобы компонент мог растягиваться на всю доступную ширину (fillMaxWidth), разделяя её поровну между двумя сторонами свитча.
+        // Если ширина не фиксирована (нет fillMaxWidth), то ширина рассчитывается на основе содержимого, как раньше.
+        val hasFixedWidth = constraints.minWidth == constraints.maxWidth && constraints.hasBoundedWidth
+
         val looseConstraints = constraints.copy(
             minWidth = 0,
             minHeight = 0,
@@ -82,26 +87,57 @@ fun SwitchApp(
             maxHeight = Constraints.Infinity
         )
 
-        val negativePlaceable = subcompose("negative") {
-            Box(contentAlignment = Alignment.Center) {
-                negativeContent()
-            }
-        }[0].measure(looseConstraints)
-
-        val positivePlaceable = subcompose("positive") {
-            Box(contentAlignment = Alignment.Center) {
-                positiveContent()
-            }
-        }[0].measure(looseConstraints)
-
-        val maxContentWidthPx = max(negativePlaceable.width, positivePlaceable.width)
-        val maxContentHeightPx = max(negativePlaceable.height, positivePlaceable.height)
-
         val paddingPerSidePx = with(density) { 4.dp.toPx() }.toInt()
         val sidePaddingPx = paddingPerSidePx * 2
 
-        val sideWidthPx = maxContentWidthPx + sidePaddingPx
-        val totalWidthPx = sideWidthPx * 2
+        var sideWidthPx: Int
+        var maxContentWidthPx: Int
+        var maxContentHeightPx: Int
+
+        if (hasFixedWidth) {
+            // Изменено: При фиксированной ширине (fillMaxWidth) рассчитываем sideWidthPx как половину доступной ширины.
+            // Для чего: Чтобы свитч занимал всю ширину, а содержимое (positive/negative) могло адаптироваться (например, текст оборачиваться).
+            sideWidthPx = constraints.maxWidth / 2
+            val contentMaxWidthPx = sideWidthPx - sidePaddingPx
+            val contentConstraints = looseConstraints.copy(maxWidth = contentMaxWidthPx)
+
+            val negativePlaceable = subcompose("negative") {
+                Box(contentAlignment = Alignment.Center) {
+                    negativeContent()
+                }
+            }[0].measure(contentConstraints)
+
+            val positivePlaceable = subcompose("positive") {
+                Box(contentAlignment = Alignment.Center) {
+                    positiveContent()
+                }
+            }[0].measure(contentConstraints)
+
+            maxContentWidthPx = max(negativePlaceable.width, positivePlaceable.width)
+            maxContentHeightPx = max(negativePlaceable.height, positivePlaceable.height)
+        } else {
+            // Оригинальный код для расчета на основе содержимого (без изменений, кроме переменных).
+            val negativePlaceable = subcompose("negative") {
+                Box(contentAlignment = Alignment.Center) {
+                    negativeContent()
+                }
+            }[0].measure(looseConstraints)
+
+            val positivePlaceable = subcompose("positive") {
+                Box(contentAlignment = Alignment.Center) {
+                    positiveContent()
+                }
+            }[0].measure(looseConstraints)
+
+            maxContentWidthPx = max(negativePlaceable.width, positivePlaceable.width)
+            maxContentHeightPx = max(negativePlaceable.height, positivePlaceable.height)
+
+            sideWidthPx = maxContentWidthPx + sidePaddingPx
+        }
+
+        // Изменено: totalWidthPx теперь зависит от hasFixedWidth: если фиксирована, используем constraints.maxWidth; иначе - на основе sideWidthPx * 2.
+        // Для чего: Чтобы при fillMaxWidth свитч занимал всю ширину, а без него - минимальную на основе содержимого.
+        val totalWidthPx = if (hasFixedWidth) constraints.maxWidth else sideWidthPx * 2
 
         val minHeightPx = with(density) { androidx.compose.material3.ButtonDefaults.MinHeight.toPx() }.toInt()
         val totalHeightPx = max(maxContentHeightPx + sidePaddingPx, minHeightPx) // adding vertical padding if needed

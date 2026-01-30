@@ -18,12 +18,10 @@ import com.z_company.domain.entities.TimePeriod
 import com.z_company.domain.entities.route.SearchResponse
 import com.z_company.domain.repositories.HistoryResponseRepository
 import com.z_company.data_local.route.SearchRouteUseCase
-import com.z_company.domain.entities.UserSettings
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.util.safetySubList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow

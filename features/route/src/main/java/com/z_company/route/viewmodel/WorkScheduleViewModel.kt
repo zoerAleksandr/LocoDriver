@@ -21,7 +21,7 @@ import java.util.Calendar
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import androidx.compose.material3.SnackbarDuration
 import com.z_company.core.util.DateAndTimeConverter
-import com.z_company.domain.entities.UserSettings
+import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
@@ -37,7 +37,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlin.collections.sorted
 import com.z_company.domain.entities.ReleaseType
 import com.z_company.domain.entities.ReleasePeriod
-import com.z_company.domain.entities.Day
 import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHoursExcludingWeekends
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHoursIncludingWeekends

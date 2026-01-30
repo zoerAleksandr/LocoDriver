@@ -1,6 +1,6 @@
 package com.z_company.core.util
 
-import com.z_company.domain.entities.UserSettings
+import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.use_cases.SettingsUseCase
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject

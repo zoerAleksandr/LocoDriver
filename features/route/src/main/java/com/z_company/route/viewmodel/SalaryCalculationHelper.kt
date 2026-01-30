@@ -1,7 +1,7 @@
 package com.z_company.route.viewmodel
 
-import com.z_company.domain.entities.SalarySetting
-import com.z_company.domain.entities.UserSettings
+import com.z_company.domain.entities.setting.SalarySetting
+import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHoursExcludingWeekends
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHoursIncludingWeekends
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHoursInPeriod
@@ -39,8 +39,6 @@ class SalaryCalculationHelper(
     val date = userSettings.selectMonthOfYear.dateSetTariffRate?.dateNewRate ?: 1
     val firstDate = 1
     val lastDate = userSettings.selectMonthOfYear.days.last().dayOfMonth
-
-
 
     fun getWorkTimeAtTariffFlow(): Flow<Long> {
         return channelFlow {

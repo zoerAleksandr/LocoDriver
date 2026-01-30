@@ -1,6 +1,6 @@
 package com.z_company.data_local.setting.entity_converter
 
-import com.z_company.domain.entities.ServicePhase
+import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.data_local.setting.entity.ServicePhase as ServicePhaseEntity
 
 internal object ServicePhasesConverter {

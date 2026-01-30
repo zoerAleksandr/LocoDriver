@@ -4,9 +4,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -15,12 +12,9 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import com.z_company.core.ui.theme.Shapes
-import com.z_company.core.ui.theme.custom.AppTypography
-import com.z_company.core.ui.theme.transparentColorForTextField
 import com.z_company.route.R
 
 @Composable
@@ -62,7 +56,7 @@ fun SearchTextField(
                 onBack()
             }) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    painter = painterResource(com.z_company.core.R.drawable.keyboard_arrow_left_24px),
                     tint = primaryColor,
                     contentDescription = null
                 )
@@ -78,7 +72,7 @@ fun SearchTextField(
                             keyboardController?.hide()
                         }) {
                             Icon(
-                                imageVector = Icons.Outlined.Search,
+                                painter = painterResource(R.drawable.search_24px),
                                 contentDescription = null,
                                 tint = primaryColor
                             )

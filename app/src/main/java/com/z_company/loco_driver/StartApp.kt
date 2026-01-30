@@ -4,6 +4,7 @@ import android.app.Application
 import com.my.tracker.MyTracker
 import com.my.tracker.MyTrackerConfig.LocationTrackingMode
 import com.parse.Parse
+import com.vk.id.VKID
 import com.z_company.data_local.route.di.roomRouteModule
 import com.z_company.data_local.setting.di.roomSalarySettingModule
 import com.z_company.data_local.setting.di.roomSettingsModule
@@ -15,11 +16,14 @@ import com.z_company.loco_driver.di.useCaseModule
 import com.z_company.loco_driver.di.viewModelModule
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
+import java.util.Locale
 
 class StartApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        VKID.init(this)
+        VKID.instance.setLocale(Locale("ru"))
         val myTrackerConfig = MyTracker.getTrackerConfig()
         myTrackerConfig.locationTrackingMode = LocationTrackingMode.CACHED
         MyTracker.setDebugMode(true)

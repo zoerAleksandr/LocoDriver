@@ -3,14 +3,18 @@ package com.z_company.route.viewmodel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.z_company.core.ResultState
+import com.robokassa.library.models.Culture
+import com.robokassa.library.models.PaymentMethod
+import com.robokassa.library.models.Receipt
+import com.robokassa.library.models.ReceiptItem
+import com.robokassa.library.models.Tax
+import com.robokassa.library.params.PaymentParams
+import com.robokassa.library.pay.RobokassaPayLauncher
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.util.DateAndTimeConverter
+import com.z_company.domain.entities.Product
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.SettingsUseCase
-import com.z_company.route.Const.LOCO_DRIVER_ANNUAL_SUBSCRIPTION
-import com.z_company.route.Const.LOCO_DRIVER_MONTHLY_SUBSCRIPTION
-import com.z_company.use_case.SubscriptionHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -22,13 +26,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import ru.rustore.sdk.pay.RuStorePayClient
-import ru.rustore.sdk.pay.model.Product
-import ru.rustore.sdk.pay.model.ProductId
-import ru.rustore.sdk.pay.model.RuStorePaymentException.ProductPurchaseCancelled
-import ru.rustore.sdk.pay.model.RuStorePaymentException.ProductPurchaseException
-import ru.rustore.sdk.pay.model.SubscriptionPurchase
-import ru.rustore.sdk.pay.model.SubscriptionPurchaseStatus
 
 data class BillingState(
     val isLoading: Boolean = false,
@@ -39,20 +36,17 @@ data class BillingState(
 
 sealed class BillingEvent {
     data class ShowError(val error: Throwable) : BillingEvent()
+    data class StartPayment(val params: PaymentParams, val onlyChek: Boolean = false) :
+        BillingEvent()
 }
 
 class PurchasesViewModel : ViewModel(), KoinComponent {
-
-    private val ruStorePayClient: RuStorePayClient by inject()
+    private val MERCHANT_LOGIN = "LOCO_DRIVER_SHOP"
+    private val PASSWORD_1 = "g1hybfLQChf4e508yRIX"
+    private val PASSWORD_2 = "lGOmC8y1iNRbJ9M1fA3w"
     private val sharedPrefs: SharedPreferencesRepositories by inject()
     private val settingsUseCase: SettingsUseCase by inject()
-    private val subscriptionHelper: SubscriptionHelper by inject()
     private val snackbarManager: ISnackbarManager by inject()
-
-    private val availableProductIds = listOf<ProductId>(
-        ProductId(LOCO_DRIVER_MONTHLY_SUBSCRIPTION),
-        ProductId(LOCO_DRIVER_ANNUAL_SUBSCRIPTION),
-    )
 
     private val _state = MutableStateFlow(BillingState(isLoading = true))
     val state = _state.asStateFlow()
@@ -80,34 +74,26 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                // 1. Продукты
-                val products = ruStorePayClient
-                    .getProductInteractor()
-                    .getProducts(availableProductIds)
-                    .await()
-
-                // 2. Все покупки
-                val purchases = ruStorePayClient
-                    .getPurchaseInteractor()
-                    .getPurchases()
-                    .await()
-
-                // 4. Активные подписки
-                val activeSubs = purchases
-                    .filterIsInstance<SubscriptionPurchase>()
-                    .filter { it.status == SubscriptionPurchaseStatus.ACTIVE }
-
-                val expirationMap = activeSubs.associate { sub ->
-                    sub.productId.value to sub.expirationDate.time
-                }
-                // Сохраняем самое позднее окончание подписки (для синхронизации и Profile)
-//                val maxExpiration = expirationMap.values.maxOrNull() ?: 0L
-//                sharedPrefs.setSubscriptionExpiration(maxExpiration)
-
+                val products = listOf(
+                    Product(
+                        name = "1 месяц",
+                        desc = "",
+                        sum = 1.00
+                    ),
+                    Product(
+                        name = "3 месяца",
+                        desc = "",
+                        sum = 2.00
+                    ),
+                    Product(
+                        name = "1 год",
+                        desc = "",
+                        sum = 3.00
+                    )
+                )
                 _state.update {
                     it.copy(
                         products = products,
-                        activeExpirations = expirationMap,
                         isLoading = false
                     )
                 }
@@ -119,118 +105,73 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
     }
 
     fun restoreSubscribe() {
-        viewModelScope.launch(Dispatchers.IO) {
-            subscriptionHelper.restorePurchases(snackbarManager)
-        }
+        // TODO получить данные о сроках оплаты из облака FAST_API
     }
 
     fun onProductClick(product: Product) {
         viewModelScope.launch {
-            val purchaseResult =
-                subscriptionHelper.purchaseProductSuspend(productId = product.productId.value)
-            when (purchaseResult) {
-                is ResultState.Success -> {
-                    if (purchaseResult.data == -1L) {
-                        snackbarManager.show("Подписка успешно оформлена!")
-                        subscriptionHelper.restorePurchases()
-                    } else {
-                        val text =
-                            state.value.dateAndTimeConverter?.getDateAndTime(purchaseResult.data)
-                                ?: ""
-                        snackbarManager.show("Подписка успешно оформлена! Срок до $text")
-                        Log.d("zzz", "Подписка успешно оформлена! Срок до $text")
-                    }
-                }
+            val opKey = sharedPrefs.getOPKeyRobokassa()
+            val paymentParams = createPaymentParams(product, opKey)
+            _event.tryEmit(BillingEvent.StartPayment(paymentParams))
+        }
+    }
 
-                is ResultState.Error -> {
-                    val error = purchaseResult.entity.throwable
-                    when (error) {
-                        is ProductPurchaseCancelled -> {
-                            snackbarManager.show("Покупка отменена пользователем.")
-                            Log.d("zzz", "ProductPurchaseCancelled ${purchaseResult.entity}")
-                        }
-
-                        is ProductPurchaseException -> {
-                            Log.d("zzz", "ProductPurchaseException ${purchaseResult.entity}")
-                        }
-
-                        else -> {
-                            snackbarManager.show("Ошибка ${purchaseResult.entity}")
-                            Log.d("zzz", "Ошибка ${purchaseResult.entity}")
-                        }
-                    }
-                }
-
-                is ResultState.Loading -> {
-
+    /**
+     * Создаёт PaymentParams для Robokassa.
+     * @param product Продукт для оплаты.
+     * @param opKey Токен сохранённой карты (null для первой оплаты).
+     * @return PaymentParams.
+     */
+    private fun createPaymentParams(product: Product, opKey: String?): PaymentParams {
+        return PaymentParams().setParams {
+            orderParams {
+                invoiceId = System.currentTimeMillis().toInt()
+                orderSum = product.sum
+                description = product.desc
+                receipt = Receipt(
+                    items = listOf(
+                        ReceiptItem(
+                            name = product.name,
+                            sum = product.sum,
+                            quantity = 1,
+                            paymentMethod = PaymentMethod.FULL_PAYMENT,
+                            tax = Tax.NONE
+                        )
+                    )
+                )
+                if (opKey != null) {
+                    // Для оплаты сохранённой картой
+                    token = opKey
                 }
             }
-//            val result = ruStorePayClient.getPurchaseInteractor()
-//                .purchase(ProductPurchaseParams(productId = product.productId))
-//                .toSuspendResult()
-//
-//            result.fold(
-//                onSuccess = { purchaseResult ->
-//                    val purchaseId = purchaseResult.purchaseId
-//                    viewModelScope.launch {
-//                        val saveTimeResult =
-//                            subscriptionHelper.setSubscriptionExpirationFromServer(purchaseId.value)
-//                        when (saveTimeResult) {
-//                            is ResultState.Success -> {
-//
-//                            }
-//                            is ResultState.Error -> {
-//
-//                            }
-//                            is ResultState.Loading -> {
-//
-//                            }
-//                        }
-//                    }
-////                    val purchase = ruStorePayClient
-////                        .getPurchaseInteractor()
-////                        .getPurchase(purchaseId)
-////                        .await()
-//
-////                    val subscriptionPurchase = purchase as SubscriptionPurchase
-//
-////                    val time = subscriptionPurchase.expirationDate.time
-////                    sharedPrefs.setSubscriptionExpiration(time)
-////                    val text = state.value.dateAndTimeConverter?.getDateAndTime(time) ?: ""
-//
-//                    snackbarManager.show("Подписка успешно оформлена! Срок до $purchaseId")
-//
-//                    Log.d("zzz", "Подписка успешно оформлена! Срок до $purchaseId")
-//                },
-//                onFailure = { throwable ->
-//                    when (throwable) {
-//                        is RuStorePaymentException.ProductPurchaseException -> {
-//                            Log.d("zzz", "ProductPurchaseException $throwable")
-//                            _event.tryEmit(BillingEvent.ShowError(throwable))
-//                        }
-//
-//                        is RuStorePaymentException.ProductPurchaseCancelled -> {
-//                            Log.d("zzz", "ProductPurchaseCancelled $throwable")
-//                            snackbarManager.show("Вы не закончили оформление подписки.")
-//                            _event.tryEmit(BillingEvent.ShowError(throwable))
-//                        }
-//
-//                        else -> {
-//                            Log.d("zzz", "Other Error $throwable")
-//                            _event.tryEmit(BillingEvent.ShowError(throwable))
-//                        }
-//                    }
-//                }
-//            )
-//                .addOnSuccessListener {
-//                    Log.d("zzz", "addOnSuccessListener $it")
-//                    // После покупки сразу обновляем состояние
-//                    refreshProductsAndPurchases()
-//                }
-//                .addOnFailureListener { throwable ->
-//                    Log.d("zzz", "addOnFailureListener $throwable")
-//                    _event.tryEmit(BillingEvent.ShowError(throwable))
-//                }
+            customerParams {
+                culture = Culture.RU
+                email = "zoer.aleksandr@gmail.com"
+            }
+            viewParams {
+                toolbarText = "Оплата ${product.name}"
+            }
+        }.also {
+            it.setCredentials(
+                MERCHANT_LOGIN,
+                PASSWORD_1,
+                PASSWORD_2,
+                "https://www.rustore.ru/catalog/app/com.z_company.loco_driver"
+            )
         }
+    }
+
+    // Новое: Метод для обработки успеха (сохраняет opKey).
+    // Вызывается из callback в экране.
+    fun handlePaymentSuccess(success: RobokassaPayLauncher.Success) {
+        sharedPrefs.setOPKeyRobokassa(success.opKey)
+        snackbarManager.show("Оплата успешна! opKey сохранён для повторных оплат.")
+        Log.d("zzz", "Success: invoiceId=${success.invoiceId}, opKey=${success.opKey}")
+    }
+
+    // Новое: Метод для эмиссии события StartPayment.
+    // Для чего: Чтобы из MainViewModel (при возврате) или из onProductClick можно было эмитировать событие для запуска launcher в UI с нужным onlyCheck. Это упрощает обработку возврата без дублирования кода.
+    fun emitStartPayment(params: PaymentParams, onlyCheck: Boolean) {
+        _event.tryEmit(BillingEvent.StartPayment(params, onlyCheck))
     }
 }

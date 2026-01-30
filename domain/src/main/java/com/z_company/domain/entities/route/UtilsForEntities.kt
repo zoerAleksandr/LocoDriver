@@ -1,10 +1,10 @@
 package com.z_company.domain.entities.route
 
 import com.z_company.domain.entities.MonthOfYear
-import com.z_company.domain.entities.SalarySetting
+import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.TimePeriod
-import com.z_company.domain.entities.UserSettings
+import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getTimeInCurrentMonth
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.util.CalculateNightTime
@@ -468,9 +468,6 @@ object UtilsForEntities : KoinComponent {
 
 
         val secondDataInMillis = secondData.timeInMillis + offsetInMoscow
-
-        println("zzz firstData $firstDataInMillis")
-        println("zzz secondData $secondDataInMillis")
 
         val newRouteList = mutableListOf<Route>()
 
