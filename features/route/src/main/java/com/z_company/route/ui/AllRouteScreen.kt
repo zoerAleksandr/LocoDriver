@@ -58,6 +58,7 @@ fun AllRouteScreen(
     onRouteClick: (String) -> Unit = {},
     setSortOption: (SortOption) -> Unit,
     showFormScreen: () -> Unit,
+    showPurchasesScreen: () -> Unit
 ) {
     val context = LocalContext.current
 
@@ -322,7 +323,7 @@ fun AllRouteScreen(
                         showFormScreen()
                     },
                     BottomSheetAction(text = "Оформить подписку за 69 руб/мес") {
-                        viewModel.checkPurchasesAvailability()
+                            showPurchasesScreen()
                     }
                 ),
             )
@@ -351,7 +352,7 @@ fun AllRouteScreen(
                 },
                 actions = listOf(
                     BottomSheetAction(text = "Оформить подписку за 69 руб/мес") {
-                        viewModel.checkPurchasesAvailability()
+                        showPurchasesScreen()
                     },
                     BottomSheetAction(text = "Восстановить покупки") {
                         viewModel.restorePurchases()
@@ -391,7 +392,7 @@ fun AllRouteScreen(
                     minTimeRest = viewModel.minTimeRest,
                     homeRest = previewRouteState.homeRest,
                     dateAndTimeConverter = viewModel.dateAndTimeConverter,
-                    syncRoute = viewModel::saveRouteToRemote,
+                    syncRoute = viewModel::syncRoute,
                     setFavoriteState = viewModel::setFavoriteRoute,
                     onRouteClick = onRouteClick,
                     makeCopyRoute = { viewModel.newRouteClick(route.basicData.id) },
@@ -399,7 +400,7 @@ fun AllRouteScreen(
                         isShowDialogConfirmRemoveRoute = showDialog
                         routeForRemove = route
                     },
-                    shareRoute = { viewModel.shareRoute(route) }
+//                    shareRoute = { viewModel.shareRoute(route) }
                 )
             }
         }

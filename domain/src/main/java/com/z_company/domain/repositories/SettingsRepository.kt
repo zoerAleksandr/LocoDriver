@@ -7,6 +7,7 @@ import com.z_company.domain.entities.setting.UserSettings
 import kotlinx.coroutines.flow.Flow
 
 interface SettingsRepository {
+    fun updateSubscriptionPeriod(time: Long): Flow<ResultState<Unit>>
     fun setDieselCoefficient(value: Double): Flow<ResultState<Unit>>
     fun updateMonthOfYearInUserSetting(monthOfYear: MonthOfYear): Flow<ResultState<Unit>>
     fun updateNightTime(nightTime: NightTime): Flow<ResultState<Unit>>

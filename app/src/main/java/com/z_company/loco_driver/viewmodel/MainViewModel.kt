@@ -42,10 +42,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private val loadCalendarFromStorage: LoadCalendarFromStorage by inject()
     private val calendarUseCase: CalendarUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
-    private val remoteRouteUseCase: RemoteRouteUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
-    private val ruStoreUseCase: RuStoreUseCase by inject()
-    private val subscriptionHelper: SubscriptionHelper by inject()
 
     private var saveCalendarInLocalJob: Job? = null
     private var setDefaultSetting: Job? = null
@@ -60,23 +57,17 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private val sessionManager: SessionManager by inject()
 
     init {
+        if (sharedPreferenceStorage.tokenIsFirstAppEntry()){
+            sharedPreferenceStorage.setIsMigrated(true)
+        }
         viewModelScope.launch {
             sessionManager.updateLoggedIn() // ← мгновенно + запускает sync если нужно
         }
 
         viewModelScope.launch {
-            subscriptionHelper.restorePurchases()
-        }
-        viewModelScope.launch {
             loadCalendar()
             delay(400L) // минимальное время сплеша
             _appInitialized.value = true
-        }
-    }
-
-    private fun enableSynchronisedRoute() {
-        viewModelScope.launch {
-            remoteRouteUseCase.syncBasicDataPeriodic().collect {}
         }
     }
 

@@ -92,6 +92,6 @@ fun Double?.toMoneyString(): String {
         "0 ₽"
     } else {
 //        val value = this / 3_600_000.toDouble()
-        "${String.format(" % .2f", this)} ₽"
+        "${String.format("% .2f", this)} ₽"
     }
 }

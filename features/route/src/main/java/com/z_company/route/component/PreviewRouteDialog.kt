@@ -71,7 +71,7 @@ fun PreviewRouteDialog(
     onRouteClick: (String) -> Unit,
     makeCopyRoute: (String) -> Unit,
     showDialogConfirmRemove: (Boolean, Route) -> Unit,
-    shareRoute: (Route) -> Unit
+//    shareRoute: (Route) -> Unit
 ) {
     val redOrange = Color(0xFFf1642e)
     val heightScreen = LocalConfiguration.current.screenHeightDp
@@ -145,27 +145,27 @@ fun PreviewRouteDialog(
                         contentDescription = null,
                     )
                 }
-                HorizontalDivider()
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .clickable {
-                           shareRoute(routeForPreview)
-                        },
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Поделиться",
-                        style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
-                    )
-                    Image(
-                        modifier = Modifier.size(25.dp),
-                        painter = painterResource(R.drawable.share_24px),
-                        contentDescription = null,
-                    )
-                }
+//                HorizontalDivider()
+//                Row(
+//                    modifier = Modifier
+//                        .fillMaxWidth()
+//                        .padding(horizontal = 16.dp, vertical = 8.dp)
+//                        .clickable {
+//                           shareRoute(routeForPreview)
+//                        },
+//                    horizontalArrangement = Arrangement.SpaceBetween,
+//                    verticalAlignment = Alignment.CenterVertically
+//                ) {
+//                    Text(
+//                        text = "Поделиться",
+//                        style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
+//                    )
+//                    Image(
+//                        modifier = Modifier.size(25.dp),
+//                        painter = painterResource(R.drawable.share_24px),
+//                        contentDescription = null,
+//                    )
+//                }
                 HorizontalDivider()
                 Row(
                     modifier = Modifier

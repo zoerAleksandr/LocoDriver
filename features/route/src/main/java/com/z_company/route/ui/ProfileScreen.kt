@@ -15,6 +15,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -57,7 +58,13 @@ import com.z_company.route.R
 import com.z_company.route.component.OutlinedTextFieldApp
 import com.z_company.route.component.SwitchApp
 import androidx.compose.runtime.collectAsState
-import com.z_company.repository.remote_rest.ForgotEmailState
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.ImeAction
+import com.z_company.repository.remote_rest.ResponseState
+import com.z_company.route.component.AnimationDialog
+import com.z_company.route.viewmodel.SyncStepState
+import com.z_company.route.viewmodel.SyncType
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 const val MIN_LENGTH_PASSWORD = 4
@@ -101,7 +108,7 @@ fun ProfileScreen(
     // Для чего: Чтобы показать экран миграции вместо обычного контента для старых пользователей
     val isMigrated by viewModel.isMigrated.collectAsState()
     val isMigrationNeeded = !isFirstEntry.value && !isMigrated
-
+//
     // Для чего: Чтобы показывать loading с шагами миграции и обрабатывать результат
     val migrationUiState by viewModel.migrationUiState.collectAsState()
 
@@ -109,21 +116,21 @@ fun ProfileScreen(
 
     LaunchedEffect(forgotEmailState) {
         when (forgotEmailState) {
-            is ForgotEmailState.Initial -> {
+            is ResponseState.Initial -> {
 
             }
 
-            is ForgotEmailState.Loading -> {
+            is ResponseState.Loading -> {
                 snackbarHostState.showSnackbar("Отправляем запрос...")
             }
 
-            is ForgotEmailState.Success -> {
+            is ResponseState.Success -> {
                 snackbarHostState.showSnackbar("Писмо отравлено на почту $email")
                 viewModel.forgotResetState()
             }
 
-            is ForgotEmailState.Error -> {
-                snackbarHostState.showSnackbar((forgotEmailState as ForgotEmailState.Error).errorMessage)
+            is ResponseState.Error -> {
+                snackbarHostState.showSnackbar((forgotEmailState as ResponseState.Error).errorMessage)
                 viewModel.forgotResetState()
             }
         }
@@ -218,6 +225,256 @@ fun ProfileScreen(
             }
         }
     }
+    // Для чего: Чтобы вынести показ snackbar за пределы диалога — так snackbar отобразится на основном экране ПОСЛЕ закрытия диалога, и не исчезнет сразу.
+    var showSuccessSnackbar by remember { mutableStateOf(false) }
+
+// Изменено: Добавил LaunchedEffect вне диалога для показа snackbar при успехе.
+// Для чего: Реагирует на флаг showSuccessSnackbar — показывает snackbar после закрытия диалога, затем сбрасывает флаг. Это решает проблему исчезновения toast сразу после закрытия.
+    LaunchedEffect(showSuccessSnackbar) {
+        if (showSuccessSnackbar) {
+            snackbarHostState.showSnackbar("Email успешно изменён")
+            showSuccessSnackbar = false
+        }
+    }
+
+    var showEditEmailDialog by remember { mutableStateOf(false) }
+
+    AnimationDialog(
+        showDialog = showEditEmailDialog,
+        onDismissRequest = {
+            showEditEmailDialog = false
+            viewModel.resetUpdateEmailState()  // Сбрасываем состояние при закрытии
+        }
+    )
+    {
+        // 1. Состояние из ViewModel
+        val updateEmailState by viewModel.uiState
+            .map { it.updateEmailState }
+            .collectAsState(initial = null)
+
+        // 2. Локальная ошибка — показываем под TextField
+        var errorMessage by remember { mutableStateOf<String?>(null) }
+
+        // 3. Сбрасываем состояние ViewModel каждый раз, когда диалог открывается
+        LaunchedEffect(showEditEmailDialog) {
+            if (showEditEmailDialog) {
+                viewModel.resetUpdateEmailState()
+                errorMessage = null                    // Очищаем ошибку при открытии
+            }
+        }
+
+        // 4. Реакция на результат запроса
+        LaunchedEffect(updateEmailState) {
+            updateEmailState?.let { state ->
+                when (state) {
+                    is ResultState.Success -> {
+                        errorMessage = null
+                        viewModel.resetUpdateEmailState()
+                        showEditEmailDialog = false           // Закрываем диалог
+                        showSuccessSnackbar = true
+                    }
+
+                    is ResultState.Error -> {
+                        errorMessage = state.entity.message   // Показываем ошибку под полем
+                        // Диалог НЕ закрываем!
+                        viewModel.resetUpdateEmailState()
+                    }
+
+                    else -> {} // Loading — ничего не делаем
+                }
+            }
+        }
+
+        var emailValue by remember {
+            mutableStateOf(viewModel.currentEmail)
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+                .background(MaterialTheme.colorScheme.surface, Shapes.medium)
+                .padding(horizontal = 16.dp, vertical = 24.dp),
+            horizontalAlignment = Alignment.End
+        ) {
+            Text(
+                text = "Новый email",
+                style = MaterialTheme.typography.titleSmall,
+                color = primaryColor,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            OutlinedTextFieldApp(
+                modifier = Modifier.fillMaxWidth(),
+                value = emailValue,
+                onValueChange = {
+                    emailValue = it
+                    errorMessage = null                    // Очищаем ошибку при вводе
+                },
+                textStyle = MaterialTheme.typography.bodyLarge,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Email,
+                    imeAction = ImeAction.Done
+                ),
+                isError = errorMessage != null,            // Подсвечиваем поле красным
+                supportingText = {
+                    if (errorMessage != null) {
+                        Text(
+                            text = errorMessage.orEmpty(),
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Button(
+                    modifier = Modifier.padding(end = 12.dp),
+                    shape = Shapes.medium,
+                    onClick = {
+                        showEditEmailDialog = false
+                        errorMessage = null
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Отмена", style = styleData, color = MaterialTheme.colorScheme.secondary)
+                }
+
+                Button(
+                    shape = Shapes.medium,
+                    enabled = emailValue.isEmailValid() &&
+                            updateEmailState !is ResultState.Loading,
+                    onClick = { viewModel.updateEmail(emailValue) },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    if (updateEmailState is ResultState.Loading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            "Сохранить",
+                            style = styleData,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+// Изменено: Модифицировал структуру внутри AnimationDialog для каждого шага.
+// Для чего: Чтобы название этапа и иконка (прогресс/успех/ошибка) были в одной Row без смещения, а сообщение об ошибке отображалось под названием в отдельном Text. Это предотвращает смещение элементов при появлении ошибки.
+    AnimationDialog(
+        showDialog = uiState.showSyncDialog,
+        onDismissRequest = {
+            viewModel.resetSyncState()
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+                .background(MaterialTheme.colorScheme.surface, Shapes.medium)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = if (uiState.syncType == SyncType.Upload) "Выгрузка данных" else "Загрузка данных",
+                style = MaterialTheme.typography.titleMedium,
+                color = primaryColor
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Отображаем шаги в зависимости от syncType
+            val progressMap =
+                if (uiState.syncType == SyncType.Upload) uiState.syncUploadProgress else uiState.syncDownloadProgress
+
+            progressMap.forEach { (step, state) ->
+                Column(  // Изменено: Обернул Row в Column для возможности добавления текста ошибки ниже.
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = when (step) {  // Переводим ключи в читаемые названия
+                                "UserSettings" -> "Настройки пользователя"
+                                "SalarySettings" -> "Настройки зарплаты"
+                                "Months" -> "Календарь"
+                                "Routes" -> "Маршруты"
+                                else -> step
+                            },
+                            style = styleData,
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        when (state) {
+                            is SyncStepState.Loading -> CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = primaryColor,
+                                strokeWidth = 2.dp
+                            )
+
+                            is SyncStepState.Success -> Icon(  // Изменено: Вместо Text(details) показываем зелёную галочку.
+                                painter = painterResource(R.drawable.check_circle_24px),  // Для чего: Чтобы визуально обозначить успех иконкой вместо текста, как указано. Предполагаю import androidx.compose.material.icons.Icons и Icons.Default.Check.
+                                contentDescription = "Успех",
+                                tint = MaterialTheme.colorScheme.surfaceContainerLow  // Или Color.Green для зелёного цвета
+                            )
+
+                            is SyncStepState.Error -> Icon(  // Изменено: Показываем красный крестик вместо текста ошибки.
+                                painter = painterResource(com.z_company.core.R.drawable.ic_clear),  // Для чего: Чтобы визуально обозначить ошибку иконкой, а текст ошибки вынести ниже, предотвращая смещение Row.
+                                contentDescription = "Ошибка",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+
+                    if (state is SyncStepState.Error) {  // Изменено: Добавил условный Text для сообщения об ошибке под Row.
+                        Text(  // Для чего: Чтобы ошибка отображалась под названием этапа, не смещая название и иконку.
+                            text = "Ошибка: ${state.message}",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(
+                                start = 0.dp,
+                                top = 4.dp
+                            )  // Отступ сверху для разделения, без левого отступа для выравнивания
+                        )
+                    }
+                }
+                CustomDivider(orientation = Orientation.Horizontal)  // Разделитель между шагами
+            }
+
+            if (uiState.isSyncComplete) {
+                Spacer(modifier = Modifier.height(24.dp))
+                Button(
+                    shape = Shapes.medium,
+                    onClick = { viewModel.resetSyncState() },
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text("Понятно", style = styleData)
+                }
+            }
+        }
+    }
 
     Scaffold(
         snackbarHost = {
@@ -228,281 +485,283 @@ fun ProfileScreen(
     ) { padding ->
         Box(modifier = Modifier.padding(padding)) {
             // Миграция
-//            if (isMigrationNeeded) {
-//                val isMigrating = migrationUiState.isMigrating
-//                val migrationResult = migrationUiState.migrationResult
-//
-//                when {
-//                    isMigrating -> {
-//                        // Показываем прогресс-бары вместо элементов формы
-//                        // Изменено: Показываем два прогресс-бара с процентами для маршрутов и настроек
-//                        // Для чего: Чтобы пользователь видел процесс загрузки с визуализацией прогресса
-//                        Column(
-//                            modifier = Modifier
-//                                .fillMaxSize()
-//                                .padding(32.dp),
-//                            horizontalAlignment = Alignment.CenterHorizontally,
-//                            verticalArrangement = Arrangement.Center
-//                        ) {
-//                            Text(
-//                                text = "Перенос данных на новый сервер",
-//                                style = MaterialTheme.typography.titleMedium,
-//                                textAlign = TextAlign.Center,
-//                                modifier = Modifier.padding(bottom = 24.dp)
-//                            )
-//
-//                            Text(
-//                                text = migrationUiState.migrationStep,
-//                                style = MaterialTheme.typography.bodyLarge,
-//                                modifier = Modifier.padding(bottom = 16.dp)
-//                            )
-//
-//                            // Прогресс маршрутов
-//                            val (saved, total) = migrationUiState.routesProgress
-//                            val progress = if (total > 0) saved.toFloat() / total.toFloat() else 0f
-//                            LinearProgressIndicator(
-//                                progress = { progress },
-//                                modifier = Modifier
-//                                    .fillMaxWidth()
-//                                    .height(12.dp)
-//                                    .padding(vertical = 8.dp),
-//                                trackColor = MaterialTheme.colorScheme.secondaryContainer
-//                            )
-//                            Text(
-//                                text = "Загружено $saved из $total",
-//                                style = MaterialTheme.typography.bodyMedium
-//                            )
-//
-//                            // Прогресс настроек
-//                            LinearProgressIndicator(
-//                                progress = { migrationUiState.settingsProgress / 100f },
-//                                modifier = Modifier
-//                                    .fillMaxWidth()
-//                                    .height(12.dp)
-//                                    .padding(vertical = 8.dp),
-//                                trackColor = MaterialTheme.colorScheme.secondaryContainer
-//                            )
-//                            Text(
-//                                text = "Настройки: ${migrationUiState.settingsProgress}%",
-//                                style = MaterialTheme.typography.bodyMedium
-//                            )
-//                        }
-//                    }
-//
-//                    migrationResult is ResultState.Success -> {
-//                        // Успешный перенос — показываем сообщение и кнопку "Продолжить работу"
-//                        // Изменено: Добавлен экран успеха с кнопкой
-//                        // Для чего: Чтобы пользователь мог вручную подтвердить завершение и скрыть миграцию навсегда
-//                        Column(
-//                            modifier = Modifier
-//                                .fillMaxSize()
-//                                .padding(32.dp),
-//                            horizontalAlignment = Alignment.CenterHorizontally,
-//                            verticalArrangement = Arrangement.Center
-//                        ) {
-//                            Icon(
-//                                painter = painterResource(id = R.drawable.check_circle_24px),
-//                                contentDescription = null,
-//                                tint = MaterialTheme.colorScheme.surfaceContainerLow,
-//                                modifier = Modifier.size(64.dp)
-//                            )
-//                            Spacer(modifier = Modifier.height(16.dp))
-//                            Text(
-//                                text = "Данные успешно перенесены!",
-//                                style = MaterialTheme.typography.titleMedium,
-//                                textAlign = TextAlign.Center
-//                            )
-//                            Spacer(modifier = Modifier.height(24.dp))
-//                            Button(
-//                                onClick = { viewModel.completeMigration() },
-//                                shape = RoundedCornerShape(12.dp)
-//                            ) {
-//                                Text("Продолжить работу")
-//                            }
-//                        }
-//
-//                    }
-//
-//                    else -> {
-//                        // Миграционный UI: Форма регистрации по умолчанию (login = false), плюс процесс миграции
-//                        var email by rememberSaveable { mutableStateOf("") }
-//                        var password by rememberSaveable { mutableStateOf("") }
-//                        var passwordVisible by rememberSaveable { mutableStateOf(false) }
-//
-//                        Column(
-//                            modifier = Modifier
-//                                .fillMaxSize()
-//                                .verticalScroll(rememberScrollState())
-//                                .padding(horizontal = 16.dp),
-//                            verticalArrangement = Arrangement.Center,
-//                            horizontalAlignment = Alignment.CenterHorizontally
-//                        ) {
-//                            Text(
-//                                text = "Переход на новый сервер",
-//                                style = MaterialTheme.typography.titleMedium,
-//                                modifier = Modifier.padding(bottom = 16.dp)
-//                            )
-//                            Text(
-//                                text = "Пожалуйста, введите ваш email или войдите с VK ID.",
-//                                style = MaterialTheme.typography.bodyMedium,
-//                                textAlign = TextAlign.Center,
-//                                modifier = Modifier.padding(bottom = 24.dp)
-//                            )
-//
-//                            OneTap(
-//                                modifier = Modifier
-//                                    .fillMaxWidth(),
-//                                onAuth = { _, accessToken ->
-//                                    Log.d("zzz", "onAuth")
-//                                    Log.d("zzz", "userID ${accessToken.userID}")
-//                                    viewModel.registeredUserByVKIDForMigration(accessToken.userID.toString())
-//                                },
-//                                onAuthCode = { authCodeData, bool ->
-//                                    Log.d("zzz", "onAuthCode")
-//                                    Log.d("zzz", "authCodeData $authCodeData")
-//                                    Log.d("zzz", "bool $bool")
-//
-//                                },
-//                                onFail = { oneTapAuth, vkIdAuthFail ->
-//                                    Log.d("zzz", "onFail")
-//                                    Log.d("zzz", "oneTapAuth $oneTapAuth")
-//                                    Log.d("zzz", "vkIdAuthFail ${vkIdAuthFail.description}")
-//                                },
-//                                signInAnotherAccountButtonEnabled = true,
-//                            )
-//
-//                            Spacer(
-//                                modifier = Modifier
-//                                    .height(12.dp)
-//                            )
-//                            Text(
-//                                modifier = Modifier
-//                                    .fillMaxWidth(),
-//                                textAlign = TextAlign.Center,
-//                                text = "или",
-//                                style = styleHint
-//                            )
-//
-//
-//                            Spacer(
-//                                modifier = Modifier
-//                                    .height(12.dp)
-//                            )
-//
-//                            OutlinedTextFieldApp(
-//                                value = email,
-//                                onValueChange = { email = it },
-//                                placeholder = { Text(text = "email", style = styleData) },
-//                                modifier = Modifier
-//                                    .fillMaxWidth()
-//                                    .padding(bottom = paddingBetweenView),
-//                                singleLine = true,
-//                                textStyle = styleData,
-//                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
-//                            )
-//
-//
-//                            AnimatedVisibility(
-//                                visible = email.isEmailValid(),
-//                                enter = slideInVertically(animationSpec = tween(durationMillis = 300))
-//                                        + fadeIn(animationSpec = tween(durationMillis = 300)) +
-//                                        expandVertically(animationSpec = tween(durationMillis = 300)) +
-//                                        expandVertically(animationSpec = tween(durationMillis = 300)),
-//                                exit = slideOutVertically(animationSpec = tween(durationMillis = 300))
-//                                        + fadeOut(animationSpec = tween(durationMillis = 300)) +
-//                                        shrinkVertically(animationSpec = tween(durationMillis = 300))
-//                            ) {
-//                                Column(modifier = Modifier.fillMaxWidth()) {
-//                                    OutlinedTextFieldApp(
-//                                        value = password,
-//                                        onValueChange = { password = it },
-//                                        placeholder = { Text(text = "пароль", style = styleData) },
-//                                        modifier = Modifier
-//                                            .padding(top = paddingBetweenView)
-//                                            .fillMaxWidth(),
-//                                        singleLine = true,
-//                                        textStyle = styleData,
-//                                        supportingText = {
-//                                            if (password.isNotEmpty() && password.length < MIN_LENGTH_PASSWORD) {
-//                                                Text(
-//                                                    text = "Минимум $MIN_LENGTH_PASSWORD символа",
-//                                                    style = styleHint
-//                                                )
-//                                            }
-//                                        },
-//                                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-//                                        trailingIcon = {
-//                                            val image = if (passwordVisible)
-//                                                R.drawable.outline_visibility_24
-//                                            else R.drawable.outline_visibility_off_24
-//
-//                                            val description =
-//                                                if (passwordVisible) "Скрыть пароль" else "Показать пароль"
-//
-//                                            IconButton(onClick = {
-//                                                passwordVisible = !passwordVisible
-//                                            }) {
-//                                                Icon(
-//                                                    painter = painterResource(id = image),
-//                                                    description
-//                                                )
-//                                            }
-//                                        },
-//                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
-//                                    )
-//
-//                                    TextButton(
-//                                        onClick = onPasswordRecovery
-//                                    ) {
-//                                        Text(
-//                                            text = "Если не помните ваш пороль, можете указать новый или использовать VK ID",
-//                                            style = styleHint,
-//                                            color = primaryColor
-//                                        )
-//                                    }
-//                                }
-//                            }
-//
-//                            // Кнопка "Далее"
-//                            val text = "Далее"
-//                            AnimatedVisibility(
-//                                visible = password.length >= MIN_LENGTH_PASSWORD && email.isEmailValid(),
-//                                enter = slideInVertically(animationSpec = tween(durationMillis = 300))
-//                                        + fadeIn(animationSpec = tween(durationMillis = 300)),
-//                                exit = slideOutVertically(animationSpec = tween(durationMillis = 300))
-//                                        + fadeOut(animationSpec = tween(durationMillis = 300)) +
-//                                        shrinkVertically(animationSpec = tween(durationMillis = 300))
-//                            ) {
-//                                Button(
-//                                    modifier = Modifier
-//                                        .fillMaxWidth()
-//                                        .padding(top = paddingBetweenView),
-//                                    onClick = {
-//                                        viewModel.registeredUserByEmailForMigration(email, password)
-//                                    },
-//                                    shape = Shapes.medium,
-//                                    elevation = ButtonDefaults.elevatedButtonElevation(
-//                                        defaultElevation = 2.dp
-//                                    ),
-//                                    colors = ButtonDefaults.buttonColors(
-//                                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-//                                        disabledContainerColor = MaterialTheme.colorScheme.surface,
-//                                    )
-//                                ) {
-//                                    Text(
-//                                        text = text,
-//                                        style = buttonTextStyle,
-//                                        color = MaterialTheme.colorScheme.secondary
-//                                    )
-//                                }
-//                            }
-//                        }
-//                    }
-//                }
-//            }
+            if (isMigrationNeeded) {
+                val isMigrating = migrationUiState.isMigrating
+                val migrationResult = migrationUiState.migrationResult
+
+                when {
+                    isMigrating -> {
+                        // Показываем прогресс-бары вместо элементов формы
+                        // Изменено: Показываем два прогресс-бара с процентами для маршрутов и настроек
+                        // Для чего: Чтобы пользователь видел процесс загрузки с визуализацией прогресса
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = "Переносим данные на отечественный сервер",
+                                style = MaterialTheme.typography.titleMedium,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(bottom = 24.dp)
+                            )
+
+                            Text(
+                                text = migrationUiState.migrationStep,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.padding(bottom = 16.dp)
+                            )
+
+                            // Прогресс маршрутов
+                            val (saved, total) = migrationUiState.routesProgress
+                            val progress = if (total > 0) saved.toFloat() / total.toFloat() else 0f
+                            LinearProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(12.dp)
+                                    .padding(vertical = 8.dp),
+                                trackColor = MaterialTheme.colorScheme.secondaryContainer
+                            )
+                            Text(
+                                text = "Загружено $saved из $total",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+
+                            // Прогресс настроек
+                            LinearProgressIndicator(
+                                progress = { migrationUiState.settingsProgress / 100f },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(12.dp)
+                                    .padding(vertical = 8.dp),
+                                trackColor = MaterialTheme.colorScheme.secondaryContainer
+                            )
+                            Text(
+                                text = "Настройки: ${migrationUiState.settingsProgress}%",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+
+                    migrationResult is ResultState.Success -> {
+                        // Успешный перенос — показываем сообщение и кнопку "Продолжить работу"
+                        // Изменено: Добавлен экран успеха с кнопкой
+                        // Для чего: Чтобы пользователь мог вручную подтвердить завершение и скрыть миграцию навсегда
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.check_circle_24px),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.surfaceContainerLow,
+                                modifier = Modifier.size(64.dp)
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "Данные успешно перенесены!",
+                                style = MaterialTheme.typography.titleMedium,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Button(
+                                onClick = { viewModel.completeMigration() },
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(text = "Продолжить работу", style = styleData)
+                            }
+                        }
+
+                    }
+
+                    else -> {
+                        // Миграционный UI: Форма регистрации по умолчанию (login = false), плюс процесс миграции
+                        var email by rememberSaveable { mutableStateOf("") }
+                        var password by rememberSaveable { mutableStateOf("") }
+                        var passwordVisible by rememberSaveable { mutableStateOf(false) }
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState())
+                                .padding(horizontal = 16.dp),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "Переход на новый сервер",
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.padding(bottom = 16.dp)
+                            )
+                            Text(
+                                text = "Пожалуйста, введите ваш email или войдите с VK ID.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(bottom = 24.dp)
+                            )
+
+                            OneTap(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                onAuth = { _, accessToken ->
+                                    Log.d("zzz", "onAuth")
+                                    Log.d("zzz", "userID ${accessToken.userID}")
+                                    val vkId = accessToken.userID.toString()
+                                    val email = accessToken.userData.email ?: ""
+                                    viewModel.registeredUserByVKIDForMigration(
+                                        vkid = vkId,
+                                        email = email
+                                    )
+                                },
+                                onAuthCode = { authCodeData, bool ->
+                                    Log.d("zzz", "onAuthCode")
+                                    Log.d("zzz", "authCodeData $authCodeData")
+                                    Log.d("zzz", "bool $bool")
+
+                                },
+                                onFail = { oneTapAuth, vkIdAuthFail ->
+                                    Log.d("zzz", "onFail")
+                                    Log.d("zzz", "oneTapAuth $oneTapAuth")
+                                    Log.d("zzz", "vkIdAuthFail ${vkIdAuthFail.description}")
+                                },
+                                signInAnotherAccountButtonEnabled = true,
+                            )
+
+                            Spacer(
+                                modifier = Modifier
+                                    .height(12.dp)
+                            )
+                            Text(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                textAlign = TextAlign.Center,
+                                text = "или",
+                                style = styleHint
+                            )
+
+
+                            Spacer(
+                                modifier = Modifier
+                                    .height(12.dp)
+                            )
+
+                            OutlinedTextFieldApp(
+                                value = email,
+                                onValueChange = { email = it },
+                                placeholder = { Text(text = "email", style = styleData) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = paddingBetweenView),
+                                singleLine = true,
+                                textStyle = styleData,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+                            )
+
+
+                            AnimatedVisibility(
+                                visible = email.isEmailValid(),
+                                enter = slideInVertically(animationSpec = tween(durationMillis = 300))
+                                        + fadeIn(animationSpec = tween(durationMillis = 300)) +
+                                        expandVertically(animationSpec = tween(durationMillis = 300)) +
+                                        expandVertically(animationSpec = tween(durationMillis = 300)),
+                                exit = slideOutVertically(animationSpec = tween(durationMillis = 300))
+                                        + fadeOut(animationSpec = tween(durationMillis = 300)) +
+                                        shrinkVertically(animationSpec = tween(durationMillis = 300))
+                            ) {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    OutlinedTextFieldApp(
+                                        value = password,
+                                        onValueChange = { password = it },
+                                        placeholder = { Text(text = "пароль", style = styleData) },
+                                        modifier = Modifier
+                                            .padding(top = paddingBetweenView)
+                                            .fillMaxWidth(),
+                                        singleLine = true,
+                                        textStyle = styleData,
+                                        supportingText = {
+                                            if (password.isNotEmpty() && password.length < MIN_LENGTH_PASSWORD) {
+                                                Text(
+                                                    text = "Минимум $MIN_LENGTH_PASSWORD символа",
+                                                    style = styleHint
+                                                )
+                                            }
+                                        },
+                                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                        trailingIcon = {
+                                            val image = if (passwordVisible)
+                                                R.drawable.outline_visibility_24
+                                            else R.drawable.outline_visibility_off_24
+
+                                            val description =
+                                                if (passwordVisible) "Скрыть пароль" else "Показать пароль"
+
+                                            IconButton(onClick = {
+                                                passwordVisible = !passwordVisible
+                                            }) {
+                                                Icon(
+                                                    painter = painterResource(id = image),
+                                                    description
+                                                )
+                                            }
+                                        },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                                    )
+
+
+                                    Text(
+                                        text = "Если не помните ваш пороль, можете указать новый или использовать VK ID",
+                                        style = styleHint,
+                                        color = primaryColor
+                                    )
+
+                                }
+                            }
+
+                            // Кнопка "Далее"
+                            val text = "Далее"
+                            AnimatedVisibility(
+                                visible = password.length >= MIN_LENGTH_PASSWORD && email.isEmailValid(),
+                                enter = slideInVertically(animationSpec = tween(durationMillis = 300))
+                                        + fadeIn(animationSpec = tween(durationMillis = 300)),
+                                exit = slideOutVertically(animationSpec = tween(durationMillis = 300))
+                                        + fadeOut(animationSpec = tween(durationMillis = 300)) +
+                                        shrinkVertically(animationSpec = tween(durationMillis = 300))
+                            ) {
+                                Button(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = paddingBetweenView),
+                                    onClick = {
+                                        viewModel.registeredUserByEmailForMigration(email, password)
+                                    },
+                                    shape = Shapes.medium,
+                                    elevation = ButtonDefaults.elevatedButtonElevation(
+                                        defaultElevation = 2.dp
+                                    ),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                        disabledContainerColor = MaterialTheme.colorScheme.surface,
+                                    )
+                                ) {
+                                    Text(
+                                        text = text,
+                                        style = buttonTextStyle,
+                                        color = MaterialTheme.colorScheme.secondary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 //            // Профиль
-//            else
-            if (isLoggedIn) {
+            else if (isLoggedIn) {
                 SwipeRefresh(
                     state = rememberSwipeRefreshState(isRefreshing = uiState.isRefreshing),
                     onRefresh = viewModel::refresh,
@@ -563,11 +822,35 @@ fun ProfileScreen(
                                             }
                                         ) { user ->
                                             user?.let {
-                                                Text(
-                                                    it.email,
-                                                    style = styleData,
-                                                    color = primaryColor
-                                                )
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(
+                                                        text = it.email,
+                                                        style = styleData,
+                                                        color = primaryColor,
+                                                        maxLines = 2,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        modifier = Modifier
+                                                            .weight(1f)
+                                                            .padding(end = 8.dp)
+                                                    )
+
+                                                    Icon(
+                                                        modifier = Modifier
+                                                            .size(24.dp)
+                                                            .clickable(
+                                                                onClick = {
+                                                                    showEditEmailDialog = true
+                                                                }
+                                                            ),
+                                                        painter = painterResource(com.z_company.core.R.drawable.ic_edit),
+                                                        contentDescription = null,
+                                                        tint = primaryColor
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -591,14 +874,27 @@ fun ProfileScreen(
                                                 )
                                             },
                                             errorContent = {
-                                                Button(onClick = {viewModel.vkIdRefreshToken()}){
-                                                    Text(text = "refresh")
-                                                }
-                                                Text(
-                                                    "${it.entity.message}",
-                                                    style = styleData,
-                                                    color = primaryColor
+                                                OneTap(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth(),
+                                                    onAuth = { _, accessToken ->
+                                                        viewModel.attachVKID(accessToken.userID.toString())
+                                                    },
+                                                    onAuthCode = { _, _ -> },
+                                                    onFail = { oneTapAuth, vkIdAuthFail ->
+                                                        Log.d(
+                                                            "zzz",
+                                                            "onFail $oneTapAuth ${vkIdAuthFail.description}"
+                                                        )
+                                                        scope.launch {
+                                                            snackbarHostState.showSnackbar("Ошибка привязки VK: ${vkIdAuthFail.description}")
+                                                        }
+                                                    },
+                                                    signInAnotherAccountButtonEnabled = true,
                                                 )
+                                                scope.launch {
+                                                    snackbarHostState.showSnackbar("${it.entity.message}")
+                                                }
                                             }
                                         ) { name ->
                                             if (name != null) {
@@ -614,12 +910,7 @@ fun ProfileScreen(
                                                     onAuth = { _, accessToken ->
                                                         viewModel.attachVKID(accessToken.userID.toString())
                                                     },
-                                                    onAuthCode = { authCodeData, bool ->
-                                                        Log.d(
-                                                            "zzz",
-                                                            "onAuthCode $authCodeData $bool"
-                                                        )
-                                                    },
+                                                    onAuthCode = { _, _ -> },
                                                     onFail = { oneTapAuth, vkIdAuthFail ->
                                                         Log.d(
                                                             "zzz",
@@ -677,8 +968,7 @@ fun ProfileScreen(
                                         )
                                     }
                                 ) { purchaseInfo ->
-                                    val text =
-                                        if (purchaseInfo.isNullOrEmpty()) "Оформить за 69₽ в месяц" else "Активна до $purchaseInfo"
+                                    val text = "$purchaseInfo"
                                     Text(text = text, style = styleData, color = primaryColor)
                                 }
                             }
@@ -758,7 +1048,7 @@ fun ProfileScreen(
                                             Row(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .clickable { viewModel.onUploadToRemote() },
+                                                    .clickable { viewModel.startSyncUpload() },
                                                 horizontalArrangement = Arrangement.SpaceBetween
                                             ) {
                                                 Text(
@@ -793,7 +1083,7 @@ fun ProfileScreen(
                                             Row(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .clickable { viewModel.onDownloadFromRemote() },
+                                                    .clickable { viewModel.startSyncDownload() },
                                                 horizontalArrangement = Arrangement.SpaceBetween
                                             ) {
                                                 Text(
@@ -832,11 +1122,15 @@ fun ProfileScreen(
                                                     modifier = Modifier
                                                         .fillMaxWidth()
                                                         .padding(16.dp)
-                                                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                                                        .background(
+                                                            MaterialTheme.colorScheme.surfaceVariant,
+                                                            RoundedCornerShape(8.dp)
+                                                        )
                                                         .padding(16.dp),
                                                     horizontalAlignment = Alignment.CenterHorizontally
                                                 ) {
-                                                    val (saved, total) = uiState.downloadRouteProgress ?: (0 to 0)
+                                                    val (saved, total) = uiState.downloadRouteProgress
+                                                        ?: (0 to 0)
                                                     Text(
                                                         text = "Загрузка маршрутов: $saved из $total",
                                                         style = MaterialTheme.typography.bodyMedium,
@@ -858,7 +1152,7 @@ fun ProfileScreen(
 
                             Text(
                                 modifier = Modifier.padding(start = 16.dp, top = 8.dp),
-                                text = "Выгрузка на сервер маршрутных листов выполняется автоматически при наличии подписки и с подтвержденным e-mail",
+                                text = "Выгрузка на сервер маршрутных листов, отвлечений и других настрое выполняется автоматически при условии активного оплаченого периода.",
                                 style = styleHint,
                                 color = primaryColor,
                             )
@@ -884,185 +1178,185 @@ fun ProfileScreen(
                                 )
                             }
                         }
-
-                        item {
-                            Button(
-                                modifier = Modifier
-                                    .padding(top = 16.dp)
-                                    .fillMaxWidth(),
-                                shape = Shapes.medium,
-                                elevation = ButtonDefaults.elevatedButtonElevation(
-                                    defaultElevation = 2.dp
-                                ),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                onClick = { viewModel.getUserWithRoutes() }
-                            ) {
-                                Text(
-                                    "ТЕСТ ПОЛУЧЕНИЕ ПОЛЬЗОВАТЕЛЯ",
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                        }
-
-                        item {
-                            Button(
-                                modifier = Modifier
-                                    .padding(top = 16.dp)
-                                    .fillMaxWidth(),
-                                shape = Shapes.medium,
-                                elevation = ButtonDefaults.elevatedButtonElevation(
-                                    defaultElevation = 2.dp
-                                ),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                onClick = { viewModel.removeUsersVKID() }
-                            ) {
-                                Text(
-                                    "ТЕСТ УДАЛЕНИЕ VKID",
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                        }
-
-                        item {
-                            Button(
-                                modifier = Modifier
-                                    .padding(top = 16.dp)
-                                    .fillMaxWidth(),
-                                shape = Shapes.medium,
-                                elevation = ButtonDefaults.elevatedButtonElevation(
-                                    defaultElevation = 2.dp
-                                ),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                onClick = { viewModel.saveUserSettingInRemote() }
-                            ) {
-                                Text(
-                                    "Test SAVE UserSetting",
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                        }
-
-                        item {
-                            Button(
-                                modifier = Modifier
-                                    .padding(top = 16.dp)
-                                    .fillMaxWidth(),
-                                shape = Shapes.medium,
-                                elevation = ButtonDefaults.elevatedButtonElevation(
-                                    defaultElevation = 2.dp
-                                ),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                onClick = { viewModel.getUserSettingFromRemote() }
-                            ) {
-                                Text(
-                                    "Test GET UserSetting",
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                        }
-
-                        item {
-                            Button(
-                                modifier = Modifier
-                                    .padding(top = 16.dp)
-                                    .fillMaxWidth(),
-                                shape = Shapes.medium,
-                                elevation = ButtonDefaults.elevatedButtonElevation(
-                                    defaultElevation = 2.dp
-                                ),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                onClick = { viewModel.saveSalarySettingInRemote() }
-                            ) {
-                                Text(
-                                    "Test SAVE SalarySetting",
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                        }
-
-                        item {
-                            Button(
-                                modifier = Modifier
-                                    .padding(top = 16.dp)
-                                    .fillMaxWidth(),
-                                shape = Shapes.medium,
-                                elevation = ButtonDefaults.elevatedButtonElevation(
-                                    defaultElevation = 2.dp
-                                ),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                onClick = { viewModel.getSalarySettingFromRemote() }
-                            ) {
-                                Text(
-                                    "Test GET SalarySetting",
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                        }
-                        item {
-                            Button(
-                                modifier = Modifier
-                                    .padding(top = 16.dp)
-                                    .fillMaxWidth(),
-                                shape = Shapes.medium,
-                                elevation = ButtonDefaults.elevatedButtonElevation(
-                                    defaultElevation = 2.dp
-                                ),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                onClick = { viewModel.saveMonthOfYearList() }
-                            ) {
-                                Text(
-                                    "Test SAVE Calendar",
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                        }
-
-                        item {
-                            Button(
-                                modifier = Modifier
-                                    .padding(top = 16.dp)
-                                    .fillMaxWidth(),
-                                shape = Shapes.medium,
-                                elevation = ButtonDefaults.elevatedButtonElevation(
-                                    defaultElevation = 2.dp
-                                ),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                onClick = { viewModel.getMonthOfYearList() }
-                            ) {
-                                Text(
-                                    "Test GET Calendar",
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                        }
-
-                        item {
-                            Button(
-                                modifier = Modifier
-                                    .padding(top = 16.dp)
-                                    .fillMaxWidth(),
-                                shape = Shapes.medium,
-                                elevation = ButtonDefaults.elevatedButtonElevation(
-                                    defaultElevation = 2.dp
-                                ),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                onClick = { viewModel.getRoutesFromRemote() }
-                            ) {
-                                Text(
-                                    "Test GET Routes",
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                        }
+//
+//                        item {
+//                            Button(
+//                                modifier = Modifier
+//                                    .padding(top = 16.dp)
+//                                    .fillMaxWidth(),
+//                                shape = Shapes.medium,
+//                                elevation = ButtonDefaults.elevatedButtonElevation(
+//                                    defaultElevation = 2.dp
+//                                ),
+//                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+//                                onClick = { viewModel.test() }
+//                            ) {
+//                                Text(
+//                                    "ТЕСТ ПОЛУЧЕНИЕ ПОЛЬЗОВАТЕЛЯ",
+//                                    color = MaterialTheme.colorScheme.secondary,
+//                                    style = MaterialTheme.typography.bodySmall
+//                                )
+//                            }
+//                        }
+//
+//                        item {
+//                            Button(
+//                                modifier = Modifier
+//                                    .padding(top = 16.dp)
+//                                    .fillMaxWidth(),
+//                                shape = Shapes.medium,
+//                                elevation = ButtonDefaults.elevatedButtonElevation(
+//                                    defaultElevation = 2.dp
+//                                ),
+//                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+//                                onClick = { viewModel.removeUsersVKID() }
+//                            ) {
+//                                Text(
+//                                    "ТЕСТ УДАЛЕНИЕ VKID",
+//                                    color = MaterialTheme.colorScheme.secondary,
+//                                    style = MaterialTheme.typography.bodySmall
+//                                )
+//                            }
+//                        }
+//
+//                        item {
+//                            Button(
+//                                modifier = Modifier
+//                                    .padding(top = 16.dp)
+//                                    .fillMaxWidth(),
+//                                shape = Shapes.medium,
+//                                elevation = ButtonDefaults.elevatedButtonElevation(
+//                                    defaultElevation = 2.dp
+//                                ),
+//                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+//                                onClick = { viewModel.saveUserSettingInRemote() }
+//                            ) {
+//                                Text(
+//                                    "Test SAVE UserSetting",
+//                                    color = MaterialTheme.colorScheme.secondary,
+//                                    style = MaterialTheme.typography.bodySmall
+//                                )
+//                            }
+//                        }
+//
+//                        item {
+//                            Button(
+//                                modifier = Modifier
+//                                    .padding(top = 16.dp)
+//                                    .fillMaxWidth(),
+//                                shape = Shapes.medium,
+//                                elevation = ButtonDefaults.elevatedButtonElevation(
+//                                    defaultElevation = 2.dp
+//                                ),
+//                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+//                                onClick = { viewModel.getUserSettingFromRemote() }
+//                            ) {
+//                                Text(
+//                                    "Test GET UserSetting",
+//                                    color = MaterialTheme.colorScheme.secondary,
+//                                    style = MaterialTheme.typography.bodySmall
+//                                )
+//                            }
+//                        }
+//
+//                        item {
+//                            Button(
+//                                modifier = Modifier
+//                                    .padding(top = 16.dp)
+//                                    .fillMaxWidth(),
+//                                shape = Shapes.medium,
+//                                elevation = ButtonDefaults.elevatedButtonElevation(
+//                                    defaultElevation = 2.dp
+//                                ),
+//                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+//                                onClick = { viewModel.saveSalarySettingInRemote() }
+//                            ) {
+//                                Text(
+//                                    "Test SAVE SalarySetting",
+//                                    color = MaterialTheme.colorScheme.secondary,
+//                                    style = MaterialTheme.typography.bodySmall
+//                                )
+//                            }
+//                        }
+//
+//                        item {
+//                            Button(
+//                                modifier = Modifier
+//                                    .padding(top = 16.dp)
+//                                    .fillMaxWidth(),
+//                                shape = Shapes.medium,
+//                                elevation = ButtonDefaults.elevatedButtonElevation(
+//                                    defaultElevation = 2.dp
+//                                ),
+//                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+//                                onClick = { viewModel.getSalarySettingFromRemote() }
+//                            ) {
+//                                Text(
+//                                    "Test GET SalarySetting",
+//                                    color = MaterialTheme.colorScheme.secondary,
+//                                    style = MaterialTheme.typography.bodySmall
+//                                )
+//                            }
+//                        }
+//                        item {
+//                            Button(
+//                                modifier = Modifier
+//                                    .padding(top = 16.dp)
+//                                    .fillMaxWidth(),
+//                                shape = Shapes.medium,
+//                                elevation = ButtonDefaults.elevatedButtonElevation(
+//                                    defaultElevation = 2.dp
+//                                ),
+//                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+//                                onClick = { viewModel.saveMonthOfYearList() }
+//                            ) {
+//                                Text(
+//                                    "Test SAVE Calendar",
+//                                    color = MaterialTheme.colorScheme.secondary,
+//                                    style = MaterialTheme.typography.bodySmall
+//                                )
+//                            }
+//                        }
+//
+//                        item {
+//                            Button(
+//                                modifier = Modifier
+//                                    .padding(top = 16.dp)
+//                                    .fillMaxWidth(),
+//                                shape = Shapes.medium,
+//                                elevation = ButtonDefaults.elevatedButtonElevation(
+//                                    defaultElevation = 2.dp
+//                                ),
+//                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+//                                onClick = { viewModel.getMonthOfYearList() }
+//                            ) {
+//                                Text(
+//                                    "Test GET Calendar",
+//                                    color = MaterialTheme.colorScheme.secondary,
+//                                    style = MaterialTheme.typography.bodySmall
+//                                )
+//                            }
+//                        }
+//
+//                        item {
+//                            Button(
+//                                modifier = Modifier
+//                                    .padding(top = 16.dp)
+//                                    .fillMaxWidth(),
+//                                shape = Shapes.medium,
+//                                elevation = ButtonDefaults.elevatedButtonElevation(
+//                                    defaultElevation = 2.dp
+//                                ),
+//                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+//                                onClick = { viewModel.getRoutesFromRemote() }
+//                            ) {
+//                                Text(
+//                                    "Test GET Routes",
+//                                    color = MaterialTheme.colorScheme.secondary,
+//                                    style = MaterialTheme.typography.bodySmall
+//                                )
+//                            }
+//                        }
 
                         item { Spacer(modifier = Modifier.height(24.dp)) }
                     }
@@ -1143,14 +1437,15 @@ fun ProfileScreen(
                         OneTap(
                             modifier = Modifier
                                 .fillMaxWidth(),
-                            onAuth = { oneTapAuth, accessToken ->
-                                viewModel.registeredUserByVKID(accessToken.userID.toString())
-                                Log.d("zzz", "onAuth")
-                                Log.d("zzz", "oneTapAuth $oneTapAuth")
-                                Log.d("zzz", "userID ${accessToken.userID}")
-                                Log.d("zzz", "firstName ${accessToken.userData.firstName}")
-                                Log.d("zzz", "lastName ${accessToken.userData.lastName}")
-                                Log.d("zzz", "photo ${accessToken.userData.photo50}")
+                            onAuth = { _, accessToken ->
+                                if (login) {
+                                    viewModel.authWithVKID(accessToken.userID.toString())
+                                } else {
+                                    viewModel.registeredUserByVKID(
+                                        vkid = accessToken.userID.toString(),
+                                        email = accessToken.userData.email ?: ""
+                                    )
+                                }
                             },
                             onAuthCode = { authCodeData, bool ->
                                 Log.d("zzz", "onAuthCode")

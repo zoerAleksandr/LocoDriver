@@ -20,7 +20,7 @@ internal interface SettingsDao {
     suspend fun saveSettings(userSettings: UserSettings)
 
     @Query("SELECT * FROM UserSettings")
-    fun getFlowSettings(): Flow<UserSettings>
+    fun getFlowSettings(): Flow<UserSettings?>
 
     @Query("SELECT * FROM UserSettings")
     fun getUserSettings(): UserSettings
@@ -62,6 +62,9 @@ internal interface SettingsDao {
 
     @Query("UPDATE UserSettings SET lastEnteredDieselCoefficient =:coefficient WHERE settingsKey =:key")
     fun setDieselCoefficient(coefficient: Double, key: String)
+
+     @Query("UPDATE UserSettings SET subscriptionPeriod =:time WHERE settingsKey =:key")
+    fun updateSubscriptionPeriod(time: Long, key: String)
 
     @TypeConverters(StringListToPrimitiveConverter::class)
     @Query("UPDATE UserSettings SET stationList =:stations WHERE settingsKey =:key")

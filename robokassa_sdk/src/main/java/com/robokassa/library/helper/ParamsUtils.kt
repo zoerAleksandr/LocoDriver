@@ -116,6 +116,15 @@ internal fun PaymentParams.payPostParams(isTest: Boolean): String = run {
     result += "&shp_label=sdk_android"
     signature += ":" + this.password1 + ":shp_label=sdk_android"
 
+    // Добавляем цикл по shp-параметрам (комментарий на русском: Здесь добавляем все кастомные shp параметры в result (&shp_key=value) и signature (:shp_key=value). Это позволит Robokassa вернуть их в result URL. shp — Map из PaymentParams, сортируем ключи для правильной подписи)
+//    if (this.shp != null) {
+    val sortedShp = this.shp.toSortedMap()
+    for ((key, value) in sortedShp) {
+        result += "&shp_$key=$value"
+        signature += ":shp_$key=$value"
+    }
+//    }
+
     val signatureValue = md5Hash(signature)
 
     Logger.i("Signature src: $signature")

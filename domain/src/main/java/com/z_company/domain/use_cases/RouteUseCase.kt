@@ -11,19 +11,15 @@ import com.z_company.domain.repositories.RouteRepository
 import com.z_company.domain.util.lessThan
 import com.z_company.domain.util.moreThan
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Calendar
 import java.util.Calendar.*
-import kotlinx.coroutines.async
 
 
 class RouteUseCase(private val repository: RouteRepository) {
@@ -118,7 +114,10 @@ class RouteUseCase(private val repository: RouteRepository) {
         return repository.loadRoutes()
     }
 
-    fun getListRoutesAsFlow(): Flow<ResultState<List<Route>>> {
+    fun getListRoutesAsStateFlow(): Flow<ResultState<List<Route>>> {
+        return repository.loadRoutesAsStateFlow()
+    }
+    fun getListRoutesAsFlow(): Flow<List<Route>> {
         return repository.loadRoutesAsFlow()
     }
 
@@ -141,12 +140,12 @@ class RouteUseCase(private val repository: RouteRepository) {
                 route.copy(
                     basicData = route.basicData.copy(
                         timeStartWork = currentTimeInMillis,
-                        isSynchronizedRoute = false
+                        isSynchronized = false
                     )
                 )
             )
         } else {
-            repository.saveRoute(route.copy(basicData = route.basicData.copy(isSynchronizedRoute = false)))
+            repository.saveRoute(route.copy(basicData = route.basicData.copy(isSynchronized = false)))
         }
     }
 

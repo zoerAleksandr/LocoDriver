@@ -59,6 +59,8 @@ dependencies {
     implementation(project(Libs.project_robokassa_sdk))
 
     implementation(Libs.parse_sdk_android)
+    implementation(platform(Libs.ru_ok_tracer_platform))
+    implementation(Libs.ru_ok_tracer_tracer_crash_report)
 
 //    implementation(Libs.lifecycle_runtime_compose)
     implementation(Libs.activity_compose)

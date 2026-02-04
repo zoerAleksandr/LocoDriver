@@ -47,7 +47,7 @@ class SalaryCalculationHelper(
             val passengerTime = getPassengerTime(routeList)
             val singleLocoTime = getSingleLocomotiveTime(routeList)
             val paymentHolidayHours = getHolidayTime(routeList)
-            val overtime = getOvertime(totalWorkTime, personalNormaHoursInLong)
+            val overtime = getOvertime(totalWorkTime = totalWorkTime, holidayTime = paymentHolidayHours, personalNormaHoursInLong =  personalNormaHoursInLong, )
 
             var result =
                 totalWorkTime - passengerTime - singleLocoTime - paymentHolidayHours - overtime
@@ -84,7 +84,7 @@ class SalaryCalculationHelper(
             val passengerTime = getPassengerTime(routeList)
             val singleLocoTime = getSingleLocomotiveTime(routeList)
             val paymentHolidayHours = getHolidayTime(routeList)
-            val overtime = getOvertime(totalWorkTime, personalNormaHoursInLong)
+            val overtime = getOvertime(totalWorkTime = totalWorkTime, holidayTime = paymentHolidayHours, personalNormaHoursInLong = personalNormaHoursInLong)
 
             var result =
                 totalWorkTime - passengerTime - singleLocoTime - paymentHolidayHours - overtime
@@ -798,9 +798,11 @@ class SalaryCalculationHelper(
         return flow {
             val personalNormaHoursInLong = getPersonalNormaInLong()
             val totalWorkTime = getTotalWorkTime().first()
+            val paymentHolidayHours = getHolidayTime(routeList)
             val overtime = getOvertime(
                 totalWorkTime = totalWorkTime,
-                personalNormaHoursInLong = personalNormaHoursInLong
+                personalNormaHoursInLong = personalNormaHoursInLong,
+                holidayTime = paymentHolidayHours
             )
             emit(overtime)
         }
@@ -811,7 +813,8 @@ class SalaryCalculationHelper(
             val baseMoneyForOvertime = getBasicMoneyForOvertimeCalculation().first()
             val totalWorkTime = getTotalWorkTime().first()
             val personalNormaHoursInLong = getPersonalNormaInLong()
-            val overTime = getOvertime(totalWorkTime, personalNormaHoursInLong)
+            val paymentHolidayHours = getHolidayTime(routeList)
+            val overTime = getOvertime(totalWorkTime = totalWorkTime, holidayTime = paymentHolidayHours, personalNormaHoursInLong = personalNormaHoursInLong)
             val overtimeMoneyOfOneHour = if (totalWorkTime == 0L) {
                 0.0
             } else {
@@ -1134,9 +1137,12 @@ class SalaryCalculationHelper(
     private suspend fun getHolidayTime(routeList: List<Route>) =
         routeList.getWorkingTimeOnAHoliday(currentMonthOfYear, userSettings.timeZone).first()
 
-    private fun getOvertime(totalWorkTime: Long, personalNormaHoursInLong: Int) =
-        if (totalWorkTime > personalNormaHoursInLong) totalWorkTime - personalNormaHoursInLong else 0L
-
+    private fun getOvertime(totalWorkTime: Long, holidayTime: Long, personalNormaHoursInLong: Int) =
+        if (totalWorkTime - holidayTime > personalNormaHoursInLong) {
+            (totalWorkTime - holidayTime) - personalNormaHoursInLong
+        } else {
+            0L
+        }
     private fun getPersonalNormaInLong(): Int {
         return userSettings.selectMonthOfYear.getPersonalNormaHours() * 3_600_000
     }

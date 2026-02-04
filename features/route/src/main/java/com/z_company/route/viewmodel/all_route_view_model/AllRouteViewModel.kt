@@ -1,7 +1,6 @@
 package com.z_company.route.viewmodel.all_route_view_model
 
 import android.app.Application
-import android.content.Context
 import android.content.Intent
 import android.util.Log
 import androidx.core.content.FileProvider
@@ -190,8 +189,11 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                 val routeStateList = rawRoutes // если latestRawRoutes хранит ItemState
                 // применяем фильтры
                 val filtered = applyFilters(routeStateList, filters, salarySetting = salary)
-                val savedSort = sharedPreferenceStorage.getSortOption()?.let { SortOption.valueOf(it) } ?: SortOption.DATE_DESC
-                val savedFiltersStrings = sharedPreferenceStorage.getSelectedFilters() ?: setOf(RouteFilter.ALL.name)
+                val savedSort =
+                    sharedPreferenceStorage.getSortOption()?.let { SortOption.valueOf(it) }
+                        ?: SortOption.DATE_DESC
+                val savedFiltersStrings =
+                    sharedPreferenceStorage.getSelectedFilters() ?: setOf(RouteFilter.ALL.name)
                 val savedFilters = savedFiltersStrings.map { RouteFilter.valueOf(it) }.toSet()
                 val savedExpanded = sharedPreferenceStorage.isExpandedView()
                 _uiState.update {
@@ -208,12 +210,14 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    private val _shareRouteEvent = MutableSharedFlow<Intent>(  // Новый: Добавлен MutableSharedFlow для события шаринга.
-        // Для чего: Чтобы ViewModel мог уведомить UI о готовом Intent для шаринга, не запуская его сам. Это решает проблему с контекстом (UI использует свой Activity context) и сохраняет MVVM: ViewModel не зависит от UI.
-        extraBufferCapacity = 1,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST
-    )
-    val shareRouteEvent: SharedFlow<Intent> = _shareRouteEvent.asSharedFlow()  // Новый: Публичный SharedFlow для подписки в UI.
+    private val _shareRouteEvent =
+        MutableSharedFlow<Intent>(  // Новый: Добавлен MutableSharedFlow для события шаринга.
+            // Для чего: Чтобы ViewModel мог уведомить UI о готовом Intent для шаринга, не запуская его сам. Это решает проблему с контекстом (UI использует свой Activity context) и сохраняет MVVM: ViewModel не зависит от UI.
+            extraBufferCapacity = 1,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST
+        )
+    val shareRouteEvent: SharedFlow<Intent> =
+        _shareRouteEvent.asSharedFlow()  // Новый: Публичный SharedFlow для подписки в UI.
 
     // Изменено: Метод shareRoute теперь генерирует Intent и эмитирует его в Flow, вместо запуска startActivity.
     // Для чего: Переносим запуск в UI, чтобы использовать правильный контекст и избежать ошибки. Это делает код чище и testable.
@@ -262,39 +266,10 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
         return ConverterLongToTime.getTimeInStringFormat(timeToLong)
     }
 
-    fun saveRouteToRemote(route: Route) {
-        val routesManager = RoutesManager
-        viewModelScope.launch {
-        val token = SecureDataStore.getAuthTokenFlow(application).first()
-        val fullToken = "Bearer $token"
-            routesManager.saveRouteInRemote(route, fullToken).collect { resultState ->
-                Log.d("ZZZ", "save result $resultState")
-            }
-        }
-    }
-
-    fun checkPurchasesAvailability() {
-        viewModelScope.launch(Dispatchers.IO) {
-            when (val checkResult = subscriptionHelper.checkPurchasesAvailabilitySuspend()) {
-                is ResultState.Success -> {
-                    _purchasesEvent.tryEmit(StartPurchasesEvent.PurchasesAvailability(checkResult.data))
-                }
-
-                is ResultState.Error -> {
-                    snackbarManager.show(
-                        message = checkResult.entity.message
-                            ?: "Ошибка. Подписки пока недоступны"
-                    )
-                }
-
-                else -> {}
-            }
-        }
-    }
-
     fun restorePurchases() {
         viewModelScope.launch(Dispatchers.IO) {
-            subscriptionHelper.restorePurchases(snackbarManager)
+            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+            subscriptionHelper.restorePurchases(snackbarManager, token)
         }
     }
 
@@ -327,24 +302,33 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun syncRoute(route: Route) {
+        val routesManager = RoutesManager
         viewModelScope.launch {
-            routeHelper.syncRoute(route).collect { result ->
-                when (result) {
-                    is ResultState.Success -> {
-                        // show snackbar centrally
-                        snackbarManager.show(message = result.data)
-                        _uiState.update { it.copy(syncRouteState = null) }
-                    }
+            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+            val fullToken = "Bearer $token"
+            if (token == null) {
+                snackbarManager.show(message = "Неавторизованный пользователь")
+            } else {
+                routesManager.saveRouteInRemote(route, fullToken).collect { resultState ->
+                    when (resultState) {
+                        is ResultState.Success -> {
+                            // show snackbar centrally
+                            routeUseCase.setSynchronizedRoute(route.basicData.id).first()
+                            snackbarManager.show(message = "Маршрут сохранен в облаке")
+                            _uiState.update { it.copy(syncRouteState = null) }
+                        }
 
-                    is ResultState.Error -> {
-                        val message = result.entity.message ?: result.entity.throwable?.message
-                        ?: "Ошибка синхронизации"
-                        snackbarManager.show(message = message)
-                        _uiState.update { it.copy(syncRouteState = ResultState.Error(result.entity)) }
-                    }
+                        is ResultState.Error -> {
+                            val message =
+                                resultState.entity.message ?: resultState.entity.throwable?.message
+                                ?: "Ошибка синхронизации"
+                            snackbarManager.show(message = message)
+                            _uiState.update { it.copy(syncRouteState = ResultState.Error(resultState.entity)) }
+                        }
 
-                    is ResultState.Loading -> {
-                        _uiState.update { it.copy(syncRouteState = ResultState.Loading()) }
+                        is ResultState.Loading -> {
+                            _uiState.update { it.copy(syncRouteState = ResultState.Loading()) }
+                        }
                     }
                 }
             }

@@ -30,7 +30,7 @@ import java.io.InputStreamReader
 class MainActivity : ComponentActivity(), KoinComponent {
 
     private val mainViewModel: MainViewModel by viewModels()
-    private val payClient: RuStorePayClient by inject()
+//    private val payClient: RuStorePayClient by inject()
 
     @OptIn(ExperimentalAnimationApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -39,9 +39,9 @@ class MainActivity : ComponentActivity(), KoinComponent {
             setKeepOnScreenCondition { !mainViewModel.appInitialized.value }
         }
         checkIntent(intent)
-        if (savedInstanceState == null) {
-            payClient.getIntentInteractor().proceedIntent(intent)
-        }
+//        if (savedInstanceState == null) {
+//            payClient.getIntentInteractor().proceedIntent(intent)
+//        }
 
         lifecycle.addObserver(mainViewModel)
 
@@ -99,7 +99,7 @@ class MainActivity : ComponentActivity(), KoinComponent {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         checkIntent(intent)
-        payClient.getIntentInteractor().proceedIntent(intent)
+//        payClient.getIntentInteractor().proceedIntent(intent)
     }
 
     override fun onDestroy() {

@@ -119,7 +119,8 @@ import com.z_company.domain.entities.ReleaseType
 fun WorkScheduleScreen(
     viewModel: WorkScheduleViewModel,
     modifier: Modifier = Modifier,
-    onReleaseDayScreenClick: () -> Unit
+    onReleaseDayScreenClick: () -> Unit,
+    showPurchasesScreen: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -264,7 +265,7 @@ fun WorkScheduleScreen(
                     showEndTimeSheet = true
                 },
                 BottomSheetAction(text = "Оформить подписку за 69 руб/мес") {
-                    viewModel.checkPurchasesAvailability()
+                    showPurchasesScreen()
                 }
             ),
         )
@@ -293,7 +294,7 @@ fun WorkScheduleScreen(
             },
             actions = listOf(
                 BottomSheetAction(text = "Оформить подписку за 69 руб/мес") {
-                    viewModel.checkPurchasesAvailability()
+                    showPurchasesScreen()
                 },
                 BottomSheetAction(text = "Восстановить покупки") {
                     viewModel.restorePurchases()

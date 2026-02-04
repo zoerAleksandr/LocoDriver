@@ -25,7 +25,7 @@ class SearchRouteUseCase(val repository: RouteRepository) {
         entityString: EntityString
     ): Flow<SearchStateScreen<List<RouteWithTag>>> =
         channelFlow {
-            repository.loadRoutesAsFlow().collect { result ->
+            repository.loadRoutesAsStateFlow().collect { result ->
                 when (result) {
                     is ResultState.Loading -> trySend(SearchStateScreen.Loading())
 

@@ -285,7 +285,7 @@ fun HomeScreen(
                     routeForRemove = route
                     isShowDialogConfirmRemoveRoute = true
                 },
-                shareRoute = {}
+//                shareRoute = {}
             )
         }
     }

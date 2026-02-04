@@ -23,6 +23,8 @@ private const val IS_EXPANDED_VIEW_TAG = "IS_EXPANDED_VIEW"
 private const val TOKEN_IS_MIGRATED = "TOKEN_IS_MIGRATED"
 
 private const val OP_KEY_PREF = "OP_KEY_PREF"
+
+private const val TOKEN_LAST_SYNC_TIME = "TOKEN_LAST_SYNC_TIME"
 class SharedPreferenceStorage(application: Application) : SharedPreferencesRepositories,
     KoinComponent {
     private val sharedpref: SharedPreferences =
@@ -32,6 +34,14 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
         )
     private val editor = sharedpref.edit()
 
+    override fun setLastSyncTimestamp(time: Long) {
+        editor.putLong(TOKEN_LAST_SYNC_TIME, time).apply()
+    }
+
+    override fun getLastSyncTimestamp(): Long =
+        sharedpref.getLong(TOKEN_LAST_SYNC_TIME, 0L)
+
+
     override fun getOPKeyRobokassa(): String? =
         sharedpref.getString(OP_KEY_PREF, null)
 
@@ -39,6 +49,8 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
     override fun setOPKeyRobokassa(opKey: String?) {
         editor.putString(OP_KEY_PREF, opKey).apply()
     }
+
+
 
     // Добавлено: Метод для проверки флага миграции
     // Для чего: Чтобы определять, выполнена ли миграция (default false)

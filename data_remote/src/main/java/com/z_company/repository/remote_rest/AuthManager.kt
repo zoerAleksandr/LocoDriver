@@ -1,9 +1,12 @@
 package com.z_company.repository.remote_rest
 
-import com.z_company.core.ErrorEntity
-import com.z_company.core.ResultState
-import com.z_company.domain.entities.User
 import com.z_company.domain.entities.route.Route
+import com.z_company.repository.remote_rest.request.AddVKIDRequest
+import com.z_company.repository.remote_rest.request.AuthRequest
+import com.z_company.repository.remote_rest.request.RegisteredRequestByEmail
+import com.z_company.repository.remote_rest.request.RegisteredRequestByVKID
+import com.z_company.repository.remote_rest.request.UpdateEmailRequest
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import org.koin.core.component.KoinComponent
@@ -55,6 +58,7 @@ object AuthManager : KoinComponent {
 
     fun registerByVKID(
         vkId: String,
+        email: String
     ): Flow<RegistrationState> =
         flow {  // Пояснение: flow — builder для создания Flow, внутри которого можно emit значения асинхронно.
             emit(RegistrationState.Loading)  // Сначала эмитим состояние загрузки
@@ -64,7 +68,7 @@ object AuthManager : KoinComponent {
                     login = vkId,
                     vkId = vkId,
                     password = "",
-                    email = ""
+                    email = email
                 )
 
                 // Асинхронный вызов Retrofit (suspend)
@@ -125,6 +129,41 @@ object AuthManager : KoinComponent {
         }
     }
 
+    fun authWithVKID(vkId: String): Flow<AuthState> = flow {
+        emit(AuthState.Loading)
+
+        try {
+            val authRequest = AuthRequest(
+                auth_param = vkId,
+                password = "",
+                methodAuth = "vkId",
+            )
+
+            val response = remoteRestApi.authWithEmail(authRequest)
+            if (response.isSuccessful) {
+                val body = response.body()
+                emit(
+                    AuthState.Success(
+                        accessToken = body?.accessToken ?: "",
+                        tokenType = body?.tokenType
+                    )
+                )
+            } else {
+                val text = when (response.code()) {
+                    401 -> "Неверная почта или пароль"
+                    else -> "Ошибка: $response ${response.code()} - ${response.message()}"
+                }
+                emit(AuthState.Error(text))  // Эмитим ошибку HTTP
+            }
+        } catch (e: IOException) {
+            emit(AuthState.Error("Нет соединения: ${e.message}"))  // Ошибка сети
+        } catch (e: HttpException) {
+            emit(AuthState.Error("HTTP ошибка: ${e.message}"))  // HTTP-исключение
+        } catch (e: Exception) {
+            emit(AuthState.Error("Неизвестная ошибка: ${e.message}"))  // Другие ошибки
+        }
+    }
+
     fun removeVKID(token: String): Flow<GetUserProfileState> = flow {
         emit(GetUserProfileState.Loading)
         try {
@@ -150,9 +189,10 @@ object AuthManager : KoinComponent {
     fun attachVKID(bearerToken: String, vkId: String): Flow<GetUserProfileState> = flow {
         emit(GetUserProfileState.Loading)
         try {
+            val addVKIDRequest = AddVKIDRequest(token = vkId)
             val response = remoteRestApi.attachVKID(
                 token = bearerToken,
-                vkId = vkId
+                data = addVKIDRequest
             )
             if (response.isSuccessful) {
                 val body = response.body()
@@ -201,21 +241,41 @@ object AuthManager : KoinComponent {
         }
     }
 
-    fun forgotPassword(email: String): Flow<ForgotEmailState> = flow {
-        emit(ForgotEmailState.Loading)
+    fun forgotPassword(email: String): Flow<ResponseState> = flow {
+        emit(ResponseState.Loading)
         try {
             val response = apiForSendEmail.forgotPassword(email)
             if (response.isSuccessful) {
-                emit(ForgotEmailState.Success)
+                emit(ResponseState.Success)
             } else {
-                emit(ForgotEmailState.Error("Ошибка: ${response.code()} - ${response.message()}"))  // Эмитим ошибку HTTP
+                emit(ResponseState.Error("Ошибка: ${response.code()} - ${response.message()}"))  // Эмитим ошибку HTTP
             }
         } catch (e: IOException) {
-            emit(ForgotEmailState.Error("Нет соединения: ${e.message}"))  // Ошибка сети
+            emit(ResponseState.Error("Нет соединения: ${e.message}"))  // Ошибка сети
         } catch (e: HttpException) {
-            emit(ForgotEmailState.Error("HTTP ошибка: ${e.message}")) // HTTP-исключение
+            emit(ResponseState.Error("HTTP ошибка: ${e.message}")) // HTTP-исключение
         } catch (e: Exception) {
-            emit(ForgotEmailState.Error("Неизвестная ошибка: ${e.message}"))  // Другие ошибки
+            emit(ResponseState.Error("Неизвестная ошибка: ${e.message}"))  // Другие ошибки
+        }
+    }
+
+    fun updateEmail(token: String, email: String): Flow<ResponseState> = flow {
+        emit(ResponseState.Loading)
+        delay(2000L)
+        try {
+            val request = UpdateEmailRequest(email)
+            val response = remoteRestApi.updateEmail(token = token, data = request)
+            if (response.isSuccessful) {
+                emit(ResponseState.Success)
+            } else {
+                emit(ResponseState.Error("Ошибка: ${response.code()} - ${response.message()}"))  // Эмитим ошибку HTTP
+            }
+        } catch (e: IOException) {
+            emit(ResponseState.Error("Нет соединения: ${e.message}"))  // Ошибка сети
+        } catch (e: HttpException) {
+            emit(ResponseState.Error("HTTP ошибка: ${e.message}")) // HTTP-исключение
+        } catch (e: Exception) {
+            emit(ResponseState.Error("Неизвестная ошибка: ${e.message}"))  // Другие ошибки
         }
     }
 }
@@ -248,9 +308,9 @@ sealed class GetUserProfileState {
     data class Error(val errorMessage: String) : GetUserProfileState()
 }
 
-sealed class ForgotEmailState {
-    object Initial : ForgotEmailState()
-    object Loading : ForgotEmailState()
-    object Success : ForgotEmailState()
-    data class Error(val errorMessage: String) : ForgotEmailState()
+sealed class ResponseState {
+    object Initial : ResponseState()
+    object Loading : ResponseState()
+    object Success : ResponseState()
+    data class Error(val errorMessage: String) : ResponseState()
 }

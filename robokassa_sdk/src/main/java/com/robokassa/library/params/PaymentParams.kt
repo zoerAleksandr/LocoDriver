@@ -25,6 +25,9 @@ class PaymentParams() : BaseParams(), Parcelable {
      */
     var view: ViewParams = ViewParams()
 
+    // Добавляем новое поле для shp-параметров (комментарий на русском: Это Map для пользовательских параметров, таких как shp_user_id. SDK будет добавлять префикс "shp_" к ключам в URL и подписи)
+    var shp: Map<String, String> = mapOf()
+
     @Suppress("DEPRECATION")
     private constructor(parcel: Parcel) : this() {
         parcel.run {
@@ -49,6 +52,7 @@ class PaymentParams() : BaseParams(), Parcelable {
             } else {
                 readParcelable(ViewParams::class.java.classLoader)!!
             }
+            shp = readHashMap(String::class.java.classLoader) as Map<String, String>
         }
     }
 
@@ -61,6 +65,7 @@ class PaymentParams() : BaseParams(), Parcelable {
             writeParcelable(order, flags)
             writeParcelable(customer, flags)
             writeParcelable(view, flags)
+            writeMap(shp)
         }
     }
 

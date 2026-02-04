@@ -8,6 +8,8 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.application
 import androidx.lifecycle.viewModelScope
+import com.parse.ParseObject
+import com.parse.ParseQuery
 import com.vk.id.AccessToken
 import com.vk.id.VKID
 import com.vk.id.VKIDUser
@@ -32,15 +34,16 @@ import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.repository.SecureDataStore
 import com.z_company.repository.remote_rest.AuthManager
 import com.z_company.repository.remote_rest.AuthState
-import com.z_company.repository.remote_rest.ForgotEmailState
+import com.z_company.repository.remote_rest.ResponseState
 import com.z_company.repository.remote_rest.GetUserProfileState
 import com.z_company.repository.remote_rest.RegistrationState
 import com.z_company.repository.remote_rest.RoutesManager
 import com.z_company.repository.remote_rest.SettingManager
+import com.z_company.repository.remote_rest.SyncManager
 import com.z_company.repository.remote_rest.UserRemote
+import com.z_company.use_case.SubscriptionHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
@@ -51,11 +54,16 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
+import java.io.NotActiveException
 import java.util.Calendar
 import java.util.Calendar.MONTH
 import java.util.Calendar.YEAR
 import kotlin.collections.first
+import ru.ok.tracer.crash.report.TracerCrashReport
+import java.text.ParseException
 
 data class ProfileUiState(
     val userDetailsState: ResultState<UserRemote?> = ResultState.Loading(),
@@ -68,8 +76,29 @@ data class ProfileUiState(
     val isRefreshing: Boolean = false,
     val resentVerificationEmailButton: Boolean = false,
     val vkUserState: ResultState<String?> = ResultState.Loading(),
-    val downloadRouteProgress: Pair<Int, Int>? = null
+    val downloadRouteProgress: Pair<Int, Int>? = null,
+    val updateEmailState: ResultState<Unit>? = null,
+    val syncUploadProgress: Map<String, SyncStepState> = emptyMap(),  // Прогресс для upload (ключ - этап, значение - состояние)
+    val syncDownloadProgress: Map<String, SyncStepState> = emptyMap(),  // Прогресс для download
+    val showSyncDialog: Boolean = false,  // Флаг показа диалога синхронизации
+    val isSyncComplete: Boolean = false,  // Флаг завершения синхронизации (для показа кнопки)
+    val syncType: SyncType? = null  // Тип синхронизации (Upload или Download), чтобы знать, какой progress отображать
 )
+
+// Описание: Определяет тип синхронизации (загрузка на сервер или с сервера) для выбора правильного progress map в UI.
+enum class SyncType {
+    Upload,
+    Download
+}
+
+// Описание: Состояние каждого этапа синхронизации (Loading - в процессе, Success с деталями, Error с сообщением).
+sealed class SyncStepState {
+    object Loading : SyncStepState()
+    data class Success(val details: String) :
+        SyncStepState()  // Детали успеха, напр. "загружены 15(шт)"
+
+    data class Error(val message: String) : SyncStepState()
+}
 
 data class MigrationState(
     val isMigrating: Boolean = false,
@@ -80,7 +109,6 @@ data class MigrationState(
 )
 
 class ProfileViewModel(application: Application) : AndroidViewModel(application), KoinComponent {
-    private val back4AppManager: Back4AppManager by inject()
     private val sharedPrefs: SharedPreferencesRepositories by inject()
     private val settingsUseCase: SettingsUseCase by inject()
 
@@ -88,6 +116,10 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     private val routeUseCase: RouteUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
     private val routesManager = RoutesManager
+    private val syncManager: SyncManager by inject()
+    private val settingManager: SettingManager by inject()
+
+    private val subscriptionHelper: SubscriptionHelper by inject()
 
     var loginJob: Job? = null
     var forgotJob: Job? = null
@@ -123,8 +155,8 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     private val _migrationUiState = MutableStateFlow(MigrationState())
     val migrationUiState = _migrationUiState.asStateFlow()
 
-    private val _forgotEmailState = MutableStateFlow<ForgotEmailState>(ForgotEmailState.Initial)
-    val forgotEmailState = _forgotEmailState.asStateFlow()
+    private val _responseState = MutableStateFlow<ResponseState>(ResponseState.Initial)
+    val forgotEmailState = _responseState.asStateFlow()
 
 
     var currentEmail by mutableStateOf("")
@@ -133,13 +165,12 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     private var loadSettingsJob: Job? = null
 
     init {
-        getUserWithRoutes()
+        getUserInfo()
         loadSettingsForSyncInfo()
-        loadPurchasesInfo()
 
         // Чтобы сразу определить, залогинен ли пользователь (токен существует и не пустой). Это обновит _isLoggedIn, которое используется в ProfileScreen для условного рендеринга.
         viewModelScope.launch(Dispatchers.IO) {
-            val token = SecureDataStore.getAuthTokenFlow(application).first()
+            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
             _isLoggedIn.value = !token.isNullOrEmpty()
         }
         viewModelScope.launch {
@@ -149,11 +180,162 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch(Dispatchers.IO) {
             SecureDataStore.getVkIdFlow(application).onEach { vkId ->
                 if (vkId != null && vkId.isNotEmpty()) {
-                    getVkUserInfo()
+                    vkIdRefreshToken()
                 } else {
                     _uiState.update { it.copy(vkUserState = ResultState.Success(null)) }
                 }
             }.launchIn(viewModelScope)
+        }
+    }
+
+    // Описание: Запускает синхронизацию на сервер (upload), показывает диалог, обновляет прогресс поэтапно через collect Flow.
+    // При получении промежуточных Success - обновляет progress map. При final Success/Error - устанавливает isSyncComplete = true.
+    fun startSyncUpload() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val token = SecureDataStore.getAuthBearerTokenFlow(application).first() ?: return@launch
+            _uiState.update {
+                it.copy(
+                    showSyncDialog = true,
+                    syncType = SyncType.Upload,
+                    syncUploadProgress = mapOf(  // Инициализируем шаги с Loading
+                        "UserSettings" to SyncStepState.Loading,
+                        "SalarySettings" to SyncStepState.Loading,
+                        "Months" to SyncStepState.Loading,
+                        "Routes" to SyncStepState.Loading
+                    ),
+                    isSyncComplete = false
+                )
+            }
+
+            syncManager.syncToRemote("Bearer $token").collect { state ->
+                when (state) {
+                    is ResultState.Loading -> {}  // Уже обработано инициализацией
+                    is ResultState.Success -> {
+                        val result = state.data
+                        val newProgress = _uiState.value.syncUploadProgress.toMutableMap()
+
+                        // Обновляем прогресс для каждого этапа на основе result
+                        if (result.userSettingsSaved) {
+                            newProgress["UserSettings"] = SyncStepState.Success("загружены")
+                        }
+                        if (result.salarySettingsSaved) {
+                            newProgress["SalarySettings"] = SyncStepState.Success("загружены")
+                        }
+                        if (result.monthsSaved) {
+                            newProgress["Months"] = SyncStepState.Success("загружены")
+                        }
+                        if (result.routesSavedCount >= 0) {
+                            newProgress["Routes"] =
+                                SyncStepState.Success("загружены ${result.routesSavedCount}(шт)")
+                        }
+
+                        _uiState.update {
+                            it.copy(
+                                syncUploadProgress = newProgress,
+                                isSyncComplete = true
+                            )
+                        }
+
+                        // Сохраняем timestamp, если все успешно
+                        result.timestamp?.let { sharedPrefs.setLastSyncTimestamp(it) }
+                        refresh()
+                    }
+
+                    is ResultState.Error -> {
+                        // Для ошибок - обновляем все оставшиеся шаги как Error (или конкретный, но для простоты - общий)
+                        val newProgress = _uiState.value.syncUploadProgress.mapValues {
+                            if (it.value is SyncStepState.Loading) SyncStepState.Error(
+                                message = state.entity.message ?: ""
+                            ) else it.value
+                        }
+                        _uiState.update {
+                            it.copy(
+                                syncUploadProgress = newProgress,
+                                isSyncComplete = true
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Описание: Аналогично startSyncUpload, но для загрузки с сервера (download).
+    fun startSyncDownload() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val token = SecureDataStore.getAuthBearerTokenFlow(application).first() ?: return@launch
+            _uiState.update {
+                it.copy(
+                    showSyncDialog = true,
+                    syncType = SyncType.Download,
+                    syncDownloadProgress = mapOf(  // Инициализируем шаги с Loading
+                        "Months" to SyncStepState.Loading,
+                        "SalarySettings" to SyncStepState.Loading,
+                        "UserSettings" to SyncStepState.Loading,
+                        "Routes" to SyncStepState.Loading
+                    ),
+                    isSyncComplete = false
+                )
+            }
+
+            syncManager.syncFromRemote("Bearer $token").collect { state ->
+                when (state) {
+                    is ResultState.Loading -> {}  // Уже обработано
+                    is ResultState.Success -> {
+                        val result = state.data
+                        val newProgress = _uiState.value.syncDownloadProgress.toMutableMap()
+
+                        if (result.monthsLoaded) {
+                            newProgress["Months"] = SyncStepState.Success("загружены")
+                        }
+                        if (result.salarySettingsLoaded) {
+                            newProgress["SalarySettings"] = SyncStepState.Success("загружены")
+                        }
+                        if (result.userSettingsLoaded) {
+                            newProgress["UserSettings"] = SyncStepState.Success("загружены")
+                        }
+                        if (result.routesLoadedCount >= 0) {
+                            newProgress["Routes"] =
+                                SyncStepState.Success("загружены ${result.routesLoadedCount}(шт)")
+                        }
+
+                        _uiState.update {
+                            it.copy(
+                                syncDownloadProgress = newProgress,
+                                isSyncComplete = true
+                            )
+                        }
+                    }
+
+                    is ResultState.Error -> {
+                        val newProgress = _uiState.value.syncDownloadProgress.mapValues {
+                            if (it.value is SyncStepState.Loading) SyncStepState.Error(
+                                message = state.entity.message ?: ""
+                            ) else it.value
+                        }
+                        _uiState.update {
+                            it.copy(
+                                syncDownloadProgress = newProgress,
+                                isSyncComplete = true
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
+    // Для чего: Чтобы сбросить прогресс и диалог после закрытия (вызывается из UI).
+    fun resetSyncState() {
+        _uiState.update {
+            it.copy(
+                showSyncDialog = false,
+                syncUploadProgress = emptyMap(),
+                syncDownloadProgress = emptyMap(),
+                isSyncComplete = false,
+                syncType = null
+            )
         }
     }
 
@@ -176,65 +358,92 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             val ss = salarySettingUseCase.salarySettingFlow().first()
             _salarySetting.value = ss
         }
+        var updateAt = sharedPrefs.getLastSyncTimestamp()
+        if (updateAt == 0L) {
+            updateAt = Calendar.getInstance().timeInMillis
+        }
         loadSettingsJob = settingsUseCase.getFlowCurrentSettingsState().onEach { result ->
             if (result is ResultState.Success) {
                 result.data?.let { settings ->
                     _userSetting.value = settings
+                    val purchaseTimeEnd = settings.subscriptionPeriod
+                    val dateAndTimeConverter = DateAndTimeConverter(settings)
+                    val date = dateAndTimeConverter.getDateAndTime(purchaseTimeEnd)
+                    val textPurchase = if (purchaseTimeEnd > Calendar.getInstance().timeInMillis) {
+                        "Оплачено до $date"
+                    } else if (purchaseTimeEnd == 0L) {
+                        "Оплатить 69₽ -> 1 месяц"
+                    } else {
+                        "Срок оплаты истек $date"
+                    }
                     _uiState.update {
                         it.copy(
-                            updateAt = settings.updateAt,
-                            dateAndTimeConverter = DateAndTimeConverter(settings)
+                            updateAt = updateAt,
+                            dateAndTimeConverter = dateAndTimeConverter,
+                            purchasesEndTime = ResultState.Success(textPurchase)
                         )
                     }
-                    // Обновляем подписку, т.к. нужен converter
-                    loadPurchasesInfo()
                 }
             }
         }.launchIn(viewModelScope)
     }
 
-    fun loadPurchasesInfo() {
-        viewModelScope.launch {
-            val expiration = sharedPrefs.getSubscriptionExpiration()
-            val text = if (expiration == 0L) {
-                ""
-            } else {
-                _uiState.value.dateAndTimeConverter?.getDateMiniAndTime(expiration) ?: ""
-            }
-            _uiState.update { it.copy(purchasesEndTime = ResultState.Success(text)) }
-        }
-    }
-
     fun refresh() {
         _uiState.update { it.copy(isRefreshing = true) }
         viewModelScope.launch(Dispatchers.IO) {
-            getUserWithRoutes()
+            getUserInfo()
             loadSettingsForSyncInfo()
-            loadPurchasesInfo()
             // Перезагружаем пользователя (flow уже обновится)
             delay(500)
             _uiState.update { it.copy(isRefreshing = false) }
         }
     }
 
-    fun setEmail(value: String) {
-        currentEmail = value
-    }
-
-    fun onUploadToRemote() {
+    // Для чего: Запускает корутину для API-запроса на смену email. Обновляет uiState: сначала Loading, затем Success или Error на основе ответа API.
+    fun updateEmail(newEmail: String) {
         viewModelScope.launch {
-            back4AppManager.synchronizedStorage().collect { result ->
-                _uiState.update { it.copy(uploadState = result) }
+            _uiState.update { it.copy(updateEmailState = ResultState.Loading()) }
+            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+            val fullToken = "Bearer $token"
+            val result = AuthManager.updateEmail(
+                token = fullToken,
+                email = newEmail
+            )
+
+            result.collect { state ->
+                when (state) {
+                    is ResponseState.Success -> {
+                        _uiState.update {
+                            it.copy(
+                                updateEmailState = ResultState.Success(Unit),
+                            )
+                        }
+//                        currentEmail = newEmail  // Обновляем currentEmail в ViewModel
+                        getUserInfo()
+                    }
+
+                    is ResponseState.Error -> {
+                        _uiState.update {
+                            it.copy(
+                                updateEmailState = ResultState.Error(
+                                    ErrorEntity(
+                                        message = state.errorMessage
+                                    )
+                                )
+                            )
+                        }
+                    }
+
+                    else -> {}
+                }
             }
         }
     }
 
-    fun onDownloadFromRemote() {
-        viewModelScope.launch {
-            back4AppManager.loadRouteListFromRemote().collect { result ->
-                _uiState.update { it.copy(downloadState = result) }
-            }
-        }
+    // Новый метод: resetUpdateEmailState
+    // Для чего: Сбрасывает состояние updateEmailState в null после обработки Success/Error, чтобы избежать повторных LaunchedEffect в UI.
+    fun resetUpdateEmailState() {
+        _uiState.update { it.copy(updateEmailState = null) }
     }
 
     fun resetUploadState() = _uiState.update { it.copy(uploadState = null) }
@@ -253,7 +462,27 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         loginJob?.cancel()
         loginJob = viewModelScope.launch {
             AuthManager.authWithEmail(email = email, password = password).collect { state ->
-                Log.d("zzz", "auth $state")
+                if (state is AuthState.Success) {
+                    val token = state.accessToken
+                    if (token.isNotEmpty()) {
+                        SecureDataStore.getAuthBearerTokenFlow(application).first()
+                        SecureDataStore.saveAuthToken(
+                            application,
+                            token
+                        )  // Сохранение зашифрованного токена
+                        _isLoggedIn.value = true  // Обновляем состояние логина после успеха
+                        refresh()  // Перезагружаем данные после входа
+                    }
+                }
+                _authUiState.value = state  // Обновляем UI-состояние
+            }
+        }
+    }
+
+    fun authWithVKID(vkid: String) {
+        loginJob?.cancel()
+        loginJob = viewModelScope.launch {
+            AuthManager.authWithVKID(vkid).collect { state ->
                 if (state is AuthState.Success) {
                     val token = state.accessToken
                     if (token.isNotEmpty()) {
@@ -297,6 +526,17 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                                 application,
                                 token
                             )
+                            val localUserSettings = settingsUseCase.getUserSettingFlow().first()
+                            val endTimeSubscription = sharedPrefs.getSubscriptionExpiration()
+                            if (endTimeSubscription != 0L) {
+                                val l = localUserSettings.copy(
+                                    subscriptionPeriod = endTimeSubscription
+                                )
+                                settingsUseCase.saveSetting(l)
+                                    .first { it is ResultState.Success || it is ResultState.Error }
+                            }
+
+                            startSyncUpload()
                             _isLoggedIn.value = true  // Обновляем состояние логина после успеха
                             refresh()  // Перезагружаем данные после входа}
                         }
@@ -307,11 +547,11 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun registeredUserByVKID(vkid: String) {
+    fun registeredUserByVKID(vkid: String, email: String) {
         loginJob?.cancel()
         loginJob = viewModelScope.launch {
             // Пояснение: Запускаем корутину для collect Flow (Flow холодный, стартует здесь).
-            AuthManager.registerByVKID(vkid)
+            AuthManager.registerByVKID(vkid, email)
                 .collect { state ->  // Collect эмитит значения из Flow
                     if (state is RegistrationState.Success) {
                         val token = state.accessToken
@@ -319,6 +559,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                             // Сохранение зашифрованного токена
                             SecureDataStore.saveAuthToken(application, token)
                             SecureDataStore.saveVkId(application, vkid)
+                            startSyncUpload()
                             _isLoggedIn.value = true  // Обновляем состояние логина после успеха
                             refresh()  // Перезагружаем данные после входа}
                         }
@@ -331,7 +572,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
 
     fun removeUsersVKID() {
         viewModelScope.launch {
-            val token = SecureDataStore.getAuthTokenFlow(application).first()
+            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
             val fullToken = "Bearer $token"
             AuthManager.removeVKID(fullToken).collect { state ->
                 if (state is GetUserProfileState.Success) {  // Предполагаем, что removeVKID возвращает аналогичный state
@@ -356,14 +597,15 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun getUserWithRoutes() {
+    fun getUserInfo() {
         viewModelScope.launch {
-            val token = SecureDataStore.getAuthTokenFlow(application).first()
+            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
             val fullToken = "Bearer $token"
             AuthManager.getUserProfile(fullToken).collect { state ->
                 Log.d("zzz", "getUserProfile $state")
                 if (state is GetUserProfileState.Success) {
                     currentEmail = state.user.email
+                    SecureDataStore.saveUserId(application, state.user.id)
                     _uiState.update {
                         it.copy(userDetailsState = ResultState.Success(state.user))
                     }
@@ -375,13 +617,49 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                 }
             }
         }
+        viewModelScope.launch {
+            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+            subscriptionHelper.restorePurchases(null, token)
+        }
+    }
+
+    suspend fun fetchRoutesByEmail() = withContext(Dispatchers.IO) {
+        // Create a query on the Route class
+        val query = ParseQuery.getQuery<ParseObject>("Route")
+
+        // Set the constraint for user_email
+        query.whereEqualTo("user_email", "smirnov1972.09@gmail.com")
+        query.limit = 1000
+        // Optionally, set a limit if you want to test smaller batches
+        // query.limit = 1000 // Adjust this based on the expected size and performance needs
+
+        try {
+            // Fetch the routes
+            val routes = query.find()
+
+            // Process the retrieved routes
+            println("Total routes found: ${routes.size}")
+            for (route in routes) {
+                println("Route ID: ${route.objectId}, Data: ${route.getString("data")}")
+            }
+        } catch (e: ParseException) {
+            // Handle query errors
+            println("Error fetching routes: ${e.message}")
+        }
+    }
+
+    fun test(){
+        viewModelScope.launch {
+            fetchRoutesByEmail()
+        }
     }
 
     fun forgotRequest(email: String) {
         forgotJob?.cancel()
         forgotJob = viewModelScope.launch {
             AuthManager.forgotPassword(email).collect { state ->
-                _forgotEmailState.value = state
+                Log.d("zzz", "forgotPassword $state")
+                _responseState.value = state
             }
         }
     }
@@ -389,7 +667,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     // Для чего: Вызывается из OneTap в профиле, когда VK не привязан. Предполагаем, что AuthManager имеет метод attachVKID (аналогичный registerByVKID, но для привязки). После успеха сохраняем VK ID и обновляем данные.
     fun attachVKID(vkid: String) {
         viewModelScope.launch {
-            val token = SecureDataStore.getAuthTokenFlow(application).first()
+            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
             val fullToken = "Bearer $token"
             AuthManager.attachVKID(
                 fullToken,
@@ -412,9 +690,9 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             VKID.instance.refreshToken(
                 callback = object : VKIDRefreshTokenCallback {
                     override fun onSuccess(token: AccessToken) {
-                        Log.d("zzz", "access_token ${token.userData.email}")
-                        Log.d("zzz", "access_token ${token.userData.lastName}")
-                        Log.d("zzz", "access_token ${token.userData.firstName}")
+                        viewModelScope.launch {
+                            getVkUserInfo()
+                        }
                     }
 
                     override fun onFail(fail: VKIDRefreshTokenFail) {
@@ -431,141 +709,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun forgotResetState() {
-        _forgotEmailState.value = ForgotEmailState.Initial
-    }
-
-    fun saveUserSettingInRemote() {
-        viewModelScope.launch {
-            val token = SecureDataStore.getAuthTokenFlow(application).first()
-            val fullToken = "Bearer $token"
-
-            SettingManager.saveUserSettingInRemote(userSetting.value, fullToken)
-                .collect { resultState ->
-                    Log.d("zzz", "save user setting result $resultState")
-                }
-        }
-    }
-
-    fun getUserSettingFromRemote() {
-        viewModelScope.launch {
-            val token = SecureDataStore.getAuthTokenFlow(application).first()
-            val fullToken = "Bearer $token"
-
-            SettingManager.getUserSettingFromRemote(fullToken)
-                .collect { resultState ->
-                    Log.d("zzz", "get user setting $resultState")
-                    if (resultState is ResultState.Success) {
-                        Log.d("zzz", "success ${resultState.data}")
-                        val listMonthOfYear = calendarUseCase.loadFlowMonthOfYearListState().first()
-                        val currentCalendar = Calendar.getInstance()
-                        val currentMonthOfYear = listMonthOfYear.find {
-                            it.month == currentCalendar.get(MONTH) && it.year == currentCalendar.get(
-                                YEAR
-                            )
-                        }
-
-                        val userSettings = resultState.data.copy(
-                            selectMonthOfYear = currentMonthOfYear ?: listMonthOfYear.first()
-                        )
-
-                        settingsUseCase.saveSetting(userSettings).collect { saveState ->
-                            Log.d("zzz", "save in local ${saveState}")
-                        }
-                    }
-                }
-        }
-    }
-
-    fun saveSalarySettingInRemote() {
-        viewModelScope.launch {
-            val token = SecureDataStore.getAuthTokenFlow(application).first()
-            val fullToken = "Bearer $token"
-
-            SettingManager.saveSalarySettingInRemote(salarySetting.value, fullToken)
-                .collect { resultState ->
-                    Log.d("zzz", "save salary setting result $resultState")
-                }
-        }
-    }
-
-    fun getSalarySettingFromRemote() {
-        viewModelScope.launch {
-            val token = SecureDataStore.getAuthTokenFlow(application).first()
-            val fullToken = "Bearer $token"
-
-            SettingManager.getSalarySettingFromRemote(fullToken)
-                .collect { resultState ->
-                    Log.d("zzz", "get salary setting $resultState")
-                    if (resultState is ResultState.Success) {
-                        val ss = resultState.data
-                        salarySettingUseCase.saveSalarySetting(ss).collect {
-                            Log.d("zzz", "save salary setting in local $resultState")
-                        }
-                    }
-                }
-        }
-    }
-
-
-    fun saveMonthOfYearList() {
-        viewModelScope.launch {
-            val token = SecureDataStore.getAuthTokenFlow(application).first()
-            val fullToken = "Bearer $token"
-            val listMonthOfYear = calendarUseCase.loadFlowMonthOfYearListState().first()
-
-            SettingManager.saveMonthOfYearListInRemote(listMonthOfYear, fullToken)
-                .collect { resultState ->
-                    Log.d("zzz", "save calendar $resultState")
-                }
-        }
-    }
-
-    fun getMonthOfYearList() {
-        viewModelScope.launch {
-            val token = SecureDataStore.getAuthTokenFlow(application).first()
-            val fullToken = "Bearer $token"
-
-            SettingManager.getMonthOfYearListFromRemote(fullToken).collect { resultState ->
-                Log.d("zzz", "get calendar $resultState")
-                if (resultState is ResultState.Success) {
-                    val calendar = resultState.data
-                    calendarUseCase.saveCalendar(calendar).collect { saveResult ->
-                        Log.d("zzz", "save calendar in local $saveResult")
-                    }
-                }
-            }
-        }
-    }
-
-    fun getRoutesFromRemote() {
-        viewModelScope.launch {
-            val token = SecureDataStore.getAuthTokenFlow(application).first()
-            val fullToken = "Bearer $token"
-
-            RoutesManager.getRoutesFromRemote(fullToken).collect { resultState ->
-                Log.d("zzz", "save setting result $resultState")
-                when (resultState) {
-                    is ResultState.Loading -> {}
-                    is ResultState.Success -> {
-                        val routes = resultState.data
-                        routes.forEach { route ->
-                            Log.d("zzz", "$route")
-                        }
-                        saveRouteInLocal(routes)
-                    }
-
-                    is ResultState.Error -> {
-                        Log.e("zzz", "Error loading routes: ${resultState.entity.message}")
-                        _uiState.update {
-                            it.copy(
-                                downloadState = ResultState.Error(resultState.entity),
-                                downloadRouteProgress = null
-                            )
-                        }
-                    }
-                }
-            }
-        }
+        _responseState.value = ResponseState.Initial
     }
 
     private fun saveRouteInLocal(routes: List<Route>) {
@@ -639,20 +783,21 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                     routesProgress = 0 to 0
                 )
             }
-            val token = SecureDataStore.getAuthTokenFlow(application).first()
+            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
             val fullToken = "Bearer $token"
             // Получаем все локальные маршруты из Room
-            routeUseCase.getListRoutesAsFlow()
+            routeUseCase.getListRoutesAsStateFlow()
                 .collect { result ->  // Предполагаем, что добавлен метод getAllRoutes(): Flow<ResultState<List<Route>>> в RouteUseCase; если нет, можно собрать по месяцам
                     when (result) {
                         is ResultState.Success -> {
-                            val routes = result.data.take(3)
+                            val routes = result.data
                             val totalRoutes = routes.size
                             _migrationUiState.update { it.copy(routesProgress = 0 to totalRoutes) }
 
                             var savedCount = 0
-                            var hasError = false
+                            var hasRoutesError = false
                             for (route in routes) {
+                                delay(400L)
                                 routesManager.saveRouteInRemote(
                                     route = route,
                                     bearerToken = fullToken
@@ -664,11 +809,12 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                                         }
 
                                         is ResultState.Error -> {
-                                            hasError = true
+                                            hasRoutesError = true
                                             Log.e(
                                                 "Migration",
                                                 "Ошибка сохранения маршрута ${route.basicData.id}: ${saveResult.entity.message}"
                                             )
+                                            TracerCrashReport.report(NotActiveException("save route \nuser bearer token \n$token \n${saveResult.entity.message} \n${route.basicData.id}\n $route"))
                                             // Продолжаем с остальными, но отметим ошибку
                                         }
 
@@ -685,14 +831,96 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                                 )
                             }
 
-                            // Симуляция загрузки настроек (заменить на реальный метод, если появится)
-                            for (i in 1..10) {  // Имитация 10 шагов для 100%
-                                delay(200)  // 2 секунды всего
-                                _migrationUiState.update { it.copy(settingsProgress = i / 10f) }
+                            var hasSettingsError = false
+
+                            // 1. Сохранение UserSettings (аналогично SyncManager)
+                            val localUserSettings = settingsUseCase.getUserSettingFlow().first()
+                            val endTimeSubscription = sharedPrefs.getSubscriptionExpiration()
+                            val l = localUserSettings.copy(
+                                subscriptionPeriod = endTimeSubscription
+                            )
+
+                            val saveSubscribeTimeInLocal = settingsUseCase.saveSetting(l)
+                                .first { it is ResultState.Success || it is ResultState.Error }
+
+                            if (saveSubscribeTimeInLocal is ResultState.Error) {
+                                TracerCrashReport.report(NotActiveException("save salarySetting \nuser bearer token \n$token \n при миграции не перенесены данные подписки в UserSetting"))
                             }
 
-                            // Завершение миграции
-                            if (!hasError) {
+                            if (saveSubscribeTimeInLocal is ResultState.Success) {
+                                Log.d("zzz", "saveSubscribeTimeInLocal success")
+                            }
+
+
+                            settingManager.saveUserSettingInRemote(l, fullToken)
+                                .collect { saveState ->
+                                    when (saveState) {
+                                        is ResultState.Success -> {
+                                            _migrationUiState.update { it.copy(settingsProgress = 33.0f) } // Прогресс: 50% после UserSettings
+                                        }
+
+                                        is ResultState.Error -> {
+                                            hasSettingsError = true
+                                            Log.e(
+                                                "Migration",
+                                                "Ошибка сохранения UserSettings: ${saveState.entity.message}"
+                                            )
+                                            TracerCrashReport.report(NotActiveException("save userSetting \nuser bearer token \n$token\n ${saveState.entity.message} \n $localUserSettings"))
+                                            // Продолжаем к следующей настройке
+                                        }
+
+                                        else -> {} // Loading игнорируем
+                                    }
+                                }
+
+                            // 2. Сохранение SalarySetting (аналогично SyncManager)
+                            val localSalarySetting =
+                                salarySettingUseCase.salarySettingFlow().first()
+                            settingManager.saveSalarySettingInRemote(localSalarySetting, fullToken)
+                                .collect { saveState ->
+                                    when (saveState) {
+                                        is ResultState.Success -> {
+                                            _migrationUiState.update { it.copy(settingsProgress = 66.0f) } // Прогресс: 100% после SalarySetting
+                                        }
+
+                                        is ResultState.Error -> {
+                                            hasSettingsError = true
+                                            Log.e(
+                                                "Migration",
+                                                "Ошибка сохранения SalarySetting: ${saveState.entity.message}"
+                                            )
+                                            TracerCrashReport.report(NotActiveException("save salarySetting \nuser bearer token \n$token \n${saveState.entity.message} \n $localSalarySetting"))
+
+                                        }
+
+                                        else -> {} // Loading игнорируем
+                                    }
+                                }
+
+                            // 3. Сохранение MonthOfYearList
+                            val localMonths = calendarUseCase.loadFlowMonthOfYearListState().first()
+                            settingManager.saveMonthOfYearListInRemote(localMonths, fullToken)
+                                .collect { saveState ->
+                                    when (saveState) {
+                                        is ResultState.Success -> {
+                                            _migrationUiState.update { it.copy(settingsProgress = 1.0f) } // Прогресс: 100% после SalarySetting
+                                        }
+
+                                        is ResultState.Error -> {
+                                            hasSettingsError = true
+                                            Log.e(
+                                                "Migration",
+                                                "Ошибка сохранения MonthOfYearList: ${saveState.entity.message}"
+                                            )
+                                            TracerCrashReport.report(NotActiveException("save MonthOfYearList \nuser bearer token \n$token ${saveState.entity.message} \n $localMonths"))
+
+                                        }
+
+                                        else -> {} // Loading игнорируем
+                                    }
+                                }
+
+                            if (!hasRoutesError && !hasSettingsError) {
                                 _migrationUiState.update {
                                     it.copy(
                                         isMigrating = false,
@@ -701,14 +929,17 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                                 }
                                 sharedPrefs.setIsMigrated(true)
                                 _isMigrated.value = true
+                                completeMigration()
                             } else {
                                 _migrationUiState.update {
                                     it.copy(
-                                        isMigrating = false, migrationResult = ResultState.Error(
-                                            ErrorEntity(message = "Ошибки при сохранении некоторых маршрутов")
+                                        isMigrating = false,
+                                        migrationResult = ResultState.Error(
+                                            ErrorEntity(message = "Ошибки при сохранении некоторых данных (маршруты: $hasRoutesError, настройки: $hasSettingsError)")
                                         )
                                     )
                                 }
+                                completeMigration()
                             }
                         }
 
@@ -764,11 +995,11 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun registeredUserByVKIDForMigration(vkid: String) {
+    fun registeredUserByVKIDForMigration(vkid: String, email: String) {
         loginJob?.cancel()
         loginJob = viewModelScope.launch {
             // Пояснение: Запускаем корутину для collect Flow (Flow холодный, стартует здесь).
-            AuthManager.registerByVKID(vkid)
+            AuthManager.registerByVKID(vkid, email)
                 .collect { state ->  // Collect эмитит значения из Flow
                     if (state is RegistrationState.Success) {
                         val token = state.accessToken

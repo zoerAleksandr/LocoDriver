@@ -71,6 +71,10 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
         return settingsRepository.setDieselCoefficient(coefficient)
     }
 
+    fun updateSubscriptionPeriod(time: Long): Flow<ResultState<Unit>> {
+        return settingsRepository.updateSubscriptionPeriod(time)
+    }
+
     fun setDefaultSettings(currentMonthOfYear: MonthOfYear): Flow<ResultState<Unit>> {
         val setting = UserSettings(
             selectMonthOfYear = currentMonthOfYear

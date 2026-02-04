@@ -150,7 +150,8 @@ fun FormScreen(
     nightTime: Long?,
     onSalarySettingClick: () -> Unit,
     setFavoriteState: () -> Unit,
-    dateAndTimeConverter: DateAndTimeConverter?
+    dateAndTimeConverter: DateAndTimeConverter?,
+    showPurchasesScreen: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val scrollState = rememberLazyListState()
@@ -195,8 +196,8 @@ fun FormScreen(
                 BottomSheetAction(text = stringResource(id = R.string.billing_common_ok)) {
                     viewModel.saveRoute()
                 },
-                BottomSheetAction(text = "Оформить подписку за 44 руб/мес") {
-                    viewModel.checkPurchasesAvailability()
+                BottomSheetAction(text = "Оформить подписку за 69 руб/мес") {
+                    showPurchasesScreen()
                 }
             ),
         )
@@ -225,11 +226,11 @@ fun FormScreen(
                 }
             },
             actions = listOf(
-                BottomSheetAction(text = "Оформить подписку за 44 руб/мес") {
-                    viewModel::checkPurchasesAvailability
+                BottomSheetAction(text = "Оформить подписку за 69 руб/мес") {
+                    showPurchasesScreen()
                 },
                 BottomSheetAction(text = "Восстановить покупки") {
-                    viewModel::restorePurchases
+                    viewModel.restorePurchases()
                 }
             )
         )

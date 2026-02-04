@@ -2,7 +2,7 @@ package com.z_company.route.viewmodel
 
 import android.app.Application
 import android.util.Log
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.core.ui.snackbar.ISnackbarManager
@@ -31,6 +31,7 @@ import com.z_company.domain.use_cases.TrainUseCase
 import com.z_company.domain.util.CalculateNightTime
 import com.z_company.domain.util.sum
 import com.z_company.domain.util.toIntOrZero
+import com.z_company.repository.SecureDataStore
 import com.z_company.route.Const.NULLABLE_ID
 import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
 import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
@@ -63,8 +64,8 @@ import java.util.UUID
 class FormViewModel(
     private val routeId: String?,
     private val isCopy: Boolean = false,
-    application: Application,
-) : ViewModel(), KoinComponent {
+    private val application: Application,
+) : AndroidViewModel(application), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val locoUseCase: LocomotiveUseCase by inject()
     private val trainUseCase: TrainUseCase by inject()
@@ -297,7 +298,8 @@ class FormViewModel(
             }
 
             val deferredSurchargeAtExtendedServicePhase = async {
-                salaryCalculationHelper.getMoneyListSurchargeExtendedServicePhaseFlow().first().sum()
+                salaryCalculationHelper.getMoneyListSurchargeExtendedServicePhaseFlow().first()
+                    .sum()
             }
 
             val deferredSurchargeAtHeavyTrains = async {
@@ -363,32 +365,35 @@ class FormViewModel(
             val moneyAtOnePerson = deferredMoneyAtOnePerson.await()
 
             // Теперь, когда все значения получены, выполняем суммирование
-            val surchargeAtTrains = surchargeAtLongDistanceTrain + surchargeAtExtendedServicePhase + surchargeAtHeavyTrains
+            val surchargeAtTrains =
+                surchargeAtLongDistanceTrain + surchargeAtExtendedServicePhase + surchargeAtHeavyTrains
 
-            val otherSurcharge = moneyAtQualificationClass + nordicSurcharge + districtSurcharge + moneyAtHarmfulness + otherSurchargeMoney
+            val otherSurcharge =
+                moneyAtQualificationClass + nordicSurcharge + districtSurcharge + moneyAtHarmfulness + otherSurchargeMoney
 
-            val totalMoney = moneyAtTariffRate + moneyAtNightHours + zonalSurchargeMoney + moneyAtPassengerTime + moneyAtHoliday + surchargeAtTrains + moneyAtOnePerson + otherSurcharge
+            val totalMoney =
+                moneyAtTariffRate + moneyAtNightHours + zonalSurchargeMoney + moneyAtPassengerTime + moneyAtHoliday + surchargeAtTrains + moneyAtOnePerson + otherSurcharge
 
             // Логи (оставляем как есть)
             Log.d("zzz", "moneyAtTariffRate $moneyAtTariffRate")
             Log.d("zzz", "moneyAtHoliday $moneyAtHoliday")
 
             // Обновление состояния только после всех вычислений
-                _salaryForRouteState.update {
-                    it.copy(
-                        isCalculated = true,
-                        isSetTariffRate = isSetTariffRate,
-                        totalPayment = totalMoney,
-                        paymentAtTariffRate = moneyAtTariffRate,
-                        paymentAtNightTime = moneyAtNightHours,
-                        zonalSurchargeMoney = zonalSurchargeMoney,
-                        paymentAtPassengerTime = moneyAtPassengerTime,
-                        paymentHolidayMoney = moneyAtHoliday,
-                        surchargesAtTrain = surchargeAtTrains,
-                        paymentAtOnePerson = moneyAtOnePerson,
-                        otherSurcharge = otherSurcharge
-                    )
-                }
+            _salaryForRouteState.update {
+                it.copy(
+                    isCalculated = true,
+                    isSetTariffRate = isSetTariffRate,
+                    totalPayment = totalMoney,
+                    paymentAtTariffRate = moneyAtTariffRate,
+                    paymentAtNightTime = moneyAtNightHours,
+                    zonalSurchargeMoney = zonalSurchargeMoney,
+                    paymentAtPassengerTime = moneyAtPassengerTime,
+                    paymentHolidayMoney = moneyAtHoliday,
+                    surchargesAtTrain = surchargeAtTrains,
+                    paymentAtOnePerson = moneyAtOnePerson,
+                    otherSurcharge = otherSurcharge
+                )
+            }
 
         }
     }
@@ -520,7 +525,6 @@ class FormViewModel(
 
     // Сохранение
     fun saveRoute() {
-        Log.d("zzz", "saveRoute")
         saveRouteJob?.cancel()
         saveRouteJob = viewModelScope.launch(Dispatchers.IO) {
             currentRoute.value?.let { route ->
@@ -588,28 +592,10 @@ class FormViewModel(
         }
     }
 
-    fun checkPurchasesAvailability() {
-        viewModelScope.launch(Dispatchers.IO) {
-            when (val checkResult = subscriptionHelper.checkPurchasesAvailabilitySuspend()) {
-                is ResultState.Success -> {
-                    _purchasesEvent.emit(StartPurchasesEvent.PurchasesAvailability(checkResult.data))
-                }
-
-                is ResultState.Error -> {
-                    snackbarManager.show(
-                        message = "Ошибка ${checkResult.entity.message}",
-                        showOnceKey = "checkPurchasesAvailability"
-                    )
-                }
-
-                else -> {}
-            }
-        }
-    }
-
     fun restorePurchases() {
         viewModelScope.launch {
-            subscriptionHelper.restorePurchases(snackbarManager)
+            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+            subscriptionHelper.restorePurchases(snackbarManager, token)
         }
     }
 

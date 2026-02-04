@@ -1,10 +1,19 @@
 package com.z_company.repository.remote_rest
 
-import com.z_company.core.ResultState
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
+import com.z_company.repository.remote_rest.request.AddEmailRequest
+import com.z_company.repository.remote_rest.request.AddVKIDRequest
+import com.z_company.repository.remote_rest.request.AuthRequest
+import com.z_company.repository.remote_rest.request.RegisteredRequestByEmail
+import com.z_company.repository.remote_rest.request.RegisteredRequestByVKID
+import com.z_company.repository.remote_rest.request.UpdateEmailRequest
+import com.z_company.repository.remote_rest.response.AuthResponse
+import com.z_company.repository.remote_rest.response.LoginResponse
+import com.z_company.repository.remote_rest.response.SuccessResponse
+import com.z_company.repository.remote_rest.response.UserWithRouteResponse
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -12,7 +21,6 @@ import retrofit2.http.Header
 import retrofit2.http.Headers
 import retrofit2.http.PATCH
 import retrofit2.http.POST
-import retrofit2.http.Query
 
 interface RemoteRestApi {
     @Headers("Content-Type: application/json")
@@ -48,7 +56,7 @@ interface RemoteRestApi {
     suspend fun saveRoute(
         @Header("Authorization") token: String,
         @Body data: Route,
-    ): Response<Route>
+    ): Response<Void>
 
     @GET("v1/route")
     suspend fun getRoutes(
@@ -57,11 +65,11 @@ interface RemoteRestApi {
 
 
 
-    @Headers("Content-Type: text/plain")
+    @Headers("Content-Type: application/json")
     @PATCH("v1/auth/vkId/add")
     suspend fun attachVKID(
         @Header("Authorization") token: String,
-        @Body vkId: String
+        @Body data: AddVKIDRequest
     ): Response<UserWithRouteResponse>
 
     @Headers("Content-Type: application/json")
@@ -98,4 +106,18 @@ interface RemoteRestApi {
     suspend fun getMonthOfYearList(
         @Header("Authorization") token: String
     ): Response<List<MonthOfYear>>
+
+    @Headers("Content-Type: application/json")
+    @PATCH("v1/auth/email/update")
+    suspend fun updateEmail(
+        @Header("Authorization") token: String,
+        @Body data: UpdateEmailRequest
+    ): Response<SuccessResponse>
+
+    @Headers("Content-Type: application/json")
+    @PATCH("v1/auth/email/add")
+    suspend fun addEmailToUser(
+        @Header("Authorization") token: String,
+        @Body body: AddEmailRequest
+    ): Response<SuccessResponse>
 }

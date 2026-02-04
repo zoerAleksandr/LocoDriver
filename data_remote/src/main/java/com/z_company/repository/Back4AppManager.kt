@@ -464,12 +464,7 @@ class Back4AppManager : KoinComponent {
                                         }.join()
 
                                         this.launch {
-                                            routeUseCase.setSynchronizedRoute(route.basicData.id)
-                                                .collect {
-                                                    if (it is ResultState.Success) {
-                                                        this.cancel()
-                                                    }
-                                                }
+                                            routeUseCase.setSynchronizedRoute(route.basicData.id).first()
                                         }.join()
                                     }
 
@@ -568,12 +563,7 @@ class Back4AppManager : KoinComponent {
                         }.join()
 
                         this.launch {
-                            routeUseCase.setSynchronizedRoute(route.basicData.id)
-                                .collect {
-                                    if (it is ResultState.Success) {
-                                        this.cancel()
-                                    }
-                                }
+                            routeUseCase.setSynchronizedRoute(route.basicData.id).first()
                         }.join()
 
                         trySend(ResultState.Success(Unit))

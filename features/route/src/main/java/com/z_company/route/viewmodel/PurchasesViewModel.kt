@@ -1,7 +1,9 @@
 package com.z_company.route.viewmodel
 
+import android.app.Application
 import android.util.Log
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.application
 import androidx.lifecycle.viewModelScope
 import com.robokassa.library.models.Culture
 import com.robokassa.library.models.PaymentMethod
@@ -10,11 +12,17 @@ import com.robokassa.library.models.ReceiptItem
 import com.robokassa.library.models.Tax
 import com.robokassa.library.params.PaymentParams
 import com.robokassa.library.pay.RobokassaPayLauncher
+import com.z_company.core.ResultState
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.Product
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.repository.SecureDataStore
+import com.z_company.repository.remote_rest.AuthManager
+import com.z_company.repository.remote_rest.GetUserProfileState
+import com.z_company.repository.remote_rest.SettingManager
+import com.z_company.use_case.SubscriptionHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -40,7 +48,8 @@ sealed class BillingEvent {
         BillingEvent()
 }
 
-class PurchasesViewModel : ViewModel(), KoinComponent {
+class PurchasesViewModel(application: Application) : AndroidViewModel(application),
+    KoinComponent {
     private val MERCHANT_LOGIN = "LOCO_DRIVER_SHOP"
     private val PASSWORD_1 = "g1hybfLQChf4e508yRIX"
     private val PASSWORD_2 = "lGOmC8y1iNRbJ9M1fA3w"
@@ -48,14 +57,22 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
     private val settingsUseCase: SettingsUseCase by inject()
     private val snackbarManager: ISnackbarManager by inject()
 
+    private val subscriptionHelper: SubscriptionHelper by inject()
+
+    private val settingManager: SettingManager by inject()
+
     private val _state = MutableStateFlow(BillingState(isLoading = true))
     val state = _state.asStateFlow()
+
+    private val _purchasesEndTime = MutableStateFlow(0L)
+    val purchasesEndTime = _purchasesEndTime.asStateFlow()
 
     private val _event = MutableSharedFlow<BillingEvent>(
         extraBufferCapacity = 1,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
     val event = _event.asSharedFlow()
+    var currentEmail: String = ""
 
     init {
         loadDateConverter()
@@ -67,6 +84,15 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
             val setting = settingsUseCase.getUserSettingFlow().first()
             _state.update { it.copy(dateAndTimeConverter = DateAndTimeConverter(setting)) }
         }
+        viewModelScope.launch {
+            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+            val fullToken = "Bearer $token"
+            AuthManager.getUserProfile(fullToken).collect { state ->
+                if (state is GetUserProfileState.Success) {
+                    currentEmail = state.user.email
+                }
+            }
+        }
     }
 
     fun refreshProductsAndPurchases() {
@@ -77,18 +103,18 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                 val products = listOf(
                     Product(
                         name = "1 месяц",
-                        desc = "",
-                        sum = 1.00
+                        desc = "Новичек",
+                        sum = 69.0
                     ),
                     Product(
                         name = "3 месяца",
-                        desc = "",
-                        sum = 2.00
+                        desc = "Эксперт",
+                        sum = 179.0
                     ),
                     Product(
                         name = "1 год",
-                        desc = "",
-                        sum = 3.00
+                        desc = "Профи",
+                        sum = 599.0
                     )
                 )
                 _state.update {
@@ -101,18 +127,31 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                 _event.tryEmit(BillingEvent.ShowError(t))
                 _state.update { it.copy(isLoading = false) }
             }
+            settingsUseCase.getUserSettingFlow().collect { setting ->
+                val purchasesEndTime = setting.subscriptionPeriod
+                _purchasesEndTime.value = purchasesEndTime
+            }
         }
     }
 
     fun restoreSubscribe() {
-        // TODO получить данные о сроках оплаты из облака FAST_API
+        viewModelScope.launch {
+            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+            subscriptionHelper.restorePurchases(snackbarManager, token)
+        }
     }
 
     fun onProductClick(product: Product) {
         viewModelScope.launch {
-            val opKey = sharedPrefs.getOPKeyRobokassa()
-            val paymentParams = createPaymentParams(product, opKey)
-            _event.tryEmit(BillingEvent.StartPayment(paymentParams))
+//            val opKey = sharedPrefs.getOPKeyRobokassa()
+            val userId = SecureDataStore.getUserIdFlow(context = application).first()
+            if (userId != null) {
+                val paymentParams =
+                    createPaymentParams(product = product, opKey = null, userId = userId)
+                _event.tryEmit(BillingEvent.StartPayment(paymentParams))
+            } else {
+                _event.tryEmit(BillingEvent.ShowError(Throwable(message = "Отсутствует User ID")))
+            }
         }
     }
 
@@ -122,7 +161,11 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
      * @param opKey Токен сохранённой карты (null для первой оплаты).
      * @return PaymentParams.
      */
-    private fun createPaymentParams(product: Product, opKey: String?): PaymentParams {
+    private fun createPaymentParams(
+        product: Product,
+        opKey: String?,
+        userId: String
+    ): PaymentParams {
         return PaymentParams().setParams {
             orderParams {
                 invoiceId = System.currentTimeMillis().toInt()
@@ -146,11 +189,12 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
             }
             customerParams {
                 culture = Culture.RU
-                email = "zoer.aleksandr@gmail.com"
+                email = currentEmail
             }
             viewParams {
                 toolbarText = "Оплата ${product.name}"
             }
+            shp = mapOf("user_id" to userId)
         }.also {
             it.setCredentials(
                 MERCHANT_LOGIN,
@@ -161,16 +205,23 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    // Новое: Метод для обработки успеха (сохраняет opKey).
-    // Вызывается из callback в экране.
-    fun handlePaymentSuccess(success: RobokassaPayLauncher.Success) {
-        sharedPrefs.setOPKeyRobokassa(success.opKey)
-        snackbarManager.show("Оплата успешна! opKey сохранён для повторных оплат.")
-        Log.d("zzz", "Success: invoiceId=${success.invoiceId}, opKey=${success.opKey}")
+    fun handlePaymentSuccess(success: RobokassaPayLauncher.Success?) {
+        viewModelScope.launch {
+            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+            val result = subscriptionHelper.restorePurchases(null, token)
+            if (result is ResultState.Success) {
+                val updatedSetting =
+                    settingsUseCase.getUserSettingFlow().first()  // Sync fetch актуального значения
+                _purchasesEndTime.value = updatedSetting.subscriptionPeriod
+            }
+        }
+        success?.let {
+            snackbarManager.show("Оплата прошла успешна!")
+        }
     }
 
     // Новое: Метод для эмиссии события StartPayment.
-    // Для чего: Чтобы из MainViewModel (при возврате) или из onProductClick можно было эмитировать событие для запуска launcher в UI с нужным onlyCheck. Это упрощает обработку возврата без дублирования кода.
+// Для чего: Чтобы из MainViewModel (при возврате) или из onProductClick можно было эмитировать событие для запуска launcher в UI с нужным onlyCheck. Это упрощает обработку возврата без дублирования кода.
     fun emitStartPayment(params: PaymentParams, onlyCheck: Boolean) {
         _event.tryEmit(BillingEvent.StartPayment(params, onlyCheck))
     }

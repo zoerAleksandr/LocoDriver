@@ -37,10 +37,10 @@ val viewModelModule = module {
         PassengerFormViewModel(passengerId = passengerId, basicId = basicId)
     }
     viewModel { SearchViewModel() }
-    viewModel { PurchasesViewModel() }
+    viewModel { PurchasesViewModel(androidApplication()) }
     viewModel { SalaryCalculationViewModel() }
     viewModel { SettingSalaryViewModel() }
     viewModel { AllRouteViewModel(androidApplication()) }
-    viewModel { WorkScheduleViewModel() }
+    viewModel { WorkScheduleViewModel(androidApplication()) }
     viewModel { ProfileViewModel(androidApplication()) }
 }

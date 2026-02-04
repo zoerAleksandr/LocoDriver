@@ -1,6 +1,8 @@
 package com.z_company.domain.repositories
 
 interface SharedPreferencesRepositories {
+    fun setLastSyncTimestamp(time: Long)
+    fun getLastSyncTimestamp(): Long
 
     fun getOPKeyRobokassa(): String?
     fun setOPKeyRobokassa(opKey: String?)

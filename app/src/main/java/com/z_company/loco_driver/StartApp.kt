@@ -17,6 +17,15 @@ import com.z_company.loco_driver.di.viewModelModule
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
 import java.util.Locale
+import androidx.work.Constraints
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.z_company.work_manager.SyncWorker
+import java.util.TimeZone
+import java.util.concurrent.TimeUnit
+import kotlin.time.Duration
 
 class StartApp : Application() {
 
@@ -51,6 +60,34 @@ class StartApp : Application() {
                 paymentsModule,
                 updateModule
             )
+        }
+
+        val workManager = WorkManager.getInstance(this)
+        val workInfos = workManager.getWorkInfosForUniqueWork("sync_work")
+            .get()  // Синхронно получаем список (в onCreate ок, т.к. быстро)
+
+        if (workInfos.isEmpty()) {
+            // Добавлено: Планирование периодической задачи синхронизации с помощью WorkManager
+            // Для чего: Чтобы автоматически запускать синхронизацию данных каждые 36 часов в фоне, даже если приложение закрыто.
+            // Требования: Интернет-соединение. Задача уникальна по имени "sync_work", чтобы избежать дубликатов.
+            val constraints = Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED) // Требует подключения к сети
+                .build()
+
+            val periodicWorkRequest = PeriodicWorkRequestBuilder<SyncWorker>(
+                repeatInterval = 36, // Период в 36 часов
+                repeatIntervalTimeUnit = TimeUnit.HOURS
+            )
+                .setInitialDelay(6, TimeUnit.HOURS)
+                .setConstraints(constraints)
+                .build()
+
+            WorkManager.getInstance(this)
+                .enqueueUniquePeriodicWork(
+                    "sync_work", // Уникальное имя задачи
+                    ExistingPeriodicWorkPolicy.KEEP, // Если задача уже существует, сохранить её (не заменять)
+                    periodicWorkRequest
+                )
         }
     }
 }

@@ -42,6 +42,7 @@ import org.koin.compose.koinInject
 import com.robokassa.library.pay.RobokassaPayLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -52,8 +53,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.z_company.domain.entities.Product
 import com.z_company.domain.util.toMoneyString
@@ -133,6 +137,7 @@ fun PurchasesScreen(
             is RobokassaPayLauncher.Success -> {
                 Log.d("zzz", "RobokassaPayLauncher.Success")
                 viewModel.handlePaymentSuccess(result)  // Сохраняем opKey
+
             }
 
             is RobokassaPayLauncher.Error -> {
@@ -141,6 +146,8 @@ fun PurchasesScreen(
             }
 
             is RobokassaPayLauncher.Canceled -> {
+                // вызываем для обновления данных после оплаты
+                viewModel.handlePaymentSuccess(null)
                 Log.d("zzz", "RobokassaPayLauncher.Canceled")
                 snackbarManager.show("Оплата отменена")
             }
@@ -204,18 +211,27 @@ fun PurchasesScreen(
                 .padding(padding)
                 .padding(horizontal = 16.dp),
         ) {
+            val purchasesEndTimeInLong = viewModel.purchasesEndTime.collectAsState()
+            val currentState by viewModel.state.collectAsState()  // Reactive для всего state, чтобы converter был актуальным
+            val purchasesEndTime = currentState.dateAndTimeConverter?.getDateAndTime(purchasesEndTimeInLong.value)
+            Spacer(modifier = Modifier.height(16.dp))
+            if (!purchasesEndTime.isNullOrBlank()) {
+                Text(text = "Оплачено до $purchasesEndTime",color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyLarge)
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             billingState.products.forEach { product ->
                 val isActive =
                     billingState.activeExpirations.containsKey<String>(product.name)
 
-                val expiryText =
-                    billingState.activeExpirations[product.name]?.let { expiryMillis ->
-                        billingState.dateAndTimeConverter?.getDateAndTime(expiryMillis)
-                    }
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .shadow(elevation = 2.dp, shape = Shapes.medium)
+                        .clickable {
+                            onProductClick(product)
+                        }
                         .background(
                             color = MaterialTheme.colorScheme.secondary,
                             shape = Shapes.medium
@@ -229,62 +245,50 @@ fun PurchasesScreen(
                         )
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
-                    if (isActive) {
-                        Box(
-                            modifier = Modifier
-                                .padding(bottom = 4.dp)
-                                .background(
-                                    color = MaterialTheme.colorScheme.surfaceContainerLow,
-                                    shape = Shapes.medium
-                                )
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "Оплачено до $expiryText",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.secondary
-                            )
-                        }
-                    }
-                    Text(
-                        text = product.name,
-                        style = dataStyle,
-                        color = MaterialTheme.colorScheme.primary
-                    )
                     if (product.desc.isNotEmpty()) {
                         Text(
                             text = product.desc,
-                            style = hintStyle,
+                            style = dataStyle.copy(fontWeight = FontWeight.Bold),
                             modifier = Modifier.padding(top = 4.dp),
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
-                    if (!isActive) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = product.sum.toMoneyString(),
-                                style = dataStyle,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-
-                            TextButton(
-                                onClick = { onProductClick(product) }
-                            ) {
-                                Text(
-                                    text = "Купить",
-                                    color = MaterialTheme.colorScheme.tertiary,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                        }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Start,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = product.name,
+                            style = dataStyle,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = " за ",
+                            style = dataStyle,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "${product.sum.toInt()} ₽",
+                            style = dataStyle,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
                     }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.End,
+                        text = "Купить",
+                        color = MaterialTheme.colorScheme.tertiary,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+
+
                 }
                 Spacer(modifier = Modifier.height(16.dp))
             }
@@ -299,7 +303,7 @@ fun PurchasesScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             Text(
                 text = "Обращаем Ваше внимание, покупка автоматически не продлевается. По окончанию срока ее действия необходимо снова совершить покупку.",

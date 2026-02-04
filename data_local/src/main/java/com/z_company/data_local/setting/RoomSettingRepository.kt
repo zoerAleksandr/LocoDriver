@@ -16,9 +16,18 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import java.lang.Exception
 
 class RoomSettingRepository : SettingsRepository, KoinComponent {
     private val dao: SettingsDao by inject()
+
+    override fun updateSubscriptionPeriod(
+        time: Long,
+    ): Flow<ResultState<Unit>> {
+        return flowRequest {
+            dao.updateSubscriptionPeriod(time = time, key = SETTINGS_KEY)
+        }
+    }
 
     override fun setDieselCoefficient(value: Double): Flow<ResultState<Unit>> {
         return flowRequest {
@@ -53,18 +62,28 @@ class RoomSettingRepository : SettingsRepository, KoinComponent {
     override fun getFlowSettingsState(): Flow<ResultState<UserSettings>> {
         return flowMap {
             dao.getFlowSettings().map { settings ->
-                ResultState.Success(
-                    settings.let {
-                        UserSettingsConverter.toData(settings)
-                    }
-                )
+                if (settings != null) {
+                    ResultState.Success(UserSettingsConverter.toData(settings))
+                } else {
+                    val defaultSettings =
+                        UserSettingsConverter.fromData(UserSettings())  // Создаём default (предполагаю, что конструктор с дефолтами; адаптируйте, если нужно задать поля явно, например, subscriptionPeriod = 0L)
+                    dao.saveSettings(defaultSettings)  // Вставляем в базу (добавьте @Insert метод в DAO, если нет)
+                    ResultState.Success(UserSettingsConverter.toData(defaultSettings))
+                }
             }
         }
     }
 
     override fun getUserSettingFlow(): Flow<UserSettings> {
         return dao.getFlowSettings().map { setting ->
-            UserSettingsConverter.toData(setting)
+            if (setting != null) {
+                UserSettingsConverter.toData(setting)
+            } else {
+                val defaultSettings =
+                    UserSettingsConverter.fromData(UserSettings())  // Создаём default (предполагаю, что конструктор с дефолтами; адаптируйте, если нужно задать поля явно, например, subscriptionPeriod = 0L)
+                dao.saveSettings(defaultSettings)  // Вставляем в базу (добавьте @Insert метод в DAO, если нет)
+                UserSettingsConverter.toData(defaultSettings)
+            }
         }
     }
 

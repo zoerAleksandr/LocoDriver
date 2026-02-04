@@ -622,7 +622,7 @@ fun ItemHomeScreen(
                                     )
                                 }
 
-                                if (route.basicData.isSynchronizedRoute) {
+                                if (route.basicData.isSynchronized) {
                                     Image(
                                         modifier = Modifier.size(20.dp),
                                         painter = painterResource(id = R.drawable.sync_on_icon),
@@ -632,7 +632,7 @@ fun ItemHomeScreen(
                                     Icon(
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(20.dp),
-                                        painter = painterResource(id = R.drawable.not_sync_icon),
+                                        painter = painterResource(id = R.drawable.sync_disabled_24px),
                                         contentDescription = null,
                                     )
                                 }

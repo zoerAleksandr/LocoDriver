@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.application
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
@@ -40,6 +41,8 @@ import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.use_cases.TrainUseCase
+import com.z_company.repository.SecureDataStore
+import com.z_company.repository.remote_rest.RoutesManager
 import com.z_company.route.viewmodel.PreviewRouteUiState
 import com.z_company.route.viewmodel.RouteActionsHelper
 import com.z_company.route.viewmodel.SalaryCalculationHelper
@@ -669,21 +672,30 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     }
 
     fun syncRoute(route: Route) {
+        val routesManager = RoutesManager
         viewModelScope.launch {
-            routeHelper.syncRoute(route).collect { result ->
-                when (result) {
-                    is ResultState.Success -> {
-                        // show snackbar centrally
-                        snackbarManager.show(message = result.data)
-                    }
+            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+            val fullToken = "Bearer $token"
+            if (token == null) {
+                snackbarManager.show(message = "Неавторизованный пользователь")
+            } else {
+                routesManager.saveRouteInRemote(route, fullToken).collect { resultState ->
+                    when (resultState) {
+                        is ResultState.Success -> {
+                            // show snackbar centrally
+                            routeUseCase.setSynchronizedRoute(route.basicData.id).first()
+                            snackbarManager.show(message = "Маршрут сохранен в облаке")
+                        }
 
-                    is ResultState.Error -> {
-                        val message = result.entity.message ?: result.entity.throwable?.message
-                        ?: "Ошибка синхронизации"
-                        snackbarManager.show(message = message)
-                    }
+                        is ResultState.Error -> {
+                            val message =
+                                resultState.entity.message ?: resultState.entity.throwable?.message
+                                ?: "Ошибка синхронизации"
+                            snackbarManager.show(message = message)
+                        }
 
-                    is ResultState.Loading -> {
+                        is ResultState.Loading -> {
+                        }
                     }
                 }
             }
