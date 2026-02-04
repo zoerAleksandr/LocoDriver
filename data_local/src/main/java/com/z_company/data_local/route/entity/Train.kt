@@ -8,7 +8,7 @@ import androidx.room.PrimaryKey
 import androidx.room.TypeConverters
 import com.z_company.data_local.route.entity_converters.ServicePhaseConverter
 import com.z_company.data_local.route.type_converters.StationConverter
-import com.z_company.domain.entities.ServicePhase
+import com.z_company.domain.entities.setting.ServicePhase
 
 @Entity(
     foreignKeys = [

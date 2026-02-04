@@ -2,8 +2,8 @@ package com.z_company.domain.use_cases
 
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.MonthOfYear
-import com.z_company.domain.entities.NightTime
-import com.z_company.domain.entities.UserSettings
+import com.z_company.domain.entities.setting.NightTime
+import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.repositories.SettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -69,6 +69,10 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
 
     fun setDieselCoefficient(coefficient: Double): Flow<ResultState<Unit>> {
         return settingsRepository.setDieselCoefficient(coefficient)
+    }
+
+    fun updateSubscriptionPeriod(time: Long): Flow<ResultState<Unit>> {
+        return settingsRepository.updateSubscriptionPeriod(time)
     }
 
     fun setDefaultSettings(currentMonthOfYear: MonthOfYear): Flow<ResultState<Unit>> {

@@ -18,6 +18,7 @@ data class RouteFormUiState(
 
 data class SalaryForRouteState(
     val isCalculated: Boolean = false,
+    val isSetTariffRate: Boolean = false,
     val totalPayment: Double? = null,
     val paymentAtTariffRate: Double? = null,
     val zonalSurchargeMoney: Double? = null,

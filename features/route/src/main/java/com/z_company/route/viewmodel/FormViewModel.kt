@@ -2,14 +2,16 @@ package com.z_company.route.viewmodel
 
 import android.app.Application
 import android.util.Log
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.core.ui.snackbar.ISnackbarManager
+import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.MonthOfYear
-import com.z_company.domain.entities.NightTime
-import com.z_company.domain.entities.UserSettings
+import com.z_company.domain.entities.setting.NightTime
+import com.z_company.domain.entities.setting.SalarySetting
+import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.Passenger
@@ -23,12 +25,13 @@ import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.LocomotiveUseCase
 import com.z_company.domain.use_cases.PassengerUseCase
 import com.z_company.domain.use_cases.RouteUseCase
-import com.z_company.domain.use_cases.SalaryCalculationUseCase
+import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.use_cases.TrainUseCase
 import com.z_company.domain.util.CalculateNightTime
 import com.z_company.domain.util.sum
 import com.z_company.domain.util.toIntOrZero
+import com.z_company.repository.SecureDataStore
 import com.z_company.route.Const.NULLABLE_ID
 import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
 import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
@@ -61,18 +64,18 @@ import java.util.UUID
 class FormViewModel(
     private val routeId: String?,
     private val isCopy: Boolean = false,
-    application: Application,
-) : ViewModel(), KoinComponent {
+    private val application: Application,
+) : AndroidViewModel(application), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val locoUseCase: LocomotiveUseCase by inject()
     private val trainUseCase: TrainUseCase by inject()
     private val passengerUseCase: PassengerUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
-    private val salaryCalculationUseCase: SalaryCalculationUseCase by inject()
     private val routeHelper: RouteActionsHelper by inject()
     private val snackbarManager: ISnackbarManager by inject()
     private val subscriptionHelper: SubscriptionHelper by inject()
+    private val salarySettingUseCase: SalarySettingUseCase by inject()
 
     val reviewManager = RuStoreReviewManagerFactory.create(application.applicationContext)
 
@@ -116,6 +119,9 @@ class FormViewModel(
 
     private val _userSetting = MutableStateFlow<UserSettings?>(null)
     val userSetting: StateFlow<UserSettings?> = _userSetting.asStateFlow()
+
+    private val _salarySetting = MutableStateFlow<SalarySetting?>(null)
+    val salarySetting: StateFlow<SalarySetting?> = _salarySetting.asStateFlow()
 
     private val _dateAndTimeConverter = MutableStateFlow<DateAndTimeConverter?>(null)
     val dateAndTimeConverter: StateFlow<DateAndTimeConverter?> = _dateAndTimeConverter.asStateFlow()
@@ -167,17 +173,28 @@ class FormViewModel(
             }
         }
 
+        viewModelScope.launch {
+            _salarySetting.value = salarySettingUseCase.salarySettingFlow().first()
+        }
+
         // Комбинированный flow для всех вычислений (реактивно на изменения route и settings)
         viewModelScope.launch(Dispatchers.IO) {
             combine(
                 currentRoute,
-                userSetting
-            ) { route, settings ->
-                Pair(route, settings)
-            }.collectLatest { (route, settings) ->
-                if (route != null && settings != null) {
+                userSetting,
+                salarySetting
+            ) { route, settings, salSetting ->
+                Triple(route, settings, salSetting)
+            }.collectLatest { (route, settings, salSetting) ->
+                if (route != null && settings != null && salSetting != null) {
+                    val routeList = listOf(route)
+                    val salaryCalculationHelper = SalaryCalculationHelper(
+                        userSettings = settings,
+                        salarySetting = salSetting,
+                        routeList = routeList
+                    )
                     coroutineScope {
-                        launch { calculateSalary(route, settings) }
+                        launch { calculateSalary(salaryCalculationHelper, route, settings) }
                         launch { getNightTimeInRoute(route) }
                         launch { getHolidayTimeInRoute(route, settings) }
                         launch { calculationHomeRest(route) }
@@ -193,7 +210,6 @@ class FormViewModel(
 
     // Асинхронная загрузка данных
     private fun loadData() {
-        Log.d("zzz", "loadData")
         loadRouteJob?.cancel()
         loadRouteJob = viewModelScope.launch(Dispatchers.IO) {
             if (isNewRoute) {
@@ -223,141 +239,162 @@ class FormViewModel(
         }
     }
 
+    // передаем время в нужном формате в зависимости от выбора пользователя
+    fun convertTimeToStringFormat(timeToLong: Long?): String {
+        userSetting.value?.let { settings ->
+            return if (settings.isDecimalTime) {
+                ConverterLongToTime.getTimeInStringDecimalFormat(timeToLong)
+            } else {
+                ConverterLongToTime.getTimeInStringFormat(timeToLong)
+            }
+        }
+        return ConverterLongToTime.getTimeInStringFormat(timeToLong)
+    }
+
     // Реактивные вычисления
-    private suspend fun calculateSalary(route: Route, setting: UserSettings) {
+    private suspend fun calculateSalary(
+        salaryCalculationHelper: SalaryCalculationHelper,
+        route: Route,
+        setting: UserSettings
+    ) {
         val workTime = route.getWorkTime()
         if (workTime == null) {
             _salaryForRouteState.update { it.copy(isCalculated = false) }
             return
         }
-//        val moneyAtTariffRate =
-//            salaryCalculationUseCase.getMoneyAtWorkTimeAtTariff(listOf(route), setting)
-//        val moneyAtNightHours =
-//            salaryCalculationUseCase.getMoneyAtNightTime(listOf(route), setting)
-//        val zonalSurchargeMoney =
-//            salaryCalculationUseCase.getMoneyAtZonalSurcharge(listOf(route), setting)
-//        val moneyAtPassenger = salaryCalculationUseCase.getMoneyAtPassenger(listOf(route), setting)
-//        val moneyAtHoliday = salaryCalculationUseCase.getMoneyAtHoliday(listOf(route), setting)
-//        val moneyAtOnePerson = salaryCalculationUseCase.getMoneyAtOnePersonOperation(listOf(route), setting)
 
+        val isSetTariffRate = setting.selectMonthOfYear.tariffRate != 0.0
 
-        val moneyAtTariffRate =
-            salaryCalculationUseCase.getMoneyAtWorkTimeAtTariff(
-                routeList = listOf(route),
-                userSettings = setting
-            )
+        // Оборачиваем параллельные вычисления в coroutineScope для создания вложенного scope корутин.
+        // Это позволит запустить все .first() асинхронно и дождаться их завершения.
+        coroutineScope {
+            // Создаём Deferred для каждого асинхронного вызова .first().
+            // Deferred — это объект, который представляет будущий результат вычисления.
+            // Мы используем async { ... } для запуска в параллель.
+            val deferredMoneyAtTariffRate = async {
+                var value = salaryCalculationHelper.getMoneyAtWorkTimeAtTariffSingleRoute().first()
+                if (value < 0.0) value = 0.0
+                value  // Возвращаем значение для await позже
+            }
 
-        val moneyAtNightHours =
-            salaryCalculationUseCase.getMoneyAtNightTime(
-                routeList = listOf(route),
-                userSettings = setting
-            )
-        val zonalSurchargeMoney =
-            salaryCalculationUseCase.getMoneyAtZonalSurcharge(
-                routeList = listOf(route),
-                userSettings = setting,
-            )
+            val deferredMoneyAtNightHours = async {
+                salaryCalculationHelper.getMoneyAtNightTimeFlow().first()
+            }
 
-        val moneyAtPassengerTime =
-            salaryCalculationUseCase.getMoneyAtPassenger(
-                routeList = listOf(route),
-                userSettings = setting,
-            )
+            val deferredZonalSurchargeMoney = async {
+                salaryCalculationHelper.getMoneyZonalSurchargeFlow().first()
+            }
 
-        val moneyAtHoliday = salaryCalculationUseCase.getMoneyAtHoliday(
-            routeList = listOf(route),
-            userSettings = setting,
-        )
+            val deferredMoneyAtPassengerTime = async {
+                salaryCalculationHelper.getMoneyAtPassengerFlow().first()
+            }
 
-        val surchargeAtLongDistanceTrain =
-            salaryCalculationUseCase.getMoneyAtLongDistanceTrain(
-                listOf(route),
-                userSettings = setting
-            )
-        val surchargeAtExtendedServicePhase =
-            salaryCalculationUseCase.getMoneyListSurchargeExtendedServicePhase(
-                routeList = listOf(route),
-                userSettings = setting,
-            ).sum()
-        val surchargeAtHeavyTrains =
-            salaryCalculationUseCase.getMoneyListSurchargeHeavyTrains(
-                routeList = listOf(route),
-                userSettings = setting
-            ).sum()
+            val deferredMoneyAtHoliday = async {
+                salaryCalculationHelper.getMoneyAtHolidayFlow().first()
+            }
 
-        val surchargeAtTrains =
-            surchargeAtLongDistanceTrain + surchargeAtExtendedServicePhase + surchargeAtHeavyTrains
+            val deferredSurchargeAtLongDistanceTrain = async {
+                salaryCalculationHelper.getMoneyLongDistanceTrainFlow().first()
+            }
 
-        var isPassengerTrain = false
-        passengerTrainNumberList.forEach { interval ->
-            route.trains.forEach { train ->
-                if (interval.contains(train.number.toIntOrZero())) {
-                    isPassengerTrain = true
-                    return@forEach
+            val deferredSurchargeAtExtendedServicePhase = async {
+                salaryCalculationHelper.getMoneyListSurchargeExtendedServicePhaseFlow().first()
+                    .sum()
+            }
+
+            val deferredSurchargeAtHeavyTrains = async {
+                salaryCalculationHelper.getMoneyListSurchargeExtendedHeavyTrainsFlow().first().sum()
+            }
+
+            val deferredMoneyAtQualificationClass = async {
+                salaryCalculationHelper.getMoneyAtQualificationClassFlow().first()
+            }
+
+            val deferredNordicSurcharge = async {
+                salaryCalculationHelper.getMoneyNordicSurcharge().first()
+            }
+
+            val deferredDistrictSurcharge = async {
+                salaryCalculationHelper.getMoneyDistrictSurcharge().first()
+            }
+
+            val deferredMoneyAtHarmfulness = async {
+                salaryCalculationHelper.getMoneyHarmfulnessFlow().first()
+            }
+
+            val deferredOtherSurchargeMoney = async {
+                salaryCalculationHelper.getMoneyOtherSurchargeFlow().first()
+            }
+
+            // Синхронная логика (не требует async)
+            var isPassengerTrain = false
+            passengerTrainNumberList.forEach { interval ->
+                route.trains.forEach { train ->
+                    if (interval.contains(train.number.toIntOrZero())) {
+                        isPassengerTrain = true
+                        return@forEach
+                    }
                 }
             }
-        }
-        val moneyAtOnePerson = if (isPassengerTrain) {
-            salaryCalculationUseCase.getMoneyAtOnePersonOperationPassengerTrain(
-                routeList = listOf(route),
-                userSettings = setting
-            )
-        } else {
-            salaryCalculationUseCase.getMoneyAtOnePersonOperation(
-                routeList = listOf(route),
-                userSettings = setting
-            )
-        }
 
-        val moneyAtQualificationClass =
-            salaryCalculationUseCase.getMoneyAtQualificationClass(
-                routeList = listOf(route),
-                userSettings = setting
-            )
+            // Deferred для moneyAtOnePerson (зависит от isPassengerTrain, но .first() асинхронный)
+            val deferredMoneyAtOnePerson = async {
+                if (isPassengerTrain) {
+                    salaryCalculationHelper.getMoneyOnePersonOperationPassengerTrainFlow().first()
+                } else {
+                    salaryCalculationHelper.getMoneyOnePersonOperationFlow().first()
+                }
+            }
 
-        val nordicSurcharge =
-            salaryCalculationUseCase.getMoneyNordicSurcharge(
-                routeList = listOf(route),
-                userSettings = setting
-            )
+            // Дожидаемся завершения всех асинхронных задач с помощью await().
+            // Мы вызываем await() на каждом Deferred, чтобы получить реальные значения.
+            // Это блокирует выполнение до тех пор, пока все вычисления не завершатся.
+            val moneyAtTariffRate = deferredMoneyAtTariffRate.await()
+            val moneyAtNightHours = deferredMoneyAtNightHours.await()
+            val zonalSurchargeMoney = deferredZonalSurchargeMoney.await()
+            val moneyAtPassengerTime = deferredMoneyAtPassengerTime.await()
+            val moneyAtHoliday = deferredMoneyAtHoliday.await()
+            val surchargeAtLongDistanceTrain = deferredSurchargeAtLongDistanceTrain.await()
+            val surchargeAtExtendedServicePhase = deferredSurchargeAtExtendedServicePhase.await()
+            val surchargeAtHeavyTrains = deferredSurchargeAtHeavyTrains.await()
+            val moneyAtQualificationClass = deferredMoneyAtQualificationClass.await()
+            val nordicSurcharge = deferredNordicSurcharge.await()
+            val districtSurcharge = deferredDistrictSurcharge.await()
+            val moneyAtHarmfulness = deferredMoneyAtHarmfulness.await()
+            val otherSurchargeMoney = deferredOtherSurchargeMoney.await()
+            val moneyAtOnePerson = deferredMoneyAtOnePerson.await()
 
-        val districtSurcharge =
-            salaryCalculationUseCase.getMoneyDistrictSurcharge(
-                routeList = listOf(route),
-                userSettings = setting
-            )
+            // Теперь, когда все значения получены, выполняем суммирование
+            val surchargeAtTrains =
+                surchargeAtLongDistanceTrain + surchargeAtExtendedServicePhase + surchargeAtHeavyTrains
 
-        val moneyAtHarmfulness =
-            salaryCalculationUseCase.getMoneyAtHarmfulness(
-                routeList = listOf(route),
-                userSettings = setting
-            )
+            val otherSurcharge =
+                moneyAtQualificationClass + nordicSurcharge + districtSurcharge + moneyAtHarmfulness + otherSurchargeMoney
 
-        val otherSurchargeMoney =
-            salaryCalculationUseCase.getOtherSurchargeMoney(
-                routeList = listOf(route),
-                userSettings = setting
-            )
+            val totalMoney =
+                moneyAtTariffRate + moneyAtNightHours + zonalSurchargeMoney + moneyAtPassengerTime + moneyAtHoliday + surchargeAtTrains + moneyAtOnePerson + otherSurcharge
 
-        val otherSurcharge =
-            moneyAtQualificationClass + nordicSurcharge + districtSurcharge + moneyAtHarmfulness + otherSurchargeMoney
+            // Логи (оставляем как есть)
+            Log.d("zzz", "moneyAtTariffRate $moneyAtTariffRate")
+            Log.d("zzz", "moneyAtHoliday $moneyAtHoliday")
 
-        val totalMoney =
-            moneyAtTariffRate + moneyAtNightHours + zonalSurchargeMoney + moneyAtPassengerTime + moneyAtHoliday + surchargeAtTrains + moneyAtOnePerson + otherSurcharge
+            // Обновление состояния только после всех вычислений
+            _salaryForRouteState.update {
+                it.copy(
+                    isCalculated = true,
+                    isSetTariffRate = isSetTariffRate,
+                    totalPayment = totalMoney,
+                    paymentAtTariffRate = moneyAtTariffRate,
+                    paymentAtNightTime = moneyAtNightHours,
+                    zonalSurchargeMoney = zonalSurchargeMoney,
+                    paymentAtPassengerTime = moneyAtPassengerTime,
+                    paymentHolidayMoney = moneyAtHoliday,
+                    surchargesAtTrain = surchargeAtTrains,
+                    paymentAtOnePerson = moneyAtOnePerson,
+                    otherSurcharge = otherSurcharge
+                )
+            }
 
-        _salaryForRouteState.update {
-            it.copy(
-                isCalculated = true,
-                totalPayment = totalMoney,
-                paymentAtTariffRate = moneyAtTariffRate,
-                paymentAtNightTime = moneyAtNightHours,
-                zonalSurchargeMoney = zonalSurchargeMoney,
-                paymentAtPassengerTime = moneyAtPassengerTime,
-                paymentHolidayMoney = moneyAtHoliday,
-                surchargesAtTrain = surchargeAtTrains,
-                paymentAtOnePerson = moneyAtOnePerson,
-                otherSurcharge = otherSurcharge
-            )
         }
     }
 
@@ -488,7 +525,6 @@ class FormViewModel(
 
     // Сохранение
     fun saveRoute() {
-        Log.d("zzz", "saveRoute")
         saveRouteJob?.cancel()
         saveRouteJob = viewModelScope.launch(Dispatchers.IO) {
             currentRoute.value?.let { route ->
@@ -556,28 +592,10 @@ class FormViewModel(
         }
     }
 
-    fun checkPurchasesAvailability() {
-        viewModelScope.launch(Dispatchers.IO) {
-            when (val checkResult = subscriptionHelper.checkPurchasesAvailabilitySuspend()) {
-                is ResultState.Success -> {
-                    _purchasesEvent.emit(StartPurchasesEvent.PurchasesAvailability(checkResult.data))
-                }
-
-                is ResultState.Error -> {
-                    snackbarManager.show(
-                        message = "Ошибка ${checkResult.entity.message}",
-                        showOnceKey = "checkPurchasesAvailability"
-                    )
-                }
-
-                else -> {}
-            }
-        }
-    }
-
     fun restorePurchases() {
         viewModelScope.launch {
-            subscriptionHelper.restorePurchases(snackbarManager)
+            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+            subscriptionHelper.restorePurchases(snackbarManager, token)
         }
     }
 

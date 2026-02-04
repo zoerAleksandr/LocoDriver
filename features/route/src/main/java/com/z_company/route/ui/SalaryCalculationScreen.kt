@@ -9,6 +9,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,8 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -40,6 +39,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -51,12 +51,16 @@ import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.domain.util.str2decimalSign
 import com.z_company.route.viewmodel.SalaryCalculationUIState
-import androidx.compose.ui.text.rememberTextMeasurer
 import com.z_company.core.ui.component.CustomDivider
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.res.painterResource
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.z_company.route.viewmodel.SalaryCalculationViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SalaryCalculationScreen(
+    viewModel: SalaryCalculationViewModel,
     uiState: SalaryCalculationUIState,
     onSettingsSalaryClick: () -> Unit,
 ) {
@@ -91,7 +95,7 @@ fun SalaryCalculationScreen(
                         onClick = onSettingsSalaryClick
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Settings,
+                            painter = painterResource(com.z_company.route.R.drawable.settings_24px),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary
                         )
@@ -190,7 +194,7 @@ fun SalaryCalculationScreen(
 
                 // Таблица начислений
                 item {
-                    EarningsTable(uiState = uiState)
+                    EarningsTable(uiState = uiState, convertTimeToStringFormat = viewModel::convertTimeToStringFormat)
                 }
 
                 // Заголовок для таблицы удержаний
@@ -238,7 +242,7 @@ fun SalaryCalculationScreen(
 // Таблица начислений (с горизонтальной прокруткой)
 // ===========================================
 @Composable
-private fun EarningsTable(uiState: SalaryCalculationUIState) {
+private fun EarningsTable(uiState: SalaryCalculationUIState, convertTimeToStringFormat: (Long?) -> String) {
     val scrollState = rememberScrollState() // Состояние для горизонтальной прокрутки
     val hintStyle = MaterialTheme.typography.bodyMedium
 
@@ -367,7 +371,7 @@ private fun EarningsTable(uiState: SalaryCalculationUIState) {
             val money = uiState.surchargeExtendedServicePhaseMoney.getOrNull(i) ?: 0.0
             if (money > 0) {
                 EarningsRow(
-                     "Расширенная фаза (${uiState.surchargeExtendedServicePhasePercent[i] ?: ""}%)",
+                    "Удлиненное плечо (${uiState.surchargeExtendedServicePhasePercent[i] ?: ""}%)",
                     uiState.surchargeExtendedServicePhaseHour.getOrNull(i),
                     uiState.surchargeExtendedServicePhasePercent.getOrNull(i)?.toDoubleOrNull(),
                     money
@@ -422,139 +426,164 @@ private fun EarningsTable(uiState: SalaryCalculationUIState) {
         row.isTotal || (row.money != null && row.money > 0)
     }
 
-    // Инструмент для измерения текста
-    val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val screenWidth = LocalConfiguration.current.screenWidthDp.dp - 32.dp
 
-    // Вычисляем максимальную ширину для каждого столбца
-    val titleTexts = listOf("Вид выплаты") + rows.map { it.title }
-    val hoursTexts = listOf("Часы") + rows.map {
-        it.hours?.let { ConverterLongToTime.getTimeInStringFormat(it) } ?: ""
-    }
-    val percentTexts = listOf("%") + rows.map { it.percent?.let { "%.1f".format(it) } ?: "" }
-    val moneyTexts = listOf("Сумма") + rows.map { it.money?.str2decimalSign() ?: "" }
-
-    // Максимальная ширина для первого столбца (maxLines = 2), с ограничением на половину экрана
-    var maxTitleWidth = remember(titleTexts) {
-        titleTexts.maxOf { text ->
-            textMeasurer.measure(
-                text = text,
-                style = hintStyle,
-                maxLines = 2
-            ).size.width
-        }.let { density.run { it.toDp() } } + 16.dp // padding
-    }
-    maxTitleWidth = minOf(maxTitleWidth, screenWidth / 2)
-
-    // Максимальная ширина для второго столбца (maxLines = 1)
-    val maxHoursWidth = remember(hoursTexts) {
-        hoursTexts.maxOf { text ->
-            textMeasurer.measure(
-                text = text,
-                style = hintStyle,
-                maxLines = 1
-            ).size.width
-        }.let { density.run { it.toDp() } } + 16.dp // padding
-    }
-
-    // Максимальная ширина для третьего столбца (maxLines = 1)
-    val maxPercentWidth = remember(percentTexts) {
-        percentTexts.maxOf { text ->
-            textMeasurer.measure(
-                text = text,
-                style = hintStyle,
-                maxLines = 1
-            ).size.width
-        }.let { density.run { it.toDp() } } + 16.dp // padding
-    }
-
-    // Максимальная ширина для четвертого столбца (maxLines = 1)
-    var maxMoneyWidth = remember(moneyTexts) {
-        moneyTexts.maxOf { text ->
-            textMeasurer.measure(
-                text = text,
-                style = hintStyle,
-                maxLines = 1
-            ).size.width
-        }.let { density.run { it.toDp() } } + 16.dp // padding
-    }
-
-    // Вычисляем общую рассчитанную ширину
-    var totalCalculatedWidth = maxTitleWidth + maxHoursWidth + maxPercentWidth + maxMoneyWidth
-
-    // Если общая ширина меньше ширины экрана, добавляем разницу к последнему столбцу
-    if (totalCalculatedWidth < screenWidth) {
-        val extraWidth = screenWidth - totalCalculatedWidth
-        maxMoneyWidth += extraWidth
-    }
-
-    Column {
-        // Заголовок таблицы с горизонтальной прокруткой
-        Row(
-            modifier = Modifier
-                .horizontalScroll(scrollState)
-                .padding(vertical = 8.dp)
-        ) {
-            TableCell(
-                text = "Вид выплаты",
-                width = maxTitleWidth,
-                maxLines = 2,
-                isHeader = true,
-                contentAlignment = Alignment.CenterStart
-            )
-            TableCell(
-                text = "Часы",
-                width = maxHoursWidth,
-                isHeader = true,
-                contentAlignment = Alignment.Center
-            )
-            TableCell(
-                text = "%",
-                width = maxPercentWidth,
-                isHeader = true,
-                contentAlignment = Alignment.Center
-            )
-            TableCell(
-                text = "Сумма",
-                width = maxMoneyWidth,
-                isHeader = true,
-                contentAlignment = Alignment.CenterEnd
-            )
-        }
-
-        CustomDivider(orientation = Orientation.Horizontal)
-
-        // Строки таблицы
-        rows.forEach { row ->
+    // Изменено: Убрал TextMeasurer и расчет maxWidth с measure. Вместо этого добавил скрытый Box для измерения ширины с IntrinsicSize.Max и onGloballyPositioned.
+    // Для чего: Чтобы измерить ширину текстов динамически на рендере с помощью IntrinsicSize.Max (как предлагал пользователь), без ручного measure. Это учитывает display size лучше, так как измерение происходит в реальном контексте Compose. Собираем max ширину для каждого столбца в state.
+    var maxTitleWidth by remember { mutableStateOf(0.dp) }
+    var maxHoursWidth by remember { mutableStateOf(0.dp) }
+    var maxPercentWidth by remember { mutableStateOf(0.dp) }
+    var maxMoneyWidth by remember { mutableStateOf(0.dp) }
+    Box {
+        // Скрытый composable для измерения
+        Box(modifier = Modifier.alpha(0f)) {
             Row(
                 modifier = Modifier
                     .horizontalScroll(scrollState)
-                    .background(if (row.isTotal) MaterialTheme.colorScheme.surfaceDim else Color.Transparent)
+            ) {
+                Column(modifier = Modifier.width(IntrinsicSize.Max)) {
+                    Text("Вид выплаты", style = hintStyle, maxLines = 2)
+                    rows.forEach { row ->
+                        Text(
+                            row.title,
+                            style = hintStyle,
+                            maxLines = 2,
+                            modifier = Modifier
+                                .padding(horizontal = 4.dp, vertical = 4.dp)
+                                .onGloballyPositioned { coords ->
+                                    val widthDp = with(density) { coords.size.width.toDp() } + 16.dp
+                                    if (widthDp > maxTitleWidth) maxTitleWidth = widthDp
+                                })
+                    }
+                }
+                Column(modifier = Modifier.width(IntrinsicSize.Max)) {
+                    Text("Часы", style = hintStyle)
+                    rows.forEach { row ->
+                        Text(row.hours?.let { convertTimeToStringFormat(it) } ?: "",
+                            style = hintStyle,
+                            modifier = Modifier
+                                .padding(horizontal = 4.dp, vertical = 4.dp)
+                                .onGloballyPositioned { coords ->
+                                    val widthDp = with(density) { coords.size.width.toDp() } + 16.dp
+                                    if (widthDp > maxHoursWidth) {
+                                        maxHoursWidth = widthDp
+                                        Log.d("zzz", "maxHoursWidth измеряемое $maxHoursWidth")
+                                    }
+                                })
+                    }
+                }
+                Column(modifier = Modifier.width(IntrinsicSize.Max)) {
+                    Text("%", style = hintStyle)
+                    rows.forEach { row ->
+                        Text(row.percent?.let { "%.1f".format(it) } ?: "",
+                            style = hintStyle,
+                            modifier = Modifier
+                                .padding(horizontal = 4.dp, vertical = 4.dp)
+                                .onGloballyPositioned { coords ->
+                                    val widthDp = with(density) { coords.size.width.toDp() } + 16.dp
+                                    if (widthDp > maxPercentWidth) maxPercentWidth = widthDp
+                                })
+                    }
+                }
+                Column(modifier = Modifier.width(IntrinsicSize.Max)) {
+                    Text("Сумма", style = hintStyle)
+                    rows.forEach { row ->
+                        Text(
+                            row.money?.str2decimalSign() ?: "",
+                            style = hintStyle,
+                            modifier = Modifier
+                                .padding(horizontal = 4.dp, vertical = 4.dp)
+                                .onGloballyPositioned { coords ->
+                                    val widthDp = with(density) { coords.size.width.toDp() } + 16.dp
+                                    if (widthDp > maxMoneyWidth) maxMoneyWidth = widthDp
+                                })
+                    }
+                }
+            }
+        }
+
+        // Изменено: Добавил minOf для maxTitleWidth с screenWidth / 2, как в исходном.
+        // Для чего: Чтобы сохранить ограничение ширины первого столбца, как было.
+        maxTitleWidth = minOf(maxTitleWidth, screenWidth / 2)
+
+        // Вычисляем общую рассчитанную ширину
+        val totalCalculatedWidth = maxTitleWidth + maxHoursWidth + maxPercentWidth + maxMoneyWidth
+
+        // Если общая ширина меньше ширины экрана, добавляем разницу к последнему столбцу
+        if (totalCalculatedWidth != 0.dp && totalCalculatedWidth < screenWidth) {
+            val extraWidth = screenWidth - totalCalculatedWidth
+            maxMoneyWidth += extraWidth
+        }
+
+        Column {
+            // Заголовок таблицы с горизонтальной прокруткой
+            Row(
+                modifier = Modifier
+                    .horizontalScroll(scrollState)
+                    .padding(vertical = 8.dp)
             ) {
                 TableCell(
-                    text = row.title,
+                    text = "Вид выплаты",
                     width = maxTitleWidth,
                     maxLines = 2,
+                    isHeader = true,
                     contentAlignment = Alignment.CenterStart
                 )
                 TableCell(
-                    text = row.hours?.let { ConverterLongToTime.getTimeInStringFormat(it) } ?: "",
+                    text = "Часы",
                     width = maxHoursWidth,
+                    isHeader = true,
                     contentAlignment = Alignment.Center
                 )
                 TableCell(
-                    text = row.percent?.let { "%.1f".format(it) } ?: "",
+                    text = "%",
                     width = maxPercentWidth,
+                    isHeader = true,
                     contentAlignment = Alignment.Center
                 )
                 TableCell(
-                    text = row.money?.str2decimalSign() ?: "",
+                    text = "Сумма",
                     width = maxMoneyWidth,
+                    isHeader = true,
                     contentAlignment = Alignment.CenterEnd
                 )
             }
+
             CustomDivider(orientation = Orientation.Horizontal)
+
+            // Строки таблицы
+            rows.forEach { row ->
+                Row(
+                    modifier = Modifier
+                        .horizontalScroll(scrollState)
+                        .background(if (row.isTotal) MaterialTheme.colorScheme.surfaceDim else Color.Transparent)
+                ) {
+                    TableCell(
+                        text = row.title,
+                        width = maxTitleWidth,
+                        maxLines = 2,
+                        contentAlignment = Alignment.CenterStart
+                    )
+                    TableCell(
+                        text = row.hours?.let { convertTimeToStringFormat(it) }
+                            ?: "",
+                        width = maxHoursWidth,
+                        contentAlignment = Alignment.Center
+                    )
+                    TableCell(
+                        text = row.percent?.let { "%.1f".format(it) } ?: "",
+                        width = maxPercentWidth,
+                        contentAlignment = Alignment.Center
+                    )
+                    TableCell(
+                        text = row.money?.str2decimalSign() ?: "",
+                        width = maxMoneyWidth,
+                        contentAlignment = Alignment.CenterEnd
+                    )
+                }
+                CustomDivider(orientation = Orientation.Horizontal)
+            }
         }
     }
 }
@@ -577,89 +606,104 @@ private fun RetentionsTable(uiState: SalaryCalculationUIState) {
             ?.let { RetentionRow(retentionNames[3], it, isTotal = true) }
     )
 
-    // Инструмент для измерения текста
-    val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val screenWidth = LocalConfiguration.current.screenWidthDp.dp - 32.dp
 
-    // Вычисляем максимальную ширину для каждого столбца
-    val titleTexts = listOf("Вид удержания") + rows.map { row -> row.title }
-    val amountTexts = listOf("Сумма") + rows.map { row -> row.amount.str2decimalSign() }
+    var maxTitleWidth by remember { mutableStateOf(0.dp) }
+    var maxAmountWidth by remember { mutableStateOf(0.dp) }
 
-    // Максимальная ширина для первого столбца (maxLines = 1), с ограничением на половину экрана
-    var maxTitleWidth = remember(titleTexts) {
-        titleTexts.maxOf { text ->
-            textMeasurer.measure(
-                text = text,
-                style = hintStyle,
-                maxLines = 2
-            ).size.width
-        }.let { density.run { it.toDp() } } + 16.dp
-    }
-    maxTitleWidth = minOf(maxTitleWidth, screenWidth / 2)
-
-    // Максимальная ширина для второго столбца (maxLines = 1)
-    var maxAmountWidth = remember(amountTexts) {
-        amountTexts.maxOf { text ->
-            textMeasurer.measure(
-                text = text,
-                style = hintStyle,
-                maxLines = 1
-            ).size.width
-        }.let { density.run { it.toDp() } } + 16.dp
-    }
-
-    // Вычисляем общую рассчитанную ширину
-    var totalCalculatedWidth = maxTitleWidth + maxAmountWidth
-
-    // Если общая ширина меньше ширины экрана, добавляем разницу к последнему столбцу
-    if (totalCalculatedWidth < screenWidth) {
-        val extraWidth = screenWidth - totalCalculatedWidth
-        maxTitleWidth += extraWidth
-    }
-
-    Column {
-        Row(
-            modifier = Modifier
-                .horizontalScroll(scrollState)
-//                .padding(vertical = 8.dp)
-        ) {
-            TableCell(
-                text = "Вид удержания",
-                width = maxTitleWidth,
-                maxLines = 2,
-                isHeader = true,
-                contentAlignment = Alignment.CenterStart
-            )
-            TableCell(
-                text = "Сумма",
-                width = maxAmountWidth,
-                isHeader = true,
-                contentAlignment = Alignment.CenterEnd
-            )
+    Box {
+        // Скрытый composable для измерения
+        Box(modifier = Modifier.alpha(0f)) {
+            Row {
+                Column(modifier = Modifier.width(IntrinsicSize.Max)) {
+                    Text("Вид удержания", style = hintStyle, maxLines = 2)
+                    rows.forEach { row ->
+                        Text(
+                            row.title,
+                            style = hintStyle,
+                            maxLines = 2,
+                            modifier = Modifier
+                                .padding(horizontal = 4.dp, vertical = 4.dp)
+                                .onGloballyPositioned { coords ->
+                                    val widthDp = with(density) { coords.size.width.toDp() } + 16.dp
+                                    if (widthDp > maxTitleWidth) maxTitleWidth = widthDp
+                                })
+                    }
+                }
+                Column(modifier = Modifier.width(IntrinsicSize.Max)) {
+                    Text("Сумма", style = hintStyle)
+                    rows.forEach { row ->
+                        Text(
+                            row.amount.str2decimalSign(),
+                            style = hintStyle,
+                            modifier = Modifier
+                                .padding(horizontal = 4.dp, vertical = 4.dp)
+                                .onGloballyPositioned { coords ->
+                                    val widthDp = with(density) { coords.size.width.toDp() } + 16.dp
+                                    if (widthDp > maxAmountWidth) maxAmountWidth = widthDp
+                                })
+                    }
+                }
+            }
         }
 
-        CustomDivider(orientation = Orientation.Horizontal)
+        // Изменено: Добавил minOf для maxTitleWidth с screenWidth / 2.
+        // Для чего: Чтобы сохранить ограничение, как в исходном коде.
+        maxTitleWidth = minOf(maxTitleWidth, screenWidth / 2)
 
-        rows.forEach { row ->
+        // Вычисляем общую рассчитанную ширину
+        val totalCalculatedWidth = maxTitleWidth + maxAmountWidth
+
+        // Если общая ширина меньше ширины экрана, добавляем разницу к первому столбцу (как в исходном)
+        if (totalCalculatedWidth < screenWidth) {
+            val extraWidth = screenWidth - totalCalculatedWidth
+            maxTitleWidth += extraWidth
+        }
+
+        Column {
             Row(
                 modifier = Modifier
                     .horizontalScroll(scrollState)
-                    .background(if (row.isTotal) MaterialTheme.colorScheme.surfaceDim else Color.Transparent)
+//                .padding(vertical = 8.dp)
             ) {
                 TableCell(
-                    text = row.title,
+                    text = "Вид удержания",
                     width = maxTitleWidth,
                     maxLines = 2,
+                    isHeader = true,
                     contentAlignment = Alignment.CenterStart
                 )
                 TableCell(
-                    text = row.amount.str2decimalSign(),
+                    text = "Сумма",
                     width = maxAmountWidth,
+                    isHeader = true,
                     contentAlignment = Alignment.CenterEnd
                 )
             }
+
             CustomDivider(orientation = Orientation.Horizontal)
+
+            rows.forEach { row ->
+                Row(
+                    modifier = Modifier
+                        .horizontalScroll(scrollState)
+                        .background(if (row.isTotal) MaterialTheme.colorScheme.surfaceDim else Color.Transparent)
+                ) {
+                    TableCell(
+                        text = row.title,
+                        width = maxTitleWidth,
+                        maxLines = 2,
+                        contentAlignment = Alignment.CenterStart
+                    )
+                    TableCell(
+                        text = row.amount.str2decimalSign(),
+                        width = maxAmountWidth,
+                        contentAlignment = Alignment.CenterEnd
+                    )
+                }
+                CustomDivider(orientation = Orientation.Horizontal)
+            }
         }
     }
 }
@@ -683,6 +727,7 @@ private data class RetentionRow(
 
 @Composable
 private fun TableCell(
+    modifier: Modifier = Modifier,
     text: String,
     width: Dp,  // Динамическая ширина, вычисленная на основе контента
     maxLines: Int = 1,
@@ -690,9 +735,9 @@ private fun TableCell(
     contentAlignment: Alignment = Alignment.Center
 ) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .width(width)  // Используем вычисленную максимальную ширину
-            .padding(horizontal = 8.dp, vertical = 8.dp),
+            .padding(horizontal = 4.dp, vertical = 4.dp),
         contentAlignment = contentAlignment
     ) {
         Text(

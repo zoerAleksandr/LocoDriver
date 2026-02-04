@@ -34,9 +34,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberBasicTooltipState
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material3.Card
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.rememberDismissState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -74,14 +71,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -115,7 +109,6 @@ import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.ItemHomeScreen
 import com.z_company.route.component.LinearPagerIndicator
-import com.z_company.route.component.PieChart
 import com.z_company.route.viewmodel.home_view_model.ItemState
 import com.z_company.route.viewmodel.home_view_model.UpdateEvent
 import kotlinx.coroutines.flow.SharedFlow
@@ -124,6 +117,7 @@ import kotlinx.coroutines.launch
 import java.util.Calendar
 import com.z_company.route.component.ChipApp
 import com.z_company.route.component.PreviewRouteDialog
+import com.z_company.route.viewmodel.home_view_model.HomeViewModel
 import org.koin.compose.koinInject
 
 @SuppressLint(
@@ -137,6 +131,7 @@ import org.koin.compose.koinInject
 )
 @Composable
 fun HomeScreen(
+    viewModel: HomeViewModel,
     uiState: ResultState<Unit>,
     listRouteState: MutableList<ItemState>,
     onRouteClick: (String) -> Unit,
@@ -156,8 +151,6 @@ fun HomeScreen(
     totalTimeWithHoliday: ResultState<Long>?,
     calculationHomeRest: (Route?) -> Unit,
     homeRestValue: Long?,
-    firstEntryDialogState: Boolean,
-    resetStateFirstEntryDialog: () -> Unit,
     offsetInMoscow: Long,
     syncRoute: (Route) -> Unit,
     updateEvent: SharedFlow<UpdateEvent>,
@@ -262,77 +255,10 @@ fun HomeScreen(
             }
     }
 
-//    var currentRouteWorkTime by remember { mutableStateOf("") }
-
-//    LaunchedEffect(Unit) {
-//        scope.launch {
-//            currentRouteTimeWork.flowWithLifecycle(lifecycle).collect { time ->
-//                currentRouteWorkTime =
-//                    ConverterLongToTime.getTimeInStringFormat(time)
-//            }
-//        }
-//    }
-
     LaunchedEffect(saveTimeEvent) {
         saveTimeEvent.collectLatest {
             scope.launch {
                 snackbarHostState.showSnackbar(it)
-            }
-        }
-    }
-
-    AnimationDialog(
-        showDialog = firstEntryDialogState,
-        onDismissRequest = resetStateFirstEntryDialog
-    ) {
-        Box(
-            modifier = Modifier
-                .padding(horizontal = 16.dp)
-                .fillMaxWidth()
-                .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Start, text = "ДОБРО ПОЖАЛОВАТЬ!\n",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    modifier = Modifier.fillMaxWidth(),
-                    text = "Подтвердите вашу электронную почту.\n",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    modifier = Modifier.fillMaxWidth(),
-                    text = "На ваш адрес электронной почты было отправлено письмо со ссылкой для подтверждения. Пожалуйста, проверьте вашу почту и нажмите на ссылку для завершения регистрации.\n\n",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    modifier = Modifier.fillMaxWidth(),
-                    text = "Если вы не получили письмо, проверьте папку \"Спам\" или повторите попытку позже.\n",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                Button(
-                    modifier = Modifier.padding(top = 16.dp),
-                    shape = Shapes.medium,
-                    onClick = resetStateFirstEntryDialog
-                ) {
-                    Text(
-                        text = "Понял",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
             }
         }
     }
@@ -358,7 +284,8 @@ fun HomeScreen(
                 showDialogConfirmRemove = { showDialog, route ->
                     routeForRemove = route
                     isShowDialogConfirmRemoveRoute = true
-                }
+                },
+//                shareRoute = {}
             )
         }
     }
@@ -541,7 +468,7 @@ fun HomeScreen(
                             onClick = { onSearchClick() }
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Search,
+                                painter = painterResource(R.drawable.search_24px),
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary
                             )
@@ -577,6 +504,7 @@ fun HomeScreen(
                                 0 -> {
                                     MainInfo(
                                         totalTime = totalTime,
+                                        convertTimeToString = viewModel::convertTimeToStringFormat,
                                         totalTimeWithHoliday = totalTimeWithHoliday,
                                         currentMonthOfYear = currentMonthOfYear,
                                         dateAndTimeConverter = dateAndTimeConverter,
@@ -587,6 +515,7 @@ fun HomeScreen(
                                 1 -> {
                                     DetailWorkTimeCard(
                                         totalTime = totalTime,
+                                        convertTimeToString = viewModel::convertTimeToStringFormat,
                                         brush = brushMain,
                                         totalTimeWithHoliday = totalTimeWithHoliday,
                                         passengerTimeState = passengerTimeState,
@@ -598,6 +527,7 @@ fun HomeScreen(
                                 2 -> {
                                     DetailTrainCard(
                                         totalTime = totalTime,
+                                        convertTimeToString = viewModel::convertTimeToStringFormat,
                                         brush = brushMain,
                                         totalTimeWithHoliday = totalTimeWithHoliday,
                                         extendedServicePhaseTime = extendedServicePhaseTime,
@@ -745,7 +675,7 @@ fun HomeScreen(
                                                         }
                                                     ) {
                                                         Icon(
-                                                            imageVector = Icons.Default.Add,
+                                                            painter = painterResource(com.z_company.core.R.drawable.ic_add),
                                                             contentDescription = null
                                                         )
                                                     }
@@ -854,7 +784,7 @@ fun HomeScreen(
                                                         }
                                                     ) {
                                                         Icon(
-                                                            imageVector = Icons.Default.Add,
+                                                            painter = painterResource(com.z_company.core.R.drawable.ic_add),
                                                             contentDescription = null
                                                         )
                                                     }
@@ -1012,7 +942,7 @@ fun HomeScreen(
                                                         }
                                                     ) {
                                                         Icon(
-                                                            imageVector = Icons.Default.Add,
+                                                            painter = painterResource(com.z_company.core.R.drawable.ic_add),
                                                             contentDescription = null
                                                         )
                                                     }
@@ -1137,6 +1067,7 @@ fun HomeScreen(
 
                                     ItemHomeScreen(
                                         modifier = Modifier.animateItem(),
+                                        convertTimeToString = viewModel::convertTimeToStringFormat,
 //                                        dismissState = dismissState,
                                         route = route,
                                         onRequestDelete = {
@@ -1180,12 +1111,11 @@ fun HomeScreen(
                                             background = MaterialTheme.colorScheme.surfaceDim
                                         }
                                     }
-                                    val dismissState = rememberDismissState()
 
                                     ItemHomeScreen(
                                         modifier = Modifier.animateItem(),
                                         route = route,
-//                                        dismissState = dismissState,
+                                        convertTimeToString = viewModel::convertTimeToStringFormat,
                                         onRequestDelete = {
                                             routeForRemove = route
                                             isShowDialogConfirmRemoveRoute = true
@@ -1372,6 +1302,7 @@ fun HomeScreen(
 @Composable
 fun MainInfo(
     totalTime: Long,
+    convertTimeToString: (Long?) -> String,
     totalTimeWithHoliday: ResultState<Long>?,
     currentMonthOfYear: MonthOfYear?,
     dateAndTimeConverter: DateAndTimeConverter?,
@@ -1443,22 +1374,14 @@ fun MainInfo(
                                         }
                                     )
                                 },
-                                text = ConverterLongToTime.getTimeInStringFormat(
-                                    time
-                                ),
+                                text = convertTimeToString(time),
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.secondary
                             )
                             if (totalTime != time) {
                                 val differenceTimeInLong = time.minus(totalTime)
-                                val totalTime =
-                                    ConverterLongToTime.getTimeInStringFormat(
-                                        totalTime
-                                    )
-                                val differenceTime =
-                                    ConverterLongToTime.getTimeInStringFormat(
-                                        differenceTimeInLong
-                                    )
+                                val totalTime = convertTimeToString(totalTime)
+                                val differenceTime = convertTimeToString(differenceTimeInLong)
                                 Text(
                                     modifier = Modifier.pointerInput(Unit) {
                                         detectTapGestures(
@@ -1490,7 +1413,9 @@ fun MainInfo(
                         val percent =
                             ((totalTime * 100).toFloat() / (normaHoursInMonth * 3_600_000L).toFloat()) / 100f
 
-                        val percentNormaInMonth = (totalTime.toFloat() / (normaHoursInMonth * 3_600_000L).coerceAtLeast(1).toFloat()).coerceIn(0f, 1f)
+                        val percentNormaInMonth =
+                            (totalTime.toFloat() / (normaHoursInMonth * 3_600_000L).coerceAtLeast(1)
+                                .toFloat()).coerceIn(0f, 1f)
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -1534,7 +1459,9 @@ fun MainInfo(
                         val percent =
                             ((totalTime * 100).toFloat() / (normaHoursToday * 3_600_000L).toFloat()) / 100f
 
-                        val percentNormaInDay = (totalTime.toFloat() / (normaHoursToday * 3_600_000L).coerceAtLeast(1).toFloat()).coerceIn(0f, 1f)
+                        val percentNormaInDay =
+                            (totalTime.toFloat() / (normaHoursToday * 3_600_000L).coerceAtLeast(1)
+                                .toFloat()).coerceIn(0f, 1f)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1624,6 +1551,7 @@ fun MainInfo(
 fun DetailWorkTimeCard(
     brush: Brush,
     totalTime: Long,
+    convertTimeToString: (Long?) -> String,
     totalTimeWithHoliday: ResultState<Long>?,
     passengerTimeState: ResultState<Long>?,
     singleLocomotiveTimeState: ResultState<Long>?,
@@ -1698,23 +1626,14 @@ fun DetailWorkTimeCard(
                                             }
                                         )
                                     },
-                                    text = ConverterLongToTime.getTimeInStringFormat(
-                                        totalTimeWithHoliday
-                                    ),
+                                    text = convertTimeToString(totalTimeWithHoliday),
                                     style = MaterialTheme.typography.titleMedium,
                                     color = MaterialTheme.colorScheme.secondary
                                 )
                                 if (totalTime != totalTimeWithHoliday) {
-                                    val differenceTimeInLong =
-                                        totalTimeWithHoliday.minus(totalTime)
-                                    val totalTime =
-                                        ConverterLongToTime.getTimeInStringFormat(
-                                            totalTime
-                                        )
-                                    val differenceTime =
-                                        ConverterLongToTime.getTimeInStringFormat(
-                                            differenceTimeInLong
-                                        )
+                                    val differenceTimeInLong = totalTimeWithHoliday.minus(totalTime)
+                                    val totalTime = convertTimeToString(totalTime)
+                                    val differenceTime = convertTimeToString(differenceTimeInLong)
                                     Text(
                                         modifier = Modifier.pointerInput(Unit) {
                                             detectTapGestures(
@@ -1741,17 +1660,21 @@ fun DetailWorkTimeCard(
                                             .fillMaxWidth(),
                                         verticalArrangement = Arrangement.spacedBy(4.dp),
                                     ) {
-                                        val nightTimeText =
-                                            ConverterLongToTime.getTimeInStringFormat(nightTime)
-//                                        val percent =
-//                                            ((nightTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
+                                        val nightTimeText = convertTimeToString(nightTime)
                                         val percent = if (totalTimeWithHoliday > 0) {
-                                            (nightTime.toFloat() / totalTimeWithHoliday.toFloat()).coerceIn(0f, 1f)
+                                            (nightTime.toFloat() / totalTimeWithHoliday.toFloat()).coerceIn(
+                                                0f,
+                                                1f
+                                            )
                                         } else {
                                             0f
                                         }
 
-                                        val percentNight = (nightTime.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
+                                        val percentNight =
+                                            (nightTime.toFloat() / safeTotal.toFloat()).coerceIn(
+                                                0f,
+                                                1f
+                                            )
 
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
@@ -1776,7 +1699,9 @@ fun DetailWorkTimeCard(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .height(4.dp),
-                                            trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                                            trackColor = MaterialTheme.colorScheme.surface.copy(
+                                                alpha = 0.5f
+                                            ),
                                             color = MaterialTheme.colorScheme.secondary,
 //                                            strokeCap = StrokeCap.Round,
                                             gapSize = 4.dp,
@@ -1794,13 +1719,15 @@ fun DetailWorkTimeCard(
                                             verticalArrangement = Arrangement.spacedBy(4.dp),
                                         ) {
                                             val passengerTimeText =
-                                                ConverterLongToTime.getTimeInStringFormat(
-                                                    passengerTime
-                                                )
+                                                convertTimeToString(passengerTime)
                                             val percent =
                                                 ((passengerTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
 
-                                            val percentPassenger = (passengerTime.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
+                                            val percentPassenger =
+                                                (passengerTime.toFloat() / safeTotal.toFloat()).coerceIn(
+                                                    0f,
+                                                    1f
+                                                )
                                             Row(
                                                 modifier = Modifier.fillMaxWidth(),
                                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1824,7 +1751,9 @@ fun DetailWorkTimeCard(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
                                                     .height(4.dp),
-                                                trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                                                trackColor = MaterialTheme.colorScheme.surface.copy(
+                                                    alpha = 0.5f
+                                                ),
                                                 color = MaterialTheme.colorScheme.secondary,
                                                 gapSize = 4.dp,
                                                 drawStopIndicator = {},
@@ -1842,13 +1771,15 @@ fun DetailWorkTimeCard(
                                             verticalArrangement = Arrangement.spacedBy(4.dp),
                                         ) {
                                             val passengerTimeText =
-                                                ConverterLongToTime.getTimeInStringFormat(
-                                                    singleLocomotiveTime
-                                                )
+                                                convertTimeToString(singleLocomotiveTime)
                                             val percent =
                                                 ((singleLocomotiveTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
 
-                                            val percentSingleLocomotive = (singleLocomotiveTime.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
+                                            val percentSingleLocomotive =
+                                                (singleLocomotiveTime.toFloat() / safeTotal.toFloat()).coerceIn(
+                                                    0f,
+                                                    1f
+                                                )
 
                                             Row(
                                                 modifier = Modifier.fillMaxWidth(),
@@ -1873,7 +1804,9 @@ fun DetailWorkTimeCard(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
                                                     .height(4.dp),
-                                                trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                                                trackColor = MaterialTheme.colorScheme.surface.copy(
+                                                    alpha = 0.5f
+                                                ),
                                                 color = MaterialTheme.colorScheme.secondary,
                                                 gapSize = 4.dp,
                                                 drawStopIndicator = {},
@@ -1896,6 +1829,7 @@ fun DetailWorkTimeCard(
 fun DetailTrainCard(
     brush: Brush,
     totalTime: Long,
+    convertTimeToString: (Long?) -> String,
     totalTimeWithHoliday: ResultState<Long>?,
     extendedServicePhaseTime: ResultState<Long>?,
     longDistanceTrainsTime: ResultState<Long>?,
@@ -1972,9 +1906,7 @@ fun DetailTrainCard(
                                             }
                                         )
                                     },
-                                    text = ConverterLongToTime.getTimeInStringFormat(
-                                        totalTimeWithHoliday
-                                    ),
+                                    text = convertTimeToString(totalTimeWithHoliday),
                                     style = MaterialTheme.typography.titleMedium,
                                     color = MaterialTheme.colorScheme.secondary
                                 )
@@ -1982,11 +1914,11 @@ fun DetailTrainCard(
                                     val differenceTimeInLong =
                                         totalTimeWithHoliday.minus(totalTime)
                                     val totalTime =
-                                        ConverterLongToTime.getTimeInStringFormat(
+                                        convertTimeToString(
                                             totalTime
                                         )
                                     val differenceTime =
-                                        ConverterLongToTime.getTimeInStringFormat(
+                                        convertTimeToString(
                                             differenceTimeInLong
                                         )
                                     Text(
@@ -2016,13 +1948,12 @@ fun DetailTrainCard(
                                         verticalArrangement = Arrangement.spacedBy(4.dp),
                                     ) {
                                         val extendedServicePhaseTimeText =
-                                            ConverterLongToTime.getTimeInStringFormat(
-                                                extendedServicePhaseTime
-                                            )
+                                            convertTimeToString(extendedServicePhaseTime)
                                         val percent =
                                             ((extendedServicePhaseTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
 
-                                        val percentExtendedServicePhase = (extendedServicePhaseTime.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
+                                        val percentExtendedServicePhase =
+                                            (extendedServicePhaseTime.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
 
 
                                         Row(
@@ -2050,7 +1981,9 @@ fun DetailTrainCard(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .height(4.dp),
-                                            trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                                            trackColor = MaterialTheme.colorScheme.surface.copy(
+                                                alpha = 0.5f
+                                            ),
                                             color = MaterialTheme.colorScheme.secondary,
                                             gapSize = 4.dp,
                                             drawStopIndicator = {},
@@ -2068,13 +2001,15 @@ fun DetailTrainCard(
                                         verticalArrangement = Arrangement.spacedBy(4.dp),
                                     ) {
                                         val longDistanceTrainsTimeText =
-                                            ConverterLongToTime.getTimeInStringFormat(
-                                                longDistanceTrainsTime
-                                            )
+                                            convertTimeToString(longDistanceTrainsTime)
                                         val percent =
                                             ((longDistanceTrainsTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
 
-                                        val percentLong = (longDistanceTrainsTime.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
+                                        val percentLong =
+                                            (longDistanceTrainsTime.toFloat() / safeTotal.toFloat()).coerceIn(
+                                                0f,
+                                                1f
+                                            )
 
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
@@ -2099,7 +2034,9 @@ fun DetailTrainCard(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .height(4.dp),
-                                            trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                                            trackColor = MaterialTheme.colorScheme.surface.copy(
+                                                alpha = 0.5f
+                                            ),
                                             color = MaterialTheme.colorScheme.secondary,
                                             gapSize = 4.dp,
                                             drawStopIndicator = {},
@@ -2117,12 +2054,11 @@ fun DetailTrainCard(
                                         verticalArrangement = Arrangement.spacedBy(4.dp),
                                     ) {
                                         val heavyTrainsTimeText =
-                                            ConverterLongToTime.getTimeInStringFormat(
-                                                heavyTrainsTime
-                                            )
+                                            convertTimeToString(heavyTrainsTime)
                                         val percent =
                                             ((heavyTrainsTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
-                                        val percentHeavy = (heavyTrainsTime.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
+                                        val percentHeavy =
+                                            (heavyTrainsTime.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -2146,7 +2082,9 @@ fun DetailTrainCard(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .height(4.dp),
-                                            trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                                            trackColor = MaterialTheme.colorScheme.surface.copy(
+                                                alpha = 0.5f
+                                            ),
                                             color = MaterialTheme.colorScheme.secondary,
                                             gapSize = 4.dp,
                                             drawStopIndicator = {},
@@ -2163,13 +2101,11 @@ fun DetailTrainCard(
                                             .fillMaxWidth(),
                                         verticalArrangement = Arrangement.spacedBy(4.dp),
                                     ) {
-                                        val onePersonOperationTimeText =
-                                            ConverterLongToTime.getTimeInStringFormat(
-                                                onePersonOperationTime
-                                            )
+                                        val onePersonOperationTimeText = convertTimeToString(onePersonOperationTime)
                                         val percent =
                                             ((onePersonOperationTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
-                                        val percentOnePerson = (onePersonOperationTime.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
+                                        val percentOnePerson =
+                                            (onePersonOperationTime.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -2193,7 +2129,9 @@ fun DetailTrainCard(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .height(4.dp),
-                                            trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                                            trackColor = MaterialTheme.colorScheme.surface.copy(
+                                                alpha = 0.5f
+                                            ),
                                             color = MaterialTheme.colorScheme.secondary,
                                             gapSize = 4.dp,
                                             drawStopIndicator = {},

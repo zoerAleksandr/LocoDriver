@@ -32,12 +32,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -85,6 +79,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.flowWithLifecycle
+import coil.compose.AsyncImagePainter.State.Empty.painter
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.component.DateTimePickerBottomSheet
@@ -101,6 +96,8 @@ import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.util.minus
+import com.z_company.domain.util.moreThan
+import com.z_company.domain.util.str
 import com.z_company.domain.util.toMoneyString
 import com.z_company.route.R
 import com.z_company.route.component.AppBottomSheet
@@ -153,7 +150,8 @@ fun FormScreen(
     nightTime: Long?,
     onSalarySettingClick: () -> Unit,
     setFavoriteState: () -> Unit,
-    dateAndTimeConverter: DateAndTimeConverter?
+    dateAndTimeConverter: DateAndTimeConverter?,
+    showPurchasesScreen: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val scrollState = rememberLazyListState()
@@ -198,8 +196,8 @@ fun FormScreen(
                 BottomSheetAction(text = stringResource(id = R.string.billing_common_ok)) {
                     viewModel.saveRoute()
                 },
-                BottomSheetAction(text = "Оформить подписку за 44 руб/мес") {
-                    viewModel.checkPurchasesAvailability()
+                BottomSheetAction(text = "Оформить подписку за 69 руб/мес") {
+                    showPurchasesScreen()
                 }
             ),
         )
@@ -228,11 +226,11 @@ fun FormScreen(
                 }
             },
             actions = listOf(
-                BottomSheetAction(text = "Оформить подписку за 44 руб/мес") {
-                    viewModel::checkPurchasesAvailability
+                BottomSheetAction(text = "Оформить подписку за 69 руб/мес") {
+                    showPurchasesScreen()
                 },
                 BottomSheetAction(text = "Восстановить покупки") {
-                    viewModel::restorePurchases
+                    viewModel.restorePurchases()
                 }
             )
         )
@@ -315,7 +313,8 @@ fun FormScreen(
                             IconButton(
                                 onClick = {
                                     setFavoriteState()
-                                    val textSnackbar = if (it) "Убрали из избранного" else "Маршрут добавлен в избранное"
+                                    val textSnackbar =
+                                        if (it) "Убрали из избранного" else "Маршрут добавлен в избранное"
                                     scope.launch {
                                         snackbarManager.show(textSnackbar)
                                     }
@@ -323,7 +322,7 @@ fun FormScreen(
                             ) {
                                 Icon(
                                     tint = if (it) MaterialTheme.colorScheme.error else LocalContentColor.current,
-                                    imageVector = if (it) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                    painter = if (it) painterResource(R.drawable.favorite_fill_24px) else painterResource(R.drawable.favorite_24px),
                                     contentDescription = null
                                 )
                             }
@@ -336,7 +335,8 @@ fun FormScreen(
                             IconButton(
                                 onClick = {
                                     checkedOnePersonOperation(!it)
-                                    val textSnackbar = if (it) "Работа в два лица" else "Работа в одно лицо"
+                                    val textSnackbar =
+                                        if (it) "Работа в два лица" else "Работа в одно лицо"
                                     scope.launch {
                                         snackbarManager.show(textSnackbar)
                                     }
@@ -558,7 +558,7 @@ fun FormScreen(
                     val endTimeInLong = route.basicData.timeEndWork
                     val workTimeInLong = endTimeInLong - startTimeInLong
                     val workTimeInFormatted =
-                        ConverterLongToTime.getTimeInStringFormat(workTimeInLong)
+                        viewModel.convertTimeToStringFormat(workTimeInLong)
 
                     item {
                         Column(
@@ -642,9 +642,7 @@ fun FormScreen(
                                                 tint = MaterialTheme.colorScheme.primary
                                             )
                                             Text(
-                                                text = ConverterLongToTime.getTimeInStringFormat(
-                                                    nightTime
-                                                ),
+                                                text = viewModel.convertTimeToStringFormat(nightTime),
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 color = MaterialTheme.colorScheme.primary
                                             )
@@ -659,9 +657,7 @@ fun FormScreen(
                                                 tint = MaterialTheme.colorScheme.primary
                                             )
                                             Text(
-                                                text = ConverterLongToTime.getTimeInStringFormat(
-                                                    route.getPassengerTime() ?: 0L
-                                                ),
+                                                text = viewModel.convertTimeToStringFormat(route.getPassengerTime()),
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 color = MaterialTheme.colorScheme.primary
                                             )
@@ -678,7 +674,7 @@ fun FormScreen(
                                                         contentDescription = null
                                                     )
                                                     Text(
-                                                        text = ConverterLongToTime.getTimeInStringFormat(time),
+                                                        text = viewModel.convertTimeToStringFormat(time),
                                                         style = MaterialTheme.typography.bodyMedium,
                                                         color = MaterialTheme.colorScheme.primary
                                                     )
@@ -687,6 +683,10 @@ fun FormScreen(
                                         }
                                     }
                                 }
+                            }
+
+                            LaunchedEffect(salaryForRouteState) {
+
                             }
 
                             Row(
@@ -723,12 +723,12 @@ fun FormScreen(
                                         label = ""
                                     ) {
                                         val icon = if (it) {
-                                            Icons.Default.KeyboardArrowUp
+                                            painterResource(R.drawable.keyboard_arrow_up_24px)
                                         } else {
-                                            Icons.Default.KeyboardArrowDown
+                                            painterResource(R.drawable.keyboard_arrow_down_24px)
                                         }
                                         Icon(
-                                            imageVector = icon,
+                                            painter = icon,
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.primary
                                         )
@@ -762,7 +762,7 @@ fun FormScreen(
                                     verticalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
                                     if (salaryForRouteState.isCalculated) {
-                                        if (salaryForRouteState.paymentAtTariffRate == 0.0) {
+                                        if (!salaryForRouteState.isSetTariffRate) {
                                             val link = buildAnnotatedString {
                                                 val text =
                                                     "Установите значение тарифной ставки в настройках."
@@ -808,7 +808,9 @@ fun FormScreen(
                                                         }
                                                 }
                                             }
-                                        } else {
+                                        }
+
+                                        if (salaryForRouteState.paymentAtTariffRate.moreThan(0.0)) {
                                             Row(
                                                 modifier = Modifier
                                                     .fillMaxWidth(),
@@ -823,7 +825,6 @@ fun FormScreen(
                                                     style = MaterialTheme.typography.bodyMedium
                                                 )
                                             }
-
                                         }
 
                                         if (salaryForRouteState.paymentHolidayMoney != 0.0) {
@@ -953,6 +954,8 @@ fun FormScreen(
                                         }
                                     }
                                 }
+
+
                             }
 
                             Box(
@@ -1302,7 +1305,8 @@ fun <T> ItemAddingScreen(
                             modifier = Modifier
                                 .weight(0.05f)
                                 .clickable { onDeleteClick(element) },
-                            imageVector = Icons.Outlined.Clear, contentDescription = null
+                            painter = painterResource(com.z_company.core.R.drawable.ic_clear),
+                            contentDescription = null
                         )
                     }
                 }

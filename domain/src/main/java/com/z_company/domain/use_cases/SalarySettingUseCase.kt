@@ -3,7 +3,7 @@ package com.z_company.domain.use_cases
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.MonthOfYear
-import com.z_company.domain.entities.SalarySetting
+import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.repositories.SalarySettingRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

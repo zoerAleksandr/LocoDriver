@@ -1,7 +1,11 @@
 package com.z_company.domain.entities.route
 
+import kotlinx.serialization.Contextual
 import java.util.Date
 import java.util.UUID
+import kotlinx.serialization.Serializable
+
+@Serializable
 
 data class BasicData(
     var id: String = UUID.randomUUID().toString(),
@@ -11,6 +15,7 @@ data class BasicData(
     var remoteObjectId: String? = null,
     var isOnePersonOperation: Boolean = false,
     var isDeleted: Boolean = false,
+    @Contextual
     var updatedAt: Date = Date(),
     var number: String? = null,
     var timeStartWork: Long? = null,

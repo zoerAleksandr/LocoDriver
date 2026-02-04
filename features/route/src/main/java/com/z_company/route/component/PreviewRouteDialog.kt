@@ -22,11 +22,6 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,8 +40,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.z_company.core.ResultState
-import com.z_company.core.ui.component.AsyncData
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
@@ -77,7 +70,8 @@ fun PreviewRouteDialog(
     setFavoriteState: (Route) -> Unit,
     onRouteClick: (String) -> Unit,
     makeCopyRoute: (String) -> Unit,
-    showDialogConfirmRemove: (Boolean, Route) -> Unit
+    showDialogConfirmRemove: (Boolean, Route) -> Unit,
+//    shareRoute: (Route) -> Unit
 ) {
     val redOrange = Color(0xFFf1642e)
     val heightScreen = LocalConfiguration.current.screenHeightDp
@@ -151,24 +145,13 @@ fun PreviewRouteDialog(
                         contentDescription = null,
                     )
                 }
-                HorizontalDivider()
+//                HorizontalDivider()
 //                Row(
 //                    modifier = Modifier
 //                        .fillMaxWidth()
 //                        .padding(horizontal = 16.dp, vertical = 8.dp)
 //                        .clickable {
-//                            showContextDialog = false
-//                            routeForPreview?.let { route ->
-//                                val intent = getSharedIntent(route)
-//                                val type = intent.type
-//                                Log.d("ZZZ", "type = $type")
-//                                context.startActivity(
-//                                    Intent.createChooser(
-//                                        intent,
-//                                        "Поделиться маршрутом"
-//                                    )
-//                                )
-//                            }
+//                           shareRoute(routeForPreview)
 //                        },
 //                    horizontalArrangement = Arrangement.SpaceBetween,
 //                    verticalAlignment = Alignment.CenterVertically
@@ -179,11 +162,11 @@ fun PreviewRouteDialog(
 //                    )
 //                    Image(
 //                        modifier = Modifier.size(25.dp),
-//                        imageVector = Icons.Outlined.Share,
+//                        painter = painterResource(R.drawable.share_24px),
 //                        contentDescription = null,
 //                    )
 //                }
-//                HorizontalDivider()
+                HorizontalDivider()
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -197,8 +180,8 @@ fun PreviewRouteDialog(
                 ) {
                     val text =
                         if (routeForPreview.basicData.isFavorite) "Убрать из избранного" else "В избранное"
-                    val icon =
-                        if (routeForPreview.basicData.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder
+                    val icon = if (routeForPreview.basicData.isFavorite) painterResource(R.drawable.favorite_fill_24px) else painterResource(R.drawable.favorite_24px)
+
                     val tint =
                         if (routeForPreview.basicData.isFavorite) redOrange else MaterialTheme.colorScheme.primary
 
@@ -209,7 +192,7 @@ fun PreviewRouteDialog(
                     )
                     Icon(
                         modifier = Modifier.size(25.dp),
-                        imageVector = icon,
+                        painter = icon,
                         tint = tint,
                         contentDescription = null,
                     )
@@ -657,7 +640,7 @@ fun PreviewRoute(
                                     !locomotiveExpandItemState[index]!!
                             }) {
                             Icon(
-                                imageVector = Icons.Default.KeyboardArrowDown,
+                                painter = painterResource(R.drawable.keyboard_arrow_down_24px),
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary
                             )
@@ -1077,7 +1060,7 @@ fun PreviewRoute(
                                 trainExpandItemState[index] = !trainExpandItemState[index]!!
                             }) {
                             Icon(
-                                imageVector = Icons.Default.KeyboardArrowDown,
+                                painter = painterResource(R.drawable.keyboard_arrow_down_24px),
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary
                             )

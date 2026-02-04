@@ -24,8 +24,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -309,7 +307,7 @@ fun HistoryItem(
             )
             IconButton(onClick = { removeOnClick.invoke() }) {
                 Icon(
-                    imageVector = Icons.Default.Close,
+                    painter = painterResource(com.z_company.core.R.drawable.ic_clear),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary
                 )

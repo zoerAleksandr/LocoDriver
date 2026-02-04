@@ -5,9 +5,11 @@ import androidx.compose.runtime.toMutableStateList
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
+import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.use_cases.PassengerUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -45,6 +47,9 @@ class PassengerFormViewModel(
     private val _uiState = MutableStateFlow(PassengerFormUiState())
     val uiState = _uiState.asStateFlow()
 
+    private val _userSetting = MutableStateFlow(UserSettings())
+    val userSetting = _userSetting.asStateFlow()
+
     private var route: Route = Route()
 
     var timeZoneText: String = "GMT+3"
@@ -78,11 +83,11 @@ class PassengerFormViewModel(
                 loadPassenger(passengerId!!)
             }
             val initJob = this.launch {
-                val setting = settingsUseCase.getUserSettingFlow().first()
-                timeZoneText = settingsUseCase.getTimeZone(setting.timeZone)
+                _userSetting.value = settingsUseCase.getUserSettingFlow().first()
+                timeZoneText = settingsUseCase.getTimeZone(userSetting.value.timeZone)
                 _uiState.update {
                     it.copy(
-                        dateAndTimeConverter = DateAndTimeConverter(setting)
+                        dateAndTimeConverter = DateAndTimeConverter(_userSetting.value)
                     )
                 }
             }
@@ -105,6 +110,16 @@ class PassengerFormViewModel(
                 }
 
             }.collect {}
+        }
+    }
+
+    fun convertTimeToStringFormat(timeToLong: Long?): String {
+        userSetting.value.let { settings ->
+            return if (settings.isDecimalTime) {
+                ConverterLongToTime.getTimeInStringDecimalFormat(timeToLong)
+            } else {
+                ConverterLongToTime.getTimeInStringFormat(timeToLong)
+            }
         }
     }
 

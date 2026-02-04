@@ -3,7 +3,6 @@ package com.z_company.data_local
 import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
-import com.z_company.domain.entities.TypeDateTimePicker
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import org.koin.core.component.KoinComponent
 
@@ -15,10 +14,17 @@ private const val TOKEN_IS_CHANGES_HAVE_TAG = "TOKEN_IS_CHANGES_HAVE_TAG"
 private const val TOKEN_SUBSCRIPTION_EXPIRATION_TAG = "TOKEN_SUBSCRIPTION_EXPIRATION_TAG"
 private const val TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_16 =
     "TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_16"
-private const val TOKEN_DATE_TIME_PICKER_TYPE = "TOKEN_DATE_TIME_PICKER_TYPE"
 private const val STATION_SORT_REVERSED = "STATION_SORT_REVERSED"
 private const val TOKEN_INPUT_DIESEL_IN_KILO = "TOKEN_INPUT_DIESEL_IN_KILO"
 
+private const val SORT_OPTION_TAG = "SORT_OPTION"
+private const val SELECTED_FILTERS_TAG = "SELECTED_FILTERS"
+private const val IS_EXPANDED_VIEW_TAG = "IS_EXPANDED_VIEW"
+private const val TOKEN_IS_MIGRATED = "TOKEN_IS_MIGRATED"
+
+private const val OP_KEY_PREF = "OP_KEY_PREF"
+
+private const val TOKEN_LAST_SYNC_TIME = "TOKEN_LAST_SYNC_TIME"
 class SharedPreferenceStorage(application: Application) : SharedPreferencesRepositories,
     KoinComponent {
     private val sharedpref: SharedPreferences =
@@ -28,6 +34,34 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
         )
     private val editor = sharedpref.edit()
 
+    override fun setLastSyncTimestamp(time: Long) {
+        editor.putLong(TOKEN_LAST_SYNC_TIME, time).apply()
+    }
+
+    override fun getLastSyncTimestamp(): Long =
+        sharedpref.getLong(TOKEN_LAST_SYNC_TIME, 0L)
+
+
+    override fun getOPKeyRobokassa(): String? =
+        sharedpref.getString(OP_KEY_PREF, null)
+
+
+    override fun setOPKeyRobokassa(opKey: String?) {
+        editor.putString(OP_KEY_PREF, opKey).apply()
+    }
+
+
+
+    // Добавлено: Метод для проверки флага миграции
+    // Для чего: Чтобы определять, выполнена ли миграция (default false)
+    override fun isMigrated(): Boolean =
+        sharedpref.getBoolean(TOKEN_IS_MIGRATED, false)
+
+    // Добавлено: Метод для установки флага миграции
+    // Для чего: Чтобы отметить миграцию как выполненную после успеха
+    override fun setIsMigrated(value: Boolean) {
+        editor.putBoolean(TOKEN_IS_MIGRATED, value).apply()
+    }
 
     override fun isShowUpdatePresentation(): Boolean =
         sharedpref.getBoolean(TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_16, true)
@@ -71,14 +105,6 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
         editor.putBoolean(TOKEN_IS_LOAD_STATION_NAME_AND_LOCOMOTIVE_SERIES, value).apply()
     }
 
-    override fun tokenDateTimePickerType(): String =
-        sharedpref.getString(TOKEN_DATE_TIME_PICKER_TYPE, TypeDateTimePicker.WHEEL.text)!!
-
-
-    override fun setTokenDateTimePickerType(type: String) {
-        editor.putString(TOKEN_DATE_TIME_PICKER_TYPE, type).apply()
-    }
-
     override fun toggleStationsSortOrder(value: Boolean) {
         editor.putBoolean(STATION_SORT_REVERSED, value).apply()
     }
@@ -92,4 +118,25 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
 
     override fun isInputDieselInKilo(): Boolean =
         sharedpref.getBoolean(TOKEN_INPUT_DIESEL_IN_KILO, false)
+
+    override fun getSortOption(): String? =
+        sharedpref.getString(SORT_OPTION_TAG, null)
+
+    override fun setSortOption(value: String) {
+        editor.putString(SORT_OPTION_TAG, value).apply()
+    }
+
+    override fun getSelectedFilters(): Set<String>? =
+        sharedpref.getStringSet(SELECTED_FILTERS_TAG, null)
+
+    override fun setSelectedFilters(values: Set<String>) {
+        editor.putStringSet(SELECTED_FILTERS_TAG, values).apply()
+    }
+
+    override fun isExpandedView(): Boolean =
+        sharedpref.getBoolean(IS_EXPANDED_VIEW_TAG, false)
+
+    override fun setIsExpandedView(value: Boolean) {
+        editor.putBoolean(IS_EXPANDED_VIEW_TAG, value).apply()
+    }
 }

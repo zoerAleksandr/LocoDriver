@@ -9,14 +9,16 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.application
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.ui.snackbar.ISnackbarManager
+import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.MonthOfYear
-import com.z_company.domain.entities.SalarySetting
-import com.z_company.domain.entities.UserSettings
+import com.z_company.domain.entities.setting.SalarySetting
+import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHours
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Station
@@ -39,6 +41,8 @@ import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.use_cases.TrainUseCase
+import com.z_company.repository.SecureDataStore
+import com.z_company.repository.remote_rest.RoutesManager
 import com.z_company.route.viewmodel.PreviewRouteUiState
 import com.z_company.route.viewmodel.RouteActionsHelper
 import com.z_company.route.viewmodel.SalaryCalculationHelper
@@ -152,6 +156,17 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     override fun onCleared() {
         super.onCleared()
         ruStoreAppUpdateManager.unregisterListener(installStateUpdateListener)
+    }
+
+    fun convertTimeToStringFormat(timeToLong: Long?): String {
+        currentUserSetting?.let { settings ->
+            return if (settings.isDecimalTime) {
+                ConverterLongToTime.getTimeInStringDecimalFormat(timeToLong)
+            } else {
+                ConverterLongToTime.getTimeInStringFormat(timeToLong)
+            }
+        }
+        return ConverterLongToTime.getTimeInStringFormat(timeToLong)
     }
 
     private fun initUpdateManager() {
@@ -433,54 +448,48 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     @SuppressLint("SuspiciousIndentation")
     private fun calculationOfNightTime(routes: List<Route>, settings: UserSettings) {
         viewModelScope.launch(Dispatchers.IO) {
-                _uiState.update {
-                    it.copy(
-                        nightTimeInRouteList = ResultState.Loading()
-                    )
-                }
+            _uiState.update {
+                it.copy(
+                    nightTimeInRouteList = ResultState.Loading()
+                )
+            }
             try {
                 val nightTimeState = routes.getNightTime(settings)
-                    _uiState.update {
-                        it.copy(
-                            nightTimeInRouteList = ResultState.Success(nightTimeState)
-                        )
-                    }
+                _uiState.update {
+                    it.copy(
+                        nightTimeInRouteList = ResultState.Success(nightTimeState)
+                    )
+                }
             } catch (e: Exception) {
-                    _uiState.update {
-                        it.copy(
-                            nightTimeInRouteList = ResultState.Error(ErrorEntity(e))
-                        )
-                    }
+                _uiState.update {
+                    it.copy(
+                        nightTimeInRouteList = ResultState.Error(ErrorEntity(e))
+                    )
+                }
             }
         }
     }
 
     private fun calculationOfSingleLocomotiveTime(routes: List<Route>) {
         viewModelScope.launch(Dispatchers.IO) {
-//            withContext(Dispatchers.Main) {
-                _uiState.update {
-                    it.copy(
-                        singleLocomotiveTimeState = ResultState.Loading()
-                    )
-                }
-//            }
+            _uiState.update {
+                it.copy(
+                    singleLocomotiveTimeState = ResultState.Loading()
+                )
+            }
             try {
                 val timeState = routes.getSingleLocomotiveTime()
-//                withContext(Dispatchers.Main) {
-                    _uiState.update {
-                        it.copy(
-                            singleLocomotiveTimeState = ResultState.Success(timeState)
-                        )
-                    }
-//                }
+                _uiState.update {
+                    it.copy(
+                        singleLocomotiveTimeState = ResultState.Success(timeState)
+                    )
+                }
             } catch (e: Exception) {
-//                withContext(Dispatchers.Main) {
-                    _uiState.update {
-                        it.copy(
-                            singleLocomotiveTimeState = ResultState.Error(ErrorEntity(e))
-                        )
-                    }
-//                }
+                _uiState.update {
+                    it.copy(
+                        singleLocomotiveTimeState = ResultState.Error(ErrorEntity(e))
+                    )
+                }
             }
         }
     }
@@ -489,31 +498,25 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         salaryCalculationHelper: SalaryCalculationHelper
     ) {
         viewModelScope.launch(Dispatchers.IO) {
-//            withContext(Dispatchers.Main) {
-                _uiState.update {
-                    it.copy(
-                        longDistanceTrainsTime = ResultState.Loading()
-                    )
-                }
-//            }
+            _uiState.update {
+                it.copy(
+                    longDistanceTrainsTime = ResultState.Loading()
+                )
+            }
             try {
                 val timeState = salaryCalculationHelper.getTimeLongDistanceTrainFlow().first()
-//                withContext(Dispatchers.Main) {
-                    _uiState.update {
-                        it.copy(
-                            longDistanceTrainsTime = ResultState.Success(timeState)
-                        )
-                    }
-//                }
+                _uiState.update {
+                    it.copy(
+                        longDistanceTrainsTime = ResultState.Success(timeState)
+                    )
+                }
 
             } catch (e: Exception) {
-//                withContext(Dispatchers.Main) {
-                    _uiState.update {
-                        it.copy(
-                            longDistanceTrainsTime = ResultState.Error(ErrorEntity(e))
-                        )
-                    }
-//                }
+                _uiState.update {
+                    it.copy(
+                        longDistanceTrainsTime = ResultState.Error(ErrorEntity(e))
+                    )
+                }
             }
         }
     }
@@ -522,32 +525,26 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         salaryCalculationHelper: SalaryCalculationHelper
     ) {
         viewModelScope.launch(Dispatchers.IO) {
-//            withContext(Dispatchers.Main) {
-                _uiState.update {
-                    it.copy(
-                        extendedServicePhaseTime = ResultState.Loading()
-                    )
-//                }
+            _uiState.update {
+                it.copy(
+                    extendedServicePhaseTime = ResultState.Loading()
+                )
             }
             try {
                 val timeState =
                     salaryCalculationHelper.getTotalTimeSurchargeServicePhaseFlow().first()
-//                withContext(Dispatchers.Main) {
-                    _uiState.update {
-                        it.copy(
-                            extendedServicePhaseTime = ResultState.Success(timeState)
-                        )
-//                    }
+                _uiState.update {
+                    it.copy(
+                        extendedServicePhaseTime = ResultState.Success(timeState)
+                    )
                 }
 
             } catch (e: Exception) {
-//                withContext(Dispatchers.Main) {
-                    _uiState.update {
-                        it.copy(
-                            extendedServicePhaseTime = ResultState.Error(ErrorEntity(e))
-                        )
-                    }
-//                }
+                _uiState.update {
+                    it.copy(
+                        extendedServicePhaseTime = ResultState.Error(ErrorEntity(e))
+                    )
+                }
             }
         }
     }
@@ -556,13 +553,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         routes: List<Route>, userSettings: UserSettings
     ) {
         viewModelScope.launch(Dispatchers.IO) {
-//            withContext(Dispatchers.Main) {
-                _uiState.update {
-                    it.copy(
-                        onePersonOperationTime = ResultState.Loading()
-                    )
-                }
-//            }
+            _uiState.update {
+                it.copy(
+                    onePersonOperationTime = ResultState.Loading()
+                )
+            }
             try {
                 currentMonthOfYear?.let { monthOfYear ->
                     val passengerTime = routes.getOnePersonOperationTimePassengerTrain(
@@ -572,23 +567,19 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                         monthOfYear, userSettings.timeZone
                     )
                     val resultTIme = time + passengerTime
-//                    withContext(Dispatchers.Main) {
-                        _uiState.update {
-                            it.copy(
-                                onePersonOperationTime = ResultState.Success(resultTIme)
-                            )
-                        }
-//                    }
+                    _uiState.update {
+                        it.copy(
+                            onePersonOperationTime = ResultState.Success(resultTIme)
+                        )
+                    }
                 }
 
             } catch (e: Exception) {
-//                withContext(Dispatchers.Main) {
-                    _uiState.update {
-                        it.copy(
-                            onePersonOperationTime = ResultState.Error(ErrorEntity(e))
-                        )
-                    }
-//                }
+                _uiState.update {
+                    it.copy(
+                        onePersonOperationTime = ResultState.Error(ErrorEntity(e))
+                    )
+                }
             }
         }
     }
@@ -597,30 +588,24 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         salaryCalculationHelper: SalaryCalculationHelper
     ) {
         viewModelScope.launch(Dispatchers.IO) {
-//            withContext(Dispatchers.Main) {
-                _uiState.update {
-                    it.copy(
-                        heavyTrainsTime = ResultState.Loading()
-                    )
-                }
-//            }
+            _uiState.update {
+                it.copy(
+                    heavyTrainsTime = ResultState.Loading()
+                )
+            }
             try {
                 val timeState = salaryCalculationHelper.getTotalTimeHeavyTrainsFlow().first()
-//                withContext(Dispatchers.Main) {
-                    _uiState.update {
-                        it.copy(
-                            heavyTrainsTime = ResultState.Success(timeState)
-                        )
-                    }
-//                }
+                _uiState.update {
+                    it.copy(
+                        heavyTrainsTime = ResultState.Success(timeState)
+                    )
+                }
 
             } catch (e: Exception) {
-//                withContext(Dispatchers.Main) {
-                    _uiState.update {
-                        it.copy(
-                            heavyTrainsTime = ResultState.Error(ErrorEntity(e))
-                        )
-//                    }
+                _uiState.update {
+                    it.copy(
+                        heavyTrainsTime = ResultState.Error(ErrorEntity(e))
+                    )
                 }
             }
         }
@@ -629,33 +614,27 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
 
     private fun calculationHolidayTime(routes: List<Route>, offsetInMoscow: Long) {
         viewModelScope.launch(Dispatchers.IO) {
-//            withContext(Dispatchers.Main) {
-                _uiState.update {
-                    it.copy(
-                        holidayHours = ResultState.Loading()
-                    )
-                }
-//            }
+            _uiState.update {
+                it.copy(
+                    holidayHours = ResultState.Loading()
+                )
+            }
             try {
                 currentMonthOfYear?.let { monthOfYear ->
                     val holidayTime =
                         routes.getWorkingTimeOnAHoliday(monthOfYear, offsetInMoscow).first()
-//                    withContext(Dispatchers.Main) {
-                        _uiState.update {
-                            it.copy(
-                                holidayHours = ResultState.Success(holidayTime)
-                            )
-                        }
-//                    }
-                }
-            } catch (e: Exception) {
-//                withContext(Dispatchers.Main) {
                     _uiState.update {
                         it.copy(
-                            nightTimeInRouteList = ResultState.Error(ErrorEntity(e))
+                            holidayHours = ResultState.Success(holidayTime)
                         )
                     }
-//                }
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        nightTimeInRouteList = ResultState.Error(ErrorEntity(e))
+                    )
+                }
             }
         }
     }
@@ -693,22 +672,30 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     }
 
     fun syncRoute(route: Route) {
+        val routesManager = RoutesManager
         viewModelScope.launch {
-//            routeHelper.deleteDublicateRoute()
-            routeHelper.syncRoute(route).collect { result ->
-                when (result) {
-                    is ResultState.Success -> {
-                        // show snackbar centrally
-                        snackbarManager.show(message = result.data)
-                    }
+            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+            val fullToken = "Bearer $token"
+            if (token == null) {
+                snackbarManager.show(message = "Неавторизованный пользователь")
+            } else {
+                routesManager.saveRouteInRemote(route, fullToken).collect { resultState ->
+                    when (resultState) {
+                        is ResultState.Success -> {
+                            // show snackbar centrally
+                            routeUseCase.setSynchronizedRoute(route.basicData.id).first()
+                            snackbarManager.show(message = "Маршрут сохранен в облаке")
+                        }
 
-                    is ResultState.Error -> {
-                        val message = result.entity.message ?: result.entity.throwable?.message
-                        ?: "Ошибка синхронизации"
-                        snackbarManager.show(message = message)
-                    }
+                        is ResultState.Error -> {
+                            val message =
+                                resultState.entity.message ?: resultState.entity.throwable?.message
+                                ?: "Ошибка синхронизации"
+                            snackbarManager.show(message = message)
+                        }
 
-                    is ResultState.Loading -> {
+                        is ResultState.Loading -> {
+                        }
                     }
                 }
             }
@@ -799,16 +786,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         }
     }
 
-    private fun checkLoginToAccount() {
-        if (sharedPreferenceStorage.tokenIsFirstAppEntry()) {
-            _uiState.update {
-                it.copy(
-                    showFirstEntryToAccountDialog = true
-                )
-            }
-        }
-    }
-
     // ДЛЯ ТОГО, ЧТОБЫ СФОРМИРОВАЛИСЬ СПИСКИ ДЛЯ DROPDOWN MENU СЕРИЙ ЛОКОМОТИВОВ И СТАНЦИЙ
     private fun initListStationAndLocomotiveSeries() {
         if (!sharedPreferenceStorage.tokenIsLoadStationAndLocomotiveSeries()) {
@@ -845,19 +822,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
         }
     }
 
-    fun disableFirstEntryToAccountDialog() {
-        _uiState.update {
-            it.copy(
-                showFirstEntryToAccountDialog = false
-            )
-        }
-        sharedPreferenceStorage.setTokenIsFirstAppEntry(false)
-    }
-
     init {
         viewModelScope.launch(Dispatchers.IO) {
             loadMonthList()
-            checkLoginToAccount()
             initListStationAndLocomotiveSeries()
             sharedPreferenceStorage.enableShowingUpdatePresentation()
             initUpdateManager()
@@ -917,7 +884,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                         // optional: reflect loading state in UI if you want
                         // we update UI on Main thread
 //                        withContext(Dispatchers.Main) {
-                            _uiState.update { it.copy(listItemState = mutableListOf()) }
+                        _uiState.update { it.copy(listItemState = mutableListOf()) }
 //                        }
                     }
 
@@ -967,10 +934,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                             }
 
 //                            withContext(Dispatchers.Main) {
-                                _uiState.update {
-                                    it.copy(
-                                        listItemState = routeStateList
-                                    )
+                            _uiState.update {
+                                it.copy(
+                                    listItemState = routeStateList
+                                )
 //                                }
                             }
 
@@ -1014,20 +981,20 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
                         } else {
                             // settings not ready - update UI accordingly if needed
 //                            withContext(Dispatchers.Main) {
-                                _uiState.update {
-                                    it.copy(listItemState = mutableListOf())
-                                }
+                            _uiState.update {
+                                it.copy(listItemState = mutableListOf())
+                            }
 //                            }
                         }
                     }
 
                     is ResultState.Error -> {
 //                        withContext(Dispatchers.Main) {
-                            _uiState.update {
-                                it.copy(
-                                    uiState = ResultState.Error(result.entity)
-                                )
-                            }
+                        _uiState.update {
+                            it.copy(
+                                uiState = ResultState.Error(result.entity)
+                            )
+                        }
 //                        }
                     }
                 }

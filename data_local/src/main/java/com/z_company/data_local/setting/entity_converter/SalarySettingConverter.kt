@@ -1,12 +1,11 @@
 package com.z_company.data_local.setting.entity_converter
 
-import com.z_company.domain.entities.SalarySetting
+import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.data_local.setting.entity.SalarySetting as SalarySettingEntity
 
 internal object SalarySettingConverter {
     fun fromData(salarySetting: SalarySetting) = SalarySettingEntity(
         salarySettingKey = salarySetting.key,
-        tariffRate = salarySetting.tariffRate,
         nightTimePercent = salarySetting.nightTimePercent,
         averagePaymentHour = salarySetting.averagePaymentHour,
         districtCoefficient = salarySetting.districtCoefficient,
@@ -30,7 +29,6 @@ internal object SalarySettingConverter {
 
     fun toData(entity: SalarySettingEntity) = SalarySetting(
         key = entity.salarySettingKey,
-        tariffRate = entity.tariffRate,
         nightTimePercent = entity.nightTimePercent,
         averagePaymentHour = entity.averagePaymentHour,
         districtCoefficient = entity.districtCoefficient,

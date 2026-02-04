@@ -2,7 +2,7 @@ package com.z_company.route.viewmodel
 
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
-import com.z_company.domain.entities.SalarySetting
+import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.getLongDistanceTime
 import com.z_company.domain.entities.route.UtilsForEntities.timeFollowingSingleLocomotive
@@ -60,8 +60,10 @@ class RouteActionsHelper() : KoinComponent {
             val countFreeRoutes = 20
             val currentTime = Calendar.getInstance().timeInMillis
             val gracePeriod = 24 * 3_600_000 // 1 day in ms
-            val endTimeSubscription =
-                sharedPreferenceStorage.getSubscriptionExpiration() + gracePeriod
+            val setting = settingsUseCase.getUserSettingFlow().first()
+            val time = setting.subscriptionPeriod
+
+            val endTimeSubscription = time + gracePeriod
 
             // get routes size on IO
             val routesSize = withContext(Dispatchers.IO) {
@@ -69,15 +71,15 @@ class RouteActionsHelper() : KoinComponent {
             }
 
             return when {
-                endTimeSubscription < currentTime && sharedPreferenceStorage.getSubscriptionExpiration() != 0L -> {
+                endTimeSubscription < currentTime && time != 0L -> {
                     NewRouteResult.NeedSubscribeDialog
                 }
 
-                routesSize > countFreeRoutes && sharedPreferenceStorage.getSubscriptionExpiration() == 0L -> {
+                routesSize > countFreeRoutes && time == 0L -> {
                     NewRouteResult.NeedSubscribeDialog
                 }
 
-                routesSize <= countFreeRoutes && sharedPreferenceStorage.getSubscriptionExpiration() == 0L -> {
+                routesSize <= countFreeRoutes && time == 0L -> {
                     NewRouteResult.AlertSubscribeDialog
                 }
 
@@ -125,7 +127,7 @@ class RouteActionsHelper() : KoinComponent {
     /**
      * Метод для удаления дубликатов маршрутов в back4app
      */
-    suspend fun deleteDublicateRoute(){
+    suspend fun deleteDublicateRoute() {
         back4AppManager.processAllRoutes()
     }
 
@@ -389,7 +391,8 @@ class RouteActionsHelper() : KoinComponent {
 
 
         val timeResult = endTime - startTime
-        val effectiveRest = if (timeResult > minTimeRestPointOfTurnover) timeResult else minTimeRestPointOfTurnover
+        val effectiveRest =
+            if (timeResult > minTimeRestPointOfTurnover) timeResult else minTimeRestPointOfTurnover
         val endRestTime = endTime + effectiveRest
 
         emit(Pair(effectiveRest, endRestTime))

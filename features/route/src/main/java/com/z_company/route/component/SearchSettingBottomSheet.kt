@@ -3,32 +3,23 @@ package com.z_company.route.component
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.component.DateTimePickerBottomSheet
-import com.z_company.core.ui.component.customDatePicker.DateTimePickerView
-import com.z_company.core.ui.component.customDatePicker.MyWheelDatePickerView
 import com.z_company.core.ui.theme.Shapes
-import com.z_company.core.ui.theme.custom.AppTypography
-import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.FilterNames
 import com.z_company.domain.entities.FilterSearch
 import com.z_company.domain.entities.TimePeriod
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.atTime
-import kotlinx.datetime.toInstant
 import java.util.Calendar
+import com.z_company.core.R
 
 @OptIn(
     ExperimentalLayoutApi::class,
@@ -83,35 +74,6 @@ fun SearchSettingBottomSheet(
         )
     }
 
-//    MyWheelDatePickerView(
-//        showDatePicker = showDatePickerStart,
-//        title = "Начало периода",
-//        doneLabel = "Готово",
-//        rowCount = 5,
-//        height = 128.dp,
-//        dateTextColor = MaterialTheme.colorScheme.onSurface,
-//        dateTimePickerView = DateTimePickerView.DIALOG_VIEW,
-//        startDate = ConverterLongToTime.timestampToDateTime(
-//            startDate ?: Calendar.getInstance().timeInMillis
-//        ).date,
-//        onDoneClick = {
-//            val localDateTime = it.atTime(0, 0, 0, 0)
-//            val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
-//            val millis = instant.toEpochMilliseconds()
-//            startDate = millis
-//            setPeriodFilter(
-//                TimePeriod(
-//                    startDate,
-//                    endDate
-//                )
-//            )
-//            showDatePickerStart = false
-//        },
-//        onDismiss = {
-//            showDatePickerStart = false
-//        }
-//    )
-
     var showDatePickerEnd by rememberSaveable {
         mutableStateOf(false)
     }
@@ -133,35 +95,6 @@ fun SearchSettingBottomSheet(
         )
     }
 
-//    MyWheelDatePickerView(
-//        showDatePicker = showDatePickerEnd,
-//        title = "Конец периода",
-//        doneLabel = "Готово",
-//        rowCount = 5,
-//        height = 128.dp,
-//        dateTextColor = MaterialTheme.colorScheme.onSurface,
-//        dateTimePickerView = DateTimePickerView.DIALOG_VIEW,
-//        startDate = ConverterLongToTime.timestampToDateTime(
-//            endDate ?: Calendar.getInstance().timeInMillis
-//        ).date,
-//        onDoneClick = {
-//            val localDateTime = it.atTime(23, 59, 59, 0)
-//            val instant = localDateTime.toInstant(TimeZone.currentSystemDefault())
-//            val millis = instant.toEpochMilliseconds()
-//            endDate = millis
-//            setPeriodFilter(
-//                TimePeriod(
-//                    startDate,
-//                    endDate
-//                )
-//            )
-//            showDatePickerEnd = false
-//        },
-//        onDismiss = {
-//            showDatePickerEnd = false
-//        }
-//    )
-
     ModalBottomSheet(
         sheetState = bottomSheetState,
         onDismissRequest = closeSheet,
@@ -180,7 +113,7 @@ fun SearchSettingBottomSheet(
                         onClick = closeSheet
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Close,
+                            painter = painterResource(R.drawable.ic_clear),
                             tint = primaryColor,
                             contentDescription = null
                         )

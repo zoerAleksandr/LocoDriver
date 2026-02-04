@@ -12,10 +12,13 @@ import Versions.constraint_layout_ver
 import Versions.core_ktx_version
 import Versions.core_testing_version
 import Versions.coroutines_version
+import Versions.crypto_tink_ver
 import Versions.datastore_pref_ver
+import Versions.datastore_preferences_ver
 import Versions.desugaring_ver
 import Versions.gson_version
 import Versions.koin_version
+import Versions.kotlin_x_serialization_json_ver
 import Versions.kotlinx_date_time_ver
 import Versions.ksp_ver
 import Versions.lifecycle_runtime_compose_ver
@@ -38,6 +41,7 @@ import Versions.rustore_bom_ver
 import Versions.splash_screen_ver
 import Versions.test_ext_version
 import Versions.test_runner_version
+import Versions.vkIdVer
 import Versions.work_manager_version
 import org.gradle.api.JavaVersion
 
@@ -50,6 +54,7 @@ object Plugins {
     const val google_relay = "com.google.relay"
     const val compose_compiler = "org.jetbrains.kotlin.plugin.compose"
     const val ksp = "com.google.devtools.ksp"
+    const val vkIdManifest = "vkid.manifest.placeholders"
 }
 
 object Apps {
@@ -58,8 +63,8 @@ object Apps {
     const val min_sdk_version = 26
     const val target_sdk_version = 35
 
-    const val version_code = 54
-    const val version_name = "2.0.6"
+    const val version_code = 61
+    const val version_name = "2.1.3"
 
     const val jvm_target_version = "21"
     val java_compatibility_version = JavaVersion.VERSION_21
@@ -68,9 +73,10 @@ object Apps {
 }
 
 object Versions {
+    const val vkIdManifestPluginVer = "1.1.0"
     const val ksp_ver = "2.1.21-2.0.1"
     const val android_plugin_id = "8.9.2"
-    const val kotlin_version = "2.1.21"
+    const val kotlin_version = "2.2.0"
     const val accompanist_navigation_animation_version = "0.34.0"
     const val accompanist_swiperefresh_version = "0.34.0"
     const val activity_compose_version = "1.9.0"
@@ -105,14 +111,19 @@ object Versions {
     const val accompanist_ui_controller_version = "0.32.0"
     const val rebugger_ver = "1.0.0-rc03"
     const val desugaring_ver = "2.0.4"
-    const val mockito_core_ver= "3.10.0"
-    const val mockito_inline_ver= "2.8.9"
-    const val mockito_kotlin_ver= "1.5.0"
+    const val mockito_core_ver = "3.10.0"
+    const val mockito_inline_ver = "2.8.9"
+    const val mockito_kotlin_ver = "1.5.0"
     const val kotlinx_date_time_ver = "0.6.2"
     const val ru_ok_tracer_platform_ver = "1.1.2"
     const val mytracker_sdk_ver = "3.3.2"
     const val retrofit_ver = "2.11.0"
     const val lifecycle_runtime_compose_ver = "2.8.7"
+    const val vkIdVer = "2.6.0"
+
+    const val datastore_preferences_ver = "1.2.0"
+    const val crypto_tink_ver = "1.7.0"
+    const val kotlin_x_serialization_json_ver = "1.10.0"
 }
 
 object Libs {
@@ -122,12 +133,21 @@ object Libs {
     const val project_domain = ":domain"
     const val project_data_local = ":data_local"
     const val project_data_remote = ":data_remote"
+    const val project_robokassa_sdk = ":robokassa_sdk"
     const val project_feature_login = ":features:login"
     const val project_feature_route = ":features:route"
     const val project_feature_settings = ":features:settings"
 
     // Libs
-    const val lifecycle_runtime_compose = "androidx.lifecycle:lifecycle-runtime-compose:$lifecycle_runtime_compose_ver"
+    const val kotlin_x_serialization_json = "org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlin_x_serialization_json_ver"
+    const val datastore_preferences = "androidx.datastore:datastore-preferences:$datastore_preferences_ver"
+
+    const val crypto_tink = "com.google.crypto.tink:tink-android:$crypto_tink_ver"
+
+    const val vkId = "com.vk.id:vkid:$vkIdVer"
+    const val oneTapVkId = "com.vk.id:onetap-compose:$vkIdVer"
+    const val lifecycle_runtime_compose =
+        "androidx.lifecycle:lifecycle-runtime-compose:$lifecycle_runtime_compose_ver"
     const val retrofit2 = "com.squareup.retrofit2:retrofit:$retrofit_ver"
     const val ksp_api = "com.google.devtools.ksp:symbol-processing-api:$ksp_ver"
     const val ru_ok_tracer_platform = "ru.ok.tracer:tracer-platform:$ru_ok_tracer_platform_ver"
@@ -198,8 +218,10 @@ object Libs {
     const val appwrite = "io.appwrite:sdk-for-android:$appwrite_ver"
     const val splash_screen = "androidx.core:core-splashscreen:$splash_screen_ver"
 
-    const val parse_sdk_android = "com.github.parse-community.Parse-SDK-Android:parse:$parse_sdk_android_ver"
-    const val parse_sdk_android_coroutine = "com.github.parse-community.Parse-SDK-Android:coroutines:$parse_sdk_android_ver"
+    const val parse_sdk_android =
+        "com.github.parse-community.Parse-SDK-Android:parse:$parse_sdk_android_ver"
+    const val parse_sdk_android_coroutine =
+        "com.github.parse-community.Parse-SDK-Android:coroutines:$parse_sdk_android_ver"
     const val work_manager = "androidx.work:work-runtime-ktx:$work_manager_version"
 
     const val rustore_bom = "ru.rustore.sdk:bom:$rustore_bom_ver"
@@ -207,6 +229,7 @@ object Libs {
     const val rustore_billing_client = "ru.rustore.sdk:billingclient"
     const val rustore_review = "ru.rustore.sdk:review"
     const val rustore_sdk_appupdate = "ru.rustore.sdk:appupdate"
+
 
     //     Debug
     const val ui_tooling =
@@ -228,7 +251,7 @@ object TestLibs {
         "org.mockito:mockito-core:$mockito_core_ver"
     const val mockito_inline =
         "org.mockito:mockito-inline:$mockito_inline_ver"
-    const val mockito_kotlin=
+    const val mockito_kotlin =
         "com.nhaarman:mockito-kotlin:$mockito_kotlin_ver"
     const val exclude_jetbrains_kotlin =
         "org.jetbrains.kotlin"

@@ -1,18 +1,24 @@
 package com.z_company.route.viewmodel.all_route_view_model
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import android.content.Intent
+import android.util.Log
+import androidx.core.content.FileProvider
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.application
 import androidx.lifecycle.viewModelScope
-import com.z_company.core.ErrorEntity
+import com.z_company.RouteSerializer
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import com.z_company.domain.entities.MonthOfYear
-import com.z_company.domain.entities.SalarySetting
-import com.z_company.domain.entities.UserSettings
+import com.z_company.domain.entities.setting.SalarySetting
+import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.core.ResultState
 import com.z_company.core.ui.snackbar.ISnackbarManager
+import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.getLongDistanceTime
@@ -22,6 +28,8 @@ import com.z_company.domain.entities.route.UtilsForEntities.isHolidayTimeInRoute
 import com.z_company.domain.entities.route.UtilsForEntities.timeFollowingSingleLocomotive
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.CalendarUseCase
+import com.z_company.repository.SecureDataStore
+import com.z_company.repository.remote_rest.RoutesManager
 import com.z_company.route.viewmodel.PreviewRouteUiState
 import com.z_company.route.viewmodel.RouteActionsHelper
 import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
@@ -33,12 +41,9 @@ import com.z_company.use_case.SubscriptionHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import ru.rustore.sdk.core.feature.model.FeatureAvailabilityResult
-import java.util.Calendar.getInstance
-import java.util.TimeZone
+import java.io.File
 
 enum class RouteFilter {
     ALL,
@@ -62,7 +67,8 @@ data class RoutesUiState(
     val syncRouteState: ResultState<String>? = null,
     val removeRouteState: ResultState<Unit>? = null,
     val restoreSubscriptionState: ResultState<String>? = null,
-    val showConfirmDialogRemoveRoute: Boolean = false
+    val showConfirmDialogRemoveRoute: Boolean = false,
+    val isExpandedView: Boolean = false
 )
 
 enum class SortOption {
@@ -72,7 +78,7 @@ enum class SortOption {
     WORKTIME_DESC
 }
 
-class AllRouteViewModel() : ViewModel(), KoinComponent {
+class AllRouteViewModel(application: Application) : AndroidViewModel(application), KoinComponent {
     private val settingsUseCase: SettingsUseCase by inject()
     private val salarySettingUseCase: SalarySettingUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
@@ -183,40 +189,87 @@ class AllRouteViewModel() : ViewModel(), KoinComponent {
                 val routeStateList = rawRoutes // если latestRawRoutes хранит ItemState
                 // применяем фильтры
                 val filtered = applyFilters(routeStateList, filters, salarySetting = salary)
+                val savedSort =
+                    sharedPreferenceStorage.getSortOption()?.let { SortOption.valueOf(it) }
+                        ?: SortOption.DATE_DESC
+                val savedFiltersStrings =
+                    sharedPreferenceStorage.getSelectedFilters() ?: setOf(RouteFilter.ALL.name)
+                val savedFilters = savedFiltersStrings.map { RouteFilter.valueOf(it) }.toSet()
+                val savedExpanded = sharedPreferenceStorage.isExpandedView()
                 _uiState.update {
                     it.copy(
                         filteredRoutes = filtered,
                         isLoading = false,
                         currentMonthOfYear = currentMonth,
+                        sortOption = savedSort,
+                        selectedFilters = savedFilters,
+                        isExpandedView = savedExpanded
                     )
                 }
             }
         }
     }
 
-    fun checkPurchasesAvailability() {
+    private val _shareRouteEvent =
+        MutableSharedFlow<Intent>(  // Новый: Добавлен MutableSharedFlow для события шаринга.
+            // Для чего: Чтобы ViewModel мог уведомить UI о готовом Intent для шаринга, не запуская его сам. Это решает проблему с контекстом (UI использует свой Activity context) и сохраняет MVVM: ViewModel не зависит от UI.
+            extraBufferCapacity = 1,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST
+        )
+    val shareRouteEvent: SharedFlow<Intent> =
+        _shareRouteEvent.asSharedFlow()  // Новый: Публичный SharedFlow для подписки в UI.
+
+    // Изменено: Метод shareRoute теперь генерирует Intent и эмитирует его в Flow, вместо запуска startActivity.
+    // Для чего: Переносим запуск в UI, чтобы использовать правильный контекст и избежать ошибки. Это делает код чище и testable.
+    fun shareRoute(route: Route) {
         viewModelScope.launch(Dispatchers.IO) {
-            when (val checkResult = subscriptionHelper.checkPurchasesAvailabilitySuspend()) {
-                is ResultState.Success -> {
-                    _purchasesEvent.tryEmit(StartPurchasesEvent.PurchasesAvailability(checkResult.data))
-                    snackbarManager.show(message = "Подписки доступны")
+            try {
+                // Создаём временный файл в cache (без изменений)
+                val file = File(application.cacheDir, "${route.basicData.id}.zroute")
+                file.writeText(RouteSerializer.serialize(route))
+
+                // Получаем URI через FileProvider (без изменений)
+                val uri = FileProvider.getUriForFile(
+                    application,
+                    "${application.packageName}.provider",
+                    file
+                )
+
+                // Intent для шаринга (без изменений)
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "application/vnd.com.z_company.loco_driver.route"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
 
-                is ResultState.Error -> {
-                    snackbarManager.show(
-                        message = checkResult.entity.message
-                            ?: "Ошибка. Подписки пока недоступны"
-                    )
-                }
+                // Chooser (без изменений)
+                val chooser = Intent.createChooser(shareIntent, "Поделиться маршрутом")
 
-                else -> {}
+                // Новый: Эмитируем chooser в Flow вместо запуска.
+                // Для чего: UI подхватит это и запустит startActivity из своего контекста.
+                _shareRouteEvent.emit(chooser)
+            } catch (e: Exception) {
+                Log.e("ShareRoute", "Ошибка шаринга: ${e.message}")
+                // Можно добавить snackbar или другой event для ошибки
             }
         }
+    }
+
+    fun convertTimeToStringFormat(timeToLong: Long?): String {
+        userSettings?.let { settings ->
+            return if (settings.isDecimalTime) {
+                ConverterLongToTime.getTimeInStringDecimalFormat(timeToLong)
+            } else {
+                ConverterLongToTime.getTimeInStringFormat(timeToLong)
+            }
+        }
+        return ConverterLongToTime.getTimeInStringFormat(timeToLong)
     }
 
     fun restorePurchases() {
         viewModelScope.launch(Dispatchers.IO) {
-            subscriptionHelper.restorePurchases(snackbarManager)
+            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+            subscriptionHelper.restorePurchases(snackbarManager, token)
         }
     }
 
@@ -249,24 +302,33 @@ class AllRouteViewModel() : ViewModel(), KoinComponent {
     }
 
     fun syncRoute(route: Route) {
+        val routesManager = RoutesManager
         viewModelScope.launch {
-            routeHelper.syncRoute(route).collect { result ->
-                when (result) {
-                    is ResultState.Success -> {
-                        // show snackbar centrally
-                        snackbarManager.show(message = result.data)
-                        _uiState.update { it.copy(syncRouteState = null) }
-                    }
+            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+            val fullToken = "Bearer $token"
+            if (token == null) {
+                snackbarManager.show(message = "Неавторизованный пользователь")
+            } else {
+                routesManager.saveRouteInRemote(route, fullToken).collect { resultState ->
+                    when (resultState) {
+                        is ResultState.Success -> {
+                            // show snackbar centrally
+                            routeUseCase.setSynchronizedRoute(route.basicData.id).first()
+                            snackbarManager.show(message = "Маршрут сохранен в облаке")
+                            _uiState.update { it.copy(syncRouteState = null) }
+                        }
 
-                    is ResultState.Error -> {
-                        val message = result.entity.message ?: result.entity.throwable?.message
-                        ?: "Ошибка синхронизации"
-                        snackbarManager.show(message = message)
-                        _uiState.update { it.copy(syncRouteState = ResultState.Error(result.entity)) }
-                    }
+                        is ResultState.Error -> {
+                            val message =
+                                resultState.entity.message ?: resultState.entity.throwable?.message
+                                ?: "Ошибка синхронизации"
+                            snackbarManager.show(message = message)
+                            _uiState.update { it.copy(syncRouteState = ResultState.Error(resultState.entity)) }
+                        }
 
-                    is ResultState.Loading -> {
-                        _uiState.update { it.copy(syncRouteState = ResultState.Loading()) }
+                        is ResultState.Loading -> {
+                            _uiState.update { it.copy(syncRouteState = ResultState.Loading()) }
+                        }
                     }
                 }
             }
@@ -408,6 +470,7 @@ class AllRouteViewModel() : ViewModel(), KoinComponent {
 
     fun setSort(option: SortOption) {
         _uiState.update { it.copy(sortOption = option) }
+        sharedPreferenceStorage.setSortOption(option.name)
     }
 
     fun toggleFilter(filter: RouteFilter) {
@@ -423,6 +486,13 @@ class AllRouteViewModel() : ViewModel(), KoinComponent {
             }
             current.copy(selectedFilters = newSet)
         }
+        val newFiltersStrings = _uiState.value.selectedFilters.map { it.name }.toSet()
+        sharedPreferenceStorage.setSelectedFilters(newFiltersStrings)
+    }
+
+    fun toggleExpandedView() {
+        _uiState.update { it.copy(isExpandedView = !it.isExpandedView) }
+        sharedPreferenceStorage.setIsExpandedView(_uiState.value.isExpandedView)
     }
 
     fun reload() {

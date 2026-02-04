@@ -8,13 +8,13 @@ import com.z_company.domain.navigation.Router
 import com.z_company.route.ui.SalaryCalculationScreen
 import com.z_company.route.viewmodel.SalaryCalculationViewModel
 
-
 @Composable
 fun SalaryCalculationDestination(router: Router){
     val viewModel: SalaryCalculationViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
 
     SalaryCalculationScreen(
+        viewModel = viewModel,
         uiState = uiState,
         onSettingsSalaryClick = router::showSettingSalary,
     )

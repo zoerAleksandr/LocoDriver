@@ -7,16 +7,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.rememberDismissState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -46,9 +43,9 @@ import com.z_company.route.viewmodel.all_route_view_model.RouteFilter
 import com.z_company.route.viewmodel.all_route_view_model.SortOption
 import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
-import java.util.Calendar
 
 @OptIn(
     ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class,
@@ -61,7 +58,17 @@ fun AllRouteScreen(
     onRouteClick: (String) -> Unit = {},
     setSortOption: (SortOption) -> Unit,
     showFormScreen: () -> Unit,
+    showPurchasesScreen: () -> Unit
 ) {
+    val context = LocalContext.current
+
+    LaunchedEffect(Unit) {  // Новый: Подписка на shareRouteEvent.
+        // Для чего: Когда ViewModel эмитирует Intent, мы запускаем его из UI-контекста (Activity), избегая ошибки. Это асинхронно и безопасно.
+        viewModel.shareRouteEvent.collect { chooser ->
+            context.startActivity(chooser)  // Запуск из Activity context — ошибки не будет!
+        }
+    }
+
     val state by viewModel.uiState.collectAsState()
     val previewRouteState by viewModel.previewRouteUiState.collectAsState()
 
@@ -71,7 +78,7 @@ fun AllRouteScreen(
 
     val redOrange = Color(0xFFf1642e)
 
-    var isExpandedView by remember { mutableStateOf(false) }
+    val isExpandedView by viewModel.uiState.map { it.isExpandedView }.collectAsState(initial = false)
     var isFilterSheetVisible by remember { mutableStateOf(false) }
 
     var isMonthSheetVisible by remember { mutableStateOf(false) }
@@ -315,8 +322,8 @@ fun AllRouteScreen(
                     BottomSheetAction(text = stringResource(id = R.string.billing_common_ok)) {
                         showFormScreen()
                     },
-                    BottomSheetAction(text = "Оформить подписку за 44 руб/мес") {
-                        viewModel.checkPurchasesAvailability()
+                    BottomSheetAction(text = "Оформить подписку за 69 руб/мес") {
+                            showPurchasesScreen()
                     }
                 ),
             )
@@ -344,8 +351,8 @@ fun AllRouteScreen(
                     }
                 },
                 actions = listOf(
-                    BottomSheetAction(text = "Оформить подписку за 44 руб/мес") {
-                        viewModel.checkPurchasesAvailability()
+                    BottomSheetAction(text = "Оформить подписку за 69 руб/мес") {
+                        showPurchasesScreen()
                     },
                     BottomSheetAction(text = "Восстановить покупки") {
                         viewModel.restorePurchases()
@@ -392,7 +399,8 @@ fun AllRouteScreen(
                     showDialogConfirmRemove = { showDialog, route ->
                         isShowDialogConfirmRemoveRoute = showDialog
                         routeForRemove = route
-                    }
+                    },
+//                    shareRoute = { viewModel.shareRoute(route) }
                 )
             }
         }
@@ -475,7 +483,7 @@ fun AllRouteScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(
                         onClick = {
-                            isExpandedView = !isExpandedView
+                            viewModel.toggleExpandedView()
                         }
                     ) {
                         AnimatedContent(targetState = isExpandedView) { isExpand ->
@@ -568,12 +576,11 @@ fun AllRouteScreen(
                                         }
                                     }
 
-//                                val dismissState = rememberDismissState()
 
                                 ItemHomeScreen(
                                     modifier = Modifier.animateItem(),
-//                                    dismissState = dismissState,
                                     route = route,
+                                    convertTimeToString = viewModel::convertTimeToStringFormat,
                                     onClick = { onRouteClick(route.basicData.id) },
                                     onRequestDelete = {
                                         isShowDialogConfirmRemoveRoute = true
@@ -630,7 +637,7 @@ private fun FiltersRow(selected: Set<RouteFilter>, onToggle: (RouteFilter) -> Un
                 Icon(
                     modifier = Modifier.size(20.dp),
                     tint = redOrange,
-                    imageVector = Icons.Default.Favorite,
+                    painter = painterResource(R.drawable.favorite_24px),
                     contentDescription = null
                 )
             },

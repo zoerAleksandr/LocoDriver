@@ -4,6 +4,8 @@ import android.util.Log
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.robokassa.library.params.PaymentParams
+import com.robokassa.library.pay.RobokassaPayLauncher
 import com.z_company.SessionManager
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.Day
@@ -13,6 +15,7 @@ import com.z_company.domain.use_cases.LoadCalendarFromStorage
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.route.viewmodel.PurchasesViewModel
 import com.z_company.use_case.RemoteRouteUseCase
 import com.z_company.use_case.RuStoreUseCase
 import com.z_company.use_case.SubscriptionHelper
@@ -34,14 +37,12 @@ import java.util.Calendar.YEAR
 private const val TAG = "MainViewModel_TAG"
 
 class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
+    private val purchasesViewModel: PurchasesViewModel by inject()
     private val salarySettingUseCase: SalarySettingUseCase by inject()
     private val loadCalendarFromStorage: LoadCalendarFromStorage by inject()
     private val calendarUseCase: CalendarUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
-    private val remoteRouteUseCase: RemoteRouteUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
-    private val ruStoreUseCase: RuStoreUseCase by inject()
-    private val subscriptionHelper: SubscriptionHelper by inject()
 
     private var saveCalendarInLocalJob: Job? = null
     private var setDefaultSetting: Job? = null
@@ -56,7 +57,12 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private val sessionManager: SessionManager by inject()
 
     init {
-        sessionManager.updateLoggedIn() // ← мгновенно + запускает sync если нужно
+        if (sharedPreferenceStorage.tokenIsFirstAppEntry()){
+            sharedPreferenceStorage.setIsMigrated(true)
+        }
+        viewModelScope.launch {
+            sessionManager.updateLoggedIn() // ← мгновенно + запускает sync если нужно
+        }
 
         viewModelScope.launch {
             loadCalendar()
@@ -65,9 +71,14 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
         }
     }
 
-    private fun enableSynchronisedRoute() {
+    fun handlePaymentReturn(params: PaymentParams?) {
         viewModelScope.launch {
-            remoteRouteUseCase.syncBasicDataPeriodic().collect {}
+            if (params != null) {
+                purchasesViewModel.emitStartPayment(params, onlyCheck = true)
+            } else {
+                Log.d("zzz", "Параметры платежа не найдены при возврате")
+                // Можно эмитировать ошибку через PurchasesViewModel, если нужно показать snackbar
+            }
         }
     }
 
@@ -93,7 +104,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
             // оставляем это поле без изменений, остальное обновляем, если месяц ранее не сохранялся,
             // тогда записываем его в room без изменений
             this.launch {
-                if (monthOfYearList.isEmpty()){
+                if (monthOfYearList.isEmpty()) {
                     Log.d("zzz", "monthOfYearList.isEmpty()")
                 } else {
                     Log.d("zzz", "monthOfYearList.isNotEmpty()")

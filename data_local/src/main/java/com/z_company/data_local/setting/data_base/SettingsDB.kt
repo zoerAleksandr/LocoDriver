@@ -2,7 +2,9 @@ package com.z_company.data_local.setting.data_base
 
 import androidx.room.AutoMigration
 import androidx.room.Database
+import androidx.room.DeleteColumn
 import androidx.room.RoomDatabase
+import androidx.room.migration.AutoMigrationSpec
 import com.z_company.data_local.setting.dao.SettingsDao
 import com.z_company.data_local.setting.entity.MonthOfYear
 import com.z_company.data_local.setting.entity.UserSettings
@@ -39,7 +41,7 @@ import com.z_company.data_local.setting.entity.UserSettings
         UserSettings::class,
         MonthOfYear::class
     ],
-    version = 11,
+    version = 14,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -52,8 +54,21 @@ import com.z_company.data_local.setting.entity.UserSettings
         AutoMigration(from = 8, to = 9),
         AutoMigration(from = 9, to = 10),
         AutoMigration(from = 10, to = 11),
+        AutoMigration(from = 11, to = 12, spec = DeleteColumns::class),
+        AutoMigration(from = 12, to = 13, spec = DeleteColumns::class),
+        AutoMigration(from = 13, to = 14),
     ]
 )
 internal abstract class SettingsDB : RoomDatabase() {
     abstract fun settingsDao(): SettingsDao
 }
+
+@DeleteColumn.Entries(
+    DeleteColumn(tableName = "UserSettings", columnName = "isVisibleNightTime"),
+    DeleteColumn(tableName = "UserSettings", columnName = "isVisiblePassengerTime"),
+    DeleteColumn(tableName = "UserSettings", columnName = "isVisibleRelationTime"),
+    DeleteColumn(tableName = "UserSettings", columnName = "isVisibleHolidayTime"),
+    DeleteColumn(tableName = "UserSettings", columnName = "isVisibleExtendedServicePhase"),
+    DeleteColumn(tableName = "UserSettings", columnName = "dateTimePickerType"),
+)
+class DeleteColumns : AutoMigrationSpec

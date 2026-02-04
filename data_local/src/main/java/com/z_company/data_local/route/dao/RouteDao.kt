@@ -131,7 +131,7 @@ internal interface RouteDao {
     @Query("UPDATE Photo SET remoteObjectId =:objectId WHERE photoId =:photoId")
     fun setRemoteObjectIdPhoto(photoId: String, objectId: String)
 
-    @Query("UPDATE BasicData SET isSynchronizedRoute = 1 WHERE id =:id")
+    @Query("UPDATE BasicData SET isSynchronized = 1 WHERE id =:id")
     fun setSynchronizedRoute(id: String)
 
     //

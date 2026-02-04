@@ -24,10 +24,8 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberBasicTooltipState
 import androidx.compose.material.DismissDirection
-import androidx.compose.material.DismissState
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.SwipeToDismiss
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material.DismissValue
@@ -74,8 +72,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun ItemHomeScreen(
     modifier: Modifier = Modifier,
-//    dismissState: DismissState,
     route: Route,
+    convertTimeToString: (Long?) -> String,
     isExpand: Boolean = false,
     onRequestDelete: (Route) -> Unit,
     requiredSizeText: TextUnit,
@@ -105,7 +103,7 @@ fun ItemHomeScreen(
         }
         val timeText = "$startWork - $endWork"
         val workTimeValue = route.getWorkTime()
-        val workTimeString = ConverterLongToTime.getTimeInStringFormat(workTimeValue)
+        val workTimeString = convertTimeToString(workTimeValue)
         timeText to workTimeString
     }
 
@@ -292,6 +290,17 @@ fun ItemHomeScreen(
                                         )
                                     }
                                 }
+                            }
+                        }
+                        if (!route.basicData.notes.isNullOrBlank()) {
+                            Box(modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+                                AutoSizeText(
+                                    maxTextSize = requiredSizeText,
+                                    maxLines = 2,
+                                    text = "${route.basicData.notes}",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
                             }
                         }
                     } else {
@@ -608,12 +617,12 @@ fun ItemHomeScreen(
                                     Icon(
                                         tint = Color(0xFFf1642e),
                                         modifier = Modifier.size(20.dp),
-                                        imageVector = androidx.compose.material.icons.Icons.Default.Favorite,
+                                        painter = painterResource(R.drawable.favorite_fill_24px),
                                         contentDescription = null,
                                     )
                                 }
 
-                                if (route.basicData.isSynchronizedRoute) {
+                                if (route.basicData.isSynchronized) {
                                     Image(
                                         modifier = Modifier.size(20.dp),
                                         painter = painterResource(id = R.drawable.sync_on_icon),
@@ -623,7 +632,7 @@ fun ItemHomeScreen(
                                     Icon(
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(20.dp),
-                                        painter = painterResource(id = R.drawable.not_sync_icon),
+                                        painter = painterResource(id = R.drawable.sync_disabled_24px),
                                         contentDescription = null,
                                     )
                                 }

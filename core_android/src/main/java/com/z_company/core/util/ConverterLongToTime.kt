@@ -5,8 +5,7 @@ import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import java.text.SimpleDateFormat
-import java.util.Locale
+import kotlin.math.roundToInt
 
 object ConverterLongToTime {
 
@@ -28,11 +27,9 @@ object ConverterLongToTime {
     fun getTimeInStringFormat(long: Long?): String {
         return if (long == null) {
             "          "
-        }
-        else if (long < 0) {
+        } else if (long < 0) {
             "00:00"
-        }
-        else {
+        } else {
             val hour = getHour(long)
             val hourText = if (hour < 10) {
                 "0$hour"
@@ -46,6 +43,25 @@ object ConverterLongToTime {
                 minute.toString()
             }
             "$hourText:$minuteText"
+        }
+    }
+
+    @SuppressLint("DefaultLocale")
+    fun getTimeInStringDecimalFormat(timeInMillis: Long?): String {
+        return if (timeInMillis == null) {
+            ""
+        } else {
+            val timeInMinutes = timeInMillis / 60000  // 60000 = 1000 мс * 60 сек
+
+            val hours = timeInMinutes / 60
+
+            val remainingMinutes = timeInMinutes % 60
+
+            val decimalPart = remainingMinutes / 60.0
+
+            val minute = "%.2f".format(decimalPart).drop(2)
+
+            return String.format("%d,%s", hours, minute)
         }
     }
 

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">87.228.110.32</domain>  <!-- Укажите ваш IP или домен -->
+    </domain-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config><!-- Пояснение: cleartextTrafficPermitted="true" разрешает HTTP для этого IP.
+    includeSubdomains="true" — для поддоменов (не обязательно для IP). -->

@@ -2,7 +2,7 @@ package com.z_company.data_local.route.entity_converters
 
 import androidx.room.TypeConverter
 import com.google.gson.GsonBuilder
-import com.z_company.domain.entities.ServicePhase
+import com.z_company.domain.entities.setting.ServicePhase
 
 internal object ServicePhaseConverter {
     private val gson = GsonBuilder().setDateFormat("MMM dd, yyyy HH:mm:ss").create()

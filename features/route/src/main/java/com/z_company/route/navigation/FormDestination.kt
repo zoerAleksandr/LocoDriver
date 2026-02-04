@@ -125,6 +125,7 @@ fun FormDestination(
         salaryForRouteState = salaryState,
         onSalarySettingClick = router::showSettingSalary,
         setFavoriteState = viewModel::setFavoriteRoute,
-        dateAndTimeConverter = dateAndTimeConverter
+        dateAndTimeConverter = dateAndTimeConverter,
+        showPurchasesScreen = router::showPurchasesScreen
     )
 }

@@ -1,6 +1,6 @@
 package com.z_company.data_local.setting.entity_converter
 
-import com.z_company.domain.entities.SurchargeHeavyTrains
+import com.z_company.domain.entities.setting.SurchargeHeavyTrains
 import com.z_company.data_local.setting.entity.SurchargeHeavyTrains as HeavyTrainsEntity
 
 internal object SurchargeHeavyTrainsConverter {

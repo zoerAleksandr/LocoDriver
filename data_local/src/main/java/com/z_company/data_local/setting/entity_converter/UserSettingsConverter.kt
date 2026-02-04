@@ -1,6 +1,6 @@
 package com.z_company.data_local.setting.entity_converter
 
-import com.z_company.domain.entities.UserSettings
+import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.data_local.setting.entity.UserSettings as UserSettingsEntity
 
 internal object UserSettingsConverter {
@@ -16,17 +16,13 @@ internal object UserSettingsConverter {
         isConsiderFutureRoute = userSettings.isConsiderFutureRoute,
         defaultLocoType = userSettings.defaultLocoType,
         monthOfYear = MonthOfYearConverter.fromData(userSettings.selectMonthOfYear),
-        isVisibleNightTime = userSettings.isVisibleNightTime,
-        isVisiblePassengerTime = userSettings.isVisiblePassengerTime,
-        isVisibleRelationTime = userSettings.isVisibleRelationTime,
-        isVisibleHolidayTime = userSettings.isVisibleHolidayTime,
-        isVisibleExtendedServicePhase = userSettings.isVisibleExtendedServicePhase,
         stationList = userSettings.stationList,
         timeZone = userSettings.timeZone,
         locomotiveSeriesList = userSettings.locomotiveSeriesList,
         servicePhases = ServicePhasesConverter.fromDataList(userSettings.servicePhases),
-        dateTimePickerType = userSettings.dateTimePickerType,
-        standardTimesStartWork = userSettings.standardTimesStartWork
+        standardTimesStartWork = userSettings.standardTimesStartWork,
+        subscriptionPeriod = userSettings.subscriptionPeriod,
+        isDecimalTime = userSettings.isDecimalTime
     )
 
     fun toData(userSettingsEntity: UserSettingsEntity) = UserSettings(
@@ -41,16 +37,12 @@ internal object UserSettingsConverter {
         isConsiderFutureRoute = userSettingsEntity.isConsiderFutureRoute,
         defaultLocoType = userSettingsEntity.defaultLocoType,
         selectMonthOfYear = MonthOfYearConverter.toData(userSettingsEntity.monthOfYear),
-        isVisibleNightTime = userSettingsEntity.isVisibleNightTime,
-        isVisiblePassengerTime = userSettingsEntity.isVisiblePassengerTime,
-        isVisibleRelationTime = userSettingsEntity.isVisibleRelationTime,
-        isVisibleHolidayTime = userSettingsEntity.isVisibleHolidayTime,
-        isVisibleExtendedServicePhase = userSettingsEntity.isVisibleExtendedServicePhase,
         stationList = userSettingsEntity.stationList,
         timeZone = userSettingsEntity.timeZone,
         locomotiveSeriesList = userSettingsEntity.locomotiveSeriesList,
         servicePhases = ServicePhasesConverter.toDataList(userSettingsEntity.servicePhases),
-        dateTimePickerType = userSettingsEntity.dateTimePickerType,
-        standardTimesStartWork = userSettingsEntity.standardTimesStartWork
+        standardTimesStartWork = userSettingsEntity.standardTimesStartWork,
+        subscriptionPeriod = userSettingsEntity.subscriptionPeriod,
+        isDecimalTime = userSettingsEntity.isDecimalTime
     )
 }

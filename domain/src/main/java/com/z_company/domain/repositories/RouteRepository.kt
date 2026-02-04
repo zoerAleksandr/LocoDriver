@@ -11,7 +11,8 @@ import kotlinx.coroutines.flow.Flow
 interface RouteRepository {
     fun loadRouteByPeriodFlow(startPeriod: Long, endPeriod: Long): Flow<List<Route>>
     fun loadRoutesByPeriod(startPeriod: Long, endPeriod: Long): Flow<ResultState<List<Route>>>
-    fun loadRoutesAsFlow(): Flow<ResultState<List<Route>>>
+    fun loadRoutesAsStateFlow(): Flow<ResultState<List<Route>>>
+    fun loadRoutesAsFlow(): Flow<List<Route>>
     fun loadRoutes(): List<Route>
     fun loadRoutesWithDeleting(): List<Route>
     fun loadRoute(routeId: String): Flow<ResultState<Route?>>

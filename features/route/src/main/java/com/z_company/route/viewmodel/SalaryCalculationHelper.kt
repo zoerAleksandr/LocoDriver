@@ -1,8 +1,7 @@
 package com.z_company.route.viewmodel
 
-import com.z_company.domain.entities.SalarySetting
-import com.z_company.domain.entities.UserSettings
-import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHours
+import com.z_company.domain.entities.setting.SalarySetting
+import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHoursExcludingWeekends
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHoursIncludingWeekends
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHoursInPeriod
@@ -48,7 +47,7 @@ class SalaryCalculationHelper(
             val passengerTime = getPassengerTime(routeList)
             val singleLocoTime = getSingleLocomotiveTime(routeList)
             val paymentHolidayHours = getHolidayTime(routeList)
-            val overtime = getOvertime(totalWorkTime, personalNormaHoursInLong)
+            val overtime = getOvertime(totalWorkTime = totalWorkTime, holidayTime = paymentHolidayHours, personalNormaHoursInLong =  personalNormaHoursInLong, )
 
             var result =
                 totalWorkTime - passengerTime - singleLocoTime - paymentHolidayHours - overtime
@@ -57,6 +56,23 @@ class SalaryCalculationHelper(
             awaitClose()
         }
     }
+
+    fun getWorkTimeAtTariffSingleRouteFlow(): Flow<Long> {
+        return channelFlow {
+
+            val totalWorkTime = getTotalWorkTime().first()
+            val passengerTime = getPassengerTime(routeList)
+            val singleLocoTime = getSingleLocomotiveTime(routeList)
+            val paymentHolidayHours = getHolidayTime(routeList)
+
+            var result =
+                totalWorkTime - passengerTime - singleLocoTime - paymentHolidayHours
+            if (result < 0) result = 0
+            trySend(result)
+            awaitClose()
+        }
+    }
+
 
     fun getWorkTimeInPeriodAtTariffFlow(
         routeList: List<Route>,
@@ -68,7 +84,7 @@ class SalaryCalculationHelper(
             val passengerTime = getPassengerTime(routeList)
             val singleLocoTime = getSingleLocomotiveTime(routeList)
             val paymentHolidayHours = getHolidayTime(routeList)
-            val overtime = getOvertime(totalWorkTime, personalNormaHoursInLong)
+            val overtime = getOvertime(totalWorkTime = totalWorkTime, holidayTime = paymentHolidayHours, personalNormaHoursInLong = personalNormaHoursInLong)
 
             var result =
                 totalWorkTime - passengerTime - singleLocoTime - paymentHolidayHours - overtime
@@ -77,6 +93,29 @@ class SalaryCalculationHelper(
             trySend(result)
         }
     }
+
+    fun getWorkTimeInPeriodAtTariffSingleRouteFlow(
+        route: Route?
+    ): Flow<Long> {
+        return channelFlow {
+            if (route == null) trySend(0L)
+            else {
+                val routeList = listOf(route)
+
+                val totalWorkTime = getTotalWorkTime(routeList).first()
+                val passengerTime = getPassengerTime(routeList)
+                val singleLocoTime = getSingleLocomotiveTime(routeList)
+                val paymentHolidayHours = getHolidayTime(routeList)
+
+                var result =
+                    totalWorkTime - passengerTime - singleLocoTime - paymentHolidayHours
+                if (result < 0) result = 0
+
+                trySend(result)
+            }
+        }
+    }
+
 
     fun getMoneyAtWorkTimeAtTariff(): Flow<Double> {
         return channelFlow {
@@ -104,6 +143,39 @@ class SalaryCalculationHelper(
                 ).first()
                 val secondRoutesMoney =
                     secondRoutesTime.times(currentMonthOfYear.tariffRate) / 3_600_000.toDouble()
+                val result = firstRoutesMoney + secondRoutesMoney
+                trySend(result)
+            }
+            awaitClose()
+        }
+    }
+
+    fun getMoneyAtWorkTimeAtTariffSingleRoute(): Flow<Double> {
+        return channelFlow {
+            if (dateSetTariffRate == null) {
+                getWorkTimeAtTariffSingleRouteFlow().collect { timeInLong ->
+                    val money =
+                        timeInLong.times(currentMonthOfYear.tariffRate) / 3_600_000.toDouble()
+                    trySend(money)
+                }
+            } else {
+                val pairRoutes = getTwoRouteList(routeList).first()
+                val firstRoutes = pairRoutes.first
+                val secondRoutes = pairRoutes.second
+
+                val firstRoutesTime = getWorkTimeInPeriodAtTariffSingleRouteFlow(
+                    route = firstRoutes.firstOrNull(),
+                ).first()
+                val secondRoutesTime = getWorkTimeInPeriodAtTariffSingleRouteFlow(
+                    route = secondRoutes.firstOrNull(),
+                ).first()
+
+                val firstRoutesMoney =
+                    firstRoutesTime.times(dateSetTariffRate.oldRate) / 3_600_000.toDouble()
+
+                val secondRoutesMoney =
+                    secondRoutesTime.times(currentMonthOfYear.tariffRate) / 3_600_000.toDouble()
+
                 val result = firstRoutesMoney + secondRoutesMoney
                 trySend(result)
             }
@@ -151,7 +223,7 @@ class SalaryCalculationHelper(
 
     fun getSingleLocomotiveTimeFlow(routes: List<Route> = routeList): Flow<Long> {
         return channelFlow {
-            var singleLocoTimeFollowing = getSingleLocomotiveTime(routes)
+            val singleLocoTimeFollowing = getSingleLocomotiveTime(routes)
             trySend(singleLocoTimeFollowing)
             awaitClose()
         }
@@ -229,7 +301,8 @@ class SalaryCalculationHelper(
         return channelFlow {
             if (dateSetTariffRate == null) {
                 getHolidayTimeFlow().collect { time ->
-                    val money = time.times(currentMonthOfYear.tariffRate) / 3_600_000.toDouble()
+                    val money =
+                        time.times(currentMonthOfYear.tariffRate).times(2.0) / 3_600_000.toDouble()
                     trySend(money)
                 }
             } else {
@@ -241,8 +314,8 @@ class SalaryCalculationHelper(
                     getHolidayTimeFlow(firstRoutes),
                     getHolidayTimeFlow(secondRoutes)
                 ) { firstTime, secondTime ->
-                    val firstMoney = firstTime.times(dateSetTariffRate.oldRate)
-                    val secondMoney = secondTime.times(currentMonthOfYear.tariffRate)
+                    val firstMoney = firstTime.times(dateSetTariffRate.oldRate).times(2.0)
+                    val secondMoney = secondTime.times(currentMonthOfYear.tariffRate).times(2.0)
                     val result = (firstMoney + secondMoney) / 3_600_000.toDouble()
                     trySend(result)
                 }.collect {}
@@ -725,9 +798,11 @@ class SalaryCalculationHelper(
         return flow {
             val personalNormaHoursInLong = getPersonalNormaInLong()
             val totalWorkTime = getTotalWorkTime().first()
+            val paymentHolidayHours = getHolidayTime(routeList)
             val overtime = getOvertime(
                 totalWorkTime = totalWorkTime,
-                personalNormaHoursInLong = personalNormaHoursInLong
+                personalNormaHoursInLong = personalNormaHoursInLong,
+                holidayTime = paymentHolidayHours
             )
             emit(overtime)
         }
@@ -738,7 +813,8 @@ class SalaryCalculationHelper(
             val baseMoneyForOvertime = getBasicMoneyForOvertimeCalculation().first()
             val totalWorkTime = getTotalWorkTime().first()
             val personalNormaHoursInLong = getPersonalNormaInLong()
-            val overTime = getOvertime(totalWorkTime, personalNormaHoursInLong)
+            val paymentHolidayHours = getHolidayTime(routeList)
+            val overTime = getOvertime(totalWorkTime = totalWorkTime, holidayTime = paymentHolidayHours, personalNormaHoursInLong = personalNormaHoursInLong)
             val overtimeMoneyOfOneHour = if (totalWorkTime == 0L) {
                 0.0
             } else {
@@ -855,7 +931,7 @@ class SalaryCalculationHelper(
         }
     }
 
-    fun getMoneyCaringForDisableChildren(): Flow<Double>{
+    fun getMoneyCaringForDisableChildren(): Flow<Double> {
         return flow {
             val hoursCaringForDisableChildrenInLong = getHoursCaringForDisableChildren().first()
             val hoursCaringForDisableChildren = hoursCaringForDisableChildrenInLong.div(3_600_000)
@@ -900,16 +976,18 @@ class SalaryCalculationHelper(
         }
     }
 
+    // всего начислено
     fun getMoneyTotalChargedFlow(): Flow<Double> {
         return flow {
             val baseMoney = getBasicMoney().first()
-            val holidayMoney = getMoneyAtHolidayFlow().first() * 2
+            val holidayMoney = getMoneyAtHolidayFlow().first()
             val averageMoney = getMoneyAverageFlow().first()
+            val averageMoneyCaringForDisableChildren = getMoneyCaringForDisableChildren().first()
             val nordicSurcharge = getMoneyNordicSurcharge().first()
             val districtSurcharge = getMoneyDistrictSurcharge().first()
 
             val totalMoney =
-                baseMoney + holidayMoney + averageMoney + nordicSurcharge + districtSurcharge
+                baseMoney + holidayMoney + averageMoney + averageMoneyCaringForDisableChildren + nordicSurcharge + districtSurcharge
 
             emit(totalMoney)
         }
@@ -925,7 +1003,9 @@ class SalaryCalculationHelper(
     fun getMoneyNDFLRetentionFlow(): Flow<Double> {
         return flow {
             val percentNDFL = getPercentNDFLRetentionFlow().first()
-            val baseForCalculation = getMoneyTotalChargedFlow().first()
+            val averageMoneyCaringForDisableChildren = getMoneyCaringForDisableChildren().first()
+            val baseForCalculation =
+                getMoneyTotalChargedFlow().first() - averageMoneyCaringForDisableChildren
             val money = baseForCalculation.times(percentNDFL / 100)
             emit(money)
         }
@@ -963,6 +1043,7 @@ class SalaryCalculationHelper(
         }
     }
 
+    // всего удержано
     fun getMoneyTotalRetentionFlow(): Flow<Double> {
         return flow {
             val other = getMoneyOtherRetentionFlow().first()
@@ -987,13 +1068,15 @@ class SalaryCalculationHelper(
             val firstRoutes = routeList.getNewRoutesToDayRange(
                 days = firstDate..date,
                 monthOfYear = userSettings.selectMonthOfYear,
-                offsetInMoscow = userSettings.timeZone
+                offsetInMoscow = userSettings.timeZone,
+                isLastDayOfMonth = false
             )
 
             val secondRoutes = routeList.getNewRoutesToDayRange(
                 days = date..lastDate,
                 monthOfYear = userSettings.selectMonthOfYear,
-                offsetInMoscow = userSettings.timeZone
+                offsetInMoscow = userSettings.timeZone,
+                isLastDayOfMonth = true
             )
             emit(Pair(firstRoutes, secondRoutes))
         }
@@ -1032,7 +1115,7 @@ class SalaryCalculationHelper(
                     paymentAtSingleLocomotiveMoney + zonalSurchargeMoney +
                     paymentNightTimeMoney + surchargeQualificationClassMoney +
                     surchargeExtendedServicePhaseMoney + surchargeOnePersonOperationMoney +
-                    +surchargeOnePersonOperationPassengerTrainFlow +
+                    surchargeOnePersonOperationPassengerTrainFlow +
                     surchargeHarmfulnessSurchargeMoney + surchargeLongDistanceTrainsMoney +
                     surchargeHeavyTrains + otherSurcharge
 
@@ -1054,9 +1137,12 @@ class SalaryCalculationHelper(
     private suspend fun getHolidayTime(routeList: List<Route>) =
         routeList.getWorkingTimeOnAHoliday(currentMonthOfYear, userSettings.timeZone).first()
 
-    private fun getOvertime(totalWorkTime: Long, personalNormaHoursInLong: Int) =
-        if (totalWorkTime > personalNormaHoursInLong) totalWorkTime - personalNormaHoursInLong else 0L
-
+    private fun getOvertime(totalWorkTime: Long, holidayTime: Long, personalNormaHoursInLong: Int) =
+        if (totalWorkTime - holidayTime > personalNormaHoursInLong) {
+            (totalWorkTime - holidayTime) - personalNormaHoursInLong
+        } else {
+            0L
+        }
     private fun getPersonalNormaInLong(): Int {
         return userSettings.selectMonthOfYear.getPersonalNormaHours() * 3_600_000
     }

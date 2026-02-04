@@ -14,8 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -42,6 +40,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -51,12 +50,11 @@ import com.z_company.core.ui.component.AsyncDataValue
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.component.DateRangePickerBottomSheet
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
-import com.z_company.core.ui.component.rememberDatePickerStateInLocale
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.MonthFullText.getMonthFullText
 import com.z_company.domain.entities.MonthOfYear
-import com.z_company.domain.entities.SurchargeExtendedServicePhase
-import com.z_company.domain.entities.SurchargeHeavyTrains
+import com.z_company.domain.entities.setting.SurchargeExtendedServicePhase
+import com.z_company.domain.entities.setting.SurchargeHeavyTrains
 import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.OutlinedTextFieldApp
 import com.z_company.route.viewmodel.SettingSalaryUIState
@@ -126,7 +124,7 @@ fun SettingSalaryScreen(
     saveTariffRateCurrentAndNextMonth: () -> Unit,
     setOtherSurcharge: (String) -> Unit,
     currentMonthOfYear: MonthOfYear?,
-    setDateNewTariffRate: (Int) -> Unit
+    setDateNewTariffRate: (Calendar) -> Unit
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
     val hintStyle = MaterialTheme.typography.bodyMedium
@@ -172,7 +170,7 @@ fun SettingSalaryScreen(
         DateRangePickerBottomSheet(
             onDateRangeSelected = { list ->
                 if (list.isNotEmpty()) {
-                    setDateNewTariffRate(list.first().get(Calendar.DAY_OF_MONTH))
+                    setDateNewTariffRate(list.first())
                 }
                 isShowSetDateTariffRateDialog = false
             },
@@ -180,32 +178,7 @@ fun SettingSalaryScreen(
                 isShowSetDateTariffRateDialog = false
             },
             title = "Дата начала действия нового тарифа",
-//            singleMode = false
         )
-
-//        CustomDatePickerDialog(
-//            datePickerState = datePickerState,
-//            title = {
-//                Text(
-//                    modifier = Modifier.padding(16.dp),
-//                    text = "Дата начала действия нового тарифа",
-//                    overflow = TextOverflow.Ellipsis,
-//                    maxLines = 1,
-//                    style = hintStyle
-//                )
-//            },
-//            onDismissRequest = {
-//                isShowSetDateTariffRateDialog = false
-//            },
-//            onConfirmRequest = {
-//                val date = Calendar.getInstance().also {
-//                    it.timeInMillis = datePickerState.selectedDateMillis!!
-//                }.get(Calendar.DAY_OF_MONTH)
-//
-//                setDateNewTariffRate(date)
-//                isShowSetDateTariffRateDialog = false
-//            }
-//        )
     }
 
     AnimationDialog(
@@ -218,7 +191,8 @@ fun SettingSalaryScreen(
             modifier = Modifier
                 .padding(16.dp)
                 .fillMaxWidth(),
-        ) {
+        )
+        {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -960,7 +934,7 @@ fun SettingSalaryScreen(
                         ) {
                             Icon(
                                 modifier = Modifier.padding(end = 16.dp),
-                                imageVector = Icons.Outlined.Delete,
+                                painter = painterResource(com.z_company.route.R.drawable.delete_24px),
                                 tint = MaterialTheme.colorScheme.background,
                                 contentDescription = null
                             )
@@ -1073,7 +1047,7 @@ fun SettingSalaryScreen(
                         ) {
                             Icon(
                                 modifier = Modifier.padding(end = 16.dp),
-                                imageVector = Icons.Outlined.Delete,
+                                painter = painterResource(com.z_company.route.R.drawable.delete_24px),
                                 tint = MaterialTheme.colorScheme.background,
                                 contentDescription = null
                             )

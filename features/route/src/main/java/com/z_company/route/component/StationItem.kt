@@ -20,11 +20,7 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material.ModalBottomSheetState
 import androidx.compose.material3.IconButton
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -51,12 +47,14 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
+import com.z_company.core.R
 import com.z_company.core.ui.component.DateTimePickerBottomSheet
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.DateAndTimeConverter
@@ -221,7 +219,7 @@ fun StationItem(
             }) {
                 Icon(
                     modifier = Modifier.padding(end = 15.dp),
-                    imageVector = Icons.Outlined.Delete,
+                    painter = painterResource(com.z_company.route.R.drawable.delete_24px),
                     tint = MaterialTheme.colorScheme.secondary,
                     contentDescription = null
                 )
@@ -329,7 +327,7 @@ fun StationItem(
                                                 modifier = Modifier.clickable {
                                                     onDeleteStationName(selectionStation)
                                                 },
-                                                imageVector = Icons.Outlined.Close,
+                                                painter = painterResource(R.drawable.ic_clear),
                                                 contentDescription = null,
                                                 tint = primaryColor
                                             )

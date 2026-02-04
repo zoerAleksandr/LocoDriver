@@ -15,7 +15,6 @@ import com.z_company.data_local.setting.type_converter.SurchargeHeavyTrainsToPri
 internal data class SalarySetting(
     @PrimaryKey
     val salarySettingKey: String,
-    var tariffRate: Double,
     @ColumnInfo(defaultValue = "40.0")
     var nightTimePercent: Double,
     var zonalSurcharge: Double,

@@ -1,6 +1,6 @@
 package com.z_company.data_local.setting.entity_converter
 
-import com.z_company.domain.entities.NightTime
+import com.z_company.domain.entities.setting.NightTime
 import com.z_company.data_local.setting.entity.NightTime as NightTimeEntity
 
 internal object NightTimeConverter {

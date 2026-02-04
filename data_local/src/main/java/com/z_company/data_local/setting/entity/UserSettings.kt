@@ -33,16 +33,6 @@ internal data class UserSettings(
     @ColumnInfo(defaultValue = "1")
     var isConsiderFutureRoute: Boolean,
     var monthOfYear: MonthOfYear,
-    @ColumnInfo(defaultValue = "1")
-    var isVisibleNightTime: Boolean,
-    @ColumnInfo(defaultValue = "1")
-    var isVisiblePassengerTime: Boolean,
-    @ColumnInfo(defaultValue = "1")
-    var isVisibleRelationTime: Boolean,
-    @ColumnInfo(defaultValue = "1")
-    var isVisibleHolidayTime: Boolean,
-    @ColumnInfo(defaultValue = "1")
-    var isVisibleExtendedServicePhase: Boolean,
     @ColumnInfo(defaultValue = "[]")
     val stationList: List<String> = listOf(),
     @ColumnInfo(defaultValue = "0")
@@ -51,10 +41,12 @@ internal data class UserSettings(
     val locomotiveSeriesList: List<String> = listOf(),
     @ColumnInfo(defaultValue = "[]")
     val servicePhases: List<ServicePhase> = listOf(),
-    @ColumnInfo(defaultValue = "Барабан")
-    var dateTimePickerType: String,
     @ColumnInfo(defaultValue = "[28_800_000, 72_000_000]")
-    val standardTimesStartWork: List<Long>
+    val standardTimesStartWork: List<Long>,
+    @ColumnInfo(defaultValue = "0")
+    val subscriptionPeriod: Long = 0,
+    @ColumnInfo(defaultValue = "0")
+    val isDecimalTime: Boolean = false
 )
 
 data class ServicePhase(

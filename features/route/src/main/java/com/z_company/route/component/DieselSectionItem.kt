@@ -23,8 +23,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.IconButton
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -406,7 +404,7 @@ fun DieselSectionItem(
             ) {
                 Icon(
                     modifier = Modifier.padding(end = 15.dp),
-                    imageVector = Icons.Outlined.Delete,
+                    painter = painterResource(R.drawable.delete_24px),
                     tint = Color.White,
                     contentDescription = null
                 )

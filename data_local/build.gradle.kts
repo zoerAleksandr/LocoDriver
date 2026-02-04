@@ -1,5 +1,6 @@
 import Libs.ksp_api
 import org.gradle.kotlin.dsl.androidTest
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id(Plugins.android_lib)
@@ -35,8 +36,13 @@ android {
         sourceCompatibility = Apps.java_compatibility_version
         targetCompatibility = Apps.java_compatibility_version
     }
-    kotlinOptions {
-        jvmTarget = Apps.jvm_target_version
+//    kotlinOptions {
+//        jvmTarget = Apps.jvm_target_version
+//    }
+}
+kotlin {
+    compilerOptions {
+        jvmTarget = JvmTarget.fromTarget(Apps.jvm_target_version)
     }
 }
 

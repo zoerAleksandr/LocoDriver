@@ -221,6 +221,20 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
         var currentType: ReleaseType? = null
         monthOfYear.days.forEachIndexed { index, day ->
             if (day.isReleaseDay) {
+                // Изменено: Добавлена проверка на изменение типа отвлечения внутри последовательности release дней.
+                // Для чего: Чтобы не объединять последовательные периоды с разными типами в один. Если тип изменился, завершаем текущий период и начинаем новый с новым типом. Это решает проблему, когда два разных типа определялись как один при загрузке данных.
+                if (isBegunCounting && currentType != day.releaseType) {
+                    val copyList = mutableListOf<Calendar>()
+                    copyList.addAll(listReleasePeriod)
+                    releasePeriodListState.add(
+                        ReleasePeriod(
+                            days = copyList,
+                            type = currentType
+                        )
+                    )
+                    listReleasePeriod.clear()
+                    currentType = day.releaseType
+                }
                 if (!isBegunCounting) {
                     isBegunCounting = true
                     currentType = day.releaseType
@@ -232,19 +246,8 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
                         it.set(YEAR, monthOfYear.year)
                     }
                 )
-                if ((index + 1 == monthOfYear.days.size)) {
-                    isBegunCounting = false
-                    val copyList = mutableListOf<Calendar>()
-                    copyList.addAll(listReleasePeriod)
-                    releasePeriodListState.add(
-                        ReleasePeriod(
-                            days = copyList,
-                            type = currentType
-                        )
-                    )
-                    listReleasePeriod.clear()
-                }
-
+                // Изменено: Убрана проверка на конец списка внутри if (day.isReleaseDay), так как теперь завершение периода обрабатывается после цикла или при смене типа/не-release дне.
+                // Для чего: Чтобы упростить логику и обеспечить, что последний период добавляется правильно после цикла, если он открыт.
             } else {
                 if (isBegunCounting) {
                     isBegunCounting = false
@@ -260,6 +263,19 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
                     listReleasePeriod.clear()
                 }
             }
+        }
+        // Изменено: Добавлена проверка после цикла на добавление последнего периода, если он был открыт.
+        // Для чего: Чтобы убедиться, что если release дни идут до конца месяца, период все равно добавляется.
+        if (isBegunCounting) {
+            val copyList = mutableListOf<Calendar>()
+            copyList.addAll(listReleasePeriod)
+            releasePeriodListState.add(
+                ReleasePeriod(
+                    days = copyList,
+                    type = currentType
+                )
+            )
+            listReleasePeriod.clear()
         }
     }
 

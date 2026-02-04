@@ -46,7 +46,7 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
         }
     }
 
-    override fun loadRoutesAsFlow(): Flow<ResultState<List<Route>>> {
+    override fun loadRoutesAsStateFlow(): Flow<ResultState<List<Route>>> {
         return flowMap {
             dao.getAllRouteAsFlow().map { routes ->
                 ResultState.Success(
@@ -54,6 +54,14 @@ class RoomRouteRepository : RouteRepository, KoinComponent {
                         RouteConverter.toData(route)
                     }
                 )
+            }
+        }
+    }
+
+    override fun loadRoutesAsFlow(): Flow<List<Route>> {
+        return dao.getAllRouteAsFlow().map { routes ->
+            routes.map { route ->
+                RouteConverter.toData(route)
             }
         }
     }

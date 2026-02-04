@@ -23,6 +23,7 @@ fun HomeDestination(
 
 
     HomeScreen(
+        viewModel = homeViewModel,
         listRouteState = uiState.listItemState,
         onRouteClick = {
             router.showRouteForm(it)
@@ -45,8 +46,6 @@ fun HomeDestination(
         singleLocomotiveTimeState = uiState.singleLocomotiveTimeState,
         calculationHomeRest = homeViewModel::calculationHomeRest,
         homeRestValue = previewRouteUiState.homeRest,
-        firstEntryDialogState = uiState.showFirstEntryToAccountDialog,
-        resetStateFirstEntryDialog = homeViewModel::disableFirstEntryToAccountDialog,
         offsetInMoscow = uiState.offsetInMoscow,
         syncRoute = homeViewModel::syncRoute,
         completeUpdateRequested = homeViewModel::completeUpdateRequested,
