@@ -127,6 +127,7 @@ class PurchasesViewModel(application: Application) : AndroidViewModel(applicatio
                 _event.tryEmit(BillingEvent.ShowError(t))
                 _state.update { it.copy(isLoading = false) }
             }
+
             settingsUseCase.getUserSettingFlow().collect { setting ->
                 val purchasesEndTime = setting.subscriptionPeriod
                 _purchasesEndTime.value = purchasesEndTime
@@ -210,8 +211,7 @@ class PurchasesViewModel(application: Application) : AndroidViewModel(applicatio
             val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
             val result = subscriptionHelper.restorePurchases(null, token)
             if (result is ResultState.Success) {
-                val updatedSetting =
-                    settingsUseCase.getUserSettingFlow().first()  // Sync fetch актуального значения
+                val updatedSetting = settingsUseCase.getUserSettingFlow().first()  // Sync fetch актуального значения
                 _purchasesEndTime.value = updatedSetting.subscriptionPeriod
             }
         }

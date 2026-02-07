@@ -63,15 +63,11 @@ class StartApp : Application() {
         }
 
         val workManager = WorkManager.getInstance(this)
-        val workInfos = workManager.getWorkInfosForUniqueWork("sync_work")
-            .get()  // Синхронно получаем список (в onCreate ок, т.к. быстро)
+        val workInfos = workManager.getWorkInfosForUniqueWork("sync_work").get()
 
         if (workInfos.isEmpty()) {
-            // Добавлено: Планирование периодической задачи синхронизации с помощью WorkManager
-            // Для чего: Чтобы автоматически запускать синхронизацию данных каждые 36 часов в фоне, даже если приложение закрыто.
-            // Требования: Интернет-соединение. Задача уникальна по имени "sync_work", чтобы избежать дубликатов.
             val constraints = Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED) // Требует подключения к сети
+                .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()
 
             val periodicWorkRequest = PeriodicWorkRequestBuilder<SyncWorker>(

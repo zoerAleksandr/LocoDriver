@@ -1,5 +1,6 @@
 package com.z_company.data_local.setting
 
+import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.ResultState.Companion.flowMap
 import com.z_company.core.ResultState.Companion.flowRequest
@@ -59,17 +60,31 @@ class RoomSettingRepository : SettingsRepository, KoinComponent {
         }
     }
 
+//    override fun getFlowSettingsState(): Flow<ResultState<UserSettings>> {
+//        return flowMap {
+//            dao.getFlowSettings().map { settings ->
+//                if (settings != null) {
+//                    ResultState.Success(UserSettingsConverter.toData(settings))
+//                } else {
+//                    val defaultSettings =
+//                        UserSettingsConverter.fromData(UserSettings())  // Создаём default (предполагаю, что конструктор с дефолтами; адаптируйте, если нужно задать поля явно, например, subscriptionPeriod = 0L)
+////                    dao.saveSettings(defaultSettings)  // Вставляем в базу (добавьте @Insert метод в DAO, если нет)
+//                    ResultState.Success(UserSettingsConverter.toData(defaultSettings))
+//                }
+//            }
+//        }
+//    }
+
     override fun getFlowSettingsState(): Flow<ResultState<UserSettings>> {
-        return flowMap {
-            dao.getFlowSettings().map { settings ->
-                if (settings != null) {
-                    ResultState.Success(UserSettingsConverter.toData(settings))
-                } else {
-                    val defaultSettings =
-                        UserSettingsConverter.fromData(UserSettings())  // Создаём default (предполагаю, что конструктор с дефолтами; адаптируйте, если нужно задать поля явно, например, subscriptionPeriod = 0L)
-                    dao.saveSettings(defaultSettings)  // Вставляем в базу (добавьте @Insert метод в DAO, если нет)
-                    ResultState.Success(UserSettingsConverter.toData(defaultSettings))
-                }
+        return dao.getFlowSettings().map { setting ->
+            if (setting != null) {
+                // Изменено: Если настройки найдены, возвращаем Success с конвертированными данными.
+                // Для чего: Чтобы сохранить исходную логику, но в формате ResultState для лучшей обработки ошибок.
+                ResultState.Success(UserSettingsConverter.toData(setting))
+            } else {
+                // Изменено: Если null, возвращаем Error вместо автоматического создания дефолтов.
+                // Для чего: Чтобы избежать неожиданных перезаписей дефолтами. Теперь вызывающий код (например, SettingsUseCase) может решить, создавать дефолты или показать ошибку пользователю (например, "Настройки не найдены, перелогиньтесь"). Это делает функцию более предсказуемой и снижает риски, как в вашей проблеме с подпиской.
+                ResultState.Error(ErrorEntity(message = "Настройки пользователя не найдены в локальной БД"))
             }
         }
     }
@@ -79,9 +94,7 @@ class RoomSettingRepository : SettingsRepository, KoinComponent {
             if (setting != null) {
                 UserSettingsConverter.toData(setting)
             } else {
-                val defaultSettings =
-                    UserSettingsConverter.fromData(UserSettings())  // Создаём default (предполагаю, что конструктор с дефолтами; адаптируйте, если нужно задать поля явно, например, subscriptionPeriod = 0L)
-                dao.saveSettings(defaultSettings)  // Вставляем в базу (добавьте @Insert метод в DAO, если нет)
+                val defaultSettings = UserSettingsConverter.fromData(UserSettings())  // Создаём default (предполагаю, что конструктор с дефолтами; адаптируйте, если нужно задать поля явно, например, subscriptionPeriod = 0L)
                 UserSettingsConverter.toData(defaultSettings)
             }
         }

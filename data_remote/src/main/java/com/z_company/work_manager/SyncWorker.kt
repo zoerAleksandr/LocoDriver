@@ -14,6 +14,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.z_company.core.ResultState
 import com.z_company.domain.repositories.SharedPreferencesRepositories
+import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.repository.SecureDataStore
 import com.z_company.repository.remote_rest.SyncManager
 import kotlinx.coroutines.Dispatchers
@@ -21,6 +22,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import java.util.Calendar
 
 class SyncWorker(
     val appContext: Context,
@@ -29,29 +31,25 @@ class SyncWorker(
 
     private val syncManager: SyncManager by inject()
     private val sharedPrefs: SharedPreferencesRepositories by inject()
+    private val settingsUseCase: SettingsUseCase by inject()
 
     override suspend fun doWork(): Result {
         return withContext(Dispatchers.IO) {
             try {
                 val application = appContext.applicationContext as Application
 
-                // Добавлено: Проверка наличия токена авторизации
-                // Для чего: Чтобы убедиться, что пользователь авторизован перед синхронизацией. Если токена нет - прерываем с retry
+                val userSettings = settingsUseCase.getUserSettingFlow().first()
+                if (userSettings.subscriptionPeriod < Calendar.getInstance().timeInMillis) {
+                    return@withContext Result.success()
+                }
+
                 val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
                 if (token.isNullOrBlank()) {
-                    // Нет токена - пользователь не авторизован, повторяем позже
                     return@withContext Result.retry()
                 }
                 val bearerToken = "Bearer $token"
 
-                // Выполняем upload (sync to remote)
-                val uploadResult = syncManager.syncToRemote(bearerToken).first { it !is ResultState.Loading } // Ждем завершения (Success или Error)
-                Log.d("zzz", "uploadResult $uploadResult")
-                if (uploadResult is ResultState.Error) {
-                    return@withContext Result.retry()
-                }
-
-                // обновляем timestamp
+                val uploadResult = syncManager.syncToRemote(bearerToken).first { it !is ResultState.Loading }
                 if (uploadResult is ResultState.Success) {
                     sharedPrefs.setLastSyncTimestamp(System.currentTimeMillis())
                     Result.success()
@@ -59,7 +57,6 @@ class SyncWorker(
                     Result.retry()
                 }
             } catch (e: Exception) {
-                // Обработка исключений - повторить
                 Result.retry()
             }
         }

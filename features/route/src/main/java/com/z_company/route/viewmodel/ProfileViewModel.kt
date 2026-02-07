@@ -53,9 +53,13 @@ import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
 import java.io.NotActiveException
 import java.util.Calendar
@@ -120,6 +124,13 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     private val settingManager: SettingManager by inject()
 
     private val subscriptionHelper: SubscriptionHelper by inject()
+
+    // Изменения в ProfileViewModel.kt
+    // Добавлено: Новое состояние _hasSubscription для проверки наличия активной подписки (subscriptionPeriod > 0L).
+    // Для чего: Чтобы в UI (ProfileScreen) условно показывать раздел "Синхронизация" только если subscriptionPeriod != 0L (пользователь оплатил). Это предотвращает доступ к синхронизации для неоплаченных пользователей и, косвенно, запись 0 на сервер (пользователь не сможет вручную запустить sync).
+    val hasSubscription: StateFlow<Boolean> = settingsUseCase.getUserSettingFlow()
+        .map { it.subscriptionPeriod > Calendar.getInstance().timeInMillis }  // Проверяем != 0L, предполагая, что 0L значит "не оплачено"
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)  // Дефолт false, если flow пустой
 
     var loginJob: Job? = null
     var forgotJob: Job? = null
@@ -472,6 +483,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                         )  // Сохранение зашифрованного токена
                         _isLoggedIn.value = true  // Обновляем состояние логина после успеха
                         refresh()  // Перезагружаем данные после входа
+                        syncManager.syncFromRemote("Bearer $token").collect{}
                     }
                 }
                 _authUiState.value = state  // Обновляем UI-состояние
@@ -492,6 +504,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                         )  // Сохранение зашифрованного токена
                         _isLoggedIn.value = true  // Обновляем состояние логина после успеха
                         refresh()  // Перезагружаем данные после входа
+                        syncManager.syncFromRemote("Bearer $token").collect{}
                     }
                 }
                 _authUiState.value = state  // Обновляем UI-состояние
@@ -617,10 +630,10 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                 }
             }
         }
-        viewModelScope.launch {
-            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
-            subscriptionHelper.restorePurchases(null, token)
-        }
+//        viewModelScope.launch {
+//            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+//            subscriptionHelper.restorePurchases(null, token)
+//        }
     }
 
     suspend fun fetchRoutesByEmail() = withContext(Dispatchers.IO) {
@@ -785,6 +798,8 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             }
             val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
             val fullToken = "Bearer $token"
+
+            val userId = SecureDataStore.getUserIdFlow(application).first()
             // Получаем все локальные маршруты из Room
             routeUseCase.getListRoutesAsStateFlow()
                 .collect { result ->  // Предполагаем, что добавлен метод getAllRoutes(): Flow<ResultState<List<Route>>> в RouteUseCase; если нет, можно собрать по месяцам
@@ -814,7 +829,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                                                 "Migration",
                                                 "Ошибка сохранения маршрута ${route.basicData.id}: ${saveResult.entity.message}"
                                             )
-                                            TracerCrashReport.report(NotActiveException("save route \nuser bearer token \n$token \n${saveResult.entity.message} \n${route.basicData.id}\n $route"))
+                                            TracerCrashReport.report(NotActiveException("migration \nsave route \nuser bearer token \n$token \nuserId $userId error \n${saveResult.entity} \n${route.basicData.id}\n $route"))
                                             // Продолжаем с остальными, но отметим ошибку
                                         }
 
@@ -844,13 +859,8 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                                 .first { it is ResultState.Success || it is ResultState.Error }
 
                             if (saveSubscribeTimeInLocal is ResultState.Error) {
-                                TracerCrashReport.report(NotActiveException("save salarySetting \nuser bearer token \n$token \n при миграции не перенесены данные подписки в UserSetting"))
+                                TracerCrashReport.report(NotActiveException("migration \n save salarySetting \nuser bearer token \n userId $userId \n$token \n при миграции не перенесены данные подписки в UserSetting"))
                             }
-
-                            if (saveSubscribeTimeInLocal is ResultState.Success) {
-                                Log.d("zzz", "saveSubscribeTimeInLocal success")
-                            }
-
 
                             settingManager.saveUserSettingInRemote(l, fullToken)
                                 .collect { saveState ->
@@ -861,11 +871,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
 
                                         is ResultState.Error -> {
                                             hasSettingsError = true
-                                            Log.e(
-                                                "Migration",
-                                                "Ошибка сохранения UserSettings: ${saveState.entity.message}"
-                                            )
-                                            TracerCrashReport.report(NotActiveException("save userSetting \nuser bearer token \n$token\n ${saveState.entity.message} \n $localUserSettings"))
+                                            TracerCrashReport.report(NotActiveException("migration  \nsave userSetting \n userId $userId \nuser bearer token \n$token\n ${saveState.entity} \n $localUserSettings"))
                                             // Продолжаем к следующей настройке
                                         }
 
@@ -885,11 +891,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
 
                                         is ResultState.Error -> {
                                             hasSettingsError = true
-                                            Log.e(
-                                                "Migration",
-                                                "Ошибка сохранения SalarySetting: ${saveState.entity.message}"
-                                            )
-                                            TracerCrashReport.report(NotActiveException("save salarySetting \nuser bearer token \n$token \n${saveState.entity.message} \n $localSalarySetting"))
+                                            TracerCrashReport.report(NotActiveException("migration  \nsave salarySetting \n userId $userId \nuser bearer token \n$token \n${saveState.entity} \n $localSalarySetting"))
 
                                         }
 
@@ -912,7 +914,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                                                 "Migration",
                                                 "Ошибка сохранения MonthOfYearList: ${saveState.entity.message}"
                                             )
-                                            TracerCrashReport.report(NotActiveException("save MonthOfYearList \nuser bearer token \n$token ${saveState.entity.message} \n $localMonths"))
+                                            TracerCrashReport.report(NotActiveException("migration  \nsave MonthOfYearList \n userId $userId \nuser bearer token \n$token ${saveState.entity} \n $localMonths"))
 
                                         }
 

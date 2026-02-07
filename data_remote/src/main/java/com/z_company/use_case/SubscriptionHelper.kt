@@ -72,21 +72,15 @@ class SubscriptionHelper() : KoinComponent {
                 return ResultState.Error(settingState.entity)
             }
 
-            // Изменено: Добавил проверку на Success с else, хотя ResultState sealed, но для безопасности
-            // Для чего: Чтобы функция всегда возвращала значение, даже если state не Error и не Success (хотя это маловероятно)
             if (settingState is ResultState.Success) {
                 val remoteSetting = settingState.data
                 val purchaseTimeEnd = remoteSetting.subscriptionPeriod
-                val setting = settingsUseCase.getUserSettingFlow().first()
-                val dateAndTimeConverter =
-                    DateAndTimeConverter(setting) // Предполагаю, что это DateAndTimeConverter, исправьте если опечатка
+                val setting =
+                    settingsUseCase.getUserSettingFlow().first { it != ResultState.Loading() }
+                val dateAndTimeConverter = DateAndTimeConverter(setting)
                 val time = dateAndTimeConverter.getDateAndTime(purchaseTimeEnd)
 
-                // Изменено: Исправил getInstance() на Calendar.getInstance()
-                // Для чего: Чтобы правильно получить текущее время в миллисекундах
                 if (purchaseTimeEnd > getInstance().timeInMillis) {
-                    // Изменено: Изменил .collect на .first(), предполагая, что flow эмитирует один ResultState
-                    // Для чего: Чтобы дождаться результата обновления и вернуть его как результат функции, а не всегда Success
                     val updateResult = settingsUseCase.updateSubscriptionPeriod(purchaseTimeEnd)
                         .first { it !is ResultState.Loading }
                     if (updateResult is ResultState.Success) {
@@ -99,7 +93,6 @@ class SubscriptionHelper() : KoinComponent {
                 }
                 return ResultState.Success(Unit)
             } else {
-                // Добавлено: Обработка случая, если state не Success и не Error (маловероятно, но для полноты)
                 return ResultState.Error(ErrorEntity(message = "Неизвестное состояние загрузки настроек"))
             }
         } catch (e: Exception) {

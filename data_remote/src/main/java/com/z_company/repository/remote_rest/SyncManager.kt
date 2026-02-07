@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import ru.ok.tracer.crash.report.TracerCrashReport
+import java.io.NotActiveException
 import java.util.Calendar
 import java.util.Calendar.MONTH
 import java.util.Calendar.YEAR
@@ -65,21 +67,35 @@ class SyncManager : KoinComponent {
         val result = SyncUploadResult()
 
         // 1. Сохранение UserSettings
-        val localUserSettings = settingsUseCase.getUserSettingFlow().first()
-        settingManager.saveUserSettingInRemote(localUserSettings, bearerToken)
-            .catch { e ->
-                emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения UserSettings: ${e.message}")))
-                return@catch
+        val localUserSettingsState = settingsUseCase.getFlowCurrentSettingsState().first { it is ResultState.Success || it is ResultState.Error }
+        if (localUserSettingsState is ResultState.Success) {
+            val localUserSettings = localUserSettingsState.data
+            val subscriptionPeriod = localUserSettings.subscriptionPeriod
+            if (subscriptionPeriod > Calendar.getInstance().timeInMillis) {
+                settingManager.saveUserSettingInRemote(localUserSettings, bearerToken)
+                    .catch { e ->
+                        Log.e("SyncManager", "Ошибка сохранения UserSettings: ${e.message}")
+                        emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения UserSettings: ${e.message}")))
+                        return@catch
+                    }
+                    .collect { saveState ->
+                        if (saveState is ResultState.Success) {
+                            result.userSettingsSaved = true
+                            emit(ResultState.Success(result.copy()))  // Эмитим промежуточный успех
+                        } else if (saveState is ResultState.Error) {
+                            emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения UserSettings: ${saveState.entity.message}")))
+                            return@collect
+                        }
+                    }
+            } else {
+                result.userSettingsSaved = false
+                emit(ResultState.Success(result.copy()))
             }
-            .collect { saveState ->
-                if (saveState is ResultState.Success) {
-                    result.userSettingsSaved = true
-                    emit(ResultState.Success(result.copy()))
-                } else if (saveState is ResultState.Error) {
-                    emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения UserSettings: ${saveState.entity.message}")))
-                    return@collect
-                }
-            }
+        } else {
+            TracerCrashReport.report(NotActiveException("syncToRemote \n save salarySetting \nОшибка получения локальных UserSettings ${(localUserSettingsState as ResultState.Error).entity}."))
+            result.userSettingsSaved = false
+            emit(ResultState.Success(result.copy()))  // Эмитим промежуточный, чтобы продолжить
+        }
 
         // 2. Сохранение SalarySetting
         val localSalarySetting = salarySettingUseCase.salarySettingFlow().first()

@@ -85,6 +85,11 @@ fun ProfileScreen(
     // Для чего: Чтобы обрабатывать loading, ошибки и успех авторизации, аналогично обработке в SignInScreen
     val authUiState by viewModel.authUiState.collectAsState()
 
+    // Затем условно рендерить раздел синхронизации (предполагаю, что это часть LazyColumn или Column с sync элементами, например, кнопка "Синхронизировать" или блок "Синхронизация").
+    // Изменено: Добавлена переменная hasSubscription и AnimatedVisibility для раздела синхронизации.
+    // Для чего: Чтобы скрыть раздел "Синхронизация" если subscriptionPeriod меньше текущего времени (не оплачено). Это предотвращает ручной запуск sync и запись 0 на сервер неоплаченными пользователями.
+    val hasSubscription by viewModel.hasSubscription.collectAsState()
+
     val registeredUiState by viewModel.registeredUiState.collectAsState()
     var isLicenseAgreementAccepted by rememberSaveable {
         mutableStateOf(false)
@@ -985,178 +990,186 @@ fun ProfileScreen(
                                 text = "Синхронизация",
                                 style = styleTitle
                             )
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .shadow(elevation = 2.dp, shape = Shapes.medium)
-                                    .background(
-                                        color = MaterialTheme.colorScheme.secondary,
-                                        shape = Shapes.medium
-                                    )
-                                    .padding(16.dp)
-                            ) {
-                                AsyncData(
-                                    resultState = uiState.userDetailsState,
-                                    loadingContent = {
-                                        Row(
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
+                            AnimatedVisibility(visible = hasSubscription) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                        .background(
+                                            color = MaterialTheme.colorScheme.secondary,
+                                            shape = Shapes.medium
+                                        )
+                                        .padding(16.dp)
+                                ) {
+                                    AsyncData(
+                                        resultState = uiState.userDetailsState,
+                                        loadingContent = {
+                                            Row(
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Text(
+                                                    "Загрузка...",
+                                                    style = styleData,
+                                                    color = primaryColor
+                                                )
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(24.dp),
+                                                    strokeWidth = 2.dp
+                                                )
+                                            }
+                                        },
+                                        errorContent = {
                                             Text(
-                                                "Загрузка...",
+                                                "Ошибка загрузки",
                                                 style = styleData,
                                                 color = primaryColor
                                             )
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(24.dp),
-                                                strokeWidth = 2.dp
-                                            )
                                         }
-                                    },
-                                    errorContent = {
-                                        Text(
-                                            "Ошибка загрузки",
-                                            style = styleData,
-                                            color = primaryColor
-                                        )
-                                    }
-                                ) { user ->
-                                    user?.let { u ->
-                                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            uiState.updateAt?.let { timeInMillis ->
-                                                val textSyncDate =
-                                                    uiState.dateAndTimeConverter?.getDateAndTime(
-                                                        timeInMillis
-                                                    ) ?: ""
-                                                Text(
-                                                    text = "Последнее обновление данных",
-                                                    style = styleHint,
-                                                    maxLines = 2,
-                                                    overflow = TextOverflow.Visible,
-                                                    color = primaryColor
-                                                )
-                                                Text(
-                                                    text = textSyncDate,
-                                                    style = styleData,
-                                                    overflow = TextOverflow.Visible,
-                                                    color = primaryColor
-                                                )
-
-                                            }
-                                            CustomDivider(orientation = Orientation.Horizontal)
-
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .clickable { viewModel.startSyncUpload() },
-                                                horizontalArrangement = Arrangement.SpaceBetween
-                                            ) {
-                                                Text(
-                                                    "Отправить в облако",
-                                                    style = styleData,
-                                                    color = primaryColor,
-                                                    maxLines = 2,
-                                                    overflow = TextOverflow.Visible,
-                                                    modifier = Modifier
-                                                        .weight(1f)
-                                                        .padding(end = 12.dp)
-                                                )
-                                                AsyncData(
-                                                    resultState = uiState.uploadState,
-                                                    loadingContent = {
-                                                        CircularProgressIndicator(
-                                                            modifier = Modifier.size(
-                                                                24.dp
-                                                            ),
-                                                            strokeWidth = 2.dp
-                                                        )
-                                                    }) {
-                                                    Icon(
-                                                        tint = MaterialTheme.colorScheme.tertiary,
-                                                        painter = painterResource(id = com.z_company.core.R.drawable.rounded_cloud_upload_24),
-                                                        contentDescription = null
+                                    ) { user ->
+                                        user?.let { u ->
+                                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                uiState.updateAt?.let { timeInMillis ->
+                                                    val textSyncDate = uiState.dateAndTimeConverter?.getDateAndTime(timeInMillis) ?: ""
+                                                    Text(
+                                                        text = "Последнее обновление данных",
+                                                        style = styleHint,
+                                                        maxLines = 2,
+                                                        overflow = TextOverflow.Visible,
+                                                        color = primaryColor
                                                     )
-                                                }
-                                            }
-                                            CustomDivider(orientation = Orientation.Horizontal)
-
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .clickable { viewModel.startSyncDownload() },
-                                                horizontalArrangement = Arrangement.SpaceBetween
-                                            ) {
-                                                Text(
-                                                    "Загрузить из облака",
-                                                    style = styleData,
-                                                    color = primaryColor,
-                                                    maxLines = 2,
-                                                    overflow = TextOverflow.Visible,
-                                                    modifier = Modifier
-                                                        .weight(1f)
-                                                        .padding(end = 12.dp)
-                                                )
-                                                AsyncData(
-                                                    resultState = uiState.downloadState,
-                                                    loadingContent = {
-                                                        CircularProgressIndicator(
-                                                            modifier = Modifier.size(
-                                                                24.dp
-                                                            ),
-                                                            strokeWidth = 2.dp
-                                                        )
-                                                    }) {
-                                                    Icon(
-                                                        tint = MaterialTheme.colorScheme.tertiary,
-                                                        painter = painterResource(id = com.z_company.core.R.drawable.rounded_cloud_download_24),
-                                                        contentDescription = null
+                                                    Text(
+                                                        text = textSyncDate,
+                                                        style = styleData,
+                                                        overflow = TextOverflow.Visible,
+                                                        color = primaryColor
                                                     )
+
                                                 }
-                                            }
-                                            AnimatedVisibility(
-                                                visible = uiState.downloadRouteProgress != null,
-                                                enter = fadeIn() + expandVertically(),
-                                                exit = fadeOut() + shrinkVertically()
-                                            ) {
-                                                Column(
+                                                CustomDivider(orientation = Orientation.Horizontal)
+
+                                                Row(
                                                     modifier = Modifier
                                                         .fillMaxWidth()
-                                                        .padding(16.dp)
-                                                        .background(
-                                                            MaterialTheme.colorScheme.surfaceVariant,
-                                                            RoundedCornerShape(8.dp)
-                                                        )
-                                                        .padding(16.dp),
-                                                    horizontalAlignment = Alignment.CenterHorizontally
+                                                        .clickable { viewModel.startSyncUpload() },
+                                                    horizontalArrangement = Arrangement.SpaceBetween
                                                 ) {
-                                                    val (saved, total) = uiState.downloadRouteProgress
-                                                        ?: (0 to 0)
                                                     Text(
-                                                        text = "Загрузка маршрутов: $saved из $total",
-                                                        style = MaterialTheme.typography.bodyMedium,
-                                                        color = MaterialTheme.colorScheme.onSurface
+                                                        "Отправить в облако",
+                                                        style = styleData,
+                                                        color = primaryColor,
+                                                        maxLines = 2,
+                                                        overflow = TextOverflow.Visible,
+                                                        modifier = Modifier
+                                                            .weight(1f)
+                                                            .padding(end = 12.dp)
                                                     )
-                                                    Spacer(modifier = Modifier.height(8.dp))
-                                                    LinearProgressIndicator(
-                                                        progress = if (total > 0) saved.toFloat() / total.toFloat() else 0f,
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        color = MaterialTheme.colorScheme.primary,
-                                                        trackColor = MaterialTheme.colorScheme.surface
+                                                    AsyncData(
+                                                        resultState = uiState.uploadState,
+                                                        loadingContent = {
+                                                            CircularProgressIndicator(
+                                                                modifier = Modifier.size(
+                                                                    24.dp
+                                                                ),
+                                                                strokeWidth = 2.dp
+                                                            )
+                                                        }) {
+                                                        Icon(
+                                                            tint = MaterialTheme.colorScheme.tertiary,
+                                                            painter = painterResource(id = com.z_company.core.R.drawable.rounded_cloud_upload_24),
+                                                            contentDescription = null
+                                                        )
+                                                    }
+                                                }
+                                                CustomDivider(orientation = Orientation.Horizontal)
+
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .clickable { viewModel.startSyncDownload() },
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    Text(
+                                                        "Загрузить из облака",
+                                                        style = styleData,
+                                                        color = primaryColor,
+                                                        maxLines = 2,
+                                                        overflow = TextOverflow.Visible,
+                                                        modifier = Modifier
+                                                            .weight(1f)
+                                                            .padding(end = 12.dp)
                                                     )
+                                                    AsyncData(
+                                                        resultState = uiState.downloadState,
+                                                        loadingContent = {
+                                                            CircularProgressIndicator(
+                                                                modifier = Modifier.size(
+                                                                    24.dp
+                                                                ),
+                                                                strokeWidth = 2.dp
+                                                            )
+                                                        }) {
+                                                        Icon(
+                                                            tint = MaterialTheme.colorScheme.tertiary,
+                                                            painter = painterResource(id = com.z_company.core.R.drawable.rounded_cloud_download_24),
+                                                            contentDescription = null
+                                                        )
+                                                    }
+                                                }
+                                                AnimatedVisibility(
+                                                    visible = uiState.downloadRouteProgress != null,
+                                                    enter = fadeIn() + expandVertically(),
+                                                    exit = fadeOut() + shrinkVertically()
+                                                ) {
+                                                    Column(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(16.dp)
+                                                            .background(
+                                                                MaterialTheme.colorScheme.surfaceVariant,
+                                                                RoundedCornerShape(8.dp)
+                                                            )
+                                                            .padding(16.dp),
+                                                        horizontalAlignment = Alignment.CenterHorizontally
+                                                    ) {
+                                                        val (saved, total) = uiState.downloadRouteProgress
+                                                            ?: (0 to 0)
+                                                        Text(
+                                                            text = "Загрузка маршрутов: $saved из $total",
+                                                            style = MaterialTheme.typography.bodyMedium,
+                                                            color = MaterialTheme.colorScheme.onSurface
+                                                        )
+                                                        Spacer(modifier = Modifier.height(8.dp))
+                                                        LinearProgressIndicator(
+                                                            progress = if (total > 0) saved.toFloat() / total.toFloat() else 0f,
+                                                            modifier = Modifier.fillMaxWidth(),
+                                                            color = MaterialTheme.colorScheme.primary,
+                                                            trackColor = MaterialTheme.colorScheme.surface
+                                                        )
+                                                    }
                                                 }
                                             }
                                         }
                                     }
                                 }
                             }
-
-                            Text(
-                                modifier = Modifier.padding(start = 16.dp, top = 8.dp),
-                                text = "Выгрузка на сервер маршрутных листов, отвлечений и других настрое выполняется автоматически при условии активного оплаченого периода.",
-                                style = styleHint,
-                                color = primaryColor,
-                            )
+                            if (!hasSubscription) {
+                                Text(
+                                    modifier = Modifier.padding(start = 16.dp, top = 8.dp),
+                                    text = "Раздел синхронизации доступен после оплаты подписки.",
+                                    style = styleHint,
+                                    color = primaryColor
+                                )
+                            } else {
+                                Text(
+                                    modifier = Modifier.padding(start = 16.dp, top = 8.dp),
+                                    text = "Выгрузка на сервер маршрутных листов, отвлечений и других настрое выполняется автоматически раз в 36 часов.",
+                                    style = styleHint,
+                                    color = primaryColor,
+                                )
+                            }
                         }
+
 
                         // ===================== КНОПКИ =====================
                         item {

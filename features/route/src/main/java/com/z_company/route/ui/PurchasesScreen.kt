@@ -215,7 +215,7 @@ fun PurchasesScreen(
             val currentState by viewModel.state.collectAsState()  // Reactive для всего state, чтобы converter был актуальным
             val purchasesEndTime = currentState.dateAndTimeConverter?.getDateAndTime(purchasesEndTimeInLong.value)
             Spacer(modifier = Modifier.height(16.dp))
-            if (!purchasesEndTime.isNullOrBlank()) {
+            if (!purchasesEndTime.isNullOrBlank() && purchasesEndTimeInLong.value != 0L) {
                 Text(text = "Оплачено до $purchasesEndTime",color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyLarge)
             }
 
