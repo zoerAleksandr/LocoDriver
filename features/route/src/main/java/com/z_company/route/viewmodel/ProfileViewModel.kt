@@ -26,7 +26,6 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.use_cases.SettingsUseCase
-import com.z_company.repository.Back4AppManager
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.RouteUseCase
@@ -55,17 +54,12 @@ import org.koin.core.component.inject
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
 import java.io.NotActiveException
 import java.util.Calendar
-import java.util.Calendar.MONTH
-import java.util.Calendar.YEAR
-import kotlin.collections.first
 import ru.ok.tracer.crash.report.TracerCrashReport
 import java.text.ParseException
 
@@ -130,7 +124,11 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     // Для чего: Чтобы в UI (ProfileScreen) условно показывать раздел "Синхронизация" только если subscriptionPeriod != 0L (пользователь оплатил). Это предотвращает доступ к синхронизации для неоплаченных пользователей и, косвенно, запись 0 на сервер (пользователь не сможет вручную запустить sync).
     val hasSubscription: StateFlow<Boolean> = settingsUseCase.getUserSettingFlow()
         .map { it.subscriptionPeriod > Calendar.getInstance().timeInMillis }  // Проверяем != 0L, предполагая, что 0L значит "не оплачено"
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)  // Дефолт false, если flow пустой
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            false
+        )  // Дефолт false, если flow пустой
 
     var loginJob: Job? = null
     var forgotJob: Job? = null
@@ -180,10 +178,10 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         loadSettingsForSyncInfo()
 
         // Чтобы сразу определить, залогинен ли пользователь (токен существует и не пустой). Это обновит _isLoggedIn, которое используется в ProfileScreen для условного рендеринга.
-        viewModelScope.launch(Dispatchers.IO) {
-            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
-            _isLoggedIn.value = !token.isNullOrEmpty()
-        }
+//        viewModelScope.launch(Dispatchers.IO) {
+//            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+//            _isLoggedIn.value = !token.isNullOrEmpty()
+//        }
         viewModelScope.launch {
             _isFirstAppEntry.value = sharedPrefs.tokenIsFirstAppEntry()
             _isMigrated.value = sharedPrefs.isMigrated()
@@ -265,6 +263,28 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                                 isSyncComplete = true
                             )
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    fun firstUpload() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val token = SecureDataStore.getAuthBearerTokenFlow(application).first() ?: return@launch
+            syncManager.firstSyncAfterRegistration("Bearer $token").collect { result ->
+                when (result) {
+                    is ResultState.Loading -> {
+
+                    }
+
+                    is ResultState.Success -> {
+                        result.data.timestamp?.let { sharedPrefs.setLastSyncTimestamp(it) }
+                        refresh()
+                    }
+
+                    is ResultState.Error -> {
+
                     }
                 }
             }
@@ -483,7 +503,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                         )  // Сохранение зашифрованного токена
                         _isLoggedIn.value = true  // Обновляем состояние логина после успеха
                         refresh()  // Перезагружаем данные после входа
-                        syncManager.syncFromRemote("Bearer $token").collect{}
+                        syncManager.syncFromRemote("Bearer $token").collect {}
                     }
                 }
                 _authUiState.value = state  // Обновляем UI-состояние
@@ -504,7 +524,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                         )  // Сохранение зашифрованного токена
                         _isLoggedIn.value = true  // Обновляем состояние логина после успеха
                         refresh()  // Перезагружаем данные после входа
-                        syncManager.syncFromRemote("Bearer $token").collect{}
+                        syncManager.syncFromRemote("Bearer $token").collect {}
                     }
                 }
                 _authUiState.value = state  // Обновляем UI-состояние
@@ -549,7 +569,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                                     .first { it is ResultState.Success || it is ResultState.Error }
                             }
 
-                            startSyncUpload()
+                            firstUpload()
                             _isLoggedIn.value = true  // Обновляем состояние логина после успеха
                             refresh()  // Перезагружаем данные после входа}
                         }
@@ -572,7 +592,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                             // Сохранение зашифрованного токена
                             SecureDataStore.saveAuthToken(application, token)
                             SecureDataStore.saveVkId(application, vkid)
-                            startSyncUpload()
+                            firstUpload()
                             _isLoggedIn.value = true  // Обновляем состояние логина после успеха
                             refresh()  // Перезагружаем данные после входа}
                         }
@@ -610,30 +630,42 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+
     fun getUserInfo() {
         viewModelScope.launch {
             val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
-            val fullToken = "Bearer $token"
-            AuthManager.getUserProfile(fullToken).collect { state ->
-                Log.d("zzz", "getUserProfile $state")
-                if (state is GetUserProfileState.Success) {
-                    currentEmail = state.user.email
-                    SecureDataStore.saveUserId(application, state.user.id)
-                    _uiState.update {
-                        it.copy(userDetailsState = ResultState.Success(state.user))
+            if (!token.isNullOrBlank()) {
+                val fullToken = "Bearer $token"
+                AuthManager.getUserProfile(fullToken).collect { state ->
+                    if (state is GetUserProfileState.Loading) {
+                        _uiState.update {
+                            it.copy(userDetailsState = ResultState.Loading("Получаем данные пользователя..."))
+                        }
+                    }
+                    if (state is GetUserProfileState.Success) {
+                        currentEmail = state.user.email
+                        SecureDataStore.saveUserId(application, state.user.id)
+                        _uiState.update {
+                            it.copy(userDetailsState = ResultState.Success(state.user))
+                        }
+                        _isLoggedIn.value = true
+                        subscriptionHelper.restorePurchases(null, token)
+                    }
+                    if (state is GetUserProfileState.Error) {
+                        if (state.code == 401) {
+                            _isLoggedIn.value = false
+                        }
+                        _uiState.update {
+                            it.copy(userDetailsState = ResultState.Error(ErrorEntity(message = state.message)))
+                        }
                     }
                 }
-                if (state is GetUserProfileState.Error) {
-                    _uiState.update {
-                        it.copy(userDetailsState = ResultState.Error(ErrorEntity(message = state.errorMessage)))
-                    }
+            } else {
+                _uiState.update {
+                    it.copy(userDetailsState = ResultState.Success(null))
                 }
             }
         }
-//        viewModelScope.launch {
-//            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
-//            subscriptionHelper.restorePurchases(null, token)
-//        }
     }
 
     suspend fun fetchRoutesByEmail() = withContext(Dispatchers.IO) {
@@ -661,7 +693,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun test(){
+    fun test() {
         viewModelScope.launch {
             fetchRoutesByEmail()
         }
@@ -692,7 +724,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                         refresh()  // Обновляем, чтобы Flow VK ID эмитнул и загрузил данные
                     } else if (state is GetUserProfileState.Error) {
                         // Можно добавить обработку ошибки, например, в uiState
-                        Log.e("ProfileViewModel", "Ошибка привязки VK: ${state.errorMessage}")
+                        Log.e("ProfileViewModel", "Ошибка привязки VK: ${state.message}")
                     }
                 }
         }
@@ -1019,5 +1051,4 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                 }
         }
     }
-
 }

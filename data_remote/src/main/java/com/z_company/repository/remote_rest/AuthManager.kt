@@ -45,7 +45,7 @@ object AuthManager : KoinComponent {
                         )
                     )
                 } else {
-                    emit(RegistrationState.Error("Ошибка: ${response.code()} - ${response.message()}"))  // Эмитим ошибку HTTP
+                    emit(RegistrationState.Error("Ошибка: ${response.code()}", code = response.code()))  // Эмитим ошибку HTTP
                 }
             } catch (e: IOException) {
                 emit(RegistrationState.Error("Нет соединения: ${e.message}"))  // Ошибка сети
@@ -83,7 +83,7 @@ object AuthManager : KoinComponent {
                         )
                     )
                 } else {
-                    emit(RegistrationState.Error("Ошибка: ${response.code()} - ${response.message()}"))  // Эмитим ошибку HTTP
+                    emit(RegistrationState.Error("Ошибка: ${response.code()}", code = response.code()))  // Эмитим ошибку HTTP
                 }
             } catch (e: IOException) {
                 emit(RegistrationState.Error("Нет соединения: ${e.message}"))  // Ошибка сети
@@ -170,13 +170,26 @@ object AuthManager : KoinComponent {
             val response = remoteRestApi.removeVKID(
                 token = token
             )
-            val body = response.body()
-            emit(
-                GetUserProfileState.Success(
-                    user = body?.user ?: UserRemote(login = "Неизвестный пользователь"),
-                    routes = body?.routes ?: emptyList()
+            if (
+                response.isSuccessful
+            ) {
+
+                val body = response.body()
+                emit(
+                    GetUserProfileState.Success(
+                        user = body?.user ?: UserRemote(login = "Неизвестный пользователь"),
+                        routes = body?.routes ?: emptyList()
+                    )
                 )
-            )
+            } else {
+                emit(
+                    GetUserProfileState.Error(
+                        "Ошибка: ${response.message()}",
+                        code = response.code()
+                    )
+                )
+            }
+
         } catch (e: IOException) {
             emit(GetUserProfileState.Error("Нет соединения: ${e.message}"))  // Ошибка сети
         } catch (e: HttpException) {
@@ -203,7 +216,12 @@ object AuthManager : KoinComponent {
                     )
                 )
             } else {
-                emit(GetUserProfileState.Error("Ошибка: ${response.code()} - ${response.message()}"))  // Эмитим ошибку HTTP
+                emit(
+                    GetUserProfileState.Error(
+                        "Ошибка: ${response.message()}",
+                        code = response.code()
+                    )
+                )  // Эмитим ошибку HTTP
             }
         } catch (e: IOException) {
             emit(GetUserProfileState.Error("Нет соединения: ${e.message}"))  // Ошибка сети
@@ -219,7 +237,7 @@ object AuthManager : KoinComponent {
         try {
             val response = remoteRestApi.getUserProfile(
                 token = token
-            )  // Асинхронный вызов Retrofit (suspend)
+            )
 
             if (response.isSuccessful) {
                 val body = response.body()
@@ -230,7 +248,12 @@ object AuthManager : KoinComponent {
                     )
                 )
             } else {
-                emit(GetUserProfileState.Error("Ошибка: ${response.code()} - ${response.message()}"))  // Эмитим ошибку HTTP
+                emit(
+                    GetUserProfileState.Error(
+                        message = "Ошибка: ${response.message()}",
+                        code = response.code()
+                    )
+                )
             }
         } catch (e: IOException) {
             emit(GetUserProfileState.Error("Нет соединения: ${e.message}"))  // Ошибка сети
@@ -296,7 +319,7 @@ sealed class RegistrationState {
     data class Success(val accessToken: String, val tokenType: String? = null) :
         RegistrationState()  // Успех с сообщением и опциональным токеном
 
-    data class Error(val errorMessage: String) : RegistrationState()  // Ошибка с сообщением
+    data class Error(val message: String, val code: Int = 0) : RegistrationState()  // Ошибка с сообщением
 }
 
 sealed class GetUserProfileState {
@@ -305,7 +328,7 @@ sealed class GetUserProfileState {
     data class Success(val user: UserRemote, val routes: List<Route> = emptyList()) :
         GetUserProfileState()
 
-    data class Error(val errorMessage: String) : GetUserProfileState()
+    data class Error(val message: String, val code: Int = 0) : GetUserProfileState()
 }
 
 sealed class ResponseState {

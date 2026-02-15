@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
@@ -58,7 +59,6 @@ import com.z_company.route.R
 import com.z_company.route.component.OutlinedTextFieldApp
 import com.z_company.route.component.SwitchApp
 import androidx.compose.runtime.collectAsState
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
 import com.z_company.repository.remote_rest.ResponseState
 import com.z_company.route.component.AnimationDialog
@@ -69,6 +69,7 @@ import kotlinx.coroutines.launch
 
 const val MIN_LENGTH_PASSWORD = 4
 
+@SuppressLint("CoroutineCreationDuringComposition")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
@@ -181,8 +182,13 @@ fun ProfileScreen(
     // Для чего: Чтобы информировать пользователя об ошибке регистрации
     LaunchedEffect(registeredUiState) {
         if (registeredUiState is RegistrationState.Error) {
+            val errorText = if ((registeredUiState as RegistrationState.Error).code == 409) {
+                "Пользователь уже зарегистрирован."
+            } else {
+                (registeredUiState as RegistrationState.Error).message
+            }
             snackbarHostState.showSnackbar(
-                message = (registeredUiState as RegistrationState.Error).errorMessage,
+                message = errorText,
                 duration = SnackbarDuration.Long
             )
             viewModel.resetRegisteredState() // Сброс состояния после показа ошибки
@@ -389,7 +395,8 @@ fun ProfileScreen(
         onDismissRequest = {
             viewModel.resetSyncState()
         }
-    ) {
+    )
+    {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -489,334 +496,547 @@ fun ProfileScreen(
         }
     ) { padding ->
         Box(modifier = Modifier.padding(padding)) {
-            // Миграция
-            if (isMigrationNeeded) {
-                val isMigrating = migrationUiState.isMigrating
-                val migrationResult = migrationUiState.migrationResult
+            if (uiState.userDetailsState is ResultState.Loading){
+                GenericLoading((uiState.userDetailsState as ResultState.Loading).message)
+            } else {
+                // Миграция
+                if (isMigrationNeeded) {
+                    val isMigrating = migrationUiState.isMigrating
+                    val migrationResult = migrationUiState.migrationResult
 
-                when {
-                    isMigrating -> {
-                        // Показываем прогресс-бары вместо элементов формы
-                        // Изменено: Показываем два прогресс-бара с процентами для маршрутов и настроек
-                        // Для чего: Чтобы пользователь видел процесс загрузки с визуализацией прогресса
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(32.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                text = "Переносим данные на отечественный сервер",
-                                style = MaterialTheme.typography.titleMedium,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(bottom = 24.dp)
-                            )
-
-                            Text(
-                                text = migrationUiState.migrationStep,
-                                style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier.padding(bottom = 16.dp)
-                            )
-
-                            // Прогресс маршрутов
-                            val (saved, total) = migrationUiState.routesProgress
-                            val progress = if (total > 0) saved.toFloat() / total.toFloat() else 0f
-                            LinearProgressIndicator(
-                                progress = { progress },
+                    when {
+                        isMigrating -> {
+                            // Показываем прогресс-бары вместо элементов формы
+                            // Изменено: Показываем два прогресс-бара с процентами для маршрутов и настроек
+                            // Для чего: Чтобы пользователь видел процесс загрузки с визуализацией прогресса
+                            Column(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(12.dp)
-                                    .padding(vertical = 8.dp),
-                                trackColor = MaterialTheme.colorScheme.secondaryContainer
-                            )
-                            Text(
-                                text = "Загружено $saved из $total",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-
-                            // Прогресс настроек
-                            LinearProgressIndicator(
-                                progress = { migrationUiState.settingsProgress / 100f },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(12.dp)
-                                    .padding(vertical = 8.dp),
-                                trackColor = MaterialTheme.colorScheme.secondaryContainer
-                            )
-                            Text(
-                                text = "Настройки: ${migrationUiState.settingsProgress}%",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-                    }
-
-                    migrationResult is ResultState.Success -> {
-                        // Успешный перенос — показываем сообщение и кнопку "Продолжить работу"
-                        // Изменено: Добавлен экран успеха с кнопкой
-                        // Для чего: Чтобы пользователь мог вручную подтвердить завершение и скрыть миграцию навсегда
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(32.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.check_circle_24px),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.surfaceContainerLow,
-                                modifier = Modifier.size(64.dp)
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text = "Данные успешно перенесены!",
-                                style = MaterialTheme.typography.titleMedium,
-                                textAlign = TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(24.dp))
-                            Button(
-                                onClick = { viewModel.completeMigration() },
-                                shape = RoundedCornerShape(12.dp)
+                                    .fillMaxSize()
+                                    .padding(32.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
                             ) {
-                                Text(text = "Продолжить работу", style = styleData)
+                                Text(
+                                    text = "Переносим данные на отечественный сервер",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(bottom = 24.dp)
+                                )
+
+                                Text(
+                                    text = migrationUiState.migrationStep,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    modifier = Modifier.padding(bottom = 16.dp)
+                                )
+
+                                // Прогресс маршрутов
+                                val (saved, total) = migrationUiState.routesProgress
+                                val progress =
+                                    if (total > 0) saved.toFloat() / total.toFloat() else 0f
+                                LinearProgressIndicator(
+                                    progress = { progress },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(12.dp)
+                                        .padding(vertical = 8.dp),
+                                    trackColor = MaterialTheme.colorScheme.secondaryContainer
+                                )
+                                Text(
+                                    text = "Загружено $saved из $total",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+
+                                // Прогресс настроек
+                                LinearProgressIndicator(
+                                    progress = { migrationUiState.settingsProgress / 100f },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(12.dp)
+                                        .padding(vertical = 8.dp),
+                                    trackColor = MaterialTheme.colorScheme.secondaryContainer
+                                )
+                                Text(
+                                    text = "Настройки: ${migrationUiState.settingsProgress}%",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
                             }
                         }
 
-                    }
-
-                    else -> {
-                        // Миграционный UI: Форма регистрации по умолчанию (login = false), плюс процесс миграции
-                        var email by rememberSaveable { mutableStateOf("") }
-                        var password by rememberSaveable { mutableStateOf("") }
-                        var passwordVisible by rememberSaveable { mutableStateOf(false) }
-
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .verticalScroll(rememberScrollState())
-                                .padding(horizontal = 16.dp),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "Переход на новый сервер",
-                                style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.padding(bottom = 16.dp)
-                            )
-                            Text(
-                                text = "Пожалуйста, введите ваш email или войдите с VK ID.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(bottom = 24.dp)
-                            )
-
-                            OneTap(
+                        migrationResult is ResultState.Success -> {
+                            // Успешный перенос — показываем сообщение и кнопку "Продолжить работу"
+                            // Изменено: Добавлен экран успеха с кнопкой
+                            // Для чего: Чтобы пользователь мог вручную подтвердить завершение и скрыть миграцию навсегда
+                            Column(
                                 modifier = Modifier
-                                    .fillMaxWidth(),
-                                onAuth = { _, accessToken ->
-                                    Log.d("zzz", "onAuth")
-                                    Log.d("zzz", "userID ${accessToken.userID}")
-                                    val vkId = accessToken.userID.toString()
-                                    val email = accessToken.userData.email ?: ""
-                                    viewModel.registeredUserByVKIDForMigration(
-                                        vkid = vkId,
-                                        email = email
-                                    )
-                                },
-                                onAuthCode = { authCodeData, bool ->
-                                    Log.d("zzz", "onAuthCode")
-                                    Log.d("zzz", "authCodeData $authCodeData")
-                                    Log.d("zzz", "bool $bool")
-
-                                },
-                                onFail = { oneTapAuth, vkIdAuthFail ->
-                                    Log.d("zzz", "onFail")
-                                    Log.d("zzz", "oneTapAuth $oneTapAuth")
-                                    Log.d("zzz", "vkIdAuthFail ${vkIdAuthFail.description}")
-                                },
-                                signInAnotherAccountButtonEnabled = true,
-                            )
-
-                            Spacer(
-                                modifier = Modifier
-                                    .height(12.dp)
-                            )
-                            Text(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                textAlign = TextAlign.Center,
-                                text = "или",
-                                style = styleHint
-                            )
-
-
-                            Spacer(
-                                modifier = Modifier
-                                    .height(12.dp)
-                            )
-
-                            OutlinedTextFieldApp(
-                                value = email,
-                                onValueChange = { email = it },
-                                placeholder = { Text(text = "email", style = styleData) },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = paddingBetweenView),
-                                singleLine = true,
-                                textStyle = styleData,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
-                            )
-
-
-                            AnimatedVisibility(
-                                visible = email.isEmailValid(),
-                                enter = slideInVertically(animationSpec = tween(durationMillis = 300))
-                                        + fadeIn(animationSpec = tween(durationMillis = 300)) +
-                                        expandVertically(animationSpec = tween(durationMillis = 300)) +
-                                        expandVertically(animationSpec = tween(durationMillis = 300)),
-                                exit = slideOutVertically(animationSpec = tween(durationMillis = 300))
-                                        + fadeOut(animationSpec = tween(durationMillis = 300)) +
-                                        shrinkVertically(animationSpec = tween(durationMillis = 300))
+                                    .fillMaxSize()
+                                    .padding(32.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
                             ) {
-                                Column(modifier = Modifier.fillMaxWidth()) {
-                                    OutlinedTextFieldApp(
-                                        value = password,
-                                        onValueChange = { password = it },
-                                        placeholder = { Text(text = "пароль", style = styleData) },
-                                        modifier = Modifier
-                                            .padding(top = paddingBetweenView)
-                                            .fillMaxWidth(),
-                                        singleLine = true,
-                                        textStyle = styleData,
-                                        supportingText = {
-                                            if (password.isNotEmpty() && password.length < MIN_LENGTH_PASSWORD) {
-                                                Text(
-                                                    text = "Минимум $MIN_LENGTH_PASSWORD символа",
-                                                    style = styleHint
-                                                )
-                                            }
-                                        },
-                                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                                        trailingIcon = {
-                                            val image = if (passwordVisible)
-                                                R.drawable.outline_visibility_24
-                                            else R.drawable.outline_visibility_off_24
-
-                                            val description =
-                                                if (passwordVisible) "Скрыть пароль" else "Показать пароль"
-
-                                            IconButton(onClick = {
-                                                passwordVisible = !passwordVisible
-                                            }) {
-                                                Icon(
-                                                    painter = painterResource(id = image),
-                                                    description
-                                                )
-                                            }
-                                        },
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
-                                    )
-
-
-                                    Text(
-                                        text = "Если не помните ваш пороль, можете указать новый или использовать VK ID",
-                                        style = styleHint,
-                                        color = primaryColor
-                                    )
-
+                                Icon(
+                                    painter = painterResource(id = R.drawable.check_circle_24px),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.surfaceContainerLow,
+                                    modifier = Modifier.size(64.dp)
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    text = "Данные успешно перенесены!",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(24.dp))
+                                Button(
+                                    onClick = { viewModel.completeMigration() },
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text(text = "Продолжить работу", style = styleData)
                                 }
                             }
 
-                            // Кнопка "Далее"
-                            val text = "Далее"
-                            AnimatedVisibility(
-                                visible = password.length >= MIN_LENGTH_PASSWORD && email.isEmailValid(),
-                                enter = slideInVertically(animationSpec = tween(durationMillis = 300))
-                                        + fadeIn(animationSpec = tween(durationMillis = 300)),
-                                exit = slideOutVertically(animationSpec = tween(durationMillis = 300))
-                                        + fadeOut(animationSpec = tween(durationMillis = 300)) +
-                                        shrinkVertically(animationSpec = tween(durationMillis = 300))
+                        }
+
+                        else -> {
+                            // Миграционный UI: Форма регистрации по умолчанию (login = false), плюс процесс миграции
+                            var email by rememberSaveable { mutableStateOf("") }
+                            var password by rememberSaveable { mutableStateOf("") }
+                            var passwordVisible by rememberSaveable { mutableStateOf(false) }
+
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(rememberScrollState())
+                                    .padding(horizontal = 16.dp),
+                                verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Button(
+                                Text(
+                                    text = "Переход на новый сервер",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.padding(bottom = 16.dp)
+                                )
+                                Text(
+                                    text = "Пожалуйста, введите ваш email или войдите с VK ID.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(bottom = 24.dp)
+                                )
+
+                                OneTap(
+                                    modifier = Modifier
+                                        .fillMaxWidth(),
+                                    onAuth = { _, accessToken ->
+                                        Log.d("zzz", "onAuth")
+                                        Log.d("zzz", "userID ${accessToken.userID}")
+                                        val vkId = accessToken.userID.toString()
+                                        val email = accessToken.userData.email ?: ""
+                                        viewModel.registeredUserByVKIDForMigration(
+                                            vkid = vkId,
+                                            email = email
+                                        )
+                                    },
+                                    onAuthCode = { authCodeData, bool ->
+                                        Log.d("zzz", "onAuthCode")
+                                        Log.d("zzz", "authCodeData $authCodeData")
+                                        Log.d("zzz", "bool $bool")
+
+                                    },
+                                    onFail = { oneTapAuth, vkIdAuthFail ->
+                                        Log.d("zzz", "onFail")
+                                        Log.d("zzz", "oneTapAuth $oneTapAuth")
+                                        Log.d("zzz", "vkIdAuthFail ${vkIdAuthFail.description}")
+                                    },
+                                    signInAnotherAccountButtonEnabled = true,
+                                )
+
+                                Spacer(
+                                    modifier = Modifier
+                                        .height(12.dp)
+                                )
+                                Text(
+                                    modifier = Modifier
+                                        .fillMaxWidth(),
+                                    textAlign = TextAlign.Center,
+                                    text = "или",
+                                    style = styleHint
+                                )
+
+
+                                Spacer(
+                                    modifier = Modifier
+                                        .height(12.dp)
+                                )
+
+                                OutlinedTextFieldApp(
+                                    value = email,
+                                    onValueChange = { email = it },
+                                    placeholder = { Text(text = "email", style = styleData) },
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(top = paddingBetweenView),
-                                    onClick = {
-                                        viewModel.registeredUserByEmailForMigration(email, password)
-                                    },
-                                    shape = Shapes.medium,
-                                    elevation = ButtonDefaults.elevatedButtonElevation(
-                                        defaultElevation = 2.dp
-                                    ),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                                        disabledContainerColor = MaterialTheme.colorScheme.surface,
-                                    )
+                                        .padding(bottom = paddingBetweenView),
+                                    singleLine = true,
+                                    textStyle = styleData,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+                                )
+
+
+                                AnimatedVisibility(
+                                    visible = email.isEmailValid(),
+                                    enter = slideInVertically(animationSpec = tween(durationMillis = 300))
+                                            + fadeIn(animationSpec = tween(durationMillis = 300)) +
+                                            expandVertically(animationSpec = tween(durationMillis = 300)) +
+                                            expandVertically(animationSpec = tween(durationMillis = 300)),
+                                    exit = slideOutVertically(animationSpec = tween(durationMillis = 300))
+                                            + fadeOut(animationSpec = tween(durationMillis = 300)) +
+                                            shrinkVertically(animationSpec = tween(durationMillis = 300))
                                 ) {
-                                    Text(
-                                        text = text,
-                                        style = buttonTextStyle,
-                                        color = MaterialTheme.colorScheme.secondary
-                                    )
+                                    Column(modifier = Modifier.fillMaxWidth()) {
+                                        OutlinedTextFieldApp(
+                                            value = password,
+                                            onValueChange = { password = it },
+                                            placeholder = {
+                                                Text(
+                                                    text = "пароль",
+                                                    style = styleData
+                                                )
+                                            },
+                                            modifier = Modifier
+                                                .padding(top = paddingBetweenView)
+                                                .fillMaxWidth(),
+                                            singleLine = true,
+                                            textStyle = styleData,
+                                            supportingText = {
+                                                if (password.isNotEmpty() && password.length < MIN_LENGTH_PASSWORD) {
+                                                    Text(
+                                                        text = "Минимум $MIN_LENGTH_PASSWORD символа",
+                                                        style = styleHint
+                                                    )
+                                                }
+                                            },
+                                            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                            trailingIcon = {
+                                                val image = if (passwordVisible)
+                                                    R.drawable.outline_visibility_24
+                                                else R.drawable.outline_visibility_off_24
+
+                                                val description =
+                                                    if (passwordVisible) "Скрыть пароль" else "Показать пароль"
+
+                                                IconButton(onClick = {
+                                                    passwordVisible = !passwordVisible
+                                                }) {
+                                                    Icon(
+                                                        painter = painterResource(id = image),
+                                                        description
+                                                    )
+                                                }
+                                            },
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                                        )
+
+
+                                        Text(
+                                            text = "Если не помните ваш пороль, можете указать новый или использовать VK ID",
+                                            style = styleHint,
+                                            color = primaryColor
+                                        )
+
+                                    }
+                                }
+
+                                // Кнопка "Далее"
+                                val text = "Далее"
+                                AnimatedVisibility(
+                                    visible = password.length >= MIN_LENGTH_PASSWORD && email.isEmailValid(),
+                                    enter = slideInVertically(animationSpec = tween(durationMillis = 300))
+                                            + fadeIn(animationSpec = tween(durationMillis = 300)),
+                                    exit = slideOutVertically(animationSpec = tween(durationMillis = 300))
+                                            + fadeOut(animationSpec = tween(durationMillis = 300)) +
+                                            shrinkVertically(animationSpec = tween(durationMillis = 300))
+                                ) {
+                                    Button(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = paddingBetweenView),
+                                        onClick = {
+                                            viewModel.registeredUserByEmailForMigration(
+                                                email,
+                                                password
+                                            )
+                                        },
+                                        shape = Shapes.medium,
+                                        elevation = ButtonDefaults.elevatedButtonElevation(
+                                            defaultElevation = 2.dp
+                                        ),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                            disabledContainerColor = MaterialTheme.colorScheme.surface,
+                                        )
+                                    ) {
+                                        Text(
+                                            text = text,
+                                            style = buttonTextStyle,
+                                            color = MaterialTheme.colorScheme.secondary
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
-//            // Профиль
-            else if (isLoggedIn) {
-                SwipeRefresh(
-                    state = rememberSwipeRefreshState(isRefreshing = uiState.isRefreshing),
-                    onRefresh = viewModel::refresh,
-                )
-                {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp)
-                    ) {
-                        // ===================== АККАУНТ =====================
-                        item {
-                            Text(
-                                modifier = Modifier.padding(
-                                    start = 16.dp,
-                                    bottom = 6.dp,
-                                    top = 16.dp
-                                ),
-                                text = "Аккаунт",
-                                style = styleTitle
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .shadow(elevation = 2.dp, shape = Shapes.medium)
-                                    .background(
-                                        color = MaterialTheme.colorScheme.secondary,
-                                        shape = Shapes.medium
-                                    )
-                                    .padding(horizontal = 16.dp, vertical = 12.dp)
-                            ) {
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    // E-mail
-                                    Column(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                                    )
-                                    {
-                                        Text(
-                                            text = "E-mail",
-                                            style = styleHint,
-                                            color = primaryColor
+                // Профиль
+                else if (isLoggedIn) {
+                    SwipeRefresh(
+                        state = rememberSwipeRefreshState(isRefreshing = uiState.isRefreshing),
+                        onRefresh = viewModel::refresh,
+                    )
+                    {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp)
+                        ) {
+                            // ===================== АККАУНТ =====================
+                            item {
+                                Text(
+                                    modifier = Modifier.padding(
+                                        start = 16.dp,
+                                        bottom = 6.dp,
+                                        top = 16.dp
+                                    ),
+                                    text = "Аккаунт",
+                                    style = styleTitle
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                        .background(
+                                            color = MaterialTheme.colorScheme.secondary,
+                                            shape = Shapes.medium
                                         )
+                                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                                ) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        // E-mail
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                                        )
+                                        {
+                                            Text(
+                                                text = "E-mail",
+                                                style = styleHint,
+                                                color = primaryColor
+                                            )
+                                            AsyncData(
+                                                resultState = uiState.userDetailsState,
+                                                loadingContent = {
+                                                    CircularProgressIndicator(
+                                                        modifier = Modifier.size(
+                                                            24.dp
+                                                        ), strokeWidth = 2.dp
+                                                    )
+                                                },
+                                                errorContent = {
+                                                    Text(
+                                                        "Ошибка загрузки",
+                                                        style = styleData,
+                                                        color = primaryColor
+                                                    )
+                                                }
+                                            ) { user ->
+                                                user?.let {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Text(
+                                                            text = it.email,
+                                                            style = styleData,
+                                                            color = primaryColor,
+                                                            maxLines = 2,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                            modifier = Modifier
+                                                                .weight(1f)
+                                                                .padding(end = 8.dp)
+                                                        )
+
+                                                        Icon(
+                                                            modifier = Modifier
+                                                                .size(24.dp)
+                                                                .clickable(
+                                                                    onClick = {
+                                                                        showEditEmailDialog = true
+                                                                    }
+                                                                ),
+                                                            painter = painterResource(com.z_company.core.R.drawable.ic_edit),
+                                                            contentDescription = null,
+                                                            tint = primaryColor
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        CustomDivider(orientation = Orientation.Horizontal)
+                                        // VK
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Text(
+                                                text = "VK",
+                                                style = styleHint,
+                                                color = primaryColor
+                                            )
+                                            AsyncData(
+                                                resultState = uiState.vkUserState,
+                                                loadingContent = {
+                                                    CircularProgressIndicator(
+                                                        modifier = Modifier.size(24.dp),
+                                                        strokeWidth = 2.dp
+                                                    )
+                                                },
+                                                errorContent = {
+                                                    OneTap(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth(),
+                                                        onAuth = { _, accessToken ->
+                                                            viewModel.attachVKID(accessToken.userID.toString())
+                                                        },
+                                                        onAuthCode = { _, _ -> },
+                                                        onFail = { oneTapAuth, vkIdAuthFail ->
+                                                            Log.d(
+                                                                "zzz",
+                                                                "onFail $oneTapAuth ${vkIdAuthFail.description}"
+                                                            )
+                                                            scope.launch {
+                                                                snackbarHostState.showSnackbar("Ошибка привязки VK: ${vkIdAuthFail.description}")
+                                                            }
+                                                        },
+                                                        signInAnotherAccountButtonEnabled = true,
+                                                    )
+                                                    scope.launch {
+                                                        snackbarHostState.showSnackbar("${it.entity.message}")
+                                                    }
+                                                }
+                                            ) { name ->
+                                                if (name != null) {
+                                                    Text(
+                                                        text = name,
+                                                        style = styleData,
+                                                        color = primaryColor
+                                                    )
+                                                } else {
+                                                    OneTap(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth(),
+                                                        onAuth = { _, accessToken ->
+                                                            viewModel.attachVKID(accessToken.userID.toString())
+                                                        },
+                                                        onAuthCode = { _, _ -> },
+                                                        onFail = { oneTapAuth, vkIdAuthFail ->
+                                                            Log.d(
+                                                                "zzz",
+                                                                "onFail $oneTapAuth ${vkIdAuthFail.description}"
+                                                            )
+                                                            scope.launch {
+                                                                snackbarHostState.showSnackbar("Ошибка привязки VK: ${vkIdAuthFail.description}")
+                                                            }
+                                                        },
+                                                        signInAnotherAccountButtonEnabled = true,
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // ===================== ПОДПИСКИ =====================
+                            item {
+                                Text(
+                                    modifier = Modifier.padding(
+                                        start = 16.dp,
+                                        bottom = 6.dp,
+                                        top = 16.dp
+                                    ),
+                                    text = "Покупки",
+                                    style = styleTitle
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                        .background(
+                                            color = MaterialTheme.colorScheme.secondary,
+                                            shape = Shapes.medium
+                                        )
+                                        .clickable { onBillingClick() }
+                                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                                        .fillMaxWidth(),
+                                ) {
+                                    AsyncData(
+                                        resultState = uiState.purchasesEndTime,
+                                        loadingContent = {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(
+                                                    24.dp
+                                                ), strokeWidth = 2.dp
+                                            )
+                                        },
+                                        errorContent = {
+                                            Text(
+                                                "Ошибка загрузки",
+                                                style = styleData,
+                                                color = primaryColor
+                                            )
+                                        }
+                                    ) { purchaseInfo ->
+                                        val text = "$purchaseInfo"
+                                        Text(text = text, style = styleData, color = primaryColor)
+                                    }
+                                }
+                            }
+
+                            // ===================== СИНХРОНИЗАЦИЯ =====================
+                            item {
+                                Text(
+                                    modifier = Modifier.padding(
+                                        start = 16.dp,
+                                        bottom = 6.dp,
+                                        top = 16.dp
+                                    ),
+                                    text = "Синхронизация",
+                                    style = styleTitle
+                                )
+                                AnimatedVisibility(visible = hasSubscription) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                            .background(
+                                                color = MaterialTheme.colorScheme.secondary,
+                                                shape = Shapes.medium
+                                            )
+                                            .padding(16.dp)
+                                    ) {
                                         AsyncData(
                                             resultState = uiState.userDetailsState,
                                             loadingContent = {
-                                                CircularProgressIndicator(
-                                                    modifier = Modifier.size(
-                                                        24.dp
-                                                    ), strokeWidth = 2.dp
-                                                )
+                                                Row(
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) {
+                                                    Text(
+                                                        "Загрузка...",
+                                                        style = styleData,
+                                                        color = primaryColor
+                                                    )
+                                                    CircularProgressIndicator(
+                                                        modifier = Modifier.size(24.dp),
+                                                        strokeWidth = 2.dp
+                                                    )
+                                                }
                                             },
                                             errorContent = {
                                                 Text(
@@ -826,371 +1046,173 @@ fun ProfileScreen(
                                                 )
                                             }
                                         ) { user ->
-                                            user?.let {
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    Text(
-                                                        text = it.email,
-                                                        style = styleData,
-                                                        color = primaryColor,
-                                                        maxLines = 2,
-                                                        overflow = TextOverflow.Ellipsis,
-                                                        modifier = Modifier
-                                                            .weight(1f)
-                                                            .padding(end = 8.dp)
-                                                    )
-
-                                                    Icon(
-                                                        modifier = Modifier
-                                                            .size(24.dp)
-                                                            .clickable(
-                                                                onClick = {
-                                                                    showEditEmailDialog = true
-                                                                }
-                                                            ),
-                                                        painter = painterResource(com.z_company.core.R.drawable.ic_edit),
-                                                        contentDescription = null,
-                                                        tint = primaryColor
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                    CustomDivider(orientation = Orientation.Horizontal)
-                                    // VK
-                                    Column(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Text(
-                                            text = "VK",
-                                            style = styleHint,
-                                            color = primaryColor
-                                        )
-                                        AsyncData(
-                                            resultState = uiState.vkUserState,
-                                            loadingContent = {
-                                                CircularProgressIndicator(
-                                                    modifier = Modifier.size(24.dp),
-                                                    strokeWidth = 2.dp
-                                                )
-                                            },
-                                            errorContent = {
-                                                OneTap(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth(),
-                                                    onAuth = { _, accessToken ->
-                                                        viewModel.attachVKID(accessToken.userID.toString())
-                                                    },
-                                                    onAuthCode = { _, _ -> },
-                                                    onFail = { oneTapAuth, vkIdAuthFail ->
-                                                        Log.d(
-                                                            "zzz",
-                                                            "onFail $oneTapAuth ${vkIdAuthFail.description}"
+                                            user?.let { u ->
+                                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                    uiState.updateAt?.let { timeInMillis ->
+                                                        val textSyncDate =
+                                                            uiState.dateAndTimeConverter?.getDateAndTime(
+                                                                timeInMillis
+                                                            ) ?: ""
+                                                        Text(
+                                                            text = "Последнее обновление данных",
+                                                            style = styleHint,
+                                                            maxLines = 2,
+                                                            overflow = TextOverflow.Visible,
+                                                            color = primaryColor
                                                         )
-                                                        scope.launch {
-                                                            snackbarHostState.showSnackbar("Ошибка привязки VK: ${vkIdAuthFail.description}")
-                                                        }
-                                                    },
-                                                    signInAnotherAccountButtonEnabled = true,
-                                                )
-                                                scope.launch {
-                                                    snackbarHostState.showSnackbar("${it.entity.message}")
-                                                }
-                                            }
-                                        ) { name ->
-                                            if (name != null) {
-                                                Text(
-                                                    text = name,
-                                                    style = styleData,
-                                                    color = primaryColor
-                                                )
-                                            } else {
-                                                OneTap(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth(),
-                                                    onAuth = { _, accessToken ->
-                                                        viewModel.attachVKID(accessToken.userID.toString())
-                                                    },
-                                                    onAuthCode = { _, _ -> },
-                                                    onFail = { oneTapAuth, vkIdAuthFail ->
-                                                        Log.d(
-                                                            "zzz",
-                                                            "onFail $oneTapAuth ${vkIdAuthFail.description}"
+                                                        Text(
+                                                            text = textSyncDate,
+                                                            style = styleData,
+                                                            overflow = TextOverflow.Visible,
+                                                            color = primaryColor
                                                         )
-                                                        scope.launch {
-                                                            snackbarHostState.showSnackbar("Ошибка привязки VK: ${vkIdAuthFail.description}")
-                                                        }
-                                                    },
-                                                    signInAnotherAccountButtonEnabled = true,
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
 
-                        // ===================== ПОДПИСКИ =====================
-                        item {
-                            Text(
-                                modifier = Modifier.padding(
-                                    start = 16.dp,
-                                    bottom = 6.dp,
-                                    top = 16.dp
-                                ),
-                                text = "Покупки",
-                                style = styleTitle
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .shadow(elevation = 2.dp, shape = Shapes.medium)
-                                    .background(
-                                        color = MaterialTheme.colorScheme.secondary,
-                                        shape = Shapes.medium
-                                    )
-                                    .clickable { onBillingClick() }
-                                    .padding(horizontal = 16.dp, vertical = 12.dp)
-                                    .fillMaxWidth(),
-                            ) {
-                                AsyncData(
-                                    resultState = uiState.purchasesEndTime,
-                                    loadingContent = {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(
-                                                24.dp
-                                            ), strokeWidth = 2.dp
-                                        )
-                                    },
-                                    errorContent = {
-                                        Text(
-                                            "Ошибка загрузки",
-                                            style = styleData,
-                                            color = primaryColor
-                                        )
-                                    }
-                                ) { purchaseInfo ->
-                                    val text = "$purchaseInfo"
-                                    Text(text = text, style = styleData, color = primaryColor)
-                                }
-                            }
-                        }
-
-                        // ===================== СИНХРОНИЗАЦИЯ =====================
-                        item {
-                            Text(
-                                modifier = Modifier.padding(
-                                    start = 16.dp,
-                                    bottom = 6.dp,
-                                    top = 16.dp
-                                ),
-                                text = "Синхронизация",
-                                style = styleTitle
-                            )
-                            AnimatedVisibility(visible = hasSubscription) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .shadow(elevation = 2.dp, shape = Shapes.medium)
-                                        .background(
-                                            color = MaterialTheme.colorScheme.secondary,
-                                            shape = Shapes.medium
-                                        )
-                                        .padding(16.dp)
-                                ) {
-                                    AsyncData(
-                                        resultState = uiState.userDetailsState,
-                                        loadingContent = {
-                                            Row(
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                modifier = Modifier.fillMaxWidth()
-                                            ) {
-                                                Text(
-                                                    "Загрузка...",
-                                                    style = styleData,
-                                                    color = primaryColor
-                                                )
-                                                CircularProgressIndicator(
-                                                    modifier = Modifier.size(24.dp),
-                                                    strokeWidth = 2.dp
-                                                )
-                                            }
-                                        },
-                                        errorContent = {
-                                            Text(
-                                                "Ошибка загрузки",
-                                                style = styleData,
-                                                color = primaryColor
-                                            )
-                                        }
-                                    ) { user ->
-                                        user?.let { u ->
-                                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                                uiState.updateAt?.let { timeInMillis ->
-                                                    val textSyncDate = uiState.dateAndTimeConverter?.getDateAndTime(timeInMillis) ?: ""
-                                                    Text(
-                                                        text = "Последнее обновление данных",
-                                                        style = styleHint,
-                                                        maxLines = 2,
-                                                        overflow = TextOverflow.Visible,
-                                                        color = primaryColor
-                                                    )
-                                                    Text(
-                                                        text = textSyncDate,
-                                                        style = styleData,
-                                                        overflow = TextOverflow.Visible,
-                                                        color = primaryColor
-                                                    )
-
-                                                }
-                                                CustomDivider(orientation = Orientation.Horizontal)
-
-                                                Row(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .clickable { viewModel.startSyncUpload() },
-                                                    horizontalArrangement = Arrangement.SpaceBetween
-                                                ) {
-                                                    Text(
-                                                        "Отправить в облако",
-                                                        style = styleData,
-                                                        color = primaryColor,
-                                                        maxLines = 2,
-                                                        overflow = TextOverflow.Visible,
-                                                        modifier = Modifier
-                                                            .weight(1f)
-                                                            .padding(end = 12.dp)
-                                                    )
-                                                    AsyncData(
-                                                        resultState = uiState.uploadState,
-                                                        loadingContent = {
-                                                            CircularProgressIndicator(
-                                                                modifier = Modifier.size(
-                                                                    24.dp
-                                                                ),
-                                                                strokeWidth = 2.dp
-                                                            )
-                                                        }) {
-                                                        Icon(
-                                                            tint = MaterialTheme.colorScheme.tertiary,
-                                                            painter = painterResource(id = com.z_company.core.R.drawable.rounded_cloud_upload_24),
-                                                            contentDescription = null
-                                                        )
                                                     }
-                                                }
-                                                CustomDivider(orientation = Orientation.Horizontal)
+                                                    CustomDivider(orientation = Orientation.Horizontal)
 
-                                                Row(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .clickable { viewModel.startSyncDownload() },
-                                                    horizontalArrangement = Arrangement.SpaceBetween
-                                                ) {
-                                                    Text(
-                                                        "Загрузить из облака",
-                                                        style = styleData,
-                                                        color = primaryColor,
-                                                        maxLines = 2,
-                                                        overflow = TextOverflow.Visible,
-                                                        modifier = Modifier
-                                                            .weight(1f)
-                                                            .padding(end = 12.dp)
-                                                    )
-                                                    AsyncData(
-                                                        resultState = uiState.downloadState,
-                                                        loadingContent = {
-                                                            CircularProgressIndicator(
-                                                                modifier = Modifier.size(
-                                                                    24.dp
-                                                                ),
-                                                                strokeWidth = 2.dp
-                                                            )
-                                                        }) {
-                                                        Icon(
-                                                            tint = MaterialTheme.colorScheme.tertiary,
-                                                            painter = painterResource(id = com.z_company.core.R.drawable.rounded_cloud_download_24),
-                                                            contentDescription = null
-                                                        )
-                                                    }
-                                                }
-                                                AnimatedVisibility(
-                                                    visible = uiState.downloadRouteProgress != null,
-                                                    enter = fadeIn() + expandVertically(),
-                                                    exit = fadeOut() + shrinkVertically()
-                                                ) {
-                                                    Column(
+                                                    Row(
                                                         modifier = Modifier
                                                             .fillMaxWidth()
-                                                            .padding(16.dp)
-                                                            .background(
-                                                                MaterialTheme.colorScheme.surfaceVariant,
-                                                                RoundedCornerShape(8.dp)
-                                                            )
-                                                            .padding(16.dp),
-                                                        horizontalAlignment = Alignment.CenterHorizontally
+                                                            .clickable { viewModel.startSyncUpload() },
+                                                        horizontalArrangement = Arrangement.SpaceBetween
                                                     ) {
-                                                        val (saved, total) = uiState.downloadRouteProgress
-                                                            ?: (0 to 0)
                                                         Text(
-                                                            text = "Загрузка маршрутов: $saved из $total",
-                                                            style = MaterialTheme.typography.bodyMedium,
-                                                            color = MaterialTheme.colorScheme.onSurface
+                                                            "Отправить в облако",
+                                                            style = styleData,
+                                                            color = primaryColor,
+                                                            maxLines = 2,
+                                                            overflow = TextOverflow.Visible,
+                                                            modifier = Modifier
+                                                                .weight(1f)
+                                                                .padding(end = 12.dp)
                                                         )
-                                                        Spacer(modifier = Modifier.height(8.dp))
-                                                        LinearProgressIndicator(
-                                                            progress = if (total > 0) saved.toFloat() / total.toFloat() else 0f,
-                                                            modifier = Modifier.fillMaxWidth(),
-                                                            color = MaterialTheme.colorScheme.primary,
-                                                            trackColor = MaterialTheme.colorScheme.surface
+                                                        AsyncData(
+                                                            resultState = uiState.uploadState,
+                                                            loadingContent = {
+                                                                CircularProgressIndicator(
+                                                                    modifier = Modifier.size(
+                                                                        24.dp
+                                                                    ),
+                                                                    strokeWidth = 2.dp
+                                                                )
+                                                            }) {
+                                                            Icon(
+                                                                tint = MaterialTheme.colorScheme.tertiary,
+                                                                painter = painterResource(id = com.z_company.core.R.drawable.rounded_cloud_upload_24),
+                                                                contentDescription = null
+                                                            )
+                                                        }
+                                                    }
+                                                    CustomDivider(orientation = Orientation.Horizontal)
+
+                                                    Row(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .clickable { viewModel.startSyncDownload() },
+                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                    ) {
+                                                        Text(
+                                                            "Загрузить из облака",
+                                                            style = styleData,
+                                                            color = primaryColor,
+                                                            maxLines = 2,
+                                                            overflow = TextOverflow.Visible,
+                                                            modifier = Modifier
+                                                                .weight(1f)
+                                                                .padding(end = 12.dp)
                                                         )
+                                                        AsyncData(
+                                                            resultState = uiState.downloadState,
+                                                            loadingContent = {
+                                                                CircularProgressIndicator(
+                                                                    modifier = Modifier.size(
+                                                                        24.dp
+                                                                    ),
+                                                                    strokeWidth = 2.dp
+                                                                )
+                                                            }) {
+                                                            Icon(
+                                                                tint = MaterialTheme.colorScheme.tertiary,
+                                                                painter = painterResource(id = com.z_company.core.R.drawable.rounded_cloud_download_24),
+                                                                contentDescription = null
+                                                            )
+                                                        }
+                                                    }
+                                                    AnimatedVisibility(
+                                                        visible = uiState.downloadRouteProgress != null,
+                                                        enter = fadeIn() + expandVertically(),
+                                                        exit = fadeOut() + shrinkVertically()
+                                                    ) {
+                                                        Column(
+                                                            modifier = Modifier
+                                                                .fillMaxWidth()
+                                                                .padding(16.dp)
+                                                                .background(
+                                                                    MaterialTheme.colorScheme.surfaceVariant,
+                                                                    RoundedCornerShape(8.dp)
+                                                                )
+                                                                .padding(16.dp),
+                                                            horizontalAlignment = Alignment.CenterHorizontally
+                                                        ) {
+                                                            val (saved, total) = uiState.downloadRouteProgress
+                                                                ?: (0 to 0)
+                                                            Text(
+                                                                text = "Загрузка маршрутов: $saved из $total",
+                                                                style = MaterialTheme.typography.bodyMedium,
+                                                                color = MaterialTheme.colorScheme.onSurface
+                                                            )
+                                                            Spacer(modifier = Modifier.height(8.dp))
+                                                            LinearProgressIndicator(
+                                                                progress = if (total > 0) saved.toFloat() / total.toFloat() else 0f,
+                                                                modifier = Modifier.fillMaxWidth(),
+                                                                color = MaterialTheme.colorScheme.primary,
+                                                                trackColor = MaterialTheme.colorScheme.surface
+                                                            )
+                                                        }
                                                     }
                                                 }
                                             }
                                         }
                                     }
                                 }
+                                if (!hasSubscription) {
+                                    Text(
+                                        modifier = Modifier.padding(start = 16.dp, top = 8.dp),
+                                        text = "Раздел синхронизации доступен после оплаты подписки.",
+                                        style = styleHint,
+                                        color = primaryColor
+                                    )
+                                } else {
+                                    Text(
+                                        modifier = Modifier.padding(start = 16.dp, top = 8.dp),
+                                        text = "Выгрузка на сервер маршрутных листов, отвлечений и других настрое выполняется автоматически раз в 36 часов.",
+                                        style = styleHint,
+                                        color = primaryColor,
+                                    )
+                                }
                             }
-                            if (!hasSubscription) {
-                                Text(
-                                    modifier = Modifier.padding(start = 16.dp, top = 8.dp),
-                                    text = "Раздел синхронизации доступен после оплаты подписки.",
-                                    style = styleHint,
-                                    color = primaryColor
-                                )
-                            } else {
-                                Text(
-                                    modifier = Modifier.padding(start = 16.dp, top = 8.dp),
-                                    text = "Выгрузка на сервер маршрутных листов, отвлечений и других настрое выполняется автоматически раз в 36 часов.",
-                                    style = styleHint,
-                                    color = primaryColor,
-                                )
-                            }
-                        }
 
 
-                        // ===================== КНОПКИ =====================
-                        item {
-                            Button(
-                                modifier = Modifier
-                                    .padding(top = 16.dp)
-                                    .fillMaxWidth(),
-                                shape = Shapes.medium,
-                                elevation = ButtonDefaults.elevatedButtonElevation(
-                                    defaultElevation = 2.dp
-                                ),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                onClick = { viewModel.logOut() }
-                            ) {
-                                Text(
-                                    "Выйти",
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
+                            // ===================== КНОПКИ =====================
+                            item {
+                                Button(
+                                    modifier = Modifier
+                                        .padding(top = 16.dp)
+                                        .fillMaxWidth(),
+                                    shape = Shapes.medium,
+                                    elevation = ButtonDefaults.elevatedButtonElevation(
+                                        defaultElevation = 2.dp
+                                    ),
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                    onClick = { viewModel.logOut() }
+                                ) {
+                                    Text(
+                                        "Выйти",
+                                        color = MaterialTheme.colorScheme.secondary,
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
                             }
-                        }
 //
 //                        item {
 //                            Button(
@@ -1371,361 +1393,362 @@ fun ProfileScreen(
 //                            }
 //                        }
 
-                        item { Spacer(modifier = Modifier.height(24.dp)) }
+                            item { Spacer(modifier = Modifier.height(24.dp)) }
+                        }
                     }
                 }
-            }
-            // Вход
-            else {
-                // Изменено: Добавлен раздел для входа, если пользователь не залогинен
-                // Для чего: Чтобы показать форму входа с OneTap, полями email/password, кнопкой "Войти" и "Не помню пароль", аналогично SignInScreen
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    var passwordVisible by remember { mutableStateOf(false) }
-                    var login by remember { mutableStateOf(!viewModel.isFirstAppEntry.value) }
-
-                    val paddingBetweenView = 12.dp
-                    val dataStyle = MaterialTheme.typography.bodyLarge
-                    val hintStyle = MaterialTheme.typography.bodyMedium
-                    val buttonTextStyle = MaterialTheme.typography.bodySmall
-
-                    Column(
+                // Вход
+                else {
+                    // Изменено: Добавлен раздел для входа, если пользователь не залогинен
+                    // Для чего: Чтобы показать форму входа с OneTap, полями email/password, кнопкой "Войти" и "Не помню пароль", аналогично SignInScreen
+                    Box(
                         modifier = Modifier
-                            .verticalScroll(rememberScrollState())
-                            .animateContentSize(  // Добавлено: Анимирует изменения размера всей формы
-                                animationSpec = tween(durationMillis = 300)
-                            )
-                            .fillMaxWidth()
-                            .padding(horizontal = 2.dp),
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        var passwordVisible by remember { mutableStateOf(false) }
+                        var login by remember { mutableStateOf(!viewModel.isFirstAppEntry.value) }
 
-                        ) {
-                        Text(
+                        val paddingBetweenView = 12.dp
+                        val dataStyle = MaterialTheme.typography.bodyLarge
+                        val hintStyle = MaterialTheme.typography.bodyMedium
+                        val buttonTextStyle = MaterialTheme.typography.bodySmall
+
+                        Column(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = paddingBetweenView * 2),
-                            text = "Добро пожаловать!",
-                            color = primaryColor,
-                            style = MaterialTheme.typography.titleMedium
-                        )
-
-
-                        val colorTextLogin =
-                            if (login) primaryColor else primaryColor.copy(alpha = 0.5f)
-                        val colorTextSignin =
-                            if (!login) primaryColor else primaryColor.copy(alpha = 0.5f)
-                        SwitchApp(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = paddingBetweenView * 5),
-                            checked = login,
-                            onCheckedChange = { login = !login },
-                            positiveContent = {
-                                Text(
-                                    modifier = Modifier.padding(
-                                        horizontal = 12.dp,
-                                        vertical = 8.dp
-                                    ),
-                                    text = "Вход",
-                                    style = styleData,
-                                    color = colorTextLogin
+                                .verticalScroll(rememberScrollState())
+                                .animateContentSize(  // Добавлено: Анимирует изменения размера всей формы
+                                    animationSpec = tween(durationMillis = 300)
                                 )
-                            },
-                            negativeContent = {
-                                Text(
-                                    modifier = Modifier.padding(
-                                        horizontal = 12.dp,
-                                        vertical = 8.dp
-                                    ),
-                                    text = "Регистрация",
-                                    style = styleData,
-                                    color = colorTextSignin
-                                )
-                            },
-                        )
-
-                        OneTap(
-                            modifier = Modifier
-                                .fillMaxWidth(),
-                            onAuth = { _, accessToken ->
-                                if (login) {
-                                    viewModel.authWithVKID(accessToken.userID.toString())
-                                } else {
-                                    viewModel.registeredUserByVKID(
-                                        vkid = accessToken.userID.toString(),
-                                        email = accessToken.userData.email ?: ""
-                                    )
-                                }
-                            },
-                            onAuthCode = { authCodeData, bool ->
-                                Log.d("zzz", "onAuthCode")
-                                Log.d("zzz", "authCodeData $authCodeData")
-                                Log.d("zzz", "bool $bool")
-
-                            },
-                            onFail = { oneTapAuth, vkIdAuthFail ->
-                                Log.d("zzz", "onFail")
-                                Log.d("zzz", "oneTapAuth $oneTapAuth")
-                                Log.d("zzz", "vkIdAuthFail ${vkIdAuthFail.description}")
-                            },
-                            signInAnotherAccountButtonEnabled = true,
-                        )
-
-
-                        Spacer(
-                            modifier = Modifier
-                                .height(12.dp)
-                        )
-                        Text(
-                            modifier = Modifier
-                                .fillMaxWidth(),
-                            textAlign = TextAlign.Center,
-                            text = "или",
-                            style = styleHint
-                        )
-
-
-                        Spacer(
-                            modifier = Modifier
-                                .height(12.dp)
-                        )
-
-
-                        OutlinedTextFieldApp(
-                            value = email,
-                            onValueChange = { email = it },
-                            placeholder = { Text(text = "email", style = dataStyle) },
-                            modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(bottom = paddingBetweenView),
-                            singleLine = true,
-                            textStyle = dataStyle,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
-                        )
+                                .padding(horizontal = 2.dp),
 
-
-                        AnimatedVisibility(
-                            visible = email.isEmailValid(),
-                            enter = slideInVertically(animationSpec = tween(durationMillis = 300))
-                                    + fadeIn(animationSpec = tween(durationMillis = 300)) +
-                                    expandVertically(animationSpec = tween(durationMillis = 300)) +
-                                    expandVertically(animationSpec = tween(durationMillis = 300)),
-                            exit = slideOutVertically(animationSpec = tween(durationMillis = 300))
-                                    + fadeOut(animationSpec = tween(durationMillis = 300)) +
-                                    shrinkVertically(animationSpec = tween(durationMillis = 300))
-                        ) {
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                OutlinedTextFieldApp(
-                                    value = password,
-                                    onValueChange = { password = it },
-                                    placeholder = { Text(text = "пароль", style = dataStyle) },
-                                    modifier = Modifier
-                                        .padding(top = paddingBetweenView)
-                                        .fillMaxWidth(),
-                                    singleLine = true,
-                                    textStyle = dataStyle,
-                                    supportingText = {
-                                        if (password.isNotEmpty() && password.length < MIN_LENGTH_PASSWORD) {
-                                            Text(
-                                                text = "Минимум $MIN_LENGTH_PASSWORD символа",
-                                                style = hintStyle
-                                            )
-                                        }
-                                    },
-                                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                                    trailingIcon = {
-                                        val image = if (passwordVisible)
-                                            R.drawable.outline_visibility_24
-                                        else R.drawable.outline_visibility_off_24
-
-                                        val description =
-                                            if (passwordVisible) "Скрыть пароль" else "Показать пароль"
-
-                                        IconButton(onClick = {
-                                            passwordVisible = !passwordVisible
-                                        }) {
-                                            Icon(
-                                                painter = painterResource(id = image),
-                                                description
-                                            )
-                                        }
-                                    },
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
-                                )
-
-                                if (login) {
-                                    TextButton(
-                                        onClick = { viewModel.forgotRequest(email) }
-                                    ) {
-                                        Text(
-                                            text = "Создать новый пароль",
-                                            style = buttonTextStyle,
-                                            color = MaterialTheme.colorScheme.tertiary
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-
-                        // Кнопка "Войти"
-                        val text = if (login) "Войти" else "Зарегистрировать"
-                        AnimatedVisibility(
-                            visible = password.length >= MIN_LENGTH_PASSWORD && email.isEmailValid(),
-                            enter = slideInVertically(animationSpec = tween(durationMillis = 300))
-                                    + fadeIn(animationSpec = tween(durationMillis = 300)),
-                            exit = slideOutVertically(animationSpec = tween(durationMillis = 300))
-                                    + fadeOut(animationSpec = tween(durationMillis = 300)) +
-                                    shrinkVertically(animationSpec = tween(durationMillis = 300))
-                        ) {
-                            Button(
+                            ) {
+                            Text(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(top = paddingBetweenView),
-                                onClick = {
+                                    .padding(bottom = paddingBetweenView * 2),
+                                text = "Добро пожаловать!",
+                                color = primaryColor,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+
+
+                            val colorTextLogin =
+                                if (login) primaryColor else primaryColor.copy(alpha = 0.5f)
+                            val colorTextSignin =
+                                if (!login) primaryColor else primaryColor.copy(alpha = 0.5f)
+                            SwitchApp(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = paddingBetweenView * 5),
+                                checked = login,
+                                onCheckedChange = { login = !login },
+                                positiveContent = {
+                                    Text(
+                                        modifier = Modifier.padding(
+                                            horizontal = 12.dp,
+                                            vertical = 8.dp
+                                        ),
+                                        text = "Вход",
+                                        style = styleData,
+                                        color = colorTextLogin
+                                    )
+                                },
+                                negativeContent = {
+                                    Text(
+                                        modifier = Modifier.padding(
+                                            horizontal = 12.dp,
+                                            vertical = 8.dp
+                                        ),
+                                        text = "Регистрация",
+                                        style = styleData,
+                                        color = colorTextSignin
+                                    )
+                                },
+                            )
+
+                            OneTap(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                onAuth = { _, accessToken ->
                                     if (login) {
-                                        viewModel.authWithEmail(email, password)
+                                        viewModel.authWithVKID(accessToken.userID.toString())
                                     } else {
-                                        viewModel.registeredUserByEmail(email, password)
+                                        viewModel.registeredUserByVKID(
+                                            vkid = accessToken.userID.toString(),
+                                            email = accessToken.userData.email ?: ""
+                                        )
                                     }
                                 },
-                                enabled = if (!login) {
-                                    isAcceptedPersonalDataProcessingPolicy && isLicenseAgreementAccepted
-                                } else true,
-                                shape = Shapes.medium,
-                                elevation = ButtonDefaults.elevatedButtonElevation(
-                                    defaultElevation = 2.dp
-                                ),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                                    disabledContainerColor = MaterialTheme.colorScheme.surface,
-                                )
-                            ) {
-                                Text(
-                                    text = text,
-                                    style = buttonTextStyle,
-                                    color = MaterialTheme.colorScheme.secondary
-                                )
-                            }
-                        }
+                                onAuthCode = { authCodeData, bool ->
+                                    Log.d("zzz", "onAuthCode")
+                                    Log.d("zzz", "authCodeData $authCodeData")
+                                    Log.d("zzz", "bool $bool")
+
+                                },
+                                onFail = { oneTapAuth, vkIdAuthFail ->
+                                    Log.d("zzz", "onFail")
+                                    Log.d("zzz", "oneTapAuth $oneTapAuth")
+                                    Log.d("zzz", "vkIdAuthFail ${vkIdAuthFail.description}")
+                                },
+                                signInAnotherAccountButtonEnabled = true,
+                            )
 
 
-                        AnimatedVisibility(
-                            visible = !login,
-                            enter = slideInVertically(animationSpec = tween(durationMillis = 300))
-                                    + fadeIn(animationSpec = tween(durationMillis = 300)),
-                            exit = slideOutVertically(animationSpec = tween(durationMillis = 300))
-                                    + fadeOut(animationSpec = tween(durationMillis = 300))
-                        ) {
-                            Column(
+                            Spacer(
+                                modifier = Modifier
+                                    .height(12.dp)
+                            )
+                            Text(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                textAlign = TextAlign.Center,
+                                text = "или",
+                                style = styleHint
+                            )
+
+
+                            Spacer(
+                                modifier = Modifier
+                                    .height(12.dp)
+                            )
+
+
+                            OutlinedTextFieldApp(
+                                value = email,
+                                onValueChange = { email = it },
+                                placeholder = { Text(text = "email", style = dataStyle) },
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .padding(bottom = paddingBetweenView),
+                                singleLine = true,
+                                textStyle = dataStyle,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+                            )
+
+
+                            AnimatedVisibility(
+                                visible = email.isEmailValid(),
+                                enter = slideInVertically(animationSpec = tween(durationMillis = 300))
+                                        + fadeIn(animationSpec = tween(durationMillis = 300)) +
+                                        expandVertically(animationSpec = tween(durationMillis = 300)) +
+                                        expandVertically(animationSpec = tween(durationMillis = 300)),
+                                exit = slideOutVertically(animationSpec = tween(durationMillis = 300))
+                                        + fadeOut(animationSpec = tween(durationMillis = 300)) +
+                                        shrinkVertically(animationSpec = tween(durationMillis = 300))
                             ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = paddingBetweenView * 3),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Start
-                                ) {
-                                    Checkbox(
-                                        checked = isLicenseAgreementAccepted,
-                                        onCheckedChange = {
-                                            isLicenseAgreementAccepted =
-                                                !isLicenseAgreementAccepted
-                                        })
-                                    val urlIntent = Intent(
-                                        Intent.ACTION_VIEW,
-                                        stringResource(id = R.string.url_to_license_agreement).toUri()
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    OutlinedTextFieldApp(
+                                        value = password,
+                                        onValueChange = { password = it },
+                                        placeholder = { Text(text = "пароль", style = dataStyle) },
+                                        modifier = Modifier
+                                            .padding(top = paddingBetweenView)
+                                            .fillMaxWidth(),
+                                        singleLine = true,
+                                        textStyle = dataStyle,
+                                        supportingText = {
+                                            if (password.isNotEmpty() && password.length < MIN_LENGTH_PASSWORD) {
+                                                Text(
+                                                    text = "Минимум $MIN_LENGTH_PASSWORD символа",
+                                                    style = hintStyle
+                                                )
+                                            }
+                                        },
+                                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                        trailingIcon = {
+                                            val image = if (passwordVisible)
+                                                R.drawable.outline_visibility_24
+                                            else R.drawable.outline_visibility_off_24
+
+                                            val description =
+                                                if (passwordVisible) "Скрыть пароль" else "Показать пароль"
+
+                                            IconButton(onClick = {
+                                                passwordVisible = !passwordVisible
+                                            }) {
+                                                Icon(
+                                                    painter = painterResource(id = image),
+                                                    description
+                                                )
+                                            }
+                                        },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
                                     )
 
-                                    val text = "Я принимаю условия Лицензионного соглашения"
-                                    val startIndex = 19
-                                    val endIndex = text.length
-                                    val annotationString = buildAnnotatedString {
-                                        append(text)
-                                        addStyle(
-                                            style = SpanStyle(
-                                                color = MaterialTheme.colorScheme.tertiary,
-                                                textDecoration = TextDecoration.Underline
-                                            ),
-                                            start = startIndex, end = endIndex
-                                        )
-                                    }
-                                    ClickableText(
-                                        text = annotationString,
-                                        style = hintStyle.copy(color = MaterialTheme.colorScheme.primary)
-                                    ) {
-                                        ctx.startActivity(urlIntent)
+                                    if (login) {
+                                        TextButton(
+                                            onClick = { viewModel.forgotRequest(email) }
+                                        ) {
+                                            Text(
+                                                text = "Создать новый пароль",
+                                                style = buttonTextStyle,
+                                                color = MaterialTheme.colorScheme.tertiary
+                                            )
+                                        }
                                     }
                                 }
+                            }
 
-                                Row(
+
+                            // Кнопка "Войти"
+                            val text = if (login) "Войти" else "Зарегистрировать"
+                            AnimatedVisibility(
+                                visible = password.length >= MIN_LENGTH_PASSWORD && email.isEmailValid(),
+                                enter = slideInVertically(animationSpec = tween(durationMillis = 300))
+                                        + fadeIn(animationSpec = tween(durationMillis = 300)),
+                                exit = slideOutVertically(animationSpec = tween(durationMillis = 300))
+                                        + fadeOut(animationSpec = tween(durationMillis = 300)) +
+                                        shrinkVertically(animationSpec = tween(durationMillis = 300))
+                            ) {
+                                Button(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(top = paddingBetweenView),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Start
-                                ) {
-                                    Checkbox(
-                                        checked = isAcceptedPersonalDataProcessingPolicy,
-                                        onCheckedChange = {
-                                            isAcceptedPersonalDataProcessingPolicy =
-                                                !isAcceptedPersonalDataProcessingPolicy
-                                        })
-                                    val urlIntent = Intent(
-                                        Intent.ACTION_VIEW,
-                                        stringResource(id = R.string.url_to_personal_data_processing_policy).toUri()
+                                    onClick = {
+                                        if (login) {
+                                            viewModel.authWithEmail(email, password)
+                                        } else {
+                                            viewModel.registeredUserByEmail(email, password)
+                                        }
+                                    },
+                                    enabled = if (!login) {
+                                        isAcceptedPersonalDataProcessingPolicy && isLicenseAgreementAccepted
+                                    } else true,
+                                    shape = Shapes.medium,
+                                    elevation = ButtonDefaults.elevatedButtonElevation(
+                                        defaultElevation = 2.dp
+                                    ),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                        disabledContainerColor = MaterialTheme.colorScheme.surface,
                                     )
-
-                                    val text =
-                                        "Я ознакомлен с политикой обработки персональных данных"
-                                    val startIndex = 15
-                                    val endIndex = text.length
-                                    val annotationString = buildAnnotatedString {
-                                        append(text)
-                                        addStyle(
-                                            style = SpanStyle(
-                                                color = MaterialTheme.colorScheme.tertiary,
-                                                textDecoration = TextDecoration.Underline
-                                            ),
-                                            start = startIndex, end = endIndex
-                                        )
-                                    }
-                                    ClickableText(
-                                        text = annotationString,
-                                        style = hintStyle.copy(color = MaterialTheme.colorScheme.primary)
-                                    ) {
-                                        ctx.startActivity(urlIntent)
-                                    }
+                                ) {
+                                    Text(
+                                        text = text,
+                                        style = buttonTextStyle,
+                                        color = MaterialTheme.colorScheme.secondary
+                                    )
                                 }
+                            }
 
+
+                            AnimatedVisibility(
+                                visible = !login,
+                                enter = slideInVertically(animationSpec = tween(durationMillis = 300))
+                                        + fadeIn(animationSpec = tween(durationMillis = 300)),
+                                exit = slideOutVertically(animationSpec = tween(durationMillis = 300))
+                                        + fadeOut(animationSpec = tween(durationMillis = 300))
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = paddingBetweenView * 3),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Start
+                                    ) {
+                                        Checkbox(
+                                            checked = isLicenseAgreementAccepted,
+                                            onCheckedChange = {
+                                                isLicenseAgreementAccepted =
+                                                    !isLicenseAgreementAccepted
+                                            })
+                                        val urlIntent = Intent(
+                                            Intent.ACTION_VIEW,
+                                            stringResource(id = R.string.url_to_license_agreement).toUri()
+                                        )
+
+                                        val text = "Я принимаю условия Лицензионного соглашения"
+                                        val startIndex = 19
+                                        val endIndex = text.length
+                                        val annotationString = buildAnnotatedString {
+                                            append(text)
+                                            addStyle(
+                                                style = SpanStyle(
+                                                    color = MaterialTheme.colorScheme.tertiary,
+                                                    textDecoration = TextDecoration.Underline
+                                                ),
+                                                start = startIndex, end = endIndex
+                                            )
+                                        }
+                                        ClickableText(
+                                            text = annotationString,
+                                            style = hintStyle.copy(color = MaterialTheme.colorScheme.primary)
+                                        ) {
+                                            ctx.startActivity(urlIntent)
+                                        }
+                                    }
+
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = paddingBetweenView),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Start
+                                    ) {
+                                        Checkbox(
+                                            checked = isAcceptedPersonalDataProcessingPolicy,
+                                            onCheckedChange = {
+                                                isAcceptedPersonalDataProcessingPolicy =
+                                                    !isAcceptedPersonalDataProcessingPolicy
+                                            })
+                                        val urlIntent = Intent(
+                                            Intent.ACTION_VIEW,
+                                            stringResource(id = R.string.url_to_personal_data_processing_policy).toUri()
+                                        )
+
+                                        val text =
+                                            "Я ознакомлен с политикой обработки персональных данных"
+                                        val startIndex = 15
+                                        val endIndex = text.length
+                                        val annotationString = buildAnnotatedString {
+                                            append(text)
+                                            addStyle(
+                                                style = SpanStyle(
+                                                    color = MaterialTheme.colorScheme.tertiary,
+                                                    textDecoration = TextDecoration.Underline
+                                                ),
+                                                start = startIndex, end = endIndex
+                                            )
+                                        }
+                                        ClickableText(
+                                            text = annotationString,
+                                            style = hintStyle.copy(color = MaterialTheme.colorScheme.primary)
+                                        ) {
+                                            ctx.startActivity(urlIntent)
+                                        }
+                                    }
+
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            if (authUiState is AuthState.Loading) {
-                GenericLoading(
-                    message = "Выполняется вход...",
-                    onCloseClick = {
-                        viewModel.loginJob?.cancel()
-                        viewModel.resetAuthState()
-                    }
-                )
-            }
-            if (registeredUiState is RegistrationState.Loading) {
-                GenericLoading(
-                    message = "Регистрируем нового полььзователя...",
-                    onCloseClick = {
-                        viewModel.loginJob?.cancel()
-                        viewModel.resetRegisteredState()
-                    }
-                )
+                if (authUiState is AuthState.Loading) {
+                    GenericLoading(
+                        message = "Выполняется вход...",
+                        onCloseClick = {
+                            viewModel.loginJob?.cancel()
+                            viewModel.resetAuthState()
+                        }
+                    )
+                }
+                if (registeredUiState is RegistrationState.Loading) {
+                    GenericLoading(
+                        message = "Регистрируем нового полььзователя...",
+                        onCloseClick = {
+                            viewModel.loginJob?.cancel()
+                            viewModel.resetRegisteredState()
+                        }
+                    )
+                }
             }
         }
     }

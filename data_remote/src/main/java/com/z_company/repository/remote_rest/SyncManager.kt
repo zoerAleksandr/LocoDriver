@@ -1,5 +1,6 @@
 package com.z_company.repository.remote_rest
 
+import android.annotation.SuppressLint
 import android.util.Log
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
@@ -67,7 +68,8 @@ class SyncManager : KoinComponent {
         val result = SyncUploadResult()
 
         // 1. Сохранение UserSettings
-        val localUserSettingsState = settingsUseCase.getFlowCurrentSettingsState().first { it is ResultState.Success || it is ResultState.Error }
+        val localUserSettingsState = settingsUseCase.getFlowCurrentSettingsState()
+            .first { it is ResultState.Success || it is ResultState.Error }
         if (localUserSettingsState is ResultState.Success) {
             val localUserSettings = localUserSettingsState.data
             val subscriptionPeriod = localUserSettings.subscriptionPeriod
@@ -266,8 +268,7 @@ class SyncManager : KoinComponent {
                 emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки UserSettings: ${e.message}")))
                 return@catch  // Изменено: Заменил return@flow на return@catch. // Для чего: Чтобы прервать только обработку этого Flow в catch, а не весь внешний flow, делая возврат более локальным и избегая предупреждений IDE о non-local return.
             }
-            .collect { loadState ->
-                when (loadState) {  // Изменено: Заменил if-else на when для лучшей читаемости и обработки всех случаев.
+            .collect { loadState -> when (loadState) {  // Изменено: Заменил if-else на when для лучшей читаемости и обработки всех случаев.
                     is ResultState.Success -> {
                         val listMonthOfYear = calendarUseCase.loadFlowMonthOfYearListState().first()
                         val currentCalendar = Calendar.getInstance()
@@ -367,4 +368,123 @@ class SyncManager : KoinComponent {
             emit(ResultState.Error(ErrorEntity(message = "Не все данные загружены успешно")))
         }
     }.flowOn(Dispatchers.IO)  // Выполнение в IO-диспетчере
+
+    @SuppressLint("SuspiciousIndentation")
+    fun firstSyncAfterRegistration(bearerToken: String): Flow<ResultState<SyncUploadResult>> =
+        flow {
+            emit(ResultState.Loading())  // Начало процесса
+
+            val result = SyncUploadResult()
+
+            // 1. Сохранение UserSettings
+            val localUserSettingsState = settingsUseCase.getFlowCurrentSettingsState()
+                .first { it is ResultState.Success || it is ResultState.Error }
+            if (localUserSettingsState is ResultState.Success) {
+                val localUserSettings = localUserSettingsState.data
+                val endTimeSubscription = sharedPrefs.getSubscriptionExpiration()
+                val l = localUserSettings.copy(
+                    subscriptionPeriod = endTimeSubscription
+                )
+                settingManager.saveUserSettingInRemote(l, bearerToken)
+                    .catch { e ->
+                        Log.e("SyncManager", "Ошибка сохранения UserSettings: ${e.message}")
+                        emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения UserSettings: ${e.message}")))
+                        return@catch
+                    }
+                    .collect { saveState ->
+                        if (saveState is ResultState.Success) {
+                            result.userSettingsSaved = true
+                            emit(ResultState.Success(result.copy()))  // Эмитим промежуточный успех
+                        } else if (saveState is ResultState.Error) {
+                            emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения UserSettings: ${saveState.entity.message}")))
+                            return@collect
+                        }
+                    }
+            } else {
+                TracerCrashReport.report(NotActiveException("syncToRemote \n save salarySetting \nОшибка получения локальных UserSettings ${(localUserSettingsState as ResultState.Error).entity}."))
+                result.userSettingsSaved = false
+                emit(ResultState.Success(result.copy()))  // Эмитим промежуточный, чтобы продолжить
+            }
+
+            // 2. Сохранение SalarySetting
+            val localSalarySetting = salarySettingUseCase.salarySettingFlow().first()
+            settingManager.saveSalarySettingInRemote(localSalarySetting, bearerToken)
+                .catch { e ->
+                    emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения SalarySetting: ${e.message}")))
+                    return@catch
+                }
+                .collect { saveState ->
+                    if (saveState is ResultState.Success) {
+                        result.salarySettingsSaved = true
+                        emit(ResultState.Success(result.copy()))
+                    } else if (saveState is ResultState.Error) {
+                        emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения SalarySetting: ${saveState.entity.message}")))
+                        return@collect
+                    }
+                }
+
+            // 3. Сохранение MonthOfYearList
+            val localMonths = calendarUseCase.loadFlowMonthOfYearListState().first()
+            settingManager.saveMonthOfYearListInRemote(localMonths, bearerToken)
+                .catch { e ->
+                    emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения MonthOfYearList: ${e.message}")))
+                    return@catch
+                }
+                .collect { saveState ->
+                    if (saveState is ResultState.Success) {
+                        result.monthsSaved = true
+                        emit(ResultState.Success(result.copy()))
+                    } else if (saveState is ResultState.Error) {
+                        emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения MonthOfYearList: ${saveState.entity.message}")))
+                        return@collect
+                    }
+                }
+
+            // 4. Сохранение всех маршрутов (аналогично startMigration)
+            val localRoutesResult = routeUseCase.getListRoutesAsFlow()
+                .first()  // Предполагаю, что getAllRoutes() возвращает Flow<ResultState<List<Route>>>
+            val routes = localRoutesResult
+            var savedCount = 0
+            var hasError = false
+            for (route in routes) {
+                if (!route.basicData.isSynchronized) {
+                    routesManager.saveRouteInRemote(route, bearerToken)
+                        .catch { e ->
+                            hasError = true
+                            emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения маршрута ${route.basicData.id}: ${e.message}")))
+                            return@catch
+                        }
+                        .collect { saveResult ->
+                            if (saveResult is ResultState.Success) {
+                                routeUseCase.setSynchronizedRoute(route.basicData.id).collect {
+                                    Log.d("zzz", "setSynchronizedRoute $it")
+                                }
+                                savedCount++
+                                // помечаем маршрут как синхронизированый
+                            } else if (saveResult is ResultState.Error) {
+                                hasError = true
+                                Log.d(
+                                    "zzz",
+                                    "Ошибка сохранения маршрута \${route.basicData.id}: \${e.message}"
+                                )
+                                emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения маршрута ${route.basicData.id}: ${saveResult.entity.message}")))
+                                return@collect
+                            }
+                        }
+                }
+            }
+            if (!hasError) {
+                result.routesSavedCount = savedCount
+                emit(ResultState.Success(result.copy()))
+            }
+
+            // Если все части успешны — сохраняем timestamp и эмитим Success
+            if (result.userSettingsSaved && result.salarySettingsSaved && result.monthsSaved && result.routesSavedCount >= 0) {
+                val timestamp = Date().time
+                sharedPrefs.setLastSyncTimestamp(timestamp)
+                emit(ResultState.Success(result.copy(timestamp = timestamp)))
+            } else {
+                emit(ResultState.Error(ErrorEntity(message = "Не все данные сохранены успешно")))
+            }
+        }.flowOn(Dispatchers.IO)
 }
