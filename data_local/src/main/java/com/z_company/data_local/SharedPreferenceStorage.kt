@@ -91,7 +91,9 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
     }
 
     override fun setTokenIsFirstAppEntry(value: Boolean) {
-        editor.putBoolean(TOKEN_IS_FIRST_APP_ENTRY_TAG, value).apply()
+        // commit() вместо apply() — синхронная запись, защита от потери данных
+        // при завершении процесса на Android 16 (process death)
+        editor.putBoolean(TOKEN_IS_FIRST_APP_ENTRY_TAG, value).commit()
     }
 
     fun setTokenIsSyncEnable(value: Boolean) {

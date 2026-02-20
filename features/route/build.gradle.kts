@@ -49,6 +49,7 @@ dependencies {
     implementation(Libs.vkId)
     implementation(platform(Libs.rustore_bom))
     implementation(Libs.rustore_review)
+    implementation(Libs.rustore_sdk_appupdate)
     implementation(Libs.gson)
 
     implementation(project(Libs.project_core_android))

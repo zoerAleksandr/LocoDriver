@@ -112,6 +112,8 @@ dependencies {
     implementation(project(Libs.project_robokassa_sdk))
     implementation (Libs.ksp_api)
     implementation(Libs.mytracker_sdk)
+    implementation(platform(Libs.rustore_bom))
+    implementation(Libs.rustore_sdk_appupdate)
 
     implementation(platform(Libs.ru_ok_tracer_platform))
     implementation(Libs.ru_ok_tracer_tracer_crash_report)
