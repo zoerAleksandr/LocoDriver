@@ -47,8 +47,6 @@ kotlin {
 }
 
 dependencies {
-    implementation(platform(Libs.rustore_bom))
-    implementation(Libs.rustore_pay)
 
     implementation (Libs.accompanist_swipe_refresh)
     implementation(project(Libs.project_core_android))
@@ -56,7 +54,6 @@ dependencies {
     implementation(project(Libs.project_data_remote))
     implementation(project(Libs.project_data_local))
     implementation(project(":features:route"))
-    implementation(Libs.parse_sdk_android)
 
     implementation(Libs.activity_compose)
     implementation(Libs.core_ktx)

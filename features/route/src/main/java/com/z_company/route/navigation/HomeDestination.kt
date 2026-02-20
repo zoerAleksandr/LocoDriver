@@ -48,8 +48,6 @@ fun HomeDestination(
         homeRestValue = previewRouteUiState.homeRest,
         offsetInMoscow = uiState.offsetInMoscow,
         syncRoute = homeViewModel::syncRoute,
-        completeUpdateRequested = homeViewModel::completeUpdateRequested,
-        updateEvent = homeViewModel.updateEvents,
         setFavoriteState = homeViewModel::setFavoriteRoute,
         dateAndTimeConverter = uiState.dateAndTimeConverter,
         extendedServicePhaseTime = uiState.extendedServicePhaseTime,

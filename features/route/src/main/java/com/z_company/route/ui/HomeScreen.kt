@@ -110,7 +110,6 @@ import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.ItemHomeScreen
 import com.z_company.route.component.LinearPagerIndicator
 import com.z_company.route.viewmodel.home_view_model.ItemState
-import com.z_company.route.viewmodel.home_view_model.UpdateEvent
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -153,8 +152,6 @@ fun HomeScreen(
     homeRestValue: Long?,
     offsetInMoscow: Long,
     syncRoute: (Route) -> Unit,
-    updateEvent: SharedFlow<UpdateEvent>,
-    completeUpdateRequested: () -> Unit,
     setFavoriteState: (Route) -> Unit,
     dateAndTimeConverter: DateAndTimeConverter?,
     extendedServicePhaseTime: ResultState<Long>?,
@@ -213,25 +210,6 @@ fun HomeScreen(
     }
 
     val widthScreen = LocalConfiguration.current.screenWidthDp
-
-    LaunchedEffect(Unit) {
-        scope.launch {
-            updateEvent.flowWithLifecycle(lifecycle).collect { event ->
-                when (event) {
-                    UpdateEvent.UpdateCompleted -> {
-                        val result = snackbarHostState
-                            .showSnackbar(
-                                message = "Обновление загружено",
-                                actionLabel = "Установить"
-                            )
-                        if (result == SnackbarResult.ActionPerformed) {
-                            completeUpdateRequested()
-                        }
-                    }
-                }
-            }
-        }
-    }
 
     var isShowDialogConfirmRemoveRoute by remember { mutableStateOf(false) }
 

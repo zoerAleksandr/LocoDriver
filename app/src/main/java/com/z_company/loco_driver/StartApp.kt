@@ -3,15 +3,12 @@ package com.z_company.loco_driver
 import android.app.Application
 import com.my.tracker.MyTracker
 import com.my.tracker.MyTrackerConfig.LocationTrackingMode
-import com.parse.Parse
 import com.vk.id.VKID
 import com.z_company.data_local.route.di.roomRouteModule
 import com.z_company.data_local.setting.di.roomSalarySettingModule
 import com.z_company.data_local.setting.di.roomSettingsModule
-import com.z_company.loco_driver.di.paymentsModule
 import com.z_company.loco_driver.di.repositoryModule
 import com.z_company.loco_driver.di.resourcesModule
-import com.z_company.loco_driver.di.updateModule
 import com.z_company.loco_driver.di.useCaseModule
 import com.z_company.loco_driver.di.viewModelModule
 import org.koin.android.ext.koin.androidContext
@@ -23,9 +20,7 @@ import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.z_company.work_manager.SyncWorker
-import java.util.TimeZone
 import java.util.concurrent.TimeUnit
-import kotlin.time.Duration
 
 class StartApp : Application() {
 
@@ -38,15 +33,6 @@ class StartApp : Application() {
         MyTracker.setDebugMode(true)
         MyTracker.initTracker(getString(R.string.my_tracer_sdk_key), this)
 
-
-        Parse.initialize(
-            Parse.Configuration.Builder(this)
-                .applicationId(getString(R.string.back4app_app_id))
-                .clientKey(getString(R.string.back4app_client_key))
-                .server(getString(R.string.back4app_server_url))
-                .build()
-        )
-
         startKoin {
             androidContext(this@StartApp)
             modules(
@@ -56,9 +42,7 @@ class StartApp : Application() {
                 roomRouteModule,
                 repositoryModule,
                 useCaseModule,
-                resourcesModule,
-                paymentsModule,
-                updateModule
+                resourcesModule
             )
         }
 
@@ -71,7 +55,7 @@ class StartApp : Application() {
                 .build()
 
             val periodicWorkRequest = PeriodicWorkRequestBuilder<SyncWorker>(
-                repeatInterval = 36, // Период в 36 часов
+                repeatInterval = 36,
                 repeatIntervalTimeUnit = TimeUnit.HOURS
             )
                 .setInitialDelay(6, TimeUnit.HOURS)
@@ -80,8 +64,8 @@ class StartApp : Application() {
 
             WorkManager.getInstance(this)
                 .enqueueUniquePeriodicWork(
-                    "sync_work", // Уникальное имя задачи
-                    ExistingPeriodicWorkPolicy.KEEP, // Если задача уже существует, сохранить её (не заменять)
+                    "sync_work",
+                    ExistingPeriodicWorkPolicy.KEEP,
                     periodicWorkRequest
                 )
         }

@@ -36,7 +36,6 @@ import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
 import com.z_company.route.viewmodel.home_view_model.ItemState
 import com.z_company.route.viewmodel.home_view_model.OpenRouteFormEvent
 import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
-import com.z_company.use_case.RuStoreUseCase
 import com.z_company.use_case.SubscriptionHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -85,7 +84,6 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
     private val calendarUseCase: CalendarUseCase by inject()
     private val routeHelper: RouteActionsHelper by inject()
     private val subscriptionHelper: SubscriptionHelper by inject()
-    private val ruStoreUseCase: RuStoreUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val snackbarManager: ISnackbarManager by inject()
 
