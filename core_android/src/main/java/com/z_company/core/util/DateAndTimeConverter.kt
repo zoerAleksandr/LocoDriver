@@ -60,6 +60,9 @@ class DateAndTimeConverter(userSettings: UserSettings) : KoinComponent {
 
     fun getDateAndTime(value: Long?): String {
         if (value != null) {
+            if (value == 0L){
+                return ("Нет данных")
+            }
             value.let { millis ->
                 val instant = Instant.ofEpochMilli(millis)
                 val time = OffsetDateTime.ofInstant(instant, ZoneId.of(timeZoneText))

@@ -402,7 +402,7 @@ fun TimeInputOverlay(
                     val d = processed.map { it.digitToInt() }
                     when (processed.length) {
                         1 -> onMinuteChange(d[0].coerceAtMost(5))
-                        2 -> onMinuteChange(d[0] * 10 + d[1])
+                        2 -> onMinuteChange((d[0] * 10 + d[1]).coerceAtMost(59))
                         3 -> {
                             onHourChange(d[0].coerceAtMost(2))
                             onMinuteChange((d[1] * 10 + d[2]).coerceAtMost(59))
