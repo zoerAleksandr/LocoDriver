@@ -80,6 +80,12 @@ import java.util.TimeZone
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 
+import ru.rustore.sdk.appupdate.listener.InstallStateUpdateListener
+import ru.rustore.sdk.appupdate.manager.RuStoreAppUpdateManager
+import ru.rustore.sdk.appupdate.model.AppUpdateOptions
+import ru.rustore.sdk.appupdate.model.AppUpdateType
+import ru.rustore.sdk.appupdate.model.InstallStatus
+import ru.rustore.sdk.appupdate.model.UpdateAvailability
 data class OpenRouteFormEvent(val basicId: String?, val isMakeCopy: Boolean)
 
 class HomeViewModel(application: Application) : AndroidViewModel(application = application),
@@ -91,6 +97,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     private val salarySettingUseCase: SalarySettingUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val routeHelper: RouteActionsHelper by inject()
+    private val ruStoreAppUpdateManager: RuStoreAppUpdateManager by inject()
     private val snackbarManager: ISnackbarManager by inject()
 
     var timeWithoutHoliday by mutableLongStateOf(0L)
@@ -133,12 +140,23 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     private val _previewRouteUiState = MutableStateFlow(PreviewRouteUiState())
     val previewRouteUiState = _previewRouteUiState.asStateFlow()
 
+    private val _updateEvents = MutableSharedFlow<UpdateEvent>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    val updateEvents = _updateEvents.asSharedFlow()
+
     // month/year lists for pickers
     private val _monthList = MutableStateFlow<List<Int>>(emptyList())
     val monthList: StateFlow<List<Int>> = _monthList.asStateFlow()
 
     private val _yearList = MutableStateFlow<List<Int>>(emptyList())
     val yearList: StateFlow<List<Int>> = _yearList.asStateFlow()
+
+    override fun onCleared() {
+        super.onCleared()
+        ruStoreAppUpdateManager.unregisterListener(installStateUpdateListener)
+    }
 
     fun convertTimeToStringFormat(timeToLong: Long?): String {
         currentUserSetting?.let { settings ->
@@ -149,6 +167,52 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
             }
         }
         return ConverterLongToTime.getTimeInStringFormat(timeToLong)
+    }
+
+    fun initUpdateManager() {
+        ruStoreAppUpdateManager.getAppUpdateInfo()
+            .addOnSuccessListener { appUpdateInfo ->
+                if (appUpdateInfo.updateAvailability == UpdateAvailability.Companion.UPDATE_AVAILABLE) {
+                    ruStoreAppUpdateManager.registerListener(installStateUpdateListener)
+                    ruStoreAppUpdateManager
+                        .startUpdateFlow(appUpdateInfo, AppUpdateOptions.Builder().build())
+                        .addOnSuccessListener { resultCode ->
+                            when (resultCode) {
+                                Activity.RESULT_CANCELED -> {}
+                                Activity.RESULT_OK -> {}
+                            }
+                        }
+                        .addOnFailureListener { throwable ->
+                            Log.e("ZZZ", "startUpdateFlow error", throwable)
+                        }
+                }
+            }
+            .addOnFailureListener { throwable ->
+                Log.e("ZZZ", "getAppUpdateInfo error", throwable)
+            }
+    }
+
+    private val installStateUpdateListener = InstallStateUpdateListener { installState ->
+        when (installState.installStatus) {
+            InstallStatus.Companion.DOWNLOADED -> {
+                _updateEvents.tryEmit(UpdateEvent.UpdateCompleted)
+            }
+            InstallStatus.Companion.DOWNLOADING -> {}
+            InstallStatus.Companion.FAILED -> {
+                Log.e("ZZZ", "Downloading error")
+            }
+        }
+    }
+
+    fun completeUpdateRequested() {
+        ruStoreAppUpdateManager.completeUpdate(
+            AppUpdateOptions.Builder().appUpdateType(
+                AppUpdateType.Companion.FLEXIBLE
+            ).build()
+        )
+            .addOnFailureListener { throwable ->
+                Log.e("ZZZ", "completeUpdate error", throwable)
+            }
     }
 
     fun setFavoriteRoute(route: Route) {

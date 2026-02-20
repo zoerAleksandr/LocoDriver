@@ -42,16 +42,21 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private var saveCalendarInLocalJob: Job? = null
     private var setDefaultSetting: Job? = null
 
-    val showFirstPresentation = sharedPreferenceStorage.tokenIsFirstAppEntry()
-    val showUpdatePresentation =
-        sharedPreferenceStorage.isShowUpdatePresentation() && !sharedPreferenceStorage.tokenIsFirstAppEntry()
+    // Флаг первого запуска — считываем ОДИН РАЗ синхронно до любых async операций
+    val isFirstEntry = sharedPreferenceStorage.tokenIsFirstAppEntry()
+
+    val showFirstPresentation = isFirstEntry
+    val showUpdatePresentation = sharedPreferenceStorage.isShowUpdatePresentation() && !isFirstEntry
 
     private val _appInitialized = MutableStateFlow(false)
     val appInitialized: StateFlow<Boolean> = _appInitialized.asStateFlow()
 
     init {
-        if (sharedPreferenceStorage.tokenIsFirstAppEntry()) {
+        if (isFirstEntry) {
             sharedPreferenceStorage.setIsMigrated(true)
+            // Сразу сбрасываем флаг синхронно (commit), чтобы даже при завершении процесса
+            // на Android 16 он не остался true и не сбросил настройки при следующем запуске
+            sharedPreferenceStorage.setTokenIsFirstAppEntry(false)
         }
         viewModelScope.launch {
             loadCalendar()
@@ -156,7 +161,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
                     settingsUseCase.updateMonthOfYearInUserSetting(
                         searchMonthOfYear ?: calendar.first()
                     ).collect {}
-                    if (sharedPreferenceStorage.tokenIsFirstAppEntry()) {
+                    if (isFirstEntry) {
                         setDefaultSettings(searchMonthOfYear ?: calendar.first())
                     }
                 }

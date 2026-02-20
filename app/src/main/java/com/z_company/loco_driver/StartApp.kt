@@ -9,6 +9,7 @@ import com.z_company.data_local.setting.di.roomSalarySettingModule
 import com.z_company.data_local.setting.di.roomSettingsModule
 import com.z_company.loco_driver.di.repositoryModule
 import com.z_company.loco_driver.di.resourcesModule
+import com.z_company.loco_driver.di.updateModule
 import com.z_company.loco_driver.di.useCaseModule
 import com.z_company.loco_driver.di.viewModelModule
 import org.koin.android.ext.koin.androidContext
@@ -42,32 +43,30 @@ class StartApp : Application() {
                 roomRouteModule,
                 repositoryModule,
                 useCaseModule,
-                resourcesModule
+                resourcesModule,
+                updateModule
             )
         }
 
-        val workManager = WorkManager.getInstance(this)
-        val workInfos = workManager.getWorkInfosForUniqueWork("sync_work").get()
+        // KEEP гарантирует что дубликат не создастся если задача уже запланирована.
+        // Убран блокирующий .get() на главном потоке — вызывал ANR на Android 16.
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
 
-        if (workInfos.isEmpty()) {
-            val constraints = Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED)
-                .build()
+        val periodicWorkRequest = PeriodicWorkRequestBuilder<SyncWorker>(
+            repeatInterval = 36,
+            repeatIntervalTimeUnit = TimeUnit.HOURS
+        )
+            .setInitialDelay(6, TimeUnit.HOURS)
+            .setConstraints(constraints)
+            .build()
 
-            val periodicWorkRequest = PeriodicWorkRequestBuilder<SyncWorker>(
-                repeatInterval = 36,
-                repeatIntervalTimeUnit = TimeUnit.HOURS
+        WorkManager.getInstance(this)
+            .enqueueUniquePeriodicWork(
+                "sync_work",
+                ExistingPeriodicWorkPolicy.KEEP,
+                periodicWorkRequest
             )
-                .setInitialDelay(6, TimeUnit.HOURS)
-                .setConstraints(constraints)
-                .build()
-
-            WorkManager.getInstance(this)
-                .enqueueUniquePeriodicWork(
-                    "sync_work",
-                    ExistingPeriodicWorkPolicy.KEEP,
-                    periodicWorkRequest
-                )
-        }
     }
 }
