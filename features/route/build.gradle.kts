@@ -48,9 +48,7 @@ dependencies {
     implementation(Libs.oneTapVkId)
     implementation(Libs.vkId)
     implementation(platform(Libs.rustore_bom))
-    implementation(Libs.rustore_pay)
     implementation(Libs.rustore_review)
-    implementation(Libs.rustore_sdk_appupdate)
     implementation(Libs.gson)
 
     implementation(project(Libs.project_core_android))
@@ -58,7 +56,6 @@ dependencies {
     implementation(project(Libs.project_data_remote))
     implementation(project(Libs.project_robokassa_sdk))
 
-    implementation(Libs.parse_sdk_android)
     implementation(platform(Libs.ru_ok_tracer_platform))
     implementation(Libs.ru_ok_tracer_tracer_crash_report)
 

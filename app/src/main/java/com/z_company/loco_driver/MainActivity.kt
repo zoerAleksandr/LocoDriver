@@ -20,12 +20,7 @@ import com.z_company.loco_driver.ui.rememberLocoDriverAppState
 import com.z_company.loco_driver.viewmodel.MainViewModel
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import ru.rustore.sdk.pay.RuStorePayClient
 import com.vk.id.VKID
-import com.z_company.RouteSerializer
-import com.z_company.domain.entities.route.Route
-import java.io.BufferedReader
-import java.io.InputStreamReader
 
 class MainActivity : ComponentActivity(), KoinComponent {
 
@@ -70,30 +65,6 @@ class MainActivity : ComponentActivity(), KoinComponent {
             }
         }
 
-        // Изменено: Добавлена обработка Intent.ACTION_VIEW для импорта файла .routejson.
-        // Для чего: Если Intent — просмотр файла, читаем содержимое, десериализуем JSON в Route и импортируем в базу.
-        // Это интегрируется с существующими платежами, не нарушая их.
-        if (i?.action == Intent.ACTION_VIEW && i.data != null) {
-            val uri: Uri? = i.data
-            uri?.let {
-                try {
-                    contentResolver.openInputStream(it)?.use { inputStream ->
-                        val jsonString = BufferedReader(InputStreamReader(inputStream)).use { reader ->
-                            reader.readText()
-                        }
-                        val route: Route = RouteSerializer.deserialize(jsonString)
-                        // Импорт в ViewModel (добавьте метод importRoute в ваш VM, если нет)
-//                        routeViewModel.importRoute(route)
-                        // Показать уведомление (используйте Snackbar или Toast)
-                        Log.d("ImportRoute", "Маршрут импортирован: ${route.basicData.timeStartWork}")  // Замените на реальное уведомление
-                        // Например, в Compose: scope.launch { snackbarHostState.showSnackbar("Маршрут импортирован") }
-                    }
-                } catch (e: Exception) {
-                    Log.e("ImportRoute", "Ошибка импорта: ${e.message}")
-                    // Показать ошибку пользователю
-                }
-            }
-        }
     }
 
     override fun onNewIntent(intent: Intent) {

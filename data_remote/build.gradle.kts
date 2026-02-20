@@ -49,11 +49,7 @@ dependencies {
     implementation(Libs.oneTapVkId)
     implementation(Libs.vkId)
 
-    implementation(platform(Libs.rustore_bom))
-    implementation(Libs.rustore_pay)
-    implementation(Libs.rustore_billing_client)
     implementation(Libs.rustore_review)
-    implementation(Libs.rustore_sdk_appupdate)
 
     implementation(platform(Libs.ru_ok_tracer_platform))
     implementation(Libs.ru_ok_tracer_tracer_crash_report)
@@ -61,8 +57,6 @@ dependencies {
     implementation(Libs.core_ktx)
     implementation(Libs.app_compat)
     implementation(Libs.compose_material3)
-    implementation(Libs.parse_sdk_android)
-    implementation(Libs.parse_sdk_android_coroutine)
     implementation(Libs.work_manager)
     implementation(Libs.koin_core)
     implementation(Libs.koin_android)
@@ -70,11 +64,6 @@ dependencies {
     implementation(Libs.gson)
     implementation(Libs.datastore_preferences)
     implementation(Libs.crypto_tink)
-    implementation ("io.ktor:ktor-client-core:3.0.1")
-    implementation ("io.ktor:ktor-client-okhttp:3.0.1")
-    implementation ("io.ktor:ktor-client-auth:3.0.1")
-    implementation ("io.ktor:ktor-client-content-negotiation:3.0.1")
-    implementation ("io.ktor:ktor-serialization-gson:3.0.1")
     implementation ("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
     implementation("com.squareup.retrofit2:retrofit:2.11.0")

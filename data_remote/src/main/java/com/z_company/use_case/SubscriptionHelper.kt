@@ -1,55 +1,20 @@
 package com.z_company.use_case
 
 import android.util.Log
-import androidx.compose.material3.SnackbarDuration
-import androidx.lifecycle.application
-import androidx.lifecycle.viewModelScope
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.util.DateAndTimeConverter
-import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.SettingsUseCase
-import com.z_company.repository.SecureDataStore
 import com.z_company.repository.remote_rest.SettingManager
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.timeout
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import ru.rustore.sdk.billingclient.RuStoreBillingClient
-import ru.rustore.sdk.billingclient.model.purchase.PurchaseState
-import ru.rustore.sdk.pay.RuStorePayClient
-import ru.rustore.sdk.pay.model.DeveloperPayload
-import ru.rustore.sdk.pay.model.PreferredPurchaseType
-import ru.rustore.sdk.pay.model.Product
-import ru.rustore.sdk.pay.model.ProductId
-import ru.rustore.sdk.pay.model.ProductPurchaseParams
-import ru.rustore.sdk.pay.model.Purchase
-import ru.rustore.sdk.pay.model.PurchaseAvailabilityResult
-import ru.rustore.sdk.pay.model.ProductPurchaseResult
-import ru.rustore.sdk.pay.model.PurchaseId
-import ru.rustore.sdk.pay.model.RuStorePaymentException.ProductPurchaseCancelled
-import ru.rustore.sdk.pay.model.RuStorePaymentException.ProductPurchaseException
-import ru.rustore.sdk.pay.model.SubscriptionPurchase
 import java.util.Calendar
 import java.util.Calendar.getInstance
-//import ru.rustore.sdk.pay.model.SubscriptionPurchase
-//import ru.rustore.sdk.pay.model.SubscriptionPurchaseStatus
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
-import kotlin.coroutines.suspendCoroutine
-import kotlin.getValue
-import kotlin.time.Duration.Companion.seconds
-import ru.rustore.sdk.billingclient.model.purchase.Purchase as PurchaseBillingClient
-
+//
 class SubscriptionHelper() : KoinComponent {
     private val settingsUseCase: SettingsUseCase by inject()
 

@@ -8,8 +8,6 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.application
 import androidx.lifecycle.viewModelScope
-import com.parse.ParseObject
-import com.parse.ParseQuery
 import com.vk.id.AccessToken
 import com.vk.id.VKID
 import com.vk.id.VKIDUser
@@ -26,7 +24,6 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.use_cases.SettingsUseCase
-import com.z_company.repository.Back4AppManager
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.RouteUseCase
@@ -63,7 +60,6 @@ import java.util.Calendar.MONTH
 import java.util.Calendar.YEAR
 import kotlin.collections.first
 import ru.ok.tracer.crash.report.TracerCrashReport
-import java.text.ParseException
 
 data class ProfileUiState(
     val userDetailsState: ResultState<UserRemote?> = ResultState.Loading(),
@@ -620,37 +616,6 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
             subscriptionHelper.restorePurchases(null, token)
-        }
-    }
-
-    suspend fun fetchRoutesByEmail() = withContext(Dispatchers.IO) {
-        // Create a query on the Route class
-        val query = ParseQuery.getQuery<ParseObject>("Route")
-
-        // Set the constraint for user_email
-        query.whereEqualTo("user_email", "smirnov1972.09@gmail.com")
-        query.limit = 1000
-        // Optionally, set a limit if you want to test smaller batches
-        // query.limit = 1000 // Adjust this based on the expected size and performance needs
-
-        try {
-            // Fetch the routes
-            val routes = query.find()
-
-            // Process the retrieved routes
-            println("Total routes found: ${routes.size}")
-            for (route in routes) {
-                println("Route ID: ${route.objectId}, Data: ${route.getString("data")}")
-            }
-        } catch (e: ParseException) {
-            // Handle query errors
-            println("Error fetching routes: ${e.message}")
-        }
-    }
-
-    fun test(){
-        viewModelScope.launch {
-            fetchRoutesByEmail()
         }
     }
 

@@ -8,11 +8,9 @@ import com.z_company.domain.entities.route.UtilsForEntities.getLongDistanceTime
 import com.z_company.domain.entities.route.UtilsForEntities.timeFollowingSingleLocomotive
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.RouteUseCase
-import com.z_company.repository.Back4AppManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import com.z_company.route.viewmodel.all_route_view_model.RouteFilter
@@ -28,7 +26,6 @@ class RouteActionsHelper() : KoinComponent {
 
     // injected dependencies (same as used inside ViewModels)
     private val routeUseCase: RouteUseCase by inject()
-    private val back4AppManager: Back4AppManager by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val settingsUseCase: SettingsUseCase by inject()
 
@@ -100,35 +97,6 @@ class RouteActionsHelper() : KoinComponent {
         val id = route.basicData.id
         val newState = !route.basicData.isFavorite
         return routeUseCase.setFavoriteRoute(id, newState)
-    }
-
-    /**
-     * Синхронизация маршрута в облако.
-     * Возвращает Flow<ResultState<String>> — в Success придёт сообщение для показа Snackbar/Toast,
-     * в Error — информация об ошибке.
-     *
-     * Note: back4AppManager.saveOneRouteToRemoteStorage возвращает Flow<ResultState<Unit>>,
-     * здесь мы мапим его в удобный формат сообщений (или передаём ошибку дальше).
-     */
-    fun syncRoute(route: Route): Flow<ResultState<String>> {
-        return back4AppManager.saveOneRouteToRemoteStorage(route).map { result ->
-            when (result) {
-                is ResultState.Success -> ResultState.Success("Маршрут сохранен в облаке")
-                is ResultState.Error -> {
-                    // можно вернуть Error, ViewModel решит, как именно показать
-                    ResultState.Error(result.entity)
-                }
-
-                is ResultState.Loading -> ResultState.Loading()
-            }
-        }
-    }
-
-    /**
-     * Метод для удаления дубликатов маршрутов в back4app
-     */
-    suspend fun deleteDublicateRoute() {
-        back4AppManager.processAllRoutes()
     }
 
     /**
