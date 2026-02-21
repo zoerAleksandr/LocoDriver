@@ -18,12 +18,11 @@ import com.z_company.domain.util.sum
 import com.z_company.domain.util.toDoubleOrZero
 import com.z_company.domain.util.toIntOrZero
 import kotlinx.coroutines.flow.first
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
 
 // НЕ ИСПОЛЬЗУЕТСЯ !!!
-class SalaryCalculationUseCase : KoinComponent {
-    private val salarySettingUseCase: SalarySettingUseCase by inject()
+class SalaryCalculationUseCase(
+    private val salarySettingUseCase: SalarySettingUseCase,
+) {
     private suspend fun getWorkTimeAtTariff(
         routeList: List<Route>,
         userSettings: UserSettings

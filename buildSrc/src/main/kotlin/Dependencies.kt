@@ -50,6 +50,7 @@ object Plugins {
     const val android_lib = "com.android.library"
     const val kotlin_android = "org.jetbrains.kotlin.android"
     const val kotlin_jvm = "org.jetbrains.kotlin.jvm"
+    const val kotlin_multiplatform = "org.jetbrains.kotlin.multiplatform"
     const val java_lib = "java-library"
     const val google_relay = "com.google.relay"
     const val compose_compiler = "org.jetbrains.kotlin.plugin.compose"

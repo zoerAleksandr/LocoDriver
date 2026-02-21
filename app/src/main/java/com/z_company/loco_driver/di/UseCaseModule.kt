@@ -15,5 +15,5 @@ val useCaseModule = module {
     single { PhotoUseCase(repository = get()) }
     single { SettingsUseCase(settingsRepository = get()) }
     single { SearchRouteUseCase(repository = get()) }
-    single { SalarySettingUseCase(repository = get()) }
+    single { SalarySettingUseCase(repository = get(), calendarUseCase = get()) }
 }
