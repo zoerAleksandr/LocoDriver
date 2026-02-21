@@ -17,6 +17,7 @@ import com.z_company.domain.repositories.SettingsRepository
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.ui.snackbar.SnackbarManagerImpl
+import com.z_company.repository.SecureTokenStorage
 import com.z_company.repository.ShareManager
 import com.z_company.repository.remote_rest.ApiForSendEmail
 import com.z_company.repository.remote_rest.AuthManager
@@ -51,6 +52,9 @@ val repositoryModule = module {
     single<SalarySettingRepository> { RoomSalarySettingRepository() }
 
     single<ShareManager> { ShareManager(androidContext()) }
+
+    // Шаг 3 KMP-миграции: абстракция Context (SecureDataStore → SecureTokenStorage)
+    single { SecureTokenStorage(androidContext()) }
 
     // Ktor-based API (заменяет Retrofit RemoteRestClient)
     single<RemoteRestApi> { RemoteRestClient.remoteRestApi }

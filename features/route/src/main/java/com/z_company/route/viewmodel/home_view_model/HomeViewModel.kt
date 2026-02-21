@@ -2,14 +2,12 @@ package com.z_company.route.viewmodel.home_view_model
 
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.app.Application
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.application
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
@@ -41,7 +39,7 @@ import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.use_cases.TrainUseCase
-import com.z_company.repository.SecureDataStore
+import com.z_company.repository.SecureTokenStorage
 import com.z_company.repository.remote_rest.RoutesManager
 import com.z_company.route.viewmodel.PreviewRouteUiState
 import com.z_company.route.viewmodel.RouteActionsHelper
@@ -88,8 +86,7 @@ import ru.rustore.sdk.appupdate.model.InstallStatus
 import ru.rustore.sdk.appupdate.model.UpdateAvailability
 data class OpenRouteFormEvent(val basicId: String?, val isMakeCopy: Boolean)
 
-class HomeViewModel(application: Application) : AndroidViewModel(application = application),
-    KoinComponent {
+class HomeViewModel : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val trainUseCase: TrainUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
@@ -99,6 +96,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     private val routeHelper: RouteActionsHelper by inject()
     private val ruStoreAppUpdateManager: RuStoreAppUpdateManager by inject()
     private val snackbarManager: ISnackbarManager by inject()
+    private val secureTokenStorage: SecureTokenStorage by inject()
+    private val routesManager: RoutesManager by inject()
 
     var timeWithoutHoliday by mutableLongStateOf(0L)
         private set
@@ -659,9 +658,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application = a
     }
 
     fun syncRoute(route: Route) {
-        val routesManager = RoutesManager
         viewModelScope.launch {
-            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first()
             val fullToken = "Bearer $token"
             if (token == null) {
                 snackbarManager.show(message = "Неавторизованный пользователь")

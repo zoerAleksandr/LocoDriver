@@ -1,12 +1,10 @@
 package com.z_company.route.viewmodel
 
-import android.app.Application
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.application
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vk.id.AccessToken
 import com.vk.id.VKID
@@ -28,7 +26,7 @@ import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
-import com.z_company.repository.SecureDataStore
+import com.z_company.repository.SecureTokenStorage
 import com.z_company.repository.remote_rest.AuthManager
 import com.z_company.repository.remote_rest.AuthState
 import com.z_company.repository.remote_rest.ResponseState
@@ -103,7 +101,7 @@ data class MigrationState(
     val settingsProgress: Float = 0f
 )
 
-class ProfileViewModel(application: Application) : AndroidViewModel(application), KoinComponent {
+class ProfileViewModel : ViewModel(), KoinComponent {
     private val sharedPrefs: SharedPreferencesRepositories by inject()
     private val settingsUseCase: SettingsUseCase by inject()
 
@@ -116,6 +114,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     private val settingManager: SettingManager by inject()
 
     private val subscriptionHelper: SubscriptionHelper by inject()
+    private val secureTokenStorage: SecureTokenStorage by inject()
 
     // Изменения в ProfileViewModel.kt
     // Добавлено: Новое состояние _hasSubscription для проверки наличия активной подписки (subscriptionPeriod > 0L).
@@ -177,7 +176,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
 
         // Чтобы сразу определить, залогинен ли пользователь (токен существует и не пустой). Это обновит _isLoggedIn, которое используется в ProfileScreen для условного рендеринга.
 //        viewModelScope.launch(Dispatchers.IO) {
-//            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+//            val token = secureTokenStorage.getAuthBearerTokenFlow().first()
 //            _isLoggedIn.value = !token.isNullOrEmpty()
 //        }
         viewModelScope.launch {
@@ -185,7 +184,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             _isMigrated.value = sharedPrefs.isMigrated()
         }
         viewModelScope.launch(Dispatchers.IO) {
-            SecureDataStore.getVkIdFlow(application).onEach { vkId ->
+            secureTokenStorage.getVkIdFlow().onEach { vkId ->
                 if (vkId != null && vkId.isNotEmpty()) {
                     vkIdRefreshToken()
                 } else {
@@ -199,7 +198,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     // При получении промежуточных Success - обновляет progress map. При final Success/Error - устанавливает isSyncComplete = true.
     fun startSyncUpload() {
         viewModelScope.launch(Dispatchers.IO) {
-            val token = SecureDataStore.getAuthBearerTokenFlow(application).first() ?: return@launch
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first() ?: return@launch
             _uiState.update {
                 it.copy(
                     showSyncDialog = true,
@@ -269,7 +268,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
 
     fun firstUpload() {
         viewModelScope.launch(Dispatchers.IO) {
-            val token = SecureDataStore.getAuthBearerTokenFlow(application).first() ?: return@launch
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first() ?: return@launch
             syncManager.firstSyncAfterRegistration("Bearer $token").collect { result ->
                 when (result) {
                     is ResultState.Loading -> {
@@ -292,7 +291,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     // Описание: Аналогично startSyncUpload, но для загрузки с сервера (download).
     fun startSyncDownload() {
         viewModelScope.launch(Dispatchers.IO) {
-            val token = SecureDataStore.getAuthBearerTokenFlow(application).first() ?: return@launch
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first() ?: return@launch
             _uiState.update {
                 it.copy(
                     showSyncDialog = true,
@@ -432,7 +431,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     fun updateEmail(newEmail: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(updateEmailState = ResultState.Loading()) }
-            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first()
             val fullToken = "Bearer $token"
             val result = authManager.updateEmail(
                 token = fullToken,
@@ -480,8 +479,8 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
 
     fun logOut() {
         viewModelScope.launch(Dispatchers.IO) {
-            SecureDataStore.saveAuthToken(application, "")
-            SecureDataStore.saveVkId(application, "")
+            secureTokenStorage.saveAuthToken("")
+            secureTokenStorage.saveVkId("")
             _isLoggedIn.value = false
         }
     }
@@ -494,11 +493,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                 if (state is AuthState.Success) {
                     val token = state.accessToken
                     if (token.isNotEmpty()) {
-                        SecureDataStore.getAuthBearerTokenFlow(application).first()
-                        SecureDataStore.saveAuthToken(
-                            application,
-                            token
-                        )  // Сохранение зашифрованного токена
+                        secureTokenStorage.saveAuthToken(token)  // Сохранение зашифрованного токена
                         _isLoggedIn.value = true  // Обновляем состояние логина после успеха
                         refresh()  // Перезагружаем данные после входа
                         syncManager.syncFromRemote("Bearer $token").collect {}
@@ -516,10 +511,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                 if (state is AuthState.Success) {
                     val token = state.accessToken
                     if (token.isNotEmpty()) {
-                        SecureDataStore.saveAuthToken(
-                            application,
-                            token
-                        )  // Сохранение зашифрованного токена
+                        secureTokenStorage.saveAuthToken(token)  // Сохранение зашифрованного токена
                         _isLoggedIn.value = true  // Обновляем состояние логина после успеха
                         refresh()  // Перезагружаем данные после входа
                         syncManager.syncFromRemote("Bearer $token").collect {}
@@ -553,10 +545,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                         val token = state.accessToken
                         if (token.isNotEmpty()) {
                             // Сохранение зашифрованного токена
-                            SecureDataStore.saveAuthToken(
-                                application,
-                                token
-                            )
+                            secureTokenStorage.saveAuthToken(token)
                             val localUserSettings = settingsUseCase.getUserSettingFlow().first()
                             val endTimeSubscription = sharedPrefs.getSubscriptionExpiration()
                             if (endTimeSubscription != 0L) {
@@ -588,8 +577,8 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                         val token = state.accessToken
                         if (token.isNotEmpty()) {
                             // Сохранение зашифрованного токена
-                            SecureDataStore.saveAuthToken(application, token)
-                            SecureDataStore.saveVkId(application, vkid)
+                            secureTokenStorage.saveAuthToken(token)
+                            secureTokenStorage.saveVkId(vkid)
                             firstUpload()
                             _isLoggedIn.value = true  // Обновляем состояние логина после успеха
                             refresh()  // Перезагружаем данные после входа}
@@ -603,11 +592,11 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
 
     fun removeUsersVKID() {
         viewModelScope.launch {
-            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first()
             val fullToken = "Bearer $token"
             authManager.removeVKID(fullToken).collect { state ->
                 if (state is GetUserProfileState.Success) {  // Предполагаем, что removeVKID возвращает аналогичный state
-                    SecureDataStore.saveVkId(application, "")  // Очистка VK ID
+                    secureTokenStorage.saveVkId("")  // Очистка VK ID
                     VKID.instance.logout(
                         callback = object : VKIDLogoutCallback {
                             override fun onSuccess() {
@@ -631,7 +620,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
 
     fun getUserInfo() {
         viewModelScope.launch {
-            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first()
             if (!token.isNullOrBlank()) {
                 val fullToken = "Bearer $token"
                 authManager.getUserProfile(fullToken).collect { state ->
@@ -642,7 +631,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                     }
                     if (state is GetUserProfileState.Success) {
                         currentEmail = state.user.email
-                        SecureDataStore.saveUserId(application, state.user.id)
+                        secureTokenStorage.saveUserId(state.user.id)
                         _uiState.update {
                             it.copy(userDetailsState = ResultState.Success(state.user))
                         }
@@ -679,7 +668,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     // Для чего: Вызывается из OneTap в профиле, когда VK не привязан. Предполагаем, что AuthManager имеет метод attachVKID (аналогичный registerByVKID, но для привязки). После успеха сохраняем VK ID и обновляем данные.
     fun attachVKID(vkid: String) {
         viewModelScope.launch {
-            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first()
             val fullToken = "Bearer $token"
             authManager.attachVKID(
                 fullToken,
@@ -687,7 +676,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             )  // Предполагаем, что этот метод добавлен в AuthManager и возвращает Flow<RegistrationState>
                 .collect { state ->
                     if (state is GetUserProfileState.Success) {
-                        SecureDataStore.saveVkId(application, vkid)
+                        secureTokenStorage.saveVkId(vkid)
                         refresh()  // Обновляем, чтобы Flow VK ID эмитнул и загрузил данные
                     } else if (state is GetUserProfileState.Error) {
                         // Можно добавить обработку ошибки, например, в uiState
@@ -795,10 +784,10 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                     routesProgress = 0 to 0
                 )
             }
-            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first()
             val fullToken = "Bearer $token"
 
-            val userId = SecureDataStore.getUserIdFlow(application).first()
+            val userId = secureTokenStorage.getUserIdFlow().first()
             // Получаем все локальные маршруты из Room
             routeUseCase.getListRoutesAsStateFlow()
                 .collect { result ->  // Предполагаем, что добавлен метод getAllRoutes(): Flow<ResultState<List<Route>>> в RouteUseCase; если нет, можно собрать по месяцам
@@ -984,7 +973,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                         val token = state.accessToken
                         if (token.isNotEmpty()) {
                             // Сохранение зашифрованного токена
-                            SecureDataStore.saveAuthToken(application, token)
+                            secureTokenStorage.saveAuthToken(token)
                             startMigration()
                             _isLoggedIn.value = true  // Обновляем состояние логина после успеха
                             refresh()  // Перезагружаем данные после входа}
@@ -1006,8 +995,8 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                         val token = state.accessToken
                         if (token.isNotEmpty()) {
                             // Сохранение зашифрованного токена
-                            SecureDataStore.saveAuthToken(application, token)
-                            SecureDataStore.saveVkId(application, vkid)
+                            secureTokenStorage.saveAuthToken(token)
+                            secureTokenStorage.saveVkId(vkid)
                             startMigration()
                             _isLoggedIn.value = true  // Обновляем состояние логина после успеха
                             refresh()  // Перезагружаем данные после входа}
