@@ -10,13 +10,20 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import com.z_company.core.ui.theme.Shapes
+import com.z_company.core.ui.theme.custom.AppTypography
+import com.z_company.domain.entities.route.Route
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance // Изменено: Добавлен импорт для luminance() — это метод Color, чтобы вычислить яркость цвета (0..1).
@@ -49,7 +56,10 @@ import androidx.compose.foundation.layout.systemBars // Изменено: Доб
 @Composable
 fun LocoDriverApp(
     appState: LocoDriverAppState,
-    isShowUpdatePresentation: Boolean
+    isShowUpdatePresentation: Boolean,
+    pendingImportRoute: Route? = null,
+    onConfirmImport: () -> Unit = {},
+    onDismissImport: () -> Unit = {}
 ) {
     LocoDriverTheme {
         val navController = rememberNavController()
@@ -136,6 +146,39 @@ fun LocoDriverApp(
             // Презентация обновления — поверх всего
             if (isShowUpdatePresentation) {
                 UpdatePresentationBlockDestination(router = appState.router)
+            }
+
+            // Диалог импорта маршрута из .zroute файла
+            if (pendingImportRoute != null) {
+                AlertDialog(
+                    onDismissRequest = onDismissImport,
+                    shape = Shapes.medium,
+                    title = {
+                        Text(text = "Импорт маршрута", style = AppTypography.getType().headlineSmall)
+                    },
+                    text = {
+                        Text(
+                            text = "Импортировать маршрут от ${pendingImportRoute.basicData.timeStartWork?.let {
+                                java.text.SimpleDateFormat("dd.MM.yyyy", java.util.Locale.getDefault()).format(java.util.Date(it))
+                            } ?: "неизвестной даты"}?",
+                            style = AppTypography.getType().bodyLarge
+                        )
+                    },
+                    confirmButton = {
+                        Button(shape = Shapes.medium, onClick = onConfirmImport) {
+                            Text(text = "Импортировать", style = AppTypography.getType().titleMedium)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = onDismissImport) {
+                            Text(
+                                text = "Отмена",
+                                style = AppTypography.getType().titleMedium,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                )
             }
         }
     }

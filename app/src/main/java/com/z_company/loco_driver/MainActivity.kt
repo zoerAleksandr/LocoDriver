@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
 import android.util.Log
 import android.view.MotionEvent
 import android.view.inputmethod.InputMethodManager
@@ -12,9 +13,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.robokassa.library.helper.toParams
 import com.robokassa.library.pay.RobokassaPayLauncher
+import com.z_company.RouteSerializer
 import com.z_company.loco_driver.ui.LocoDriverApp
 import com.z_company.loco_driver.ui.rememberLocoDriverAppState
 import com.z_company.loco_driver.viewmodel.MainViewModel
@@ -44,9 +48,13 @@ class MainActivity : ComponentActivity(), KoinComponent {
 
         setContent {
             val appState = rememberLocoDriverAppState()
+            val pendingImportRoute by mainViewModel.pendingImportRoute.collectAsState()
             LocoDriverApp(
                 appState = appState,
-                isShowUpdatePresentation = mainViewModel.showUpdatePresentation
+                isShowUpdatePresentation = mainViewModel.showUpdatePresentation,
+                pendingImportRoute = pendingImportRoute,
+                onConfirmImport = mainViewModel::confirmImportRoute,
+                onDismissImport = mainViewModel::dismissImportRoute
             )
         }
         VKID.logsEnabled = true
@@ -65,6 +73,37 @@ class MainActivity : ComponentActivity(), KoinComponent {
             }
         }
 
+        // Импорт .zroute файла
+        if (i?.action == Intent.ACTION_VIEW && data != null) {
+            val mimeType = i.type ?: contentResolver.getType(data)
+            val isCustomMime = mimeType == "application/vnd.com.z_company.loco_driver.route"
+            val isOctetStream = mimeType == "application/octet-stream"
+            if (isCustomMime || (isOctetStream && isZrouteFile(data))) {
+                importRouteFrom(data)
+            }
+        }
+    }
+
+    private fun isZrouteFile(uri: Uri): Boolean {
+        return try {
+            val cursor = contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+            cursor?.use {
+                if (it.moveToFirst()) it.getString(0).endsWith(".zroute", ignoreCase = true)
+                else false
+            } ?: uri.lastPathSegment?.endsWith(".zroute", ignoreCase = true) ?: false
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun importRouteFrom(uri: Uri) {
+        try {
+            val json = contentResolver.openInputStream(uri)?.bufferedReader()?.readText() ?: return
+            val route = RouteSerializer.deserialize(json)
+            mainViewModel.setPendingImportRoute(route)
+        } catch (e: Exception) {
+            Log.e("ImportRoute", "Ошибка чтения .zroute файла", e)
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
