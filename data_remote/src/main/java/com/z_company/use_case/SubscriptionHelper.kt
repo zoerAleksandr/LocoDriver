@@ -17,6 +17,7 @@ import java.util.Calendar.getInstance
 //
 class SubscriptionHelper() : KoinComponent {
     private val settingsUseCase: SettingsUseCase by inject()
+    private val settingManager: SettingManager by inject()
 
     suspend fun restorePurchases(
         snackbarManager: ISnackbarManager? = null,
@@ -29,7 +30,7 @@ class SubscriptionHelper() : KoinComponent {
             }
             snackbarManager?.show("Начинаем поиск...")
             val bearer = "Bearer $token"
-            val settingState = SettingManager.getUserSettingFromRemote(bearer)
+            val settingState = settingManager.getUserSettingFromRemote(bearer)
                 .first { it !is ResultState.Loading }
 
             if (settingState is ResultState.Error) {

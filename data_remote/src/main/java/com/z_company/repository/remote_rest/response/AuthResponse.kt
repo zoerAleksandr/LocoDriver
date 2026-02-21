@@ -1,10 +1,12 @@
 package com.z_company.repository.remote_rest.response
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class AuthResponse(
-    @SerializedName("access_token")
+    @SerialName("access_token")
     val accessToken: String,
-    @SerializedName("token_type")
+    @SerialName("token_type")
     val tokenType: String? = null
 )

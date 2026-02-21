@@ -14,110 +14,44 @@ import com.z_company.repository.remote_rest.response.AuthResponse
 import com.z_company.repository.remote_rest.response.LoginResponse
 import com.z_company.repository.remote_rest.response.SuccessResponse
 import com.z_company.repository.remote_rest.response.UserWithRouteResponse
-import retrofit2.Response
-import retrofit2.http.Body
-import retrofit2.http.GET
-import retrofit2.http.Header
-import retrofit2.http.Headers
-import retrofit2.http.PATCH
-import retrofit2.http.POST
 
+/**
+ * Контракт для взаимодействия с REST API.
+ * Реализация: KtorRemoteRestApi.
+ * Методы возвращают результат напрямую (без обёртки Response<T>).
+ * При HTTP-ошибке бросается ResponseException из Ktor.
+ */
 interface RemoteRestApi {
-    @Headers("Content-Type: application/json")
-    @POST("v1/auth")
-    suspend fun authWithEmail(
-        @Body authRequest: AuthRequest
-    ): Response<AuthResponse>
 
-    @Headers("Content-Type: application/json")
-    @POST("v1/auth/create")
-    suspend fun registerUserByEmail(
-        @Body request: RegisteredRequestByEmail
-    ): Response<LoginResponse>
+    suspend fun authWithEmail(authRequest: AuthRequest): AuthResponse
 
-    @Headers("Content-Type: application/json")
-    @POST("v1/auth/create")
-    suspend fun registerUserByVKID(
-        @Body request: RegisteredRequestByVKID
-    ): Response<LoginResponse>
+    suspend fun registerUserByEmail(request: RegisteredRequestByEmail): LoginResponse
 
-    @Headers("Content-Type: application/json")
-    @GET("v1/auth")
-    suspend fun getUserProfile(
-        @Header("Authorization") token: String
-    ): Response<UserWithRouteResponse>
+    suspend fun registerUserByVKID(request: RegisteredRequestByVKID): LoginResponse
 
-    @PATCH("/v1/auth/vkId/remove")
-    suspend fun removeVKID(
-        @Header("Authorization") token: String,
-    ): Response<UserWithRouteResponse>
-    @Headers("Content-Type: application/json")
-    @POST("v1/route")
-    suspend fun saveRoute(
-        @Header("Authorization") token: String,
-        @Body data: Route,
-    ): Response<Void>
+    suspend fun getUserProfile(token: String): UserWithRouteResponse
 
-    @GET("v1/route")
-    suspend fun getRoutes(
-        @Header("Authorization") token: String,
-    ): Response<List<Route>>
+    suspend fun removeVKID(token: String): UserWithRouteResponse
 
+    suspend fun saveRoute(token: String, data: Route)
 
+    suspend fun getRoutes(token: String): List<Route>
 
-    @Headers("Content-Type: application/json")
-    @PATCH("v1/auth/vkId/add")
-    suspend fun attachVKID(
-        @Header("Authorization") token: String,
-        @Body data: AddVKIDRequest
-    ): Response<UserWithRouteResponse>
+    suspend fun attachVKID(token: String, data: AddVKIDRequest): UserWithRouteResponse
 
-    @Headers("Content-Type: application/json")
-    @POST("v1/user_settings")
-    suspend fun saveUserSetting(
-        @Header("Authorization") token: String,
-        @Body body: UserSettings
-    ): Response<SuccessResponse>
+    suspend fun saveUserSetting(token: String, body: UserSettings): SuccessResponse
 
-    @GET("v1/user_settings")
-    suspend fun getUserSetting(
-        @Header("Authorization") token: String,
-    ): Response<UserSettings>
+    suspend fun getUserSetting(token: String): UserSettings
 
-    @Headers("Content-Type: application/json")
-    @POST("v1/salary_settings")
-    suspend fun saveSalarySetting(
-        @Header("Authorization") token: String,
-        @Body body: SalarySetting
-    ): Response<SuccessResponse>
+    suspend fun saveSalarySetting(token: String, body: SalarySetting): SuccessResponse
 
-    @GET("v1/salary_settings")
-    suspend fun getSalarySetting(
-        @Header("Authorization") token: String,
-    ): Response<SalarySetting>
+    suspend fun getSalarySetting(token: String): SalarySetting
 
-    @POST("v1/year/")
-    suspend fun saveMonthOfYearList(
-        @Header("Authorization") token: String,
-        @Body body: List<MonthOfYear>
-    ): Response<SuccessResponse>
+    suspend fun saveMonthOfYearList(token: String, body: List<MonthOfYear>): SuccessResponse
 
-    @GET("v1/year/")
-    suspend fun getMonthOfYearList(
-        @Header("Authorization") token: String
-    ): Response<List<MonthOfYear>>
+    suspend fun getMonthOfYearList(token: String): List<MonthOfYear>
 
-    @Headers("Content-Type: application/json")
-    @PATCH("v1/auth/email/update")
-    suspend fun updateEmail(
-        @Header("Authorization") token: String,
-        @Body data: UpdateEmailRequest
-    ): Response<SuccessResponse>
+    suspend fun updateEmail(token: String, data: UpdateEmailRequest): SuccessResponse
 
-    @Headers("Content-Type: application/json")
-    @PATCH("v1/auth/email/add")
-    suspend fun addEmailToUser(
-        @Header("Authorization") token: String,
-        @Body body: AddEmailRequest
-    ): Response<SuccessResponse>
+    suspend fun addEmailToUser(token: String, body: AddEmailRequest): SuccessResponse
 }

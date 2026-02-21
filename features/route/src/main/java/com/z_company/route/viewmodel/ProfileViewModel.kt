@@ -110,7 +110,8 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     private val salarySettingUseCase: SalarySettingUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
-    private val routesManager = RoutesManager
+    private val authManager: AuthManager by inject()
+    private val routesManager: RoutesManager by inject()
     private val syncManager: SyncManager by inject()
     private val settingManager: SettingManager by inject()
 
@@ -433,7 +434,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             _uiState.update { it.copy(updateEmailState = ResultState.Loading()) }
             val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
             val fullToken = "Bearer $token"
-            val result = AuthManager.updateEmail(
+            val result = authManager.updateEmail(
                 token = fullToken,
                 email = newEmail
             )
@@ -489,7 +490,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     fun authWithEmail(email: String, password: String) {
         loginJob?.cancel()
         loginJob = viewModelScope.launch {
-            AuthManager.authWithEmail(email = email, password = password).collect { state ->
+            authManager.authWithEmail(email = email, password = password).collect { state ->
                 if (state is AuthState.Success) {
                     val token = state.accessToken
                     if (token.isNotEmpty()) {
@@ -511,7 +512,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     fun authWithVKID(vkid: String) {
         loginJob?.cancel()
         loginJob = viewModelScope.launch {
-            AuthManager.authWithVKID(vkid).collect { state ->
+            authManager.authWithVKID(vkid).collect { state ->
                 if (state is AuthState.Success) {
                     val token = state.accessToken
                     if (token.isNotEmpty()) {
@@ -546,7 +547,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         loginJob?.cancel()
         loginJob = viewModelScope.launch {
             // Пояснение: Запускаем корутину для collect Flow (Flow холодный, стартует здесь).
-            AuthManager.registerByEmail(email = email, password = password)
+            authManager.registerByEmail(email = email, password = password)
                 .collect { state ->  // Collect эмитит значения из Flow
                     if (state is RegistrationState.Success) {
                         val token = state.accessToken
@@ -581,7 +582,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         loginJob?.cancel()
         loginJob = viewModelScope.launch {
             // Пояснение: Запускаем корутину для collect Flow (Flow холодный, стартует здесь).
-            AuthManager.registerByVKID(vkid, email)
+            authManager.registerByVKID(vkid, email)
                 .collect { state ->  // Collect эмитит значения из Flow
                     if (state is RegistrationState.Success) {
                         val token = state.accessToken
@@ -604,7 +605,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
             val fullToken = "Bearer $token"
-            AuthManager.removeVKID(fullToken).collect { state ->
+            authManager.removeVKID(fullToken).collect { state ->
                 if (state is GetUserProfileState.Success) {  // Предполагаем, что removeVKID возвращает аналогичный state
                     SecureDataStore.saveVkId(application, "")  // Очистка VK ID
                     VKID.instance.logout(
@@ -633,7 +634,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
             if (!token.isNullOrBlank()) {
                 val fullToken = "Bearer $token"
-                AuthManager.getUserProfile(fullToken).collect { state ->
+                authManager.getUserProfile(fullToken).collect { state ->
                     if (state is GetUserProfileState.Loading) {
                         _uiState.update {
                             it.copy(userDetailsState = ResultState.Loading("Получаем данные пользователя..."))
@@ -668,7 +669,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     fun forgotRequest(email: String) {
         forgotJob?.cancel()
         forgotJob = viewModelScope.launch {
-            AuthManager.forgotPassword(email).collect { state ->
+            authManager.forgotPassword(email).collect { state ->
                 Log.d("zzz", "forgotPassword $state")
                 _responseState.value = state
             }
@@ -680,7 +681,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
             val fullToken = "Bearer $token"
-            AuthManager.attachVKID(
+            authManager.attachVKID(
                 fullToken,
                 vkid
             )  // Предполагаем, что этот метод добавлен в AuthManager и возвращает Flow<RegistrationState>
@@ -977,7 +978,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     fun registeredUserByEmailForMigration(email: String, password: String) {
         loginJob?.cancel()
         loginJob = viewModelScope.launch {
-            AuthManager.registerByEmail(email = email, password = password)
+            authManager.registerByEmail(email = email, password = password)
                 .collect { state ->  // Collect эмитит значения из Flow
                     if (state is RegistrationState.Success) {
                         val token = state.accessToken
@@ -999,7 +1000,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         loginJob?.cancel()
         loginJob = viewModelScope.launch {
             // Пояснение: Запускаем корутину для collect Flow (Flow холодный, стартует здесь).
-            AuthManager.registerByVKID(vkid, email)
+            authManager.registerByVKID(vkid, email)
                 .collect { state ->  // Collect эмитит значения из Flow
                     if (state is RegistrationState.Success) {
                         val token = state.accessToken

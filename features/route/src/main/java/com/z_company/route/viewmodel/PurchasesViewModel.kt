@@ -59,6 +59,7 @@ class PurchasesViewModel(application: Application) : AndroidViewModel(applicatio
 
     private val subscriptionHelper: SubscriptionHelper by inject()
 
+    private val authManager: AuthManager by inject()
     private val settingManager: SettingManager by inject()
 
     private val _state = MutableStateFlow(BillingState(isLoading = true))
@@ -87,7 +88,7 @@ class PurchasesViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
             val fullToken = "Bearer $token"
-            AuthManager.getUserProfile(fullToken).collect { state ->
+            authManager.getUserProfile(fullToken).collect { state ->
                 if (state is GetUserProfileState.Success) {
                     currentEmail = state.user.email
                 }

@@ -12,8 +12,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
-class PasswordRecoveryViewModel : ViewModel() {
+class PasswordRecoveryViewModel : ViewModel(), KoinComponent {
+    private val authManager: AuthManager by inject()
+
     private var _uiState = MutableStateFlow(PasswordRecoveryUiState())
     val uiState = _uiState.asStateFlow()
 
@@ -26,7 +30,7 @@ class PasswordRecoveryViewModel : ViewModel() {
         }
         requestJob?.cancel()
         requestJob = viewModelScope.launch {
-            AuthManager.forgotPassword(emailWithoutWhitespace).collect { state ->
+            authManager.forgotPassword(emailWithoutWhitespace).collect { state ->
                 when (state) {
                     is ResponseState.Success -> {
                         _uiState.update { s ->

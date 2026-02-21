@@ -1,18 +1,18 @@
 package com.z_company
 
-import com.google.gson.Gson
-import com.google.gson.GsonBuilder
 import com.z_company.domain.entities.route.Route
-import com.z_company.repository.remote_rest.ReleaseTypeAdapter
-import com.z_company.domain.entities.ReleaseType
-import java.util.Date
+import com.z_company.domain.entities.serializers.BigDecimalAsStringSerializer
+import com.z_company.domain.entities.serializers.DateAsLongSerializer
+import com.z_company.repository.remote_rest.RemoteRestClient
+import kotlinx.serialization.json.Json
 
+/**
+ * Утилита для сериализации/десериализации Route в JSON-строку.
+ * Заменяет Gson на kotlinx.serialization.
+ */
 object RouteSerializer {
-    private val gson: Gson = GsonBuilder()
-        .registerTypeAdapter(ReleaseType::class.java, ReleaseTypeAdapter())
-        .create()
 
-    fun serialize(route: Route): String = gson.toJson(route)
+    fun serialize(route: Route): String = RemoteRestClient.appJson.encodeToString(Route.serializer(), route)
 
-    fun deserialize(json: String): Route = gson.fromJson(json, Route::class.java)
+    fun deserialize(json: String): Route = RemoteRestClient.appJson.decodeFromString(Route.serializer(), json)
 }

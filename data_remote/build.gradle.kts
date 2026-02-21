@@ -3,9 +3,8 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
-//    id(Plugins.android_lib)
-//    id(Plugins.kotlin_android)
 
 android {
     namespace = "com.z_company.data_remote"
@@ -31,9 +30,6 @@ android {
         sourceCompatibility = Apps.java_compatibility_version
         targetCompatibility = Apps.java_compatibility_version
     }
-//    kotlinOptions {
-//        jvmTarget = Apps.jvm_target_version
-//    }
 }
 kotlin {
     compilerOptions {
@@ -61,15 +57,15 @@ dependencies {
     implementation(Libs.koin_core)
     implementation(Libs.koin_android)
     implementation(Libs.koin_androidx_compose)
-    implementation(Libs.gson)
     implementation(Libs.datastore_preferences)
     implementation(Libs.crypto_tink)
-    implementation ("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
-    implementation("com.squareup.retrofit2:retrofit:2.11.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
-    implementation("com.squareup.retrofit2:converter-jackson:2.11.0")
-    implementation("com.squareup.retrofit2:converter-scalars:2.11.0")
+    // Ktor (заменяет Retrofit + OkHttp + Gson)
+    implementation(Libs.ktor_client_android)
+    implementation(Libs.ktor_client_content_negotiation)
+    implementation(Libs.ktor_serialization_kotlinx_json)
+    implementation(Libs.ktor_client_logging)
+
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")

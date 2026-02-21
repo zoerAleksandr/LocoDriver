@@ -19,6 +19,7 @@ import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.ui.snackbar.SnackbarManagerImpl
 import com.z_company.repository.ShareManager
 import com.z_company.repository.remote_rest.ApiForSendEmail
+import com.z_company.repository.remote_rest.AuthManager
 import com.z_company.repository.remote_rest.RemoteRestApi
 import com.z_company.repository.remote_rest.RemoteRestClient
 import com.z_company.repository.remote_rest.RoutesManager
@@ -51,12 +52,16 @@ val repositoryModule = module {
 
     single<ShareManager> { ShareManager(androidContext()) }
 
+    // Ktor-based API (заменяет Retrofit RemoteRestClient)
     single<RemoteRestApi> { RemoteRestClient.remoteRestApi }
     single<ApiForSendEmail> { RemoteRestClient.apiForSendEmail }
+
+    // Managers теперь классы с DI (Шаг 2: object → class)
+    single { AuthManager(remoteRestApi = get(), apiForSendEmail = get()) }
+    single { RoutesManager(remoteRestApi = get()) }
+    single { SettingManager(remoteRestApi = get()) }
 
     single { RouteActionsHelper() }
     single { SubscriptionHelper() }
     single { SyncManager() }
-    single { RoutesManager }
-    single { SettingManager }
 }

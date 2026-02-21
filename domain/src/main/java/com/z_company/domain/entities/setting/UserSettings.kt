@@ -12,6 +12,7 @@ const val oneHourInMillis = 3_600_000
 const val hourInMillis8 = oneHourInMillis * 8L
 const val hourInMillis20 = oneHourInMillis * 20L
 
+@Serializable
 data class UserSettings(
     var key: String = SETTINGS_KEY,
     var minTimeRestPointOfTurnover: Long = 10_800_000L,
@@ -41,6 +42,7 @@ data class ServicePhase(
     val distance: Int
 )
 
+@Serializable
 data class NightTime(
     val startNightHour: Int = 22,
     val startNightMinute: Int = 0,
