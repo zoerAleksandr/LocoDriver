@@ -16,8 +16,6 @@ java {
 dependencies {
     api(project(Libs.project_core))
     implementation(Libs.kotlinx_coroutines_core)
-    implementation(Libs.koin_core)
-    implementation(Libs.gson)
     implementation(Libs.kotlin_x_serialization_json)
     testImplementation(TestLibs.kotlin_test)
     testImplementation (TestLibs.mockito_core)

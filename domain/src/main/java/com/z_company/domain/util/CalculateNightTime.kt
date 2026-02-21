@@ -1,18 +1,7 @@
 package com.z_company.domain.util
 
-import com.z_company.domain.use_cases.SettingsUseCase
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Deferred
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
 import java.util.Calendar
 import java.util.Calendar.DAY_OF_MONTH
 import java.util.Calendar.HOUR_OF_DAY
@@ -22,10 +11,8 @@ import java.util.Calendar.MONTH
 import java.util.Calendar.SECOND
 import java.util.Calendar.getInstance
 import java.util.TimeZone
-import kotlin.getValue
 
-object CalculateNightTime : KoinComponent {
-    private val settingsUseCase: SettingsUseCase by inject()
+object CalculateNightTime {
 
     fun getNightTime(
         startMillis: Long?,
@@ -63,9 +50,7 @@ object CalculateNightTime : KoinComponent {
                     dateList.add(day)
                 }
                 var countNightTime = 0L
-                val setting = settingsUseCase.getUserSettingFlow().first()
-                val timeZoneText = async { settingsUseCase.getTimeZone(setting.timeZone) }
-                val timeZone = timeZoneText.await()
+                val timeZone = getTimeZone(offsetInMoscow)
                 dateList.forEach { calendar ->
                     val startNight = getInstance(TimeZone.getTimeZone(timeZone)).also {
                         it.timeInMillis = calendar.timeInMillis
@@ -169,9 +154,7 @@ object CalculateNightTime : KoinComponent {
                         dateList.add(day)
                     }
                     var countNightTime = 0L
-                    val setting = settingsUseCase.getUserSettingFlow().first()
-                    val timeZoneText = async { settingsUseCase.getTimeZone(setting.timeZone) }
-                    val timeZone = timeZoneText.await()
+                    val timeZone = getTimeZone(offsetInMoscow)
                     dateList.forEach { calendar ->
                         val startNight = getInstance(TimeZone.getTimeZone(timeZone)).also {
                             it.timeInMillis = calendar.timeInMillis

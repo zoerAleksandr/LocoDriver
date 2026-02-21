@@ -6,28 +6,23 @@ import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.TimePeriod
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getTimeInCurrentMonth
-import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.util.CalculateNightTime
 import com.z_company.domain.util.div
+import com.z_company.domain.util.getTimeZone
 import com.z_company.domain.util.lessThan
 import com.z_company.domain.util.minus
 import com.z_company.domain.util.moreThan
 import com.z_company.domain.util.plus
 import com.z_company.domain.util.toIntOrZero
-import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
 import java.util.Calendar
 import java.util.Calendar.getInstance
 import java.util.TimeZone
-import kotlin.getValue
 
-object UtilsForEntities : KoinComponent {
-    private val settingsUseCase: SettingsUseCase by inject()
+object UtilsForEntities {
     val passengerTrainNumberList = listOf(
         1..150,
         151..298,
@@ -45,7 +40,7 @@ object UtilsForEntities : KoinComponent {
         route: Route
     ): Boolean {
         var holidayTime = 0L
-        val timeZone = settingsUseCase.getTimeZone(userSetting.timeZone)
+        val timeZone = getTimeZone(userSetting.timeZone)
         val holidayList = monthOfYear.days.filter { it.tag == TagForDay.HOLIDAY }
         if (holidayList.isNotEmpty()) {
             holidayList.forEach { day ->
@@ -653,9 +648,7 @@ object UtilsForEntities : KoinComponent {
         return channelFlow {
             var holidayTime = 0L
 
-            val setting = settingsUseCase.getUserSettingFlow().first()
-            val timeZoneText = async { settingsUseCase.getTimeZone(setting.timeZone) }
-            val timeZone = timeZoneText.await()
+            val timeZone = getTimeZone(offsetInMoscow)
             val holidayList = monthOfYear.days.filter { it.tag == TagForDay.HOLIDAY }
             if (holidayList.isNotEmpty()) {
                 holidayList.forEach { day ->
