@@ -124,6 +124,7 @@ object Versions {
     const val datastore_preferences_ver = "1.2.0"
     const val crypto_tink_ver = "1.7.0"
     const val kotlin_x_serialization_json_ver = "1.10.0"
+    const val ktor_ver = "3.0.3"
 }
 
 object Libs {
@@ -230,6 +231,11 @@ object Libs {
     const val rustore_review = "ru.rustore.sdk:review"
     const val rustore_sdk_appupdate = "ru.rustore.sdk:appupdate"
 
+    // Ktor
+    const val ktor_client_android = "io.ktor:ktor-client-android:$ktor_ver"
+    const val ktor_client_content_negotiation = "io.ktor:ktor-client-content-negotiation:$ktor_ver"
+    const val ktor_serialization_kotlinx_json = "io.ktor:ktor-serialization-kotlinx-json:$ktor_ver"
+    const val ktor_client_logging = "io.ktor:ktor-client-logging:$ktor_ver"
 
     //     Debug
     const val ui_tooling =

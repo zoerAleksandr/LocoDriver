@@ -1,15 +1,27 @@
 package com.z_company.repository.remote_rest
 
-import retrofit2.Response
-import retrofit2.http.Headers
-import retrofit2.http.POST
-import retrofit2.http.Query
+import io.ktor.client.HttpClient
+import io.ktor.client.request.post
+import io.ktor.client.request.parameter
+import io.ktor.client.statement.HttpResponse
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
 
+/**
+ * Контракт для отправки email (восстановление пароля).
+ */
 interface ApiForSendEmail {
-    @Headers("Content-Type: application/json")
-    @POST("v1/page/forgot_password")
-    suspend fun forgotPassword(
-        @Query("email")
-        email: String
-    ): Response<String>
+    suspend fun forgotPassword(email: String)
+}
+
+/**
+ * Ktor-реализация ApiForSendEmail.
+ */
+class KtorApiForSendEmail(private val client: HttpClient) : ApiForSendEmail {
+    override suspend fun forgotPassword(email: String) {
+        client.post("v1/page/forgot_password") {
+            contentType(ContentType.Application.Json)
+            parameter("email", email)
+        }
+    }
 }

@@ -6,196 +6,153 @@ import com.z_company.repository.remote_rest.request.AuthRequest
 import com.z_company.repository.remote_rest.request.RegisteredRequestByEmail
 import com.z_company.repository.remote_rest.request.RegisteredRequestByVKID
 import com.z_company.repository.remote_rest.request.UpdateEmailRequest
+import io.ktor.client.plugins.ClientRequestException
+import io.ktor.client.plugins.ServerResponseException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
-import retrofit2.HttpException
 import java.io.IOException
 
-object AuthManager : KoinComponent {
-    private val remoteRestApi: RemoteRestApi by inject()
-    private val apiForSendEmail: ApiForSendEmail by inject()
-
+/**
+ * Менеджер аутентификации.
+ * Шаг 2 KMP-миграции: object → class с инжекцией зависимостей через Koin.
+ */
+class AuthManager(
+    private val remoteRestApi: RemoteRestApi,
+    private val apiForSendEmail: ApiForSendEmail
+) {
 
     fun registerByEmail(
         email: String,
         password: String
-    ): Flow<RegistrationState> =
-        flow {  // Пояснение: flow — builder для создания Flow, внутри которого можно emit значения асинхронно.
-            emit(RegistrationState.Loading)  // Сначала эмитим состояние загрузки
-
-            try {
-                val request = RegisteredRequestByEmail(
-                    login = email,
-                    password = password,
-                    email = email,
+    ): Flow<RegistrationState> = flow {
+        emit(RegistrationState.Loading)
+        try {
+            val request = RegisteredRequestByEmail(
+                login = email,
+                password = password,
+                email = email,
+            )
+            val body = remoteRestApi.registerUserByEmail(request)
+            emit(
+                RegistrationState.Success(
+                    accessToken = body.accessToken,
+                    tokenType = body.tokenType
                 )
-
-                // Асинхронный вызов Retrofit (suspend)
-                val response = remoteRestApi.registerUserByEmail(request)
-
-                if (response.isSuccessful) {
-                    val body = response.body()
-                    emit(
-                        RegistrationState.Success(  // Эмитим успех
-                            accessToken = body?.accessToken ?: "",
-                            tokenType = body?.tokenType
-                        )
-                    )
-                } else {
-                    emit(RegistrationState.Error("Ошибка: ${response.code()}", code = response.code()))  // Эмитим ошибку HTTP
-                }
-            } catch (e: IOException) {
-                emit(RegistrationState.Error("Нет соединения: ${e.message}"))  // Ошибка сети
-            } catch (e: HttpException) {
-                emit(RegistrationState.Error("HTTP ошибка: ${e.message}"))  // HTTP-исключение
-            } catch (e: Exception) {
-                emit(RegistrationState.Error("Неизвестная ошибка: ${e.message}"))  // Другие ошибки
-            }
+            )
+        } catch (e: ClientRequestException) {
+            emit(RegistrationState.Error("Ошибка: ${e.response.status.value}", code = e.response.status.value))
+        } catch (e: ServerResponseException) {
+            emit(RegistrationState.Error("Ошибка сервера: ${e.response.status.value}", code = e.response.status.value))
+        } catch (e: IOException) {
+            emit(RegistrationState.Error("Нет соединения: ${e.message}"))
+        } catch (e: Exception) {
+            emit(RegistrationState.Error("Неизвестная ошибка: ${e.message}"))
         }
+    }
 
     fun registerByVKID(
         vkId: String,
         email: String
-    ): Flow<RegistrationState> =
-        flow {  // Пояснение: flow — builder для создания Flow, внутри которого можно emit значения асинхронно.
-            emit(RegistrationState.Loading)  // Сначала эмитим состояние загрузки
-
-            try {
-                val request = RegisteredRequestByVKID(
-                    login = vkId,
-                    vkId = vkId,
-                    password = "",
-                    email = email
+    ): Flow<RegistrationState> = flow {
+        emit(RegistrationState.Loading)
+        try {
+            val request = RegisteredRequestByVKID(
+                login = vkId,
+                vkId = vkId,
+                password = "",
+                email = email
+            )
+            val body = remoteRestApi.registerUserByVKID(request)
+            emit(
+                RegistrationState.Success(
+                    accessToken = body.accessToken,
+                    tokenType = body.tokenType
                 )
-
-                // Асинхронный вызов Retrofit (suspend)
-                val response = remoteRestApi.registerUserByVKID(request)
-
-                if (response.isSuccessful) {
-                    val body = response.body()
-                    emit(
-                        RegistrationState.Success(  // Эмитим успех
-                            accessToken = body?.accessToken ?: "",
-                            tokenType = body?.tokenType
-                        )
-                    )
-                } else {
-                    emit(RegistrationState.Error("Ошибка: ${response.code()}", code = response.code()))  // Эмитим ошибку HTTP
-                }
-            } catch (e: IOException) {
-                emit(RegistrationState.Error("Нет соединения: ${e.message}"))  // Ошибка сети
-            } catch (e: HttpException) {
-                emit(RegistrationState.Error("HTTP ошибка: ${e.message}"))  // HTTP-исключение
-            } catch (e: Exception) {
-                emit(RegistrationState.Error("Неизвестная ошибка: ${e.message}"))  // Другие ошибки
-            }
+            )
+        } catch (e: ClientRequestException) {
+            emit(RegistrationState.Error("Ошибка: ${e.response.status.value}", code = e.response.status.value))
+        } catch (e: ServerResponseException) {
+            emit(RegistrationState.Error("Ошибка сервера: ${e.response.status.value}", code = e.response.status.value))
+        } catch (e: IOException) {
+            emit(RegistrationState.Error("Нет соединения: ${e.message}"))
+        } catch (e: Exception) {
+            emit(RegistrationState.Error("Неизвестная ошибка: ${e.message}"))
         }
+    }
 
     fun authWithEmail(email: String, password: String): Flow<AuthState> = flow {
         emit(AuthState.Loading)
-
         try {
             val authRequest = AuthRequest(
                 auth_param = email,
                 password = password,
                 methodAuth = "email",
             )
-
-            val response = remoteRestApi.authWithEmail(authRequest)
-            if (response.isSuccessful) {
-                val body = response.body()
-                emit(
-                    AuthState.Success(
-                        accessToken = body?.accessToken ?: "",
-                        tokenType = body?.tokenType
-                    )
+            val body = remoteRestApi.authWithEmail(authRequest)
+            emit(
+                AuthState.Success(
+                    accessToken = body.accessToken,
+                    tokenType = body.tokenType
                 )
-            } else {
-                val text = when (response.code()) {
-                    401 -> "Неверная почта или пароль"
-                    else -> "Ошибка: $response ${response.code()} - ${response.message()}"
-                }
-                emit(AuthState.Error(text))  // Эмитим ошибку HTTP
+            )
+        } catch (e: ClientRequestException) {
+            val text = when (e.response.status.value) {
+                401 -> "Неверная почта или пароль"
+                else -> "Ошибка: ${e.response.status.value} - ${e.message}"
             }
+            emit(AuthState.Error(text))
         } catch (e: IOException) {
-            emit(AuthState.Error("Нет соединения: ${e.message}"))  // Ошибка сети
-        } catch (e: HttpException) {
-            emit(AuthState.Error("HTTP ошибка: ${e.message}"))  // HTTP-исключение
+            emit(AuthState.Error("Нет соединения: ${e.message}"))
         } catch (e: Exception) {
-            emit(AuthState.Error("Неизвестная ошибка: ${e.message}"))  // Другие ошибки
+            emit(AuthState.Error("Неизвестная ошибка: ${e.message}"))
         }
     }
 
     fun authWithVKID(vkId: String): Flow<AuthState> = flow {
         emit(AuthState.Loading)
-
         try {
             val authRequest = AuthRequest(
                 auth_param = vkId,
                 password = "",
                 methodAuth = "vkId",
             )
-
-            val response = remoteRestApi.authWithEmail(authRequest)
-            if (response.isSuccessful) {
-                val body = response.body()
-                emit(
-                    AuthState.Success(
-                        accessToken = body?.accessToken ?: "",
-                        tokenType = body?.tokenType
-                    )
+            val body = remoteRestApi.authWithEmail(authRequest)
+            emit(
+                AuthState.Success(
+                    accessToken = body.accessToken,
+                    tokenType = body.tokenType
                 )
-            } else {
-                val text = when (response.code()) {
-                    401 -> "Неверная почта или пароль"
-                    else -> "Ошибка: $response ${response.code()} - ${response.message()}"
-                }
-                emit(AuthState.Error(text))  // Эмитим ошибку HTTP
+            )
+        } catch (e: ClientRequestException) {
+            val text = when (e.response.status.value) {
+                401 -> "Неверная почта или пароль"
+                else -> "Ошибка: ${e.response.status.value} - ${e.message}"
             }
+            emit(AuthState.Error(text))
         } catch (e: IOException) {
-            emit(AuthState.Error("Нет соединения: ${e.message}"))  // Ошибка сети
-        } catch (e: HttpException) {
-            emit(AuthState.Error("HTTP ошибка: ${e.message}"))  // HTTP-исключение
+            emit(AuthState.Error("Нет соединения: ${e.message}"))
         } catch (e: Exception) {
-            emit(AuthState.Error("Неизвестная ошибка: ${e.message}"))  // Другие ошибки
+            emit(AuthState.Error("Неизвестная ошибка: ${e.message}"))
         }
     }
 
     fun removeVKID(token: String): Flow<GetUserProfileState> = flow {
         emit(GetUserProfileState.Loading)
         try {
-            val response = remoteRestApi.removeVKID(
-                token = token
+            val body = remoteRestApi.removeVKID(token = token)
+            emit(
+                GetUserProfileState.Success(
+                    user = body.user,
+                    routes = body.routes
+                )
             )
-            if (
-                response.isSuccessful
-            ) {
-
-                val body = response.body()
-                emit(
-                    GetUserProfileState.Success(
-                        user = body?.user ?: UserRemote(login = "Неизвестный пользователь"),
-                        routes = body?.routes ?: emptyList()
-                    )
-                )
-            } else {
-                emit(
-                    GetUserProfileState.Error(
-                        "Ошибка: ${response.message()}",
-                        code = response.code()
-                    )
-                )
-            }
-
+        } catch (e: ClientRequestException) {
+            emit(GetUserProfileState.Error("Ошибка: ${e.message}", code = e.response.status.value))
         } catch (e: IOException) {
-            emit(GetUserProfileState.Error("Нет соединения: ${e.message}"))  // Ошибка сети
-        } catch (e: HttpException) {
-            emit(GetUserProfileState.Error("HTTP ошибка: ${e.message}"))  // HTTP-исключение
+            emit(GetUserProfileState.Error("Нет соединения: ${e.message}"))
         } catch (e: Exception) {
-            emit(GetUserProfileState.Error("Неизвестная ошибка: ${e.message}"))  // Другие ошибки
+            emit(GetUserProfileState.Error("Неизвестная ошибка: ${e.message}"))
         }
     }
 
@@ -203,82 +160,52 @@ object AuthManager : KoinComponent {
         emit(GetUserProfileState.Loading)
         try {
             val addVKIDRequest = AddVKIDRequest(token = vkId)
-            val response = remoteRestApi.attachVKID(
-                token = bearerToken,
-                data = addVKIDRequest
-            )
-            if (response.isSuccessful) {
-                val body = response.body()
-                emit(
-                    GetUserProfileState.Success(  // Эмитим успех
-                        user = body?.user ?: UserRemote(login = "Неизвестный пользователь"),
-                        routes = body?.routes ?: emptyList()
-                    )
+            val body = remoteRestApi.attachVKID(token = bearerToken, data = addVKIDRequest)
+            emit(
+                GetUserProfileState.Success(
+                    user = body.user,
+                    routes = body.routes
                 )
-            } else {
-                emit(
-                    GetUserProfileState.Error(
-                        "Ошибка: ${response.message()}",
-                        code = response.code()
-                    )
-                )  // Эмитим ошибку HTTP
-            }
+            )
+        } catch (e: ClientRequestException) {
+            emit(GetUserProfileState.Error("Ошибка: ${e.message}", code = e.response.status.value))
         } catch (e: IOException) {
-            emit(GetUserProfileState.Error("Нет соединения: ${e.message}"))  // Ошибка сети
-        } catch (e: HttpException) {
-            emit(GetUserProfileState.Error("HTTP ошибка: ${e.message}"))// HTTP-исключение
+            emit(GetUserProfileState.Error("Нет соединения: ${e.message}"))
         } catch (e: Exception) {
-            emit(GetUserProfileState.Error("Неизвестная ошибка: ${e.message}"))  // Другие ошибки
+            emit(GetUserProfileState.Error("Неизвестная ошибка: ${e.message}"))
         }
     }
 
     fun getUserProfile(token: String): Flow<GetUserProfileState> = flow {
         emit(GetUserProfileState.Loading)
         try {
-            val response = remoteRestApi.getUserProfile(
-                token = token
+            val body = remoteRestApi.getUserProfile(token = token)
+            emit(
+                GetUserProfileState.Success(
+                    user = body.user,
+                    routes = body.routes
+                )
             )
-
-            if (response.isSuccessful) {
-                val body = response.body()
-                emit(
-                    GetUserProfileState.Success(
-                        user = body?.user ?: UserRemote(login = "Неизвестный пользователь"),
-                        routes = body?.routes ?: emptyList()
-                    )
-                )
-            } else {
-                emit(
-                    GetUserProfileState.Error(
-                        message = "Ошибка: ${response.message()}",
-                        code = response.code()
-                    )
-                )
-            }
+        } catch (e: ClientRequestException) {
+            emit(GetUserProfileState.Error(message = "Ошибка: ${e.message}", code = e.response.status.value))
         } catch (e: IOException) {
-            emit(GetUserProfileState.Error("Нет соединения: ${e.message}"))  // Ошибка сети
-        } catch (e: HttpException) {
-            emit(GetUserProfileState.Error("HTTP ошибка: ${e.message}"))  // HTTP-исключение
+            emit(GetUserProfileState.Error("Нет соединения: ${e.message}"))
         } catch (e: Exception) {
-            emit(GetUserProfileState.Error("Неизвестная ошибка: ${e.message}"))  // Другие ошибки
+            emit(GetUserProfileState.Error("Неизвестная ошибка: ${e.message}"))
         }
     }
 
     fun forgotPassword(email: String): Flow<ResponseState> = flow {
         emit(ResponseState.Loading)
         try {
-            val response = apiForSendEmail.forgotPassword(email)
-            if (response.isSuccessful) {
-                emit(ResponseState.Success)
-            } else {
-                emit(ResponseState.Error("Ошибка: ${response.code()} - ${response.message()}"))  // Эмитим ошибку HTTP
-            }
+            apiForSendEmail.forgotPassword(email)
+            emit(ResponseState.Success)
+        } catch (e: ClientRequestException) {
+            emit(ResponseState.Error("Ошибка: ${e.response.status.value} - ${e.message}"))
         } catch (e: IOException) {
-            emit(ResponseState.Error("Нет соединения: ${e.message}"))  // Ошибка сети
-        } catch (e: HttpException) {
-            emit(ResponseState.Error("HTTP ошибка: ${e.message}")) // HTTP-исключение
+            emit(ResponseState.Error("Нет соединения: ${e.message}"))
         } catch (e: Exception) {
-            emit(ResponseState.Error("Неизвестная ошибка: ${e.message}"))  // Другие ошибки
+            emit(ResponseState.Error("Неизвестная ошибка: ${e.message}"))
         }
     }
 
@@ -287,47 +214,36 @@ object AuthManager : KoinComponent {
         delay(2000L)
         try {
             val request = UpdateEmailRequest(email)
-            val response = remoteRestApi.updateEmail(token = token, data = request)
-            if (response.isSuccessful) {
-                emit(ResponseState.Success)
-            } else {
-                emit(ResponseState.Error("Ошибка: ${response.code()} - ${response.message()}"))  // Эмитим ошибку HTTP
-            }
+            remoteRestApi.updateEmail(token = token, data = request)
+            emit(ResponseState.Success)
+        } catch (e: ClientRequestException) {
+            emit(ResponseState.Error("Ошибка: ${e.response.status.value} - ${e.message}"))
         } catch (e: IOException) {
-            emit(ResponseState.Error("Нет соединения: ${e.message}"))  // Ошибка сети
-        } catch (e: HttpException) {
-            emit(ResponseState.Error("HTTP ошибка: ${e.message}")) // HTTP-исключение
+            emit(ResponseState.Error("Нет соединения: ${e.message}"))
         } catch (e: Exception) {
-            emit(ResponseState.Error("Неизвестная ошибка: ${e.message}"))  // Другие ошибки
+            emit(ResponseState.Error("Неизвестная ошибка: ${e.message}"))
         }
     }
 }
 
 sealed class AuthState {
     object Initial : AuthState()
-    object Loading : AuthState()  // Состояние загрузки
-    data class Success(val accessToken: String, val tokenType: String? = null) :
-        AuthState()  // Успех с сообщением и опциональным токеном
-
-    data class Error(val errorMessage: String) : AuthState()  // Ошибка с сообщением
+    object Loading : AuthState()
+    data class Success(val accessToken: String, val tokenType: String? = null) : AuthState()
+    data class Error(val errorMessage: String) : AuthState()
 }
-
 
 sealed class RegistrationState {
     object Initial : RegistrationState()
-    object Loading : RegistrationState()  // Состояние загрузки
-    data class Success(val accessToken: String, val tokenType: String? = null) :
-        RegistrationState()  // Успех с сообщением и опциональным токеном
-
-    data class Error(val message: String, val code: Int = 0) : RegistrationState()  // Ошибка с сообщением
+    object Loading : RegistrationState()
+    data class Success(val accessToken: String, val tokenType: String? = null) : RegistrationState()
+    data class Error(val message: String, val code: Int = 0) : RegistrationState()
 }
 
 sealed class GetUserProfileState {
     object Initial : GetUserProfileState()
-    object Loading : GetUserProfileState()  // Состояние загрузки
-    data class Success(val user: UserRemote, val routes: List<Route> = emptyList()) :
-        GetUserProfileState()
-
+    object Loading : GetUserProfileState()
+    data class Success(val user: UserRemote, val routes: List<Route> = emptyList()) : GetUserProfileState()
     data class Error(val message: String, val code: Int = 0) : GetUserProfileState()
 }
 

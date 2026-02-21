@@ -23,7 +23,7 @@ val viewModelModule = module {
     viewModel {(routeId: String, isCopy: Boolean) ->
         FormViewModel(application = androidApplication(), routeId = routeId,  isCopy = isCopy)
     }
-    viewModel { HomeViewModel(application = androidApplication()) }
+    viewModel { HomeViewModel() }
     viewModel { PasswordRecoveryViewModel() }
     viewModel { SettingsViewModel() }
     viewModel { MainViewModel() }
@@ -37,10 +37,10 @@ val viewModelModule = module {
         PassengerFormViewModel(passengerId = passengerId, basicId = basicId)
     }
     viewModel { SearchViewModel() }
-    viewModel { PurchasesViewModel(androidApplication()) }
+    viewModel { PurchasesViewModel() }
     viewModel { SalaryCalculationViewModel() }
     viewModel { SettingSalaryViewModel() }
     viewModel { AllRouteViewModel(androidApplication()) }
-    viewModel { WorkScheduleViewModel(androidApplication()) }
-    viewModel { ProfileViewModel(androidApplication()) }
+    viewModel { WorkScheduleViewModel() }
+    viewModel { ProfileViewModel() }
 }

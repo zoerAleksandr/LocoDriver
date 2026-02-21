@@ -1,7 +1,7 @@
 package com.z_company.route.viewmodel
 
-import android.app.Application
 import android.util.Log
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.core.util.ConverterLongToTime
@@ -20,8 +20,6 @@ import org.koin.core.component.inject
 import java.util.Calendar
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import androidx.compose.material3.SnackbarDuration
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.application
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.route.BasicData
@@ -42,7 +40,7 @@ import com.z_company.domain.entities.ReleasePeriod
 import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHoursExcludingWeekends
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHoursIncludingWeekends
-import com.z_company.repository.SecureDataStore
+import com.z_company.repository.SecureTokenStorage
 import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
 
 
@@ -60,7 +58,7 @@ import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
  * Below there is a placeholder createRouteForStartTime() where you should construct a Route with required fields.
  * Replace
  */
-class WorkScheduleViewModel(application: Application) : AndroidViewModel(application), KoinComponent {
+class WorkScheduleViewModel : ViewModel(), KoinComponent {
     private val settingsUseCase: SettingsUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
@@ -93,6 +91,7 @@ class WorkScheduleViewModel(application: Application) : AndroidViewModel(applica
     val deleteDialogRequests = _deleteDialogRequests.asSharedFlow()
 
     private val snackbarManager: ISnackbarManager by inject()
+    private val secureTokenStorage: SecureTokenStorage by inject()
 
     // UI state flows exposed to compose
     private val _currentMonth = MutableStateFlow<MonthOfYear?>(null)
@@ -346,7 +345,7 @@ class WorkScheduleViewModel(application: Application) : AndroidViewModel(applica
 
     fun restorePurchases() {
         viewModelScope.launch(Dispatchers.IO) {
-            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first()
             subscriptionHelper.restorePurchases(snackbarManager, token)
         }
     }

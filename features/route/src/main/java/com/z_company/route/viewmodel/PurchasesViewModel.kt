@@ -1,9 +1,7 @@
 package com.z_company.route.viewmodel
 
-import android.app.Application
 import android.util.Log
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.application
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.robokassa.library.models.Culture
 import com.robokassa.library.models.PaymentMethod
@@ -18,7 +16,7 @@ import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.Product
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.SettingsUseCase
-import com.z_company.repository.SecureDataStore
+import com.z_company.repository.SecureTokenStorage
 import com.z_company.repository.remote_rest.AuthManager
 import com.z_company.repository.remote_rest.GetUserProfileState
 import com.z_company.repository.remote_rest.SettingManager
@@ -48,8 +46,7 @@ sealed class BillingEvent {
         BillingEvent()
 }
 
-class PurchasesViewModel(application: Application) : AndroidViewModel(application),
-    KoinComponent {
+class PurchasesViewModel : ViewModel(), KoinComponent {
     private val MERCHANT_LOGIN = "LOCO_DRIVER_SHOP"
     private val PASSWORD_1 = "g1hybfLQChf4e508yRIX"
     private val PASSWORD_2 = "lGOmC8y1iNRbJ9M1fA3w"
@@ -58,8 +55,9 @@ class PurchasesViewModel(application: Application) : AndroidViewModel(applicatio
     private val snackbarManager: ISnackbarManager by inject()
 
     private val subscriptionHelper: SubscriptionHelper by inject()
-
+    private val authManager: AuthManager by inject()
     private val settingManager: SettingManager by inject()
+    private val secureTokenStorage: SecureTokenStorage by inject()
 
     private val _state = MutableStateFlow(BillingState(isLoading = true))
     val state = _state.asStateFlow()
@@ -85,9 +83,9 @@ class PurchasesViewModel(application: Application) : AndroidViewModel(applicatio
             _state.update { it.copy(dateAndTimeConverter = DateAndTimeConverter(setting)) }
         }
         viewModelScope.launch {
-            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first()
             val fullToken = "Bearer $token"
-            AuthManager.getUserProfile(fullToken).collect { state ->
+            authManager.getUserProfile(fullToken).collect { state ->
                 if (state is GetUserProfileState.Success) {
                     currentEmail = state.user.email
                 }
@@ -137,7 +135,7 @@ class PurchasesViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun restoreSubscribe() {
         viewModelScope.launch {
-            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first()
             subscriptionHelper.restorePurchases(snackbarManager, token)
         }
     }
@@ -145,7 +143,7 @@ class PurchasesViewModel(application: Application) : AndroidViewModel(applicatio
     fun onProductClick(product: Product) {
         viewModelScope.launch {
 //            val opKey = sharedPrefs.getOPKeyRobokassa()
-            val userId = SecureDataStore.getUserIdFlow(context = application).first()
+            val userId = secureTokenStorage.getUserIdFlow().first()
             if (userId != null) {
                 val paymentParams =
                     createPaymentParams(product = product, opKey = null, userId = userId)
@@ -208,7 +206,7 @@ class PurchasesViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun handlePaymentSuccess(success: RobokassaPayLauncher.Success?) {
         viewModelScope.launch {
-            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first()
             val result = subscriptionHelper.restorePurchases(null, token)
             if (result is ResultState.Success) {
                 val updatedSetting = settingsUseCase.getUserSettingFlow().first()  // Sync fetch актуального значения
