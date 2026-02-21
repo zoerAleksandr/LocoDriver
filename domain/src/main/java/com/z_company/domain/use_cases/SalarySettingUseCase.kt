@@ -12,13 +12,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
 
 class SalarySettingUseCase(
     val repository: SalarySettingRepository,
-) : KoinComponent {
-    private val calendarUseCase: CalendarUseCase by inject()
+    private val calendarUseCase: CalendarUseCase,
+) {
     fun salarySettingFlow(): Flow<SalarySetting> {
         return repository.getSalarySettingFlow()
     }

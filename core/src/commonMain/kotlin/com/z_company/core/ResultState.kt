@@ -17,7 +17,7 @@ sealed interface ResultState<out T> {
 
     companion object {
         fun <T> flowRequest(
-            dispatcher: CoroutineDispatcher = Dispatchers.IO,
+            dispatcher: CoroutineDispatcher = Dispatchers.Default,
             block: suspend () -> T
         ): Flow<ResultState<T>> {
             return flow {
