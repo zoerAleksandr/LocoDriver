@@ -45,6 +45,7 @@ dependencies {
     implementation(Libs.oneTapVkId)
     implementation(Libs.vkId)
 
+    implementation(platform(Libs.rustore_bom))
     implementation(Libs.rustore_review)
 
     implementation(platform(Libs.ru_ok_tracer_platform))

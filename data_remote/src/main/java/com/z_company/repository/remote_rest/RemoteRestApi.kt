@@ -13,7 +13,7 @@ import com.z_company.repository.remote_rest.request.UpdateEmailRequest
 import com.z_company.repository.remote_rest.response.AuthResponse
 import com.z_company.repository.remote_rest.response.LoginResponse
 import com.z_company.repository.remote_rest.response.SuccessResponse
-import com.z_company.repository.remote_rest.response.UserWithRouteResponse
+import com.z_company.repository.remote_rest.response.UserResponse
 
 /**
  * Контракт для взаимодействия с REST API.
@@ -29,15 +29,15 @@ interface RemoteRestApi {
 
     suspend fun registerUserByVKID(request: RegisteredRequestByVKID): LoginResponse
 
-    suspend fun getUserProfile(token: String): UserWithRouteResponse
+    suspend fun getUserProfile(token: String): UserResponse
 
-    suspend fun removeVKID(token: String): UserWithRouteResponse
+    suspend fun removeVKID(token: String): UserResponse
 
     suspend fun saveRoute(token: String, data: Route)
 
     suspend fun getRoutes(token: String): List<Route>
 
-    suspend fun attachVKID(token: String, data: AddVKIDRequest): UserWithRouteResponse
+    suspend fun attachVKID(token: String, data: AddVKIDRequest): UserResponse
 
     suspend fun saveUserSetting(token: String, body: UserSettings): SuccessResponse
 

@@ -87,6 +87,8 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val snackbarManager: ISnackbarManager by inject()
 
+    private val routesManager: RoutesManager by inject()
+
     private var removeRouteJob: Job? = null
 
     private val _uiState = MutableStateFlow(RoutesUiState())
@@ -300,7 +302,6 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun syncRoute(route: Route) {
-        val routesManager = RoutesManager
         viewModelScope.launch {
             val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
             val fullToken = "Bearer $token"

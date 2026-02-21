@@ -144,7 +144,6 @@ class AuthManager(
             emit(
                 GetUserProfileState.Success(
                     user = body.user,
-                    routes = body.routes
                 )
             )
         } catch (e: ClientRequestException) {
@@ -164,7 +163,6 @@ class AuthManager(
             emit(
                 GetUserProfileState.Success(
                     user = body.user,
-                    routes = body.routes
                 )
             )
         } catch (e: ClientRequestException) {
@@ -183,7 +181,6 @@ class AuthManager(
             emit(
                 GetUserProfileState.Success(
                     user = body.user,
-                    routes = body.routes
                 )
             )
         } catch (e: ClientRequestException) {
@@ -243,7 +240,7 @@ sealed class RegistrationState {
 sealed class GetUserProfileState {
     object Initial : GetUserProfileState()
     object Loading : GetUserProfileState()
-    data class Success(val user: UserRemote, val routes: List<Route> = emptyList()) : GetUserProfileState()
+    data class Success(val user: UserRemote) : GetUserProfileState()
     data class Error(val message: String, val code: Int = 0) : GetUserProfileState()
 }
 

@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
@@ -41,7 +43,7 @@ android {
 
 //kotlin {
 //    compilerOptions {
-//        jvmTarget = JvmTarget.fromTarget("1.8")
+//        jvmTarget = JvmTarget.fromTarget(Apps.jvm_target_version)
 //    }
 //}
 

@@ -43,6 +43,7 @@ import Versions.test_ext_version
 import Versions.test_runner_version
 import Versions.vkIdVer
 import Versions.work_manager_version
+import Versions.ktor_ver
 import org.gradle.api.JavaVersion
 
 object Plugins {
