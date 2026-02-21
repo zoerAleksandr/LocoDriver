@@ -6,11 +6,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.robokassa.library.params.PaymentParams
 import com.z_company.core.ResultState
+import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.domain.entities.Day
 import com.z_company.domain.entities.MonthOfYear
+import com.z_company.domain.entities.route.Route
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.LoadCalendarFromStorage
 import com.z_company.domain.use_cases.CalendarUseCase
+import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.route.viewmodel.PurchasesViewModel
@@ -38,6 +41,8 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private val calendarUseCase: CalendarUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
+    private val routeUseCase: RouteUseCase by inject()
+    private val snackbarManager: ISnackbarManager by inject()
 
     private var saveCalendarInLocalJob: Job? = null
     private var setDefaultSetting: Job? = null
@@ -50,6 +55,32 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
 
     private val _appInitialized = MutableStateFlow(false)
     val appInitialized: StateFlow<Boolean> = _appInitialized.asStateFlow()
+
+    // Импорт маршрута из файла (.zroute) — ожидает подтверждения пользователя
+    private val _pendingImportRoute = MutableStateFlow<Route?>(null)
+    val pendingImportRoute: StateFlow<Route?> = _pendingImportRoute.asStateFlow()
+
+    fun setPendingImportRoute(route: Route) {
+        _pendingImportRoute.value = route
+    }
+
+    fun confirmImportRoute() {
+        val route = _pendingImportRoute.value ?: return
+        _pendingImportRoute.value = null
+        viewModelScope.launch {
+            routeUseCase.saveRoute(route).collect { result ->
+                when (result) {
+                    is ResultState.Success -> snackbarManager.show("Маршрут импортирован")
+                    is ResultState.Error -> snackbarManager.show("Ошибка импорта маршрута")
+                    else -> {}
+                }
+            }
+        }
+    }
+
+    fun dismissImportRoute() {
+        _pendingImportRoute.value = null
+    }
 
     init {
         if (isFirstEntry) {

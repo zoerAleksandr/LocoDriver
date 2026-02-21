@@ -67,6 +67,25 @@
                 <data android:scheme="z_company_loco_driver_scheme" />
             </intent-filter>
 
+            <!-- Открытие .zroute файлов с кастомным MIME (прямой шаринг из приложения) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content"
+                    android:mimeType="application/vnd.com.z_company.loco_driver.route" />
+                <data android:scheme="file"
+                    android:mimeType="application/vnd.com.z_company.loco_driver.route" />
+            </intent-filter>
+
+            <!-- Открытие .zroute файлов через Telegram и другие мессенджеры (отправляют как octet-stream) -->
+            <!-- MainActivity проверяет расширение файла через ContentResolver.DISPLAY_NAME -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" android:mimeType="application/octet-stream" />
+                <data android:scheme="file" android:mimeType="application/octet-stream" />
+            </intent-filter>
+
         </activity>
 
 
