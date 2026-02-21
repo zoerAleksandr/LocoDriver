@@ -28,7 +28,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.isHolidayTimeInRoute
 import com.z_company.domain.entities.route.UtilsForEntities.timeFollowingSingleLocomotive
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.CalendarUseCase
-import com.z_company.repository.SecureDataStore
+import com.z_company.repository.SecureTokenStorage
 import com.z_company.repository.remote_rest.RoutesManager
 import com.z_company.route.viewmodel.PreviewRouteUiState
 import com.z_company.route.viewmodel.RouteActionsHelper
@@ -86,6 +86,8 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
     private val subscriptionHelper: SubscriptionHelper by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val snackbarManager: ISnackbarManager by inject()
+    private val secureTokenStorage: SecureTokenStorage by inject()
+    private val routesManager: RoutesManager by inject()
 
     private var removeRouteJob: Job? = null
 
@@ -235,7 +237,11 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
 
                 // Intent для шаринга (без изменений)
                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                    type = "application/vnd.com.z_company.loco_driver.route"
+                    // application/octet-stream используется намеренно:
+                    // кастомный MIME-тип игнорируется мессенджерами (Telegram и др.) при пересылке.
+                    // Получатель открывает файл через intent-filter в AndroidManifest, где
+                    // MainActivity проверяет расширение .zroute через ContentResolver.DISPLAY_NAME.
+                    type = "application/octet-stream"
                     putExtra(Intent.EXTRA_STREAM, uri)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
@@ -266,7 +272,7 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
 
     fun restorePurchases() {
         viewModelScope.launch(Dispatchers.IO) {
-            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first()
             subscriptionHelper.restorePurchases(snackbarManager, token)
         }
     }
@@ -300,9 +306,8 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun syncRoute(route: Route) {
-        val routesManager = RoutesManager
         viewModelScope.launch {
-            val token = SecureDataStore.getAuthBearerTokenFlow(application).first()
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first()
             val fullToken = "Bearer $token"
             if (token == null) {
                 snackbarManager.show(message = "Неавторизованный пользователь")
