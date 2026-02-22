@@ -56,6 +56,7 @@ object Plugins {
     const val compose_compiler = "org.jetbrains.kotlin.plugin.compose"
     const val ksp = "com.google.devtools.ksp"
     const val vkIdManifest = "vkid.manifest.placeholders"
+    const val sqldelight = "app.cash.sqldelight"
 }
 
 object Apps {
@@ -126,6 +127,7 @@ object Versions {
     const val crypto_tink_ver = "1.7.0"
     const val kotlin_x_serialization_json_ver = "1.10.0"
     const val ktor_ver = "3.0.3"
+    const val sqldelight_ver = "2.0.2"
 }
 
 object Libs {
@@ -231,6 +233,11 @@ object Libs {
     const val rustore_billing_client = "ru.rustore.sdk:billingclient"
     const val rustore_review = "ru.rustore.sdk:review"
     const val rustore_sdk_appupdate = "ru.rustore.sdk:appupdate"
+
+    // SQLDelight
+    const val sqldelight_android_driver = "app.cash.sqldelight:android-driver:${Versions.sqldelight_ver}"
+    const val sqldelight_coroutines_extensions = "app.cash.sqldelight:coroutines-extensions:${Versions.sqldelight_ver}"
+    const val sqldelight_primitive_adapters = "app.cash.sqldelight:primitive-adapters:${Versions.sqldelight_ver}"
 
     // Ktor
     const val ktor_client_android = "io.ktor:ktor-client-android:$ktor_ver"

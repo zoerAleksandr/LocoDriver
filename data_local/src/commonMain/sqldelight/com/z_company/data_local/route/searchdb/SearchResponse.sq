@@ -1,0 +1,12 @@
+CREATE TABLE IF NOT EXISTS SearchResponse (
+    responseText TEXT NOT NULL PRIMARY KEY
+);
+
+insert:
+INSERT OR IGNORE INTO SearchResponse (responseText) VALUES (?);
+
+delete:
+DELETE FROM SearchResponse WHERE responseText = :responseText;
+
+getAll:
+SELECT * FROM SearchResponse;

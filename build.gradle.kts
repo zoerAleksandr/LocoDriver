@@ -10,6 +10,7 @@ plugins {
     id(Plugins.google_relay) version Versions.google_relay_ver apply false
     id(Plugins.compose_compiler) version Versions.kotlin_version apply false
     id(Plugins.ksp) version Versions.ksp_ver apply false
+    id(Plugins.sqldelight) version Versions.sqldelight_ver apply false
     id(Plugins.vkIdManifest) version Versions.vkIdManifestPluginVer apply true
     id("org.jetbrains.kotlin.plugin.serialization") version Versions.kotlin_version
 }

@@ -2,12 +2,12 @@ package com.z_company.loco_driver.di
 
 import com.z_company.data_local.SharedPreferenceStorage
 import com.z_company.data_local.calendar.CalendarStorageLocalImpl
-import com.z_company.data_local.route.RoomRouteRepository
 import com.z_company.data_local.setting.DataStoreRepository
-import com.z_company.data_local.calendar.RoomCalendarRepository
-import com.z_company.data_local.route.RoomHistoryResponseRepository
-import com.z_company.data_local.setting.RoomSalarySettingRepository
-import com.z_company.data_local.setting.RoomSettingRepository
+import com.z_company.data_local.calendar.SqlDelightCalendarRepository
+import com.z_company.data_local.route.SqlDelightHistoryResponseRepository
+import com.z_company.data_local.route.SqlDelightRouteRepository
+import com.z_company.data_local.setting.SqlDelightSalarySettingRepository
+import com.z_company.data_local.setting.SqlDelightSettingRepository
 import com.z_company.domain.repositories.CalendarStorage
 import com.z_company.domain.repositories.RouteRepository
 import com.z_company.domain.repositories.CalendarRepositories
@@ -35,21 +35,21 @@ import org.koin.dsl.module
 val repositoryModule = module {
     single<ISnackbarManager> { SnackbarManagerImpl() }
 
-    single<RouteRepository> { RoomRouteRepository() }
+    single<RouteRepository> { SqlDelightRouteRepository() }
 
-    single<CalendarRepositories> { RoomCalendarRepository() }
+    single<CalendarRepositories> { SqlDelightCalendarRepository() }
 
     single<CalendarStorage> { CalendarStorageLocalImpl() }
 
     single { DataStoreRepository(androidContext()) }
 
-    single<SettingsRepository> { RoomSettingRepository() }
+    single<SettingsRepository> { SqlDelightSettingRepository() }
 
-    single<HistoryResponseRepository> { RoomHistoryResponseRepository() }
+    single<HistoryResponseRepository> { SqlDelightHistoryResponseRepository() }
 
     single<SharedPreferencesRepositories> { SharedPreferenceStorage(application = androidApplication()) }
 
-    single<SalarySettingRepository> { RoomSalarySettingRepository() }
+    single<SalarySettingRepository> { SqlDelightSalarySettingRepository() }
 
     single<ShareManager> { ShareManager(androidContext()) }
 

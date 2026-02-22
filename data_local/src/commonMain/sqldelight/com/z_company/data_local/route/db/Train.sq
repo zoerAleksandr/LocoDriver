@@ -1,0 +1,36 @@
+CREATE TABLE IF NOT EXISTS Train (
+    trainId TEXT NOT NULL PRIMARY KEY,
+    basicId TEXT NOT NULL,
+    remoteObjectId TEXT NOT NULL,
+    number TEXT,
+    distance TEXT DEFAULT '',
+    weight TEXT,
+    axle TEXT,
+    conditionalLength TEXT,
+    isHeavyLongDistance INTEGER NOT NULL DEFAULT 0,
+    stations TEXT NOT NULL,
+    servicePhase TEXT DEFAULT NULL,
+    FOREIGN KEY (basicId) REFERENCES BasicData(id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS index_Train_basicId ON Train(basicId);
+
+insertOrReplace:
+INSERT OR REPLACE INTO Train (trainId, basicId, remoteObjectId, number, distance, weight, axle, conditionalLength, isHeavyLongDistance, stations, servicePhase)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+update:
+UPDATE OR REPLACE Train SET trainId = :trainId, basicId = :basicId, remoteObjectId = :remoteObjectId, number = :number, distance = :distance, weight = :weight, axle = :axle, conditionalLength = :conditionalLength, isHeavyLongDistance = :isHeavyLongDistance, stations = :stations, servicePhase = :servicePhase
+WHERE trainId = :trainId;
+
+getById:
+SELECT * FROM Train WHERE trainId = :trainId;
+
+getByBasicId:
+SELECT * FROM Train WHERE basicId = :basicId;
+
+delete:
+DELETE FROM Train WHERE trainId = :trainId;
+
+setRemoteObjectId:
+UPDATE Train SET remoteObjectId = :remoteObjectId WHERE trainId = :trainId;
