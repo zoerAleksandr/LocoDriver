@@ -9,8 +9,9 @@ struct iOSApp: App {
         // Передаём модули data_local (SQLDelight) и domain (UseCases).
         // Модуль data_remote (iosRepositoryModule) регистрируется внутри initKoin().
         IosKoinHelperKt.doInitKoin(additionalModules: [
-            SqlDelightRouteModuleKt.sqlDelightRouteModule,
-            SqlDelightSettingModuleKt.sqlDelightSettingsModule,
+            SqlDelightRouteModuleKt.sqlDelightRouteModule,       // RouteDatabase, SearchResponseDatabase
+            SqlDelightSettingModuleKt.sqlDelightSettingsModule,  // SettingsDatabase, SalarySettingDatabase
+            IosUseCaseModuleKt.iosUseCaseModule,                 // Repositories, UseCases, iOS ViewModels
         ])
     }
 

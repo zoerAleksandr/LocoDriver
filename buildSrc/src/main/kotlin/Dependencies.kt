@@ -208,6 +208,9 @@ object Libs {
         "io.insert-koin:koin-android:$koin_version"
     const val koin_androidx_compose =
         "io.insert-koin:koin-androidx-compose:$koin_version"
+    // KMP Compose + ViewModel DI (поддерживает iOS)
+    const val koin_compose =
+        "io.insert-koin:koin-compose:$koin_version"
     const val accompanist_pager =
         "com.google.accompanist:accompanist-pager:$accompanist_pager_version"
     const val accompanist_pager_indicator =

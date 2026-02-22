@@ -40,6 +40,7 @@ kotlin {
 
             // DI + утилиты
             implementation(Libs.koin_core)
+            implementation(Libs.koin_compose)   // koinInject() для Compose MP
             implementation(Libs.kotlinx_coroutines_core)
             implementation(Libs.kotlinx_date_time)
         }
