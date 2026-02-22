@@ -6,7 +6,9 @@ import com.z_company.domain.repositories.RouteRepository
 import com.z_company.domain.repositories.SettingsRepository
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.iosapp.viewmodel.FormIosViewModel
 import com.z_company.iosapp.viewmodel.HomeIosViewModel
+import com.z_company.iosapp.viewmodel.SalaryCalculationIosViewModel
 import com.z_company.iosapp.viewmodel.SettingsIosViewModel
 import org.koin.dsl.module
 
@@ -18,9 +20,12 @@ import org.koin.dsl.module
  *   sqlDelightSettingsModule — SettingsDatabase, SalarySettingDatabase
  *
  * Цепочка зависимостей:
- *   RouteDatabase        → SqlDelightRouteRepository  → RouteUseCase    → HomeIosViewModel
+ *   RouteDatabase        → SqlDelightRouteRepository  → RouteUseCase → HomeIosViewModel
+ *                                                                     → FormIosViewModel
+ *                                                                     → SalaryCalculationIosViewModel
  *   SettingsDatabase     → SqlDelightSettingRepository → SettingsUseCase → HomeIosViewModel
- *                                                                         SettingsIosViewModel
+ *                                                                        → SettingsIosViewModel
+ *                                                                        → SalaryCalculationIosViewModel
  */
 val iosUseCaseModule = module {
     // Репозитории (KoinComponent внутри — получают DB из Koin-контекста)
@@ -34,4 +39,6 @@ val iosUseCaseModule = module {
     // ViewModels (single — живут на протяжении жизни приложения)
     single { HomeIosViewModel(get(), get()) }
     single { SettingsIosViewModel(get()) }
+    single { FormIosViewModel(get()) }
+    single { SalaryCalculationIosViewModel(get(), get()) }
 }

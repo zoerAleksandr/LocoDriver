@@ -19,17 +19,6 @@ import com.z_company.iosapp.screen.StubScreen
  * Маршруты совпадают со строками в features/route/navigation/Routes.kt,
  * чтобы при миграции features на Compose Multiplatform стабы заменялись
  * реальными экранами без изменения навигационного графа.
- *
- * Текущий статус экранов:
- *   HomeScreen              — стаб (список маршрутов)
- *   FormScreen              — стаб (форма маршрута)
- *   FormLocoScreen          — стаб
- *   FormTrainScreen         — стаб
- *   FormPassengerScreen     — стаб
- *   SettingsScreen          — стаб
- *   ProfileScreen           — стаб
- *   SalaryCalculationScreen — стаб
- *   остальные               — StubScreen (generic placeholder)
  */
 @Composable
 fun AppNavHost() {
@@ -47,8 +36,10 @@ fun AppNavHost() {
         composable(HomeRoute.route) {
             HomeScreen(router = router)
         }
-        composable(FormRoute.route) {
-            FormScreen(router = router)
+        // FormRoute: "FormRoute?routeId={routeId}/?makeCopy={makeCopy}"
+        composable(FormRoute.route) { backStackEntry ->
+            val routeId = backStackEntry.arguments?.getString("routeId")
+            FormScreen(router = router, routeId = routeId)
         }
         composable(FormLoco.route) {
             StubScreen(title = "Форма локомотива", router = router)
