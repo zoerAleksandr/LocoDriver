@@ -1,0 +1,26 @@
+CREATE TABLE IF NOT EXISTS Photo (
+    photoId TEXT NOT NULL PRIMARY KEY,
+    basicId TEXT NOT NULL,
+    remoteObjectId TEXT,
+    url TEXT NOT NULL,
+    dateOfCreate INTEGER NOT NULL,
+    FOREIGN KEY (basicId) REFERENCES BasicData(id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS index_Photo_basicId ON Photo(basicId);
+
+insertOrReplace:
+INSERT OR REPLACE INTO Photo (photoId, basicId, remoteObjectId, url, dateOfCreate)
+VALUES (?, ?, ?, ?, ?);
+
+getById:
+SELECT * FROM Photo WHERE photoId = :photoId;
+
+getByBasicId:
+SELECT * FROM Photo WHERE basicId = :basicId;
+
+delete:
+DELETE FROM Photo WHERE photoId = :photoId;
+
+setRemoteObjectId:
+UPDATE Photo SET remoteObjectId = :remoteObjectId WHERE photoId = :photoId;

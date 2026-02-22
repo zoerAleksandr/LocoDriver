@@ -1,0 +1,46 @@
+package com.z_company.data_local.route.mapping
+
+import com.z_company.data_local.route.db.Locomotive as LocomotiveRow
+import com.z_company.domain.entities.route.Locomotive
+import com.z_company.domain.entities.route.LocoType
+import com.z_company.domain.entities.route.SectionDiesel
+import com.z_company.domain.entities.route.SectionElectric
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+
+private val json = Json { ignoreUnknownKeys = true; isLenient = true }
+
+internal object LocomotiveMapper {
+
+    fun encodeElectricSections(list: List<SectionElectric>): String =
+        json.encodeToString(list)
+
+    fun encodeDieselSections(list: List<SectionDiesel>): String =
+        json.encodeToString(list)
+
+    private fun decodeElectricSections(value: String): List<SectionElectric> =
+        runCatching { json.decodeFromString<List<SectionElectric>>(value) }.getOrElse { emptyList() }
+
+    private fun decodeDieselSections(value: String): List<SectionDiesel> =
+        runCatching { json.decodeFromString<List<SectionDiesel>>(value) }.getOrElse { emptyList() }
+
+    fun toData(row: LocomotiveRow): Locomotive = Locomotive(
+        locoId = row.locoId,
+        basicId = row.basicId,
+        remoteObjectId = row.removeObjectId,
+        series = row.series,
+        number = row.number,
+        type = LocoType.entries.getOrElse(row.type.toInt()) { LocoType.ELECTRIC },
+        electricSectionList = decodeElectricSections(row.electricSectionList),
+        dieselSectionList = decodeDieselSections(row.dieselSectionList),
+        timeStartOfAcceptance = row.timeStartOfAcceptance,
+        timeEndOfAcceptance = row.timeEndOfAcceptance,
+        timeStartOfDelivery = row.timeStartOfDelivery,
+        timeEndOfDelivery = row.timeEndOfDelivery,
+        normaElectricCurrent1 = row.normaElectricCurrent1?.toInt(),
+        normaElectricCurrent2 = row.normaElectricCurrent2?.toInt(),
+        normaDiesel = row.normaDiesel,
+        heatingCounterAccepted = row.heatingCounterAccepted?.toDoubleOrNull(),
+        heatingCounterDelivery = row.heatingCounterDelivery?.toDoubleOrNull()
+    )
+}

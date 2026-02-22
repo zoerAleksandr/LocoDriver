@@ -1,0 +1,30 @@
+CREATE TABLE IF NOT EXISTS Passenger (
+    passengerId TEXT NOT NULL PRIMARY KEY,
+    basicId TEXT NOT NULL,
+    remoteObjectId TEXT,
+    trainNumber TEXT,
+    stationDeparture TEXT,
+    stationArrival TEXT,
+    timeArrival INTEGER,
+    timeDeparture INTEGER,
+    notes TEXT,
+    FOREIGN KEY (basicId) REFERENCES BasicData(id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS index_Passenger_basicId ON Passenger(basicId);
+
+insertOrReplace:
+INSERT OR REPLACE INTO Passenger (passengerId, basicId, remoteObjectId, trainNumber, stationDeparture, stationArrival, timeArrival, timeDeparture, notes)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+getById:
+SELECT * FROM Passenger WHERE passengerId = :passengerId;
+
+getByBasicId:
+SELECT * FROM Passenger WHERE basicId = :basicId;
+
+delete:
+DELETE FROM Passenger WHERE passengerId = :passengerId;
+
+setRemoteObjectId:
+UPDATE Passenger SET remoteObjectId = :remoteObjectId WHERE passengerId = :passengerId;

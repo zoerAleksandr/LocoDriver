@@ -1,0 +1,27 @@
+CREATE TABLE IF NOT EXISTS MonthOfYear (
+    id TEXT NOT NULL PRIMARY KEY,
+    year INTEGER NOT NULL,
+    month INTEGER NOT NULL,
+    days TEXT NOT NULL,
+    tariffRate REAL NOT NULL DEFAULT 0.0,
+    dateSetTariffRate TEXT DEFAULT NULL
+);
+
+insertOrReplace:
+INSERT OR REPLACE INTO MonthOfYear (id, year, month, days, tariffRate, dateSetTariffRate)
+VALUES (?, ?, ?, ?, ?, ?);
+
+getAll:
+SELECT * FROM MonthOfYear;
+
+getById:
+SELECT * FROM MonthOfYear WHERE id = :id;
+
+getByYearMonth:
+SELECT * FROM MonthOfYear WHERE year = :year AND month = :month;
+
+delete:
+DELETE FROM MonthOfYear WHERE id = :id;
+
+deleteAll:
+DELETE FROM MonthOfYear;

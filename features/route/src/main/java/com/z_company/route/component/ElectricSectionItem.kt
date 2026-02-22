@@ -38,6 +38,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.util.CalculationEnergy.getTotalEnergyConsumption
+import com.z_company.domain.util.str
 import com.z_company.route.R
 import com.z_company.route.viewmodel.ElectricSectionFormState
 import com.z_company.route.viewmodel.ElectricSectionType
@@ -74,12 +75,12 @@ fun ElectricSectionItem(
     val recoveryAcceptedText = item.recoveryAccepted.data ?: ""
     val recoveryDeliveryText = item.recoveryDelivery.data ?: ""
     val result = getTotalEnergyConsumption(
-        item.accepted.data?.toBigDecimalOrNull(),
-        item.delivery.data?.toBigDecimalOrNull()
+        item.accepted.data?.toDoubleOrNull(),
+        item.delivery.data?.toDoubleOrNull()
     )
     val resultRecovery = getTotalEnergyConsumption(
-        item.recoveryAccepted.data?.toBigDecimalOrNull(),
-        item.recoveryDelivery.data?.toBigDecimalOrNull()
+        item.recoveryAccepted.data?.toDoubleOrNull(),
+        item.recoveryDelivery.data?.toDoubleOrNull()
     )
 
     val acceptedText2 = item.accepted2.data ?: ""
@@ -87,12 +88,12 @@ fun ElectricSectionItem(
     val recoveryAcceptedText2 = item.recoveryAccepted2.data ?: ""
     val recoveryDeliveryText2 = item.recoveryDelivery2.data ?: ""
     val result2 = getTotalEnergyConsumption(
-        item.accepted2.data?.toBigDecimalOrNull(),
-        item.delivery2.data?.toBigDecimalOrNull()
+        item.accepted2.data?.toDoubleOrNull(),
+        item.delivery2.data?.toDoubleOrNull()
     )
     val resultRecovery2 = getTotalEnergyConsumption(
-        item.recoveryAccepted2.data?.toBigDecimalOrNull(),
-        item.recoveryDelivery2.data?.toBigDecimalOrNull()
+        item.recoveryAccepted2.data?.toDoubleOrNull(),
+        item.recoveryDelivery2.data?.toDoubleOrNull()
     )
 
     val dataTextStyle = MaterialTheme.typography.bodyLarge
@@ -469,10 +470,10 @@ fun ElectricSectionItem(
                         horizontalArrangement = Arrangement.End
                     ) {
                         result?.let {
-                            Text(text = it.toPlainString(), style = hintStyle)
+                            Text(text = it.str(), style = hintStyle)
                         }
                         resultRecovery?.let {
-                            Text(text = " / ${it.toPlainString()}", style = hintStyle)
+                            Text(text = " / ${it.str()}", style = hintStyle)
                         }
 
                     }
@@ -483,10 +484,10 @@ fun ElectricSectionItem(
                         horizontalArrangement = Arrangement.End
                     ) {
                         result2?.let {
-                            Text(text = it.toPlainString(), style = hintStyle)
+                            Text(text = it.str(), style = hintStyle)
                         }
                         resultRecovery2?.let {
-                            Text(text = " / ${it.toPlainString()}", style = hintStyle)
+                            Text(text = " / ${it.str()}", style = hintStyle)
                         }
 
                     }

@@ -108,7 +108,6 @@ import com.z_company.route.viewmodel.ElectricSectionFormState
 import com.z_company.route.viewmodel.ElectricSectionType
 import com.z_company.route.viewmodel.LocoFormViewModel
 import kotlinx.coroutines.launch
-import java.math.BigDecimal
 
 @OptIn(
     ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class,
@@ -1109,11 +1108,11 @@ fun FormLocoScreen(
                     // отопление
                     item {
                         val accepted =
-                            locomotive.heatingCounterAccepted?.takeIf { it.intValueExact() != 0 }
-                                ?.toString() ?: ""
+                            locomotive.heatingCounterAccepted?.takeIf { it != 0.0 }
+                                ?.toLong()?.toString() ?: ""
                         val delivered =
-                            locomotive.heatingCounterDelivery?.takeIf { it.intValueExact() != 0 }
-                                ?.toString() ?: ""
+                            locomotive.heatingCounterDelivery?.takeIf { it != 0.0 }
+                                ?.toLong()?.toString() ?: ""
                         val heatingResult = delivered.toIntOrNull() - accepted.toIntOrNull()
                         AnimatedVisibility(formUiState.isShowHeatingCounter) {
                             Column(
@@ -1215,29 +1214,29 @@ fun FormLocoScreen(
                                 .fillMaxWidth(),
                             visible = resultVisible && currentLoco.type == LocoType.ELECTRIC
                         ) {
-                            var overResult: BigDecimal? = null
-                            var overRecovery: BigDecimal? = null
+                            var overResult: Double? = null
+                            var overRecovery: Double? = null
 
-                            var overResult2: BigDecimal? = null
-                            var overRecovery2: BigDecimal? = null
+                            var overResult2: Double? = null
+                            var overRecovery2: Double? = null
 
                             electricSectionListState?.forEach {
                                 val accepted =
-                                    it.accepted.data?.toBigDecimalOrNull()
+                                    it.accepted.data?.toDoubleOrNull()
                                 val delivery =
-                                    it.delivery.data?.toBigDecimalOrNull()
+                                    it.delivery.data?.toDoubleOrNull()
                                 val acceptedRecovery =
-                                    it.recoveryAccepted.data?.toBigDecimalOrNull()
+                                    it.recoveryAccepted.data?.toDoubleOrNull()
                                 val deliveryRecovery =
-                                    it.recoveryDelivery.data?.toBigDecimalOrNull()
+                                    it.recoveryDelivery.data?.toDoubleOrNull()
                                 val accepted2 =
-                                    it.accepted2.data?.toBigDecimalOrNull()
+                                    it.accepted2.data?.toDoubleOrNull()
                                 val delivery2 =
-                                    it.delivery2.data?.toBigDecimalOrNull()
+                                    it.delivery2.data?.toDoubleOrNull()
                                 val acceptedRecovery2 =
-                                    it.recoveryAccepted2.data?.toBigDecimalOrNull()
+                                    it.recoveryAccepted2.data?.toDoubleOrNull()
                                 val deliveryRecovery2 =
-                                    it.recoveryDelivery2.data?.toBigDecimalOrNull()
+                                    it.recoveryDelivery2.data?.toDoubleOrNull()
 
                                 val result = delivery - accepted
                                 val resultRecovery =
@@ -1299,7 +1298,7 @@ fun FormLocoScreen(
                                                 style = MaterialTheme.typography.bodyMedium
                                             )
                                             Text(
-                                                text = overResult?.intValueExact()?.toString()
+                                                text = overResult?.toLong()?.toString()
                                                     ?: "0",
                                                 style = MaterialTheme.typography.bodyMedium
                                             )
@@ -1358,8 +1357,8 @@ fun FormLocoScreen(
                                             verticalArrangement = Arrangement.spacedBy(4.dp)
                                         ) {
                                             val result =
-                                                (locomotive.normaElectricCurrent1 - overResult?.intValueExact())
-                                                    ?: 0
+                                                (locomotive.normaElectricCurrent1 ?: 0) -
+                                                    (overResult?.toLong()?.toInt() ?: 0)
 
                                             val resultText = if (result > 0) {
                                                 "+${result}"
@@ -1444,7 +1443,7 @@ fun FormLocoScreen(
                                                 style = MaterialTheme.typography.bodyMedium
                                             )
                                             Text(
-                                                text = overRecovery?.toString() ?: "0",
+                                                text = overRecovery?.toLong()?.toString() ?: "0",
                                                 style = MaterialTheme.typography.bodyMedium
                                             )
                                         }
@@ -1484,8 +1483,7 @@ fun FormLocoScreen(
                                                     style = MaterialTheme.typography.bodyMedium
                                                 )
                                                 Text(
-                                                    text = overResult2?.intValueExact()
-                                                        ?.toString()
+                                                    text = overResult2?.toLong()?.toString()
                                                         ?: "0",
                                                     style = MaterialTheme.typography.bodyMedium
                                                 )
@@ -1545,8 +1543,8 @@ fun FormLocoScreen(
                                             ) {
 
                                                 val result2 =
-                                                    (locomotive.normaElectricCurrent2 - overResult2?.intValueExact())
-                                                        ?: 0
+                                                    (locomotive.normaElectricCurrent2 ?: 0) -
+                                                        (overResult2?.toLong()?.toInt() ?: 0)
 
                                                 val resultText2 = if (result2 > 0) {
                                                     "+${result2}"
