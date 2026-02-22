@@ -19,23 +19,23 @@ import kotlinx.coroutines.flow.Flow
  *   // androidMain
  *   class AndroidTokenStorage(context: Context) : TokenStorage { ... }
  */
-class SecureTokenStorage(private val context: Context) {
+actual class SecureTokenStorage(private val context: Context) {
 
-    suspend fun saveAuthToken(token: String) =
+    actual suspend fun saveAuthToken(token: String) =
         SecureDataStore.saveAuthToken(context, token)
 
-    fun getAuthBearerTokenFlow(): Flow<String?> =
+    actual fun getAuthBearerTokenFlow(): Flow<String?> =
         SecureDataStore.getAuthBearerTokenFlow(context)
 
-    suspend fun saveVkId(vkId: String) =
+    actual suspend fun saveVkId(vkId: String) =
         SecureDataStore.saveVkId(context, vkId)
 
-    fun getVkIdFlow(): Flow<String?> =
+    actual fun getVkIdFlow(): Flow<String?> =
         SecureDataStore.getVkIdFlow(context)
 
-    suspend fun saveUserId(userId: String) =
+    actual suspend fun saveUserId(userId: String) =
         SecureDataStore.saveUserId(context, userId)
 
-    fun getUserIdFlow(): Flow<String?> =
+    actual fun getUserIdFlow(): Flow<String?> =
         SecureDataStore.getUserIdFlow(context)
 }
