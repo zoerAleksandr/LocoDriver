@@ -8,7 +8,6 @@ package com.z_company.work_manager
 // Если токена нет или ошибка - retry.
 
 import android.content.Context
-import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.z_company.core.ResultState
@@ -19,9 +18,9 @@ import com.z_company.repository.remote_rest.SyncManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import kotlinx.datetime.Clock
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import java.util.Calendar
 
 class SyncWorker(
     val appContext: Context,
@@ -37,7 +36,7 @@ class SyncWorker(
         return withContext(Dispatchers.IO) {
             try {
                 val userSettings = settingsUseCase.getUserSettingFlow().first()
-                if (userSettings.subscriptionPeriod < Calendar.getInstance().timeInMillis) {
+                if (userSettings.subscriptionPeriod < Clock.System.now().toEpochMilliseconds()) {
                     return@withContext Result.success()
                 }
 

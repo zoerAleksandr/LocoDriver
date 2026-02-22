@@ -11,7 +11,6 @@ import io.ktor.client.plugins.ServerResponseException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import java.io.IOException
 
 /**
  * Менеджер аутентификации.
@@ -44,10 +43,8 @@ class AuthManager(
             emit(RegistrationState.Error("Ошибка: ${e.response.status.value}", code = e.response.status.value))
         } catch (e: ServerResponseException) {
             emit(RegistrationState.Error("Ошибка сервера: ${e.response.status.value}", code = e.response.status.value))
-        } catch (e: IOException) {
-            emit(RegistrationState.Error("Нет соединения: ${e.message}"))
         } catch (e: Exception) {
-            emit(RegistrationState.Error("Неизвестная ошибка: ${e.message}"))
+            emit(RegistrationState.Error("Ошибка: ${e.message}"))
         }
     }
 
@@ -74,10 +71,8 @@ class AuthManager(
             emit(RegistrationState.Error("Ошибка: ${e.response.status.value}", code = e.response.status.value))
         } catch (e: ServerResponseException) {
             emit(RegistrationState.Error("Ошибка сервера: ${e.response.status.value}", code = e.response.status.value))
-        } catch (e: IOException) {
-            emit(RegistrationState.Error("Нет соединения: ${e.message}"))
         } catch (e: Exception) {
-            emit(RegistrationState.Error("Неизвестная ошибка: ${e.message}"))
+            emit(RegistrationState.Error("Ошибка: ${e.message}"))
         }
     }
 
@@ -102,10 +97,8 @@ class AuthManager(
                 else -> "Ошибка: ${e.response.status.value} - ${e.message}"
             }
             emit(AuthState.Error(text))
-        } catch (e: IOException) {
-            emit(AuthState.Error("Нет соединения: ${e.message}"))
         } catch (e: Exception) {
-            emit(AuthState.Error("Неизвестная ошибка: ${e.message}"))
+            emit(AuthState.Error("Ошибка: ${e.message}"))
         }
     }
 
@@ -130,10 +123,8 @@ class AuthManager(
                 else -> "Ошибка: ${e.response.status.value} - ${e.message}"
             }
             emit(AuthState.Error(text))
-        } catch (e: IOException) {
-            emit(AuthState.Error("Нет соединения: ${e.message}"))
         } catch (e: Exception) {
-            emit(AuthState.Error("Неизвестная ошибка: ${e.message}"))
+            emit(AuthState.Error("Ошибка: ${e.message}"))
         }
     }
 
@@ -149,10 +140,8 @@ class AuthManager(
             )
         } catch (e: ClientRequestException) {
             emit(GetUserProfileState.Error("Ошибка: ${e.message}", code = e.response.status.value))
-        } catch (e: IOException) {
-            emit(GetUserProfileState.Error("Нет соединения: ${e.message}"))
         } catch (e: Exception) {
-            emit(GetUserProfileState.Error("Неизвестная ошибка: ${e.message}"))
+            emit(GetUserProfileState.Error("Ошибка: ${e.message}"))
         }
     }
 
@@ -169,10 +158,8 @@ class AuthManager(
             )
         } catch (e: ClientRequestException) {
             emit(GetUserProfileState.Error("Ошибка: ${e.message}", code = e.response.status.value))
-        } catch (e: IOException) {
-            emit(GetUserProfileState.Error("Нет соединения: ${e.message}"))
         } catch (e: Exception) {
-            emit(GetUserProfileState.Error("Неизвестная ошибка: ${e.message}"))
+            emit(GetUserProfileState.Error("Ошибка: ${e.message}"))
         }
     }
 
@@ -188,10 +175,8 @@ class AuthManager(
             )
         } catch (e: ClientRequestException) {
             emit(GetUserProfileState.Error(message = "Ошибка: ${e.message}", code = e.response.status.value))
-        } catch (e: IOException) {
-            emit(GetUserProfileState.Error("Нет соединения: ${e.message}"))
         } catch (e: Exception) {
-            emit(GetUserProfileState.Error("Неизвестная ошибка: ${e.message}"))
+            emit(GetUserProfileState.Error("Ошибка: ${e.message}"))
         }
     }
 
@@ -202,10 +187,8 @@ class AuthManager(
             emit(ResponseState.Success)
         } catch (e: ClientRequestException) {
             emit(ResponseState.Error("Ошибка: ${e.response.status.value} - ${e.message}"))
-        } catch (e: IOException) {
-            emit(ResponseState.Error("Нет соединения: ${e.message}"))
         } catch (e: Exception) {
-            emit(ResponseState.Error("Неизвестная ошибка: ${e.message}"))
+            emit(ResponseState.Error("Ошибка: ${e.message}"))
         }
     }
 
@@ -218,10 +201,8 @@ class AuthManager(
             emit(ResponseState.Success)
         } catch (e: ClientRequestException) {
             emit(ResponseState.Error("Ошибка: ${e.response.status.value} - ${e.message}"))
-        } catch (e: IOException) {
-            emit(ResponseState.Error("Нет соединения: ${e.message}"))
         } catch (e: Exception) {
-            emit(ResponseState.Error("Неизвестная ошибка: ${e.message}"))
+            emit(ResponseState.Error("Ошибка: ${e.message}"))
         }
     }
 }

@@ -12,8 +12,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import java.util.Calendar
-import java.util.Calendar.getInstance
+import kotlinx.datetime.Clock
 //
 class SubscriptionHelper() : KoinComponent {
     private val settingsUseCase: SettingsUseCase by inject()
@@ -46,7 +45,7 @@ class SubscriptionHelper() : KoinComponent {
                 val dateAndTimeConverter = DateAndTimeConverter(setting)
                 val time = dateAndTimeConverter.getDateAndTime(purchaseTimeEnd)
 
-                if (purchaseTimeEnd > getInstance().timeInMillis) {
+                if (purchaseTimeEnd > Clock.System.now().toEpochMilliseconds()) {
                     val updateResult = settingsUseCase.updateSubscriptionPeriod(purchaseTimeEnd)
                         .first { it !is ResultState.Loading }
                     if (updateResult is ResultState.Success) {

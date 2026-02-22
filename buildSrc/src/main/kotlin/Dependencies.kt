@@ -240,7 +240,9 @@ object Libs {
     const val sqldelight_primitive_adapters = "app.cash.sqldelight:primitive-adapters:${Versions.sqldelight_ver}"
 
     // Ktor
+    const val ktor_client_core = "io.ktor:ktor-client-core:$ktor_ver"
     const val ktor_client_android = "io.ktor:ktor-client-android:$ktor_ver"
+    const val ktor_client_darwin = "io.ktor:ktor-client-darwin:$ktor_ver"
     const val ktor_client_content_negotiation = "io.ktor:ktor-client-content-negotiation:$ktor_ver"
     const val ktor_serialization_kotlinx_json = "io.ktor:ktor-serialization-kotlinx-json:$ktor_ver"
     const val ktor_client_logging = "io.ktor:ktor-client-logging:$ktor_ver"

@@ -1,7 +1,6 @@
 package com.z_company.repository.remote_rest
 
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.android.Android
 import io.ktor.client.plugins.DefaultRequest
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.logging.LogLevel
@@ -16,7 +15,7 @@ import com.z_company.domain.entities.serializers.DoubleAsStringSerializer
 /**
  * Фабрика Ktor HttpClient.
  * Заменяет Retrofit + OkHttp + Gson.
- * Используется только через Koin DI (см. RepositoryModule).
+ * Движок HTTP задаётся через expect/actual (createHttpEngine()).
  */
 object RemoteRestClient {
     private const val BASE_URL = "http://87.228.110.32:8766/"
@@ -38,7 +37,7 @@ object RemoteRestClient {
         KtorApiForSendEmail(createClient(BASE_URL_FOR_SEND_EMAIL))
     }
 
-    private fun createClient(baseUrl: String): HttpClient = HttpClient(Android) {
+    private fun createClient(baseUrl: String): HttpClient = HttpClient(createHttpEngine()) {
         install(ContentNegotiation) {
             json(appJson)
         }

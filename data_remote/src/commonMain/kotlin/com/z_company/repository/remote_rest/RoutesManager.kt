@@ -1,6 +1,5 @@
 package com.z_company.repository.remote_rest
 
-import android.util.Log
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.route.Route
@@ -28,15 +27,12 @@ class RoutesManager(
             remoteRestApi.saveRoute(token = bearerToken, data = route)
             emit(ResultState.Success(Unit))
         } catch (e: ClientRequestException) {
-            Log.d("zzz", "save route error: code=${e.response.status.value}")
             emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения: ${e.response.status.value}")))
         } catch (e: Exception) {
-            Log.d("zzz", "save route ${e.message}")
             emit(ResultState.Error(ErrorEntity(throwable = e)))
         }
-    }.flowOn(Dispatchers.IO)
+    }.flowOn(Dispatchers.Default)
         .catch { e ->
-            Log.d("zzz", "catch $e ${e.message}")
             emit(ResultState.Error(ErrorEntity(throwable = e)))
         }
 

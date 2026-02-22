@@ -67,5 +67,16 @@ val repositoryModule = module {
 
     single { RouteActionsHelper() }
     single { SubscriptionHelper() }
-    single { SyncManager() }
+    // Шаг 10: SyncManager — конструкторная инжекция (KoinComponent → DI)
+    single {
+        SyncManager(
+            settingsUseCase = get(),
+            salarySettingUseCase = get(),
+            calendarUseCase = get(),
+            routeUseCase = get(),
+            routesManager = get(),
+            settingManager = get(),
+            sharedPrefs = get()
+        )
+    }
 }
