@@ -653,27 +653,27 @@ fun PreviewRoute(
                                 Column {
                                     locomotive.electricSectionList.forEachIndexed { index, sectionElectric ->
                                         val acceptedEnergyText =
-                                            sectionElectric.acceptedEnergy?.toPlainString()
+                                            sectionElectric.acceptedEnergy?.str()
                                                 ?: ""
                                         val deliveryEnergyText =
-                                            sectionElectric.deliveryEnergy?.toPlainString()
+                                            sectionElectric.deliveryEnergy?.str()
                                                 ?: ""
                                         val acceptedRecoveryText =
-                                            sectionElectric.acceptedRecovery?.toPlainString()
+                                            sectionElectric.acceptedRecovery?.str()
                                                 ?: ""
                                         val deliveryRecoveryText =
-                                            sectionElectric.deliveryRecovery?.toPlainString()
+                                            sectionElectric.deliveryRecovery?.str()
                                                 ?: ""
                                         val consumptionEnergy =
                                             CalculationEnergy.getTotalEnergyConsumption(
                                                 accepted = sectionElectric.acceptedEnergy,
                                                 delivery = sectionElectric.deliveryEnergy
-                                            )?.toPlainString() ?: ""
+                                            )?.str() ?: ""
                                         val consumptionRecovery =
                                             CalculationEnergy.getTotalEnergyConsumption(
                                                 accepted = sectionElectric.acceptedRecovery,
                                                 delivery = sectionElectric.deliveryRecovery
-                                            )?.toPlainString() ?: ""
+                                            )?.str() ?: ""
 
                                         Row(
                                             modifier = Modifier

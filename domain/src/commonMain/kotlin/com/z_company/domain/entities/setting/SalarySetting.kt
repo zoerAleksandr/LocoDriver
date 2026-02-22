@@ -1,6 +1,6 @@
 package com.z_company.domain.entities.setting
 
-import java.util.UUID
+import com.z_company.domain.util.generateId
 import kotlinx.serialization.Serializable
 
 const val SALARY_SETTINGS_KEY = "Salary_Setting_Key"
@@ -29,14 +29,14 @@ data class SalarySetting(
 
 @Serializable
 data class SurchargeExtendedServicePhase(
-    val id: String = UUID.randomUUID().toString(),
+    val id: String = generateId(),
     var distance: String = "",
     var percentSurcharge: String = ""
 )
 
 @Serializable
 data class SurchargeHeavyTrains(
-    val id: String = UUID.randomUUID().toString(),
+    val id: String = generateId(),
     val weight: String = "",
     val percentSurcharge: String = ""
 )

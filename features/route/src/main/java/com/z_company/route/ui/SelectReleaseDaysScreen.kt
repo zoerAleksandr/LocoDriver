@@ -59,6 +59,13 @@ import com.z_company.route.component.ChipApp
 import java.util.Calendar
 import java.util.Date
 import androidx.compose.foundation.pager.HorizontalPager
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.plus
+import kotlinx.datetime.toLocalDateTime
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.rememberCoroutineScope
 import com.z_company.domain.entities.ReleasePeriod
@@ -311,7 +318,7 @@ fun SelectReleaseDaysContent(
     }
 
     var showTypeSheet by remember { mutableStateOf(false) }
-    var pendingDays by remember { mutableStateOf<List<Calendar>>(emptyList()) }
+    var pendingDays by remember { mutableStateOf<List<LocalDate>>(emptyList()) }
     val typeSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     if (showTypeSheet) {
@@ -333,11 +340,15 @@ fun SelectReleaseDaysContent(
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
 
+                val _tz = TimeZone.currentSystemDefault()
                 val startDateStr =
-                    dateAndTimeConverter?.getDateFromDateLong(pendingDays.first().timeInMillis)
-                        ?: ""
+                    dateAndTimeConverter?.getDateFromDateLong(
+                        pendingDays.first().atStartOfDayIn(_tz).toEpochMilliseconds()
+                    ) ?: ""
                 val endDateStr = if (pendingDays.size > 1) " - ${
-                    dateAndTimeConverter?.getDateFromDateLong(pendingDays.last().timeInMillis) ?: ""
+                    dateAndTimeConverter?.getDateFromDateLong(
+                        pendingDays.last().atStartOfDayIn(_tz).toEpochMilliseconds()
+                    ) ?: ""
                 }" else ""
                 Text(
                     text = "Период: $startDateStr$endDateStr",
@@ -522,9 +533,10 @@ fun SelectReleaseDaysContent(
                     releasePeriodListState?.let { releaseDayList ->
                         if (releaseDayList.isNotEmpty()) {
 
+                            val _sortTz = TimeZone.currentSystemDefault()
                             val sortedReleasePeriods = releaseDayList
                                 .filter { it.days.isNotEmpty() }
-                                .sortedBy { it.days.minOf { day -> day.timeInMillis } }
+                                .sortedBy { it.days.minOf { day -> day.atStartOfDayIn(_sortTz).toEpochMilliseconds() } }
 
                             sortedReleasePeriods.forEach { period ->
                                 val typeColors = mapOf(
@@ -577,9 +589,10 @@ fun SelectReleaseDaysContent(
                                             Row(
                                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                                             ) {
+                                                val _displayTz = TimeZone.currentSystemDefault()
                                                 Text(
                                                     text = dateAndTimeConverter?.getDateFromDateLong(
-                                                        period.days.first().timeInMillis
+                                                        period.days.first().atStartOfDayIn(_displayTz).toEpochMilliseconds()
                                                     ) ?: "",
                                                     style = styleData,
                                                     color = MaterialTheme.colorScheme.primary
@@ -593,7 +606,7 @@ fun SelectReleaseDaysContent(
                                                         )
                                                         Text(
                                                             text = dateAndTimeConverter?.getDateFromDateLong(
-                                                                it.timeInMillis
+                                                                it.atStartOfDayIn(_displayTz).toEpochMilliseconds()
                                                             ) ?: "",
                                                             style = styleData,
                                                             color = MaterialTheme.colorScheme.primary
@@ -643,25 +656,17 @@ fun SelectReleaseDaysContent(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                     ),
                     onClick = {
-                        val list = mutableListOf<Calendar>()
+                        val list = mutableListOf<LocalDate>()
                         selectedStart?.let { startMillis ->
-                            val startCal =
-                                Calendar.getInstance().apply { timeInMillis = startMillis }
-                            startCal.set(Calendar.HOUR_OF_DAY, 0)
-                            startCal.set(Calendar.MINUTE, 0)
-                            startCal.set(Calendar.SECOND, 0)
-                            startCal.set(Calendar.MILLISECOND, 0)
-                            val endCal = selectedEnd?.let {
-                                Calendar.getInstance().apply { timeInMillis = it }
-                            } ?: startCal
-                            endCal.set(Calendar.HOUR_OF_DAY, 0)
-                            endCal.set(Calendar.MINUTE, 0)
-                            endCal.set(Calendar.SECOND, 0)
-                            endCal.set(Calendar.MILLISECOND, 0)
-                            var current = startCal.clone() as Calendar
-                            while (!current.after(endCal)) {
-                                list.add(current.clone() as Calendar)
-                                current.add(Calendar.DAY_OF_MONTH, 1)
+                            val tz = TimeZone.currentSystemDefault()
+                            val startDate = Instant.fromEpochMilliseconds(startMillis).toLocalDateTime(tz).date
+                            val endDate = selectedEnd?.let {
+                                Instant.fromEpochMilliseconds(it).toLocalDateTime(tz).date
+                            } ?: startDate
+                            var current = startDate
+                            while (current <= endDate) {
+                                list.add(current)
+                                current = current.plus(1, DateTimeUnit.DAY)
                             }
                         }
                         if (list.isNotEmpty()) {
@@ -891,8 +896,9 @@ fun FullCalendarForRelease(
                                     ReleaseType.Other to Color.Gray
                                 )
 
+                                val _calTz = TimeZone.currentSystemDefault()
                                 val period = periods.firstOrNull { period ->
-                                    period.days.any { isSameDay(it.timeInMillis, dateMillis) }
+                                    period.days.any { isSameDay(it.atStartOfDayIn(_calTz).toEpochMilliseconds(), dateMillis) }
                                 }
 
                                 val periodColor: Color? = period?.type?.let { typeColors[it] }

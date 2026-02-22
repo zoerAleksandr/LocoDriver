@@ -19,13 +19,9 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.datetime.LocalDate
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import java.util.Calendar
-import java.util.Calendar.DAY_OF_MONTH
-import java.util.Calendar.MONTH
-import java.util.Calendar.YEAR
-import java.util.Calendar.getInstance
 import kotlin.collections.find
 
 class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
@@ -103,7 +99,6 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
     private fun loadMonthList() {
         loadCalendarJob?.cancel()
         loadCalendarJob = calendarUseCase.loadFlowMonthOfYearListState().onEach { result ->
-//            if (result is ResultState.Success) {
                 allMonthOfYear = result
                 _uiState.update { state ->
                     state.copy(
@@ -112,21 +107,19 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
                     )
                 }
                 newMonthList = result.toMutableList()
-
-//            }
         }.launchIn(viewModelScope)
     }
 
     private fun testAddPeriodInMonthOfYear(period: ReleasePeriod) {
         period.days.forEach { releaseDay ->
             val searchMonth = newMonthList.find {
-                it.month == releaseDay.get(MONTH) && it.year == releaseDay.get(YEAR)
+                it.month == releaseDay.monthNumber - 1 && it.year == releaseDay.year
             }
             searchMonth?.let {
                 val indexMonthList = newMonthList.indexOf(searchMonth)
                 if (indexMonthList != -1) {
                     val day = newMonthList[indexMonthList].days.find { d ->
-                        d.dayOfMonth == releaseDay.get(DAY_OF_MONTH)
+                        d.dayOfMonth == releaseDay.dayOfMonth
                     }
                     day?.let {
                         val indexDay = newMonthList[indexMonthList].days.indexOf(it)
@@ -148,13 +141,13 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
     private fun testRemovePeriodInMonthOfYear(period: ReleasePeriod) {
         period.days.forEach { releaseDay ->
             val searchMonth = newMonthList.find {
-                it.month == releaseDay.get(MONTH) && it.year == releaseDay.get(YEAR)
+                it.month == releaseDay.monthNumber - 1 && it.year == releaseDay.year
             }
             searchMonth?.let {
                 val indexMonthList = newMonthList.indexOf(searchMonth)
                 if (indexMonthList != -1) {
                     val day = newMonthList[indexMonthList].days.find { d ->
-                        d.dayOfMonth == releaseDay.get(DAY_OF_MONTH)
+                        d.dayOfMonth == releaseDay.dayOfMonth
                     }
                     day?.let {
                         val indexDay = newMonthList[indexMonthList].days.indexOf(it)
@@ -216,15 +209,13 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
 
     private fun setReleasePeriodState(monthOfYear: MonthOfYear) {
         releasePeriodListState.clear()
-        val listReleasePeriod = mutableListOf<Calendar>()
+        val listReleasePeriod = mutableListOf<LocalDate>()
         var isBegunCounting = false
         var currentType: ReleaseType? = null
         monthOfYear.days.forEachIndexed { index, day ->
             if (day.isReleaseDay) {
-                // Изменено: Добавлена проверка на изменение типа отвлечения внутри последовательности release дней.
-                // Для чего: Чтобы не объединять последовательные периоды с разными типами в один. Если тип изменился, завершаем текущий период и начинаем новый с новым типом. Это решает проблему, когда два разных типа определялись как один при загрузке данных.
                 if (isBegunCounting && currentType != day.releaseType) {
-                    val copyList = mutableListOf<Calendar>()
+                    val copyList = mutableListOf<LocalDate>()
                     copyList.addAll(listReleasePeriod)
                     releasePeriodListState.add(
                         ReleasePeriod(
@@ -240,18 +231,12 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
                     currentType = day.releaseType
                 }
                 listReleasePeriod.add(
-                    getInstance().also {
-                        it.set(DAY_OF_MONTH, day.dayOfMonth)
-                        it.set(MONTH, monthOfYear.month)
-                        it.set(YEAR, monthOfYear.year)
-                    }
+                    LocalDate(monthOfYear.year, monthOfYear.month + 1, day.dayOfMonth)
                 )
-                // Изменено: Убрана проверка на конец списка внутри if (day.isReleaseDay), так как теперь завершение периода обрабатывается после цикла или при смене типа/не-release дне.
-                // Для чего: Чтобы упростить логику и обеспечить, что последний период добавляется правильно после цикла, если он открыт.
             } else {
                 if (isBegunCounting) {
                     isBegunCounting = false
-                    val copyList = mutableListOf<Calendar>()
+                    val copyList = mutableListOf<LocalDate>()
                     copyList.addAll(listReleasePeriod)
                     releasePeriodListState.add(
                         ReleasePeriod(
@@ -264,10 +249,8 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
                 }
             }
         }
-        // Изменено: Добавлена проверка после цикла на добавление последнего периода, если он был открыт.
-        // Для чего: Чтобы убедиться, что если release дни идут до конца месяца, период все равно добавляется.
         if (isBegunCounting) {
-            val copyList = mutableListOf<Calendar>()
+            val copyList = mutableListOf<LocalDate>()
             copyList.addAll(listReleasePeriod)
             releasePeriodListState.add(
                 ReleasePeriod(

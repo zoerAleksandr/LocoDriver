@@ -932,14 +932,14 @@ class LocoFormViewModel(
                     electricSectionList = _electricSectionListState.value.map { state ->
                         SectionElectric(
                             sectionId = state.sectionId,
-                            acceptedEnergy = state.accepted.data?.toBigDecimalOrNull(),
-                            deliveryEnergy = state.delivery.data?.toBigDecimalOrNull(),
-                            acceptedRecovery = state.recoveryAccepted.data?.toBigDecimalOrNull(),
-                            deliveryRecovery = state.recoveryDelivery.data?.toBigDecimalOrNull(),
-                            acceptedEnergyOtherCurrent = state.accepted2.data?.toBigDecimalOrNull(),
-                            deliveryEnergyOtherCurrent = state.delivery2.data?.toBigDecimalOrNull(),
-                            acceptedRecoveryOtherCurrent = state.recoveryAccepted2.data?.toBigDecimalOrNull(),
-                            deliveryRecoveryOtherCurrent = state.recoveryDelivery2.data?.toBigDecimalOrNull(),
+                            acceptedEnergy = state.accepted.data?.toDoubleOrNull(),
+                            deliveryEnergy = state.delivery.data?.toDoubleOrNull(),
+                            acceptedRecovery = state.recoveryAccepted.data?.toDoubleOrNull(),
+                            deliveryRecovery = state.recoveryDelivery.data?.toDoubleOrNull(),
+                            acceptedEnergyOtherCurrent = state.accepted2.data?.toDoubleOrNull(),
+                            deliveryEnergyOtherCurrent = state.delivery2.data?.toDoubleOrNull(),
+                            acceptedRecoveryOtherCurrent = state.recoveryAccepted2.data?.toDoubleOrNull(),
+                            deliveryRecoveryOtherCurrent = state.recoveryDelivery2.data?.toDoubleOrNull(),
                         )
                     }.toMutableList()
                 )

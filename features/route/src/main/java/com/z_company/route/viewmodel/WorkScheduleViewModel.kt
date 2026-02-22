@@ -38,6 +38,7 @@ import kotlin.collections.sorted
 import com.z_company.domain.entities.ReleaseType
 import com.z_company.domain.entities.ReleasePeriod
 import com.z_company.domain.entities.TagForDay
+import kotlinx.datetime.LocalDate
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHoursExcludingWeekends
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHoursIncludingWeekends
 import com.z_company.repository.SecureTokenStorage
@@ -246,7 +247,7 @@ class WorkScheduleViewModel : ViewModel(), KoinComponent {
 
                                 // Строим releasePeriods аналогично setReleasePeriodState
                                 val periods = mutableListOf<ReleasePeriod>()
-                                val listReleasePeriod = mutableListOf<Calendar>()
+                                val listReleasePeriod = mutableListOf<LocalDate>()
                                 var isBegunCounting = false
                                 var currentType: ReleaseType? = null
                                 fullMonth.days.forEachIndexed { index, day ->
@@ -256,19 +257,11 @@ class WorkScheduleViewModel : ViewModel(), KoinComponent {
                                             currentType = day.releaseType
                                         }
                                         listReleasePeriod.add(
-                                            Calendar.getInstance().also {
-                                                it.set(Calendar.YEAR, fullMonth.year)
-                                                it.set(Calendar.MONTH, fullMonth.month)
-                                                it.set(Calendar.DAY_OF_MONTH, day.dayOfMonth)
-                                                it.set(Calendar.HOUR_OF_DAY, 0)
-                                                it.set(Calendar.MINUTE, 0)
-                                                it.set(Calendar.SECOND, 0)
-                                                it.set(Calendar.MILLISECOND, 0)
-                                            }
+                                            LocalDate(fullMonth.year, fullMonth.month + 1, day.dayOfMonth)
                                         )
                                         if ((index + 1 == fullMonth.days.size)) {
                                             isBegunCounting = false
-                                            val copyList = mutableListOf<Calendar>().apply {
+                                            val copyList = mutableListOf<LocalDate>().apply {
                                                 addAll(listReleasePeriod)
                                             }
                                             periods.add(
@@ -282,7 +275,7 @@ class WorkScheduleViewModel : ViewModel(), KoinComponent {
                                     } else {
                                         if (isBegunCounting) {
                                             isBegunCounting = false
-                                            val copyList = mutableListOf<Calendar>().apply {
+                                            val copyList = mutableListOf<LocalDate>().apply {
                                                 addAll(listReleasePeriod)
                                             }
                                             periods.add(
