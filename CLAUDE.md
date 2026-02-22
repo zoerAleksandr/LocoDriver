@@ -42,77 +42,43 @@
 - `ResultState.flowRequest`: `Dispatchers.IO` → `Dispatchers.Default`
 - Namespace: `com.z_company.core.common`
 
----
+### ✅ Шаг 7 — domain: java.util.Calendar → kotlinx-datetime
+- Все `java.util.Calendar`, `java.util.TimeZone`, `java.util.Date` заменены на `kotlinx-datetime`
+- `java.util.UUID` → `kotlin.uuid.Uuid` (Kotlin 2.0+)
+- `java.math.BigDecimal` → `Double` + `DoubleAsStringSerializer`
 
-## 🔴 Текущий шаг: Шаг 7 — domain: java.util.Calendar → kotlinx-datetime
+### ✅ Шаг 8 — domain: конвертация в KMP
+- Plugin: `kotlin("multiplatform")` + `android.library`
+- Targets: `jvm()`, `androidTarget()`, `iosArm64()`, `iosX64()`, `iosSimulatorArm64()`
+- Исходники: `src/commonMain/kotlin/`
+- Зависимости: `kotlinx-datetime`, `kotlinx-coroutines`, `kotlinx-serialization`
 
-### Контекст
-`domain` — JVM-модуль с `java-library` + `kotlin-jvm`. Чтобы конвертировать
-его в KMP (`commonMain`), нужно убрать все Java API, недоступные на iOS.
-
-### Java API в domain (что заменить)
-
-| Файл | Java API | KMP-замена |
-|------|----------|-----------|
-| `CalculateNightTime.kt` | `java.util.Calendar`, `java.util.TimeZone` | `kotlinx-datetime` |
-| `UtilsForEntities.kt` | `java.util.Calendar`, `java.util.TimeZone` | `kotlinx-datetime` |
-| `UtilForMonthOfYear.kt` | `java.util.Calendar` | `kotlinx-datetime` |
-| `MonthOfYear.kt` | `java.util.Calendar`, `java.util.Date` | `kotlinx-datetime` |
-| `BasicData.kt` | `java.util.Calendar` | `kotlinx-datetime` |
-| `RouteUseCase.kt` | `java.util.Calendar` | `kotlinx-datetime` |
-| `UserSettings.kt` | `java.util.Calendar` | `kotlinx-datetime` |
-| `Serializers.kt` | `java.util.Date` | убрать/заменить |
-| везде | `java.util.UUID` | `kotlin.uuid.Uuid` (Kotlin 2.0+) |
-| везде | `java.math.BigDecimal` | `Double` (уже в моделях) |
-
-### Стратегия замены Calendar
-
-```
-java.util.Calendar (эпоха в миллисекундах) →
-    kotlinx.datetime.Instant (fromEpochMilliseconds / toEpochMilliseconds)
-    kotlinx.datetime.LocalDateTime
-    kotlinx.datetime.TimeZone
-    kotlinx.datetime.toLocalDateTime()
-```
-
-**Ключевые паттерны:**
-```kotlin
-// Было
-Calendar.getInstance(TimeZone.getTimeZone("GMT+3")).also {
-    it.timeInMillis = millis
-    it.set(Calendar.HOUR_OF_DAY, hour)
-}
-// Стало
-val tz = TimeZone.of("GMT+3")
-val dt = Instant.fromEpochMilliseconds(millis).toLocalDateTime(tz)
-    .let { it.date.atTime(hour, minute) }
-    .toInstant(tz)
-```
-
-### После замены Calendar: Шаг 8
-
-- Конвертировать `domain` в KMP: добавить `kotlin("multiplatform")`,
-  переместить в `commonMain/kotlin/`
-- Добавить iOS-таргеты (`iosArm64`, `iosX64`, `iosSimulatorArm64`) в `core` и `domain`
+### ✅ Шаг 14 — iosApp: Compose Multiplatform iOS entry point
+- `iosApp/build.gradle.kts`: KMP + XCFramework «ComposeApp»
+- `App.kt`: корневой @Composable (заглушка, шаг 15 подключит навигацию)
+- `MainViewController.kt`: `ComposeUIViewController` мост Kotlin → UIKit
+- `iOSApp.swift` + `ContentView.swift`: Swift entry point
 
 ---
 
-## Шаг 9 — Room → SQLDelight в data_local (крупный)
-- 37 файлов используют `androidx.room`
-- SQLDelight поддерживает Android (SQLite) и iOS (SQLiteDriver)
-- Сохранить все 12 версий схемы / авто-миграции
+### ✅ Шаг 9 — Room → SQLDelight в data_local
+- Plugin `sqldelight`, 4 базы: RouteDatabase, SettingsDatabase, SalarySettingDatabase, SearchResponseDatabase
+- 9 `.sq` файлов: BasicData, Locomotive, Passenger, Photo, Train, SearchResponse, MonthOfYear, UserSettings, SalarySetting
+- expect/actual `DatabaseDriverFactory`: Android → `AndroidSqliteDriver`, iOS → `NativeSqliteDriver`
 
-## Шаг 10 — data_remote: добавить iOS Ktor engine
-- Заменить `ktor-client-android` → `ktor-client-darwin` (iOS) / общий `ktor-client-core`
-- `expect/actual` для создания HttpClient на каждой платформе
+### ✅ Шаг 10 — data_remote: iOS Ktor engine
+- `expect fun createHttpEngine()` → Android: `AndroidClientEngine`, iOS: `Darwin` (NSURLSession)
 
-## Шаг 11 — SecureTokenStorage: expect/actual
-- Android: DataStore + Tink (текущая реализация)
-- iOS: Keychain через `multiplatform-settings` или нативный API
+### ✅ Шаг 11 — SecureTokenStorage: expect/actual
+- Android: DataStore + Tink (AES256_GCM, AndroidKeyStore)
+- iOS: Keychain Services (`kSecClassGenericPassword`)
 
-## Шаг 12 — Создать Xcode проект + iOS UI
-- Compose Multiplatform (рекомендуется для переиспользования UI)
-- ИЛИ SwiftUI + XCFramework (если нужен нативный iOS UI)
+### ✅ Шаг 12/14 — iOS entry point (Compose Multiplatform)
+- `iosApp` KMP-модуль, XCFramework «ComposeApp», Compose MP 1.8.0
+
+---
+
+## 🔴 Текущий шаг: Шаг 15 — подключить навигацию features/ к iosApp
 
 ---
 
