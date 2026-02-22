@@ -8,8 +8,6 @@ plugins {
 }
 
 kotlin {
-    jvm()
-
     androidTarget {
         compilations.all {
             compileTaskProvider.configure {
@@ -19,6 +17,10 @@ kotlin {
             }
         }
     }
+
+    iosArm64()
+    iosX64()
+    iosSimulatorArm64()
 
     sourceSets {
         commonMain.dependencies {
@@ -36,6 +38,9 @@ kotlin {
             implementation(Libs.koin_androidx_compose)
             implementation(Libs.sqldelight_android_driver)
             implementation(Libs.datastore_pref)
+        }
+        iosMain.dependencies {
+            implementation(Libs.sqldelight_native_driver)
         }
         commonTest.dependencies {
             implementation(TestLibs.kotlin_test)

@@ -236,6 +236,7 @@ object Libs {
 
     // SQLDelight
     const val sqldelight_android_driver = "app.cash.sqldelight:android-driver:${Versions.sqldelight_ver}"
+    const val sqldelight_native_driver = "app.cash.sqldelight:native-driver:${Versions.sqldelight_ver}"
     const val sqldelight_coroutines_extensions = "app.cash.sqldelight:coroutines-extensions:${Versions.sqldelight_ver}"
     const val sqldelight_primitive_adapters = "app.cash.sqldelight:primitive-adapters:${Versions.sqldelight_ver}"
 
