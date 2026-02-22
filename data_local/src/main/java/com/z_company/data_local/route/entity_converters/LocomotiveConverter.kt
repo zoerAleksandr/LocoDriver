@@ -2,6 +2,7 @@ package com.z_company.data_local.route.entity_converters
 
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.data_local.route.entity.Locomotive as LocomotiveEntity
+import java.math.BigDecimal
 
 internal object LocomotiveConverter {
     fun fromData(locomotive: Locomotive) = LocomotiveEntity(
@@ -20,8 +21,8 @@ internal object LocomotiveConverter {
         normaElectricCurrent1 = locomotive.normaElectricCurrent1,
         normaElectricCurrent2 = locomotive.normaElectricCurrent2,
         normaDiesel = locomotive.normaDiesel,
-        heatingCounterAccepted = locomotive.heatingCounterAccepted,
-        heatingCounterDelivery = locomotive.heatingCounterDelivery
+        heatingCounterAccepted = locomotive.heatingCounterAccepted?.let { BigDecimal(it) },
+        heatingCounterDelivery = locomotive.heatingCounterDelivery?.let { BigDecimal(it) }
     )
 
 
@@ -41,9 +42,8 @@ internal object LocomotiveConverter {
         normaElectricCurrent1 = entity.normaElectricCurrent1,
         normaElectricCurrent2 = entity.normaElectricCurrent2,
         normaDiesel = entity.normaDiesel,
-        heatingCounterAccepted = entity.heatingCounterAccepted,
-        heatingCounterDelivery = entity.heatingCounterDelivery
-
+        heatingCounterAccepted = entity.heatingCounterAccepted?.toDouble(),
+        heatingCounterDelivery = entity.heatingCounterDelivery?.toDouble()
     )
 
     fun fromDataList(list: List<Locomotive>): MutableList<LocomotiveEntity> {

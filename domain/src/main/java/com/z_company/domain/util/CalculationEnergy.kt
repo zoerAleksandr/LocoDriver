@@ -1,23 +1,11 @@
 package com.z_company.domain.util
 
-import java.math.BigDecimal
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
 object CalculationEnergy {
-    private fun differenceBetweenDouble(value1: BigDecimal?, value2: BigDecimal?): BigDecimal? {
-//        val countAfterPoint1: Int = value1?.scale() ?: 0
-//        val countAfterPoint2: Int = value2?.scale() ?: 0
-//        val maxCount = if (countAfterPoint1 > countAfterPoint2) {
-//            countAfterPoint1
-//        } else {
-//            countAfterPoint2
-//        }
-        val result = value2 - value1
-        return result
-//            ?.let {
-//            rounding(it, maxCount)
-//        }
+    private fun differenceBetweenDouble(value1: Double?, value2: Double?): Double? {
+        return value2 - value1
     }
 
     private fun reverseDifferenceBetweenDouble(value1: Double?, value2: Double?): Double? {
@@ -28,7 +16,7 @@ object CalculationEnergy {
         } else {
             countAfterPoint2
         }
-        if (maxCount > 2){
+        if (maxCount > 2) {
             maxCount = 2
         }
         val result = rounding(value1, 2).minus(rounding(value2, 2))
@@ -60,9 +48,9 @@ object CalculationEnergy {
     }
 
     fun getTotalEnergyConsumption(
-        accepted: BigDecimal?,
-        delivery: BigDecimal?
-    ): BigDecimal? {
+        accepted: Double?,
+        delivery: Double?
+    ): Double? {
         return differenceBetweenDouble(accepted, delivery)
     }
 }

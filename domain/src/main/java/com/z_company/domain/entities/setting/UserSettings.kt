@@ -2,12 +2,12 @@ package com.z_company.domain.entities.setting
 
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.route.LocoType
+import com.z_company.domain.util.generateId
+import kotlinx.datetime.Clock
 import kotlinx.serialization.Serializable
-import java.util.Calendar
-import java.util.UUID
 
 const val SETTINGS_KEY = "User_Settings_Key"
-val timestamp = Calendar.getInstance().timeInMillis
+val timestamp = Clock.System.now().toEpochMilliseconds()
 const val oneHourInMillis = 3_600_000
 const val hourInMillis8 = oneHourInMillis * 8L
 const val hourInMillis20 = oneHourInMillis * 20L
@@ -36,7 +36,7 @@ data class UserSettings(
 
 @Serializable
 data class ServicePhase(
-    val id: String = UUID.randomUUID().toString(),
+    val id: String = generateId(),
     val departureStation: String,
     val arrivalStation: String,
     val distance: Int

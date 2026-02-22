@@ -1,11 +1,11 @@
 package com.z_company.domain.entities.route
 
+import com.z_company.domain.util.generateId
 import kotlinx.serialization.Serializable
-import java.util.UUID
 
 @Serializable
 data class Passenger(
-    var passengerId: String = UUID.randomUUID().toString(),
+    var passengerId: String = generateId(),
     var basicId: String = "",
     var remoteObjectId: String? = null,
     var trainNumber: String? = null,

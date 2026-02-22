@@ -1,7 +1,9 @@
 package com.z_company.domain.entities
 
-import java.util.Calendar
-import java.util.UUID
+import com.z_company.domain.util.generateId
+import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.descriptors.PrimitiveKind
@@ -9,6 +11,7 @@ import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
+import kotlinx.datetime.LocalDate
 
 @Serializable
 enum class TagForDay {
@@ -17,19 +20,18 @@ enum class TagForDay {
 
 @Serializable
 data class MonthOfYear(
-    var id: String = UUID.randomUUID().toString(),
-    var year: Int = Calendar.getInstance().get(Calendar.YEAR),
-    var month: Int = Calendar.getInstance().get(Calendar.MONTH),
+    var id: String = generateId(),
+    var year: Int = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).year,
+    var month: Int = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).monthNumber - 1,
     val days: List<Day> = listOf(),
     val tariffRate: Double = 0.0,
     val dateSetTariffRate: DateSetTariffRate? = null
 )
 
-// ReleasePeriod содержит List<Calendar> — не сериализуется через kotlinx.serialization.
-// Используется только локально (не отправляется на сервер).
+// ReleasePeriod содержит List<LocalDate> — используется только локально (не отправляется на сервер).
 data class ReleasePeriod(
-    val id: String = UUID.randomUUID().toString(),
-    val days: List<Calendar> = listOf(),
+    val id: String = generateId(),
+    val days: List<LocalDate> = listOf(),
     val type: ReleaseType? = null
 )
 
@@ -78,7 +80,7 @@ data class Day(
 
 @Serializable
 data class DateSetTariffRate(
-    val id: String = UUID.randomUUID().toString(),
+    val id: String = generateId(),
     val dateNewRate: Int,
     val oldRate: Double,
 )

@@ -11,8 +11,7 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.contextual
-import com.z_company.domain.entities.serializers.DateAsLongSerializer
-import com.z_company.domain.entities.serializers.BigDecimalAsStringSerializer
+import com.z_company.domain.entities.serializers.DoubleAsStringSerializer
 
 /**
  * Фабрика Ktor HttpClient.
@@ -27,8 +26,7 @@ object RemoteRestClient {
         ignoreUnknownKeys = true
         isLenient = true
         serializersModule = SerializersModule {
-            contextual(DateAsLongSerializer)
-            contextual(BigDecimalAsStringSerializer)
+            contextual(DoubleAsStringSerializer)
         }
     }
 

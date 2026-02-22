@@ -17,6 +17,7 @@ dependencies {
     api(project(Libs.project_core))
     implementation(Libs.kotlinx_coroutines_core)
     implementation(Libs.kotlin_x_serialization_json)
+    implementation(Libs.kotlinx_date_time)
     testImplementation(TestLibs.kotlin_test)
     testImplementation (TestLibs.mockito_core)
     testImplementation (TestLibs.mockito_inline)

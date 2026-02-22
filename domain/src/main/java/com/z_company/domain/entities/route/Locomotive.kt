@@ -1,13 +1,11 @@
 package com.z_company.domain.entities.route
 
-import kotlinx.serialization.Contextual
-import java.math.BigDecimal
-import java.util.UUID
+import com.z_company.domain.util.generateId
 import kotlinx.serialization.Serializable
 
 @Serializable
 data class Locomotive(
-    var locoId: String = UUID.randomUUID().toString(),
+    var locoId: String = generateId(),
     var basicId: String,
     var remoteObjectId: String? = null,
     var series: String? = null,
@@ -22,38 +20,28 @@ data class Locomotive(
     var normaElectricCurrent1: Int? = null,
     var normaElectricCurrent2: Int? = null,
     var normaDiesel: String? = null,
-    @Contextual
-    var heatingCounterAccepted: BigDecimal? = null,
-    @Contextual
-    var heatingCounterDelivery: BigDecimal? = null,
+    var heatingCounterAccepted: Double? = null,
+    var heatingCounterDelivery: Double? = null,
 )
 
 @Serializable
 data class SectionElectric(
-    var sectionId: String = UUID.randomUUID().toString(),
+    var sectionId: String = generateId(),
     var locoId: String = "",
     var type: LocoType = LocoType.ELECTRIC,
-    @Contextual
-    var acceptedEnergy: BigDecimal? = null,
-    @Contextual
-    var deliveryEnergy: BigDecimal? = null,
-    @Contextual
-    var acceptedRecovery: BigDecimal? = null,
-    @Contextual
-    var deliveryRecovery: BigDecimal? = null,
-    @Contextual
-    var acceptedEnergyOtherCurrent: BigDecimal? = null,
-    @Contextual
-    var deliveryEnergyOtherCurrent: BigDecimal? = null,
-    @Contextual
-    var acceptedRecoveryOtherCurrent: BigDecimal? = null,
-    @Contextual
-    var deliveryRecoveryOtherCurrent: BigDecimal? = null
+    var acceptedEnergy: Double? = null,
+    var deliveryEnergy: Double? = null,
+    var acceptedRecovery: Double? = null,
+    var deliveryRecovery: Double? = null,
+    var acceptedEnergyOtherCurrent: Double? = null,
+    var deliveryEnergyOtherCurrent: Double? = null,
+    var acceptedRecoveryOtherCurrent: Double? = null,
+    var deliveryRecoveryOtherCurrent: Double? = null
 )
 
 @Serializable
 data class SectionDiesel(
-    var sectionId: String = UUID.randomUUID().toString(),
+    var sectionId: String = generateId(),
     var locoId: String = "",
     var type: LocoType = LocoType.DIESEL,
     var acceptedFuel: Double? = null,

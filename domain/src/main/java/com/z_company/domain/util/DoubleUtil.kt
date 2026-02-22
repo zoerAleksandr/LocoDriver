@@ -1,7 +1,5 @@
 package com.z_company.domain.util
 
-import java.math.BigDecimal
-
 /** Возвращает true если this < other && (this == null && other == null)
  * */
 fun Double?.lessThan(other: Double?): Boolean {
@@ -58,25 +56,26 @@ fun Double?.plusNullableValue(other: Double?): Double? {
 }
 
 fun Double.countCharsAfterDecimalPoint(): Int {
-    return BigDecimal.valueOf(this).scale()
+    val s = this.toString()
+    val eIdx = s.indexOf('E')
+    val dotIdx = s.indexOf('.')
+    return when {
+        dotIdx < 0 -> 0
+        eIdx > 0 -> eIdx - dotIdx - 1
+        else -> s.length - dotIdx - 1
+    }
 }
 
 fun Double?.str(): String {
-    return if (this == null) {
-        ""
-    } else if (this % 1.0 == 0.0) {
-        this.toBigDecimal().toPlainString().dropLast(2)
+    if (this == null) return ""
+    return if (this % 1.0 == 0.0) {
+        this.toLong().toString()
     } else {
-        this.toBigDecimal().toPlainString()
+        val s = this.toString()
+        if ('E' in s || 'e' in s) "%.10f".format(this).trimEnd('0').trimEnd('.')
+        else s
     }
 }
-//fun Double?.str(decimal: Int = 2): String {
-//    return if (this == null) {
-//        ""
-//    } else {
-//        "%.${decimal}f".format(this)
-//    }
-//}
 
 @Suppress("DefaultLocale")
 fun Double?.str2decimalSign(): String {
@@ -91,7 +90,6 @@ fun Double?.toMoneyString(): String {
     return if (this == null) {
         "0 ₽"
     } else {
-//        val value = this / 3_600_000.toDouble()
         "${String.format("% .2f", this)} ₽"
     }
 }

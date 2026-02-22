@@ -29,7 +29,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import java.math.BigDecimal
 import kotlin.String
 import kotlin.properties.Delegates
 
@@ -208,47 +207,47 @@ class LocoFormViewModel(
                         ElectricSectionFormState(
                             sectionId = section.sectionId,
                             accepted = ElectricSectionFieldState(
-                                data = section.acceptedEnergy?.toPlainString() ?: "",
+                                data = section.acceptedEnergy?.str() ?: "",
                                 type = ElectricSectionType.ACCEPTED
                             ),
                             delivery = ElectricSectionFieldState(
-                                data = section.deliveryEnergy?.toPlainString() ?: "",
+                                data = section.deliveryEnergy?.str() ?: "",
                                 type = ElectricSectionType.DELIVERY
                             ),
                             recoveryAccepted = ElectricSectionFieldState(
-                                data = section.acceptedRecovery?.toPlainString() ?: "",
+                                data = section.acceptedRecovery?.str() ?: "",
                                 type = ElectricSectionType.RECOVERY_ACCEPTED
                             ),
                             recoveryDelivery = ElectricSectionFieldState(
-                                data = section.deliveryRecovery?.toPlainString() ?: "",
+                                data = section.deliveryRecovery?.str() ?: "",
                                 type = ElectricSectionType.RECOVERY_DELIVERY
                             ),
                             accepted2 = ElectricSectionFieldState(
-                                data = section.acceptedEnergyOtherCurrent?.toPlainString() ?: "",
+                                data = section.acceptedEnergyOtherCurrent?.str() ?: "",
                                 type = ElectricSectionType.ACCEPTED2
                             ),
                             delivery2 = ElectricSectionFieldState(
-                                data = section.deliveryEnergyOtherCurrent?.toPlainString() ?: "",
+                                data = section.deliveryEnergyOtherCurrent?.str() ?: "",
                                 type = ElectricSectionType.DELIVERY2
                             ),
                             recoveryAccepted2 = ElectricSectionFieldState(
-                                data = section.acceptedRecoveryOtherCurrent?.toPlainString() ?: "",
+                                data = section.acceptedRecoveryOtherCurrent?.str() ?: "",
                                 type = ElectricSectionType.RECOVERY_ACCEPTED2
                             ),
                             recoveryDelivery2 = ElectricSectionFieldState(
-                                data = section.deliveryRecoveryOtherCurrent?.toPlainString() ?: "",
+                                data = section.deliveryRecoveryOtherCurrent?.str() ?: "",
                                 type = ElectricSectionType.RECOVERY_DELIVERY2
                             ),
 
                             resultVisibility = isVisibilityResultElectricSection(
-                                section.acceptedEnergy?.toPlainString() ?: "",
-                                section.deliveryEnergy?.toPlainString() ?: "",
-                                section.acceptedRecovery?.toPlainString() ?: "",
-                                section.deliveryRecovery?.toPlainString() ?: "",
-                                section.acceptedEnergyOtherCurrent?.toPlainString() ?: "",
-                                section.deliveryEnergyOtherCurrent?.toPlainString() ?: "",
-                                section.acceptedRecoveryOtherCurrent?.toPlainString() ?: "",
-                                section.deliveryRecoveryOtherCurrent?.toPlainString() ?: "",
+                                section.acceptedEnergy?.str() ?: "",
+                                section.deliveryEnergy?.str() ?: "",
+                                section.acceptedRecovery?.str() ?: "",
+                                section.deliveryRecovery?.str() ?: "",
+                                section.acceptedEnergyOtherCurrent?.str() ?: "",
+                                section.deliveryEnergyOtherCurrent?.str() ?: "",
+                                section.acceptedRecoveryOtherCurrent?.str() ?: "",
+                                section.deliveryRecoveryOtherCurrent?.str() ?: "",
                             ),
 
                             expandItemState = isExpandElectricItem(
@@ -308,11 +307,11 @@ class LocoFormViewModel(
     }
 
     fun setHeatingCounterAccepted(value: String) {
-        _currentLoco.update { it?.copy(heatingCounterAccepted = value.toBigDecimalOrNull()) }
+        _currentLoco.update { it?.copy(heatingCounterAccepted = value.toDoubleOrNull()) }
     }
 
     fun setHeatingCounterDelivery(value: String) {
-        _currentLoco.update { it?.copy(heatingCounterDelivery = value.toBigDecimalOrNull()) }
+        _currentLoco.update { it?.copy(heatingCounterDelivery = value.toDoubleOrNull()) }
     }
 
     fun showHeatingCounter(value: Boolean) {
@@ -634,10 +633,10 @@ class LocoFormViewModel(
     }
 
     private fun isExpandElectricItem(
-        acceptedRecovery: BigDecimal?,
-        deliveryRecovery: BigDecimal?,
-        acceptedRecovery2: BigDecimal?,
-        deliveryRecovery2: BigDecimal?,
+        acceptedRecovery: Double?,
+        deliveryRecovery: Double?,
+        acceptedRecovery2: Double?,
+        deliveryRecovery2: Double?,
     ): Boolean {
         return (acceptedRecovery != null || deliveryRecovery != null || acceptedRecovery2 != null || deliveryRecovery2 != null)
     }

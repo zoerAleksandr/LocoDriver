@@ -18,9 +18,16 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
-import java.util.Calendar
-import java.util.Calendar.getInstance
-import java.util.TimeZone
+import kotlinx.datetime.Clock
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.plus
+import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
 
 object UtilsForEntities {
     val passengerTrainNumberList = listOf(
@@ -40,33 +47,18 @@ object UtilsForEntities {
         route: Route
     ): Boolean {
         var holidayTime = 0L
-        val timeZone = getTimeZone(userSetting.timeZone)
+        val timeZoneStr = getTimeZone(userSetting.timeZone)
+        val tz = TimeZone.of(timeZoneStr)
         val holidayList = monthOfYear.days.filter { it.tag == TagForDay.HOLIDAY }
         if (holidayList.isNotEmpty()) {
             holidayList.forEach { day ->
-                val startHolidayInLong =
-                    getInstance(TimeZone.getTimeZone(timeZone)).also {
-                        it.set(Calendar.YEAR, monthOfYear.year)
-                        it.set(Calendar.MONTH, monthOfYear.month)
-                        it.set(Calendar.DAY_OF_MONTH, day.dayOfMonth)
-                        it.set(Calendar.HOUR_OF_DAY, 0)
-                        it.set(Calendar.MINUTE, 0)
-                        it.set(Calendar.SECOND, 0)
-                        it.set(Calendar.MILLISECOND, 0)
-                    }.timeInMillis
+                val startHolidayInLong = LocalDateTime(
+                    monthOfYear.year, monthOfYear.month + 1, day.dayOfMonth, 0, 0, 0, 0
+                ).toInstant(tz).toEpochMilliseconds()
 
-                val endHoliday = getInstance(TimeZone.getTimeZone(timeZone)).also {
-                    it.set(Calendar.YEAR, monthOfYear.year)
-                    it.set(Calendar.MONTH, monthOfYear.month)
-                    it.set(Calendar.DAY_OF_MONTH, day.dayOfMonth)
-                    it.set(Calendar.HOUR_OF_DAY, 0)
-                    it.set(Calendar.MINUTE, 0)
-                    it.set(Calendar.SECOND, 0)
-                    it.set(Calendar.MILLISECOND, 0)
-                }
-                endHoliday.add(Calendar.DATE, 1)
-
-                val endHolidayInLong = endHoliday.timeInMillis
+                val endHolidayInLong = kotlinx.datetime.LocalDate(
+                    monthOfYear.year, monthOfYear.month + 1, day.dayOfMonth
+                ).plus(1, DateTimeUnit.DAY).atStartOfDayIn(tz).toEpochMilliseconds()
 
                 route.timeInLongInPeriod(
                     startDate = startHolidayInLong - userSetting.timeZone,
@@ -318,11 +310,8 @@ object UtilsForEntities {
         if (this.basicData.timeStartWork == null || this.basicData.timeEndWork == null) {
             return false
         } else {
-            val startCalendar = getInstance(TimeZone.getDefault()).also {
-                it.timeInMillis += offsetInMoscow
-//                    this.basicData.timeStartWork!! + offsetInMoscow
-            }
-            return this.basicData.timeStartWork!! > startCalendar.timeInMillis
+            val currentTimeWithOffset = Clock.System.now().toEpochMilliseconds() + offsetInMoscow
+            return this.basicData.timeStartWork!! > currentTimeWithOffset
         }
     }
 
@@ -374,29 +363,30 @@ object UtilsForEntities {
         offsetInMoscow: Long
     ): Boolean {
         if (this.basicData.timeStartWork == null) return false
-        val calendar = getInstance().apply {
-            timeInMillis = timeInMillis + offsetInMoscow
-        }
-
-        return calendar.get(Calendar.YEAR) == currentMonthOfYear.year &&
-                calendar.get(Calendar.MONTH) == currentMonthOfYear.month
+        val tz = TimeZone.currentSystemDefault()
+        val millis = Clock.System.now().toEpochMilliseconds() + offsetInMoscow
+        val ldt = Instant.fromEpochMilliseconds(millis).toLocalDateTime(tz)
+        return ldt.year == currentMonthOfYear.year &&
+                ldt.monthNumber - 1 == currentMonthOfYear.month
     }
 
     fun Route.isTransition(offsetInMoscow: Long): Boolean {
         if (this.basicData.timeStartWork == null || this.basicData.timeEndWork == null) {
             return false
         } else {
-            val startCalendar = getInstance(TimeZone.getDefault()).also {
-                it.timeInMillis = this.basicData.timeStartWork!! + offsetInMoscow
-            }
-            val yearStart = startCalendar.get(Calendar.YEAR)
-            val monthStart = startCalendar.get(Calendar.MONTH)
+            val tz = TimeZone.currentSystemDefault()
+            val startLdt = Instant.fromEpochMilliseconds(
+                this.basicData.timeStartWork!! + offsetInMoscow
+            ).toLocalDateTime(tz)
+            val yearStart = startLdt.year
+            val monthStart = startLdt.monthNumber - 1
 
-            val endCalendar = getInstance().also {
-                it.timeInMillis = this.basicData.timeEndWork!! + offsetInMoscow
-            }
-            val yearEnd = endCalendar.get(Calendar.YEAR)
-            val monthEnd = endCalendar.get(Calendar.MONTH)
+            val endLdt = Instant.fromEpochMilliseconds(
+                this.basicData.timeEndWork!! + offsetInMoscow
+            ).toLocalDateTime(tz)
+            val yearEnd = endLdt.year
+            val monthEnd = endLdt.monthNumber - 1
+
             return if (monthStart < monthEnd && yearStart == yearEnd) {
                 true
             } else if (monthStart > monthEnd && yearStart < yearEnd) {
@@ -411,16 +401,19 @@ object UtilsForEntities {
         if (this.timeDeparture == null || this.timeArrival == null) {
             return false
         } else {
-            val startCalendar = Calendar.getInstance().also {
-                it.timeInMillis = this.timeDeparture!! + offsetInMoscow
-            }
-            val yearStart = startCalendar.get(Calendar.YEAR)
-            val monthStart = startCalendar.get(Calendar.MONTH)
-            val endCalendar = Calendar.getInstance().also {
-                it.timeInMillis = this.timeArrival!! + offsetInMoscow
-            }
-            val yearEnd = endCalendar.get(Calendar.YEAR)
-            val monthEnd = endCalendar.get(Calendar.MONTH)
+            val tz = TimeZone.currentSystemDefault()
+            val startLdt = Instant.fromEpochMilliseconds(
+                this.timeDeparture!! + offsetInMoscow
+            ).toLocalDateTime(tz)
+            val yearStart = startLdt.year
+            val monthStart = startLdt.monthNumber - 1
+
+            val endLdt = Instant.fromEpochMilliseconds(
+                this.timeArrival!! + offsetInMoscow
+            ).toLocalDateTime(tz)
+            val yearEnd = endLdt.year
+            val monthEnd = endLdt.monthNumber - 1
+
             return if (monthStart < monthEnd && yearStart == yearEnd) {
                 true
             } else if (monthStart > monthEnd && yearStart < yearEnd) {
@@ -437,46 +430,28 @@ object UtilsForEntities {
         offsetInMoscow: Long,
         isLastDayOfMonth: Boolean
     ): List<Route> {
-        val firstDataInMillis = getInstance().also {
-            it.set(Calendar.YEAR, monthOfYear.year)
-            it.set(Calendar.MONTH, monthOfYear.month)
-            it.set(Calendar.DAY_OF_MONTH, days.first)
-            it.set(Calendar.HOUR_OF_DAY, 0)
-            it.set(Calendar.MINUTE, 0)
-            it.set(Calendar.SECOND, 0)
-            it.set(Calendar.MILLISECOND, 0)
-        }.timeInMillis + offsetInMoscow
+        val tz = TimeZone.currentSystemDefault()
 
-        val secondData = getInstance().also {
-            it.set(Calendar.YEAR, monthOfYear.year)
-            it.set(Calendar.MONTH, monthOfYear.month)
-            it.set(Calendar.DAY_OF_MONTH, days.last)
-            it.set(Calendar.HOUR_OF_DAY, 0)
-            it.set(Calendar.MINUTE, 0)
-            it.set(Calendar.SECOND, 0)
-            it.set(Calendar.MILLISECOND, 0)
+        val firstDataInMillis = kotlinx.datetime.LocalDate(
+            monthOfYear.year, monthOfYear.month + 1, days.first
+        ).atStartOfDayIn(tz).toEpochMilliseconds() + offsetInMoscow
+
+        val lastDate = kotlinx.datetime.LocalDate(
+            monthOfYear.year, monthOfYear.month + 1, days.last
+        )
+        val secondDataInMillis = if (isLastDayOfMonth) {
+            lastDate.plus(1, DateTimeUnit.DAY).atStartOfDayIn(tz).toEpochMilliseconds() + offsetInMoscow
+        } else {
+            lastDate.atStartOfDayIn(tz).toEpochMilliseconds() + offsetInMoscow
         }
-
-        if (isLastDayOfMonth) {
-            secondData.add(Calendar.DAY_OF_MONTH, 1)
-        }
-
-
-        val secondDataInMillis = secondData.timeInMillis + offsetInMoscow
 
         val newRouteList = mutableListOf<Route>()
 
         this.forEach { route ->
-            // Изменено: Убрана инициализация пустого Route() вне let-блоков, чтобы избежать добавления пустых объектов.
-            // Теперь newRoute создается только если есть timeStartWork и timeEndWork, и только если маршрут пересекается с диапазоном.
             route.basicData.timeStartWork?.let { timeStart ->
                 route.basicData.timeEndWork?.let { timeEnd ->
                     if (timeEnd < firstDataInMillis || timeStart > secondDataInMillis) return@forEach
 
-                    // Изменено: Теперь всегда создаем копию маршрута на основе оригинального route,
-                    // чтобы сохранить все данные (включая информацию о поезде), и изменяем только время в basicData.
-                    // Ранее в случае полного совпадения диапазона присваивался оригинальный route без копирования,
-                    // но для единообразия теперь всегда копируем и изменяем только необходимые поля времени.
                     val updatedBasicData = route.basicData.copy(
                         timeStartWork = if (firstDataInMillis > timeStart) firstDataInMillis else timeStart,
                         timeEndWork = if (secondDataInMillis < timeEnd) secondDataInMillis else timeEnd
@@ -489,73 +464,6 @@ object UtilsForEntities {
         }
         return newRouteList
     }
-
-//    fun List<Route>.getNewRoutesToDayRange(
-//        days: IntRange,
-//        monthOfYear: MonthOfYear,
-//        offsetInMoscow: Long
-//    ): List<Route> {
-//        val firstData = getInstance().also {
-//            it.set(Calendar.YEAR, monthOfYear.year)
-//            it.set(Calendar.MONTH, monthOfYear.month)
-//            it.set(Calendar.DAY_OF_MONTH, days.first)
-//            it.set(Calendar.HOUR_OF_DAY, 0)
-//            it.set(Calendar.MINUTE, 0)
-//            it.set(Calendar.SECOND, 0)
-//            it.set(Calendar.MILLISECOND, 0)
-//        }.timeInMillis + offsetInMoscow
-//
-//        val secondData = getInstance().also {
-//            it.set(Calendar.YEAR, monthOfYear.year)
-//            it.set(Calendar.MONTH, monthOfYear.month)
-//            it.set(Calendar.DAY_OF_MONTH, days.last)
-//            it.set(Calendar.HOUR_OF_DAY, 0)
-//            it.set(Calendar.MINUTE, 0)
-//            it.set(Calendar.SECOND, 0)
-//            it.set(Calendar.MILLISECOND, 0)
-//        }.timeInMillis + offsetInMoscow
-//
-//        val newRouteList = mutableListOf<Route>()
-//
-//        this.forEach { route ->
-//            var newRoute = Route()
-//            route.basicData.timeStartWork?.let { timeStart ->
-//                route.basicData.timeEndWork?.let { timeEnd ->
-//                    if (timeEnd < firstData || timeStart > secondData) return@forEach
-//                    if (firstData > timeStart) {
-//                        if (secondData > timeEnd) {
-//                            newRoute = route.copy(
-//                                basicData = route.basicData.copy(
-//                                    timeStartWork = firstData
-//                                )
-//                            )
-//                        } else {
-//                            newRoute = route.copy(
-//                                basicData = route.basicData.copy(
-//                                    timeStartWork = firstData,
-//                                    timeEndWork = secondData
-//                                )
-//                            )
-//                        }
-//                    } else {
-//                        if (secondData > timeEnd) {
-//                            newRoute = route
-//
-//                        } else {
-//                            newRoute = route.copy(
-//                                basicData = route.basicData.copy(
-//                                    timeEndWork = secondData
-//                                )
-//                            )
-//                        }
-//                    }
-//                    newRouteList.add(newRoute)
-//                    println("zzz new route $newRoute")
-//                }
-//            }
-//        }
-//        return newRouteList
-//    }
 
     fun List<Route>.getWorkTime(monthOfYear: MonthOfYear, offsetInMoscow: Long): Long {
         var totalTime = 0L
@@ -648,33 +556,18 @@ object UtilsForEntities {
         return channelFlow {
             var holidayTime = 0L
 
-            val timeZone = getTimeZone(offsetInMoscow)
+            val timeZoneStr = getTimeZone(offsetInMoscow)
+            val tz = TimeZone.of(timeZoneStr)
             val holidayList = monthOfYear.days.filter { it.tag == TagForDay.HOLIDAY }
             if (holidayList.isNotEmpty()) {
                 holidayList.forEach { day ->
-                    val startHolidayInLong =
-                        Calendar.getInstance(TimeZone.getTimeZone(timeZone)).also {
-                            it.set(Calendar.YEAR, monthOfYear.year)
-                            it.set(Calendar.MONTH, monthOfYear.month)
-                            it.set(Calendar.DAY_OF_MONTH, day.dayOfMonth)
-                            it.set(Calendar.HOUR_OF_DAY, 0)
-                            it.set(Calendar.MINUTE, 0)
-                            it.set(Calendar.SECOND, 0)
-                            it.set(Calendar.MILLISECOND, 0)
-                        }.timeInMillis
+                    val startHolidayInLong = LocalDateTime(
+                        monthOfYear.year, monthOfYear.month + 1, day.dayOfMonth, 0, 0, 0, 0
+                    ).toInstant(tz).toEpochMilliseconds()
 
-                    val endHoliday = Calendar.getInstance(TimeZone.getTimeZone(timeZone)).also {
-                        it.set(Calendar.YEAR, monthOfYear.year)
-                        it.set(Calendar.MONTH, monthOfYear.month)
-                        it.set(Calendar.DAY_OF_MONTH, day.dayOfMonth)
-                        it.set(Calendar.HOUR_OF_DAY, 0)
-                        it.set(Calendar.MINUTE, 0)
-                        it.set(Calendar.SECOND, 0)
-                        it.set(Calendar.MILLISECOND, 0)
-                    }
-                    endHoliday.add(Calendar.DATE, 1)
-
-                    val endHolidayInLong = endHoliday.timeInMillis
+                    val endHolidayInLong = kotlinx.datetime.LocalDate(
+                        monthOfYear.year, monthOfYear.month + 1, day.dayOfMonth
+                    ).plus(1, DateTimeUnit.DAY).atStartOfDayIn(tz).toEpochMilliseconds()
 
                     this@getWorkingTimeOnAHoliday.forEach { route ->
                         route.timeInLongInPeriod(
@@ -882,13 +775,6 @@ object UtilsForEntities {
                 summaryTimeFollowing += endWork - startWork
             }
             return summaryTimeFollowing
-
-//            val workInterval = startWork until endWork
-//            val result = this.trains.getTimeInServicePhase(
-//                distanceInterval = searchIntervalDistance,
-//                workInterval = workInterval
-//            )
-//            return result
         }
     }
 
@@ -909,23 +795,6 @@ object UtilsForEntities {
             val startWork = workInterval.first
             val endWork = workInterval.last
             summaryTimeFollowing += endWork - startWork
-//            trainsWithDistance.forEach { train ->
-//                var timeDeparture = train.stations.firstOrNull()?.timeDeparture
-//                var timeArrival = train.stations.lastOrNull()?.timeArrival
-//                if (timeDeparture == null || timeArrival == null || timeDeparture > timeArrival) {
-//                    return@forEach
-//                } else {
-//                    if (endWork < timeDeparture) return@forEach
-//                    if (startWork > timeArrival) return@forEach
-//                    if (startWork > timeDeparture) {
-//                        timeDeparture = startWork
-//                    }
-//                    if (endWork < timeArrival) {
-//                        timeArrival = endWork
-//                    }
-//                    summaryTimeFollowing += timeArrival - timeDeparture
-//                }
-//            }
         }
         return summaryTimeFollowing
     }
@@ -948,29 +817,6 @@ object UtilsForEntities {
             }
         }
         return 0L
-//                var timeDeparture: Long? = train.stations.firstOrNull()?.timeDeparture
-//                var timeArrival: Long? = train.stations.lastOrNull()?.timeArrival
-//                val startWork = this.basicData.timeStartWork
-//                val endWork = this.basicData.timeEndWork
-//                if (startWork == null || endWork == null) {
-//                    return@forEach
-//                }
-//                if (timeDeparture == null || timeArrival == null || timeDeparture > timeArrival) {
-//                    return@forEach
-//                } else {
-//
-//                    if (endWork < timeDeparture) 0L
-//                    if (startWork > timeArrival) 0L
-//                    if (startWork > timeDeparture) {
-//                        timeDeparture = startWork
-//                    }
-//                    if (endWork < timeArrival) {
-//                        timeArrival = endWork
-//                    }
-//                    resultTime += (timeArrival - timeDeparture)
-//                }
-
-
     }
 
     private fun Train.getTimeInLongDistance(
@@ -978,25 +824,9 @@ object UtilsForEntities {
         workInterval: LongRange
     ): Long {
         val time = if (this.conditionalLength.toIntOrZero() > lengthIsLongDistance) {
-            // расчет времени от отправления для прибытия
-//            var timeDeparture = this.stations.firstOrNull()?.timeDeparture
-//            var timeArrival = this.stations.lastOrNull()?.timeArrival
-//            if (timeDeparture == null || timeArrival == null || timeDeparture > timeArrival) {
-//                0L
-//            } else {
             val startWork = workInterval.first
             val endWork = workInterval.last
             endWork - startWork
-//                if (endWork < timeDeparture) 0L
-//                if (startWork > timeArrival) 0L
-//                if (startWork > timeDeparture) {
-//                    timeDeparture = startWork
-//                }
-//                if (endWork < timeArrival) {
-//                    timeArrival = endWork
-//                }
-//                timeArrival - timeDeparture
-//            }
         } else {
             0L
         }

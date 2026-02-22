@@ -6,39 +6,22 @@ import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
-import java.math.BigDecimal
-import java.util.Date
 
 /**
- * Сериализатор для java.util.Date → Long (timestamp в мс).
- * Используется через @Contextual в BasicData.updatedAt.
+ * Сериализатор для Double → String (для совместимости с сервером, который присылает числа как строки).
+ * Используется через @Contextual в Locomotive, SectionElectric.
+ * Заменяет BigDecimalAsStringSerializer.
  */
-object DateAsLongSerializer : KSerializer<Date> {
+object DoubleAsStringSerializer : KSerializer<Double> {
     override val descriptor: SerialDescriptor =
-        PrimitiveSerialDescriptor("Date", PrimitiveKind.LONG)
+        PrimitiveSerialDescriptor("DoubleAsString", PrimitiveKind.STRING)
 
-    override fun serialize(encoder: Encoder, value: Date) {
-        encoder.encodeLong(value.time)
+    override fun serialize(encoder: Encoder, value: Double) {
+        val s = if (value % 1.0 == 0.0) value.toLong().toString() else value.toString()
+        encoder.encodeString(s)
     }
 
-    override fun deserialize(decoder: Decoder): Date {
-        return Date(decoder.decodeLong())
-    }
-}
-
-/**
- * Сериализатор для java.math.BigDecimal → String.
- * Используется через @Contextual в SectionElectric, Locomotive.
- */
-object BigDecimalAsStringSerializer : KSerializer<BigDecimal> {
-    override val descriptor: SerialDescriptor =
-        PrimitiveSerialDescriptor("BigDecimal", PrimitiveKind.STRING)
-
-    override fun serialize(encoder: Encoder, value: BigDecimal) {
-        encoder.encodeString(value.toPlainString())
-    }
-
-    override fun deserialize(decoder: Decoder): BigDecimal {
-        return BigDecimal(decoder.decodeString())
+    override fun deserialize(decoder: Decoder): Double {
+        return decoder.decodeString().toDouble()
     }
 }

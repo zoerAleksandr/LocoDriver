@@ -1,8 +1,6 @@
 package com.z_company
 
 import com.z_company.domain.entities.route.Route
-import com.z_company.domain.entities.serializers.BigDecimalAsStringSerializer
-import com.z_company.domain.entities.serializers.DateAsLongSerializer
 import com.z_company.repository.remote_rest.RemoteRestClient
 import kotlinx.serialization.json.Json
 
