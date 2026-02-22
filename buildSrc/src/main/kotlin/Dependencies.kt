@@ -54,6 +54,7 @@ object Plugins {
     const val java_lib = "java-library"
     const val google_relay = "com.google.relay"
     const val compose_compiler = "org.jetbrains.kotlin.plugin.compose"
+    const val compose_multiplatform = "org.jetbrains.compose"
     const val ksp = "com.google.devtools.ksp"
     const val vkIdManifest = "vkid.manifest.placeholders"
     const val sqldelight = "app.cash.sqldelight"
@@ -128,6 +129,8 @@ object Versions {
     const val kotlin_x_serialization_json_ver = "1.10.0"
     const val ktor_ver = "3.0.3"
     const val sqldelight_ver = "2.0.2"
+    // Compose Multiplatform (совместим с Kotlin 2.2.0)
+    const val compose_mp_ver = "1.8.0"
 }
 
 object Libs {

@@ -9,6 +9,7 @@ plugins {
     id(Plugins.kotlin_multiplatform) version Versions.kotlin_version apply false
     id(Plugins.google_relay) version Versions.google_relay_ver apply false
     id(Plugins.compose_compiler) version Versions.kotlin_version apply false
+    id(Plugins.compose_multiplatform) version Versions.compose_mp_ver apply false
     id(Plugins.ksp) version Versions.ksp_ver apply false
     id(Plugins.sqldelight) version Versions.sqldelight_ver apply false
     id(Plugins.vkIdManifest) version Versions.vkIdManifestPluginVer apply true

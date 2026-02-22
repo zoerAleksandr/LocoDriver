@@ -42,4 +42,5 @@ dependencyResolutionManagement {
     include(":data_remote")
     include(":data_remote")
     include(":robokassa_sdk")
+    include(":iosApp")
 }
