@@ -29,6 +29,8 @@ kotlin {
             implementation(compose.material3)
             implementation(compose.ui)
             implementation(compose.components.resources)
+            // KMP Navigation (JetBrains fork androidx.navigation)
+            implementation(Libs.navigation_compose_kmp)
 
             // KMP бизнес-логика
             api(project(Libs.project_data_remote))   // SecureTokenStorage, API, initKoin()

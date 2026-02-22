@@ -131,6 +131,8 @@ object Versions {
     const val sqldelight_ver = "2.0.2"
     // Compose Multiplatform (совместим с Kotlin 2.2.0)
     const val compose_mp_ver = "1.8.0"
+    // KMP Navigation-Compose (JetBrains fork androidx.navigation, совместим с Compose MP 1.8.0)
+    const val navigation_kmp_ver = "2.8.0-alpha10"
 }
 
 object Libs {
@@ -236,6 +238,10 @@ object Libs {
     const val rustore_billing_client = "ru.rustore.sdk:billingclient"
     const val rustore_review = "ru.rustore.sdk:review"
     const val rustore_sdk_appupdate = "ru.rustore.sdk:appupdate"
+
+    // KMP Navigation
+    const val navigation_compose_kmp =
+        "org.jetbrains.androidx.navigation:navigation-compose:${Versions.navigation_kmp_ver}"
 
     // SQLDelight
     const val sqldelight_android_driver = "app.cash.sqldelight:android-driver:${Versions.sqldelight_ver}"
