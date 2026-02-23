@@ -75,18 +75,22 @@ sqldelight {
     databases {
         create("RouteDatabase") {
             packageName.set("com.z_company.data_local.route.db")
+            srcDirs.setFrom("src/commonMain/sqldelight/RouteDatabase")
             verifyMigrations.set(false)
         }
         create("SettingsDatabase") {
             packageName.set("com.z_company.data_local.setting.db")
+            srcDirs.setFrom("src/commonMain/sqldelight/SettingsDatabase")
             verifyMigrations.set(false)
         }
         create("SalarySettingDatabase") {
             packageName.set("com.z_company.data_local.setting.salarydb")
+            srcDirs.setFrom("src/commonMain/sqldelight/SalarySettingDatabase")
             verifyMigrations.set(false)
         }
         create("SearchResponseDatabase") {
             packageName.set("com.z_company.data_local.route.searchdb")
+            srcDirs.setFrom("src/commonMain/sqldelight/SearchResponseDatabase")
             verifyMigrations.set(false)
         }
     }
