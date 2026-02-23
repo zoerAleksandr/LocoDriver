@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS Train (
     trainId TEXT NOT NULL PRIMARY KEY,
     basicId TEXT NOT NULL,
-    remoteObjectId TEXT NOT NULL,
+    remoteObjectId TEXT DEFAULT NULL,
     number TEXT,
     distance TEXT DEFAULT '',
     weight TEXT,

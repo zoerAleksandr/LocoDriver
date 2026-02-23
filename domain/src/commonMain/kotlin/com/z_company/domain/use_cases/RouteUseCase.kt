@@ -68,7 +68,7 @@ class RouteUseCase(private val repository: RouteRepository) {
                 monthOfYear.year, monthOfYear.month + 1, maxDayOfMonth, 23, 59, 0, 0
             ).toInstant(tz).toEpochMilliseconds() - offsetInMoscow
 
-            withContext(Dispatchers.IO) {
+            withContext(Dispatchers.Default) {
                 this.launch {
                     repository.loadRoutesByPeriod(startMonthInLong, endMonthInLong)
                         .collect { result ->
