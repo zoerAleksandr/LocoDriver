@@ -35,7 +35,7 @@ class SalarySettingUseCase(
         newTariffRate: Double,
         monthId: String
     ): Flow<ResultState<Unit>> {
-        val dispatcher = Dispatchers.IO
+        val dispatcher = Dispatchers.Default
         val scope = CoroutineScope(dispatcher)
 
         return flow {
@@ -59,7 +59,7 @@ class SalarySettingUseCase(
         newTariffRate: Double,
         currentMonthId: String
     ): Flow<ResultState<Unit>> {
-        val dispatcher = Dispatchers.IO
+        val dispatcher = Dispatchers.Default
         val scope = CoroutineScope(dispatcher)
 
         return flow {
@@ -85,7 +85,7 @@ class SalarySettingUseCase(
     }
 
     suspend fun getTariffRateFromCurrentMonthOfYear(monthOfYear: MonthOfYear): Double {
-        val dispatcher = Dispatchers.IO
+        val dispatcher = Dispatchers.Default
         val scope = CoroutineScope(dispatcher)
 
         val currentMonthOfYear =

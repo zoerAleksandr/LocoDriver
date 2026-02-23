@@ -41,10 +41,10 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
         val photos = db.photoQueries.getByBasicId(basicData.id).executeAsList()
         return Route(
             basicData = BasicDataMapper.toData(basicData),
-            locomotives = locomotives.map { LocomotiveMapper.toData(it) },
-            trains = trains.map { TrainMapper.toData(it) },
-            passengers = passengers.map { PassengerMapper.toData(it) },
-            photos = photos.map { PhotoMapper.toData(it) }
+            locomotives = locomotives.map { LocomotiveMapper.toData(it) }.toMutableList(),
+            trains = trains.map { TrainMapper.toData(it) }.toMutableList(),
+            passengers = passengers.map { PassengerMapper.toData(it) }.toMutableList(),
+            photos = photos.map { PhotoMapper.toData(it) }.toMutableList()
         )
     }
 
