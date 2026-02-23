@@ -1,6 +1,6 @@
 package com.z_company.data_local.route.mapping
 
-import com.z_company.data_local.route.db.Locomotive as LocomotiveRow
+import com.zcompany.datalocal.route.db.Locomotive as LocomotiveRow
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.SectionDiesel
@@ -31,8 +31,8 @@ internal object LocomotiveMapper {
         series = row.series,
         number = row.number,
         type = LocoType.entries.getOrElse(row.type.toInt()) { LocoType.ELECTRIC },
-        electricSectionList = decodeElectricSections(row.electricSectionList),
-        dieselSectionList = decodeDieselSections(row.dieselSectionList),
+        electricSectionList = decodeElectricSections(row.electricSectionList).toMutableList(),
+        dieselSectionList = decodeDieselSections(row.dieselSectionList).toMutableList(),
         timeStartOfAcceptance = row.timeStartOfAcceptance,
         timeEndOfAcceptance = row.timeEndOfAcceptance,
         timeStartOfDelivery = row.timeStartOfDelivery,

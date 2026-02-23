@@ -13,7 +13,7 @@ import com.z_company.repository.remote_rest.request.UpdateEmailRequest
 import com.z_company.repository.remote_rest.response.AuthResponse
 import com.z_company.repository.remote_rest.response.LoginResponse
 import com.z_company.repository.remote_rest.response.SuccessResponse
-import com.z_company.repository.remote_rest.response.UserWithRouteResponse
+import com.z_company.repository.remote_rest.response.UserResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
@@ -48,12 +48,12 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
             setBody(request)
         }.body()
 
-    override suspend fun getUserProfile(token: String): UserWithRouteResponse =
+    override suspend fun getUserProfile(token: String): UserResponse =
         client.get("v1/auth") {
             header("Authorization", token)
         }.body()
 
-    override suspend fun removeVKID(token: String): UserWithRouteResponse =
+    override suspend fun removeVKID(token: String): UserResponse =
         client.patch("v1/auth/vkId/remove") {
             header("Authorization", token)
         }.body()
@@ -71,7 +71,7 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
             header("Authorization", token)
         }.body()
 
-    override suspend fun attachVKID(token: String, data: AddVKIDRequest): UserWithRouteResponse =
+    override suspend fun attachVKID(token: String, data: AddVKIDRequest): UserResponse =
         client.patch("v1/auth/vkId/add") {
             contentType(ContentType.Application.Json)
             header("Authorization", token)

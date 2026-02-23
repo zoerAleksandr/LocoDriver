@@ -35,7 +35,7 @@ class SqlDelightSalarySettingRepository : SalarySettingRepository, KoinComponent
     private fun decodeHeavyTrainsList(v: String): List<SurchargeHeavyTrains> =
         runCatching { salaryJson.decodeFromString<List<SurchargeHeavyTrains>>(v) }.getOrElse { emptyList() }
 
-    private fun rowToData(row: com.z_company.data_local.setting.salarydb.SalarySetting): SalarySetting =
+    private fun rowToData(row: com.zcompany.datalocal.setting.salarydb.SalarySetting): SalarySetting =
         SalarySetting(
             key = row.salarySettingKey,
             nightTimePercent = row.nightTimePercent,

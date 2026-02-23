@@ -50,8 +50,6 @@ dependencies {
     implementation(project(Libs.project_domain))
     implementation(project(Libs.project_core_android))
     implementation(project(Libs.project_data_remote))
-//    implementation(Libs.vkid)
-//    implementation(Libs.vkid_onetap)
     implementation(Libs.activity_compose)
     implementation(Libs.core_ktx)
     implementation(Libs.lifecycle_viewmodel_ktx)

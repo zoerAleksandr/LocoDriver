@@ -176,7 +176,7 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
     }
 
     suspend fun setLocomotiveSeriesList(series: List<String>) {
-        withContext(Dispatchers.IO) {
+        withContext(Dispatchers.Default) {
             var result = settingsRepository.getFlowSettingsState().first { it is ResultState.Success || it is ResultState.Error }
             var settings = if (result is ResultState.Success) {
                 result.data

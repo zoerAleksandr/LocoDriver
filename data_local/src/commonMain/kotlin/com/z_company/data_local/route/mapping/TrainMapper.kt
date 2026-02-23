@@ -1,6 +1,6 @@
 package com.z_company.data_local.route.mapping
 
-import com.z_company.data_local.route.db.Train as TrainRow
+import com.zcompany.datalocal.route.db.Train as TrainRow
 import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.setting.ServicePhase

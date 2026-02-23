@@ -5,6 +5,6 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class UserRemote(
     val id: String = "",
-    val login: String = "",
     val email: String = "",
+    val vkId: String = "",
 )

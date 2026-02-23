@@ -89,6 +89,8 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
     private val secureTokenStorage: SecureTokenStorage by inject()
     private val routesManager: RoutesManager by inject()
 
+    private val routesManager: RoutesManager by inject()
+
     private var removeRouteJob: Job? = null
 
     private val _uiState = MutableStateFlow(RoutesUiState())

@@ -1,6 +1,6 @@
 package com.z_company.data_local.route.mapping
 
-import com.z_company.data_local.route.db.Photo as PhotoRow
+import com.zcompany.datalocal.route.db.Photo as PhotoRow
 import com.z_company.domain.entities.route.Photo
 
 internal object PhotoMapper {

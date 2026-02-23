@@ -23,7 +23,7 @@ class SqlDelightHistoryResponseRepository : HistoryResponseRepository, KoinCompo
                 .asFlow()
                 .mapToList(Dispatchers.Default)
                 .map { rows ->
-                    ResultState.Success(rows.map { SearchResponse(it.responseText) })
+                    ResultState.Success(rows.map { SearchResponse(it) })
                 }
         }
     }

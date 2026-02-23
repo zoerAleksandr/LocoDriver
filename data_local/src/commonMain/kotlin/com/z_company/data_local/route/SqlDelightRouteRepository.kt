@@ -34,7 +34,7 @@ import org.koin.core.component.inject
 class SqlDelightRouteRepository : RouteRepository, KoinComponent {
     private val db: RouteDatabase by inject()
 
-    private fun assembleRoute(basicData: com.z_company.data_local.route.db.BasicData): Route {
+    private fun assembleRoute(basicData: com.zcompany.datalocal.route.db.BasicData): Route {
         val locomotives = db.locomotiveQueries.getByBasicId(basicData.id).executeAsList()
         val trains = db.trainQueries.getByBasicId(basicData.id).executeAsList()
         val passengers = db.passengerQueries.getByBasicId(basicData.id).executeAsList()
