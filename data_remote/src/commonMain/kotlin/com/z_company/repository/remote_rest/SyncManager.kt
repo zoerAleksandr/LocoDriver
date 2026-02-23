@@ -239,7 +239,7 @@ class SyncManager(
                             it.month == now.monthNumber - 1 && it.year == now.year
                         }
                         val userSettings = loadState.data.copy(
-                            selectMonthOfYear = currentMonthOfYear ?: listMonthOfYear.firstOrNull()
+                            selectMonthOfYear = currentMonthOfYear ?: listMonthOfYear.firstOrNull() ?: com.z_company.domain.entities.MonthOfYear()
                         )
                         settingsUseCase.saveSetting(userSettings)
                             .collect { saveResult ->

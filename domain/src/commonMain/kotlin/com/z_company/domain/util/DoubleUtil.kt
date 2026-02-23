@@ -66,30 +66,57 @@ fun Double.countCharsAfterDecimalPoint(): Int {
     }
 }
 
+/** Убирает хвостовые нули; для чисел в научной нотации раскрывает вручную (KMP-safe) */
 fun Double?.str(): String {
     if (this == null) return ""
     return if (this % 1.0 == 0.0) {
         this.toLong().toString()
     } else {
         val s = this.toString()
-        if ('E' in s || 'e' in s) "%.10f".format(this).trimEnd('0').trimEnd('.')
+        if ('E' in s || 'e' in s) expandScientificNotation(this)
         else s
     }
 }
 
-@Suppress("DefaultLocale")
-fun Double?.str2decimalSign(): String {
-    return if (this == null) {
-        ""
-    } else {
-        String.format("%.2f", this)
+private fun expandScientificNotation(value: Double): String {
+    val negative = value < 0
+    val abs = if (negative) -value else value
+    val intPart = abs.toLong()
+    var frac = abs - intPart
+    val sb = StringBuilder()
+    if (negative) sb.append('-')
+    sb.append(intPart)
+    if (frac > 0.0) {
+        sb.append('.')
+        repeat(10) {
+            frac *= 10
+            val digit = frac.toInt()
+            sb.append(digit)
+            frac -= digit
+        }
+    }
+    return sb.toString().trimEnd('0').trimEnd('.')
+}
+
+/** Форматирует Double с 2 знаками после запятой (KMP-safe, без java.util.Formatter) */
+private fun formatFixed2(value: Double): String {
+    val negative = value < 0
+    val abs = if (negative) -value else value
+    val rounded = kotlin.math.round(abs * 100L)
+    val intPart = rounded / 100L
+    val fracPart = (rounded % 100L).toInt()
+    return buildString {
+        if (negative) append('-')
+        append(intPart)
+        append('.')
+        append(fracPart.toString().padStart(2, '0'))
     }
 }
 
+fun Double?.str2decimalSign(): String {
+    return if (this == null) "" else formatFixed2(this)
+}
+
 fun Double?.toMoneyString(): String {
-    return if (this == null) {
-        "0 ₽"
-    } else {
-        "${String.format("% .2f", this)} ₽"
-    }
+    return if (this == null) "0 ₽" else "${formatFixed2(this)} ₽"
 }
