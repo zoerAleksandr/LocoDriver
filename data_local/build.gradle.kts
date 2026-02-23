@@ -29,6 +29,7 @@ kotlin {
             implementation(Libs.kotlinx_coroutines_core)
             implementation(Libs.koin_core)
             implementation(Libs.kotlin_x_serialization_json)
+            implementation(Libs.kotlinx_date_time)
             implementation(Libs.sqldelight_coroutines_extensions)
             implementation(Libs.sqldelight_primitive_adapters)
         }

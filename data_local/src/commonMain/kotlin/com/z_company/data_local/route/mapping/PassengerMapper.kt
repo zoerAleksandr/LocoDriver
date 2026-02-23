@@ -1,6 +1,6 @@
 package com.z_company.data_local.route.mapping
 
-import com.z_company.data_local.route.db.Passenger as PassengerRow
+import com.zcompany.datalocal.route.db.Passenger as PassengerRow
 import com.z_company.domain.entities.route.Passenger
 
 internal object PassengerMapper {

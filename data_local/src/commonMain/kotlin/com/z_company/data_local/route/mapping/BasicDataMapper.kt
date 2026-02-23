@@ -1,6 +1,6 @@
 package com.z_company.data_local.route.mapping
 
-import com.z_company.data_local.route.db.BasicData as BasicDataRow
+import com.zcompany.datalocal.route.db.BasicData as BasicDataRow
 import com.z_company.domain.entities.route.BasicData
 import kotlinx.datetime.Clock
 

@@ -1,7 +1,7 @@
 package com.z_company.data_local.setting.mapping
 
-import com.z_company.data_local.setting.db.UserSettings as UserSettingsRow
-import com.z_company.data_local.setting.db.MonthOfYear as MonthOfYearRow
+import com.zcompany.datalocal.setting.db.UserSettings as UserSettingsRow
+import com.zcompany.datalocal.setting.db.MonthOfYear as MonthOfYearRow
 import com.z_company.domain.entities.DateSetTariffRate
 import com.z_company.domain.entities.Day
 import com.z_company.domain.entities.MonthOfYear
