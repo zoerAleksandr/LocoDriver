@@ -57,9 +57,6 @@ dependencies {
     implementation(project(Libs.project_data_remote))
     implementation(project(Libs.project_robokassa_sdk))
 
-    implementation(platform(Libs.ru_ok_tracer_platform))
-    implementation(Libs.ru_ok_tracer_tracer_crash_report)
-
 //    implementation(Libs.lifecycle_runtime_compose)
     implementation(Libs.activity_compose)
     implementation(Libs.core_ktx)

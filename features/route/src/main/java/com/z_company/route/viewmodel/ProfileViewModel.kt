@@ -54,9 +54,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
-import java.io.NotActiveException
 import java.util.Calendar
-import ru.ok.tracer.crash.report.TracerCrashReport
 
 data class ProfileUiState(
     val userDetailsState: ResultState<UserRemote?> = ResultState.Loading(),
@@ -817,7 +815,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                                                 "Migration",
                                                 "Ошибка сохранения маршрута ${route.basicData.id}: ${saveResult.entity.message}"
                                             )
-                                            TracerCrashReport.report(NotActiveException("migration \nsave route \nuser bearer token \n$token \nuserId $userId error \n${saveResult.entity} \n${route.basicData.id}\n $route"))
+                                            Log.e("Migration","migration \nsave route \nuser bearer token \n$token \nuserId $userId error \n${saveResult.entity} \n${route.basicData.id}\n $route")
                                             // Продолжаем с остальными, но отметим ошибку
                                         }
 
@@ -847,7 +845,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                                 .first { it is ResultState.Success || it is ResultState.Error }
 
                             if (saveSubscribeTimeInLocal is ResultState.Error) {
-                                TracerCrashReport.report(NotActiveException("migration \n save salarySetting \nuser bearer token \n userId $userId \n$token \n при миграции не перенесены данные подписки в UserSetting"))
+                                Log.e("Migration","migration \n save salarySetting \nuser bearer token \n userId $userId \n$token \n при миграции не перенесены данные подписки в UserSetting")
                             }
 
                             settingManager.saveUserSettingInRemote(l, fullToken)
@@ -859,7 +857,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
 
                                         is ResultState.Error -> {
                                             hasSettingsError = true
-                                            TracerCrashReport.report(NotActiveException("migration  \nsave userSetting \n userId $userId \nuser bearer token \n$token\n ${saveState.entity} \n $localUserSettings"))
+                                            Log.e("Migration","migration  \nsave userSetting \n userId $userId \nuser bearer token \n$token\n ${saveState.entity} \n $localUserSettings")
                                             // Продолжаем к следующей настройке
                                         }
 
@@ -879,7 +877,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
 
                                         is ResultState.Error -> {
                                             hasSettingsError = true
-                                            TracerCrashReport.report(NotActiveException("migration  \nsave salarySetting \n userId $userId \nuser bearer token \n$token \n${saveState.entity} \n $localSalarySetting"))
+                                            Log.e("Migration","migration  \nsave salarySetting \n userId $userId \nuser bearer token \n$token \n${saveState.entity} \n $localSalarySetting")
 
                                         }
 
@@ -902,7 +900,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                                                 "Migration",
                                                 "Ошибка сохранения MonthOfYearList: ${saveState.entity.message}"
                                             )
-                                            TracerCrashReport.report(NotActiveException("migration  \nsave MonthOfYearList \n userId $userId \nuser bearer token \n$token ${saveState.entity} \n $localMonths"))
+                                            Log.e("Migration","migration  \nsave MonthOfYearList \n userId $userId \nuser bearer token \n$token ${saveState.entity} \n $localMonths")
 
                                         }
 
