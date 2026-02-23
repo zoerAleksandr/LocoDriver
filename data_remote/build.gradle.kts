@@ -45,9 +45,6 @@ kotlin {
             // Android-specific
             implementation(Libs.oneTapVkId)
             implementation(Libs.vkId)
-            implementation(Libs.rustore_review)
-            implementation(Libs.ru_ok_tracer_platform)
-            implementation(Libs.ru_ok_tracer_tracer_crash_report)
             implementation(Libs.core_ktx)
             implementation(Libs.app_compat)
             implementation(Libs.compose_material3)

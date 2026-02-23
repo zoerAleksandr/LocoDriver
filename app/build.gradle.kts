@@ -8,7 +8,6 @@ plugins {
     id(Plugins.android_app)
     id(Plugins.kotlin_android)
     id(Plugins.ksp)
-    id("ru.ok.tracer").version(Versions.ru_ok_tracer_platform_ver)
     id(Plugins.compose_compiler)
     id(Plugins.vkIdManifest)
     id("org.jetbrains.kotlin.plugin.serialization")
@@ -99,13 +98,6 @@ kotlin {
     }
 }
 
-tracer {
-    create("defaultConfig") {
-        pluginToken = "fXDqsEd0kMKfFaGKjIOyiNSkthd3jXtkvvvP1Ckevvf0"
-        appToken = "1io5grTlupk1xA2hlnGu4uthwGqLCge4HE5xHMfTgYH0"
-    }
-}
-
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
@@ -114,10 +106,7 @@ dependencies {
     implementation(Libs.mytracker_sdk)
     implementation(platform(Libs.rustore_bom))
     implementation(Libs.rustore_sdk_appupdate)
-
-    implementation(platform(Libs.ru_ok_tracer_platform))
-    implementation(Libs.ru_ok_tracer_tracer_crash_report)
-    implementation(Libs.ru_ok_tracer_tracer_heap_dumps)
+    implementation(Libs.work_manager)
 
     implementation(project(Libs.project_core_android))
     implementation(project(Libs.project_domain))
