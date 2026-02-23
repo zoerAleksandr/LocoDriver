@@ -97,7 +97,7 @@ object Versions {
     const val room_version = "2.7.1"
     const val test_ext_version = "1.1.5"
     const val test_runner_version = "1.6.0-alpha01"
-    const val koin_version = "3.5.6"
+    const val koin_version = "4.1.1"
     const val accompanist_pager_version = "0.34.0"
     const val gson_version = "2.11.0"
     const val constraint_layout_ver = "1.0.1"
@@ -127,7 +127,7 @@ object Versions {
 
     const val datastore_preferences_ver = "1.2.0"
     const val crypto_tink_ver = "1.7.0"
-    const val kotlin_x_serialization_json_ver = "1.10.0"
+    const val kotlin_x_serialization_json_ver = "1.9.0"
     const val ktor_ver = "3.0.3"
     const val sqldelight_ver = "2.0.2"
     // Compose Multiplatform (совместим с Kotlin 2.2.0)
