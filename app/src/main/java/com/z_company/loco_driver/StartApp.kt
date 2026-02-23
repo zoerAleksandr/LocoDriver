@@ -4,9 +4,8 @@ import android.app.Application
 import com.my.tracker.MyTracker
 import com.my.tracker.MyTrackerConfig.LocationTrackingMode
 import com.vk.id.VKID
-import com.z_company.data_local.route.di.roomRouteModule
-import com.z_company.data_local.setting.di.roomSalarySettingModule
-import com.z_company.data_local.setting.di.roomSettingsModule
+import com.z_company.data_local.route.di.sqlDelightRouteModule
+import com.z_company.data_local.setting.di.sqlDelightSettingsModule
 import com.z_company.loco_driver.di.repositoryModule
 import com.z_company.loco_driver.di.resourcesModule
 import com.z_company.loco_driver.di.updateModule
@@ -38,9 +37,8 @@ class StartApp : Application() {
             androidContext(this@StartApp)
             modules(
                 viewModelModule,
-                roomSettingsModule,
-                roomSalarySettingModule,
-                roomRouteModule,
+                sqlDelightRouteModule,
+                sqlDelightSettingsModule,
                 repositoryModule,
                 useCaseModule,
                 resourcesModule,

@@ -55,8 +55,10 @@ object Plugins {
     const val java_lib = "java-library"
     const val google_relay = "com.google.relay"
     const val compose_compiler = "org.jetbrains.kotlin.plugin.compose"
+    const val compose_multiplatform = "org.jetbrains.compose"
     const val ksp = "com.google.devtools.ksp"
     const val vkIdManifest = "vkid.manifest.placeholders"
+    const val sqldelight = "app.cash.sqldelight"
 }
 
 object Apps {
@@ -127,6 +129,11 @@ object Versions {
     const val crypto_tink_ver = "1.7.0"
     const val kotlin_x_serialization_json_ver = "1.10.0"
     const val ktor_ver = "3.0.3"
+    const val sqldelight_ver = "2.0.2"
+    // Compose Multiplatform (совместим с Kotlin 2.2.0)
+    const val compose_mp_ver = "1.8.0"
+    // KMP Navigation-Compose (JetBrains fork androidx.navigation, совместим с Compose MP 1.8.0)
+    const val navigation_kmp_ver = "2.8.0-alpha10"
 }
 
 object Libs {
@@ -202,6 +209,9 @@ object Libs {
         "io.insert-koin:koin-android:$koin_version"
     const val koin_androidx_compose =
         "io.insert-koin:koin-androidx-compose:$koin_version"
+    // KMP Compose + ViewModel DI (поддерживает iOS)
+    const val koin_compose =
+        "io.insert-koin:koin-compose:$koin_version"
     const val accompanist_pager =
         "com.google.accompanist:accompanist-pager:$accompanist_pager_version"
     const val accompanist_pager_indicator =
@@ -233,8 +243,20 @@ object Libs {
     const val rustore_review = "ru.rustore.sdk:review"
     const val rustore_sdk_appupdate = "ru.rustore.sdk:appupdate"
 
+    // KMP Navigation
+    const val navigation_compose_kmp =
+        "org.jetbrains.androidx.navigation:navigation-compose:${Versions.navigation_kmp_ver}"
+
+    // SQLDelight
+    const val sqldelight_android_driver = "app.cash.sqldelight:android-driver:${Versions.sqldelight_ver}"
+    const val sqldelight_native_driver = "app.cash.sqldelight:native-driver:${Versions.sqldelight_ver}"
+    const val sqldelight_coroutines_extensions = "app.cash.sqldelight:coroutines-extensions:${Versions.sqldelight_ver}"
+    const val sqldelight_primitive_adapters = "app.cash.sqldelight:primitive-adapters:${Versions.sqldelight_ver}"
+
     // Ktor
+    const val ktor_client_core = "io.ktor:ktor-client-core:$ktor_ver"
     const val ktor_client_android = "io.ktor:ktor-client-android:$ktor_ver"
+    const val ktor_client_darwin = "io.ktor:ktor-client-darwin:$ktor_ver"
     const val ktor_client_content_negotiation = "io.ktor:ktor-client-content-negotiation:$ktor_ver"
     const val ktor_serialization_kotlinx_json = "io.ktor:ktor-serialization-kotlinx-json:$ktor_ver"
     const val ktor_client_logging = "io.ktor:ktor-client-logging:$ktor_ver"
