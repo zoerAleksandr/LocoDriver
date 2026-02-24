@@ -11,6 +11,10 @@ import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.datetime.LocalDate
 
 @Serializable
@@ -39,6 +43,10 @@ data class ReleasePeriod(
  * Кастомный сериализатор для sealed class ReleaseType.
  * Заменяет Gson TypeAdapter (ReleaseTypeAdapter).
  * Сериализует как строку — значение поля text.
+ *
+ * Десериализация поддерживает два формата:
+ * - Новый (kotlinx.serialization): примитивная строка "Отпуск"
+ * - Старый (Gson/Room): JSON-объект {"type":"Vacation"}
  */
 object ReleaseTypeSerializer : KSerializer<ReleaseType> {
     override val descriptor: SerialDescriptor =
@@ -49,14 +57,36 @@ object ReleaseTypeSerializer : KSerializer<ReleaseType> {
     }
 
     override fun deserialize(decoder: Decoder): ReleaseType {
-        return when (decoder.decodeString()) {
-            "Донорские" -> ReleaseType.Donor
-            "Курсы" -> ReleaseType.Courses
-            "Больничный" -> ReleaseType.SickLeave
-            "Отпуск" -> ReleaseType.Vacation
-            "По уходу за ребенком-инвалидом" -> ReleaseType.ChildCare
-            else -> ReleaseType.Other
+        // Поддержка legacy Gson-формата {"type":"Vacation"} из старой Room БД
+        if (decoder is JsonDecoder) {
+            return when (val element = decoder.decodeJsonElement()) {
+                is JsonPrimitive -> fromText(element.content)
+                is JsonObject -> fromGsonType(element["type"]?.jsonPrimitive?.content)
+                else -> ReleaseType.Other
+            }
         }
+        // Fallback для не-JSON декодеров
+        return fromText(decoder.decodeString())
+    }
+
+    /** Маппинг по русскому тексту (новый формат kotlinx.serialization) */
+    private fun fromText(text: String): ReleaseType = when (text) {
+        "Донорские" -> ReleaseType.Donor
+        "Курсы" -> ReleaseType.Courses
+        "Больничный" -> ReleaseType.SickLeave
+        "Отпуск" -> ReleaseType.Vacation
+        "По уходу за ребенком-инвалидом" -> ReleaseType.ChildCare
+        else -> ReleaseType.Other
+    }
+
+    /** Маппинг по английскому имени класса (legacy Gson-формат из Room) */
+    private fun fromGsonType(type: String?): ReleaseType = when (type) {
+        "Vacation" -> ReleaseType.Vacation
+        "SickLeave" -> ReleaseType.SickLeave
+        "Courses" -> ReleaseType.Courses
+        "Donor" -> ReleaseType.Donor
+        "ChildCare" -> ReleaseType.ChildCare
+        else -> ReleaseType.Other
     }
 }
 

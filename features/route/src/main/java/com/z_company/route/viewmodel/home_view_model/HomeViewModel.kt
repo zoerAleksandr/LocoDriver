@@ -866,15 +866,10 @@ class HomeViewModel : ViewModel(), KoinComponent {
             routesFlow.collect { result ->
                 when (result) {
                     is ResultState.Loading -> {
-                        // optional: reflect loading state in UI if you want
-                        // we update UI on Main thread
-//                        withContext(Dispatchers.Main) {
                         _uiState.update { it.copy(listItemState = mutableListOf()) }
-//                        }
                     }
 
                     is ResultState.Success -> {
-                        // all further processing must run on IO or Default depending on heavy computations
                         val fullRouteList = result.data
                         val userSettings = currentUserSetting
                         val salarySetting = currentSalarySetting
