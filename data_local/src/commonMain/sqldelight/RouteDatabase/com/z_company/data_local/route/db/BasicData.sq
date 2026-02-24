@@ -30,8 +30,13 @@ SELECT * FROM BasicData;
 
 getByPeriod:
 SELECT * FROM BasicData
-WHERE (timeStartWork <= :endPeriod AND timeEndWork >= :startPeriod AND isDeleted = 0)
-   OR (timeStartWork BETWEEN :startPeriod AND :endPeriod AND isDeleted = 0)
+WHERE isDeleted = 0
+  AND (
+    (timeStartWork >= :startPeriod AND timeStartWork <= :endPeriod)
+    OR (timeEndWork >= :startPeriod AND timeEndWork <= :endPeriod)
+    OR (timeStartWork <= :startPeriod AND timeEndWork >= :endPeriod)
+    OR (timeStartWork <= :endPeriod AND timeEndWork IS NULL)
+  )
 ORDER BY timeStartWork DESC;
 
 delete:

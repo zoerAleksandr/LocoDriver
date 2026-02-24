@@ -24,11 +24,6 @@ actual class DatabaseDriverFactory(private val context: Context) {
     actual fun createSearchResponseDriver(): SqlDriver =
         createDriver(SearchResponseDatabase.Schema, "SearchResponse.db")
 
-    /**
-     * Создаёт драйвер с поддержкой downgrade из старой Room БД.
-     * Room использовал version 14+, SQLDelight начинает с version 1.
-     * При downgrade просто сбрасываем version — таблицы совместимы.
-     */
     private fun createDriver(
         schema: SqlSchema<QueryResult.Value<Unit>>,
         name: String
@@ -38,8 +33,8 @@ actual class DatabaseDriverFactory(private val context: Context) {
         name = name,
         callback = object : AndroidSqliteDriver.Callback(schema) {
             override fun onDowngrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {
-                // Room version > SQLDelight version — допускаем downgrade без потери данных.
-                // Таблицы структурно совместимы после миграции Step 9.
+                // Room использовал version 14+, SQLDelight начинает с version 1.
+                // При downgrade просто пропускаем — таблицы совместимы.
             }
         }
     )
