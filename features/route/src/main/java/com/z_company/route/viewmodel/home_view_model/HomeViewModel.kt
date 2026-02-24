@@ -866,7 +866,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
             routesFlow.collect { result ->
                 when (result) {
                     is ResultState.Loading -> {
-                        _uiState.update { it.copy(listItemState = mutableListOf()) }
+                        // Не очищаем список — показываем старые данные, пока загружаются новые
                     }
 
                     is ResultState.Success -> {

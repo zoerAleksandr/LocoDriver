@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
@@ -55,34 +57,20 @@ class RouteUseCase(private val repository: RouteRepository) {
     fun listRoutesByMonth(
         monthOfYear: MonthOfYear,
         offsetInMoscow: Long
-    ): Flow<ResultState<List<Route>>> =
-        channelFlow {
-            trySend(ResultState.Loading())
+    ): Flow<ResultState<List<Route>>> = flow {
+        emit(ResultState.Loading())
 
-            val tz = TimeZone.currentSystemDefault()
-            val startDate = LocalDate(monthOfYear.year, monthOfYear.month + 1, 1)
-            val startMonthInLong = startDate.atStartOfDayIn(tz).toEpochMilliseconds() - offsetInMoscow
-            val maxDayOfMonth = startDate.plus(1, DateTimeUnit.MONTH).minus(1, DateTimeUnit.DAY).dayOfMonth
+        val tz = TimeZone.currentSystemDefault()
+        val startDate = LocalDate(monthOfYear.year, monthOfYear.month + 1, 1)
+        val startMonthInLong = startDate.atStartOfDayIn(tz).toEpochMilliseconds() - offsetInMoscow
+        val maxDayOfMonth = startDate.plus(1, DateTimeUnit.MONTH).minus(1, DateTimeUnit.DAY).dayOfMonth
 
-            val endMonthInLong = LocalDateTime(
-                monthOfYear.year, monthOfYear.month + 1, maxDayOfMonth, 23, 59, 0, 0
-            ).toInstant(tz).toEpochMilliseconds() - offsetInMoscow
+        val endMonthInLong = LocalDateTime(
+            monthOfYear.year, monthOfYear.month + 1, maxDayOfMonth, 23, 59, 0, 0
+        ).toInstant(tz).toEpochMilliseconds() - offsetInMoscow
 
-            withContext(Dispatchers.Default) {
-                this.launch {
-                    repository.loadRoutesByPeriod(startMonthInLong, endMonthInLong)
-                        .collect { result ->
-                            if (result is ResultState.Success) {
-                                trySend(ResultState.Success(result.data))
-                            }
-                            if (result is ResultState.Error) {
-                                trySend(ResultState.Error(ErrorEntity(result.entity.throwable)))
-                            }
-                        }
-                }
-            }
-            awaitClose()
-        }
+        emitAll(repository.loadRoutesByPeriod(startMonthInLong, endMonthInLong))
+    }
 
     fun listRouteWithDeleting(): List<Route> {
         return repository.loadRoutesWithDeleting()

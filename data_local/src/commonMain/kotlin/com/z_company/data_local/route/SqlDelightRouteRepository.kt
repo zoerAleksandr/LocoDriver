@@ -139,9 +139,8 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
     }
 
     override fun loadRoutesByPeriod(startPeriod: Long, endPeriod: Long): Flow<ResultState<List<Route>>> {
-        return flowMap {
-            loadRouteByPeriodFlow(startPeriod, endPeriod).map { ResultState.Success(it) }
-        }
+        return loadRouteByPeriodFlow(startPeriod, endPeriod)
+            .map<List<Route>, ResultState<List<Route>>> { ResultState.Success(it) }
     }
 
     override fun loadRoutesAsStateFlow(): Flow<ResultState<List<Route>>> {
