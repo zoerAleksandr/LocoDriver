@@ -8,7 +8,7 @@ import com.z_company.domain.entities.route.SectionElectric
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-private val json = Json { ignoreUnknownKeys = true; isLenient = true }
+private val json = Json { ignoreUnknownKeys = true; isLenient = true; encodeDefaults = true }
 
 internal object LocomotiveMapper {
 
@@ -19,10 +19,16 @@ internal object LocomotiveMapper {
         json.encodeToString(list)
 
     private fun decodeElectricSections(value: String): List<SectionElectric> =
-        runCatching { json.decodeFromString<List<SectionElectric>>(value) }.getOrElse { emptyList() }
+        runCatching { json.decodeFromString<List<SectionElectric>>(value) }.getOrElse { e ->
+            println("LocomotiveMapper: Failed to decode electric sections: ${e.message}")
+            emptyList()
+        }
 
     private fun decodeDieselSections(value: String): List<SectionDiesel> =
-        runCatching { json.decodeFromString<List<SectionDiesel>>(value) }.getOrElse { emptyList() }
+        runCatching { json.decodeFromString<List<SectionDiesel>>(value) }.getOrElse { e ->
+            println("LocomotiveMapper: Failed to decode diesel sections: ${e.message}")
+            emptyList()
+        }
 
     fun toData(row: LocomotiveRow): Locomotive = Locomotive(
         locoId = row.locoId,

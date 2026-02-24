@@ -9,7 +9,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-private val json = Json { ignoreUnknownKeys = true; isLenient = true }
+private val json = Json { ignoreUnknownKeys = true; isLenient = true; encodeDefaults = true }
 
 /**
  * Compat row for deserializing stations stored by old GSON code
@@ -17,8 +17,8 @@ private val json = Json { ignoreUnknownKeys = true; isLenient = true }
  */
 @Serializable
 private data class StationRow(
-    val stationId: String,
-    val trainId: String,
+    val stationId: String = "",
+    val trainId: String = "",
     @SerialName("stationName") val stationNameGson: String? = null,
     @SerialName("name") val stationNameNew: String? = null,
     val timeArrival: Long? = null,
@@ -44,7 +44,10 @@ internal object TrainMapper {
     private fun decodeStations(value: String): MutableList<Station> =
         runCatching {
             json.decodeFromString<List<StationRow>>(value).map { it.toStation() }.toMutableList()
-        }.getOrElse { mutableListOf() }
+        }.getOrElse { e ->
+            println("TrainMapper: Failed to decode stations: ${e.message}, raw=$value")
+            mutableListOf()
+        }
 
     private fun decodeServicePhase(value: String?): ServicePhase? =
         value?.let {
