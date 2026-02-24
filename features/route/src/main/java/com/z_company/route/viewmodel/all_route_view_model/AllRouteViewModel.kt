@@ -135,6 +135,16 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
     val yearList: StateFlow<List<Int>> = _yearList.asStateFlow()
 
     init {
+        // Загружаем сохранённые настройки UI один раз при создании ViewModel
+        val savedSort = sharedPreferenceStorage.getSortOption()?.let { SortOption.valueOf(it) }
+            ?: SortOption.DATE_DESC
+        val savedFiltersStrings = sharedPreferenceStorage.getSelectedFilters() ?: setOf(RouteFilter.ALL.name)
+        val savedFilters = savedFiltersStrings.map { RouteFilter.valueOf(it) }.toSet()
+        val savedExpanded = sharedPreferenceStorage.isExpandedView()
+        _uiState.update {
+            it.copy(sortOption = savedSort, selectedFilters = savedFilters, isExpandedView = savedExpanded)
+        }
+
         viewModelScope.launch {
             calendarUseCase.loadFlowMonthOfYearListState()
                 .collect { list ->
@@ -194,21 +204,11 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                 val user = userSettings ?: return@collectLatest
 
                 val filtered = applyFilters(rawRoutes, filters, salarySetting = salary)
-                val savedSort =
-                    sharedPreferenceStorage.getSortOption()?.let { SortOption.valueOf(it) }
-                        ?: SortOption.DATE_DESC
-                val savedFiltersStrings =
-                    sharedPreferenceStorage.getSelectedFilters() ?: setOf(RouteFilter.ALL.name)
-                val savedFilters = savedFiltersStrings.map { RouteFilter.valueOf(it) }.toSet()
-                val savedExpanded = sharedPreferenceStorage.isExpandedView()
                 _uiState.update {
                     it.copy(
                         filteredRoutes = filtered,
                         isLoading = false,
-                        currentMonthOfYear = user.selectMonthOfYear,
-                        sortOption = savedSort,
-                        selectedFilters = savedFilters,
-                        isExpandedView = savedExpanded
+                        currentMonthOfYear = user.selectMonthOfYear
                     )
                 }
             }
