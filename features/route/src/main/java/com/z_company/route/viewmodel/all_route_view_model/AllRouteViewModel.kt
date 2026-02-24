@@ -90,6 +90,7 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
     private val routesManager: RoutesManager by inject()
 
     private var removeRouteJob: Job? = null
+    private var loadRoutesJob: Job? = null
 
     private val _uiState = MutableStateFlow(RoutesUiState())
     val uiState: StateFlow<RoutesUiState> = _uiState.asStateFlow()
@@ -144,7 +145,7 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                 }
         }
 
-        // combinedData — поток настроек и salary (без stateIn, можно оставить stateIn если нужно)
+        // combinedData — поток настроек и salary
         val combinedData: Flow<LoadSettingData> = combine(
             salarySettingUseCase.salarySettingFlow().map { it as SalarySetting? }
                 .onStart { emit(null) },
@@ -154,16 +155,9 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
             LoadSettingData(ss, us)
         }
 
-        // 1) объединяем combinedData с latestRawRoutes и выбранными фильтрами
+        // Поток 1: реагирует на изменение настроек → загружает маршруты
         viewModelScope.launch {
-            combine(
-                combinedData,
-                latestRawRoutes,
-                _uiState.map { it.selectedFilters }.distinctUntilChanged()
-            ) { initData, rawRoutes, filters ->
-                Triple(initData, rawRoutes, filters)
-            }.collectLatest { (initData, rawRoutes, filters) ->
-                // если настройки ещё не готовы — можно очистить или выставить загрузку
+            combinedData.collectLatest { initData ->
                 userSettings = initData.userSettings
                 salarySetting = initData.salarySetting
                 val user = initData.userSettings
@@ -178,17 +172,28 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                     return@collectLatest
                 }
 
-                // конвертер и т.п.
                 dateAndTimeConverter = DateAndTimeConverter(user)
-                val currentMonth = initData.userSettings.selectMonthOfYear
                 minTimeRest = user.minTimeRestPointOfTurnover
                 minTimeHomeRest = user.minTimeHomeRest
 
-                loadRoutes(user)
-                // строим состояния маршрутов (ItemState) — если rawRoutes уже в нужном виде, можно использовать их напрямую
-                val routeStateList = rawRoutes // если latestRawRoutes хранит ItemState
-                // применяем фильтры
-                val filtered = applyFilters(routeStateList, filters, salarySetting = salary)
+                // Отменяем предыдущую загрузку, запускаем новую
+                loadRoutesJob?.cancel()
+                loadRoutesJob = loadRoutes(user)
+            }
+        }
+
+        // Поток 2: реагирует на latestRawRoutes и фильтры → применяет фильтрацию (без loadRoutes!)
+        viewModelScope.launch {
+            combine(
+                latestRawRoutes,
+                _uiState.map { it.selectedFilters }.distinctUntilChanged()
+            ) { rawRoutes, filters ->
+                rawRoutes to filters
+            }.collectLatest { (rawRoutes, filters) ->
+                val salary = salarySetting ?: return@collectLatest
+                val user = userSettings ?: return@collectLatest
+
+                val filtered = applyFilters(rawRoutes, filters, salarySetting = salary)
                 val savedSort =
                     sharedPreferenceStorage.getSortOption()?.let { SortOption.valueOf(it) }
                         ?: SortOption.DATE_DESC
@@ -200,7 +205,7 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                     it.copy(
                         filteredRoutes = filtered,
                         isLoading = false,
-                        currentMonthOfYear = currentMonth,
+                        currentMonthOfYear = user.selectMonthOfYear,
                         sortOption = savedSort,
                         selectedFilters = savedFilters,
                         isExpandedView = savedExpanded
@@ -410,14 +415,13 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun loadRoutes(userSettings: UserSettings) {
-        viewModelScope.launch(Dispatchers.IO) {
+    fun loadRoutes(userSettings: UserSettings): Job {
+        return viewModelScope.launch(Dispatchers.IO) {
             routeUseCase.listRoutesByMonth(userSettings.selectMonthOfYear, userSettings.timeZone)
-                .onStart { _uiState.update { it.copy(isLoading = true, errorMessage = null) } }
                 .collect { result ->
                     when (result) {
                         is ResultState.Loading -> {
-                            _uiState.update { it.copy(isLoading = true) }
+                            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
                         }
 
                         is ResultState.Success -> {
@@ -463,7 +467,6 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                                     errorMessage = message
                                 )
                             }
-                            // показываем snackbar централизованно
                             snackbarManager.show(message = message)
                         }
                     }
@@ -500,7 +503,8 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
 
     fun reload() {
         userSettings?.let { setting ->
-            loadRoutes(setting)
+            loadRoutesJob?.cancel()
+            loadRoutesJob = loadRoutes(setting)
         }
     }
 
