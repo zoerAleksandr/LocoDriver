@@ -211,6 +211,7 @@ class TrainFormViewModel(
                     train.stations = stationsListState.map { state ->
                         Station(
                             stationId = state.id,
+                            trainId = train.trainId,
                             stationName = state.station.data,
                             timeArrival = state.arrival.data,
                             timeDeparture = state.departure.data
