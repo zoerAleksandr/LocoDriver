@@ -25,6 +25,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -168,11 +169,36 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
     }
 
     override fun loadRoute(routeId: String): Flow<ResultState<Route?>> {
-        return flowMap {
-            db.basicDataQueries.getById(routeId)
-                .asFlow()
-                .mapToOneOrNull(Dispatchers.Default)
-                .map { basicData -> ResultState.Success(basicData?.let { assembleRoute(it) }) }
+        return flow {
+            emit(ResultState.Loading())
+            emitAll(
+                combine(
+                    db.basicDataQueries.getById(routeId)
+                        .asFlow().mapToOneOrNull(Dispatchers.Default),
+                    db.locomotiveQueries.getByBasicId(routeId)
+                        .asFlow().mapToList(Dispatchers.Default),
+                    db.trainQueries.getByBasicId(routeId)
+                        .asFlow().mapToList(Dispatchers.Default),
+                    db.passengerQueries.getByBasicId(routeId)
+                        .asFlow().mapToList(Dispatchers.Default),
+                    db.photoQueries.getByBasicId(routeId)
+                        .asFlow().mapToList(Dispatchers.Default)
+                ) { basicData, locos, trains, passengers, photos ->
+                    basicData?.let { bd ->
+                        ResultState.Success(
+                            Route(
+                                basicData = BasicDataMapper.toData(bd),
+                                locomotives = locos.map { LocomotiveMapper.toData(it) }.toMutableList(),
+                                trains = trains.map { TrainMapper.toData(it) }.toMutableList(),
+                                passengers = passengers.map { PassengerMapper.toData(it) }.toMutableList(),
+                                photos = photos.map { PhotoMapper.toData(it) }.toMutableList()
+                            )
+                        ) as ResultState<Route?>
+                    } ?: ResultState.Success(null)
+                }.catch { e ->
+                    emit(ResultState.Error(ErrorEntity(e)))
+                }
+            )
         }
     }
 
