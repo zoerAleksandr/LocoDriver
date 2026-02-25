@@ -25,6 +25,7 @@ object RemoteRestClient {
     val appJson = Json {
         ignoreUnknownKeys = true
         isLenient = true
+        encodeDefaults = true
         serializersModule = SerializersModule {
             contextual(DoubleAsStringSerializer)
         }
