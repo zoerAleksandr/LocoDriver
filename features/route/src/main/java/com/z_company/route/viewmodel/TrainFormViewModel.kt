@@ -270,11 +270,18 @@ class TrainFormViewModel(
         }
     }
 
-    fun dismissCreateServicePhaseSheet() {
+    fun cancelCreateServicePhaseSheet() {
         _uiState.update {
             it.copy(showCreateServicePhaseSheet = false)
         }
-        // Just save the train without creating a service phase
+        // User dismissed the sheet — cancel save, stay on screen
+    }
+
+    fun skipServicePhaseAndSave() {
+        _uiState.update {
+            it.copy(showCreateServicePhaseSheet = false)
+        }
+        // Save the train without creating a service phase
         val state = _uiState.value.trainDetailState
         if (state is ResultState.Success) {
             state.data?.let { performSave(it) }
@@ -410,9 +417,9 @@ class TrainFormViewModel(
         changesHave()
     }
 
-    fun setReorderStation(index: Int?) {
+    fun toggleReorderMode() {
         _uiState.update {
-            it.copy(reorderStationIndex = if (it.reorderStationIndex == index) null else index)
+            it.copy(isReorderMode = !it.isReorderMode)
         }
     }
 
@@ -420,7 +427,6 @@ class TrainFormViewModel(
         if (toIndex < 0 || toIndex >= stationsListState.size) return
         val item = stationsListState.removeAt(fromIndex)
         stationsListState.add(toIndex, item)
-        _uiState.update { it.copy(reorderStationIndex = toIndex) }
         changesHave()
     }
 

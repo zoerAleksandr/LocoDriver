@@ -18,7 +18,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Card
@@ -63,8 +65,13 @@ import com.z_company.core.ui.component.DateTimePickerBottomSheet
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.DateAndTimeFormat
+import com.z_company.domain.entities.route.UtilsForEntities
 import com.z_company.route.viewmodel.StationFormState
 import java.util.Calendar
+
+private val warningColor = Color(0xFFFFC107)
+private val warningTextColor = Color(0xFF3E2723)
+private val dangerColor = Color(0xFFEF5350)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -83,8 +90,8 @@ fun StationItem(
     onDeleteStationName: (String) -> Unit,
     selectIndexState: MutableState<Int>,
     dateAndTimeConverter: DateAndTimeConverter?,
-    isReorderActive: Boolean = false,
-    onLongPress: () -> Unit = {},
+    trainNumber: String? = null,
+    isReorderMode: Boolean = false,
     onMoveUp: (() -> Unit)? = null,
     onMoveDown: (() -> Unit)? = null
 ) {
@@ -206,11 +213,37 @@ fun StationItem(
         }
     )
 
+    // Стоянка (минуты между прибытием и отправлением)
+    val stopMinutes = if (stationFormState.arrival.data != null && stationFormState.departure.data != null) {
+        val diff = stationFormState.departure.data - stationFormState.arrival.data
+        if (diff > 0) (diff / 60_000).toString() else null
+    } else null
+
+    // Определение пассажирского поезда
+    val isPassengerTrain = trainNumber?.toIntOrNull()?.let { num ->
+        UtilsForEntities.passengerTrainNumberList.any { range -> num in range }
+    } ?: false
+
+    // Цвета фона стоянки
+    val stopLong = stopMinutes?.toLongOrNull() ?: 0L
+    val stopBackground = when {
+        stopLong > 20 && isPassengerTrain -> dangerColor
+        stopLong > 30 -> dangerColor
+        stopLong > 5 -> warningColor
+        else -> Color.Transparent
+    }
+    val stopTextColor = when {
+        stopLong > 20 && isPassengerTrain -> Color.White
+        stopLong > 30 -> Color.White
+        stopLong > 5 -> warningTextColor
+        else -> primaryColor.copy(alpha = 0.7f)
+    }
+
     Column(modifier = modifier.fillMaxWidth().wrapContentHeight()) {
         SwipeToDismissBox(
             state = dismissState,
             enableDismissFromStartToEnd = false,
-            enableDismissFromEndToStart = !isReorderActive,
+            enableDismissFromEndToStart = !isReorderMode,
             backgroundContent = {
                 val color by animateColorAsState(
                     when (dismissState.targetValue) {
@@ -241,18 +274,14 @@ fun StationItem(
                     modifier = Modifier
                         .height(IntrinsicSize.Min)
                         .fillMaxWidth()
-                        .combinedClickable(
-                            onClick = {},
-                            onLongClick = onLongPress
-                        )
                         .padding(bottom = 2.dp, end = 2.dp, start = 1.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
 
                     ExposedDropdownMenuBox(
                         modifier = Modifier
-                            .weight(0.45f),
+                            .weight(0.5f),
                         expanded = isExpandedMenu,
                         onExpandedChange = { onExpandedMenuChange(index, it) }
                     ) {
@@ -356,128 +385,149 @@ fun StationItem(
                         }
                     }
 
-                    val animatedBackgroundColorsArrival by animateColorAsState(
-                        targetValue = if (stationFormState.arrival.data == null) MaterialTheme.colorScheme.surface
-                        else MaterialTheme.colorScheme.secondary,
-                        animationSpec = tween(
-                            durationMillis = 200,
-                            easing = FastOutSlowInEasing
-                        )
-                    )
-
-                    val animatedBackgroundColorsDeparture by animateColorAsState(
-                        targetValue = if (stationFormState.departure.data == null) MaterialTheme.colorScheme.surface
-                        else MaterialTheme.colorScheme.secondary,
-                        animationSpec = tween(
-                            durationMillis = 200,
-                            easing = FastOutSlowInEasing
-                        )
-                    )
-
-                    val animatedTextColorsArrival by animateColorAsState(
-                        targetValue = if (stationFormState.arrival.data == null) primaryColor.copy(alpha = 0.5f)
-                        else primaryColor,
-                        animationSpec = tween(
-                            durationMillis = 200,
-                            easing = FastOutSlowInEasing
-                        )
-                    )
-                    val animatedTextColorsDeparture by animateColorAsState(
-                        targetValue = if (stationFormState.departure.data == null) primaryColor.copy(alpha = 0.5f)
-                        else primaryColor,
-                        animationSpec = tween(
-                            durationMillis = 200,
-                            easing = FastOutSlowInEasing
-                        )
-                    )
-
-                    Box(
+                    // Время (arrival + стоянка + departure) — 50%
+                    Row(
                         modifier = Modifier
-                            .weight(0.2f)
-                            .shadow(elevation = 2.dp, shape = Shapes.medium)
-                            .fillMaxHeight()
-                            .background(
-                                color = animatedBackgroundColorsArrival,
-                                shape = Shapes.medium
-                            )
-                            .combinedClickable(
-                                onClick = {
-                                    showArrivalDatePicker = true
-                                },
-                                onLongClick = {
-                                    selectIndexState.value = index
-                                    stationFormState.arrival.data?.let {
-                                        showBottomSheetRemoveTimeArrival = true
-                                    }
-                                }
-                            ),
-                        contentAlignment = Alignment.Center
+                            .weight(0.5f)
+                            .fillMaxHeight(),
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val textTimeArrival = stationFormState.arrival.data?.let {
-                            dateAndTimeConverter?.getTimeFromDateLong(it)
-                        } ?: DateAndTimeFormat.DEFAULT_TIME_TEXT
-
-                        Text(
-                            text = textTimeArrival,
-                            maxLines = 1,
-                            style = dataTextStyle,
-                            color = animatedTextColorsArrival
-                        )
-                    }
-
-                    // Стоянка (минуты между прибытием и отправлением)
-                    val stopMinutes = if (stationFormState.arrival.data != null && stationFormState.departure.data != null) {
-                        val diff = stationFormState.departure.data - stationFormState.arrival.data
-                        if (diff > 0) (diff / 60_000).toString() else null
-                    } else null
-
-                    if (stopMinutes != null) {
-                        Text(
-                            text = "${stopMinutes}'",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = primaryColor.copy(alpha = 0.7f)
-                        )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .weight(0.2f)
-                            .shadow(elevation = 2.dp, shape = Shapes.medium)
-                            .fillMaxHeight()
-                            .background(
-                                color = animatedBackgroundColorsDeparture,
-                                shape = Shapes.medium
+                        val animatedBackgroundColorsArrival by animateColorAsState(
+                            targetValue = if (stationFormState.arrival.data == null) MaterialTheme.colorScheme.surface
+                            else MaterialTheme.colorScheme.secondary,
+                            animationSpec = tween(
+                                durationMillis = 200,
+                                easing = FastOutSlowInEasing
                             )
-                            .combinedClickable(
-                                onClick = {
-                                    showDepartureDatePicker = true
-                                },
-                                onLongClick = {
-                                    selectIndexState.value = index
-                                    stationFormState.departure.data?.let {
-                                        showBottomSheetRemoveTimeDeparture = true
-                                    }
-                                }
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        val textTimeDeparture = stationFormState.departure.data?.let {
-                            dateAndTimeConverter?.getTimeFromDateLong(it)
-                        } ?: DateAndTimeFormat.DEFAULT_TIME_TEXT
-
-                        Text(
-                            text = textTimeDeparture,
-                            maxLines = 1,
-                            style = dataTextStyle,
-                            color = animatedTextColorsDeparture
                         )
+
+                        val animatedBackgroundColorsDeparture by animateColorAsState(
+                            targetValue = if (stationFormState.departure.data == null) MaterialTheme.colorScheme.surface
+                            else MaterialTheme.colorScheme.secondary,
+                            animationSpec = tween(
+                                durationMillis = 200,
+                                easing = FastOutSlowInEasing
+                            )
+                        )
+
+                        val animatedTextColorsArrival by animateColorAsState(
+                            targetValue = if (stationFormState.arrival.data == null) primaryColor.copy(alpha = 0.5f)
+                            else primaryColor,
+                            animationSpec = tween(
+                                durationMillis = 200,
+                                easing = FastOutSlowInEasing
+                            )
+                        )
+                        val animatedTextColorsDeparture by animateColorAsState(
+                            targetValue = if (stationFormState.departure.data == null) primaryColor.copy(alpha = 0.5f)
+                            else primaryColor,
+                            animationSpec = tween(
+                                durationMillis = 200,
+                                easing = FastOutSlowInEasing
+                            )
+                        )
+
+                        // Arrival time
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                .fillMaxHeight()
+                                .background(
+                                    color = animatedBackgroundColorsArrival,
+                                    shape = Shapes.medium
+                                )
+                                .combinedClickable(
+                                    onClick = {
+                                        showArrivalDatePicker = true
+                                    },
+                                    onLongClick = {
+                                        selectIndexState.value = index
+                                        stationFormState.arrival.data?.let {
+                                            showBottomSheetRemoveTimeArrival = true
+                                        }
+                                    }
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            val textTimeArrival = stationFormState.arrival.data?.let {
+                                dateAndTimeConverter?.getTimeFromDateLong(it)
+                            } ?: DateAndTimeFormat.DEFAULT_TIME_TEXT
+
+                            Text(
+                                text = textTimeArrival,
+                                maxLines = 1,
+                                style = dataTextStyle,
+                                color = animatedTextColorsArrival
+                            )
+                        }
+
+                        // Стоянка (фиксированная ширина 40dp)
+                        Box(
+                            modifier = Modifier.width(40.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (stopMinutes != null) {
+                                Box(
+                                    modifier = Modifier
+                                        .background(stopBackground, RoundedCornerShape(4.dp))
+                                        .padding(horizontal = 2.dp, vertical = 1.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "${stopMinutes}'",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontWeight = FontWeight.Bold
+                                        ),
+                                        color = stopTextColor,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+
+                        // Departure time
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                .fillMaxHeight()
+                                .background(
+                                    color = animatedBackgroundColorsDeparture,
+                                    shape = Shapes.medium
+                                )
+                                .combinedClickable(
+                                    onClick = {
+                                        showDepartureDatePicker = true
+                                    },
+                                    onLongClick = {
+                                        selectIndexState.value = index
+                                        stationFormState.departure.data?.let {
+                                            showBottomSheetRemoveTimeDeparture = true
+                                        }
+                                    }
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            val textTimeDeparture = stationFormState.departure.data?.let {
+                                dateAndTimeConverter?.getTimeFromDateLong(it)
+                            } ?: DateAndTimeFormat.DEFAULT_TIME_TEXT
+
+                            Text(
+                                text = textTimeDeparture,
+                                maxLines = 1,
+                                style = dataTextStyle,
+                                color = animatedTextColorsDeparture
+                            )
+                        }
                     }
                 }
             }
         }
 
         // Кнопки перемещения при reorder mode
-        AnimatedVisibility(visible = isReorderActive) {
+        AnimatedVisibility(visible = isReorderMode) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

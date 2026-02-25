@@ -207,12 +207,12 @@ fun FormTrainScreen(
         var showSelectServicePhase by remember { mutableStateOf(false) }
 
         if (formUiState.showCreateServicePhaseSheet) {
-            var newPhaseDistance by remember { mutableStateOf("") }
+            var newPhaseDistance by remember { mutableStateOf(currentTrain?.distance?.takeIf { it != "0" } ?: "") }
             val createPhaseSheetState = rememberModalBottomSheetState(
                 skipPartiallyExpanded = true
             )
             ModalBottomSheet(
-                onDismissRequest = { viewModel.dismissCreateServicePhaseSheet() },
+                onDismissRequest = { viewModel.cancelCreateServicePhaseSheet() },
                 sheetState = createPhaseSheetState,
                 containerColor = MaterialTheme.colorScheme.secondary,
                 dragHandle = {
@@ -269,6 +269,7 @@ fun FormTrainScreen(
                         textStyle = dataTextStyle,
                         singleLine = true
                     )
+                    Spacer(modifier = Modifier.height(12.dp))
                     Button(
                         modifier = Modifier.fillMaxWidth(),
                         shape = Shapes.medium,
@@ -278,7 +279,7 @@ fun FormTrainScreen(
                     }
                     TextButton(
                         modifier = Modifier.fillMaxWidth(),
-                        onClick = { viewModel.dismissCreateServicePhaseSheet() }
+                        onClick = { viewModel.skipServicePhaseAndSave() }
                     ) {
                         Text(
                             text = "Пропустить",
@@ -612,7 +613,7 @@ fun FormTrainScreen(
                                     )
                                 },
                                 suffix = {
-                                    if (!train.weight.isNullOrBlank()) {
+                                    if (!train.weight.isNullOrBlank() && train.weight != "0") {
                                         Text(
                                             text = "т.",
                                             style = hintStyle,
@@ -652,7 +653,7 @@ fun FormTrainScreen(
                                     )
                                 },
                                 suffix = {
-                                    if (!train.axle.isNullOrBlank()) {
+                                    if (!train.axle.isNullOrBlank() && train.axle != "0") {
                                         Text(
                                             text = "о.",
                                             style = hintStyle,
@@ -692,7 +693,7 @@ fun FormTrainScreen(
                                     )
                                 },
                                 suffix = {
-                                    if (!train.conditionalLength.isNullOrBlank()) {
+                                    if (!train.conditionalLength.isNullOrBlank() && train.conditionalLength != "0") {
                                         Text(
                                             text = "у.д.",
                                             style = hintStyle,
@@ -793,6 +794,18 @@ fun FormTrainScreen(
                                 painter = painterResource(com.z_company.route.R.drawable.sort_24px),
                                 contentDescription = null
                             )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Icon(
+                                modifier = Modifier
+                                    .noRippleEffect(
+                                        onClick = {
+                                            viewModel.toggleReorderMode()
+                                        }
+                                    ),
+                                painter = painterResource(com.z_company.route.R.drawable.swap_vert_24px),
+                                contentDescription = null,
+                                tint = if (formUiState.isReorderMode) MaterialTheme.colorScheme.tertiary else primaryColor
+                            )
                         }
                     }
 
@@ -826,8 +839,8 @@ fun FormTrainScreen(
                                 onDeleteStationName = onDeleteStationName,
                                 selectIndexState = selectSectionIndexState,
                                 dateAndTimeConverter = dateAndTimeConverter,
-                                isReorderActive = formUiState.reorderStationIndex == originalIndex,
-                                onLongPress = { viewModel.setReorderStation(originalIndex) },
+                                trainNumber = train.number,
+                                isReorderMode = formUiState.isReorderMode,
                                 onMoveUp = if (originalIndex > 0) {
                                     { viewModel.moveStation(originalIndex, originalIndex - 1) }
                                 } else null,
