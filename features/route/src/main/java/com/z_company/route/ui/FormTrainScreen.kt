@@ -206,6 +206,91 @@ fun FormTrainScreen(
 
         var showSelectServicePhase by remember { mutableStateOf(false) }
 
+        if (formUiState.showCreateServicePhaseSheet) {
+            var newPhaseDistance by remember { mutableStateOf("") }
+            val createPhaseSheetState = rememberModalBottomSheetState(
+                skipPartiallyExpanded = true
+            )
+            ModalBottomSheet(
+                onDismissRequest = { viewModel.dismissCreateServicePhaseSheet() },
+                sheetState = createPhaseSheetState,
+                containerColor = MaterialTheme.colorScheme.secondary,
+                dragHandle = {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(40.dp)
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                        )
+                    }
+                }
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "Новое плечо",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = primaryColor
+                    )
+                    Text(
+                        text = "${formUiState.suggestedDepartureStation} — ${formUiState.suggestedArrivalStation}",
+                        style = dataTextStyle,
+                        color = primaryColor
+                    )
+                    OutlinedTextFieldApp(
+                        modifier = Modifier.fillMaxWidth(),
+                        value = newPhaseDistance,
+                        onValueChange = { newPhaseDistance = it },
+                        placeholder = {
+                            Text(
+                                text = "Расстояние",
+                                style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
+                                color = noValueColor
+                            )
+                        },
+                        suffix = {
+                            Text(text = "км", style = hintStyle, color = noValueColor)
+                        },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Number,
+                            imeAction = ImeAction.Done
+                        ),
+                        textStyle = dataTextStyle,
+                        singleLine = true
+                    )
+                    Button(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = Shapes.medium,
+                        onClick = { viewModel.createServicePhaseAndSave(newPhaseDistance) }
+                    ) {
+                        Text(text = "Добавить", style = MaterialTheme.typography.bodySmall)
+                    }
+                    TextButton(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { viewModel.dismissCreateServicePhaseSheet() }
+                    ) {
+                        Text(
+                            text = "Пропустить",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = primaryColor.copy(alpha = 0.7f)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(40.dp))
+                }
+            }
+        }
+
         if (showSelectServicePhase) {
             ModalBottomSheet(
                 onDismissRequest = { showSelectServicePhase = false },
@@ -386,7 +471,7 @@ fun FormTrainScreen(
                                 OutlinedTextFieldApp(
                                     modifier = Modifier
                                         .weight(1f),
-                                    value = train.distance ?: "",
+                                    value = train.distance?.takeIf { it != "0" } ?: "",
                                     onValueChange = {
                                         onDistanceChange(it)
                                     },
@@ -513,7 +598,7 @@ fun FormTrainScreen(
                             OutlinedTextFieldApp(
                                 modifier = Modifier
                                     .weight(1f),
-                                value = train.weight ?: "",
+                                value = train.weight?.takeIf { it != "0" } ?: "",
                                 onValueChange = {
                                     onWeightChanged(it)
                                 },
@@ -553,7 +638,7 @@ fun FormTrainScreen(
                             OutlinedTextFieldApp(
                                 modifier = Modifier
                                     .weight(1f),
-                                value = train.axle ?: "",
+                                value = train.axle?.takeIf { it != "0" } ?: "",
                                 onValueChange = {
                                     onAxleChanged(it)
                                 },
@@ -593,7 +678,7 @@ fun FormTrainScreen(
                             OutlinedTextFieldApp(
                                 modifier = Modifier
                                     .weight(1f),
-                                value = train.conditionalLength ?: "",
+                                value = train.conditionalLength?.takeIf { it != "0" } ?: "",
                                 onValueChange = {
                                     onLengthChanged(it)
                                 },
@@ -717,10 +802,6 @@ fun FormTrainScreen(
                             items = displayList,
                             key = { _, item -> item.id }
                         ) { index, item ->
-                            val isFirst =
-                                if (formUiState.isStationsReversed) index == stationList.lastIndex
-                                else index == 0
-
                             val originalIndex = if (formUiState.isStationsReversed) stationList.size - 1 - index else index
 
                             Spacer(
@@ -731,7 +812,6 @@ fun FormTrainScreen(
                             StationItem(
                                 modifier = Modifier.animateItem(),
                                 index = originalIndex,
-                                isFirst = isFirst,
                                 stationFormState = item,
                                 onDelete = onDeleteStation,
                                 menuList = menuList,
@@ -745,7 +825,15 @@ fun FormTrainScreen(
                                 onDepartureTimeChanged = onDepartureTimeChanged,
                                 onDeleteStationName = onDeleteStationName,
                                 selectIndexState = selectSectionIndexState,
-                                dateAndTimeConverter = dateAndTimeConverter
+                                dateAndTimeConverter = dateAndTimeConverter,
+                                isReorderActive = formUiState.reorderStationIndex == originalIndex,
+                                onLongPress = { viewModel.setReorderStation(originalIndex) },
+                                onMoveUp = if (originalIndex > 0) {
+                                    { viewModel.moveStation(originalIndex, originalIndex - 1) }
+                                } else null,
+                                onMoveDown = if (originalIndex < stationList.lastIndex) {
+                                    { viewModel.moveStation(originalIndex, originalIndex + 1) }
+                                } else null
                             )
                         }
                     }

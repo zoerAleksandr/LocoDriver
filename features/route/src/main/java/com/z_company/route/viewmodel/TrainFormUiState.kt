@@ -20,5 +20,9 @@ data class TrainFormUiState(
     val servicePhaseList: SnapshotStateList<ServicePhase> = mutableStateListOf(),
     val selectedServicePhase: ServicePhase? = null,
     var dateAndTimeConverter: DateAndTimeConverter? = null,
-    var isStationsReversed: Boolean = false
+    var isStationsReversed: Boolean = false,
+    val reorderStationIndex: Int? = null,
+    val showCreateServicePhaseSheet: Boolean = false,
+    val suggestedDepartureStation: String = "",
+    val suggestedArrivalStation: String = ""
 )
