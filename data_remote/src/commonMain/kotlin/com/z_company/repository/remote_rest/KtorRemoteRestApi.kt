@@ -20,6 +20,7 @@ import io.ktor.client.request.header
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 
@@ -62,7 +63,7 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
             contentType(ContentType.Application.Json)
             header("Authorization", token)
             setBody(data)
-        }
+        }.bodyAsText()
     }
 
     override suspend fun getRoutes(token: String): List<Route> =
@@ -82,7 +83,7 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
             contentType(ContentType.Application.Json)
             header("Authorization", token)
             setBody(body)
-        }
+        }.bodyAsText()
     }
 
     override suspend fun getUserSetting(token: String): UserSettings =
@@ -95,7 +96,7 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
             contentType(ContentType.Application.Json)
             header("Authorization", token)
             setBody(body)
-        }
+        }.bodyAsText()
     }
 
     override suspend fun getSalarySetting(token: String): SalarySetting =
@@ -108,7 +109,7 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
             contentType(ContentType.Application.Json)
             header("Authorization", token)
             setBody(body)
-        }
+        }.bodyAsText()
     }
 
     override suspend fun getMonthOfYearList(token: String): List<MonthOfYear> =
@@ -121,7 +122,7 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
             contentType(ContentType.Application.Json)
             header("Authorization", token)
             setBody(data)
-        }
+        }.bodyAsText()
     }
 
     override suspend fun addEmailToUser(token: String, body: AddEmailRequest) {
@@ -129,6 +130,6 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
             contentType(ContentType.Application.Json)
             header("Authorization", token)
             setBody(body)
-        }
+        }.bodyAsText()
     }
 }
