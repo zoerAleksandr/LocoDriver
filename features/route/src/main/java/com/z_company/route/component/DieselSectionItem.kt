@@ -1,6 +1,7 @@
 package com.z_company.route.component
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -20,9 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material3.LocalTextStyle
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -32,7 +32,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -68,12 +71,8 @@ import com.z_company.route.ui.maskInKilo
 import com.z_company.route.ui.maskInLiter
 import com.z_company.route.viewmodel.DieselSectionFormState
 import com.z_company.route.viewmodel.DieselSectionType
-import de.charlex.compose.RevealDirection
-import de.charlex.compose.RevealSwipe
-import de.charlex.compose.RevealValue
-import de.charlex.compose.rememberRevealState
 
-@OptIn(ExperimentalMaterialApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DieselSectionItem(
     index: Int,
@@ -92,7 +91,6 @@ fun DieselSectionItem(
 ) {
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
-    val revealState = rememberRevealState()
 
 //    var isKiloMode by remember { mutableStateOf(false) }
     val coeff = item.coefficient.data?.toDoubleOrNull() ?: 1.0
@@ -385,32 +383,42 @@ fun DieselSectionItem(
     val dataTextStyle = MaterialTheme.typography.bodyLarge
     val hintStyle = MaterialTheme.typography.bodyMedium
 
-    RevealSwipe(
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.EndToStart) {
+                onDeleteItem(item)
+            }
+            false
+        }
+    )
+    SwipeToDismissBox(
         modifier = Modifier
             .fillMaxWidth()
             .padding(6.dp),
-        state = revealState,
-        directions = setOf(
-            RevealDirection.EndToStart
-        ),
-        hiddenContentEnd = {
-            IconButton(
-                onClick = {
-                    onDeleteItem(item)
-                    scope.launch {
-                        revealState.animateTo(RevealValue.Default)
-                    }
-                }
+        state = dismissState,
+        enableDismissFromStartToEnd = false,
+        backgroundContent = {
+            val color by animateColorAsState(
+                when (dismissState.targetValue) {
+                    SwipeToDismissBoxValue.Settled -> Color.Transparent
+                    SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
+                    else -> Color.Transparent
+                }, label = ""
+            )
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(color = color, shape = Shapes.medium),
+                contentAlignment = Alignment.CenterEnd
             ) {
                 Icon(
-                    modifier = Modifier.padding(end = 15.dp),
+                    modifier = Modifier.padding(end = 16.dp),
                     painter = painterResource(R.drawable.delete_24px),
-                    tint = Color.White,
+                    tint = MaterialTheme.colorScheme.surface,
                     contentDescription = null
                 )
             }
-        },
-        backgroundCardEndColor = MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
+        }
     ) {
         Card(
             shape = RoundedCornerShape(0.dp),

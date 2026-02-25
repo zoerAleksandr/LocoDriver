@@ -34,7 +34,6 @@ import Versions.parse_sdk_android_ver
 import Versions.permission_accompanist_ver
 import Versions.rebugger_ver
 import Versions.retrofit_ver
-import Versions.reveal_swipe_version
 import Versions.room_version
 import Versions.ru_ok_tracer_platform_ver
 import Versions.rustore_bom_ver
@@ -93,7 +92,6 @@ object Versions {
     const val lifecycle_runtime_version = "2.6.1"
     const val lifecycle_viewmodel_version = "2.6.1"
     const val material_compose3 = "1.4.0"
-    const val reveal_swipe_version = "1.2.0"
     const val room_version = "2.7.1"
     const val test_ext_version = "1.1.5"
     const val test_runner_version = "1.6.0-alpha01"
@@ -193,8 +191,6 @@ object Libs {
         "androidx.lifecycle:lifecycle-runtime-ktx:$lifecycle_runtime_version"
     const val lifecycle_viewmodel_ktx =
         "androidx.lifecycle:lifecycle-viewmodel-ktx:$lifecycle_viewmodel_version"
-    const val reveal_swipe =
-        "de.charlex.compose:revealswipe:$reveal_swipe_version"
     const val room_compiler =
         "androidx.room:room-compiler:$room_version"
     const val room_ktx =

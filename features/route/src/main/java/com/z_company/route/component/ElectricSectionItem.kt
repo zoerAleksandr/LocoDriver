@@ -7,26 +7,33 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
@@ -42,13 +49,9 @@ import com.z_company.domain.util.str
 import com.z_company.route.R
 import com.z_company.route.viewmodel.ElectricSectionFormState
 import com.z_company.route.viewmodel.ElectricSectionType
-import de.charlex.compose.RevealDirection
-import de.charlex.compose.RevealSwipe
-import de.charlex.compose.RevealValue
-import de.charlex.compose.rememberRevealState
-import kotlinx.coroutines.launch
+import androidx.compose.ui.Alignment
 
-@OptIn(ExperimentalMaterialApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ElectricSectionItem(
     index: Int,
@@ -66,9 +69,8 @@ fun ElectricSectionItem(
     onExpandStateChanged: (Boolean) -> Unit,
     showOtherCurrent: Boolean = false
 ) {
-    val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
-    val revealState = rememberRevealState()
+    val scope = rememberCoroutineScope()
 
     val acceptedText = item.accepted.data ?: ""
     val deliveryText = item.delivery.data ?: ""
@@ -101,29 +103,40 @@ fun ElectricSectionItem(
 
     val noValueColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
 
-    RevealSwipe(
-        modifier = Modifier
-            .fillMaxWidth(),
-        state = revealState,
-        directions = setOf(
-            RevealDirection.EndToStart
-        ),
-        hiddenContentEnd = {
-            IconButton(onClick = {
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.EndToStart) {
                 onDeleteItem(item)
-                scope.launch {
-                    revealState.animateTo(RevealValue.Default)
-                }
-            }) {
+            }
+            false
+        }
+    )
+    SwipeToDismissBox(
+        modifier = Modifier.fillMaxWidth(),
+        state = dismissState,
+        enableDismissFromStartToEnd = false,
+        backgroundContent = {
+            val color by animateColorAsState(
+                when (dismissState.targetValue) {
+                    SwipeToDismissBoxValue.Settled -> Color.Transparent
+                    SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
+                    else -> Color.Transparent
+                }, label = ""
+            )
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(color = color, shape = Shapes.medium),
+                contentAlignment = Alignment.CenterEnd
+            ) {
                 Icon(
-                    modifier = Modifier.padding(end = 15.dp),
+                    modifier = Modifier.padding(end = 16.dp),
                     painter = painterResource(R.drawable.delete_24px),
-                    tint = Color.White,
+                    tint = MaterialTheme.colorScheme.surface,
                     contentDescription = null
                 )
             }
-        },
-        backgroundCardEndColor = MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
+        }
     ) {
         Card(
             shape = RoundedCornerShape(0.dp),
