@@ -21,7 +21,7 @@ data class TrainFormUiState(
     val selectedServicePhase: ServicePhase? = null,
     var dateAndTimeConverter: DateAndTimeConverter? = null,
     var isStationsReversed: Boolean = false,
-    val reorderStationIndex: Int? = null,
+    val isReorderMode: Boolean = false,
     val showCreateServicePhaseSheet: Boolean = false,
     val suggestedDepartureStation: String = "",
     val suggestedArrivalStation: String = ""
