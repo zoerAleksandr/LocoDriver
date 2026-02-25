@@ -5,6 +5,7 @@ import io.ktor.client.plugins.DefaultRequest
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logging
+import io.ktor.client.plugins.HttpRedirect
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
@@ -43,6 +44,9 @@ object RemoteRestClient {
         }
         install(Logging) {
             level = LogLevel.BODY
+        }
+        install(HttpRedirect) {
+            allowHttpsDowngrade = false
         }
         install(HttpTimeout) {
             connectTimeoutMillis = 30_000

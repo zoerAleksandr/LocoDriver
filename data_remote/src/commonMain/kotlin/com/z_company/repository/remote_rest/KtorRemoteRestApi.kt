@@ -59,7 +59,7 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
         }.body()
 
     override suspend fun saveRoute(token: String, data: Route) {
-        client.post("v1/route") {
+        client.post("v1/route/") {
             contentType(ContentType.Application.Json)
             header("Authorization", token)
             setBody(data)
@@ -67,7 +67,7 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
     }
 
     override suspend fun getRoutes(token: String): List<Route> =
-        client.get("v1/route") {
+        client.get("v1/route/") {
             header("Authorization", token)
         }.body()
 
@@ -79,26 +79,26 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
         }.body()
 
     override suspend fun saveUserSetting(token: String, body: UserSettings): SuccessResponse =
-        client.post("v1/user_settings") {
+        client.post("v1/user_settings/") {
             contentType(ContentType.Application.Json)
             header("Authorization", token)
             setBody(body)
         }.body()
 
     override suspend fun getUserSetting(token: String): UserSettings =
-        client.get("v1/user_settings") {
+        client.get("v1/user_settings/") {
             header("Authorization", token)
         }.body()
 
     override suspend fun saveSalarySetting(token: String, body: SalarySetting): SuccessResponse =
-        client.post("v1/salary_settings") {
+        client.post("v1/salary_settings/") {
             contentType(ContentType.Application.Json)
             header("Authorization", token)
             setBody(body)
         }.body()
 
     override suspend fun getSalarySetting(token: String): SalarySetting =
-        client.get("v1/salary_settings") {
+        client.get("v1/salary_settings/") {
             header("Authorization", token)
         }.body()
 

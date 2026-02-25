@@ -1,5 +1,6 @@
 package com.z_company.domain.entities.route
 
+import com.z_company.domain.entities.serializers.DateAsLongSerializer
 import com.z_company.domain.util.generateId
 import kotlinx.datetime.Clock
 import kotlinx.serialization.Serializable
@@ -13,6 +14,7 @@ data class BasicData(
     var remoteObjectId: String? = null,
     var isOnePersonOperation: Boolean = false,
     var isDeleted: Boolean = false,
+    @Serializable(with = DateAsLongSerializer::class)
     var updatedAt: Long = Clock.System.now().toEpochMilliseconds(),
     var number: String? = null,
     var timeStartWork: Long? = null,

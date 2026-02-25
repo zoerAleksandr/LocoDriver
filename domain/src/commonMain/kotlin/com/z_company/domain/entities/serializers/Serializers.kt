@@ -1,11 +1,71 @@
 package com.z_company.domain.entities.serializers
 
+import kotlinx.datetime.Clock
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.longOrNull
+
+/**
+ * Сериализатор для Double → String (для совместимости с сервером, который присылает числа как строки).
+ * Используется через @Contextual в Locomotive, SectionElectric.
+ * Заменяет BigDecimalAsStringSerializer.
+ */
+/**
+ * Сериализатор для updatedAt: Long.
+ * Сервер присылает дату строкой "Feb 17, 2026 17:24:45" (формат Gson DateSerializer),
+ * а локально хранится как Long epoch millis. Обрабатывает оба формата.
+ */
+object DateAsLongSerializer : KSerializer<Long> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("DateAsLong", PrimitiveKind.LONG)
+
+    override fun serialize(encoder: Encoder, value: Long) = encoder.encodeLong(value)
+
+    override fun deserialize(decoder: Decoder): Long {
+        if (decoder is JsonDecoder) {
+            val element = decoder.decodeJsonElement()
+            if (element is JsonPrimitive) {
+                element.longOrNull?.let { return it }
+                element.content.let { return parseDateString(it) }
+            }
+        }
+        return decoder.decodeLong()
+    }
+
+    private val months = mapOf(
+        "Jan" to 1, "Feb" to 2, "Mar" to 3, "Apr" to 4,
+        "May" to 5, "Jun" to 6, "Jul" to 7, "Aug" to 8,
+        "Sep" to 9, "Oct" to 10, "Nov" to 11, "Dec" to 12
+    )
+
+    private fun parseDateString(dateStr: String): Long {
+        return runCatching {
+            // "Feb 17, 2026 17:24:45"
+            val parts = dateStr.split(" ", ":")
+            val month = months[parts[0]] ?: 1
+            val day = parts[1].trimEnd(',').toInt()
+            val year = parts[2].toInt()
+            val hour = parts[3].toInt()
+            val minute = parts[4].toInt()
+            val second = parts[5].toInt()
+            LocalDateTime(year, month, day, hour, minute, second)
+                .toInstant(TimeZone.UTC)
+                .toEpochMilliseconds()
+        }.getOrElse {
+            println("DateAsLongSerializer: Failed to parse '$dateStr': ${it.message}")
+            Clock.System.now().toEpochMilliseconds()
+        }
+    }
+}
 
 /**
  * Сериализатор для Double → String (для совместимости с сервером, который присылает числа как строки).
