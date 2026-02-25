@@ -686,6 +686,28 @@ class FormViewModel(
         }
     }
 
+    fun onAddChildEntity(basicId: String, entityType: ChildEntityType) {
+        viewModelScope.launch {
+            when (routeHelper.newRouteClick()) {
+                is RouteActionsHelper.NewRouteResult.NeedSubscribeDialog -> {
+                    _alertBeforePurchasesEvent.emit(AlertBeforePurchasesEvent.ShowDialogNeedSubscribe)
+                }
+
+                is RouteActionsHelper.NewRouteResult.AlertSubscribeDialog -> {
+                    preSaveRoute()
+                    _events.emit(FormScreenEvent.NavigateToChildForm(basicId, entityType))
+                }
+
+                is RouteActionsHelper.NewRouteResult.ShowNewRouteScreen -> {
+                    preSaveRoute()
+                    _events.emit(FormScreenEvent.NavigateToChildForm(basicId, entityType))
+                }
+
+                is RouteActionsHelper.NewRouteResult.Error -> {}
+            }
+        }
+    }
+
     private fun subscribeToChanges(routeId: String) {
         loadRouteJob?.cancel()
         loadRouteJob = routeUseCase.routeDetails(routeId).onEach { routeState ->

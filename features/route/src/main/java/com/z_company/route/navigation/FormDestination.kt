@@ -12,6 +12,7 @@ import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.domain.navigation.Router
 import com.z_company.route.Const.NULLABLE_ID
 import com.z_company.route.ui.FormScreen
+import com.z_company.route.viewmodel.ChildEntityType
 import com.z_company.route.viewmodel.FormScreenEvent
 import com.z_company.route.viewmodel.FormViewModel
 import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
@@ -58,6 +59,14 @@ fun FormDestination(
                         snackbarManager.show(message = "Маршрут сохранен")
                         viewModel::prepareReviewDialog
                     }
+
+                    is FormScreenEvent.NavigateToChildForm -> {
+                        when (event.entityType) {
+                            ChildEntityType.LOCOMOTIVE -> router.showEmptyLocoForm(event.basicId)
+                            ChildEntityType.TRAIN -> router.showEmptyTrainForm(event.basicId)
+                            ChildEntityType.PASSENGER -> router.showEmptyPassengerForm(event.basicId)
+                        }
+                    }
                 }
             }
         }
@@ -88,22 +97,13 @@ fun FormDestination(
         onTimeEndWorkChanged = viewModel::setTimeEndWork,
         onRestChanged = viewModel::onRestChanged,
         onChangedLocoClick = router::showChangedLocoForm,
-        onNewLocoClick = {
-            router.showEmptyLocoForm(it)
-            viewModel.preSaveRoute()
-        },
+        onNewLocoClick = { viewModel.onAddChildEntity(it, ChildEntityType.LOCOMOTIVE) },
         onDeleteLoco = viewModel::onDeleteLoco,
         onChangeTrainClick = router::showChangeTrainForm,
-        onNewTrainClick = {
-            router.showEmptyTrainForm(it)
-            viewModel.preSaveRoute()
-        },
+        onNewTrainClick = { viewModel.onAddChildEntity(it, ChildEntityType.TRAIN) },
         onDeleteTrain = viewModel::onDeleteTrain,
         onChangePassengerClick = router::showChangePassengerForm,
-        onNewPassengerClick = {
-            router.showEmptyPassengerForm(it)
-            viewModel.preSaveRoute()
-        },
+        onNewPassengerClick = { viewModel.onAddChildEntity(it, ChildEntityType.PASSENGER) },
         onDeletePassenger = viewModel::onDeletePassenger,
         nightTime = formUiState.nightTime,
         salaryForRouteState = salaryState,
