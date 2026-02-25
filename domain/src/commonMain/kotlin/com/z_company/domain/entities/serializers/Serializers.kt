@@ -12,13 +12,10 @@ import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.JsonDecoder
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.longOrNull
 
-/**
- * Сериализатор для Double → String (для совместимости с сервером, который присылает числа как строки).
- * Используется через @Contextual в Locomotive, SectionElectric.
- * Заменяет BigDecimalAsStringSerializer.
- */
 /**
  * Сериализатор для updatedAt: Long.
  * Сервер присылает дату строкой "Feb 17, 2026 17:24:45" (формат Gson DateSerializer),
@@ -64,6 +61,29 @@ object DateAsLongSerializer : KSerializer<Long> {
             println("DateAsLongSerializer: Failed to parse '$dateStr': ${it.message}")
             Clock.System.now().toEpochMilliseconds()
         }
+    }
+}
+
+/**
+ * Сериализатор для Int-полей, которые сервер может прислать как Double (напр. 30.0).
+ * Обрабатывает Int, Double и Long из JSON, конвертируя в Int.
+ */
+object IntAsDoubleSerializer : KSerializer<Int> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("IntAsDouble", PrimitiveKind.INT)
+
+    override fun serialize(encoder: Encoder, value: Int) = encoder.encodeInt(value)
+
+    override fun deserialize(decoder: Decoder): Int {
+        if (decoder is JsonDecoder) {
+            val element = decoder.decodeJsonElement()
+            if (element is JsonPrimitive) {
+                element.intOrNull?.let { return it }
+                element.doubleOrNull?.let { return it.toInt() }
+                element.longOrNull?.let { return it.toInt() }
+            }
+        }
+        return decoder.decodeInt()
     }
 }
 

@@ -12,7 +12,6 @@ import com.z_company.repository.remote_rest.request.RegisteredRequestByVKID
 import com.z_company.repository.remote_rest.request.UpdateEmailRequest
 import com.z_company.repository.remote_rest.response.AuthResponse
 import com.z_company.repository.remote_rest.response.LoginResponse
-import com.z_company.repository.remote_rest.response.SuccessResponse
 import com.z_company.repository.remote_rest.response.UserResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -78,53 +77,58 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
             setBody(data)
         }.body()
 
-    override suspend fun saveUserSetting(token: String, body: UserSettings): SuccessResponse =
+    override suspend fun saveUserSetting(token: String, body: UserSettings) {
         client.post("v1/user_settings/") {
             contentType(ContentType.Application.Json)
             header("Authorization", token)
             setBody(body)
-        }.body()
+        }
+    }
 
     override suspend fun getUserSetting(token: String): UserSettings =
         client.get("v1/user_settings/") {
             header("Authorization", token)
         }.body()
 
-    override suspend fun saveSalarySetting(token: String, body: SalarySetting): SuccessResponse =
+    override suspend fun saveSalarySetting(token: String, body: SalarySetting) {
         client.post("v1/salary_settings/") {
             contentType(ContentType.Application.Json)
             header("Authorization", token)
             setBody(body)
-        }.body()
+        }
+    }
 
     override suspend fun getSalarySetting(token: String): SalarySetting =
         client.get("v1/salary_settings/") {
             header("Authorization", token)
         }.body()
 
-    override suspend fun saveMonthOfYearList(token: String, body: List<MonthOfYear>): SuccessResponse =
+    override suspend fun saveMonthOfYearList(token: String, body: List<MonthOfYear>) {
         client.post("v1/year/") {
             contentType(ContentType.Application.Json)
             header("Authorization", token)
             setBody(body)
-        }.body()
+        }
+    }
 
     override suspend fun getMonthOfYearList(token: String): List<MonthOfYear> =
         client.get("v1/year/") {
             header("Authorization", token)
         }.body()
 
-    override suspend fun updateEmail(token: String, data: UpdateEmailRequest): SuccessResponse =
+    override suspend fun updateEmail(token: String, data: UpdateEmailRequest) {
         client.patch("v1/auth/email/update") {
             contentType(ContentType.Application.Json)
             header("Authorization", token)
             setBody(data)
-        }.body()
+        }
+    }
 
-    override suspend fun addEmailToUser(token: String, body: AddEmailRequest): SuccessResponse =
+    override suspend fun addEmailToUser(token: String, body: AddEmailRequest) {
         client.patch("v1/auth/email/add") {
             contentType(ContentType.Application.Json)
             header("Authorization", token)
             setBody(body)
-        }.body()
+        }
+    }
 }

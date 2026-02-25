@@ -12,7 +12,6 @@ import com.z_company.repository.remote_rest.request.RegisteredRequestByVKID
 import com.z_company.repository.remote_rest.request.UpdateEmailRequest
 import com.z_company.repository.remote_rest.response.AuthResponse
 import com.z_company.repository.remote_rest.response.LoginResponse
-import com.z_company.repository.remote_rest.response.SuccessResponse
 import com.z_company.repository.remote_rest.response.UserResponse
 
 /**
@@ -39,19 +38,19 @@ interface RemoteRestApi {
 
     suspend fun attachVKID(token: String, data: AddVKIDRequest): UserResponse
 
-    suspend fun saveUserSetting(token: String, body: UserSettings): SuccessResponse
+    suspend fun saveUserSetting(token: String, body: UserSettings)
 
     suspend fun getUserSetting(token: String): UserSettings
 
-    suspend fun saveSalarySetting(token: String, body: SalarySetting): SuccessResponse
+    suspend fun saveSalarySetting(token: String, body: SalarySetting)
 
     suspend fun getSalarySetting(token: String): SalarySetting
 
-    suspend fun saveMonthOfYearList(token: String, body: List<MonthOfYear>): SuccessResponse
+    suspend fun saveMonthOfYearList(token: String, body: List<MonthOfYear>)
 
     suspend fun getMonthOfYearList(token: String): List<MonthOfYear>
 
-    suspend fun updateEmail(token: String, data: UpdateEmailRequest): SuccessResponse
+    suspend fun updateEmail(token: String, data: UpdateEmailRequest)
 
-    suspend fun addEmailToUser(token: String, body: AddEmailRequest): SuccessResponse
+    suspend fun addEmailToUser(token: String, body: AddEmailRequest)
 }
