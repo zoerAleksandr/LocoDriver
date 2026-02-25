@@ -26,6 +26,7 @@ object RemoteRestClient {
         ignoreUnknownKeys = true
         isLenient = true
         encodeDefaults = true
+        explicitNulls = false
         serializersModule = SerializersModule {
             contextual(DoubleAsStringSerializer)
         }
