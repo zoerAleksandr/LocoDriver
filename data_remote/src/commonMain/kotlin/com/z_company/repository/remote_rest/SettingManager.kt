@@ -22,12 +22,10 @@ class SettingManager(
         bearerToken: String
     ): Flow<ResultState<Unit>> = flow {
         emit(ResultState.Loading())
-        try {
-            remoteRestApi.saveUserSetting(token = bearerToken, body = userSettings)
-            emit(ResultState.Success(Unit))
-        } catch (e: Exception) {
-            emit(ResultState.Error(ErrorEntity(throwable = e)))
-        }
+        remoteRestApi.saveUserSetting(token = bearerToken, body = userSettings)
+        emit(ResultState.Success(Unit))
+    }.catch { e ->
+        emit(ResultState.Error(ErrorEntity(throwable = e)))
     }
 
     fun getUserSettingFromRemote(

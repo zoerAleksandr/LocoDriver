@@ -39,6 +39,7 @@ object RemoteRestClient {
     }
 
     private fun createClient(baseUrl: String): HttpClient = HttpClient(createHttpEngine()) {
+        expectSuccess = true
         install(ContentNegotiation) {
             json(appJson)
         }
