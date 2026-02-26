@@ -417,6 +417,38 @@ class TrainFormViewModel(
         changesHave()
     }
 
+    fun isNextDeparture(): Boolean {
+        if (stationsListState.isEmpty()) return false
+        val last = stationsListState.last()
+        return when {
+            last.arrival.data == null -> false
+            last.departure.data == null -> true
+            else -> false
+        }
+    }
+
+    fun onGoClicked() {
+        val now = java.util.Calendar.getInstance(
+            java.util.TimeZone.getTimeZone(timeZoneText)
+        ).timeInMillis
+
+        if (stationsListState.isEmpty()) {
+            addingStation()
+            setArrivalTime(0, now)
+        } else {
+            val lastIdx = stationsListState.lastIndex
+            val last = stationsListState[lastIdx]
+            when {
+                last.arrival.data == null -> setArrivalTime(lastIdx, now)
+                last.departure.data == null -> setDepartureTime(lastIdx, now)
+                else -> {
+                    addingStation()
+                    setArrivalTime(stationsListState.lastIndex, now)
+                }
+            }
+        }
+    }
+
     fun toggleReorderMode() {
         _uiState.update {
             it.copy(isReorderMode = !it.isReorderMode)

@@ -98,6 +98,7 @@ fun StationItem(
     onMoveDown: (() -> Unit)? = null
 ) {
     val dataTextStyle = MaterialTheme.typography.bodyLarge
+    var timeTextStyle by remember { mutableStateOf(dataTextStyle) }
     val primaryColor = MaterialTheme.colorScheme.primary
     val noValueColor = primaryColor.copy(alpha = 0.5f)
     val sheetState = rememberModalBottomSheetState()
@@ -311,8 +312,11 @@ fun StationItem(
                                 .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true)
                                 .focusRequester(focusRequester)
                                 .onFocusChanged {
-                                    if (!it.isFocused && stationName.text != stationFormState.station.data) {
-                                        onStationNameChanged(index, stationName.text)
+                                    if (!it.isFocused) {
+                                        if (stationName.text != stationFormState.station.data) {
+                                            onStationNameChanged(index, stationName.text)
+                                        }
+                                        stationName = stationName.copy(selection = TextRange(0))
                                     }
                                 },
                             value = stationName,
@@ -472,8 +476,16 @@ fun StationItem(
                             Text(
                                 text = textTimeArrival,
                                 maxLines = 1,
-                                style = dataTextStyle,
-                                color = animatedTextColorsArrival
+                                softWrap = false,
+                                style = timeTextStyle,
+                                color = animatedTextColorsArrival,
+                                onTextLayout = { result ->
+                                    if (result.hasVisualOverflow) {
+                                        timeTextStyle = timeTextStyle.copy(
+                                            fontSize = timeTextStyle.fontSize * 0.9
+                                        )
+                                    }
+                                }
                             )
                         }
 
@@ -497,7 +509,15 @@ fun StationItem(
                                         text = "${stopMinutes}'",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = stopTextColor,
-                                        maxLines = 1
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        onTextLayout = { result ->
+                                            if (result.hasVisualOverflow) {
+                                                timeTextStyle = timeTextStyle.copy(
+                                                    fontSize = timeTextStyle.fontSize * 0.9
+                                                )
+                                            }
+                                        }
                                     )
                                 }
                             }
@@ -533,8 +553,16 @@ fun StationItem(
                             Text(
                                 text = textTimeDeparture,
                                 maxLines = 1,
-                                style = dataTextStyle,
-                                color = animatedTextColorsDeparture
+                                softWrap = false,
+                                style = timeTextStyle,
+                                color = animatedTextColorsDeparture,
+                                onTextLayout = { result ->
+                                    if (result.hasVisualOverflow) {
+                                        timeTextStyle = timeTextStyle.copy(
+                                            fontSize = timeTextStyle.fontSize * 0.9
+                                        )
+                                    }
+                                }
                             )
                         }
                     }

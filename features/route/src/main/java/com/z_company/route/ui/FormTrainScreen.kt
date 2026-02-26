@@ -1,6 +1,7 @@
 package com.z_company.route.ui
 
 import android.annotation.SuppressLint
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -8,6 +9,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -40,6 +42,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -773,39 +776,65 @@ fun FormTrainScreen(
                     }
                     item { Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.secondary_spacing))) }
                     item {
-                        Box(
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            contentAlignment = Alignment.CenterEnd
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            val isReversed = formUiState.isStationsReversed
-                            val rotation by animateFloatAsState(
-                                targetValue = if (isReversed) 180f else 0f,
-                                animationSpec = tween(durationMillis = 300)
-                            )
+                            // Левая часть: sort + swap
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                val isReversed = formUiState.isStationsReversed
+                                val rotation by animateFloatAsState(
+                                    targetValue = if (isReversed) 180f else 0f,
+                                    animationSpec = tween(durationMillis = 300)
+                                )
 
-                            Icon(
-                                modifier = Modifier
-                                    .graphicsLayer { rotationZ = rotation }
-                                    .noRippleEffect(
-                                        onClick = {
-                                            viewModel.toggleStationsSortOrder()
-                                        }
-                                    ),
-                                painter = painterResource(com.z_company.route.R.drawable.sort_24px),
-                                contentDescription = null
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Icon(
-                                modifier = Modifier
-                                    .noRippleEffect(
-                                        onClick = {
-                                            viewModel.toggleReorderMode()
-                                        }
-                                    ),
-                                painter = painterResource(com.z_company.route.R.drawable.swap_vert_24px),
-                                contentDescription = null,
-                                tint = if (formUiState.isReorderMode) MaterialTheme.colorScheme.tertiary else primaryColor
-                            )
+                                Icon(
+                                    modifier = Modifier
+                                        .graphicsLayer { rotationZ = rotation }
+                                        .noRippleEffect(
+                                            onClick = {
+                                                viewModel.toggleStationsSortOrder()
+                                            }
+                                        ),
+                                    painter = painterResource(com.z_company.route.R.drawable.sort_24px),
+                                    contentDescription = null
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Icon(
+                                    modifier = Modifier
+                                        .noRippleEffect(
+                                            onClick = {
+                                                viewModel.toggleReorderMode()
+                                            }
+                                        ),
+                                    painter = painterResource(com.z_company.route.R.drawable.swap_vert_24px),
+                                    contentDescription = null,
+                                    tint = if (formUiState.isReorderMode) MaterialTheme.colorScheme.tertiary else primaryColor
+                                )
+                            }
+
+                            // Правая часть: play/pause
+                            val nextIsDeparture = viewModel.isNextDeparture()
+                            OutlinedButton(
+                                onClick = { viewModel.onGoClicked() },
+                                border = BorderStroke(
+                                    width = 1.dp,
+                                    color = if (nextIsDeparture) MaterialTheme.colorScheme.surfaceContainerLow
+                                    else MaterialTheme.colorScheme.surfaceContainerHigh
+                                )
+                            ) {
+                                AnimatedContent(targetState = nextIsDeparture) {
+                                    val icon = if (it) com.z_company.route.R.drawable.play_arrow_24px
+                                    else com.z_company.route.R.drawable.pause_24px
+                                    Icon(
+                                        painter = painterResource(icon),
+                                        contentDescription = null,
+                                        tint = if (it) MaterialTheme.colorScheme.surfaceContainerLow
+                                        else MaterialTheme.colorScheme.surfaceContainerHigh
+                                    )
+                                }
+                            }
                         }
                     }
 
