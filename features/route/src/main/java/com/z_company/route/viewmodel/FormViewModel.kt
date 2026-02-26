@@ -528,15 +528,7 @@ class FormViewModel(
         saveRouteJob?.cancel()
         saveRouteJob = viewModelScope.launch(Dispatchers.IO) {
             currentRoute.value?.let { route ->
-                val locomotives = getLocoList(route.basicData.id)
-                val trains = getTrainList(route.basicData.id)
-                val passengers = getPassengerList(route.basicData.id)
-                val routeToSave = route.copy(
-                    locomotives = locomotives,
-                    trains = trains,
-                    passengers = passengers
-                )
-                routeUseCase.saveRoute(routeToSave).collectLatest { result ->
+                routeUseCase.saveRoute(route).collectLatest { result ->
                     Log.d("zzz", "saveResult $result")
                     _uiState.update { it.copy(saveRouteState = result) }
                     if (result is ResultState.Success) {

@@ -102,9 +102,9 @@ private fun expandScientificNotation(value: Double): String {
 private fun formatFixed2(value: Double): String {
     val negative = value < 0
     val abs = if (negative) -value else value
-    val rounded = kotlin.math.round(abs * 100L)
-    val intPart = rounded / 100L
-    val fracPart = (rounded % 100L).toInt()
+    val rounded = kotlin.math.round(abs * 100).toLong()
+    val intPart = rounded / 100
+    val fracPart = (rounded % 100).toInt()
     return buildString {
         if (negative) append('-')
         append(intPart)
