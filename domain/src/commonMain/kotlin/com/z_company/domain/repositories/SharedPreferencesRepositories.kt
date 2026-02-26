@@ -28,4 +28,6 @@ interface SharedPreferencesRepositories {
     fun setSelectedFilters(values: Set<String>)
     fun isExpandedView(): Boolean
     fun setIsExpandedView(value: Boolean)
+    fun toggleShowTravelTime(value: Boolean)
+    fun isShowTravelTime(): Boolean
 }

@@ -20,6 +20,7 @@ private const val TOKEN_INPUT_DIESEL_IN_KILO = "TOKEN_INPUT_DIESEL_IN_KILO"
 private const val SORT_OPTION_TAG = "SORT_OPTION"
 private const val SELECTED_FILTERS_TAG = "SELECTED_FILTERS"
 private const val IS_EXPANDED_VIEW_TAG = "IS_EXPANDED_VIEW"
+private const val SHOW_TRAVEL_TIME_TAG = "SHOW_TRAVEL_TIME"
 private const val TOKEN_IS_MIGRATED = "TOKEN_IS_MIGRATED"
 
 private const val OP_KEY_PREF = "OP_KEY_PREF"
@@ -141,4 +142,11 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
     override fun setIsExpandedView(value: Boolean) {
         editor.putBoolean(IS_EXPANDED_VIEW_TAG, value).apply()
     }
+
+    override fun toggleShowTravelTime(value: Boolean) {
+        editor.putBoolean(SHOW_TRAVEL_TIME_TAG, value).apply()
+    }
+
+    override fun isShowTravelTime(): Boolean =
+        sharedpref.getBoolean(SHOW_TRAVEL_TIME_TAG, false)
 }
