@@ -86,6 +86,7 @@ import com.z_company.core.ui.component.CustomDivider
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.ui.theme.Shapes
+import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.domain.entities.route.Train
@@ -211,7 +212,9 @@ fun FormTrainScreen(
         var showSelectServicePhase by remember { mutableStateOf(false) }
 
         if (formUiState.showCreateServicePhaseSheet) {
-            var newPhaseDistance by remember { mutableStateOf(currentTrain?.distance?.takeIf { it != "0" } ?: "") }
+            var newPhaseDistance by remember {
+                mutableStateOf(currentTrain?.distance?.takeIf { it != "0" } ?: "")
+            }
             val createPhaseSheetState = rememberModalBottomSheetState(
                 skipPartiallyExpanded = true
             )
@@ -838,8 +841,9 @@ fun FormTrainScreen(
                                 )
                             ) {
                                 AnimatedContent(targetState = nextIsDeparture) {
-                                    val icon = if (it) com.z_company.route.R.drawable.play_arrow_24px
-                                    else com.z_company.route.R.drawable.pause_24px
+                                    val icon =
+                                        if (it) com.z_company.route.R.drawable.play_arrow_24px
+                                        else com.z_company.route.R.drawable.pause_24px
                                     Icon(
                                         painter = painterResource(icon),
                                         contentDescription = null,
@@ -852,12 +856,14 @@ fun FormTrainScreen(
                     }
 
                     stationListState?.let { stationList ->
-                        val displayList = if (formUiState.isStationsReversed) stationList.reversed() else stationList
+                        val displayList =
+                            if (formUiState.isStationsReversed) stationList.reversed() else stationList
                         itemsIndexed(
                             items = displayList,
                             key = { _, item -> item.id }
                         ) { index, item ->
-                            val originalIndex = if (formUiState.isStationsReversed) stationList.size - 1 - index else index
+                            val originalIndex =
+                                if (formUiState.isStationsReversed) stationList.size - 1 - index else index
 
                             Spacer(
                                 modifier = Modifier
@@ -876,16 +882,26 @@ fun FormTrainScreen(
                                     val depTime = stationList[fromIdx].departure.data
                                     val arrTime = stationList[toIdx].arrival.data
                                     if (depTime != null && arrTime != null && arrTime > depTime) {
-                                        val travelMinutes = (arrTime - depTime) / 60_000
-                                        Text(
+                                        val travelMinutesInLong = (arrTime - depTime)
+                                        val travelMinutes = ConverterLongToTime.getTimeInStringFormat(travelMinutesInLong)
+                                        Row(
                                             modifier = Modifier
+                                                .animateItem()
                                                 .fillMaxWidth()
-                                                .animateItem(),
-                                            text = "${travelMinutes}'",
-                                            textAlign = TextAlign.Center,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = primaryColor.copy(alpha = 0.5f)
-                                        )
+                                                .padding(bottom = 2.dp)
+                                        ) {
+                                            Text(
+                                                modifier = Modifier
+                                                    .weight(1f),
+                                                text = travelMinutes,
+                                                textAlign = TextAlign.Center,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = primaryColor.copy(alpha = 0.7f)
+                                            )
+                                            Box(
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                        }
                                     }
                                 }
                             }
