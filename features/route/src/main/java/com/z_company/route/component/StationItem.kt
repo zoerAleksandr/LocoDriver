@@ -28,6 +28,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,6 +53,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextRange
@@ -214,10 +216,11 @@ fun StationItem(
     )
 
     // Стоянка (минуты между прибытием и отправлением)
-    val stopMinutes = if (stationFormState.arrival.data != null && stationFormState.departure.data != null) {
-        val diff = stationFormState.departure.data - stationFormState.arrival.data
-        if (diff > 0) (diff / 60_000).toString() else null
-    } else null
+    val stopMinutes =
+        if (stationFormState.arrival.data != null && stationFormState.departure.data != null) {
+            val diff = stationFormState.departure.data - stationFormState.arrival.data
+            if (diff > 0) (diff / 60_000).toString() else null
+        } else null
 
     // Определение пассажирского поезда
     val isPassengerTrain = trainNumber?.toIntOrNull()?.let { num ->
@@ -239,23 +242,21 @@ fun StationItem(
         else -> primaryColor.copy(alpha = 0.7f)
     }
 
-    Column(modifier = modifier.fillMaxWidth().wrapContentHeight()) {
+    Column(modifier = modifier
+        .fillMaxWidth()
+        .wrapContentHeight()) {
         SwipeToDismissBox(
             state = dismissState,
             enableDismissFromStartToEnd = false,
             enableDismissFromEndToStart = !isReorderMode,
             backgroundContent = {
-                val color by animateColorAsState(
-                    when (dismissState.targetValue) {
-                        SwipeToDismissBoxValue.Settled -> Color.Transparent
-                        SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
-                        else -> Color.Transparent
-                    }, label = ""
-                )
                 Box(
                     Modifier
                         .fillMaxSize()
-                        .background(color = color, shape = Shapes.medium),
+                        .background(
+                            color = MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
+                            shape = Shapes.medium
+                        ),
                     contentAlignment = Alignment.CenterEnd
                 ) {
                     Icon(
@@ -275,7 +276,7 @@ fun StationItem(
                         .height(IntrinsicSize.Min)
                         .fillMaxWidth()
                         .padding(bottom = 2.dp, end = 2.dp, start = 1.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
 
@@ -284,25 +285,30 @@ fun StationItem(
                             .weight(0.5f),
                         expanded = isExpandedMenu,
                         onExpandedChange = { onExpandedMenuChange(index, it) }
-                    ) {
+                    )
+                    {
                         var stationName by remember(key1 = stationFormState.id) {
                             mutableStateOf(
                                 TextFieldValue(
                                     text = stationFormState.station.data ?: "",
-                                    selection = TextRange(stationFormState.station.data?.length ?: 0)
+                                    selection = TextRange(
+                                        stationFormState.station.data?.length ?: 0
+                                    )
                                 )
                             )
                         }
 
                         LaunchedEffect(stationFormState.station.data) {
                             if (stationName.text != stationFormState.station.data) {
-                                stationName = stationName.copy(text = stationFormState.station.data ?: "")
+                                stationName =
+                                    stationName.copy(text = stationFormState.station.data ?: "")
                             }
                         }
 
                         OutlinedTextFieldApp(
                             modifier = Modifier
-                                .menuAnchor()
+                                .fillMaxWidth()
+                                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true)
                                 .focusRequester(focusRequester)
                                 .onFocusChanged {
                                     if (!it.isFocused && stationName.text != stationFormState.station.data) {
@@ -361,7 +367,11 @@ fun StationItem(
                                                 modifier = Modifier.fillMaxWidth(),
                                                 horizontalArrangement = Arrangement.SpaceBetween
                                             ) {
-                                                Text(text = selectionStation, style = dataTextStyle, color = primaryColor)
+                                                Text(
+                                                    text = selectionStation,
+                                                    style = dataTextStyle,
+                                                    color = primaryColor
+                                                )
                                                 Icon(
                                                     modifier = Modifier.clickable {
                                                         onDeleteStationName(selectionStation)
@@ -412,7 +422,9 @@ fun StationItem(
                         )
 
                         val animatedTextColorsArrival by animateColorAsState(
-                            targetValue = if (stationFormState.arrival.data == null) primaryColor.copy(alpha = 0.5f)
+                            targetValue = if (stationFormState.arrival.data == null) primaryColor.copy(
+                                alpha = 0.5f
+                            )
                             else primaryColor,
                             animationSpec = tween(
                                 durationMillis = 200,
@@ -420,7 +432,9 @@ fun StationItem(
                             )
                         )
                         val animatedTextColorsDeparture by animateColorAsState(
-                            targetValue = if (stationFormState.departure.data == null) primaryColor.copy(alpha = 0.5f)
+                            targetValue = if (stationFormState.departure.data == null) primaryColor.copy(
+                                alpha = 0.5f
+                            )
                             else primaryColor,
                             animationSpec = tween(
                                 durationMillis = 200,
@@ -465,21 +479,23 @@ fun StationItem(
 
                         // Стоянка (фиксированная ширина 40dp)
                         Box(
-                            modifier = Modifier.width(40.dp),
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .width(40.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             if (stopMinutes != null) {
                                 Box(
                                     modifier = Modifier
-                                        .background(stopBackground, RoundedCornerShape(4.dp))
+                                        .fillMaxHeight()
+                                        .fillMaxWidth()
+                                        .background(stopBackground, Shapes.medium)
                                         .padding(horizontal = 2.dp, vertical = 1.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
                                         text = "${stopMinutes}'",
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            fontWeight = FontWeight.Bold
-                                        ),
+                                        style = MaterialTheme.typography.bodyMedium,
                                         color = stopTextColor,
                                         maxLines = 1
                                     )
