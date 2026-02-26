@@ -76,6 +76,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -812,6 +813,18 @@ fun FormTrainScreen(
                                     contentDescription = null,
                                     tint = if (formUiState.isReorderMode) MaterialTheme.colorScheme.tertiary else primaryColor
                                 )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Icon(
+                                    modifier = Modifier
+                                        .noRippleEffect(
+                                            onClick = {
+                                                viewModel.toggleTravelTimeMode()
+                                            }
+                                        ),
+                                    painter = painterResource(com.z_company.route.R.drawable.schedule_24px),
+                                    contentDescription = null,
+                                    tint = if (formUiState.isShowTravelTime) MaterialTheme.colorScheme.tertiary else primaryColor
+                                )
                             }
 
                             // Правая часть: play/pause
@@ -851,6 +864,32 @@ fun FormTrainScreen(
                                     .height(8.dp)
                                     .animateItem()
                             )
+
+                            // Время перегона между станциями
+                            if (index > 0 && formUiState.isShowTravelTime) {
+                                val (fromIdx, toIdx) = if (formUiState.isStationsReversed) {
+                                    Pair(originalIndex, originalIndex + 1)
+                                } else {
+                                    Pair(originalIndex - 1, originalIndex)
+                                }
+                                if (fromIdx in stationList.indices && toIdx in stationList.indices) {
+                                    val depTime = stationList[fromIdx].departure.data
+                                    val arrTime = stationList[toIdx].arrival.data
+                                    if (depTime != null && arrTime != null && arrTime > depTime) {
+                                        val travelMinutes = (arrTime - depTime) / 60_000
+                                        Text(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .animateItem(),
+                                            text = "${travelMinutes}'",
+                                            textAlign = TextAlign.Center,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = primaryColor.copy(alpha = 0.5f)
+                                        )
+                                    }
+                                }
+                            }
+
                             StationItem(
                                 modifier = Modifier.animateItem(),
                                 index = originalIndex,

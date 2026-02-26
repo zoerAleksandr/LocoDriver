@@ -147,9 +147,23 @@ class TrainFormViewModel(
         sharedPreferenceStorage.toggleStationsSortOrder(newReversed)
     }
 
+    fun loadTravelTimeMode() {
+        viewModelScope.launch {
+            val isShow = sharedPreferenceStorage.isShowTravelTime()
+            _uiState.update { it.copy(isShowTravelTime = isShow) }
+        }
+    }
+
+    fun toggleTravelTimeMode() {
+        val newValue = !_uiState.value.isShowTravelTime
+        _uiState.update { it.copy(isShowTravelTime = newValue, isReorderMode = false) }
+        sharedPreferenceStorage.toggleShowTravelTime(newValue)
+    }
+
     init {
         viewModelScope.launch {
             loadStationsSortOrder()
+            loadTravelTimeMode()
             if (trainId == NULLABLE_ID) {
                 isNewTrain = true
                 currentTrain = Train(basicId = basicId)
@@ -480,11 +494,12 @@ class TrainFormViewModel(
         } else {
             // Последнее заполненное — departure → arrival на следующей станции
             val nextIdx = idx + 1
-            if (nextIdx <= stationsListState.lastIndex) {
-                // Следующая станция уже существует
+            val isServicePhaseArrival = hasServicePhase && nextIdx == stationsListState.lastIndex
+            if (nextIdx <= stationsListState.lastIndex && !isServicePhaseArrival) {
+                // Следующая станция уже существует и это не конечная станция плеча
                 setArrivalTime(nextIdx, now)
             } else {
-                // Нужно добавить новую станцию
+                // Нужно добавить новую станцию (или nextIdx указывает на конечную станцию плеча)
                 addingStation() // с плечом вставит перед последней, без — в конец
                 if (hasServicePhase) {
                     setArrivalTime(stationsListState.lastIndex - 1, now)
@@ -496,8 +511,12 @@ class TrainFormViewModel(
     }
 
     fun toggleReorderMode() {
+        val wasShowingTravelTime = _uiState.value.isShowTravelTime
         _uiState.update {
-            it.copy(isReorderMode = !it.isReorderMode)
+            it.copy(isReorderMode = !it.isReorderMode, isShowTravelTime = false)
+        }
+        if (wasShowingTravelTime) {
+            sharedPreferenceStorage.toggleShowTravelTime(false)
         }
     }
 
