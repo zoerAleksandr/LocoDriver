@@ -4,10 +4,12 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BasicTooltipBox
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.rememberBasicTooltipState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
@@ -476,33 +479,39 @@ fun StationItem(
                         }
 
                         // Стоянка (фиксированная ширина 40dp)
-                        Box(
-                            modifier = Modifier.width(40.dp),
-                            contentAlignment = Alignment.Center
+                        BasicTooltipBox(
+                            positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+                            tooltip = { Text("Время стоянки") },
+                            state = rememberBasicTooltipState()
                         ) {
-                            if (stopMinutes != null) {
-                                Box(
-                                    modifier = Modifier
-                                        .background(stopBackground, RoundedCornerShape(4.dp))
-                                        .padding(horizontal = 2.dp, vertical = 1.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "${stopMinutes}'",
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            fontWeight = FontWeight.Bold
-                                        ),
-                                        color = stopTextColor,
-                                        maxLines = 1,
-                                        softWrap = false,
-                                        onTextLayout = { result ->
-                                            if (result.hasVisualOverflow) {
-                                                timeTextStyle = timeTextStyle.copy(
-                                                    fontSize = timeTextStyle.fontSize * 0.9
-                                                )
+                            Box(
+                                modifier = Modifier.width(40.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (stopMinutes != null) {
+                                    Box(
+                                        modifier = Modifier
+                                            .background(stopBackground, RoundedCornerShape(4.dp))
+                                            .padding(horizontal = 2.dp, vertical = 1.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "${stopMinutes}'",
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontWeight = FontWeight.Bold
+                                            ),
+                                            color = stopTextColor,
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            onTextLayout = { result ->
+                                                if (result.hasVisualOverflow) {
+                                                    timeTextStyle = timeTextStyle.copy(
+                                                        fontSize = timeTextStyle.fontSize * 0.9
+                                                    )
+                                                }
                                             }
-                                        }
-                                    )
+                                        )
+                                    }
                                 }
                             }
                         }

@@ -9,11 +9,13 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BasicTooltipBox
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberBasicTooltipState
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,6 +50,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -814,17 +817,23 @@ fun FormTrainScreen(
                                     tint = if (formUiState.isReorderMode) MaterialTheme.colorScheme.tertiary else primaryColor
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
-                                Icon(
-                                    modifier = Modifier
-                                        .noRippleEffect(
-                                            onClick = {
-                                                viewModel.toggleTravelTimeMode()
-                                            }
-                                        ),
-                                    painter = painterResource(com.z_company.route.R.drawable.schedule_24px),
-                                    contentDescription = null,
-                                    tint = if (formUiState.isShowTravelTime) MaterialTheme.colorScheme.tertiary else primaryColor
-                                )
+                                BasicTooltipBox(
+                                    positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+                                    tooltip = { Text("Перегонное время") },
+                                    state = rememberBasicTooltipState()
+                                ) {
+                                    Icon(
+                                        modifier = Modifier
+                                            .noRippleEffect(
+                                                onClick = {
+                                                    viewModel.toggleTravelTimeMode()
+                                                }
+                                            ),
+                                        painter = painterResource(com.z_company.route.R.drawable.schedule_24px),
+                                        contentDescription = null,
+                                        tint = if (formUiState.isShowTravelTime) MaterialTheme.colorScheme.tertiary else primaryColor
+                                    )
+                                }
                             }
 
                             // Правая часть: play/pause
