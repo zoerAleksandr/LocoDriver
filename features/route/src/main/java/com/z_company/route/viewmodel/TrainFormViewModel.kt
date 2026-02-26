@@ -412,28 +412,40 @@ class TrainFormViewModel(
     }
 
     fun deleteStation(stationFormState: StationFormState) {
-        stationsListState.remove(stationFormState)
+        stationsListState.removeAll { it.id == stationFormState.id }
         _uiState.update { it.copy(errorMessage = null) }
         changesHave()
         checkFormValidStation()
     }
 
-    fun isNextDeparture(): Boolean {
-        if (stationsListState.isEmpty()) return false
-
+    /**
+     * Сканирует станции от конца к началу, находит последнее заполненное время.
+     * При наличии плеча обслуживания — пропускает последнюю станцию (прибытие плеча).
+     * Для каждой станции проверяет сначала departure, потом arrival.
+     * @return Pair(индекс станции, тип поля) или null если ничего не заполнено.
+     */
+    private fun findLastFilledTime(): Pair<Int, StationDataType>? {
         val hasServicePhase = _uiState.value.selectedServicePhase != null
+        val endIdx = if (hasServicePhase && stationsListState.size >= 2)
+            stationsListState.lastIndex - 1
+        else
+            stationsListState.lastIndex
 
-        if (hasServicePhase && stationsListState.size >= 2) {
-            val workStation = stationsListState[stationsListState.lastIndex - 1]
-            return workStation.departure.data == null
-        } else {
-            val last = stationsListState.last()
-            return when {
-                last.arrival.data == null -> false
-                last.departure.data == null -> true
-                else -> false
-            }
+        for (i in endIdx downTo 0) {
+            val station = stationsListState[i]
+            if (station.departure.data != null) return Pair(i, StationDataType.DEPARTURE)
+            if (station.arrival.data != null) return Pair(i, StationDataType.ARRIVAL)
         }
+        return null
+    }
+
+    fun isNextDeparture(): Boolean {
+        if (stationsListState.isEmpty()) return true
+
+        val lastFilled = findLastFilledTime()
+        if (lastFilled == null) return true
+
+        return lastFilled.second == StationDataType.ARRIVAL
     }
 
     fun onGoClicked() {
@@ -448,31 +460,35 @@ class TrainFormViewModel(
 
         if (stationsListState.isEmpty()) {
             addingStation()
-            setArrivalTime(0, now)
-        } else if (hasServicePhase && stationsListState.size >= 2) {
-            // Режим плеча обслуживания: работаем с предпоследней станцией,
-            // последняя станция (прибытие плеча) остаётся на месте
-            val workIdx = stationsListState.lastIndex - 1
-            val workStation = stationsListState[workIdx]
-            when {
-                workStation.departure.data == null -> {
-                    setDepartureTime(workIdx, now)
-                }
-                else -> {
-                    // Оба заполнены — добавить промежуточную станцию перед последней
-                    addingStation()
-                    setArrivalTime(stationsListState.lastIndex - 1, now)
-                }
-            }
+            setDepartureTime(0, now)
+            return
+        }
+
+        val lastFilled = findLastFilledTime()
+
+        if (lastFilled == null) {
+            // Нет заполненных времён → departure первой станции
+            setDepartureTime(0, now)
+            return
+        }
+
+        val (idx, type) = lastFilled
+
+        if (type == StationDataType.ARRIVAL) {
+            // Последнее заполненное — arrival → установить departure на той же станции
+            setDepartureTime(idx, now)
         } else {
-            // Обычный режим без плеча
-            val lastIdx = stationsListState.lastIndex
-            val last = stationsListState[lastIdx]
-            when {
-                last.arrival.data == null -> setArrivalTime(lastIdx, now)
-                last.departure.data == null -> setDepartureTime(lastIdx, now)
-                else -> {
-                    addingStation()
+            // Последнее заполненное — departure → arrival на следующей станции
+            val nextIdx = idx + 1
+            if (nextIdx <= stationsListState.lastIndex) {
+                // Следующая станция уже существует
+                setArrivalTime(nextIdx, now)
+            } else {
+                // Нужно добавить новую станцию
+                addingStation() // с плечом вставит перед последней, без — в конец
+                if (hasServicePhase) {
+                    setArrivalTime(stationsListState.lastIndex - 1, now)
+                } else {
                     setArrivalTime(stationsListState.lastIndex, now)
                 }
             }
