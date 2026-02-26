@@ -412,30 +412,60 @@ class TrainFormViewModel(
     }
 
     fun deleteStation(stationFormState: StationFormState) {
-        checkFormValidStation()
         stationsListState.remove(stationFormState)
+        _uiState.update { it.copy(errorMessage = null) }
         changesHave()
+        checkFormValidStation()
     }
 
     fun isNextDeparture(): Boolean {
         if (stationsListState.isEmpty()) return false
-        val last = stationsListState.last()
-        return when {
-            last.arrival.data == null -> false
-            last.departure.data == null -> true
-            else -> false
+
+        val hasServicePhase = _uiState.value.selectedServicePhase != null
+
+        if (hasServicePhase && stationsListState.size >= 2) {
+            val workStation = stationsListState[stationsListState.lastIndex - 1]
+            return workStation.departure.data == null
+        } else {
+            val last = stationsListState.last()
+            return when {
+                last.arrival.data == null -> false
+                last.departure.data == null -> true
+                else -> false
+            }
         }
     }
 
     fun onGoClicked() {
         val now = java.util.Calendar.getInstance(
             java.util.TimeZone.getTimeZone(timeZoneText)
-        ).timeInMillis
+        ).apply {
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+        val hasServicePhase = _uiState.value.selectedServicePhase != null
 
         if (stationsListState.isEmpty()) {
             addingStation()
             setArrivalTime(0, now)
+        } else if (hasServicePhase && stationsListState.size >= 2) {
+            // Режим плеча обслуживания: работаем с предпоследней станцией,
+            // последняя станция (прибытие плеча) остаётся на месте
+            val workIdx = stationsListState.lastIndex - 1
+            val workStation = stationsListState[workIdx]
+            when {
+                workStation.departure.data == null -> {
+                    setDepartureTime(workIdx, now)
+                }
+                else -> {
+                    // Оба заполнены — добавить промежуточную станцию перед последней
+                    addingStation()
+                    setArrivalTime(stationsListState.lastIndex - 1, now)
+                }
+            }
         } else {
+            // Обычный режим без плеча
             val lastIdx = stationsListState.lastIndex
             val last = stationsListState[lastIdx]
             when {
