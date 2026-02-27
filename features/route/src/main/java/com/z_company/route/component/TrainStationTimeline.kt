@@ -266,13 +266,14 @@ fun TrainStationTimeline(
 private fun computeStopBadgeColors(
     stopDurationMillis: Long,
     isPassengerTrain: Boolean,
+    primaryColor: Color,
 ): Pair<Color, Color> {
     val stopMinutes = TimeUnit.MILLISECONDS.toMinutes(stopDurationMillis)
     return when {
         stopMinutes > 20 && isPassengerTrain -> DangerColor to Color.White
         stopMinutes > 30 -> DangerColor to Color.White
         stopMinutes > 5 -> Color(0xFFFFC107) to Color(0xFF3E2723)
-        else -> Color.Transparent to Color.Transparent
+        else -> primaryColor.copy(alpha = 0.08f) to primaryColor.copy(alpha = 0.6f)
     }
 }
 
@@ -404,14 +405,13 @@ private fun StationRow(
                     val (badgeColor, badgeTextColor) = computeStopBadgeColors(
                         stopDurationMillis = stopInfo.durationMillis,
                         isPassengerTrain = isPassengerTrain,
+                        primaryColor = primaryColor,
                     )
-                    if (badgeColor != Color.Transparent) {
-                        StopBadge(
-                            stopInfo = stopInfo,
-                            badgeColor = badgeColor,
-                            textColor = badgeTextColor,
-                        )
-                    }
+                    StopBadge(
+                        stopInfo = stopInfo,
+                        badgeColor = badgeColor,
+                        textColor = badgeTextColor,
+                    )
                 }
             }
 
