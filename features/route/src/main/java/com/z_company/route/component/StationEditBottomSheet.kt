@@ -1,6 +1,7 @@
 package com.z_company.route.component
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
@@ -98,7 +100,7 @@ fun StationEditBottomSheet(
             // Title
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
                 color = primaryColor,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
@@ -230,6 +232,12 @@ fun StationEditBottomSheet(
                 }
             }
 
+            // Quick adjust buttons for arrival
+            TimeQuickAdjustRow(
+                currentTime = localArrival,
+                onTimeChanged = { localArrival = it }
+            )
+
             Spacer(modifier = Modifier.height(8.dp))
 
             // Departure time row
@@ -271,6 +279,12 @@ fun StationEditBottomSheet(
                 }
             }
 
+            // Quick adjust buttons for departure
+            TimeQuickAdjustRow(
+                currentTime = localDeparture,
+                onTimeChanged = { localDeparture = it }
+            )
+
             Spacer(modifier = Modifier.height(24.dp))
 
             // Save button
@@ -287,7 +301,7 @@ fun StationEditBottomSheet(
             ) {
                 Text(
                     text = "Сохранить",
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onTertiary
                 )
             }
@@ -301,7 +315,7 @@ fun StationEditBottomSheet(
                 ) {
                     Text(
                         text = "Удалить станцию",
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error
                     )
                 }
@@ -333,5 +347,97 @@ fun StationEditBottomSheet(
             onDismiss = { showDeparturePicker = false },
             startDateTime = localDeparture
         )
+    }
+}
+
+/**
+ * Строка кнопок быстрой корректировки времени:
+ * -10  -5  -1  [Сейчас]  +1  +5  +10
+ */
+@Composable
+private fun TimeQuickAdjustRow(
+    currentTime: Long?,
+    onTimeChanged: (Long) -> Unit,
+) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val chipShape = RoundedCornerShape(8.dp)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 6.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Минусовые кнопки
+        listOf(-10, -5, -1).forEach { minutes ->
+            Box(
+                modifier = Modifier
+                    .border(
+                        width = 0.5.dp,
+                        color = primaryColor.copy(alpha = 0.3f),
+                        shape = chipShape
+                    )
+                    .clickable {
+                        val base = currentTime ?: System.currentTimeMillis()
+                        onTimeChanged(base + minutes * 60_000L)
+                    }
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "$minutes",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = primaryColor
+                )
+            }
+        }
+
+        // Кнопка "Сейчас"
+        Box(
+            modifier = Modifier
+                .border(
+                    width = 0.5.dp,
+                    color = primaryColor.copy(alpha = 0.5f),
+                    shape = chipShape
+                )
+                .background(
+                    color = primaryColor.copy(alpha = 0.08f),
+                    shape = chipShape
+                )
+                .clickable { onTimeChanged(System.currentTimeMillis()) }
+                .padding(horizontal = 10.dp, vertical = 4.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Сейчас",
+                style = MaterialTheme.typography.labelSmall,
+                color = primaryColor
+            )
+        }
+
+        // Плюсовые кнопки
+        listOf(1, 5, 10).forEach { minutes ->
+            Box(
+                modifier = Modifier
+                    .border(
+                        width = 0.5.dp,
+                        color = primaryColor.copy(alpha = 0.3f),
+                        shape = chipShape
+                    )
+                    .clickable {
+                        val base = currentTime ?: System.currentTimeMillis()
+                        onTimeChanged(base + minutes * 60_000L)
+                    }
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "+$minutes",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = primaryColor
+                )
+            }
+        }
     }
 }
