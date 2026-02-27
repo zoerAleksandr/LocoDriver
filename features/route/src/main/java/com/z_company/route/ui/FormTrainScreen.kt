@@ -16,8 +16,6 @@ import androidx.compose.foundation.MutatePriority
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.rememberBasicTooltipState
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.layout.Arrangement
@@ -823,46 +821,17 @@ fun FormTrainScreen(
                                     tint = if (formUiState.isReorderMode) MaterialTheme.colorScheme.tertiary else primaryColor
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
-                                val travelTimeTooltipState = rememberBasicTooltipState(isPersistent = false)
-                                BasicTooltipBox(
-                                    positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                                    tooltip = {
-                                        Box(
-                                            modifier = Modifier
-                                                .background(
-                                                    shape = Shapes.medium,
-                                                    color = MaterialTheme.colorScheme.surface
-                                                )
-                                                .padding(12.dp)
-                                        ) {
-                                            Text(
-                                                text = "Перегонное время",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
-                                        }
-                                    },
-                                    state = travelTimeTooltipState
-                                ) {
-                                    Icon(
-                                        modifier = Modifier
-                                            .combinedClickable(
-                                                indication = null,
-                                                interactionSource = remember { MutableInteractionSource() },
-                                                onClick = {
-                                                    viewModel.toggleTravelTimeMode()
-                                                },
-                                                onLongClick = {
-                                                    scope.launch {
-                                                        travelTimeTooltipState.show(MutatePriority.Default)
-                                                    }
-                                                }
-                                            ),
-                                        painter = painterResource(com.z_company.route.R.drawable.schedule_24px),
-                                        contentDescription = null,
-                                        tint = if (formUiState.isShowTravelTime) MaterialTheme.colorScheme.tertiary else primaryColor
-                                    )
-                                }
+                                Icon(
+                                    modifier = Modifier
+                                        .noRippleEffect(
+                                            onClick = {
+                                                viewModel.toggleTravelTimeMode()
+                                            }
+                                        ),
+                                    painter = painterResource(com.z_company.route.R.drawable.schedule_24px),
+                                    contentDescription = null,
+                                    tint = if (formUiState.isShowTravelTime) MaterialTheme.colorScheme.tertiary else primaryColor
+                                )
                             }
 
                             // Правая часть: play/pause
@@ -919,20 +888,48 @@ fun FormTrainScreen(
                                     if (depTime != null && arrTime != null && arrTime > depTime) {
                                         val travelMinutesInLong = (arrTime - depTime)
                                         val travelMinutes = ConverterLongToTime.getTimeInStringFormat(travelMinutesInLong)
+                                        val travelTooltipState = rememberBasicTooltipState(isPersistent = false)
                                         Row(
                                             modifier = Modifier
                                                 .animateItem()
                                                 .fillMaxWidth()
                                                 .padding(bottom = 2.dp)
                                         ) {
-                                            Text(
-                                                modifier = Modifier
-                                                    .weight(1f),
-                                                text = travelMinutes,
-                                                textAlign = TextAlign.Center,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = primaryColor.copy(alpha = 0.7f)
-                                            )
+                                            BasicTooltipBox(
+                                                modifier = Modifier.weight(1f),
+                                                positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+                                                tooltip = {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .background(
+                                                                shape = Shapes.medium,
+                                                                color = MaterialTheme.colorScheme.surface
+                                                            )
+                                                            .padding(12.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = "Перегонное время",
+                                                            style = MaterialTheme.typography.bodyMedium,
+                                                            color = MaterialTheme.colorScheme.primary
+                                                        )
+                                                    }
+                                                },
+                                                state = travelTooltipState
+                                            ) {
+                                                Text(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .clickable {
+                                                            scope.launch {
+                                                                travelTooltipState.show(MutatePriority.Default)
+                                                            }
+                                                        },
+                                                    text = travelMinutes,
+                                                    textAlign = TextAlign.Center,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = primaryColor.copy(alpha = 0.7f)
+                                                )
+                                            }
                                             Box(
                                                 modifier = Modifier.weight(1f)
                                             )
