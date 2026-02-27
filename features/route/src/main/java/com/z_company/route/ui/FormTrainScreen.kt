@@ -12,9 +12,11 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BasicTooltipBox
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.MutatePriority
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.rememberBasicTooltipState
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.layout.Arrangement
@@ -71,6 +73,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.dimensionResource
@@ -820,22 +823,47 @@ fun FormTrainScreen(
                                     tint = if (formUiState.isReorderMode) MaterialTheme.colorScheme.tertiary else primaryColor
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
-                                BasicTooltipBox(
-                                    positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                                    tooltip = { Text("Перегонное время") },
-                                    state = rememberBasicTooltipState()
-                                ) {
-                                    Icon(
-                                        modifier = Modifier
-                                            .noRippleEffect(
-                                                onClick = {
-                                                    viewModel.toggleTravelTimeMode()
-                                                }
-                                            ),
-                                        painter = painterResource(com.z_company.route.R.drawable.schedule_24px),
-                                        contentDescription = null,
-                                        tint = if (formUiState.isShowTravelTime) MaterialTheme.colorScheme.tertiary else primaryColor
-                                    )
+                                run {
+                                    val travelTimeTooltipState = rememberBasicTooltipState(isPersistent = false)
+                                    BasicTooltipBox(
+                                        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+                                        tooltip = {
+                                            Box(
+                                                modifier = Modifier
+                                                    .background(
+                                                        shape = Shapes.medium,
+                                                        color = MaterialTheme.colorScheme.surface
+                                                    )
+                                                    .padding(12.dp)
+                                            ) {
+                                                Text(
+                                                    text = "Перегонное время",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                        },
+                                        state = travelTimeTooltipState
+                                    ) {
+                                        Icon(
+                                            modifier = Modifier
+                                                .pointerInput(Unit) {
+                                                    detectTapGestures(
+                                                        onTap = {
+                                                            viewModel.toggleTravelTimeMode()
+                                                        },
+                                                        onLongPress = {
+                                                            scope.launch {
+                                                                travelTimeTooltipState.show(MutatePriority.Default)
+                                                            }
+                                                        }
+                                                    )
+                                                },
+                                            painter = painterResource(com.z_company.route.R.drawable.schedule_24px),
+                                            contentDescription = null,
+                                            tint = if (formUiState.isShowTravelTime) MaterialTheme.colorScheme.tertiary else primaryColor
+                                        )
+                                    }
                                 }
                             }
 

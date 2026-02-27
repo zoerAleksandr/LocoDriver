@@ -6,9 +6,11 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BasicTooltipBox
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.MutatePriority
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.rememberBasicTooltipState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,6 +50,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,6 +60,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextRange
@@ -72,6 +76,7 @@ import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.DateAndTimeFormat
 import com.z_company.domain.entities.route.UtilsForEntities
 import com.z_company.route.viewmodel.StationFormState
+import kotlinx.coroutines.launch
 import java.util.Calendar
 
 private val warningColor = Color(0xFFFFC107)
@@ -493,40 +498,67 @@ fun StationItem(
                         }
 
                         // Стоянка (фиксированная ширина 40dp)
-
-                        BasicTooltipBox(
-                            positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                            tooltip = { Text("Время стоянки") },
-                            state = rememberBasicTooltipState()
-                        ) {
-                            Box(
-                                modifier = Modifier.width(40.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (stopMinutes != null) {
+                        run {
+                            val stopTooltipState = rememberBasicTooltipState(isPersistent = false)
+                            val stopTooltipScope = rememberCoroutineScope()
+                            BasicTooltipBox(
+                                positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+                                tooltip = {
                                     Box(
                                         modifier = Modifier
-                                            .background(stopBackground, RoundedCornerShape(4.dp))
-                                            .padding(horizontal = 2.dp, vertical = 1.dp),
-                                        contentAlignment = Alignment.Center
+                                            .background(
+                                                shape = Shapes.medium,
+                                                color = MaterialTheme.colorScheme.surface
+                                            )
+                                            .padding(12.dp)
                                     ) {
                                         Text(
-                                            text = "${stopMinutes}'",
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                fontWeight = FontWeight.Bold
-                                            ),
-                                            color = stopTextColor,
-                                            maxLines = 1,
-                                            softWrap = false,
-                                            onTextLayout = { result ->
-                                                if (result.hasVisualOverflow) {
-                                                    timeTextStyle = timeTextStyle.copy(
-                                                        fontSize = timeTextStyle.fontSize * 0.9
-                                                    )
-                                                }
-
-                                            }
+                                            text = "Время стоянки",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary
                                         )
+                                    }
+                                },
+                                state = stopTooltipState
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(40.dp)
+                                        .pointerInput(Unit) {
+                                            detectTapGestures(
+                                                onPress = {
+                                                    stopTooltipScope.launch {
+                                                        stopTooltipState.show(MutatePriority.Default)
+                                                    }
+                                                }
+                                            )
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (stopMinutes != null) {
+                                        Box(
+                                            modifier = Modifier
+                                                .background(stopBackground, RoundedCornerShape(4.dp))
+                                                .padding(horizontal = 2.dp, vertical = 1.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "${stopMinutes}'",
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    fontWeight = FontWeight.Bold
+                                                ),
+                                                color = stopTextColor,
+                                                maxLines = 1,
+                                                softWrap = false,
+                                                onTextLayout = { result ->
+                                                    if (result.hasVisualOverflow) {
+                                                        timeTextStyle = timeTextStyle.copy(
+                                                            fontSize = timeTextStyle.fontSize * 0.9
+                                                        )
+                                                    }
+                                                }
+                                            )
+                                        }
                                     }
                                 }
                             }
