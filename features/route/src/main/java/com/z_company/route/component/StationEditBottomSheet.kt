@@ -222,10 +222,10 @@ fun StationEditBottomSheet(
                 onFieldClick = { showArrivalPicker = true },
                 onClear = { localArrival = null },
                 onAdjust = { delta ->
-                    val base = localArrival ?: System.currentTimeMillis()
+                    val base = localArrival ?: nowTruncatedToMinutes()
                     localArrival = base + delta * 60_000L
                 },
-                onNow = { localArrival = System.currentTimeMillis() },
+                onNow = { localArrival = nowTruncatedToMinutes() },
             )
 
             // ── Бейдж стоянки (между прибытием и отправлением) ──
@@ -248,10 +248,10 @@ fun StationEditBottomSheet(
                 onFieldClick = { showDeparturePicker = true },
                 onClear = { localDeparture = null },
                 onAdjust = { delta ->
-                    val base = localDeparture ?: System.currentTimeMillis()
+                    val base = localDeparture ?: nowTruncatedToMinutes()
                     localDeparture = base + delta * 60_000L
                 },
-                onNow = { localDeparture = System.currentTimeMillis() },
+                onNow = { localDeparture = nowTruncatedToMinutes() },
             )
 
             // ── Разделитель ──
@@ -411,18 +411,22 @@ private fun TimeBlock(
                 modifier = Modifier.weight(1f),
             )
 
-            // Кнопка очистки
-            if (timeMillis != null) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .background(
-                            color = clearColor.copy(alpha = 0.1f),
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .clickable { onClear() },
-                    contentAlignment = Alignment.Center
-                ) {
+            // Кнопка очистки (Box всегда 32dp для стабильного layout)
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .then(
+                        if (timeMillis != null) Modifier
+                            .background(
+                                color = clearColor.copy(alpha = 0.1f),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .clickable { onClear() }
+                        else Modifier
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (timeMillis != null) {
                     Icon(
                         painter = painterResource(com.z_company.core.R.drawable.ic_clear),
                         contentDescription = "Очистить",
@@ -562,9 +566,14 @@ private fun StopDurationDivider(stopMinutes: Int) {
     }
 }
 
-// ─── Утилита форматирования даты ─────────────────────────────────────────────
+// ─── Утилиты ────────────────────────────────────────────────────────────────
 
 private fun formatDateShort(millis: Long): String {
     val sdf = SimpleDateFormat("dd.MM.yy", Locale.getDefault())
     return sdf.format(Date(millis))
+}
+
+private fun nowTruncatedToMinutes(): Long {
+    val now = System.currentTimeMillis()
+    return now - (now % 60_000L)
 }

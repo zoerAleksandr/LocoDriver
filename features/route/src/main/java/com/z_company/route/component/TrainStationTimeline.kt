@@ -28,6 +28,7 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -186,10 +187,12 @@ fun TrainStationTimeline(
                 }
 
                 if (onStationSwipeDelete != null && !isAnyReordering) {
+                    val currentIndex by rememberUpdatedState(index)
+                    val currentOnSwipeDelete by rememberUpdatedState(onStationSwipeDelete)
                     val dismissState = rememberSwipeToDismissBoxState(
                         confirmValueChange = { value ->
                             if (value == SwipeToDismissBoxValue.EndToStart) {
-                                onStationSwipeDelete(index)
+                                currentOnSwipeDelete?.invoke(currentIndex)
                             }
                             false
                         }
