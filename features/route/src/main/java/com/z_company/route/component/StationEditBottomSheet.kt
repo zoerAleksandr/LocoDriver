@@ -1,7 +1,6 @@
 package com.z_company.route.component
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,6 +10,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -22,11 +23,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -35,19 +34,26 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.PopupProperties
 import com.z_company.core.ui.component.DateTimePickerBottomSheet
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.DateAndTimeFormat
 import com.z_company.route.viewmodel.StationFormState
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,6 +92,8 @@ fun StationEditBottomSheet(
     val hintColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
     val dataTextStyle = MaterialTheme.typography.bodyLarge
     val hintStyle = MaterialTheme.typography.bodyMedium
+    val fieldColor = MaterialTheme.colorScheme.surface
+    val fieldShape = RoundedCornerShape(14.dp)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -96,20 +104,27 @@ fun StationEditBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 20.dp)
                 .padding(bottom = 40.dp)
         ) {
-            // Title
+            // ── Заголовок ──
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
                 color = primaryColor,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            // ── Название станции ──
+            Text(
+                text = "Название",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = primaryColor.copy(alpha = 0.5f),
+                modifier = Modifier.padding(bottom = 5.dp)
+            )
 
-            // Station name with autocomplete
             ExposedDropdownMenuBox(
                 expanded = isDropdownExpanded,
                 onExpandedChange = { isDropdownExpanded = it }
@@ -131,7 +146,7 @@ fun StationEditBottomSheet(
                             color = hintColor
                         )
                     },
-                    textStyle = dataTextStyle,
+                    textStyle = dataTextStyle.copy(fontWeight = FontWeight.Medium),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(
                         onDone = {
@@ -199,116 +214,59 @@ fun StationEditBottomSheet(
 
             Spacer(modifier = Modifier.height(36.dp))
 
-            // Arrival time row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .shadow(elevation = 2.dp, shape = Shapes.medium)
-                    .background(
-                        color = MaterialTheme.colorScheme.surface,
-                        shape = Shapes.medium
-                    )
-                    .clickable { showArrivalPicker = true }
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // ── Прибытие ──
+            TimeBlock(
+                label = "Прибытие",
+                timeMillis = localArrival,
+                dateAndTimeConverter = dateAndTimeConverter,
+                onFieldClick = { showArrivalPicker = true },
+                onClear = { localArrival = null },
+                onAdjust = { delta ->
+                    val base = localArrival ?: System.currentTimeMillis()
+                    localArrival = base + delta * 60_000L
+                },
+                onNow = { localArrival = System.currentTimeMillis() },
             )
-            {
-                Text(
-                    text = "Прибытие",
-                    style = hintStyle,
-                    color = hintColor
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val arrivalText = localArrival?.let {
-                        dateAndTimeConverter?.getDateAndTime(it)
-                    } ?: DateAndTimeFormat.DEFAULT_TIME_TEXT
-                    Text(
-                        modifier = Modifier.padding(end = 6.dp),
-                        text = arrivalText,
-                        style = dataTextStyle,
-                        color = if (localArrival != null) primaryColor else primaryColor.copy(alpha = 0.4f)
-                    )
-                    if (localArrival != null) {
-                        Icon(
-                            modifier = Modifier.clickable {
-                                localArrival = null
-                            },
-                            painter = painterResource(com.z_company.core.R.drawable.ic_clear),
-                            contentDescription = "Очистить",
-                            tint = primaryColor.copy(alpha = 0.5f)
-                        )
-                    }
-                }
+
+            // ── Бейдж стоянки (между прибытием и отправлением) ──
+            val stopMinutes = if (localArrival != null && localDeparture != null) {
+                val diff = localDeparture!! - localArrival!!
+                if (diff > 0) (diff / 60_000).toInt() else null
+            } else null
+
+            if (stopMinutes != null && stopMinutes > 0) {
+                StopDurationDivider(stopMinutes = stopMinutes)
+            } else {
+                Spacer(modifier = Modifier.height(14.dp))
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-            // Quick adjust buttons for arrival
-            TimeQuickAdjustRow(
-                currentTime = localArrival,
-                onTimeChanged = { localArrival = it }
+            // ── Отправление ──
+            TimeBlock(
+                label = "Отправление",
+                timeMillis = localDeparture,
+                dateAndTimeConverter = dateAndTimeConverter,
+                onFieldClick = { showDeparturePicker = true },
+                onClear = { localDeparture = null },
+                onAdjust = { delta ->
+                    val base = localDeparture ?: System.currentTimeMillis()
+                    localDeparture = base + delta * 60_000L
+                },
+                onNow = { localDeparture = System.currentTimeMillis() },
             )
 
-            Spacer(modifier = Modifier.height(36.dp))
-
-            // Departure time row
-            Row(
+            // ── Разделитель ──
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .shadow(elevation = 2.dp, shape = Shapes.medium)
-                    .background(
-                        color = MaterialTheme.colorScheme.surface,
-                        shape = Shapes.medium
-                    )
-                    .clickable { showDeparturePicker = true }
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            )
-            {
-                Text(
-                    text = "Отправление",
-                    style = hintStyle,
-                    color = hintColor
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val departureText = localDeparture?.let {
-                        dateAndTimeConverter?.getDateAndTime(it)
-                    } ?: DateAndTimeFormat.DEFAULT_TIME_TEXT
-                    Text(
-                        modifier = Modifier.padding(end = 6.dp),
-                        text = departureText,
-                        style = dataTextStyle,
-                        color = if (localDeparture != null) primaryColor else primaryColor.copy(
-                            alpha = 0.4f
-                        )
-                    )
-                    if (localDeparture != null) {
-                        Icon(
-                            modifier = Modifier.clickable {
-                                localDeparture = null
-                            },
-                            painter = painterResource(com.z_company.core.R.drawable.ic_clear),
-                            contentDescription = "Очистить",
-                            tint = primaryColor.copy(alpha = 0.5f)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            // Quick adjust buttons for departure
-            TimeQuickAdjustRow(
-                currentTime = localDeparture,
-                onTimeChanged = { localDeparture = it }
+                    .padding(vertical = 20.dp)
+                    .height(1.dp)
+                    .background(primaryColor.copy(alpha = 0.1f))
             )
 
-            Spacer(modifier = Modifier.height(36.dp))
-
-            // Save button
+            // ── Кнопка «Сохранить» ──
             Button(
                 modifier = Modifier.fillMaxWidth(),
-                shape = Shapes.medium,
+                shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                     contentColor = MaterialTheme.colorScheme.secondary
@@ -320,22 +278,34 @@ fun StationEditBottomSheet(
             ) {
                 Text(
                     text = "Сохранить",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onTertiary
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onTertiary,
+                    modifier = Modifier.padding(vertical = 4.dp)
                 )
             }
 
-            // Delete button (only for existing stations)
+            // ── Кнопка «Удалить станцию» ──
             if (onDelete != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                TextButton(
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
                     modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.08f),
+                        contentColor = MaterialTheme.colorScheme.error
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = 0.dp,
+                        pressedElevation = 0.dp
+                    ),
                     onClick = onDelete
                 ) {
                     Text(
                         text = "Удалить станцию",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(vertical = 2.dp)
                     )
                 }
             }
@@ -369,93 +339,232 @@ fun StationEditBottomSheet(
     }
 }
 
-/**
- * Строка кнопок быстрой корректировки времени:
- * -10  -5  -1  [Сейчас]  +1  +5  +10
- */
+// ─── Блок времени (лейбл + крупное время + кнопки ±) ─────────────────────────
+
 @Composable
-private fun TimeQuickAdjustRow(
-    currentTime: Long?,
-    onTimeChanged: (Long) -> Unit,
+private fun TimeBlock(
+    label: String,
+    timeMillis: Long?,
+    dateAndTimeConverter: DateAndTimeConverter?,
+    onFieldClick: () -> Unit,
+    onClear: () -> Unit,
+    onAdjust: (Int) -> Unit,
+    onNow: () -> Unit,
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
-    val chipShape = RoundedCornerShape(8.dp)
+    val fieldColor = MaterialTheme.colorScheme.surface
+    val fieldShape = RoundedCornerShape(14.dp)
+    val clearColor = Color(0xFFC4392D)
 
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Лейбл + дата
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Bottom
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = primaryColor.copy(alpha = 0.5f)
+            )
+            if (timeMillis != null) {
+                val dateText = formatDateShort(timeMillis)
+
+                Text(
+                    text = dateText,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = primaryColor.copy(alpha = 0.4f)
+                )
+            }
+        }
+
+        // Поле с крупным временем
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(color = fieldColor, shape = fieldShape)
+                .clickable { onFieldClick() }
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+
+        ) {
+            // Крупное время по центру
+            val timeText = if (timeMillis != null) {
+                dateAndTimeConverter?.getTimeFromDateLong(timeMillis)
+                    ?: DateAndTimeFormat.DEFAULT_TIME_TEXT
+            } else {
+                DateAndTimeFormat.DEFAULT_TIME_TEXT
+            }
+
+            Text(
+                text = timeText,
+                style = MaterialTheme.typography.headlineLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp,
+                ),
+                color = if (timeMillis != null) primaryColor else primaryColor.copy(alpha = 0.25f),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f),
+            )
+
+            // Кнопка очистки
+            if (timeMillis != null) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(
+                            color = clearColor.copy(alpha = 0.1f),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .clickable { onClear() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(com.z_company.core.R.drawable.ic_clear),
+                        contentDescription = "Очистить",
+                        tint = clearColor,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+
+        // 5 кнопок: -5, -1, Сейчас, +1, +5
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // -5
+            StepButton(
+                label = "-5",
+                modifier = Modifier.weight(1f),
+                onClick = { onAdjust(-5) }
+            )
+            // -1
+            StepButton(
+                label = "-1",
+                modifier = Modifier.weight(1f),
+                onClick = { onAdjust(-1) }
+            )
+            // Сейчас
+            Box(
+                modifier = Modifier
+                    .weight(1.3f)
+                    .background(
+                        color = Color(0xFFE8F5E9),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                    .clickable { onNow() }
+                    .padding(vertical = 10.dp),
+
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Сейчас",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF2E7D32)
+                )
+            }
+            // +1
+            StepButton(
+                label = "+1",
+                modifier = Modifier.weight(1f),
+                onClick = { onAdjust(1) }
+            )
+            // +5
+            StepButton(
+                label = "+5",
+                modifier = Modifier.weight(1f),
+                onClick = { onAdjust(5) }
+            )
+        }
+    }
+}
+
+// ─── Кнопка ±N ───────────────────────────────────────────────────────────────
+
+@Composable
+private fun StepButton(
+    label: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val fieldColor = MaterialTheme.colorScheme.surface
+    Box(
+        modifier = modifier
+            .background(
+                color = fieldColor,
+                shape = RoundedCornerShape(10.dp)
+            )
+            .clickable { onClick() }
+            .padding(vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+        )
+    }
+}
+
+// ─── Бейдж стоянки между прибытием и отправлением ────────────────────────────
+
+@Composable
+private fun StopDurationDivider(stopMinutes: Int) {
+    val primaryColor = MaterialTheme.colorScheme.primary
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 6.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
     ) {
-        // Минусовые кнопки
-        listOf(-10, -5, -1).forEach { minutes ->
-            Box(
-                modifier = Modifier
-                    .border(
-                        width = 0.5.dp,
-                        color = primaryColor.copy(alpha = 0.3f),
-                        shape = chipShape
-                    )
-                    .padding(horizontal = 6.dp, vertical = 3.dp)
-                    .clickable {
-                        val base = currentTime ?: System.currentTimeMillis()
-                        onTimeChanged(base + minutes * 60_000L)
-                    }
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "$minutes",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = primaryColor
-                )
-            }
-        }
-
-        // Кнопка "Сейчас"
         Box(
             modifier = Modifier
-                .border(
-                    width = 0.5.dp,
-                    color = primaryColor.copy(alpha = 0.5f),
-                    shape = chipShape
+                .weight(1f)
+                .height(1.dp)
+                .background(primaryColor.copy(alpha = 0.1f))
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Box(
+            modifier = Modifier
+                .background(
+                    color = Color(0xFFFFC107),
+                    shape = RoundedCornerShape(8.dp)
                 )
-                .padding(horizontal = 6.dp, vertical = 3.dp)
-                .clickable { onTimeChanged(System.currentTimeMillis()) }
-                .padding(horizontal = 10.dp, vertical = 4.dp),
+                .padding(horizontal = 10.dp, vertical = 3.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "Сейчас",
+                text = "Стоянка $stopMinutes мин",
                 style = MaterialTheme.typography.labelSmall,
-                color = primaryColor
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF4E342E)
             )
         }
-
-        // Плюсовые кнопки
-        listOf(1, 5, 10).forEach { minutes ->
-            Box(
-                modifier = Modifier
-                    .border(
-                        width = 0.5.dp,
-                        color = primaryColor.copy(alpha = 0.3f),
-                        shape = chipShape
-                    )
-                    .padding(horizontal = 6.dp, vertical = 3.dp)
-                    .clickable {
-                        val base = currentTime ?: System.currentTimeMillis()
-                        onTimeChanged(base + minutes * 60_000L)
-                    }
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "+$minutes",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = primaryColor
-                )
-            }
-        }
+        Spacer(modifier = Modifier.width(6.dp))
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(1.dp)
+                .background(primaryColor.copy(alpha = 0.1f))
+        )
     }
+}
+
+// ─── Утилита форматирования даты ─────────────────────────────────────────────
+
+private fun formatDateShort(millis: Long): String {
+    val sdf = SimpleDateFormat("dd.MM.yy", Locale.getDefault())
+    return sdf.format(Date(millis))
 }
