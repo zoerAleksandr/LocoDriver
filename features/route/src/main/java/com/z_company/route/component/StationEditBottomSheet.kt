@@ -35,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextRange
@@ -82,6 +83,7 @@ fun StationEditBottomSheet(
     var isDropdownExpanded by remember { mutableStateOf(false) }
 
     val primaryColor = MaterialTheme.colorScheme.primary
+    val hintColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
     val dataTextStyle = MaterialTheme.typography.bodyLarge
     val hintStyle = MaterialTheme.typography.bodyMedium
 
@@ -89,7 +91,7 @@ fun StationEditBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.secondary,
-        shape = Shapes.medium
+        shape = Shapes.large
     ) {
         Column(
             modifier = Modifier
@@ -104,6 +106,8 @@ fun StationEditBottomSheet(
                 color = primaryColor,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
+
+            Spacer(modifier = Modifier.height(24.dp))
 
             // Station name with autocomplete
             ExposedDropdownMenuBox(
@@ -124,7 +128,7 @@ fun StationEditBottomSheet(
                         Text(
                             text = "Станция",
                             style = hintStyle,
-                            color = primaryColor.copy(alpha = 0.5f)
+                            color = hintColor
                         )
                     },
                     textStyle = dataTextStyle,
@@ -135,7 +139,9 @@ fun StationEditBottomSheet(
                             isDropdownExpanded = false
                         }
                     ),
-                    singleLine = true
+                    singleLine = true,
+                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surface,
+                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surface
                 )
 
                 if (menuList.isNotEmpty() && isDropdownExpanded) {
@@ -191,108 +197,121 @@ fun StationEditBottomSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(36.dp))
 
             // Arrival time row
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .shadow(elevation = 2.dp, shape = Shapes.medium)
                     .background(
                         color = MaterialTheme.colorScheme.surface,
                         shape = Shapes.medium
                     )
                     .clickable { showArrivalPicker = true }
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
-            ) {
+            )
+            {
                 Text(
                     text = "Прибытие",
                     style = hintStyle,
-                    color = primaryColor
+                    color = hintColor
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val arrivalText = localArrival?.let {
-                        dateAndTimeConverter?.getTimeFromDateLong(it)
+                        dateAndTimeConverter?.getDateAndTime(it)
                     } ?: DateAndTimeFormat.DEFAULT_TIME_TEXT
                     Text(
+                        modifier = Modifier.padding(end = 6.dp),
                         text = arrivalText,
                         style = dataTextStyle,
                         color = if (localArrival != null) primaryColor else primaryColor.copy(alpha = 0.4f)
                     )
                     if (localArrival != null) {
-                        IconButton(onClick = { localArrival = null }) {
-                            Icon(
-                                painter = painterResource(com.z_company.core.R.drawable.ic_clear),
-                                contentDescription = "Очистить",
-                                tint = primaryColor.copy(alpha = 0.5f)
-                            )
-                        }
+                        Icon(
+                            modifier = Modifier.clickable {
+                                localArrival = null
+                            },
+                            painter = painterResource(com.z_company.core.R.drawable.ic_clear),
+                            contentDescription = "Очистить",
+                            tint = primaryColor.copy(alpha = 0.5f)
+                        )
                     }
                 }
             }
 
+            Spacer(modifier = Modifier.height(12.dp))
             // Quick adjust buttons for arrival
             TimeQuickAdjustRow(
                 currentTime = localArrival,
                 onTimeChanged = { localArrival = it }
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(36.dp))
 
             // Departure time row
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .shadow(elevation = 2.dp, shape = Shapes.medium)
                     .background(
                         color = MaterialTheme.colorScheme.surface,
                         shape = Shapes.medium
                     )
                     .clickable { showDeparturePicker = true }
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
-            ) {
+            )
+            {
                 Text(
                     text = "Отправление",
                     style = hintStyle,
-                    color = primaryColor
+                    color = hintColor
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val departureText = localDeparture?.let {
-                        dateAndTimeConverter?.getTimeFromDateLong(it)
+                        dateAndTimeConverter?.getDateAndTime(it)
                     } ?: DateAndTimeFormat.DEFAULT_TIME_TEXT
                     Text(
+                        modifier = Modifier.padding(end = 6.dp),
                         text = departureText,
                         style = dataTextStyle,
-                        color = if (localDeparture != null) primaryColor else primaryColor.copy(alpha = 0.4f)
+                        color = if (localDeparture != null) primaryColor else primaryColor.copy(
+                            alpha = 0.4f
+                        )
                     )
                     if (localDeparture != null) {
-                        IconButton(onClick = { localDeparture = null }) {
-                            Icon(
-                                painter = painterResource(com.z_company.core.R.drawable.ic_clear),
-                                contentDescription = "Очистить",
-                                tint = primaryColor.copy(alpha = 0.5f)
-                            )
-                        }
+                        Icon(
+                            modifier = Modifier.clickable {
+                                localDeparture = null
+                            },
+                            painter = painterResource(com.z_company.core.R.drawable.ic_clear),
+                            contentDescription = "Очистить",
+                            tint = primaryColor.copy(alpha = 0.5f)
+                        )
                     }
                 }
             }
 
+            Spacer(modifier = Modifier.height(12.dp))
             // Quick adjust buttons for departure
             TimeQuickAdjustRow(
                 currentTime = localDeparture,
                 onTimeChanged = { localDeparture = it }
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(36.dp))
 
             // Save button
             Button(
                 modifier = Modifier.fillMaxWidth(),
                 shape = Shapes.medium,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.tertiary
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    contentColor = MaterialTheme.colorScheme.secondary
                 ),
                 onClick = {
                     val name = localName.text.ifBlank { null }
@@ -378,6 +397,7 @@ private fun TimeQuickAdjustRow(
                         color = primaryColor.copy(alpha = 0.3f),
                         shape = chipShape
                     )
+                    .padding(horizontal = 6.dp, vertical = 3.dp)
                     .clickable {
                         val base = currentTime ?: System.currentTimeMillis()
                         onTimeChanged(base + minutes * 60_000L)
@@ -401,10 +421,7 @@ private fun TimeQuickAdjustRow(
                     color = primaryColor.copy(alpha = 0.5f),
                     shape = chipShape
                 )
-                .background(
-                    color = primaryColor.copy(alpha = 0.08f),
-                    shape = chipShape
-                )
+                .padding(horizontal = 6.dp, vertical = 3.dp)
                 .clickable { onTimeChanged(System.currentTimeMillis()) }
                 .padding(horizontal = 10.dp, vertical = 4.dp),
             contentAlignment = Alignment.Center
@@ -425,6 +442,7 @@ private fun TimeQuickAdjustRow(
                         color = primaryColor.copy(alpha = 0.3f),
                         shape = chipShape
                     )
+                    .padding(horizontal = 6.dp, vertical = 3.dp)
                     .clickable {
                         val base = currentTime ?: System.currentTimeMillis()
                         onTimeChanged(base + minutes * 60_000L)

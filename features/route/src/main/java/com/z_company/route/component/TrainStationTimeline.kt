@@ -420,10 +420,6 @@ private fun TotalTimeBadge(
             Spacer(modifier = Modifier.width(48.dp))
         }
 
-        // Выравнивание с названием станции
-        Spacer(modifier = Modifier.width(TimelineColumnWidth))
-        Spacer(modifier = Modifier.width(8.dp))
-
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
@@ -593,8 +589,8 @@ private fun defaultTimelineColors(): TimelineColors {
         lineColor = scheme.outline.copy(alpha = 0.4f),
         dotColor = scheme.surface,
         dotBorderColor = scheme.primary,
-        segmentTextColor = scheme.onSurfaceVariant,
-        segmentBackgroundColor = scheme.surfaceVariant.copy(alpha = 0.5f),
+        segmentTextColor = scheme.primary,
+        segmentBackgroundColor = scheme.surface,
         stopBadgeColor = Color(0xFFFFC107),
         stopBadgeTextColor = Color(0xFF3E2723),
         stationNameColor = scheme.primary,
