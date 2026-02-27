@@ -230,7 +230,9 @@ fun StationEditBottomSheet(
 
             // ── Бейдж стоянки (между прибытием и отправлением) ──
             val stopMinutes = if (localArrival != null && localDeparture != null) {
-                val diff = localDeparture!! - localArrival!!
+                val arr = localArrival!! - localArrival!! % 60_000L
+                val dep = localDeparture!! - localDeparture!! % 60_000L
+                val diff = dep - arr
                 if (diff > 0) (diff / 60_000).toInt() else null
             } else null
 
