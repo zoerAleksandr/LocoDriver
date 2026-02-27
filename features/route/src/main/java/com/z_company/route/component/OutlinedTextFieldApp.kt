@@ -158,10 +158,12 @@ fun OutlinedTextFieldApp(
     minLines: Int = 1,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
     shape: Shape = OutlinedTextFieldDefaults.shape,
+    colorBackgroundEmptyField: Color = MaterialTheme.colorScheme.surface,
+    colorBackgroundNotEmptyField: Color = MaterialTheme.colorScheme.secondary,
 ) {
     val animatedBackgroundColorsNumber by animateColorAsState(
-        targetValue = if (value.text.isEmpty()) MaterialTheme.colorScheme.surface
-        else MaterialTheme.colorScheme.secondary,
+        targetValue = if (value.text.isEmpty()) colorBackgroundEmptyField
+        else colorBackgroundNotEmptyField,
         animationSpec = tween(
             durationMillis = 200,
             easing = FastOutSlowInEasing

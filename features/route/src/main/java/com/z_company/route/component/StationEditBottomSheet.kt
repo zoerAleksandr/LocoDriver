@@ -35,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextRange
@@ -88,6 +89,7 @@ fun StationEditBottomSheet(
     var isDropdownExpanded by remember { mutableStateOf(false) }
 
     val primaryColor = MaterialTheme.colorScheme.primary
+    val hintColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
     val dataTextStyle = MaterialTheme.typography.bodyLarge
     val hintStyle = MaterialTheme.typography.bodyMedium
     val fieldColor = MaterialTheme.colorScheme.surface
@@ -97,7 +99,7 @@ fun StationEditBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.secondary,
-        shape = Shapes.medium
+        shape = Shapes.large
     ) {
         Column(
             modifier = Modifier
@@ -141,7 +143,7 @@ fun StationEditBottomSheet(
                         Text(
                             text = "Станция",
                             style = hintStyle,
-                            color = primaryColor.copy(alpha = 0.5f)
+                            color = hintColor
                         )
                     },
                     textStyle = dataTextStyle.copy(fontWeight = FontWeight.Medium),
@@ -152,7 +154,9 @@ fun StationEditBottomSheet(
                             isDropdownExpanded = false
                         }
                     ),
-                    singleLine = true
+                    singleLine = true,
+                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surface,
+                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surface
                 )
 
                 if (menuList.isNotEmpty() && isDropdownExpanded) {
@@ -208,7 +212,7 @@ fun StationEditBottomSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(36.dp))
 
             // ── Прибытие ──
             TimeBlock(
@@ -264,7 +268,8 @@ fun StationEditBottomSheet(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.tertiary
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    contentColor = MaterialTheme.colorScheme.secondary
                 ),
                 onClick = {
                     val name = localName.text.ifBlank { null }
@@ -368,6 +373,7 @@ private fun TimeBlock(
             )
             if (timeMillis != null) {
                 val dateText = formatDateShort(timeMillis)
+
                 Text(
                     text = dateText,
                     style = MaterialTheme.typography.labelSmall,
@@ -384,6 +390,7 @@ private fun TimeBlock(
                 .clickable { onFieldClick() }
                 .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
+
         ) {
             // Крупное время по центру
             val timeText = if (timeMillis != null) {
@@ -456,6 +463,7 @@ private fun TimeBlock(
                     )
                     .clickable { onNow() }
                     .padding(vertical = 10.dp),
+
                 contentAlignment = Alignment.Center
             ) {
                 Text(
