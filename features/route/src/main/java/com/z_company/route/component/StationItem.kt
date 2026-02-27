@@ -10,7 +10,6 @@ import androidx.compose.foundation.MutatePriority
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.rememberBasicTooltipState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,7 +23,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Card
@@ -60,7 +58,6 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextRange
@@ -498,68 +495,57 @@ fun StationItem(
                         }
 
                         // Стоянка (фиксированная ширина 40dp)
-                        run {
-                            val stopTooltipState = rememberBasicTooltipState(isPersistent = false)
-                            val stopTooltipScope = rememberCoroutineScope()
-                            BasicTooltipBox(
-                                positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                                tooltip = {
-                                    Box(
-                                        modifier = Modifier
-                                            .background(
-                                                shape = Shapes.medium,
-                                                color = MaterialTheme.colorScheme.surface
-                                            )
-                                            .padding(12.dp)
-                                    ) {
-                                        Text(
-                                            text = "Время стоянки",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                },
-                                state = stopTooltipState
-                            ) {
+                        val stopTooltipState = rememberBasicTooltipState(isPersistent = false)
+                        val stopTooltipScope = rememberCoroutineScope()
+                        BasicTooltipBox(
+                            positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+                            tooltip = {
                                 Box(
                                     modifier = Modifier
-                                        .width(40.dp)
-                                        .pointerInput(Unit) {
-                                            detectTapGestures(
-                                                onPress = {
-                                                    stopTooltipScope.launch {
-                                                        stopTooltipState.show(MutatePriority.Default)
-                                                    }
-                                                }
-                                            )
-                                        },
-                                    contentAlignment = Alignment.Center
+                                        .background(
+                                            shape = Shapes.medium,
+                                            color = MaterialTheme.colorScheme.surface
+                                        )
+                                        .padding(12.dp)
                                 ) {
-                                    if (stopMinutes != null) {
-                                        Box(
-                                            modifier = Modifier
-                                                .background(stopBackground, RoundedCornerShape(4.dp))
-                                                .padding(horizontal = 2.dp, vertical = 1.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = "${stopMinutes}'",
-                                                style = MaterialTheme.typography.labelSmall.copy(
-                                                    fontWeight = FontWeight.Bold
-                                                ),
-                                                color = stopTextColor,
-                                                maxLines = 1,
-                                                softWrap = false,
-                                                onTextLayout = { result ->
-                                                    if (result.hasVisualOverflow) {
-                                                        timeTextStyle = timeTextStyle.copy(
-                                                            fontSize = timeTextStyle.fontSize * 0.9
-                                                        )
-                                                    }
-                                                }
-                                            )
+                                    Text(
+                                        text = "Время стоянки",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            },
+                            state = stopTooltipState
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .width(40.dp)
+                                    .fillMaxHeight()
+                                    .background(stopBackground, Shapes.medium)
+                                    .clickable {
+                                        stopTooltipScope.launch {
+                                            stopTooltipState.show(MutatePriority.Default)
                                         }
-                                    }
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (stopMinutes != null) {
+                                    Text(
+                                        text = "${stopMinutes}'",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontWeight = FontWeight.Bold
+                                        ),
+                                        color = stopTextColor,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        onTextLayout = { result ->
+                                            if (result.hasVisualOverflow) {
+                                                timeTextStyle = timeTextStyle.copy(
+                                                    fontSize = timeTextStyle.fontSize * 0.9
+                                                )
+                                            }
+                                        }
+                                    )
                                 }
                             }
                         }
