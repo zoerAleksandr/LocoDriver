@@ -246,6 +246,7 @@ fun TrainStationTimeline(
             }
         }
 
+        Spacer(modifier = Modifier.height(12.dp))
         // ── Бейдж суммарного времени в пути ──
         if (stations.size >= 2) {
             val startTime = stations.first().timeDeparture ?: stations.first().timeArrival
@@ -273,7 +274,7 @@ private fun computeStopBadgeColors(
         stopMinutes > 20 && isPassengerTrain -> DangerColor to Color.White
         stopMinutes > 30 -> DangerColor to Color.White
         stopMinutes > 5 -> Color(0xFFFFC107) to Color(0xFF3E2723)
-        else -> primaryColor.copy(alpha = 0.08f) to primaryColor.copy(alpha = 0.6f)
+        else -> Color.Transparent to primaryColor.copy(alpha = 0.8f)
     }
 }
 
@@ -469,6 +470,7 @@ private fun SegmentRow(
             if (segment != null && segment.durationMillis > 0) {
                 Box(
                     modifier = Modifier
+                        .padding(vertical = 12.dp)
                         .clip(RoundedCornerShape(6.dp))
                         .background(colors.segmentBackgroundColor)
                         .padding(horizontal = 8.dp, vertical = 3.dp),
@@ -678,7 +680,7 @@ private fun defaultTimelineColors(): TimelineColors {
         dotColor = scheme.surface,
         dotBorderColor = scheme.primary,
         segmentTextColor = scheme.primary,
-        segmentBackgroundColor = scheme.surface,
+        segmentBackgroundColor = scheme.surface.copy(alpha = 0.6f),
         stopBadgeColor = Color(0xFFFFC107),
         stopBadgeTextColor = Color(0xFF3E2723),
         stationNameColor = scheme.primary,
