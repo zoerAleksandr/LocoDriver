@@ -6,8 +6,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.z_company.domain.entities.route.Train
-import com.z_company.ui.component.TrainStationTimeline
-import com.z_company.ui.component.toTimelineItems
 
 /**
  * Пример секции маршрута внутри TrainScreen.
@@ -20,7 +18,7 @@ fun TrainRouteSection(
     train: Train,
     modifier: Modifier = Modifier,
 ) {
-    val timelineItems = train.stations.toTimelineItems()
+    val timelineItems = train.stations.toStationTimelineItems()
 
     Column(modifier = modifier) {
         TrainStationTimeline(
