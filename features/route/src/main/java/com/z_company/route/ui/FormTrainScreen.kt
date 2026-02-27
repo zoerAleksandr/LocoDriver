@@ -879,6 +879,7 @@ fun FormTrainScreen(
                                         else displayIndex
                                     viewModel.moveStation(originalIndex, originalIndex + 1)
                                 },
+                                onDismissReorder = { viewModel.stopReorderStation() },
                             )
                         }
                     }
