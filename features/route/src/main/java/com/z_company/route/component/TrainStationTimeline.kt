@@ -1,6 +1,7 @@
 package com.z_company.route.component
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.expandVertically
@@ -16,11 +17,16 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -37,6 +43,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.z_company.domain.entities.route.UtilsForEntities
 import com.z_company.route.viewmodel.StationFormState
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -49,6 +56,7 @@ private val TimelineColumnWidth = 24.dp
 private val ContentPadding = 4.dp
 private val DotHeight = 32.dp
 private val StopBadgeWidth = 56.dp
+private val DangerColor = Color(0xFFEF5350)
 
 // ─── Модель данных для отображения ───────────────────────────────────────────
 
@@ -115,18 +123,20 @@ data class TimelineColors(
 
 // ─── Основной компонент ──────────────────────────────────────────────────────
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun TrainStationTimeline(
     stations: List<StationTimelineItem>,
     modifier: Modifier = Modifier,
     colors: TimelineColors = defaultTimelineColors(),
+    trainNumber: String? = null,
     reorderingStationId: String? = null,
     onStationClick: ((Int) -> Unit)? = null,
     onStationLongPress: ((Int) -> Unit)? = null,
     onMoveUp: ((Int) -> Unit)? = null,
     onMoveDown: ((Int) -> Unit)? = null,
     onDismissReorder: (() -> Unit)? = null,
+    onStationSwipeDelete: ((Int) -> Unit)? = null,
 ) {
     if (stations.isEmpty()) return
 
@@ -151,25 +161,73 @@ fun TrainStationTimeline(
             val isReordering = reorderingStationId == station.id
 
             key(station.id) {
-                // ── Строка станции ──
-                AnimatedVisibility(
-                    visible = true,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically()
-                ) {
-                    StationRow(
-                        item = station,
-                        index = index,
-                        isFirst = isFirst,
-                        isLast = isLast,
-                        colors = colors,
-                        isAnyReordering = isAnyReordering,
-                        isReordering = isReordering,
-                        onStationClick = onStationClick,
-                        onStationLongPress = onStationLongPress,
-                        onMoveUp = if (!isFirst) onMoveUp else null,
-                        onMoveDown = if (!isLast) onMoveDown else null,
+                // ── Строка станции (со свайпом или без) ──
+                val stationRowContent = @Composable {
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically()
+                    ) {
+                        StationRow(
+                            item = station,
+                            index = index,
+                            isFirst = isFirst,
+                            isLast = isLast,
+                            colors = colors,
+                            trainNumber = trainNumber,
+                            isAnyReordering = isAnyReordering,
+                            isReordering = isReordering,
+                            onStationClick = onStationClick,
+                            onStationLongPress = onStationLongPress,
+                            onMoveUp = if (!isFirst) onMoveUp else null,
+                            onMoveDown = if (!isLast) onMoveDown else null,
+                        )
+                    }
+                }
+
+                if (onStationSwipeDelete != null && !isAnyReordering) {
+                    val dismissState = rememberSwipeToDismissBoxState(
+                        confirmValueChange = { value ->
+                            if (value == SwipeToDismissBoxValue.EndToStart) {
+                                onStationSwipeDelete(index)
+                            }
+                            false
+                        }
                     )
+                    SwipeToDismissBox(
+                        modifier = Modifier.fillMaxWidth(),
+                        state = dismissState,
+                        enableDismissFromStartToEnd = false,
+                        backgroundContent = {
+                            val color by animateColorAsState(
+                                when (dismissState.targetValue) {
+                                    SwipeToDismissBoxValue.Settled -> Color.Transparent
+                                    SwipeToDismissBoxValue.EndToStart -> Color(0xFFEF5350).copy(alpha = 0.5f)
+                                    else -> Color.Transparent
+                                }, label = ""
+                            )
+                            Box(
+                                Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        color = color,
+                                        shape = RoundedCornerShape(8.dp)
+                                    ),
+                                contentAlignment = Alignment.CenterEnd
+                            ) {
+                                Icon(
+                                    modifier = Modifier.padding(end = 16.dp),
+                                    painter = painterResource(com.z_company.route.R.drawable.delete_24px),
+                                    tint = Color.White,
+                                    contentDescription = "Удалить"
+                                )
+                            }
+                        }
+                    ) {
+                        stationRowContent()
+                    }
+                } else {
+                    stationRowContent()
                 }
 
                 // ── Перегон между станциями ──
@@ -200,6 +258,21 @@ fun TrainStationTimeline(
     }
 }
 
+// ─── Вычисление цвета бейджа стоянки ─────────────────────────────────────────
+
+private fun computeStopBadgeColors(
+    stopDurationMillis: Long,
+    isPassengerTrain: Boolean,
+): Pair<Color, Color> {
+    val stopMinutes = TimeUnit.MILLISECONDS.toMinutes(stopDurationMillis)
+    return when {
+        stopMinutes > 20 && isPassengerTrain -> DangerColor to Color.White
+        stopMinutes > 30 -> DangerColor to Color.White
+        stopMinutes > 5 -> Color(0xFFFFC107) to Color(0xFF3E2723)
+        else -> Color.Transparent to Color.Transparent
+    }
+}
+
 // ─── Строка станции ──────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -210,6 +283,7 @@ private fun StationRow(
     isFirst: Boolean,
     isLast: Boolean,
     colors: TimelineColors,
+    trainNumber: String? = null,
     isAnyReordering: Boolean,
     isReordering: Boolean,
     onStationClick: ((Int) -> Unit)?,
@@ -313,17 +387,26 @@ private fun StationRow(
                 color = colors.timeColor,
             )
 
-            // ── Бейдж стоянки (фиксированная ширина) ──
+            // ── Бейдж стоянки (фиксированная ширина, цвет по порогу) ──
             Box(
                 modifier = Modifier.width(StopBadgeWidth),
                 contentAlignment = Alignment.Center
             ) {
                 if (stopInfo != null && stopInfo.durationMillis > 0) {
-                    StopBadge(
-                        stopInfo = stopInfo,
-                        badgeColor = colors.stopBadgeColor,
-                        textColor = colors.stopBadgeTextColor,
+                    val isPassengerTrain = trainNumber?.toIntOrNull()?.let { num ->
+                        UtilsForEntities.passengerTrainNumberList.any { range -> num in range }
+                    } ?: false
+                    val (badgeColor, badgeTextColor) = computeStopBadgeColors(
+                        stopDurationMillis = stopInfo.durationMillis,
+                        isPassengerTrain = isPassengerTrain,
                     )
+                    if (badgeColor != Color.Transparent) {
+                        StopBadge(
+                            stopInfo = stopInfo,
+                            badgeColor = badgeColor,
+                            textColor = badgeTextColor,
+                        )
+                    }
                 }
             }
 

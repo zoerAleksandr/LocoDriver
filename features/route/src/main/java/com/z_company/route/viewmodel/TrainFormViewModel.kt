@@ -544,6 +544,20 @@ class TrainFormViewModel(
         stopEditingStation()
     }
 
+    fun requestDeleteStation(index: Int) {
+        _uiState.update { it.copy(confirmDeleteStationIndex = index) }
+    }
+
+    fun confirmDeleteStation() {
+        val index = _uiState.value.confirmDeleteStationIndex ?: return
+        _uiState.update { it.copy(confirmDeleteStationIndex = null) }
+        deleteStationFromSheet(index)
+    }
+
+    fun cancelDeleteStation() {
+        _uiState.update { it.copy(confirmDeleteStationIndex = null) }
+    }
+
     fun deleteStationFromSheet(index: Int) {
         if (index in stationsListState.indices) {
             stationsListState.removeAt(index)

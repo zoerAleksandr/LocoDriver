@@ -25,5 +25,6 @@ data class TrainFormUiState(
     val editingStationIndex: Int? = null,
     val showCreateServicePhaseSheet: Boolean = false,
     val suggestedDepartureStation: String = "",
-    val suggestedArrivalStation: String = ""
+    val suggestedArrivalStation: String = "",
+    val confirmDeleteStationIndex: Int? = null
 )
