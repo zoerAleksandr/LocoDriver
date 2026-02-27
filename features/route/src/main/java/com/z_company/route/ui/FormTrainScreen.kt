@@ -9,14 +9,11 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.BasicTooltipBox
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.MutatePriority
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberBasicTooltipState
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -51,7 +48,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -79,7 +75,6 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -89,7 +84,6 @@ import com.z_company.core.ui.component.CustomDivider
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.ui.theme.Shapes
-import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.domain.entities.route.Train
@@ -98,10 +92,12 @@ import com.z_company.route.component.BottomShadow
 import com.z_company.route.component.OutlinedTextFieldApp
 import com.z_company.route.component.StationEditBottomSheet
 import com.z_company.route.component.StationItem
+
 import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.route.viewmodel.StationFormState
 import com.z_company.route.viewmodel.TrainFormUiState
 import com.z_company.route.viewmodel.TrainFormViewModel
+import com.z_company.route.component.TrainRouteSection
 import kotlinx.coroutines.launch
 import kotlin.text.isNullOrBlank
 
@@ -803,7 +799,6 @@ fun FormTrainScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Левая часть: sort
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 val isReversed = formUiState.isStationsReversed
                                 val rotation by animateFloatAsState(
@@ -953,7 +948,126 @@ fun FormTrainScreen(
                                 } else null
                             )
                         }
-                    }
+
+//
+//                    stationListState?.let { stationList ->
+//                        val displayList =
+//                            if (formUiState.isStationsReversed) stationList.reversed() else stationList
+//                        itemsIndexed(
+//                            items = displayList,
+//                            key = { _, item -> item.id }
+//                        ) { index, item ->
+//                            val originalIndex =
+//                                if (formUiState.isStationsReversed) stationList.size - 1 - index else index
+//
+//                            Spacer(
+//                                modifier = Modifier
+//                                    .height(8.dp)
+//                                    .animateItem()
+//                            )
+//
+//                            // Время перегона между станциями
+//                            if (index > 0 && formUiState.isShowTravelTime) {
+//                                val (fromIdx, toIdx) = if (formUiState.isStationsReversed) {
+//                                    Pair(originalIndex, originalIndex + 1)
+//                                } else {
+//                                    Pair(originalIndex - 1, originalIndex)
+//                                }
+//                                if (fromIdx in stationList.indices && toIdx in stationList.indices) {
+//                                    val depTime = stationList[fromIdx].departure.data
+//                                    val arrTime = stationList[toIdx].arrival.data
+//                                    if (depTime != null && arrTime != null && arrTime > depTime) {
+//                                        val travelMinutesInLong = (arrTime - depTime)
+//                                        val travelMinutes =
+//                                            ConverterLongToTime.getTimeInStringFormat(
+//                                                travelMinutesInLong
+//                                            )
+//                                        val travelTooltipState =
+//                                            rememberBasicTooltipState(isPersistent = false)
+//                                        Row(
+//                                            modifier = Modifier
+//                                                .animateItem()
+//                                                .fillMaxWidth()
+//                                                .padding(bottom = 4.dp)
+//                                        ) {
+//                                            BasicTooltipBox(
+//                                                modifier = Modifier.weight(1f),
+//                                                positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+//                                                tooltip = {
+//                                                    Box(
+//                                                        modifier = Modifier
+//                                                            .background(
+//                                                                shape = Shapes.medium,
+//                                                                color = MaterialTheme.colorScheme.surface
+//                                                            )
+//                                                            .padding(12.dp)
+//                                                    ) {
+//                                                        Text(
+//                                                            text = "Перегонное время",
+//                                                            style = MaterialTheme.typography.bodyMedium,
+//                                                            color = MaterialTheme.colorScheme.primary
+//                                                        )
+//                                                    }
+//                                                },
+//                                                state = travelTooltipState
+//                                            ) {
+//                                                Row(
+//                                                    modifier = Modifier
+//                                                        .fillMaxWidth()
+//                                                ) {
+//                                                    Text(
+//                                                        modifier = Modifier
+//                                                            .weight(1f)
+//                                                            .noRippleEffect {
+//                                                                scope.launch {
+//                                                                    travelTooltipState.show(
+//                                                                        MutatePriority.Default
+//                                                                    )
+//                                                                }
+//                                                            },
+//                                                        text = travelMinutes,
+//                                                        textAlign = TextAlign.Center,
+//                                                        style = MaterialTheme.typography.labelSmall,
+//                                                        color = primaryColor.copy(alpha = 0.7f)
+//                                                    )
+//                                                }
+//                                                Box(
+//                                                    modifier = Modifier.weight(1f)
+//                                                )
+//                                            }
+//                                        }
+//                                    }
+//                                }
+//                            }
+//
+//                            StationItem(
+//                                modifier = Modifier.animateItem(),
+//                                index = originalIndex,
+//                                stationFormState = item,
+//                                onDelete = onDeleteStation,
+//                                menuList = menuList,
+//                                isExpandedMenu = if (isExpandedMenu?.first == originalIndex) {
+//                                    isExpandedMenu.second
+//                                } else false,
+//                                onExpandedMenuChange = onExpandedMenuChange,
+//                                onChangedContentMenu = onChangedContentMenu,
+//                                onStationNameChanged = onStationNameChanged,
+//                                onArrivalTimeChanged = onArrivalTimeChanged,
+//                                onDepartureTimeChanged = onDepartureTimeChanged,
+//                                onDeleteStationName = onDeleteStationName,
+//                                selectIndexState = selectSectionIndexState,
+//                                dateAndTimeConverter = dateAndTimeConverter,
+//                                trainNumber = train.number,
+//                                isReorderMode = formUiState.isReorderMode,
+//                                onMoveUp = if (originalIndex > 0) {
+//                                    { viewModel.moveStation(originalIndex, originalIndex - 1) }
+//                                } else null,
+//                                onMoveDown = if (originalIndex < stationList.lastIndex) {
+//                                    { viewModel.moveStation(originalIndex, originalIndex + 1) }
+//                                } else null
+//                            )
+//                        }
+//                    }
                     item {
                         Button(
                             modifier = Modifier
