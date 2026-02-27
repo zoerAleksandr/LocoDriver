@@ -1,11 +1,17 @@
-package com.z_company.ui.component
+package com.z_company.route.component
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -17,11 +23,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.z_company.route.viewmodel.StationFormState
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -33,6 +41,7 @@ import java.util.concurrent.TimeUnit
  * Элемент таймлайна — станция с временами прибытия/отправления.
  */
 data class StationTimelineItem(
+    val id: String = "",
     val stationName: String,
     val timeArrival: Long?,     // millis
     val timeDeparture: Long?,   // millis
@@ -129,14 +138,27 @@ data class TimelineColors(
  * @param stations Список станций с временами.
  * @param modifier Модификатор компонента.
  * @param colors Цвета таймлайна (по умолчанию берутся из MaterialTheme).
+ * @param reorderingStationId ID станции в режиме перестановки (null = ни одна).
+ * @param onStationClick Callback по нажатию на станцию (индекс в отображаемом списке).
+ * @param onStationLongPress Callback по долгому нажатию на станцию.
+ * @param onMoveUp Callback перемещения станции вверх.
+ * @param onMoveDown Callback перемещения станции вниз.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TrainStationTimeline(
     stations: List<StationTimelineItem>,
     modifier: Modifier = Modifier,
     colors: TimelineColors = defaultTimelineColors(),
+    reorderingStationId: String? = null,
+    onStationClick: ((Int) -> Unit)? = null,
+    onStationLongPress: ((Int) -> Unit)? = null,
+    onMoveUp: ((Int) -> Unit)? = null,
+    onMoveDown: ((Int) -> Unit)? = null,
 ) {
     if (stations.isEmpty()) return
+
+    val isAnyReordering = reorderingStationId != null
 
     Column(
         modifier = modifier
@@ -146,13 +168,21 @@ fun TrainStationTimeline(
         stations.forEachIndexed { index, station ->
             val isFirst = index == 0
             val isLast = index == stations.lastIndex
+            val isReordering = reorderingStationId == station.id
 
             // ── Строка станции ──
             StationRow(
                 item = station,
+                index = index,
                 isFirst = isFirst,
                 isLast = isLast,
                 colors = colors,
+                isAnyReordering = isAnyReordering,
+                isReordering = isReordering,
+                onStationClick = onStationClick,
+                onStationLongPress = onStationLongPress,
+                onMoveUp = if (!isFirst) onMoveUp else null,
+                onMoveDown = if (!isLast) onMoveDown else null,
             )
 
             // ── Перегон между станциями ──
@@ -162,6 +192,7 @@ fun TrainStationTimeline(
                 SegmentRow(
                     segment = segment,
                     colors = colors,
+                    isAnyReordering = isAnyReordering,
                 )
             }
         }
@@ -170,77 +201,136 @@ fun TrainStationTimeline(
 
 // ─── Строка станции ──────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun StationRow(
     item: StationTimelineItem,
+    index: Int,
     isFirst: Boolean,
     isLast: Boolean,
     colors: TimelineColors,
+    isAnyReordering: Boolean,
+    isReordering: Boolean,
+    onStationClick: ((Int) -> Unit)?,
+    onStationLongPress: ((Int) -> Unit)?,
+    onMoveUp: ((Int) -> Unit)?,
+    onMoveDown: ((Int) -> Unit)?,
 ) {
     val stopInfo = calculateStop(item)
     val dotColor = if (isFirst || isLast) colors.firstLastDotColor else colors.dotColor
+    val primaryColor = MaterialTheme.colorScheme.primary
 
-    // Размеры адаптируются через dp — масштабируются с системными настройками
     val dotSize = 12.dp
     val lineWidth = 2.dp
     val timelineColumnWidth = 40.dp
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp),
+        modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // ── Колонка таймлайна (линия + точка) ──
-        TimelineDot(
-            dotSize = dotSize,
-            lineWidth = lineWidth,
-            columnWidth = timelineColumnWidth,
-            dotColor = dotColor,
-            dotBorderColor = colors.dotBorderColor,
-            lineColor = colors.lineColor,
-            showTopLine = !isFirst,
-            showBottomLine = !isLast,
-        )
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        // ── Название станции ──
-        Text(
-            text = item.stationName.ifBlank { "—" },
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = if (isFirst || isLast) FontWeight.SemiBold else FontWeight.Normal,
-            color = colors.stationNameColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-
-        Spacer(modifier = Modifier.width(4.dp))
-
-        // ── Время прибытия ──
-        TimeText(
-            millis = item.timeArrival,
-            color = colors.timeColor,
-        )
-
-        // ── Бейдж стоянки ──
-        if (stopInfo != null && stopInfo.durationMillis > 0) {
-            StopBadge(
-                stopInfo = stopInfo,
-                badgeColor = colors.stopBadgeColor,
-                textColor = colors.stopBadgeTextColor,
-            )
-        } else {
-            // Пустое место для выравнивания
-            Spacer(modifier = Modifier.width(48.dp))
+        // ── Область стрелок (видна когда любая станция в режиме reorder) ──
+        AnimatedVisibility(
+            visible = isAnyReordering,
+            enter = expandHorizontally(),
+            exit = shrinkHorizontally()
+        ) {
+            Box(
+                modifier = Modifier.width(48.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isReordering) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        if (onMoveUp != null) {
+                            IconButton(onClick = { onMoveUp(index) }) {
+                                Icon(
+                                    painter = painterResource(com.z_company.route.R.drawable.keyboard_arrow_up_24px),
+                                    contentDescription = "Переместить вверх",
+                                    tint = primaryColor
+                                )
+                            }
+                        }
+                        if (onMoveDown != null) {
+                            IconButton(onClick = { onMoveDown(index) }) {
+                                Icon(
+                                    painter = painterResource(com.z_company.route.R.drawable.keyboard_arrow_down_24px),
+                                    contentDescription = "Переместить вниз",
+                                    tint = primaryColor
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
 
-        // ── Время отправления ──
-        TimeText(
-            millis = item.timeDeparture,
-            color = colors.timeColor,
-        )
+        // ── Основной контент (кликабельный) ──
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .then(
+                    if (onStationClick != null || onStationLongPress != null) {
+                        Modifier.combinedClickable(
+                            onClick = { onStationClick?.invoke(index) },
+                            onLongClick = { onStationLongPress?.invoke(index) }
+                        )
+                    } else Modifier
+                )
+                .padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // ── Колонка таймлайна (линия + точка) ──
+            TimelineDot(
+                dotSize = dotSize,
+                lineWidth = lineWidth,
+                columnWidth = timelineColumnWidth,
+                dotColor = dotColor,
+                dotBorderColor = colors.dotBorderColor,
+                lineColor = colors.lineColor,
+                showTopLine = !isFirst,
+                showBottomLine = !isLast,
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // ── Название станции ──
+            Text(
+                text = item.stationName.ifBlank { "—" },
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (isFirst || isLast) FontWeight.SemiBold else FontWeight.Normal,
+                color = colors.stationNameColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+
+            Spacer(modifier = Modifier.width(4.dp))
+
+            // ── Время прибытия ──
+            TimeText(
+                millis = item.timeArrival,
+                color = colors.timeColor,
+            )
+
+            // ── Бейдж стоянки ──
+            if (stopInfo != null && stopInfo.durationMillis > 0) {
+                StopBadge(
+                    stopInfo = stopInfo,
+                    badgeColor = colors.stopBadgeColor,
+                    textColor = colors.stopBadgeTextColor,
+                )
+            } else {
+                // Пустое место для выравнивания
+                Spacer(modifier = Modifier.width(48.dp))
+            }
+
+            // ── Время отправления ──
+            TimeText(
+                millis = item.timeDeparture,
+                color = colors.timeColor,
+            )
+        }
     }
 }
 
@@ -250,6 +340,7 @@ private fun StationRow(
 private fun SegmentRow(
     segment: SegmentInfo?,
     colors: TimelineColors,
+    isAnyReordering: Boolean = false,
 ) {
     val lineWidth = 2.dp
     val timelineColumnWidth = 40.dp
@@ -257,32 +348,48 @@ private fun SegmentRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp)
             .height(IntrinsicSize.Min),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // ── Вертикальная линия (пунктирная) ──
-        TimelineDashedLine(
-            columnWidth = timelineColumnWidth,
-            lineWidth = lineWidth,
-            lineColor = colors.lineColor,
-        )
+        // ── Совпадение ширины с областью стрелок ──
+        AnimatedVisibility(
+            visible = isAnyReordering,
+            enter = expandHorizontally(),
+            exit = shrinkHorizontally()
+        ) {
+            Spacer(modifier = Modifier.width(48.dp))
+        }
 
-        Spacer(modifier = Modifier.width(8.dp))
+        // ── Контент перегона ──
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // ── Вертикальная линия (пунктирная) ──
+            TimelineDashedLine(
+                columnWidth = timelineColumnWidth,
+                lineWidth = lineWidth,
+                lineColor = colors.lineColor,
+            )
 
-        // ── Перегонное время ──
-        if (segment != null && segment.durationMillis > 0) {
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(colors.segmentBackgroundColor)
-                    .padding(horizontal = 8.dp, vertical = 3.dp),
-            ) {
-                Text(
-                    text = "▸ ${formatDuration(segment.durationMillis)}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = colors.segmentTextColor,
-                )
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // ── Перегонное время ──
+            if (segment != null && segment.durationMillis > 0) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(colors.segmentBackgroundColor)
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                ) {
+                    Text(
+                        text = "▸ ${formatDuration(segment.durationMillis)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.segmentTextColor,
+                    )
+                }
             }
         }
     }
@@ -312,7 +419,7 @@ private fun TimelineDot(
     Box(
         modifier = Modifier
             .width(columnWidth)
-            .height(40.dp), // Минимальная высота строки станции
+            .height(40.dp),
         contentAlignment = Alignment.Center,
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -462,7 +569,7 @@ private fun defaultTimelineColors(): TimelineColors {
         dotBorderColor = scheme.primary,
         segmentTextColor = scheme.onSurfaceVariant,
         segmentBackgroundColor = scheme.surfaceVariant.copy(alpha = 0.5f),
-        stopBadgeColor = Color(0xFFFFC107),       // Жёлтый как на скриншоте
+        stopBadgeColor = Color(0xFFFFC107),       // Жёлтый
         stopBadgeTextColor = Color(0xFF3E2723),    // Тёмно-коричневый
         stationNameColor = scheme.primary,
         timeColor = scheme.primary,
@@ -470,15 +577,31 @@ private fun defaultTimelineColors(): TimelineColors {
     )
 }
 
-// ─── Функция-адаптер из доменной модели Station ──────────────────────────────
+// ─── Адаптеры ────────────────────────────────────────────────────────────────
+
+/**
+ * Конвертирует список StationFormState в список StationTimelineItem
+ * для отображения в таймлайне.
+ */
+fun List<StationFormState>.toTimelineItems(): List<StationTimelineItem> {
+    return map { state ->
+        StationTimelineItem(
+            id = state.id,
+            stationName = state.station.data ?: "",
+            timeArrival = state.arrival.data,
+            timeDeparture = state.departure.data,
+        )
+    }
+}
 
 /**
  * Конвертирует список доменных Station в список StationTimelineItem
  * для отображения в таймлайне.
  */
-fun List<com.z_company.domain.entities.route.Station>.toTimelineItems(): List<StationTimelineItem> {
+fun List<com.z_company.domain.entities.route.Station>.toStationTimelineItems(): List<StationTimelineItem> {
     return map { station ->
         StationTimelineItem(
+            id = station.stationId,
             stationName = station.stationName ?: "",
             timeArrival = station.timeArrival,
             timeDeparture = station.timeDeparture,
