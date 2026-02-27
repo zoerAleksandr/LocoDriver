@@ -5,8 +5,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -443,6 +445,7 @@ private fun TimeBlock(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .height(IntrinsicSize.Min)
                 .padding(top = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(5.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -463,13 +466,12 @@ private fun TimeBlock(
             Box(
                 modifier = Modifier
                     .weight(1.3f)
+                    .fillMaxHeight()
                     .background(
                         color = Color(0xFFE8F5E9),
                         shape = RoundedCornerShape(10.dp)
                     )
-                    .clickable { onNow() }
-                    .padding(vertical = 10.dp),
-
+                    .clickable { onNow() },
                 contentAlignment = Alignment.Center
             ) {
                 Text(
