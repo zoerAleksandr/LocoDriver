@@ -218,7 +218,7 @@ fun TrainStationTimeline(
                                 Icon(
                                     modifier = Modifier.padding(end = 16.dp),
                                     painter = painterResource(com.z_company.route.R.drawable.delete_24px),
-                                    tint = Color.White,
+                                    tint = MaterialTheme.colorScheme.error,
                                     contentDescription = "Удалить"
                                 )
                             }
@@ -299,7 +299,9 @@ private fun StationRow(
     val lineWidth = 2.dp
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.background),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // ── Область стрелок (видна когда любая станция в режиме reorder) ──
