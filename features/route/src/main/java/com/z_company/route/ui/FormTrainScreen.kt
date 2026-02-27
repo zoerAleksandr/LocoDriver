@@ -83,7 +83,9 @@ import com.z_company.core.ResultState
 import com.z_company.core.ui.component.CustomDivider
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
+import androidx.compose.material3.AlertDialog
 import com.z_company.core.ui.theme.Shapes
+import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.domain.entities.route.Train
@@ -217,10 +219,50 @@ fun FormTrainScreen(
                     viewModel.saveStationFromSheet(editingIndex, name, arrival, departure)
                 },
                 onDelete = if (editingIndex >= 0) {
-                    { viewModel.deleteStationFromSheet(editingIndex) }
+                    { viewModel.requestDeleteStation(editingIndex) }
                 } else null,
                 onDismiss = { viewModel.stopEditingStation() },
                 dateAndTimeConverter = dateAndTimeConverter
+            )
+        }
+
+        // Диалог подтверждения удаления станции
+        if (formUiState.confirmDeleteStationIndex != null) {
+            AlertDialog(
+                onDismissRequest = { viewModel.cancelDeleteStation() },
+                title = {
+                    Text(
+                        text = "Удаление станции",
+                        style = AppTypography.getType().headlineSmall
+                    )
+                },
+                shape = Shapes.medium,
+                text = {
+                    Text(
+                        text = "Вы уверены, что хотите удалить станцию?",
+                        style = AppTypography.getType().bodyLarge
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        shape = Shapes.medium,
+                        onClick = { viewModel.confirmDeleteStation() }
+                    ) {
+                        Text(
+                            text = "Удалить",
+                            style = AppTypography.getType().titleMedium
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { viewModel.cancelDeleteStation() }) {
+                        Text(
+                            text = "Отмена",
+                            style = AppTypography.getType().titleMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
             )
         }
 
@@ -852,12 +894,17 @@ fun FormTrainScreen(
                             TrainStationTimeline(
                                 stations = timelineItems,
                                 modifier = Modifier.padding(top = 8.dp),
+                                trainNumber = train.number,
                                 reorderingStationId = formUiState.reorderingStationId,
                                 onStationClick = { displayIndex ->
-                                    val originalIndex =
-                                        if (formUiState.isStationsReversed) stationList.size - 1 - displayIndex
-                                        else displayIndex
-                                    viewModel.startEditingStation(originalIndex)
+                                    if (formUiState.reorderingStationId != null) {
+                                        viewModel.stopReorderStation()
+                                    } else {
+                                        val originalIndex =
+                                            if (formUiState.isStationsReversed) stationList.size - 1 - displayIndex
+                                            else displayIndex
+                                        viewModel.startEditingStation(originalIndex)
+                                    }
                                 },
                                 onStationLongPress = { displayIndex ->
                                     val item = displayList[displayIndex]
@@ -880,6 +927,12 @@ fun FormTrainScreen(
                                     viewModel.moveStation(originalIndex, originalIndex + 1)
                                 },
                                 onDismissReorder = { viewModel.stopReorderStation() },
+                                onStationSwipeDelete = { displayIndex ->
+                                    val originalIndex =
+                                        if (formUiState.isStationsReversed) stationList.size - 1 - displayIndex
+                                        else displayIndex
+                                    viewModel.requestDeleteStation(originalIndex)
+                                },
                             )
                         }
                     }
