@@ -53,7 +53,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -91,6 +90,9 @@ import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.trainCategory
 import com.z_company.route.component.BottomShadow
 import com.z_company.route.component.OutlinedTextFieldApp
+import com.z_company.route.component.StationEditBottomSheet
+import com.z_company.route.component.StationItem
+
 import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.route.viewmodel.StationFormState
 import com.z_company.route.viewmodel.TrainFormUiState
@@ -116,17 +118,8 @@ fun FormTrainScreen(
     onWeightChanged: (String) -> Unit,
     onAxleChanged: (String) -> Unit,
     onLengthChanged: (String) -> Unit,
-    onAddingStation: () -> Unit,
-    onDeleteStation: (StationFormState) -> Unit,
-    onStationNameChanged: (index: Int, s: String) -> Unit,
-    onDepartureTimeChanged: (index: Int, time: Long?) -> Unit,
-    onArrivalTimeChanged: (index: Int, time: Long?) -> Unit,
     stationListState: SnapshotStateList<StationFormState>?,
     menuList: List<String>,
-    isExpandedMenu: Pair<Int, Boolean>?,
-    onExpandedMenuChange: (Int, Boolean) -> Unit,
-    onChangedContentMenu: (Int, String) -> Unit,
-    onDeleteStationName: (String) -> Unit,
     servicePhaseList: List<ServicePhase>,
     onSelectServicePhase: (ServicePhase?) -> Unit,
     selectedServicePhase: ServicePhase?,
@@ -201,13 +194,36 @@ fun FormTrainScreen(
             else -> {}
         }
 
-        var selectSectionIndexState = remember { mutableIntStateOf(0) }
-
         var isTrainInfoVisible by remember {
             mutableStateOf(false)
         }
 
         var showSelectServicePhase by remember { mutableStateOf(false) }
+
+        // BottomSheet для редактирования/добавления станции
+        val editingIndex = formUiState.editingStationIndex
+        if (editingIndex != null) {
+            val editingStation = if (editingIndex >= 0 && stationListState != null
+                && editingIndex in stationListState.indices
+            ) {
+                stationListState[editingIndex]
+            } else null
+
+            StationEditBottomSheet(
+                stationFormState = editingStation,
+                menuList = menuList,
+                onFilterMenu = { viewModel.onChangedDropDownContent(editingIndex.coerceAtLeast(0), it) },
+                onDeleteStationName = { viewModel.removeStationName(it) },
+                onSave = { name, arrival, departure ->
+                    viewModel.saveStationFromSheet(editingIndex, name, arrival, departure)
+                },
+                onDelete = if (editingIndex >= 0) {
+                    { viewModel.deleteStationFromSheet(editingIndex) }
+                } else null,
+                onDismiss = { viewModel.stopEditingStation() },
+                dateAndTimeConverter = dateAndTimeConverter
+            )
+        }
 
         if (formUiState.showCreateServicePhaseSheet) {
             var newPhaseDistance by remember {
@@ -782,9 +798,7 @@ fun FormTrainScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
-                        )
-                        {
-                            // Левая часть: sort + swap
+                        ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 val isReversed = formUiState.isStationsReversed
                                 val rotation by animateFloatAsState(
@@ -802,30 +816,6 @@ fun FormTrainScreen(
                                         ),
                                     painter = painterResource(com.z_company.route.R.drawable.sort_24px),
                                     contentDescription = null
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Icon(
-                                    modifier = Modifier
-                                        .noRippleEffect(
-                                            onClick = {
-                                                viewModel.toggleReorderMode()
-                                            }
-                                        ),
-                                    painter = painterResource(com.z_company.route.R.drawable.swap_vert_24px),
-                                    contentDescription = null,
-                                    tint = if (formUiState.isReorderMode) MaterialTheme.colorScheme.tertiary else primaryColor
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Icon(
-                                    modifier = Modifier
-                                        .noRippleEffect(
-                                            onClick = {
-                                                viewModel.toggleTravelTimeMode()
-                                            }
-                                        ),
-                                    painter = painterResource(com.z_company.route.R.drawable.schedule_24px),
-                                    contentDescription = null,
-                                    tint = if (formUiState.isShowTravelTime) MaterialTheme.colorScheme.tertiary else primaryColor
                                 )
                             }
 
@@ -853,9 +843,111 @@ fun FormTrainScreen(
                             }
                         }
                     }
-                    item {
-                        TrainRouteSection(train = train)
-                    }
+
+                    stationListState?.let { stationList ->
+                        val displayList =
+                            if (formUiState.isStationsReversed) stationList.reversed() else stationList
+                        itemsIndexed(
+                            items = displayList,
+                            key = { _, item -> item.id }
+                        ) { index, item ->
+                            val originalIndex =
+                                if (formUiState.isStationsReversed) stationList.size - 1 - index else index
+
+                            Spacer(
+                                modifier = Modifier
+                                    .height(8.dp)
+                                    .animateItem()
+                            )
+
+                            // Время перегона между станциями (всегда показывается)
+                            if (index > 0) {
+                                val (fromIdx, toIdx) = if (formUiState.isStationsReversed) {
+                                    Pair(originalIndex, originalIndex + 1)
+                                } else {
+                                    Pair(originalIndex - 1, originalIndex)
+                                }
+                                if (fromIdx in stationList.indices && toIdx in stationList.indices) {
+                                    val depTime = stationList[fromIdx].departure.data
+                                    val arrTime = stationList[toIdx].arrival.data
+                                    if (depTime != null && arrTime != null && arrTime > depTime) {
+                                        val travelMinutesInLong = (arrTime - depTime)
+                                        val travelMinutes = ConverterLongToTime.getTimeInStringFormat(travelMinutesInLong)
+                                        val travelTooltipState = rememberBasicTooltipState(isPersistent = false)
+                                        Row(
+                                            modifier = Modifier
+                                                .animateItem()
+                                                .fillMaxWidth()
+                                                .padding(bottom = 2.dp)
+                                        ) {
+                                            BasicTooltipBox(
+                                                modifier = Modifier.weight(1f),
+                                                positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+                                                tooltip = {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .background(
+                                                                shape = Shapes.medium,
+                                                                color = MaterialTheme.colorScheme.surface
+                                                            )
+                                                            .padding(12.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = "Перегонное время",
+                                                            style = MaterialTheme.typography.bodyMedium,
+                                                            color = MaterialTheme.colorScheme.primary
+                                                        )
+                                                    }
+                                                },
+                                                state = travelTooltipState
+                                            ) {
+                                                Text(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .clickable {
+                                                            scope.launch {
+                                                                travelTooltipState.show(MutatePriority.Default)
+                                                            }
+                                                        },
+                                                    text = travelMinutes,
+                                                    textAlign = TextAlign.Center,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = primaryColor.copy(alpha = 0.7f)
+                                                )
+                                            }
+                                            Box(
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            StationItem(
+                                modifier = Modifier.animateItem(),
+                                stationFormState = item,
+                                dateAndTimeConverter = dateAndTimeConverter,
+                                trainNumber = train.number,
+                                isReordering = formUiState.reorderingStationId == item.id,
+                                onStationClick = {
+                                    viewModel.startEditingStation(originalIndex)
+                                },
+                                onLongPress = {
+                                    if (formUiState.reorderingStationId == item.id) {
+                                        viewModel.stopReorderStation()
+                                    } else {
+                                        viewModel.startReorderStation(item.id)
+                                    }
+                                },
+                                onCancelReorder = { viewModel.stopReorderStation() },
+                                onMoveUp = if (originalIndex > 0) {
+                                    { viewModel.moveStation(originalIndex, originalIndex - 1) }
+                                } else null,
+                                onMoveDown = if (originalIndex < stationList.lastIndex) {
+                                    { viewModel.moveStation(originalIndex, originalIndex + 1) }
+                                } else null
+                            )
+                        }
 
 //
 //                    stationListState?.let { stationList ->
@@ -991,11 +1083,7 @@ fun FormTrainScreen(
                                 pressedElevation = 0.dp
                             ),
                             onClick = {
-                                onAddingStation()
-                                scope.launch {
-                                    val countItems = scrollState.layoutInfo.totalItemsCount
-                                    scrollState.animateScrollToItem(countItems)
-                                }
+                                viewModel.startAddingNewStation()
                             }
                         ) {
                             Text(

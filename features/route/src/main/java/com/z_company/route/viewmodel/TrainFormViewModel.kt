@@ -147,23 +147,9 @@ class TrainFormViewModel(
         sharedPreferenceStorage.toggleStationsSortOrder(newReversed)
     }
 
-    fun loadTravelTimeMode() {
-        viewModelScope.launch {
-            val isShow = sharedPreferenceStorage.isShowTravelTime()
-            _uiState.update { it.copy(isShowTravelTime = isShow) }
-        }
-    }
-
-    fun toggleTravelTimeMode() {
-        val newValue = !_uiState.value.isShowTravelTime
-        _uiState.update { it.copy(isShowTravelTime = newValue, isReorderMode = false) }
-        sharedPreferenceStorage.toggleShowTravelTime(newValue)
-    }
-
     init {
         viewModelScope.launch {
             loadStationsSortOrder()
-            loadTravelTimeMode()
             if (trainId == NULLABLE_ID) {
                 isNewTrain = true
                 currentTrain = Train(basicId = basicId)
@@ -510,14 +496,62 @@ class TrainFormViewModel(
         }
     }
 
-    fun toggleReorderMode() {
-        val wasShowingTravelTime = _uiState.value.isShowTravelTime
-        _uiState.update {
-            it.copy(isReorderMode = !it.isReorderMode, isShowTravelTime = false)
+    // Per-station reorder
+    fun startReorderStation(stationId: String) {
+        _uiState.update { it.copy(reorderingStationId = stationId) }
+    }
+
+    fun stopReorderStation() {
+        _uiState.update { it.copy(reorderingStationId = null) }
+    }
+
+    // BottomSheet editing
+    fun startEditingStation(index: Int) {
+        _uiState.update { it.copy(editingStationIndex = index) }
+    }
+
+    fun startAddingNewStation() {
+        _uiState.update { it.copy(editingStationIndex = -1) }
+    }
+
+    fun stopEditingStation() {
+        _uiState.update { it.copy(editingStationIndex = null) }
+    }
+
+    fun saveStationFromSheet(index: Int, name: String?, arrival: Long?, departure: Long?) {
+        if (index == -1) {
+            val newStation = StationFormState(
+                id = Station().stationId,
+                station = StationField(data = name, type = StationDataType.NAME),
+                arrival = StationFieldDate(data = arrival, type = StationDataType.ARRIVAL),
+                departure = StationFieldDate(data = departure, type = StationDataType.DEPARTURE)
+            )
+            val hasServicePhase = _uiState.value.selectedServicePhase != null
+            if (hasServicePhase && stationsListState.size >= 2) {
+                stationsListState.add(stationsListState.lastIndex, newStation)
+            } else {
+                stationsListState.add(newStation)
+            }
+        } else if (index in stationsListState.indices) {
+            stationsListState[index] = stationsListState[index].copy(
+                station = StationField(data = name, type = StationDataType.NAME),
+                arrival = StationFieldDate(data = arrival, type = StationDataType.ARRIVAL),
+                departure = StationFieldDate(data = departure, type = StationDataType.DEPARTURE)
+            )
         }
-        if (wasShowingTravelTime) {
-            sharedPreferenceStorage.toggleShowTravelTime(false)
+        changesHave()
+        checkFormValidStation()
+        stopEditingStation()
+    }
+
+    fun deleteStationFromSheet(index: Int) {
+        if (index in stationsListState.indices) {
+            stationsListState.removeAt(index)
+            _uiState.update { it.copy(errorMessage = null) }
+            changesHave()
+            checkFormValidStation()
         }
+        stopEditingStation()
     }
 
     fun moveStation(fromIndex: Int, toIndex: Int) {
@@ -525,6 +559,7 @@ class TrainFormViewModel(
         val item = stationsListState.removeAt(fromIndex)
         stationsListState.add(toIndex, item)
         changesHave()
+        // reorderingStationId stays the same — follows by station ID, not index
     }
 
     private fun onStationEvent(event: StationEvent) {
