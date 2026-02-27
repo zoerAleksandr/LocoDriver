@@ -93,7 +93,7 @@ private fun formatTime(millis: Long): String {
 private fun calculateStop(item: StationTimelineItem): StopInfo? {
     val arrival = item.timeArrival ?: return null
     val departure = item.timeDeparture ?: return null
-    val diff = departure - arrival
+    val diff = (departure - departure % 60_000L) - (arrival - arrival % 60_000L)
     return if (diff > 0) StopInfo(diff) else null
 }
 
