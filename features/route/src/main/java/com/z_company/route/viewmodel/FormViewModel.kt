@@ -533,13 +533,13 @@ class FormViewModel(
                     _uiState.update { it.copy(saveRouteState = result) }
                     if (result is ResultState.Success) {
                         deletedLocoList.forEach { loco ->
-                            locoUseCase.removeLoco(loco)
+                            locoUseCase.removeLoco(loco).collect {}
                         }
                         deletedTrainList.forEach { train ->
-                            trainUseCase.removeTrain(train)
+                            trainUseCase.removeTrain(train).collect {}
                         }
                         deletedPassengerList.forEach { passenger ->
-                            passengerUseCase.removePassenger(passenger)
+                            passengerUseCase.removePassenger(passenger).collect {}
                         }
                         _events.emit(FormScreenEvent.RouteSaved)
                     }
