@@ -57,7 +57,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -97,6 +96,7 @@ import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.trainCategory
 import com.z_company.route.component.BottomShadow
 import com.z_company.route.component.OutlinedTextFieldApp
+import com.z_company.route.component.StationEditBottomSheet
 import com.z_company.route.component.StationItem
 import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.route.viewmodel.StationFormState
@@ -122,17 +122,8 @@ fun FormTrainScreen(
     onWeightChanged: (String) -> Unit,
     onAxleChanged: (String) -> Unit,
     onLengthChanged: (String) -> Unit,
-    onAddingStation: () -> Unit,
-    onDeleteStation: (StationFormState) -> Unit,
-    onStationNameChanged: (index: Int, s: String) -> Unit,
-    onDepartureTimeChanged: (index: Int, time: Long?) -> Unit,
-    onArrivalTimeChanged: (index: Int, time: Long?) -> Unit,
     stationListState: SnapshotStateList<StationFormState>?,
     menuList: List<String>,
-    isExpandedMenu: Pair<Int, Boolean>?,
-    onExpandedMenuChange: (Int, Boolean) -> Unit,
-    onChangedContentMenu: (Int, String) -> Unit,
-    onDeleteStationName: (String) -> Unit,
     servicePhaseList: List<ServicePhase>,
     onSelectServicePhase: (ServicePhase?) -> Unit,
     selectedServicePhase: ServicePhase?,
@@ -207,13 +198,36 @@ fun FormTrainScreen(
             else -> {}
         }
 
-        var selectSectionIndexState = remember { mutableIntStateOf(0) }
-
         var isTrainInfoVisible by remember {
             mutableStateOf(false)
         }
 
         var showSelectServicePhase by remember { mutableStateOf(false) }
+
+        // BottomSheet для редактирования/добавления станции
+        val editingIndex = formUiState.editingStationIndex
+        if (editingIndex != null) {
+            val editingStation = if (editingIndex >= 0 && stationListState != null
+                && editingIndex in stationListState.indices
+            ) {
+                stationListState[editingIndex]
+            } else null
+
+            StationEditBottomSheet(
+                stationFormState = editingStation,
+                menuList = menuList,
+                onFilterMenu = { viewModel.onChangedDropDownContent(editingIndex.coerceAtLeast(0), it) },
+                onDeleteStationName = { viewModel.removeStationName(it) },
+                onSave = { name, arrival, departure ->
+                    viewModel.saveStationFromSheet(editingIndex, name, arrival, departure)
+                },
+                onDelete = if (editingIndex >= 0) {
+                    { viewModel.deleteStationFromSheet(editingIndex) }
+                } else null,
+                onDismiss = { viewModel.stopEditingStation() },
+                dateAndTimeConverter = dateAndTimeConverter
+            )
+        }
 
         if (formUiState.showCreateServicePhaseSheet) {
             var newPhaseDistance by remember {
@@ -789,7 +803,7 @@ fun FormTrainScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Левая часть: sort + swap
+                            // Левая часть: sort
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 val isReversed = formUiState.isStationsReversed
                                 val rotation by animateFloatAsState(
@@ -807,30 +821,6 @@ fun FormTrainScreen(
                                         ),
                                     painter = painterResource(com.z_company.route.R.drawable.sort_24px),
                                     contentDescription = null
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Icon(
-                                    modifier = Modifier
-                                        .noRippleEffect(
-                                            onClick = {
-                                                viewModel.toggleReorderMode()
-                                            }
-                                        ),
-                                    painter = painterResource(com.z_company.route.R.drawable.swap_vert_24px),
-                                    contentDescription = null,
-                                    tint = if (formUiState.isReorderMode) MaterialTheme.colorScheme.tertiary else primaryColor
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Icon(
-                                    modifier = Modifier
-                                        .noRippleEffect(
-                                            onClick = {
-                                                viewModel.toggleTravelTimeMode()
-                                            }
-                                        ),
-                                    painter = painterResource(com.z_company.route.R.drawable.schedule_24px),
-                                    contentDescription = null,
-                                    tint = if (formUiState.isShowTravelTime) MaterialTheme.colorScheme.tertiary else primaryColor
                                 )
                             }
 
@@ -875,8 +865,8 @@ fun FormTrainScreen(
                                     .animateItem()
                             )
 
-                            // Время перегона между станциями
-                            if (index > 0 && formUiState.isShowTravelTime) {
+                            // Время перегона между станциями (всегда показывается)
+                            if (index > 0) {
                                 val (fromIdx, toIdx) = if (formUiState.isStationsReversed) {
                                     Pair(originalIndex, originalIndex + 1)
                                 } else {
@@ -940,23 +930,21 @@ fun FormTrainScreen(
 
                             StationItem(
                                 modifier = Modifier.animateItem(),
-                                index = originalIndex,
                                 stationFormState = item,
-                                onDelete = onDeleteStation,
-                                menuList = menuList,
-                                isExpandedMenu = if (isExpandedMenu?.first == originalIndex) {
-                                    isExpandedMenu.second
-                                } else false,
-                                onExpandedMenuChange = onExpandedMenuChange,
-                                onChangedContentMenu = onChangedContentMenu,
-                                onStationNameChanged = onStationNameChanged,
-                                onArrivalTimeChanged = onArrivalTimeChanged,
-                                onDepartureTimeChanged = onDepartureTimeChanged,
-                                onDeleteStationName = onDeleteStationName,
-                                selectIndexState = selectSectionIndexState,
                                 dateAndTimeConverter = dateAndTimeConverter,
                                 trainNumber = train.number,
-                                isReorderMode = formUiState.isReorderMode,
+                                isReordering = formUiState.reorderingStationId == item.id,
+                                onStationClick = {
+                                    viewModel.startEditingStation(originalIndex)
+                                },
+                                onLongPress = {
+                                    if (formUiState.reorderingStationId == item.id) {
+                                        viewModel.stopReorderStation()
+                                    } else {
+                                        viewModel.startReorderStation(item.id)
+                                    }
+                                },
+                                onCancelReorder = { viewModel.stopReorderStation() },
                                 onMoveUp = if (originalIndex > 0) {
                                     { viewModel.moveStation(originalIndex, originalIndex - 1) }
                                 } else null,
@@ -981,11 +969,7 @@ fun FormTrainScreen(
                                 pressedElevation = 0.dp
                             ),
                             onClick = {
-                                onAddingStation()
-                                scope.launch {
-                                    val countItems = scrollState.layoutInfo.totalItemsCount
-                                    scrollState.animateScrollToItem(countItems)
-                                }
+                                viewModel.startAddingNewStation()
                             }
                         ) {
                             Text(
