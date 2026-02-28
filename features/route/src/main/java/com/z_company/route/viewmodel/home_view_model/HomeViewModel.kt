@@ -14,7 +14,9 @@ import com.z_company.core.ResultState
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
+import com.z_company.core.widget.WidgetUpdater
 import com.z_company.domain.entities.MonthOfYear
+import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHours
@@ -98,6 +100,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
     private val snackbarManager: ISnackbarManager by inject()
     private val secureTokenStorage: SecureTokenStorage by inject()
     private val routesManager: RoutesManager by inject()
+    private val widgetUpdater: WidgetUpdater by inject()
 
     var timeWithoutHoliday by mutableLongStateOf(0L)
         private set
@@ -742,6 +745,67 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
+    private fun pushWidgetData(routeCount: Int) {
+        viewModelScope.launch {
+            try {
+                val state = _uiState.value
+                val totalTimeMillis = (state.totalTimeWithHoliday as? ResultState.Success)?.data ?: 0L
+                val totalTimeText = convertTimeToStringFormat(totalTimeMillis)
+
+                val monthOfYear = currentMonthOfYear
+                val monthYear = if (monthOfYear != null) {
+                    val monthNames = arrayOf(
+                        "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+                        "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
+                    )
+                    "${monthNames.getOrElse(monthOfYear.month - 1) { "" }} ${monthOfYear.year}"
+                } else ""
+
+                val normPercent = if (monthOfYear != null) {
+                    val norma = monthOfYear.days.sumOf { day ->
+                        if (!day.isReleaseDay) {
+                            when (day.tag) {
+                                TagForDay.WORKING_DAY -> 8
+                                TagForDay.SHORTENED_DAY -> 7
+                                else -> 0
+                            }
+                        } else 0
+                    }
+                    if (norma > 0) {
+                        val percent = (totalTimeMillis / (norma * 3_600_000.0) * 100).toInt()
+                        "$percent%"
+                    } else "0%"
+                } else "0%"
+
+                val route = currentRoute
+                val hasCurrentRoute = route != null
+                val trainNumber = route?.trains?.lastOrNull()?.number ?: ""
+                val isDeparture = isNextDeparture()
+
+                // Try to get the latest work time from the replay cache
+                val currentWorkTimeMillis = _workTimeInCurrentRoute.replayCache.firstOrNull() ?: 0L
+                val workTimeText = if (hasCurrentRoute) {
+                    ConverterLongToTime.getTimeInStringFormat(currentWorkTimeMillis)
+                } else {
+                    "00:00"
+                }
+
+                widgetUpdater.update(
+                    totalTimeText = totalTimeText,
+                    normPercent = normPercent,
+                    monthYear = monthYear,
+                    hasCurrentRoute = hasCurrentRoute,
+                    trainNumber = trainNumber,
+                    workTime = workTimeText,
+                    isDepartureNext = isDeparture,
+                    routeCount = routeCount.toString()
+                )
+            } catch (e: Exception) {
+                Log.w("HomeViewModel", "Widget update failed", e)
+            }
+        }
+    }
+
     fun setCurrentMonth(yearAndMonth: Pair<Int, Int>) {
         setCalendarJob?.cancel()
         setCalendarJob = calendarUseCase.loadFlowMonthOfYearListState().onEach { result ->
@@ -985,6 +1049,8 @@ class HomeViewModel : ViewModel(), KoinComponent {
                                     )
                                     calculationHolidayTime(filteredRouteList, userSettings.timeZone)
                                 }
+                                // Update widget after all calculations complete
+                                pushWidgetData(filteredRouteList.size)
                             }
                         } else {
                             // settings not ready - update UI accordingly if needed
