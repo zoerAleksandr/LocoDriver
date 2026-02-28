@@ -373,15 +373,17 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 val timeText = uiState.value.dateAndTimeConverter?.getTime(now) ?: ""
                 trainUseCase.updateTrain(updatedTrain).collect { saveResult ->
                     if (saveResult is ResultState.Success) {
-                        // Обновить currentRoute локально, чтобы isNextDeparture() видел актуальные данные
+                        // Обновить currentRoute локально, чтобы isNextDeparture() видел актуальные данные.
+                        // Создаём новый список (не мутируем старый), иначе mutableStateOf не обнаружит изменение
                         currentRoute?.let { route ->
-                            val trainIndex = route.trains.indexOfFirst { it.trainId == updatedTrain.trainId }
+                            val newTrains = route.trains.toMutableList()
+                            val trainIndex = newTrains.indexOfFirst { it.trainId == updatedTrain.trainId }
                             if (trainIndex >= 0) {
-                                route.trains[trainIndex] = updatedTrain
+                                newTrains[trainIndex] = updatedTrain
                             } else {
-                                route.trains.add(updatedTrain)
+                                newTrains.add(updatedTrain)
                             }
-                            currentRoute = route.copy()
+                            currentRoute = route.copy(trains = newTrains)
                         }
                         _saveTimeEvent.emit("$text $timeText")
                     }
