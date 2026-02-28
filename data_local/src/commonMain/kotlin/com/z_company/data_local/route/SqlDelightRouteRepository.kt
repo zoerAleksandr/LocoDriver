@@ -2,6 +2,7 @@ package com.z_company.data_local.route
 
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
+import app.cash.sqldelight.coroutines.mapToOne
 import app.cash.sqldelight.coroutines.mapToOneOrNull
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
@@ -137,10 +138,17 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
     }
 
     override fun loadRouteByPeriodFlow(startPeriod: Long, endPeriod: Long): Flow<List<Route>> {
-        return db.basicDataQueries.getByPeriod(startPeriod, endPeriod)
+        val basicDataFlow = db.basicDataQueries.getByPeriod(startPeriod, endPeriod)
             .asFlow()
             .mapToList(Dispatchers.Default)
-            .map { list -> list.map { assembleRoute(it) } }
+        // Триггер: любое изменение в таблице Train вызывает переэмиссию
+        val trainTrigger = db.trainQueries.countAll()
+            .asFlow()
+            .mapToOne(Dispatchers.Default)
+
+        return combine(basicDataFlow, trainTrigger) { basicDataList, _ ->
+            basicDataList.map { assembleRoute(it) }
+        }
     }
 
     override fun loadRoutesByPeriod(startPeriod: Long, endPeriod: Long): Flow<ResultState<List<Route>>> {
@@ -150,18 +158,30 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
 
     override fun loadRoutesAsStateFlow(): Flow<ResultState<List<Route>>> {
         return flowMap {
-            db.basicDataQueries.getAll()
+            val basicDataFlow = db.basicDataQueries.getAll()
                 .asFlow()
                 .mapToList(Dispatchers.Default)
-                .map { list -> ResultState.Success(list.map { assembleRoute(it) }) }
+            val trainTrigger = db.trainQueries.countAll()
+                .asFlow()
+                .mapToOne(Dispatchers.Default)
+
+            combine(basicDataFlow, trainTrigger) { list, _ ->
+                ResultState.Success(list.map { assembleRoute(it) })
+            }
         }
     }
 
     override fun loadRoutesAsFlow(): Flow<List<Route>> {
-        return db.basicDataQueries.getAll()
+        val basicDataFlow = db.basicDataQueries.getAll()
             .asFlow()
             .mapToList(Dispatchers.Default)
-            .map { list -> list.map { assembleRoute(it) } }
+        val trainTrigger = db.trainQueries.countAll()
+            .asFlow()
+            .mapToOne(Dispatchers.Default)
+
+        return combine(basicDataFlow, trainTrigger) { list, _ ->
+            list.map { assembleRoute(it) }
+        }
     }
 
     override fun loadRoutes(): List<Route> {
