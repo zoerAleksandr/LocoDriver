@@ -24,8 +24,11 @@ interface WidgetUpdater {
         monthYear: String,
         hasCurrentRoute: Boolean,
         trainNumber: String,
-        workTime: String,
+        reportTime: String,
         isDepartureNext: Boolean,
-        routeCount: String
+        routeCount: String,
+        hasFutureRoute: Boolean,
+        futureReportTime: String,
+        futureTrainNumber: String
     )
 }

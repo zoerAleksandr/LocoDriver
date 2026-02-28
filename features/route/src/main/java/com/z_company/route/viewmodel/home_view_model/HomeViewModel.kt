@@ -24,6 +24,7 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.findCurrentRoute
+import com.z_company.domain.entities.route.UtilsForEntities.isFuture
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getOnePersonOperationTime
 import com.z_company.domain.entities.route.UtilsForEntities.getOnePersonOperationTimePassengerTrain
@@ -745,7 +746,12 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    private fun pushWidgetData(routeCount: Int) {
+    private fun pushWidgetData(
+        routeCount: Int,
+        fullRouteList: List<Route>,
+        userSettings: UserSettings,
+        currentTimeInMillis: Long
+    ) {
         viewModelScope.launch {
             try {
                 val state = _uiState.value
@@ -782,13 +788,20 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 val trainNumber = route?.trains?.lastOrNull()?.number ?: ""
                 val isDeparture = isNextDeparture()
 
-                // Try to get the latest work time from the replay cache
-                val currentWorkTimeMillis = _workTimeInCurrentRoute.replayCache.firstOrNull() ?: 0L
-                val workTimeText = if (hasCurrentRoute) {
-                    ConverterLongToTime.getTimeInStringFormat(currentWorkTimeMillis)
-                } else {
-                    "00:00"
-                }
+                val dateAndTimeConverter = DateAndTimeConverter(userSettings)
+                val reportTime = if (hasCurrentRoute) {
+                    dateAndTimeConverter.getDateMiniAndTime(route?.basicData?.timeStartWork)
+                } else ""
+
+                // Find nearest future route
+                val futureRoute = fullRouteList
+                    .filter { it.isFuture(userSettings.timeZone) }
+                    .minByOrNull { it.basicData.timeStartWork ?: Long.MAX_VALUE }
+                val hasFutureRoute = futureRoute != null
+                val futureReportTime = if (hasFutureRoute) {
+                    dateAndTimeConverter.getDateMiniAndTime(futureRoute?.basicData?.timeStartWork)
+                } else ""
+                val futureTrainNumber = futureRoute?.trains?.lastOrNull()?.number ?: ""
 
                 widgetUpdater.update(
                     totalTimeText = totalTimeText,
@@ -796,9 +809,12 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     monthYear = monthYear,
                     hasCurrentRoute = hasCurrentRoute,
                     trainNumber = trainNumber,
-                    workTime = workTimeText,
+                    reportTime = reportTime,
                     isDepartureNext = isDeparture,
-                    routeCount = routeCount.toString()
+                    routeCount = routeCount.toString(),
+                    hasFutureRoute = hasFutureRoute,
+                    futureReportTime = futureReportTime,
+                    futureTrainNumber = futureTrainNumber
                 )
             } catch (e: Exception) {
                 Log.w("HomeViewModel", "Widget update failed", e)
@@ -1050,7 +1066,12 @@ class HomeViewModel : ViewModel(), KoinComponent {
                                     calculationHolidayTime(filteredRouteList, userSettings.timeZone)
                                 }
                                 // Update widget after all calculations complete
-                                pushWidgetData(filteredRouteList.size)
+                                pushWidgetData(
+                                    routeCount = filteredRouteList.size,
+                                    fullRouteList = fullRouteList,
+                                    userSettings = userSettings,
+                                    currentTimeInMillis = currentTimeInMillis
+                                )
                             }
                         } else {
                             // settings not ready - update UI accordingly if needed
