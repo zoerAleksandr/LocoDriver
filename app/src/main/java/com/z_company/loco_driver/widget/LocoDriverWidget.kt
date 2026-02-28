@@ -44,10 +44,17 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.z_company.core.ResultState
+import com.z_company.core.util.ConverterLongToTime
+import com.z_company.core.util.DateAndTimeConverter
+import com.z_company.domain.entities.MonthOfYear
+import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.findCurrentRoute
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
+import com.z_company.domain.entities.route.UtilsForEntities.isFuture
+import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.use_cases.TrainUseCase
@@ -66,6 +73,15 @@ class LocoDriverWidget : GlanceAppWidget() {
     override val stateDefinition: GlanceStateDefinition<*> = PreferencesGlanceStateDefinition
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
+        // Load fresh data from DB before providing content
+        try {
+            withContext(Dispatchers.IO) {
+                WidgetDataLoader.loadAndPush(context)
+            }
+        } catch (e: Exception) {
+            Log.w("LocoDriverWidget", "Initial data load failed", e)
+        }
+
         provideContent {
             GlanceTheme {
                 WidgetContent()
@@ -77,7 +93,7 @@ class LocoDriverWidget : GlanceAppWidget() {
     private fun WidgetContent() {
         val prefs = currentState<Preferences>()
         val totalTimeText = prefs[Keys.TOTAL_TIME_TEXT] ?: "--:--"
-        val normPercent = prefs[Keys.NORM_PERCENT] ?: "0%"
+        val normHours = prefs[Keys.NORM_HOURS] ?: ""
         val monthYear = prefs[Keys.MONTH_YEAR] ?: ""
         val hasCurrentRoute = prefs[Keys.HAS_CURRENT_ROUTE] ?: false
         val trainNumber = prefs[Keys.CURRENT_TRAIN_NUMBER] ?: ""
@@ -129,7 +145,7 @@ class LocoDriverWidget : GlanceAppWidget() {
 
                 Spacer(modifier = GlanceModifier.height(8.dp))
 
-                // Main: total work time + norm percent
+                // Main: total work time + norm hours
                 Row(
                     modifier = GlanceModifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -157,7 +173,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                         horizontalAlignment = Alignment.End
                     ) {
                         Text(
-                            text = normPercent,
+                            text = normHours,
                             style = TextStyle(
                                 color = ColorProvider(WidgetColors.accent),
                                 fontSize = 22.sp,
@@ -165,7 +181,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                             )
                         )
                         Text(
-                            text = "нормы",
+                            text = "норма",
                             style = TextStyle(
                                 color = ColorProvider(WidgetColors.textSecondary),
                                 fontSize = 11.sp
@@ -297,7 +313,7 @@ class LocoDriverWidget : GlanceAppWidget() {
     /** Preference keys */
     object Keys {
         val TOTAL_TIME_TEXT = stringPreferencesKey("total_time_text")
-        val NORM_PERCENT = stringPreferencesKey("norm_percent")
+        val NORM_HOURS = stringPreferencesKey("norm_hours")
         val MONTH_YEAR = stringPreferencesKey("month_year")
         val HAS_CURRENT_ROUTE = booleanPreferencesKey("has_current_route")
         val CURRENT_TRAIN_NUMBER = stringPreferencesKey("current_train_number")
@@ -313,7 +329,7 @@ class LocoDriverWidget : GlanceAppWidget() {
         suspend fun updateAllWidgets(
             context: Context,
             totalTimeText: String,
-            normPercent: String,
+            normHours: String,
             monthYear: String,
             hasCurrentRoute: Boolean,
             currentTrainNumber: String,
@@ -330,7 +346,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                 updateAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId) { prefs ->
                     prefs.toMutablePreferences().apply {
                         this[Keys.TOTAL_TIME_TEXT] = totalTimeText
-                        this[Keys.NORM_PERCENT] = normPercent
+                        this[Keys.NORM_HOURS] = normHours
                         this[Keys.MONTH_YEAR] = monthYear
                         this[Keys.HAS_CURRENT_ROUTE] = hasCurrentRoute
                         this[Keys.CURRENT_TRAIN_NUMBER] = currentTrainNumber
@@ -345,6 +361,131 @@ class LocoDriverWidget : GlanceAppWidget() {
                 LocoDriverWidget().update(context, glanceId)
             }
         }
+    }
+}
+
+/**
+ * Loads widget data directly from DB via Koin.
+ * Called from provideGlance (widget first placed / system update)
+ * and after GoActionCallback to refresh all data.
+ */
+object WidgetDataLoader : KoinComponent {
+
+    private val routeUseCase: RouteUseCase by inject()
+    private val settingsUseCase: SettingsUseCase by inject()
+    private val calendarUseCase: CalendarUseCase by inject()
+
+    suspend fun loadAndPush(context: Context) {
+        val userSettings = settingsUseCase.getUserSetting()
+        val timeZoneText = settingsUseCase.getTimeZone(userSettings.timeZone)
+        val currentTimeInMillis = Calendar.getInstance(
+            TimeZone.getTimeZone(timeZoneText)
+        ).timeInMillis
+
+        // Get current month
+        val monthOfYear: MonthOfYear? = userSettings.selectMonthOfYear
+
+        // Month label
+        val monthYear = if (monthOfYear != null) {
+            val monthNames = arrayOf(
+                "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+                "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
+            )
+            "${monthNames.getOrElse(monthOfYear.month - 1) { "" }} ${monthOfYear.year}"
+        } else ""
+
+        // Load routes for current month
+        val allRoutes = routeUseCase.getListRoutes()
+        val routesForMonth = if (monthOfYear != null) {
+            allRoutes.filter { route ->
+                val startWork = route.basicData.timeStartWork ?: return@filter false
+                val cal = Calendar.getInstance(TimeZone.getTimeZone(timeZoneText)).apply {
+                    timeInMillis = startWork
+                }
+                val routeMonth = cal.get(Calendar.MONTH) // 0-based
+                val routeYear = cal.get(Calendar.YEAR)
+                routeMonth == monthOfYear.month - 1 && routeYear == monthOfYear.year
+            }
+        } else allRoutes
+
+        val filteredRouteList = if (userSettings.isConsiderFutureRoute) {
+            routesForMonth
+        } else {
+            routesForMonth.filter { (it.basicData.timeStartWork ?: 0L) < currentTimeInMillis }
+        }
+
+        // Total work time
+        val totalTimeMillis = if (monthOfYear != null) {
+            filteredRouteList.getWorkTime(monthOfYear, userSettings.timeZone)
+        } else 0L
+        val totalTimeText = ConverterLongToTime.getTimeInStringFormat(totalTimeMillis)
+
+        // Individual norm hours
+        val normHours = if (monthOfYear != null) {
+            "${monthOfYear.getPersonalNormaHours()}ч"
+        } else ""
+
+        // Current route
+        val currentRoute = allRoutes.findCurrentRoute(
+            currentTimeInMillis = currentTimeInMillis,
+            userSettings = userSettings
+        )
+        val hasCurrentRoute = currentRoute != null
+        val trainNumber = currentRoute?.trains?.lastOrNull()?.number ?: ""
+
+        // isDepartureNext
+        val isDepartureNext = if (hasCurrentRoute) {
+            nextIsDeparture(currentRoute?.trains?.lastOrNull())
+        } else true
+
+        // Report time
+        val dateAndTimeConverter = DateAndTimeConverter(userSettings)
+        val reportTime = if (hasCurrentRoute) {
+            dateAndTimeConverter.getDateMiniAndTime(currentRoute?.basicData?.timeStartWork)
+        } else ""
+
+        // Future route
+        val futureRoute = allRoutes
+            .filter { it.isFuture(userSettings.timeZone) }
+            .minByOrNull { it.basicData.timeStartWork ?: Long.MAX_VALUE }
+        val hasFutureRoute = futureRoute != null
+        val futureReportTime = if (hasFutureRoute) {
+            dateAndTimeConverter.getDateMiniAndTime(futureRoute?.basicData?.timeStartWork)
+        } else ""
+        val futureTrainNumber = futureRoute?.trains?.lastOrNull()?.number ?: ""
+
+        LocoDriverWidget.updateAllWidgets(
+            context = context,
+            totalTimeText = totalTimeText,
+            normHours = normHours,
+            monthYear = monthYear,
+            hasCurrentRoute = hasCurrentRoute,
+            currentTrainNumber = trainNumber,
+            reportTime = reportTime,
+            isDepartureNext = isDepartureNext,
+            routeCount = filteredRouteList.size.toString(),
+            hasFutureRoute = hasFutureRoute,
+            futureReportTime = futureReportTime,
+            futureTrainNumber = futureTrainNumber
+        )
+    }
+
+    /** Determine if next action is departure (same logic as HomeViewModel) */
+    private fun nextIsDeparture(train: Train?): Boolean {
+        if (train == null) return true
+        val stations = train.stations
+        if (stations.isEmpty()) return true
+
+        val hasServicePhase = train.servicePhase != null
+        val endIdx = if (hasServicePhase && stations.size >= 2)
+            stations.lastIndex - 1 else stations.lastIndex
+
+        for (i in endIdx downTo 0) {
+            val s = stations[i]
+            if (s.timeDeparture != null) return false
+            if (s.timeArrival != null) return true
+        }
+        return true
     }
 }
 
@@ -365,14 +506,14 @@ class GoActionCallback : ActionCallback, KoinComponent {
     ) {
         try {
             withContext(Dispatchers.IO) {
-                executeGoClicked(context, glanceId)
+                executeGoClicked(context)
             }
         } catch (e: Exception) {
             Log.w("GoActionCallback", "Widget go clicked failed", e)
         }
     }
 
-    private suspend fun executeGoClicked(context: Context, glanceId: GlanceId) {
+    private suspend fun executeGoClicked(context: Context) {
         // 1. Get user settings for timezone
         val userSettings = settingsUseCase.getUserSetting()
         val timeZoneText = settingsUseCase.getTimeZone(userSettings.timeZone)
@@ -446,7 +587,7 @@ class GoActionCallback : ActionCallback, KoinComponent {
         // 6. Save to DB
         trainUseCase.updateTrain(updatedTrain).first { it is ResultState.Success }
 
-        // 7. Refresh widget
-        LocoDriverWidget().update(context, glanceId)
+        // 7. Reload all widget data (recalculates isDepartureNext etc.)
+        WidgetDataLoader.loadAndPush(context)
     }
 }

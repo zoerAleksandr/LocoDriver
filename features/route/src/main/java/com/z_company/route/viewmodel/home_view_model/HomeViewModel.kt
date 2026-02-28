@@ -16,10 +16,10 @@ import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.widget.WidgetUpdater
 import com.z_company.domain.entities.MonthOfYear
-import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHours
+import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
@@ -767,21 +767,9 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     "${monthNames.getOrElse(monthOfYear.month - 1) { "" }} ${monthOfYear.year}"
                 } else ""
 
-                val normPercent = if (monthOfYear != null) {
-                    val norma = monthOfYear.days.sumOf { day ->
-                        if (!day.isReleaseDay) {
-                            when (day.tag) {
-                                TagForDay.WORKING_DAY -> 8
-                                TagForDay.SHORTENED_DAY -> 7
-                                else -> 0
-                            }
-                        } else 0
-                    }
-                    if (norma > 0) {
-                        val percent = (totalTimeMillis / (norma * 3_600_000.0) * 100).toInt()
-                        "$percent%"
-                    } else "0%"
-                } else "0%"
+                val normHours = if (monthOfYear != null) {
+                    "${monthOfYear.getPersonalNormaHours()}ч"
+                } else ""
 
                 val route = currentRoute
                 val hasCurrentRoute = route != null
@@ -805,7 +793,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
                 widgetUpdater.update(
                     totalTimeText = totalTimeText,
-                    normPercent = normPercent,
+                    normHours = normHours,
                     monthYear = monthYear,
                     hasCurrentRoute = hasCurrentRoute,
                     trainNumber = trainNumber,

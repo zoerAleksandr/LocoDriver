@@ -13,7 +13,7 @@ class GlanceWidgetUpdater(
 
     override suspend fun update(
         totalTimeText: String,
-        normPercent: String,
+        normHours: String,
         monthYear: String,
         hasCurrentRoute: Boolean,
         trainNumber: String,
@@ -28,7 +28,7 @@ class GlanceWidgetUpdater(
             LocoDriverWidget.updateAllWidgets(
                 context = context,
                 totalTimeText = totalTimeText,
-                normPercent = normPercent,
+                normHours = normHours,
                 monthYear = monthYear,
                 hasCurrentRoute = hasCurrentRoute,
                 currentTrainNumber = trainNumber,
