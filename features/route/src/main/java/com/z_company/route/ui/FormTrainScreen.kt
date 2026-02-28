@@ -228,8 +228,9 @@ fun FormTrainScreen(
 
         // Подтверждение удаления станции
         if (formUiState.confirmDeleteStationIndex != null) {
+            val deleteIndex = formUiState.confirmDeleteStationIndex!!
             val stationName = stationListState
-                ?.getOrNull(formUiState.confirmDeleteStationIndex!!)
+                ?.getOrNull(deleteIndex)
                 ?.station?.data
 
             val title = if (!stationName.isNullOrBlank())
@@ -243,7 +244,8 @@ fun FormTrainScreen(
                 title = title,
                 actions = listOf(
                     BottomSheetAction(text = "Да, удалить") {
-                        viewModel.confirmDeleteStation()
+                        // deleteIndex захвачен до того как onDismissRequest обнулит confirmDeleteStationIndex
+                        viewModel.deleteStationFromSheet(deleteIndex)
                     }
                 )
             )
