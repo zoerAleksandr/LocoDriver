@@ -347,6 +347,26 @@ class TrainFormViewModel(
         changesHave()
     }
 
+    fun addAdditionalNumber(number: String) {
+        currentTrain?.let { train ->
+            val updated = train.additionalNumbers.toMutableList()
+            updated.add(number)
+            currentTrain = train.copy(additionalNumbers = updated)
+            changesHave()
+        }
+    }
+
+    fun removeAdditionalNumber(index: Int) {
+        currentTrain?.let { train ->
+            val updated = train.additionalNumbers.toMutableList()
+            if (index in updated.indices) {
+                updated.removeAt(index)
+                currentTrain = train.copy(additionalNumbers = updated)
+                changesHave()
+            }
+        }
+    }
+
     fun setDistance(distance: String) {
         currentTrain = currentTrain?.copy(
             distance = distance.ifBlank { null }
