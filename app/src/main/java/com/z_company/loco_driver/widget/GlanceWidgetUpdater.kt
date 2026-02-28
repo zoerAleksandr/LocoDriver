@@ -17,9 +17,12 @@ class GlanceWidgetUpdater(
         monthYear: String,
         hasCurrentRoute: Boolean,
         trainNumber: String,
-        workTime: String,
+        reportTime: String,
         isDepartureNext: Boolean,
-        routeCount: String
+        routeCount: String,
+        hasFutureRoute: Boolean,
+        futureReportTime: String,
+        futureTrainNumber: String
     ) {
         try {
             LocoDriverWidget.updateAllWidgets(
@@ -29,12 +32,14 @@ class GlanceWidgetUpdater(
                 monthYear = monthYear,
                 hasCurrentRoute = hasCurrentRoute,
                 currentTrainNumber = trainNumber,
-                currentWorkTime = workTime,
+                reportTime = reportTime,
                 isDepartureNext = isDepartureNext,
-                routeCount = routeCount
+                routeCount = routeCount,
+                hasFutureRoute = hasFutureRoute,
+                futureReportTime = futureReportTime,
+                futureTrainNumber = futureTrainNumber
             )
         } catch (e: Exception) {
-            // Widget update should never crash the app
             android.util.Log.w("GlanceWidgetUpdater", "Widget update failed", e)
         }
     }
