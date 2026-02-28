@@ -83,9 +83,9 @@ import com.z_company.core.ResultState
 import com.z_company.core.ui.component.CustomDivider
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
-import androidx.compose.material3.AlertDialog
+import com.z_company.route.component.AppBottomSheet
+import com.z_company.route.component.BottomSheetAction
 import com.z_company.core.ui.theme.Shapes
-import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.domain.entities.route.Train
@@ -226,43 +226,26 @@ fun FormTrainScreen(
             )
         }
 
-        // Диалог подтверждения удаления станции
+        // Подтверждение удаления станции
         if (formUiState.confirmDeleteStationIndex != null) {
-            AlertDialog(
+            val stationName = stationListState
+                ?.getOrNull(formUiState.confirmDeleteStationIndex!!)
+                ?.station?.data
+
+            val title = if (!stationName.isNullOrBlank())
+                "Удалить станцию $stationName?"
+            else
+                "Удалить станцию?"
+
+            AppBottomSheet(
                 onDismissRequest = { viewModel.cancelDeleteStation() },
-                title = {
-                    Text(
-                        text = "Удаление станции",
-                        style = AppTypography.getType().headlineSmall
-                    )
-                },
-                shape = Shapes.medium,
-                text = {
-                    Text(
-                        text = "Вы уверены, что хотите удалить станцию?",
-                        style = AppTypography.getType().bodyLarge
-                    )
-                },
-                confirmButton = {
-                    Button(
-                        shape = Shapes.medium,
-                        onClick = { viewModel.confirmDeleteStation() }
-                    ) {
-                        Text(
-                            text = "Удалить",
-                            style = AppTypography.getType().titleMedium
-                        )
+                sheetState = sheetState,
+                title = title,
+                actions = listOf(
+                    BottomSheetAction(text = "Да, удалить") {
+                        viewModel.confirmDeleteStation()
                     }
-                },
-                dismissButton = {
-                    TextButton(onClick = { viewModel.cancelDeleteStation() }) {
-                        Text(
-                            text = "Отмена",
-                            style = AppTypography.getType().titleMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
+                )
             )
         }
 
