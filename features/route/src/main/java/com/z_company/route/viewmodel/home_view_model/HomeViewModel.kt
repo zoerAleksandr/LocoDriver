@@ -373,6 +373,16 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 val timeText = uiState.value.dateAndTimeConverter?.getTime(now) ?: ""
                 trainUseCase.updateTrain(updatedTrain).collect { saveResult ->
                     if (saveResult is ResultState.Success) {
+                        // Обновить currentRoute локально, чтобы isNextDeparture() видел актуальные данные
+                        currentRoute?.let { route ->
+                            val trainIndex = route.trains.indexOfFirst { it.trainId == updatedTrain.trainId }
+                            if (trainIndex >= 0) {
+                                route.trains[trainIndex] = updatedTrain
+                            } else {
+                                route.trains.add(updatedTrain)
+                            }
+                            currentRoute = route.copy()
+                        }
                         _saveTimeEvent.emit("$text $timeText")
                     }
                 }
