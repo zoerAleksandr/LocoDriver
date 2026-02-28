@@ -3,6 +3,7 @@ package com.z_company.data_local.route.mapping
 import com.zcompany.datalocal.route.db.Train as TrainRow
 import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
+import com.z_company.domain.entities.route.TrainAssist
 import com.z_company.domain.entities.setting.ServicePhase
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -41,6 +42,12 @@ internal object TrainMapper {
     fun encodeServicePhase(phase: ServicePhase?): String? =
         phase?.let { json.encodeToString(it) }
 
+    fun encodeTrainAssist(assist: TrainAssist?): String? =
+        assist?.let { json.encodeToString(it) }
+
+    fun encodeAdditionalNumbers(numbers: List<String>): String? =
+        if (numbers.isEmpty()) null else json.encodeToString(numbers)
+
     private fun decodeStations(value: String): MutableList<Station> =
         runCatching {
             json.decodeFromString<List<StationRow>>(value).map { it.toStation() }.toMutableList()
@@ -54,17 +61,31 @@ internal object TrainMapper {
             runCatching { json.decodeFromString<ServicePhase>(it) }.getOrNull()
         }
 
+    private fun decodeTrainAssist(value: String?): TrainAssist? =
+        value?.let {
+            runCatching { json.decodeFromString<TrainAssist>(it) }.getOrNull()
+        }
+
+    private fun decodeAdditionalNumbers(value: String?): MutableList<String> =
+        value?.let {
+            runCatching { json.decodeFromString<List<String>>(it) }.getOrElse { mutableListOf() }
+        }?.toMutableList() ?: mutableListOf()
+
     fun toData(row: TrainRow): Train = Train(
         trainId = row.trainId,
         basicId = row.basicId,
         remoteObjectId = row.remoteObjectId,
         number = row.number,
+        additionalNumbers = decodeAdditionalNumbers(row.additionalNumbers),
         distance = row.distance,
         weight = row.weight,
         axle = row.axle,
         conditionalLength = row.conditionalLength,
         isHeavyLongDistance = row.isHeavyLongDistance != 0L,
         stations = decodeStations(row.stations),
-        servicePhase = decodeServicePhase(row.servicePhase)
+        servicePhase = decodeServicePhase(row.servicePhase),
+        pusher = decodeTrainAssist(row.pusher),
+        doubleTraction = decodeTrainAssist(row.doubleTraction),
+        doubledTrain = decodeTrainAssist(row.doubledTrain)
     )
 }

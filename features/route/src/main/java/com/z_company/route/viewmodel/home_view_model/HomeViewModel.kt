@@ -306,8 +306,15 @@ class HomeViewModel : ViewModel(), KoinComponent {
         val stations = train.stations
         if (stations.isEmpty()) return true
 
+        // При наличии плеча обслуживания — пропускаем последнюю станцию (конечная точка плеча)
+        val hasServicePhase = train.servicePhase != null
+        val endIdx = if (hasServicePhase && stations.size >= 2)
+            stations.lastIndex - 1
+        else
+            stations.lastIndex
+
         // Сканируем с конца, ищем последнее заполненное время
-        for (i in stations.indices.reversed()) {
+        for (i in endIdx downTo 0) {
             val s = stations[i]
             if (s.timeDeparture != null) return false  // последнее — departure → следующее arrival
             if (s.timeArrival != null) return true      // последнее — arrival → следующее departure
@@ -338,16 +345,30 @@ class HomeViewModel : ViewModel(), KoinComponent {
                         stations.add(Station(timeDeparture = now))
                     } else {
                         // Найти последнее заполненное время (сканируем с конца)
+                        // При наличии плеча обслуживания — пропускаем последнюю станцию
+                        val hasServicePhase = current.servicePhase != null
+                        val endIdx = if (hasServicePhase && stations.size >= 2)
+                            stations.lastIndex - 1
+                        else
+                            stations.lastIndex
+
                         var filled = false
-                        for (i in stations.indices.reversed()) {
+                        for (i in endIdx downTo 0) {
                             val s = stations[i]
                             if (s.timeDeparture != null) {
                                 // Последнее — departure → arrival на следующей станции
                                 val nextIdx = i + 1
-                                if (nextIdx <= stations.lastIndex) {
+                                val isServicePhaseArrival = hasServicePhase && nextIdx == stations.lastIndex
+
+                                if (nextIdx <= stations.lastIndex && !isServicePhaseArrival) {
                                     stations[nextIdx] = stations[nextIdx].copy(timeArrival = now)
                                 } else {
-                                    stations.add(Station(timeArrival = now))
+                                    // Вставить новую станцию перед последней при наличии плеча
+                                    if (hasServicePhase && stations.size >= 2) {
+                                        stations.add(stations.lastIndex, Station(timeArrival = now))
+                                    } else {
+                                        stations.add(Station(timeArrival = now))
+                                    }
                                 }
                                 filled = true
                                 break

@@ -16,6 +16,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -39,6 +41,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -140,6 +143,7 @@ fun FormTrainScreen(
 
     val primaryColor = MaterialTheme.colorScheme.primary
     val noValueColor = primaryColor.copy(alpha = 0.5f)
+    var showSettingsSheet by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier
@@ -169,7 +173,15 @@ fun FormTrainScreen(
                         )
                     }
                 },
-                actions = {},
+                actions = {
+                    IconButton(onClick = { showSettingsSheet = true }) {
+                        Icon(
+                            painter = painterResource(com.z_company.route.R.drawable.settings_24px),
+                            contentDescription = "Настройки",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent
                 )
@@ -248,6 +260,16 @@ fun FormTrainScreen(
                         viewModel.deleteStationFromSheet(deleteIndex)
                     }
                 )
+            )
+        }
+
+        // Настройки поезда
+        if (showSettingsSheet) {
+            AppBottomSheet(
+                onDismissRequest = { showSettingsSheet = false },
+                sheetState = sheetState,
+                title = "Настройки поезда",
+                actions = emptyList()
             )
         }
 
@@ -511,10 +533,47 @@ fun FormTrainScreen(
                                 .padding(top = 12.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
+                            // Дополнительные номера поезда
+                            if (train.additionalNumbers.isNotEmpty()) {
+                                FlowRow(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    train.additionalNumbers.forEachIndexed { index, num ->
+                                        Row(
+                                            modifier = Modifier
+                                                .background(
+                                                    color = MaterialTheme.colorScheme.surfaceDim,
+                                                    shape = RoundedCornerShape(8.dp)
+                                                )
+                                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Text(
+                                                text = "№ $num",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = primaryColor
+                                            )
+                                            Icon(
+                                                modifier = Modifier
+                                                    .size(16.dp)
+                                                    .clickable { viewModel.removeAdditionalNumber(index) },
+                                                painter = painterResource(R.drawable.ic_clear),
+                                                contentDescription = "Удалить",
+                                                tint = noValueColor
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
                                 OutlinedTextFieldApp(
                                     modifier = Modifier
@@ -611,6 +670,27 @@ fun FormTrainScreen(
                                     textStyle = dataTextStyle,
                                     singleLine = true,
                                 )
+
+                                // Кнопка "+" для добавления дополнительного номера
+                                IconButton(
+                                    onClick = {
+                                        val num = train.number?.trim()
+                                        if (!num.isNullOrBlank()) {
+                                            viewModel.addAdditionalNumber(num)
+                                            onNumberChanged("")
+                                        }
+                                    },
+                                    enabled = !train.number.isNullOrBlank()
+                                ) {
+                                    Icon(
+                                        painter = painterResource(com.z_company.route.R.drawable.add_circle_24px),
+                                        contentDescription = "Добавить номер",
+                                        tint = if (!train.number.isNullOrBlank())
+                                            MaterialTheme.colorScheme.tertiary
+                                        else
+                                            noValueColor
+                                    )
+                                }
                             }
                             AnimatedVisibility(visible = isTrainInfoVisible) {
                                 Box(

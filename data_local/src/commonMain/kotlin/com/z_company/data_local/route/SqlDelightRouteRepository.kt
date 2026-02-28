@@ -97,13 +97,17 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
                 basicId = trainBasicId,
                 remoteObjectId = train.remoteObjectId,
                 number = train.number,
+                additionalNumbers = TrainMapper.encodeAdditionalNumbers(train.additionalNumbers),
                 distance = train.distance,
                 weight = train.weight,
                 axle = train.axle,
                 conditionalLength = train.conditionalLength,
                 isHeavyLongDistance = if (train.isHeavyLongDistance) 1L else 0L,
                 stations = TrainMapper.encodeStations(train.stations),
-                servicePhase = TrainMapper.encodeServicePhase(train.servicePhase)
+                servicePhase = TrainMapper.encodeServicePhase(train.servicePhase),
+                pusher = TrainMapper.encodeTrainAssist(train.pusher),
+                doubleTraction = TrainMapper.encodeTrainAssist(train.doubleTraction),
+                doubledTrain = TrainMapper.encodeTrainAssist(train.doubledTrain)
             )
         }
         route.passengers.forEach { passenger ->
@@ -295,13 +299,17 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
                 basicId = train.basicId,
                 remoteObjectId = train.remoteObjectId,
                 number = train.number,
+                additionalNumbers = TrainMapper.encodeAdditionalNumbers(train.additionalNumbers),
                 distance = train.distance,
                 weight = train.weight,
                 axle = train.axle,
                 conditionalLength = train.conditionalLength,
                 isHeavyLongDistance = if (train.isHeavyLongDistance) 1L else 0L,
                 stations = TrainMapper.encodeStations(train.stations),
-                servicePhase = TrainMapper.encodeServicePhase(train.servicePhase)
+                servicePhase = TrainMapper.encodeServicePhase(train.servicePhase),
+                pusher = TrainMapper.encodeTrainAssist(train.pusher),
+                doubleTraction = TrainMapper.encodeTrainAssist(train.doubleTraction),
+                doubledTrain = TrainMapper.encodeTrainAssist(train.doubledTrain)
             )
         }
     }
