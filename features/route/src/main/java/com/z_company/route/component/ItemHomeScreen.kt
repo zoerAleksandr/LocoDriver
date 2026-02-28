@@ -240,8 +240,12 @@ fun ItemHomeScreen(
                                 route.trains
                                     .sortedBy { it.stations.firstOrNull()?.timeDeparture }
                                     .forEach { train ->
-                                        val trainNumber = if (!train.number.isNullOrBlank()) {
-                                            "\u2116${train.number} "
+                                        val allNumbers = buildList {
+                                            train.number?.takeIf { it.isNotBlank() }?.let { add(it) }
+                                            addAll(train.additionalNumbers)
+                                        }
+                                        val trainNumber = if (allNumbers.isNotEmpty()) {
+                                            "\u2116${allNumbers.joinToString(", ")} "
                                         } else {
                                             ""
                                         }
@@ -311,8 +315,12 @@ fun ItemHomeScreen(
                                     .fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                val trainNumber = if (!train.number.isNullOrBlank()) {
-                                    "\u2116${train.number} "
+                                val allNumbers = buildList {
+                                    train.number?.takeIf { it.isNotBlank() }?.let { add(it) }
+                                    addAll(train.additionalNumbers)
+                                }
+                                val trainNumber = if (allNumbers.isNotEmpty()) {
+                                    "\u2116${allNumbers.joinToString(", ")} "
                                 } else {
                                     ""
                                 }
