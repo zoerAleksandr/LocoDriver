@@ -3,11 +3,11 @@ package com.z_company.loco_driver.widget
 import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
@@ -21,6 +21,7 @@ import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
+import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.background
@@ -72,7 +73,8 @@ class LocoDriverWidget : GlanceAppWidget() {
         Box(
             modifier = GlanceModifier
                 .fillMaxSize()
-                .background(R.drawable.widget_background)
+                .cornerRadius(16.dp)
+                .background(WidgetColors.background)
                 .clickable(actionStartActivity<MainActivity>())
                 .padding(12.dp)
         ) {
@@ -93,7 +95,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                     Text(
                         text = "Машинист",
                         style = TextStyle(
-                            color = ColorProvider(R.color.widget_text_secondary),
+                            color = ColorProvider(WidgetColors.textSecondary),
                             fontSize = 12.sp
                         )
                     )
@@ -101,7 +103,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                     Text(
                         text = monthYear,
                         style = TextStyle(
-                            color = ColorProvider(R.color.widget_text_secondary),
+                            color = ColorProvider(WidgetColors.textSecondary),
                             fontSize = 11.sp
                         )
                     )
@@ -120,7 +122,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                         Text(
                             text = totalTimeText,
                             style = TextStyle(
-                                color = ColorProvider(R.color.widget_text_primary),
+                                color = ColorProvider(WidgetColors.textPrimary),
                                 fontSize = 28.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -128,7 +130,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                         Text(
                             text = "Отработано",
                             style = TextStyle(
-                                color = ColorProvider(R.color.widget_text_secondary),
+                                color = ColorProvider(WidgetColors.textSecondary),
                                 fontSize = 11.sp
                             )
                         )
@@ -139,7 +141,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                         Text(
                             text = normPercent,
                             style = TextStyle(
-                                color = ColorProvider(R.color.widget_accent),
+                                color = ColorProvider(WidgetColors.accent),
                                 fontSize = 22.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -147,7 +149,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                         Text(
                             text = "нормы",
                             style = TextStyle(
-                                color = ColorProvider(R.color.widget_text_secondary),
+                                color = ColorProvider(WidgetColors.textSecondary),
                                 fontSize = 11.sp
                             )
                         )
@@ -171,7 +173,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                         Text(
                             text = "Маршрутов: $routeCount",
                             style = TextStyle(
-                                color = ColorProvider(R.color.widget_text_secondary),
+                                color = ColorProvider(WidgetColors.textSecondary),
                                 fontSize = 12.sp
                             )
                         )
@@ -190,7 +192,8 @@ class LocoDriverWidget : GlanceAppWidget() {
         Row(
             modifier = GlanceModifier
                 .fillMaxWidth()
-                .background(R.drawable.widget_route_background)
+                .cornerRadius(10.dp)
+                .background(WidgetColors.routeBackground)
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -208,7 +211,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                 Text(
                     text = if (trainNumber.isNotEmpty()) "Поезд $trainNumber" else "Текущий маршрут",
                     style = TextStyle(
-                        color = ColorProvider(R.color.widget_text_primary),
+                        color = ColorProvider(WidgetColors.textPrimary),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -217,12 +220,21 @@ class LocoDriverWidget : GlanceAppWidget() {
             Text(
                 text = workTime,
                 style = TextStyle(
-                    color = ColorProvider(R.color.widget_accent),
+                    color = ColorProvider(WidgetColors.accent),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
                 )
             )
         }
+    }
+
+    /** Widget color palette */
+    private object WidgetColors {
+        val background = Color(0xE61C1B1F)       // dark with slight transparency
+        val routeBackground = Color(0x332C2C30)   // subtle card
+        val textPrimary = Color(0xFFFFFFFF)        // white
+        val textSecondary = Color(0xB3FFFFFF)      // white 70%
+        val accent = Color(0xFF4FC3F7)             // light blue
     }
 
     /** Preference keys used by the widget state (via updateAppWidgetState). */
