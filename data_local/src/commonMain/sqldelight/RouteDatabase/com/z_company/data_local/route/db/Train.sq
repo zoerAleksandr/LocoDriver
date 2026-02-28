@@ -38,3 +38,6 @@ DELETE FROM Train WHERE trainId = :trainId;
 
 setRemoteObjectId:
 UPDATE Train SET remoteObjectId = :remoteObjectId WHERE trainId = :trainId;
+
+countAll:
+SELECT COUNT(*) FROM Train;
