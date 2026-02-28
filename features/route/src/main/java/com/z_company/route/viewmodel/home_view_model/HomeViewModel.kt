@@ -302,17 +302,17 @@ class HomeViewModel : ViewModel(), KoinComponent {
     // Determine what will be filled next:
     // returns true if next fill is timeDeparture, false if next fill is timeArrival
     private fun nextIsDeparture(train: Train?): Boolean {
-        if (train == null) return false // no train -> we'll fill arrival first
+        if (train == null) return true
         val stations = train.stations
-        if (stations.isEmpty()) return true // create first station -> fill arrival
-        if (stations.size == 1 && stations.first().timeDeparture == null) return true
+        if (stations.isEmpty()) return true
 
-        val last = stations.last()
-        return when {
-            last.timeArrival == null -> false // next is arrival
-            last.timeDeparture == null -> true // next is departure
-            else -> false // both present -> new station -> arrival
+        // Сканируем с конца, ищем последнее заполненное время
+        for (i in stations.indices.reversed()) {
+            val s = stations[i]
+            if (s.timeDeparture != null) return false  // последнее — departure → следующее arrival
+            if (s.timeArrival != null) return true      // последнее — arrival → следующее departure
         }
+        return true // ничего не заполнено → departure
     }
 
     fun isNextDeparture(): Boolean {
@@ -324,67 +324,59 @@ class HomeViewModel : ViewModel(), KoinComponent {
         viewModelScope.launch {
             val current = currentRoute?.trains?.lastOrNull()
             val timeZone = uiState.value.dateAndTimeConverter?.timeZoneText ?: "GMT+3"
-            val currentTimeCalendar = getInstance(TimeZone.getTimeZone(timeZone)).apply {
+            val now = getInstance(TimeZone.getTimeZone(timeZone)).apply {
                 set(Calendar.SECOND, 0)
                 set(Calendar.MILLISECOND, 0)
-            }
-
-            val now = currentTimeCalendar.timeInMillis
+            }.timeInMillis
 
             val updatedTrain = withContext(Dispatchers.Default) {
                 if (current == null) {
-                    val firstStation = Station(timeArrival = now)
-                    Train(
-                        stations = mutableListOf(firstStation)
-                    )
+                    Train(stations = mutableListOf(Station(timeDeparture = now)))
                 } else {
                     val stations = current.stations.toMutableList()
                     if (stations.isEmpty()) {
-                        stations.add(
-                            Station(
-                                timeDeparture = now,
-                            )
-                        )
-                    } else if (stations.size == 1 && stations.first().timeDeparture == null) {
-                        stations[0] = stations[0].copy(timeDeparture = now)
+                        stations.add(Station(timeDeparture = now))
                     } else {
-                        val last = stations.last()
-                        when {
-                            last.timeArrival == null -> {
-                                stations[stations.lastIndex] = last.copy(timeArrival = now)
+                        // Найти последнее заполненное время (сканируем с конца)
+                        var filled = false
+                        for (i in stations.indices.reversed()) {
+                            val s = stations[i]
+                            if (s.timeDeparture != null) {
+                                // Последнее — departure → arrival на следующей станции
+                                val nextIdx = i + 1
+                                if (nextIdx <= stations.lastIndex) {
+                                    stations[nextIdx] = stations[nextIdx].copy(timeArrival = now)
+                                } else {
+                                    stations.add(Station(timeArrival = now))
+                                }
+                                filled = true
+                                break
                             }
-
-                            last.timeDeparture == null -> {
-                                stations[stations.lastIndex] = last.copy(timeDeparture = now)
+                            if (s.timeArrival != null) {
+                                // Последнее — arrival → departure на той же станции
+                                stations[i] = s.copy(timeDeparture = now)
+                                filled = true
+                                break
                             }
-
-                            else -> {
-                                stations.add(
-                                    Station(
-                                        timeArrival = now,
-                                    )
-                                )
-                            }
+                        }
+                        if (!filled) {
+                            // Ничего не заполнено → departure первой станции
+                            stations[0] = stations[0].copy(timeDeparture = now)
                         }
                     }
                     current.copy(stations = stations)
                 }
             }
 
-            // persist in DB
             try {
-                val text =
-                    if (isNextDeparture()) "Сохранено время отправления" else "Сохранено время прибытия"
+                val text = if (isNextDeparture()) "Сохранено время отправления" else "Сохранено время прибытия"
                 val timeText = uiState.value.dateAndTimeConverter?.getTime(now) ?: ""
-                val resultText = "$text $timeText"
                 trainUseCase.updateTrain(updatedTrain).collect { saveResult ->
                     if (saveResult is ResultState.Success) {
-                        _saveTimeEvent.emit(resultText)
+                        _saveTimeEvent.emit("$text $timeText")
                     }
                 }
-            } catch (e: Exception) {
-                // optionally handle error: add error event flow, show snackbar with error, etc.
-            }
+            } catch (_: Exception) { }
         }
     }
 
