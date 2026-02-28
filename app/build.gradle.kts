@@ -134,6 +134,10 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
+    // Glance AppWidget
+    implementation("androidx.glance:glance-appwidget:1.1.1")
+    implementation("androidx.glance:glance-material3:1.1.1")
+
     debugImplementation(Libs.ui_tooling)
     debugImplementation(Libs.ui_test_manifest)
     debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")

@@ -88,6 +88,20 @@
 
         </activity>
 
+        <!-- Glance Widget -->
+        <receiver
+            android:name=".widget.LocoDriverWidgetReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="com.z_company.loco_driver.widget.ACTION_GO_CLICKED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/loco_driver_widget_info" />
+        </receiver>
 
     </application>
 </manifest>

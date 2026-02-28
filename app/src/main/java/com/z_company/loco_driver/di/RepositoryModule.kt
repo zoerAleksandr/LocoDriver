@@ -26,6 +26,8 @@ import com.z_company.repository.remote_rest.RemoteRestClient
 import com.z_company.repository.remote_rest.RoutesManager
 import com.z_company.repository.remote_rest.SettingManager
 import com.z_company.repository.remote_rest.SyncManager
+import com.z_company.core.widget.WidgetUpdater
+import com.z_company.loco_driver.widget.GlanceWidgetUpdater
 import com.z_company.route.viewmodel.RouteActionsHelper
 import com.z_company.use_case.SubscriptionHelper
 import org.koin.android.ext.koin.androidApplication
@@ -67,6 +69,9 @@ val repositoryModule = module {
 
     single { RouteActionsHelper() }
     single { SubscriptionHelper() }
+
+    // Widget updater (Glance)
+    single<WidgetUpdater> { GlanceWidgetUpdater(androidContext()) }
     // Шаг 10: SyncManager — конструкторная инжекция (KoinComponent → DI)
     single {
         SyncManager(

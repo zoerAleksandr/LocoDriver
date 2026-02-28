@@ -3,4 +3,5 @@
     <string name="scheme">z_company_loco_driver_scheme</string>
     
     <string name="my_tracer_sdk_key">50865477859265320301</string>
+    <string name="widget_description">Отработанное время и текущий маршрут</string>
 </resources>
