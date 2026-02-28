@@ -537,7 +537,7 @@ fun FormTrainScreen(
                             if (train.additionalNumbers.isNotEmpty()) {
                                 FlowRow(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     train.additionalNumbers.forEachIndexed { index, num ->

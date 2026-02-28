@@ -808,13 +808,8 @@ fun HomeScreen(
                                                                     )
                                                                 }
                                                         ) {
-                                                            val allNumbers = buildList {
-                                                                train.number?.let { add(it) }
-                                                                addAll(train.additionalNumbers)
-                                                            }
-                                                            val numberTrainText = if (allNumbers.isNotEmpty())
-                                                                allNumbers.joinToString(", ")
-                                                            else "???"
+                                                            val numberTrainText =
+                                                                train.number ?: "???"
                                                             Text(
                                                                 text = "№ $numberTrainText",
                                                                 color = MaterialTheme.colorScheme.primary,
