@@ -61,7 +61,9 @@ fun LocoDriverApp(
     onConfirmImport: () -> Unit = {},
     onDismissImport: () -> Unit = {},
     pendingFormOpen: Boolean = false,
-    onFormOpened: () -> Unit = {}
+    onFormOpened: () -> Unit = {},
+    pendingNavigateHome: Boolean = false,
+    onNavigatedHome: () -> Unit = {}
 ) {
     LocoDriverTheme {
         val navController = rememberNavController()
@@ -77,6 +79,14 @@ fun LocoDriverApp(
                     launchSingleTop = true
                 }
                 onFormOpened()
+            }
+        }
+
+        // Навигация из виджета → HomeScreen (по тапу на тело виджета)
+        LaunchedEffect(pendingNavigateHome) {
+            if (pendingNavigateHome) {
+                navController.popBackStack(HomeRoute.route, inclusive = false)
+                onNavigatedHome()
             }
         }
 

@@ -50,6 +50,7 @@ class MainActivity : ComponentActivity(), KoinComponent {
             val appState = rememberLocoDriverAppState()
             val pendingImportRoute by mainViewModel.pendingImportRoute.collectAsState()
             val pendingFormOpen by mainViewModel.pendingFormOpen.collectAsState()
+            val pendingNavigateHome by mainViewModel.pendingNavigateHome.collectAsState()
             LocoDriverApp(
                 appState = appState,
                 isShowUpdatePresentation = mainViewModel.showUpdatePresentation,
@@ -57,7 +58,9 @@ class MainActivity : ComponentActivity(), KoinComponent {
                 onConfirmImport = mainViewModel::confirmImportRoute,
                 onDismissImport = mainViewModel::dismissImportRoute,
                 pendingFormOpen = pendingFormOpen,
-                onFormOpened = mainViewModel::clearOpenForm
+                onFormOpened = mainViewModel::clearOpenForm,
+                pendingNavigateHome = pendingNavigateHome,
+                onNavigatedHome = mainViewModel::clearNavigateHome
             )
         }
         VKID.logsEnabled = true
@@ -89,6 +92,11 @@ class MainActivity : ComponentActivity(), KoinComponent {
         // Навигация из виджета → добавить маршрут
         if (i?.getBooleanExtra("widget_add_route", false) == true) {
             mainViewModel.requestOpenForm()
+        }
+
+        // Навигация из виджета → HomeScreen
+        if (i?.getBooleanExtra("widget_open_home", false) == true) {
+            mainViewModel.requestNavigateHome()
         }
     }
 
