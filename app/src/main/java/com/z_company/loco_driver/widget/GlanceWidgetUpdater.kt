@@ -49,6 +49,11 @@ class GlanceWidgetUpdater(
                 statusText = statusText,
                 statusTimeText = statusTimeText
             )
+            LocoDriverSmallWidget.updateAllSmallWidgets(
+                context = context,
+                totalTimeText = totalTimeText,
+                normHours = normHours
+            )
         } catch (e: Exception) {
             android.util.Log.w("GlanceWidgetUpdater", "Widget update failed", e)
         }
