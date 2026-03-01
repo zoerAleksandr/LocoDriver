@@ -53,7 +53,7 @@ import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.findCurrentRoute
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
-import com.z_company.domain.entities.route.UtilsForEntities.isFuture
+import com.z_company.domain.entities.route.UtilsForEntities.findNextFutureRoute
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -94,6 +94,7 @@ class LocoDriverWidget : GlanceAppWidget() {
         val prefs = currentState<Preferences>()
         val totalTimeText = prefs[Keys.TOTAL_TIME_TEXT] ?: "--:--"
         val normHours = prefs[Keys.NORM_HOURS] ?: ""
+        val hasCurrentRoute = prefs[Keys.HAS_CURRENT_ROUTE] ?: false
         val isDepartureNext = prefs[Keys.IS_DEPARTURE_NEXT] ?: true
         val lastActionText = prefs[Keys.LAST_ACTION_TEXT] ?: ""
         val stateInfoLine1 = prefs[Keys.STATE_INFO_LINE1] ?: ""
@@ -165,8 +166,9 @@ class LocoDriverWidget : GlanceAppWidget() {
                         Text(
                             text = stateInfoLine2,
                             style = TextStyle(
-                                color = ColorProvider(WidgetColors.textSecondary),
-                                fontSize = 11.sp
+                                color = ColorProvider(WidgetColors.textPrimary),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
                             )
                         )
                     }
@@ -174,8 +176,9 @@ class LocoDriverWidget : GlanceAppWidget() {
                         Text(
                             text = stateInfoLine3,
                             style = TextStyle(
-                                color = ColorProvider(WidgetColors.textSecondary),
-                                fontSize = 11.sp
+                                color = ColorProvider(WidgetColors.textPrimary),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
                             )
                         )
                     }
@@ -195,54 +198,56 @@ class LocoDriverWidget : GlanceAppWidget() {
                     }
                 }
 
-                // Right column — play/stop button
-                Column(
-                    modifier = GlanceModifier
-                        .width(80.dp)
-                        .cornerRadius(12.dp)
-                        .background(WidgetColors.buttonBackground)
-                        .padding(vertical = 8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Spacer(modifier = GlanceModifier.defaultWeight())
-                    Box(
+                // Right column — play/stop button (only when current route exists)
+                if (hasCurrentRoute) {
+                    Column(
                         modifier = GlanceModifier
-                            .size(56.dp)
-                            .clickable(actionRunCallback<GoActionCallback>()),
-                        contentAlignment = Alignment.Center
+                            .width(80.dp)
+                            .cornerRadius(12.dp)
+                            .background(WidgetColors.buttonBackground)
+                            .padding(vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Image(
-                            provider = ImageProvider(
-                                if (isDepartureNext) R.drawable.widget_play else R.drawable.widget_stop
-                            ),
-                            contentDescription = if (isDepartureNext) "Отправление" else "Прибытие",
-                            modifier = GlanceModifier.size(48.dp)
-                        )
-                    }
-                    if (lastActionText.isNotEmpty()) {
-                        Spacer(modifier = GlanceModifier.height(4.dp))
-                        Text(
-                            text = lastActionText,
-                            style = TextStyle(
-                                color = ColorProvider(WidgetColors.textSecondary),
-                                fontSize = 10.sp
+                        Spacer(modifier = GlanceModifier.defaultWeight())
+                        Box(
+                            modifier = GlanceModifier
+                                .size(56.dp)
+                                .clickable(actionRunCallback<GoActionCallback>()),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                provider = ImageProvider(
+                                    if (isDepartureNext) R.drawable.widget_play else R.drawable.widget_stop
+                                ),
+                                contentDescription = if (isDepartureNext) "Отправление" else "Прибытие",
+                                modifier = GlanceModifier.size(48.dp)
                             )
-                        )
+                        }
+                        if (lastActionText.isNotEmpty()) {
+                            Spacer(modifier = GlanceModifier.height(4.dp))
+                            Text(
+                                text = lastActionText,
+                                style = TextStyle(
+                                    color = ColorProvider(WidgetColors.textSecondary),
+                                    fontSize = 10.sp
+                                )
+                            )
+                        }
+                        Spacer(modifier = GlanceModifier.defaultWeight())
                     }
-                    Spacer(modifier = GlanceModifier.defaultWeight())
                 }
             }
         }
     }
 
-    /** Widget color palette */
+    /** Widget color palette — matches app dark theme (Color.kt) */
     private object WidgetColors {
-        val background = Color(0xE61C1B1F)
-        val buttonBackground = Color(0x332C2C30)
-        val textPrimary = Color(0xFFFFFFFF)
-        val textSecondary = Color(0xB3FFFFFF)
-        val accent = Color(0xFF4FC3F7)
+        val background = Color(0xE6333333)          // DarkBackground with 90% alpha
+        val buttonBackground = Color(0x33363636)    // DarkSecondaryContainer with 20% alpha
+        val textPrimary = Color(0xFFf0f0f0)         // DarkPrimary
+        val textSecondary = Color(0xFFEBE8E8)       // DarkOnSurface
+        val accent = Color(0xFF92b2e5)              // DarkTertiary
     }
 
     /** Preference keys */
@@ -400,9 +405,7 @@ object WidgetDataLoader : KoinComponent {
         )
 
         // Next report text
-        val futureRoute = allRoutes
-            .filter { it.isFuture(userSettings.timeZone) }
-            .minByOrNull { it.basicData.timeStartWork ?: Long.MAX_VALUE }
+        val futureRoute = allRoutes.findNextFutureRoute(currentTimeInMillis)
         val nextReportText = if (futureRoute != null) {
             "Следующая явка ${dateAndTimeConverter.getDateMiniAndTime(futureRoute.basicData.timeStartWork)}"
         } else "Следующая явка неизвестна"
@@ -485,20 +488,20 @@ object WidgetDataLoader : KoinComponent {
                 val minTime = userSettings.minTimeRestPointOfTurnover
                 val shortRest = maxOf(workTime / 2, minTime)
                 val fullRest = maxOf(workTime, minTime)
-                val line1 =
+                val shortLine =
                     "Короткий ${ConverterLongToTime.formatDurationFromMillis(shortRest)} до ${dateAndTimeConverter.getDateMiniAndTime(endWork + shortRest)}"
-                val line2 =
+                val fullLine =
                     "Полный ${ConverterLongToTime.formatDurationFromMillis(fullRest)} до ${dateAndTimeConverter.getDateMiniAndTime(endWork + fullRest)}"
-                return StateInfo(line1, line2, "")
+                return StateInfo("Отдых в ПО", shortLine, fullLine)
             } else {
                 // Home rest (simplified — single route, no chain)
                 val rawDuration = (workTime.toDouble() * 2.6).toLong()
                 val duration = maxOf(rawDuration, userSettings.minTimeHomeRest)
                 val endRestTime = endWork + duration
-                val line1 =
+                val durationLine =
                     "Продлится ${ConverterLongToTime.formatDurationFromMillis(duration)}"
-                val line2 = "До ${dateAndTimeConverter.getDateMiniAndTime(endRestTime)}"
-                return StateInfo(line1, line2, "")
+                val endLine = "До ${dateAndTimeConverter.getDateMiniAndTime(endRestTime)}"
+                return StateInfo("Домашний отдых", durationLine, endLine)
             }
         }
 
