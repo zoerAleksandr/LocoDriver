@@ -109,6 +109,8 @@ class LocoDriverWidget : GlanceAppWidget() {
         val stateInfoLine1 = prefs[Keys.STATE_INFO_LINE1] ?: ""
         val stateInfoLine2 = prefs[Keys.STATE_INFO_LINE2] ?: ""
         val stateInfoLine3 = prefs[Keys.STATE_INFO_LINE3] ?: ""
+        val stateInfoLine4 = prefs[Keys.STATE_INFO_LINE4] ?: ""
+        val stateInfoLine5 = prefs[Keys.STATE_INFO_LINE5] ?: ""
         val nextReportText = prefs[Keys.NEXT_REPORT_TEXT] ?: ""
         val normRemainingText = prefs[Keys.NORM_REMAINING_TEXT] ?: ""
         val isOvertime = prefs[Keys.IS_OVERTIME] ?: false
@@ -164,7 +166,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                                 style = TextStyle(
                                     color = ColorProvider(WidgetColors.textPrimary),
                                     fontSize = 14.sp,
-                                    fontWeight = FontWeight.Medium
+                                    fontWeight = FontWeight.Normal
                                 ),
                                 maxLines = 1
                             )
@@ -175,7 +177,29 @@ class LocoDriverWidget : GlanceAppWidget() {
                                 style = TextStyle(
                                     color = ColorProvider(WidgetColors.textPrimary),
                                     fontSize = 14.sp,
-                                    fontWeight = FontWeight.Medium
+                                    fontWeight = FontWeight.Normal
+                                ),
+                                maxLines = 1
+                            )
+                        }
+                        if (stateInfoLine4.isNotEmpty()) {
+                            Text(
+                                text = stateInfoLine4,
+                                style = TextStyle(
+                                    color = ColorProvider(WidgetColors.textPrimary),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Normal
+                                ),
+                                maxLines = 1
+                            )
+                        }
+                        if (stateInfoLine5.isNotEmpty()) {
+                            Text(
+                                text = stateInfoLine5,
+                                style = TextStyle(
+                                    color = ColorProvider(WidgetColors.textPrimary),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Normal
                                 ),
                                 maxLines = 1
                             )
@@ -383,6 +407,8 @@ class LocoDriverWidget : GlanceAppWidget() {
         val STATE_INFO_LINE1 = stringPreferencesKey("state_info_line1")
         val STATE_INFO_LINE2 = stringPreferencesKey("state_info_line2")
         val STATE_INFO_LINE3 = stringPreferencesKey("state_info_line3")
+        val STATE_INFO_LINE4 = stringPreferencesKey("state_info_line4")
+        val STATE_INFO_LINE5 = stringPreferencesKey("state_info_line5")
         val NEXT_REPORT_TEXT = stringPreferencesKey("next_report_text")
         val NORM_REMAINING_TEXT = stringPreferencesKey("norm_remaining_text")
         val IS_OVERTIME = booleanPreferencesKey("is_overtime")
@@ -404,6 +430,8 @@ class LocoDriverWidget : GlanceAppWidget() {
             stateInfoLine1: String,
             stateInfoLine2: String,
             stateInfoLine3: String,
+            stateInfoLine4: String,
+            stateInfoLine5: String,
             nextReportText: String,
             normRemainingText: String,
             isOvertime: Boolean,
@@ -426,6 +454,8 @@ class LocoDriverWidget : GlanceAppWidget() {
                         this[Keys.STATE_INFO_LINE1] = stateInfoLine1
                         this[Keys.STATE_INFO_LINE2] = stateInfoLine2
                         this[Keys.STATE_INFO_LINE3] = stateInfoLine3
+                        this[Keys.STATE_INFO_LINE4] = stateInfoLine4
+                        this[Keys.STATE_INFO_LINE5] = stateInfoLine5
                         this[Keys.NEXT_REPORT_TEXT] = nextReportText
                         this[Keys.NORM_REMAINING_TEXT] = normRemainingText
                         this[Keys.IS_OVERTIME] = isOvertime
@@ -563,8 +593,8 @@ object WidgetDataLoader : KoinComponent {
         // Next report text
         val futureRoute = allRoutes.findNextFutureRoute(currentTimeInMillis)
         val nextReportText = if (futureRoute != null) {
-            "Следующая явка ${dateAndTimeConverter.getDateMiniAndTime(futureRoute.basicData.timeStartWork)}"
-        } else "Следующая явка неизвестна"
+            "След. явка ${dateAndTimeConverter.getDateMiniAndTime(futureRoute.basicData.timeStartWork)}"
+        } else "След. явка неизвестна"
 
         LocoDriverWidget.updateAllWidgets(
             context = context,
@@ -578,6 +608,8 @@ object WidgetDataLoader : KoinComponent {
             stateInfoLine1 = stateInfo.line1,
             stateInfoLine2 = stateInfo.line2,
             stateInfoLine3 = stateInfo.line3,
+            stateInfoLine4 = stateInfo.line4,
+            stateInfoLine5 = stateInfo.line5,
             nextReportText = nextReportText,
             normRemainingText = normRemainingText,
             isOvertime = isOvertime,
@@ -637,7 +669,13 @@ object WidgetDataLoader : KoinComponent {
         return ButtonInfo(trainNumber, "", "")
     }
 
-    private data class StateInfo(val line1: String, val line2: String, val line3: String)
+    private data class StateInfo(
+        val line1: String,
+        val line2: String,
+        val line3: String,
+        val line4: String = "",
+        val line5: String = ""
+    )
 
     /** Compute state info: report time / rest info / empty */
     private fun computeStateInfo(
@@ -674,11 +712,15 @@ object WidgetDataLoader : KoinComponent {
                 val minTime = userSettings.minTimeRestPointOfTurnover
                 val shortRest = maxOf(workTime / 2, minTime)
                 val fullRest = maxOf(workTime, minTime)
-                val shortLine =
-                    "Короткий ${ConverterLongToTime.formatDurationFromMillis(shortRest)} до ${dateAndTimeConverter.getDateMiniAndTime(endWork + shortRest)}"
-                val fullLine =
-                    "Полный ${ConverterLongToTime.formatDurationFromMillis(fullRest)} до ${dateAndTimeConverter.getDateMiniAndTime(endWork + fullRest)}"
-                return StateInfo("Отдых в ПО", shortLine, fullLine)
+                val shortDuration =
+                    "Короткий ${ConverterLongToTime.formatDurationFromMillis(shortRest)}"
+                val shortEnd =
+                    "до ${dateAndTimeConverter.getDateMiniAndTime(endWork + shortRest)}"
+                val fullDuration =
+                    "Полный ${ConverterLongToTime.formatDurationFromMillis(fullRest)}"
+                val fullEnd =
+                    "до ${dateAndTimeConverter.getDateMiniAndTime(endWork + fullRest)}"
+                return StateInfo("Отдых в ПО", shortDuration, shortEnd, fullDuration, fullEnd)
             } else {
                 // Home rest (simplified — single route, no chain)
                 val rawDuration = (workTime.toDouble() * 2.6).toLong()

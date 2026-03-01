@@ -848,8 +848,8 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 // Next report text
                 val futureRoute = fullRouteList.findNextFutureRoute(currentTimeInMillis)
                 val nextReportText = if (futureRoute != null) {
-                    "Следующая явка ${dateAndTimeConverter.getDateMiniAndTime(futureRoute.basicData.timeStartWork)}"
-                } else "Следующая явка неизвестна"
+                    "След. явка ${dateAndTimeConverter.getDateMiniAndTime(futureRoute.basicData.timeStartWork)}"
+                } else "След. явка неизвестна"
 
                 widgetUpdater.update(
                     totalTimeText = totalTimeText,
@@ -859,9 +859,11 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     reportTime = reportTime,
                     isDepartureNext = isDeparture,
                     lastActionText = "",
-                    stateInfoLine1 = stateInfo.first,
-                    stateInfoLine2 = stateInfo.second,
-                    stateInfoLine3 = stateInfo.third,
+                    stateInfoLine1 = stateInfo.line1,
+                    stateInfoLine2 = stateInfo.line2,
+                    stateInfoLine3 = stateInfo.line3,
+                    stateInfoLine4 = stateInfo.line4,
+                    stateInfoLine5 = stateInfo.line5,
                     nextReportText = nextReportText,
                     normRemainingText = normRemainingText,
                     isOvertime = isOvertime,
@@ -918,7 +920,16 @@ class HomeViewModel : ViewModel(), KoinComponent {
         return ButtonInfo(trainNumber, "", "")
     }
 
-    /** Compute state info: report time / rest info / empty. Returns Triple(line1, line2, line3). */
+    /** State info lines (up to 5 lines for turnaround rest). */
+    private data class WidgetStateInfo(
+        val line1: String,
+        val line2: String,
+        val line3: String,
+        val line4: String = "",
+        val line5: String = ""
+    )
+
+    /** Compute state info: report time / rest info / empty. */
     private fun computeStateInfo(
         hasCurrentRoute: Boolean,
         currentRoute: Route?,
@@ -926,12 +937,12 @@ class HomeViewModel : ViewModel(), KoinComponent {
         currentTimeInMillis: Long,
         userSettings: UserSettings,
         dateAndTimeConverter: DateAndTimeConverter
-    ): Triple<String, String, String> {
+    ): WidgetStateInfo {
         // State 1: Current route — show report time
         if (hasCurrentRoute && currentRoute != null) {
             val reportText =
                 "Текущая явка ${dateAndTimeConverter.getDateMiniAndTime(currentRoute.basicData.timeStartWork)}"
-            return Triple(reportText, "", "")
+            return WidgetStateInfo(reportText, "", "")
         }
 
         // State 2: No current route — find previous completed route
@@ -953,11 +964,15 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 val minTime = userSettings.minTimeRestPointOfTurnover
                 val shortRest = maxOf(workTime / 2, minTime)
                 val fullRest = maxOf(workTime, minTime)
-                val shortLine =
-                    "Короткий ${ConverterLongToTime.formatDurationFromMillis(shortRest)} до ${dateAndTimeConverter.getDateMiniAndTime(endWork + shortRest)}"
-                val fullLine =
-                    "Полный ${ConverterLongToTime.formatDurationFromMillis(fullRest)} до ${dateAndTimeConverter.getDateMiniAndTime(endWork + fullRest)}"
-                return Triple("Отдых в ПО", shortLine, fullLine)
+                val shortDuration =
+                    "Короткий ${ConverterLongToTime.formatDurationFromMillis(shortRest)}"
+                val shortEnd =
+                    "до ${dateAndTimeConverter.getDateMiniAndTime(endWork + shortRest)}"
+                val fullDuration =
+                    "Полный ${ConverterLongToTime.formatDurationFromMillis(fullRest)}"
+                val fullEnd =
+                    "до ${dateAndTimeConverter.getDateMiniAndTime(endWork + fullRest)}"
+                return WidgetStateInfo("Отдых в ПО", shortDuration, shortEnd, fullDuration, fullEnd)
             } else {
                 // Home rest (simplified — single route, no chain)
                 val rawDuration = (workTime.toDouble() * 2.6).toLong()
@@ -966,12 +981,12 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 val durationLine =
                     "Продлится ${ConverterLongToTime.formatDurationFromMillis(duration)}"
                 val endLine = "До ${dateAndTimeConverter.getDateMiniAndTime(endRestTime)}"
-                return Triple("Домашний отдых", durationLine, endLine)
+                return WidgetStateInfo("Домашний отдых", durationLine, endLine)
             }
         }
 
         // State 3: No routes at all
-        return Triple("", "", "")
+        return WidgetStateInfo("", "", "")
     }
 
     fun setCurrentMonth(yearAndMonth: Pair<Int, Int>) {

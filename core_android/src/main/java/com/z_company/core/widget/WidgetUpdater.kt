@@ -18,8 +18,10 @@ interface WidgetUpdater {
      * @param lastActionText   last recorded action text (e.g. "В пути с 16:20" or "Стоянка с 15:45")
      * @param stateInfoLine1   state info line 1 (e.g. "Явка 28.02 08:00" or rest duration)
      * @param stateInfoLine2   state info line 2 (e.g. rest end time or turnaround short rest)
-     * @param stateInfoLine3   state info line 3 (turnaround full rest, or empty)
-     * @param nextReportText   next report text (e.g. "Следующая явка 12.03 17:30")
+     * @param stateInfoLine3   state info line 3 (turnaround short rest end time, or home rest end time)
+     * @param stateInfoLine4   state info line 4 (turnaround full rest duration, or empty)
+     * @param stateInfoLine5   state info line 5 (turnaround full rest end time, or empty)
+     * @param nextReportText   next report text (e.g. "След. явка 12.03 17:30")
      */
     suspend fun update(
         totalTimeText: String,
@@ -32,6 +34,8 @@ interface WidgetUpdater {
         stateInfoLine1: String,
         stateInfoLine2: String,
         stateInfoLine3: String,
+        stateInfoLine4: String,
+        stateInfoLine5: String,
         nextReportText: String,
         normRemainingText: String,
         isOvertime: Boolean,
