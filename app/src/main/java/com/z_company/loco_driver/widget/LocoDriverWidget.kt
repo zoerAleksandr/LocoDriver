@@ -137,85 +137,87 @@ class LocoDriverWidget : GlanceAppWidget() {
                     isOvertime = isOvertime
                 )
 
-                // Spacer pushes bottom section to the bottom edge
-                Spacer(modifier = GlanceModifier.defaultWeight())
-
                 // ─── Bottom: different layout for current route vs rest ───
                 if (hasCurrentRoute) {
-                    // ─── Current route: wide action bar + report text ───
-                    Column(modifier = GlanceModifier.fillMaxWidth()) {
-                        // Wide action button
-                        Row(
-                            modifier = GlanceModifier
-                                .fillMaxWidth()
-                                .cornerRadius(12.dp)
-                                .background(WidgetColors.addButtonBackground)
-                                .clickable(actionRunCallback<GoActionCallback>())
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                    // ─── Current route: action bar centered, report text at bottom ───
+
+                    // Top spacer — pushes action bar to center
+                    Spacer(modifier = GlanceModifier.defaultWeight())
+
+                    // Wide action button (centered vertically)
+                    Row(
+                        modifier = GlanceModifier
+                            .fillMaxWidth()
+                            .cornerRadius(12.dp)
+                            .background(WidgetColors.addButtonBackground)
+                            .clickable(actionRunCallback<GoActionCallback>())
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Play/stop icon on the left
+                        Image(
+                            provider = ImageProvider(
+                                if (isDepartureNext) R.drawable.widget_play else R.drawable.widget_stop
+                            ),
+                            contentDescription = if (isDepartureNext) "Отправление" else "Прибытие",
+                            modifier = GlanceModifier.size(36.dp)
+                        )
+
+                        // Action text centered in remaining space
+                        Column(
+                            modifier = GlanceModifier.defaultWeight(),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            // Play/stop icon on the left
-                            Image(
-                                provider = ImageProvider(
-                                    if (isDepartureNext) R.drawable.widget_play else R.drawable.widget_stop
-                                ),
-                                contentDescription = if (isDepartureNext) "Отправление" else "Прибытие",
-                                modifier = GlanceModifier.size(36.dp)
-                            )
-
-                            // Action text centered in remaining space
-                            Column(
-                                modifier = GlanceModifier.defaultWeight(),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                val actionText = if (isDepartureNext)
-                                    "Сохранить время отправления"
-                                else
-                                    "Сохранить время прибытия"
-                                Text(
-                                    text = actionText,
-                                    style = TextStyle(
-                                        color = ColorProvider(WidgetColors.addButtonText),
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Medium
-                                    ),
-                                    maxLines = 1
-                                )
-
-                                // Detail line: "п. №3390 стоянка с 00:47"
-                                val detailParts = listOf(trainNumberText, statusText, statusTimeText)
-                                    .filter { it.isNotEmpty() }
-                                val detailText = detailParts.joinToString(" ")
-                                if (detailText.isNotEmpty()) {
-                                    Text(
-                                        text = detailText,
-                                        style = TextStyle(
-                                            color = ColorProvider(WidgetColors.addButtonText),
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Normal
-                                        ),
-                                        maxLines = 1
-                                    )
-                                }
-                            }
-                        }
-
-                        // "Текущая явка 01.03 08:00" below the button
-                        if (stateInfoLine1.isNotEmpty()) {
-                            Spacer(modifier = GlanceModifier.height(4.dp))
+                            val actionText = if (isDepartureNext)
+                                "Сохранить время отправления"
+                            else
+                                "Сохранить время прибытия"
                             Text(
-                                text = stateInfoLine1,
+                                text = actionText,
                                 style = TextStyle(
-                                    color = ColorProvider(WidgetColors.accent),
+                                    color = ColorProvider(WidgetColors.addButtonText),
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Medium
                                 ),
                                 maxLines = 1
                             )
+
+                            // Detail line: "п. №3390 стоянка с 00:47"
+                            val detailParts = listOf(trainNumberText, statusText, statusTimeText)
+                                .filter { it.isNotEmpty() }
+                            val detailText = detailParts.joinToString(" ")
+                            if (detailText.isNotEmpty()) {
+                                Text(
+                                    text = detailText,
+                                    style = TextStyle(
+                                        color = ColorProvider(WidgetColors.addButtonText),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Normal
+                                    ),
+                                    maxLines = 1
+                                )
+                            }
                         }
+                    }
+
+                    // Bottom spacer — pushes report text to bottom
+                    Spacer(modifier = GlanceModifier.defaultWeight())
+
+                    // "Текущая явка 01.03 08:00" at the very bottom
+                    if (stateInfoLine1.isNotEmpty()) {
+                        Text(
+                            text = stateInfoLine1,
+                            style = TextStyle(
+                                color = ColorProvider(WidgetColors.accent),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium
+                            ),
+                            maxLines = 1
+                        )
                     }
                 } else {
                     // ─── No current route: rest info (left) + add button (right) ───
+                    Spacer(modifier = GlanceModifier.defaultWeight())
                     Row(
                         modifier = GlanceModifier.fillMaxWidth(),
                         verticalAlignment = Alignment.Bottom
