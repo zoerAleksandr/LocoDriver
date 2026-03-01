@@ -7,31 +7,31 @@ package com.z_company.core.widget
 interface WidgetUpdater {
 
     /**
-     * Update all widget instances with the latest home screen data.
+     * Update all widget instances with the latest data.
      *
      * @param totalTimeText    formatted total work time (e.g. "164:30")
      * @param normHours        individual monthly norm in hours (e.g. "176ч")
-     * @param monthYear        month and year label (e.g. "Февраль 2026")
+     * @param monthYear        month and year label (e.g. "Март 2026")
      * @param hasCurrentRoute  whether there is an active route right now
-     * @param trainNumber      current train number (or empty)
      * @param reportTime       report time of the current route (e.g. "28.02 08:00")
      * @param isDepartureNext  true if next tap will record departure
-     * @param routeCount       total route count for the month
-     * @param hasFutureRoute   whether there is a future route
-     * @param futureReportTime report time of the nearest future route
-     * @param futureTrainNumber train number of the nearest future route
+     * @param lastActionText   last recorded action text (e.g. "В пути с 16:20" or "Стоянка с 15:45")
+     * @param stateInfoLine1   state info line 1 (e.g. "Явка 28.02 08:00" or rest duration)
+     * @param stateInfoLine2   state info line 2 (e.g. rest end time or turnaround short rest)
+     * @param stateInfoLine3   state info line 3 (turnaround full rest, or empty)
+     * @param nextReportText   next report text (e.g. "Следующая явка 12.03 17:30")
      */
     suspend fun update(
         totalTimeText: String,
         normHours: String,
         monthYear: String,
         hasCurrentRoute: Boolean,
-        trainNumber: String,
         reportTime: String,
         isDepartureNext: Boolean,
-        routeCount: String,
-        hasFutureRoute: Boolean,
-        futureReportTime: String,
-        futureTrainNumber: String
+        lastActionText: String,
+        stateInfoLine1: String,
+        stateInfoLine2: String,
+        stateInfoLine3: String,
+        nextReportText: String
     )
 }
