@@ -140,82 +140,71 @@ class LocoDriverWidget : GlanceAppWidget() {
                 // Spacer pushes bottom section to the bottom edge
                 Spacer(modifier = GlanceModifier.defaultWeight())
 
-                // ─── Bottom: state info + play/stop button ───
-                Row(
-                    modifier = GlanceModifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.Bottom
-                ) {
-                    // Left: state info lines + next report
-                    Column(
-                        modifier = GlanceModifier.defaultWeight().padding(end = 8.dp)
-                    ) {
+                // ─── Bottom: different layout for current route vs rest ───
+                if (hasCurrentRoute) {
+                    // ─── Current route: wide action bar + report text ───
+                    Column(modifier = GlanceModifier.fillMaxWidth()) {
+                        // Wide action button
+                        Row(
+                            modifier = GlanceModifier
+                                .fillMaxWidth()
+                                .cornerRadius(12.dp)
+                                .background(WidgetColors.addButtonBackground)
+                                .clickable(actionRunCallback<GoActionCallback>())
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Play/stop icon on the left
+                            Image(
+                                provider = ImageProvider(
+                                    if (isDepartureNext) R.drawable.widget_play else R.drawable.widget_stop
+                                ),
+                                contentDescription = if (isDepartureNext) "Отправление" else "Прибытие",
+                                modifier = GlanceModifier.size(36.dp)
+                            )
+
+                            // Action text centered in remaining space
+                            Column(
+                                modifier = GlanceModifier.defaultWeight(),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                val actionText = if (isDepartureNext)
+                                    "Сохранить время отправления"
+                                else
+                                    "Сохранить время прибытия"
+                                Text(
+                                    text = actionText,
+                                    style = TextStyle(
+                                        color = ColorProvider(WidgetColors.addButtonText),
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    maxLines = 1
+                                )
+
+                                // Detail line: "п. №3390 стоянка с 00:47"
+                                val detailParts = listOf(trainNumberText, statusText, statusTimeText)
+                                    .filter { it.isNotEmpty() }
+                                val detailText = detailParts.joinToString(" ")
+                                if (detailText.isNotEmpty()) {
+                                    Text(
+                                        text = detailText,
+                                        style = TextStyle(
+                                            color = ColorProvider(WidgetColors.addButtonText),
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Normal
+                                        ),
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+
+                        // "Текущая явка 01.03 08:00" below the button
                         if (stateInfoLine1.isNotEmpty()) {
+                            Spacer(modifier = GlanceModifier.height(4.dp))
                             Text(
                                 text = stateInfoLine1,
-                                style = TextStyle(
-                                    color = ColorProvider(WidgetColors.accent),
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Medium
-                                ),
-                                maxLines = 1
-                            )
-                        }
-                        // Spacer between rest type and rest values
-                        if (stateInfoLine1.isNotEmpty() && stateInfoLine2.isNotEmpty()) {
-                            Spacer(modifier = GlanceModifier.height(6.dp))
-                        }
-                        if (stateInfoLine2.isNotEmpty()) {
-                            Text(
-                                text = stateInfoLine2,
-                                style = TextStyle(
-                                    color = ColorProvider(WidgetColors.textPrimary),
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Normal
-                                ),
-                                maxLines = 1
-                            )
-                        }
-                        if (stateInfoLine3.isNotEmpty()) {
-                            Text(
-                                text = stateInfoLine3,
-                                style = TextStyle(
-                                    color = ColorProvider(WidgetColors.textPrimary),
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Normal
-                                ),
-                                maxLines = 1
-                            )
-                        }
-                        // Spacer between short and full rest
-                        if (stateInfoLine3.isNotEmpty() && stateInfoLine4.isNotEmpty()) {
-                            Spacer(modifier = GlanceModifier.height(6.dp))
-                        }
-                        if (stateInfoLine4.isNotEmpty()) {
-                            Text(
-                                text = stateInfoLine4,
-                                style = TextStyle(
-                                    color = ColorProvider(WidgetColors.textPrimary),
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Normal
-                                ),
-                                maxLines = 1
-                            )
-                        }
-                        if (stateInfoLine5.isNotEmpty()) {
-                            Text(
-                                text = stateInfoLine5,
-                                style = TextStyle(
-                                    color = ColorProvider(WidgetColors.textPrimary),
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Normal
-                                ),
-                                maxLines = 1
-                            )
-                        }
-                        if (!hasCurrentRoute && nextReportText.isNotEmpty()) {
-                            Spacer(modifier = GlanceModifier.height(8.dp))
-                            Text(
-                                text = nextReportText,
                                 style = TextStyle(
                                     color = ColorProvider(WidgetColors.accent),
                                     fontSize = 13.sp,
@@ -225,69 +214,94 @@ class LocoDriverWidget : GlanceAppWidget() {
                             )
                         }
                     }
-
-                    // Right: play/stop button OR add button
-                    if (hasCurrentRoute) {
-                        Box(
-                            modifier = GlanceModifier
-                                .width(90.dp)
-                                .cornerRadius(12.dp)
-                                .background(WidgetColors.addButtonBackground)
-                                .padding(vertical = 6.dp),
-                            contentAlignment = Alignment.Center
+                } else {
+                    // ─── No current route: rest info (left) + add button (right) ───
+                    Row(
+                        modifier = GlanceModifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Bottom
+                    ) {
+                        // Left: state info lines + next report
+                        Column(
+                            modifier = GlanceModifier.defaultWeight().padding(end = 8.dp)
                         ) {
-                            // Play/stop button with train info
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Box(
-                                    modifier = GlanceModifier
-                                        .size(48.dp)
-                                        .clickable(actionRunCallback<GoActionCallback>()),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Image(
-                                        provider = ImageProvider(
-                                            if (isDepartureNext) R.drawable.widget_play else R.drawable.widget_stop
-                                        ),
-                                        contentDescription = if (isDepartureNext) "Отправление" else "Прибытие",
-                                        modifier = GlanceModifier.size(40.dp)
-                                    )
-                                }
-                                if (trainNumberText.isNotEmpty()) {
-                                    Spacer(modifier = GlanceModifier.height(2.dp))
-                                    Text(
-                                        text = trainNumberText,
-                                        style = TextStyle(
-                                            color = ColorProvider(WidgetColors.addButtonText),
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Medium
-                                        ),
-                                        maxLines = 1
-                                    )
-                                }
-                                if (statusText.isNotEmpty()) {
-                                    Text(
-                                        text = statusText,
-                                        style = TextStyle(
-                                            color = ColorProvider(WidgetColors.addButtonText),
-                                            fontSize = 10.sp
-                                        )
-                                    )
-                                }
-                                if (statusTimeText.isNotEmpty()) {
-                                    Text(
-                                        text = statusTimeText,
-                                        style = TextStyle(
-                                            color = ColorProvider(WidgetColors.addButtonText),
-                                            fontSize = 10.sp
-                                        )
-                                    )
-                                }
+                            if (stateInfoLine1.isNotEmpty()) {
+                                Text(
+                                    text = stateInfoLine1,
+                                    style = TextStyle(
+                                        color = ColorProvider(WidgetColors.accent),
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    maxLines = 1
+                                )
+                            }
+                            // Spacer between rest type and rest values
+                            if (stateInfoLine1.isNotEmpty() && stateInfoLine2.isNotEmpty()) {
+                                Spacer(modifier = GlanceModifier.height(6.dp))
+                            }
+                            if (stateInfoLine2.isNotEmpty()) {
+                                Text(
+                                    text = stateInfoLine2,
+                                    style = TextStyle(
+                                        color = ColorProvider(WidgetColors.textPrimary),
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Normal
+                                    ),
+                                    maxLines = 1
+                                )
+                            }
+                            if (stateInfoLine3.isNotEmpty()) {
+                                Text(
+                                    text = stateInfoLine3,
+                                    style = TextStyle(
+                                        color = ColorProvider(WidgetColors.textPrimary),
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Normal
+                                    ),
+                                    maxLines = 1
+                                )
+                            }
+                            // Spacer between short and full rest
+                            if (stateInfoLine3.isNotEmpty() && stateInfoLine4.isNotEmpty()) {
+                                Spacer(modifier = GlanceModifier.height(6.dp))
+                            }
+                            if (stateInfoLine4.isNotEmpty()) {
+                                Text(
+                                    text = stateInfoLine4,
+                                    style = TextStyle(
+                                        color = ColorProvider(WidgetColors.textPrimary),
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Normal
+                                    ),
+                                    maxLines = 1
+                                )
+                            }
+                            if (stateInfoLine5.isNotEmpty()) {
+                                Text(
+                                    text = stateInfoLine5,
+                                    style = TextStyle(
+                                        color = ColorProvider(WidgetColors.textPrimary),
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Normal
+                                    ),
+                                    maxLines = 1
+                                )
+                            }
+                            if (nextReportText.isNotEmpty()) {
+                                Spacer(modifier = GlanceModifier.height(8.dp))
+                                Text(
+                                    text = nextReportText,
+                                    style = TextStyle(
+                                        color = ColorProvider(WidgetColors.accent),
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    maxLines = 1
+                                )
                             }
                         }
-                    } else {
-                        // Add route button — light background, dark icon/text
+
+                        // Right: add route button
                         Box(
                             modifier = GlanceModifier
                                 .width(90.dp)
