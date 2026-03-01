@@ -18,6 +18,7 @@ import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.state.updateAppWidgetState
+import androidx.glance.ImageProvider
 import androidx.glance.background
 import androidx.glance.currentState
 import androidx.glance.layout.Alignment
@@ -32,6 +33,7 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
+import com.z_company.loco_driver.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -68,12 +70,14 @@ class LocoDriverSmallWidget : GlanceAppWidget() {
             modifier = GlanceModifier
                 .fillMaxSize()
                 .cornerRadius(16.dp)
-                .background(Colors.background)
+                .background(ImageProvider(R.drawable.widget_background_gradient))
                 .clickable(actionRunCallback<OpenAppActionCallback>())
                 .padding(horizontal = 12.dp, vertical = 8.dp),
-            contentAlignment = Alignment.CenterStart
+            contentAlignment = Alignment.Center
         ) {
-            Column {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 Row(
                     verticalAlignment = Alignment.Bottom
                 ) {
@@ -81,7 +85,7 @@ class LocoDriverSmallWidget : GlanceAppWidget() {
                         text = totalTimeText,
                         style = TextStyle(
                             color = ColorProvider(Colors.textPrimary),
-                            fontSize = 32.sp,
+                            fontSize = 26.sp,
                             fontWeight = FontWeight.Bold
                         )
                     )
@@ -90,7 +94,7 @@ class LocoDriverSmallWidget : GlanceAppWidget() {
                             text = " / $normHours",
                             style = TextStyle(
                                 color = ColorProvider(Colors.accent),
-                                fontSize = 16.sp,
+                                fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium
                             )
                         )
