@@ -320,17 +320,30 @@ object UtilsForEntities {
      * Критерии: timeStartWork уже прошло, timeEndWork либо null (не завершён),
      * либо ещё не наступило. Если несколько — берём с самой поздней timeStartWork.
      * Без фильтрации по месяцу.
+     *
+     * Дополнительное правило: незавершённый маршрут (timeEndWork == null) НЕ может
+     * быть текущим, если после него уже стартовал другой маршрут.
      */
     fun List<Route>.findCurrentRoute(
         currentTimeInMillis: Long,
         userSettings: UserSettings
     ): Route? {
-        return this
+        val allRoutes = this
+        return allRoutes
             .filter { route ->
                 val startWork = route.basicData.timeStartWork ?: return@filter false
                 if (currentTimeInMillis <= startWork) return@filter false
                 val endWork = route.basicData.timeEndWork
-                endWork == null || currentTimeInMillis < endWork
+                if (endWork != null) {
+                    currentTimeInMillis < endWork
+                } else {
+                    // Незавершённый маршрут: текущий, только если после него
+                    // не стартовал другой маршрут (с timeStartWork <= now)
+                    !allRoutes.any { other ->
+                        val otherStart = other.basicData.timeStartWork ?: return@any false
+                        otherStart > startWork && otherStart <= currentTimeInMillis
+                    }
+                }
             }
             .maxByOrNull { it.basicData.timeStartWork ?: 0L }
     }
