@@ -110,7 +110,7 @@ class LocoDriverWidget : GlanceAppWidget() {
             modifier = GlanceModifier
                 .fillMaxSize()
                 .cornerRadius(16.dp)
-                .background(WidgetColors.background)
+                .background(ImageProvider(R.drawable.widget_background_gradient))
                 .clickable(actionRunCallback<OpenAppActionCallback>())
                 .padding(12.dp)
         ) {
@@ -133,7 +133,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                                 text = totalTimeText,
                                 style = TextStyle(
                                     color = ColorProvider(WidgetColors.textPrimary),
-                                    fontSize = 44.sp,
+                                    fontSize = 36.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             )
@@ -142,7 +142,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                                     text = " / $normHours",
                                     style = TextStyle(
                                         color = ColorProvider(WidgetColors.accent),
-                                        fontSize = 22.sp,
+                                        fontSize = 18.sp,
                                         fontWeight = FontWeight.Medium
                                     )
                                 )
@@ -168,7 +168,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                                     color = ColorProvider(
                                         if (isOvertime) WidgetColors.overtimeColor else WidgetColors.accent
                                     ),
-                                    fontSize = 22.sp,
+                                    fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             )

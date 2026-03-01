@@ -2,8 +2,8 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_background"
-    android:gravity="center_vertical"
+    android:background="@drawable/widget_background_gradient"
+    android:gravity="center"
     android:orientation="vertical"
     android:paddingHorizontal="12dp"
     android:paddingVertical="8dp">
@@ -11,20 +11,22 @@
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="bottom">
+        android:gravity="center|bottom"
+        android:orientation="horizontal">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:maxLines="1"
             android:text="164:30"
             android:textColor="#f0f0f0"
-            android:textSize="28sp"
+            android:textSize="26sp"
             android:textStyle="bold" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:maxLines="1"
             android:text=" / 176ч"
             android:textColor="#92b2e5"
             android:textSize="14sp" />
@@ -33,6 +35,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:maxLines="1"
         android:text="Отработано / норма"
         android:textColor="#EBE8E8"
         android:textSize="10sp" />
