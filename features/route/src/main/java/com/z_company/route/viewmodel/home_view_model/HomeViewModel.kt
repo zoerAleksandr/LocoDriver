@@ -831,8 +831,9 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 val diff = totalTimeMillis - normMillis
                 val isOvertime = diff >= 0
                 val remainingMillis = if (isOvertime) diff else -diff
-                val remainingHours = remainingMillis / 3_600_000L
-                val normRemainingText = if (normHoursInt > 0) "${remainingHours}ч" else ""
+                val normRemainingText = if (normHoursInt > 0) {
+                    convertTimeToStringFormat(remainingMillis)
+                } else ""
 
                 // State info lines
                 val stateInfo = computeStateInfo(
