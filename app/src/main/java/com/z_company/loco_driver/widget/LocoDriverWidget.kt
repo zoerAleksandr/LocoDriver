@@ -160,6 +160,10 @@ class LocoDriverWidget : GlanceAppWidget() {
                                 maxLines = 1
                             )
                         }
+                        // Spacer between rest type and rest values
+                        if (stateInfoLine1.isNotEmpty() && stateInfoLine2.isNotEmpty()) {
+                            Spacer(modifier = GlanceModifier.height(6.dp))
+                        }
                         if (stateInfoLine2.isNotEmpty()) {
                             Text(
                                 text = stateInfoLine2,
@@ -181,6 +185,10 @@ class LocoDriverWidget : GlanceAppWidget() {
                                 ),
                                 maxLines = 1
                             )
+                        }
+                        // Spacer between short and full rest
+                        if (stateInfoLine3.isNotEmpty() && stateInfoLine4.isNotEmpty()) {
+                            Spacer(modifier = GlanceModifier.height(6.dp))
                         }
                         if (stateInfoLine4.isNotEmpty()) {
                             Text(
@@ -204,7 +212,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                                 maxLines = 1
                             )
                         }
-                        if (nextReportText.isNotEmpty()) {
+                        if (!hasCurrentRoute && nextReportText.isNotEmpty()) {
                             Spacer(modifier = GlanceModifier.height(8.dp))
                             Text(
                                 text = nextReportText,
