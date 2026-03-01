@@ -20,7 +20,7 @@
             android:maxLines="1"
             android:text="164:30"
             android:textColor="#f0f0f0"
-            android:textSize="26sp"
+            android:textSize="32sp"
             android:textStyle="bold" />
 
         <TextView
@@ -29,7 +29,7 @@
             android:maxLines="1"
             android:text=" / 176ч"
             android:textColor="#92b2e5"
-            android:textSize="14sp" />
+            android:textSize="16sp" />
     </LinearLayout>
 
     <TextView

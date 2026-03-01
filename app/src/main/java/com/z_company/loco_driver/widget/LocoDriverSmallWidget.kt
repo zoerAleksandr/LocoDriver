@@ -1,38 +1,39 @@
 package com.z_company.loco_driver.widget
 
 import android.content.Context
+import android.graphics.Typeface
+import android.text.Spannable
+import android.text.SpannableStringBuilder
+import android.text.style.ForegroundColorSpan
+import android.text.style.RelativeSizeSpan
+import android.text.style.StyleSpan
 import android.util.Log
+import android.widget.RemoteViews
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
+import androidx.glance.ImageProvider
+import androidx.glance.LocalContext
 import androidx.glance.action.clickable
+import androidx.glance.appwidget.AndroidRemoteViews
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.state.updateAppWidgetState
-import androidx.glance.ImageProvider
 import androidx.glance.background
 import androidx.glance.currentState
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
-import androidx.glance.layout.Column
-import androidx.glance.layout.Row
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.padding
 import androidx.glance.state.GlanceStateDefinition
 import androidx.glance.state.PreferencesGlanceStateDefinition
-import androidx.glance.text.FontWeight
-import androidx.glance.text.Text
-import androidx.glance.text.TextStyle
-import androidx.glance.unit.ColorProvider
 import com.z_company.loco_driver.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -66,6 +67,11 @@ class LocoDriverSmallWidget : GlanceAppWidget() {
         val totalTimeText = prefs[Keys.TOTAL_TIME_TEXT] ?: "--:--"
         val normHours = prefs[Keys.NORM_HOURS] ?: ""
 
+        val context = LocalContext.current
+        val remoteViews = RemoteViews(context.packageName, R.layout.widget_small_autosize).apply {
+            setTextViewText(R.id.time_norm_text, buildTimeNormSpan(totalTimeText, normHours))
+        }
+
         Box(
             modifier = GlanceModifier
                 .fillMaxSize()
@@ -75,47 +81,40 @@ class LocoDriverSmallWidget : GlanceAppWidget() {
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             contentAlignment = Alignment.Center
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Row(
-                    verticalAlignment = Alignment.Bottom
-                ) {
-                    Text(
-                        text = totalTimeText,
-                        style = TextStyle(
-                            color = ColorProvider(Colors.textPrimary),
-                            fontSize = 26.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    )
-                    if (normHours.isNotEmpty()) {
-                        Text(
-                            text = " / $normHours",
-                            style = TextStyle(
-                                color = ColorProvider(Colors.accent),
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        )
-                    }
-                }
-                Text(
-                    text = "Отработано / норма",
-                    style = TextStyle(
-                        color = ColorProvider(Colors.textSecondary),
-                        fontSize = 10.sp
-                    )
-                )
-            }
+            AndroidRemoteViews(
+                remoteViews = remoteViews,
+                modifier = GlanceModifier.fillMaxSize()
+            )
         }
     }
 
-    private object Colors {
-        val background = Color(0xE6333333)
-        val textPrimary = Color(0xFFf0f0f0)
-        val textSecondary = Color(0xFFEBE8E8)
-        val accent = Color(0xFF92b2e5)
+    /** Build SpannableString: "164:30" (white, bold, 32sp) + " / 176ч" (accent, 16sp) */
+    private fun buildTimeNormSpan(totalTimeText: String, normHours: String): CharSequence {
+        val builder = SpannableStringBuilder()
+        builder.append(totalTimeText)
+        builder.setSpan(
+            ForegroundColorSpan(0xFFf0f0f0.toInt()),
+            0, totalTimeText.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+        builder.setSpan(
+            StyleSpan(Typeface.BOLD),
+            0, totalTimeText.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+
+        if (normHours.isNotEmpty()) {
+            val normStart = builder.length
+            builder.append(" / $normHours")
+            builder.setSpan(
+                ForegroundColorSpan(0xFF92b2e5.toInt()),
+                normStart, builder.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            builder.setSpan(
+                RelativeSizeSpan(0.5f),
+                normStart, builder.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+
+        return builder
     }
 
     object Keys {
