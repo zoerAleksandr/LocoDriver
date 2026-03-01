@@ -31,7 +31,6 @@ import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
-import androidx.glance.layout.fillMaxHeight
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
@@ -111,130 +110,133 @@ class LocoDriverWidget : GlanceAppWidget() {
                 .clickable(actionStartActivity<MainActivity>())
                 .padding(12.dp)
         ) {
-            Row(
+            Column(
                 modifier = GlanceModifier.fillMaxSize()
             ) {
-                // Left column — info
-                Column(
-                    modifier = GlanceModifier.defaultWeight().padding(end = 8.dp)
+                // ─── Top: work time / norm ───
+                Row(
+                    modifier = GlanceModifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Bottom
                 ) {
-                    // Top: work time / norm
-                    Row(
-                        modifier = GlanceModifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.Bottom
-                    ) {
-                        Text(
-                            text = totalTimeText,
-                            style = TextStyle(
-                                color = ColorProvider(WidgetColors.textPrimary),
-                                fontSize = 24.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
-                        if (normHours.isNotEmpty()) {
-                            Text(
-                                text = " / $normHours",
-                                style = TextStyle(
-                                    color = ColorProvider(WidgetColors.accent),
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            )
-                        }
-                    }
                     Text(
-                        text = "Отработано / норма",
+                        text = totalTimeText,
                         style = TextStyle(
-                            color = ColorProvider(WidgetColors.textSecondary),
-                            fontSize = 10.sp
+                            color = ColorProvider(WidgetColors.textPrimary),
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Bold
                         )
                     )
-
-                    Spacer(modifier = GlanceModifier.height(6.dp))
-
-                    // Middle: state info
-                    if (stateInfoLine1.isNotEmpty()) {
+                    if (normHours.isNotEmpty()) {
                         Text(
-                            text = stateInfoLine1,
-                            style = TextStyle(
-                                color = ColorProvider(WidgetColors.textPrimary),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        )
-                    }
-                    if (stateInfoLine2.isNotEmpty()) {
-                        Text(
-                            text = stateInfoLine2,
-                            style = TextStyle(
-                                color = ColorProvider(WidgetColors.textPrimary),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        )
-                    }
-                    if (stateInfoLine3.isNotEmpty()) {
-                        Text(
-                            text = stateInfoLine3,
-                            style = TextStyle(
-                                color = ColorProvider(WidgetColors.textPrimary),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        )
-                    }
-
-                    Spacer(modifier = GlanceModifier.height(6.dp))
-
-                    // Bottom: next report
-                    if (nextReportText.isNotEmpty()) {
-                        Text(
-                            text = nextReportText,
+                            text = " / $normHours",
                             style = TextStyle(
                                 color = ColorProvider(WidgetColors.accent),
-                                fontSize = 11.sp,
+                                fontSize = 18.sp,
                                 fontWeight = FontWeight.Medium
                             )
                         )
                     }
                 }
+                Text(
+                    text = "Отработано / норма",
+                    style = TextStyle(
+                        color = ColorProvider(WidgetColors.textSecondary),
+                        fontSize = 12.sp
+                    )
+                )
 
-                // Right column — play/stop button (only when current route exists)
-                if (hasCurrentRoute) {
-                    Box(
-                        modifier = GlanceModifier
-                            .width(80.dp)
-                            .fillMaxHeight()
-                            .cornerRadius(12.dp)
-                            .background(WidgetColors.buttonBackground),
-                        contentAlignment = Alignment.Center
+                // Spacer pushes bottom section to the bottom edge
+                Spacer(modifier = GlanceModifier.defaultWeight())
+
+                // ─── Bottom: state info + play/stop button ───
+                Row(
+                    modifier = GlanceModifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    // Left: state info lines + next report
+                    Column(
+                        modifier = GlanceModifier.defaultWeight().padding(end = 8.dp)
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
+                        if (stateInfoLine1.isNotEmpty()) {
+                            Text(
+                                text = stateInfoLine1,
+                                style = TextStyle(
+                                    color = ColorProvider(WidgetColors.textPrimary),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            )
+                        }
+                        if (stateInfoLine2.isNotEmpty()) {
+                            Text(
+                                text = stateInfoLine2,
+                                style = TextStyle(
+                                    color = ColorProvider(WidgetColors.textPrimary),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            )
+                        }
+                        if (stateInfoLine3.isNotEmpty()) {
+                            Text(
+                                text = stateInfoLine3,
+                                style = TextStyle(
+                                    color = ColorProvider(WidgetColors.textPrimary),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            )
+                        }
+                        if (nextReportText.isNotEmpty()) {
+                            Spacer(modifier = GlanceModifier.height(4.dp))
+                            Text(
+                                text = nextReportText,
+                                style = TextStyle(
+                                    color = ColorProvider(WidgetColors.accent),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            )
+                        }
+                    }
+
+                    // Right: play/stop button (only when current route exists)
+                    if (hasCurrentRoute) {
+                        Box(
+                            modifier = GlanceModifier
+                                .width(80.dp)
+                                .cornerRadius(12.dp)
+                                .background(WidgetColors.buttonBackground)
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(
-                                modifier = GlanceModifier
-                                    .size(56.dp)
-                                    .clickable(actionRunCallback<GoActionCallback>()),
-                                contentAlignment = Alignment.Center
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Image(
-                                    provider = ImageProvider(
-                                        if (isDepartureNext) R.drawable.widget_play else R.drawable.widget_stop
-                                    ),
-                                    contentDescription = if (isDepartureNext) "Отправление" else "Прибытие",
-                                    modifier = GlanceModifier.size(48.dp)
-                                )
-                            }
-                            if (lastActionText.isNotEmpty()) {
-                                Spacer(modifier = GlanceModifier.height(4.dp))
-                                Text(
-                                    text = lastActionText,
-                                    style = TextStyle(
-                                        color = ColorProvider(WidgetColors.textSecondary),
-                                        fontSize = 10.sp
+                                Box(
+                                    modifier = GlanceModifier
+                                        .size(56.dp)
+                                        .clickable(actionRunCallback<GoActionCallback>()),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Image(
+                                        provider = ImageProvider(
+                                            if (isDepartureNext) R.drawable.widget_play else R.drawable.widget_stop
+                                        ),
+                                        contentDescription = if (isDepartureNext) "Отправление" else "Прибытие",
+                                        modifier = GlanceModifier.size(48.dp)
                                     )
-                                )
+                                }
+                                if (lastActionText.isNotEmpty()) {
+                                    Spacer(modifier = GlanceModifier.height(4.dp))
+                                    Text(
+                                        text = lastActionText,
+                                        style = TextStyle(
+                                            color = ColorProvider(WidgetColors.textSecondary),
+                                            fontSize = 11.sp
+                                        )
+                                    )
+                                }
                             }
                         }
                     }

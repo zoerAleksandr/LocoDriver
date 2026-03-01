@@ -25,7 +25,6 @@ import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.findCurrentRoute
 import com.z_company.domain.entities.route.UtilsForEntities.findNextFutureRoute
-import com.z_company.domain.entities.route.UtilsForEntities.isFuture
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getOnePersonOperationTime
 import com.z_company.domain.entities.route.UtilsForEntities.getOnePersonOperationTimePassengerTrain
@@ -837,9 +836,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 )
 
                 // Next report text
-                val futureRoute = fullRouteList
-                    .filter { it.isFuture(userSettings.timeZone) }
-                    .minByOrNull { it.basicData.timeStartWork ?: Long.MAX_VALUE }
+                val futureRoute = fullRouteList.findNextFutureRoute(currentTimeInMillis)
                 val nextReportText = if (futureRoute != null) {
                     "Следующая явка ${dateAndTimeConverter.getDateMiniAndTime(futureRoute.basicData.timeStartWork)}"
                 } else "Следующая явка неизвестна"
