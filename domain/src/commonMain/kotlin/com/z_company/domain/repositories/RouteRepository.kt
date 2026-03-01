@@ -33,7 +33,6 @@ interface RouteRepository {
     fun setRemoteObjectIdRoute(basicId: String, remoteRouteId: String?): Flow<ResultState<Unit>>
     fun setRemoteObjectIdBasicData(basicId: String, remoteObjectId: String?): Flow<ResultState<Unit>>
     fun setRemoteObjectIdLocomotive(locoId: String, remoteObjectId: String): Flow<ResultState<Unit>>
-    fun setRemoteObjectIdTrain(trainId: String, remoteObjectId: String): Flow<ResultState<Unit>>
     fun setRemoteObjectIdPassenger(passengerId: String, objectId: String): Flow<ResultState<Unit>>
     fun setRemoteObjectIdPhoto(photoId: String, objectId: String): Flow<ResultState<Unit>>
     fun saveLocomotive(locomotive: Locomotive): Flow<ResultState<Unit>>

@@ -1,0 +1,60 @@
+-- Remove remoteObjectId from Train table
+CREATE TABLE IF NOT EXISTS Train_new (
+    trainId TEXT NOT NULL PRIMARY KEY,
+    basicId TEXT NOT NULL,
+    number TEXT,
+    additionalNumbers TEXT DEFAULT NULL,
+    distance TEXT DEFAULT '',
+    weight TEXT,
+    axle TEXT,
+    conditionalLength TEXT,
+    isHeavyLongDistance INTEGER NOT NULL DEFAULT 0,
+    stations TEXT NOT NULL,
+    servicePhase TEXT DEFAULT NULL,
+    pusher TEXT DEFAULT NULL,
+    doubleTraction TEXT DEFAULT NULL,
+    doubledTrain TEXT DEFAULT NULL,
+    FOREIGN KEY (basicId) REFERENCES BasicData(id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+INSERT INTO Train_new (trainId, basicId, number, additionalNumbers, distance, weight, axle, conditionalLength, isHeavyLongDistance, stations, servicePhase, pusher, doubleTraction, doubledTrain)
+SELECT trainId, basicId, number, additionalNumbers, distance, weight, axle, conditionalLength, isHeavyLongDistance, stations, servicePhase, pusher, doubleTraction, doubledTrain
+FROM Train;
+
+DROP TABLE Train;
+
+ALTER TABLE Train_new RENAME TO Train;
+
+CREATE INDEX IF NOT EXISTS index_Train_basicId ON Train(basicId);
+
+-- Fix Locomotive: removeObjectId NOT NULL -> nullable
+CREATE TABLE IF NOT EXISTS Locomotive_new (
+    locoId TEXT NOT NULL PRIMARY KEY,
+    basicId TEXT NOT NULL,
+    removeObjectId TEXT DEFAULT NULL,
+    series TEXT,
+    number TEXT,
+    type INTEGER NOT NULL,
+    electricSectionList TEXT NOT NULL,
+    dieselSectionList TEXT NOT NULL,
+    timeStartOfAcceptance INTEGER,
+    timeEndOfAcceptance INTEGER,
+    timeStartOfDelivery INTEGER,
+    timeEndOfDelivery INTEGER,
+    normaElectricCurrent1 INTEGER DEFAULT NULL,
+    normaElectricCurrent2 INTEGER DEFAULT NULL,
+    normaDiesel TEXT DEFAULT NULL,
+    heatingCounterAccepted TEXT DEFAULT NULL,
+    heatingCounterDelivery TEXT DEFAULT NULL,
+    FOREIGN KEY (basicId) REFERENCES BasicData(id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+INSERT INTO Locomotive_new (locoId, basicId, removeObjectId, series, number, type, electricSectionList, dieselSectionList, timeStartOfAcceptance, timeEndOfAcceptance, timeStartOfDelivery, timeEndOfDelivery, normaElectricCurrent1, normaElectricCurrent2, normaDiesel, heatingCounterAccepted, heatingCounterDelivery)
+SELECT locoId, basicId, CASE WHEN removeObjectId = '' THEN NULL ELSE removeObjectId END, series, number, type, electricSectionList, dieselSectionList, timeStartOfAcceptance, timeEndOfAcceptance, timeStartOfDelivery, timeEndOfDelivery, normaElectricCurrent1, normaElectricCurrent2, normaDiesel, heatingCounterAccepted, heatingCounterDelivery
+FROM Locomotive;
+
+DROP TABLE Locomotive;
+
+ALTER TABLE Locomotive_new RENAME TO Locomotive;
+
+CREATE INDEX IF NOT EXISTS index_Locomotive_basicId ON Locomotive(basicId);

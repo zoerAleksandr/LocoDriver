@@ -145,10 +145,6 @@ class RouteUseCase(private val repository: RouteRepository) {
         return repository.setRemoteObjectIdLocomotive(locoId, remoteObjectId)
     }
 
-    fun setRemoteObjectIdTrain(trainId: String, objectId: String): Flow<ResultState<Unit>> {
-        return repository.setRemoteObjectIdTrain(trainId, objectId)
-    }
-
     fun setRemoteObjectIdPassenger(passengerId: String, objectId: String): Flow<ResultState<Unit>> {
         return repository.setRemoteObjectIdPassenger(passengerId, objectId)
     }

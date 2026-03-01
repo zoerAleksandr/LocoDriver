@@ -1,7 +1,6 @@
 CREATE TABLE IF NOT EXISTS Train (
     trainId TEXT NOT NULL PRIMARY KEY,
     basicId TEXT NOT NULL,
-    remoteObjectId TEXT DEFAULT NULL,
     number TEXT,
     additionalNumbers TEXT DEFAULT NULL,
     distance TEXT DEFAULT '',
@@ -20,11 +19,11 @@ CREATE TABLE IF NOT EXISTS Train (
 CREATE INDEX IF NOT EXISTS index_Train_basicId ON Train(basicId);
 
 insertOrReplace:
-INSERT OR REPLACE INTO Train (trainId, basicId, remoteObjectId, number, additionalNumbers, distance, weight, axle, conditionalLength, isHeavyLongDistance, stations, servicePhase, pusher, doubleTraction, doubledTrain)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO Train (trainId, basicId, number, additionalNumbers, distance, weight, axle, conditionalLength, isHeavyLongDistance, stations, servicePhase, pusher, doubleTraction, doubledTrain)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 update:
-UPDATE OR REPLACE Train SET trainId = :trainId, basicId = :basicId, remoteObjectId = :remoteObjectId, number = :number, additionalNumbers = :additionalNumbers, distance = :distance, weight = :weight, axle = :axle, conditionalLength = :conditionalLength, isHeavyLongDistance = :isHeavyLongDistance, stations = :stations, servicePhase = :servicePhase, pusher = :pusher, doubleTraction = :doubleTraction, doubledTrain = :doubledTrain
+UPDATE OR REPLACE Train SET trainId = :trainId, basicId = :basicId, number = :number, additionalNumbers = :additionalNumbers, distance = :distance, weight = :weight, axle = :axle, conditionalLength = :conditionalLength, isHeavyLongDistance = :isHeavyLongDistance, stations = :stations, servicePhase = :servicePhase, pusher = :pusher, doubleTraction = :doubleTraction, doubledTrain = :doubledTrain
 WHERE trainId = :trainId;
 
 getById:
@@ -35,9 +34,6 @@ SELECT * FROM Train WHERE basicId = :basicId;
 
 delete:
 DELETE FROM Train WHERE trainId = :trainId;
-
-setRemoteObjectId:
-UPDATE Train SET remoteObjectId = :remoteObjectId WHERE trainId = :trainId;
 
 countAll:
 SELECT COUNT(*) FROM Train;
