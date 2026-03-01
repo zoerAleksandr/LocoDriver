@@ -24,6 +24,7 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.findCurrentRoute
+import com.z_company.domain.entities.route.UtilsForEntities.findNextFutureRoute
 import com.z_company.domain.entities.route.UtilsForEntities.isFuture
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getOnePersonOperationTime
@@ -132,6 +133,13 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
     private val _workTimeInCurrentRoute = MutableSharedFlow<Long>(replay = 1)
     val workTimeInCurrentRoute = _workTimeInCurrentRoute.asSharedFlow()
+
+    var nextFutureRoute by mutableStateOf<Route?>(null)
+
+    private val _countdownToNextRoute = MutableSharedFlow<Long>(replay = 1)
+    val countdownToNextRoute = _countdownToNextRoute.asSharedFlow()
+
+    private var countdownTimerJob: Job? = null
 
     private var removeRouteJob: Job? = null
     private var setCalendarJob: Job? = null
@@ -298,6 +306,41 @@ class HomeViewModel : ViewModel(), KoinComponent {
             while (currentRoute != null) {
                 difference += 60_000L
                 _workTimeInCurrentRoute.tryEmit(difference)
+                delay(60_000L)
+            }
+        }
+    }
+
+    fun countdownTimer(startWork: Long) {
+        countdownTimerJob?.cancel()
+        countdownTimerJob = viewModelScope.launch {
+            val timeZone =
+                uiState.value.dateAndTimeConverter?.timeZoneText ?: "GMT+3"
+            val currentTimeCalendar = getInstance(TimeZone.getTimeZone(timeZone))
+            val currentTime: Long = currentTimeCalendar.timeInMillis
+            val startWorkTime: Long = startWork + uiState.value.offsetInMoscow
+
+            val second = currentTimeCalendar.get(Calendar.SECOND)
+            val remainingSecond = 60 - second
+            val firstTickDelayMillis = remainingSecond * 1000L
+
+            var difference = startWorkTime - currentTime
+            if (difference <= 0) {
+                _countdownToNextRoute.tryEmit(0L)
+                return@launch
+            }
+
+            _countdownToNextRoute.tryEmit(difference)
+            delay(firstTickDelayMillis)
+
+            while (difference > 0) {
+                difference -= 60_000L
+                if (difference <= 0) {
+                    _countdownToNextRoute.tryEmit(0L)
+                    nextFutureRoute = null
+                    break
+                }
+                _countdownToNextRoute.tryEmit(difference)
                 delay(60_000L)
             }
         }
@@ -1096,8 +1139,15 @@ class HomeViewModel : ViewModel(), KoinComponent {
                                 userSettings = userSettings
                             )
 
-                            currentRoute?.let {
-                                workTimer(it.basicData.timeStartWork!!)
+                            if (currentRoute != null) {
+                                workTimer(currentRoute!!.basicData.timeStartWork!!)
+                                nextFutureRoute = null
+                                countdownTimerJob?.cancel()
+                            } else {
+                                nextFutureRoute = fullRouteList.findNextFutureRoute(currentTimeInMillis)
+                                nextFutureRoute?.basicData?.timeStartWork?.let { startWork ->
+                                    countdownTimer(startWork)
+                                }
                             }
 
 //                            withContext(Dispatchers.Main) {

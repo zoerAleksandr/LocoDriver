@@ -315,59 +315,37 @@ object UtilsForEntities {
         }
     }
 
+    /**
+     * Находит текущий маршрут.
+     * Критерии: timeStartWork уже прошло, timeEndWork либо null (не завершён),
+     * либо ещё не наступило. Если несколько — берём с самой поздней timeStartWork.
+     * Без фильтрации по месяцу.
+     */
     fun List<Route>.findCurrentRoute(
         currentTimeInMillis: Long,
         userSettings: UserSettings
     ): Route? {
-        // Фильтруем будущие маршруты
-        val filteredRoutes = this
-            .filter { !it.isFuture(userSettings.timeZone) }
-            .sortedByDescending { it.basicData.timeStartWork ?: 0L }
-
-        // 1. Сначала ищем маршрут, попадающий в интервал времени
-        val routeInTimeInterval = filteredRoutes.find { route ->
-            val startWork = route.basicData.timeStartWork
-            val endWork = route.basicData.timeEndWork
-
-            if (startWork != null) {
-                if (currentTimeInMillis.moreThan(startWork)) {
-                    endWork?.let {
-                        currentTimeInMillis.lessThan(it)
-                    } ?: false
-                } else false
-            } else false
-        }
-
-        // Если найден маршрут в интервале времени - возвращаем его
-        if (routeInTimeInterval != null) {
-            return routeInTimeInterval
-        }
-
-        // 2. Если нет маршрута в интервале, ищем последний незавершенный маршрут
-        // для текущего месяца пользователя
-        val lastUnfinishedRoute = filteredRoutes.firstOrNull { route ->
-            // Проверяем, что это самый первый (последний по времени) маршрут
-            route == filteredRoutes.firstOrNull() &&
-                    // У маршрута нет времени окончания
-                    route.basicData.timeEndWork == null &&
-                    // Проверяем соответствие месяца
-                    route.isInCurrentMonth(userSettings.selectMonthOfYear, userSettings.timeZone)
-        }
-
-        return lastUnfinishedRoute
+        return this
+            .filter { route ->
+                val startWork = route.basicData.timeStartWork ?: return@filter false
+                if (currentTimeInMillis <= startWork) return@filter false
+                val endWork = route.basicData.timeEndWork
+                endWork == null || currentTimeInMillis < endWork
+            }
+            .maxByOrNull { it.basicData.timeStartWork ?: 0L }
     }
 
-    // Вспомогательный метод для проверки месяца маршрута
-    private fun Route.isInCurrentMonth(
-        currentMonthOfYear: MonthOfYear,
-        offsetInMoscow: Long
-    ): Boolean {
-        if (this.basicData.timeStartWork == null) return false
-        val tz = TimeZone.currentSystemDefault()
-        val millis = Clock.System.now().toEpochMilliseconds() + offsetInMoscow
-        val ldt = Instant.fromEpochMilliseconds(millis).toLocalDateTime(tz)
-        return ldt.year == currentMonthOfYear.year &&
-                ldt.monthNumber - 1 == currentMonthOfYear.month
+    /**
+     * Находит ближайший будущий маршрут (timeStartWork > currentTimeInMillis).
+     * Не требует наличия timeEndWork (в отличие от isFuture()).
+     */
+    fun List<Route>.findNextFutureRoute(currentTimeInMillis: Long): Route? {
+        return this
+            .filter { route ->
+                val startWork = route.basicData.timeStartWork ?: return@filter false
+                startWork > currentTimeInMillis
+            }
+            .minByOrNull { it.basicData.timeStartWork ?: Long.MAX_VALUE }
     }
 
     fun Route.isTransition(offsetInMoscow: Long): Boolean {

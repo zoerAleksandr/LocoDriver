@@ -163,6 +163,8 @@ fun HomeScreen(
     onePersonOperationTime: ResultState<Long>?,
     currentRoute: Route?,
     currentRouteTimeWork: SharedFlow<Long>,
+    nextFutureRoute: Route?,
+    countdownToNextRoute: SharedFlow<Long>,
     onNewLocoClick: (basicId: String) -> Unit,
     onChangedLocoClick: (loco: Locomotive) -> Unit,
     onNewTrainClick: (basicId: String) -> Unit,
@@ -249,6 +251,14 @@ fun HomeScreen(
 
     val currentRouteWorkTime by produceState(initialValue = "") {
         currentRouteTimeWork
+            .flowWithLifecycle(lifecycle)
+            .collect { time ->
+                value = ConverterLongToTime.getTimeInStringFormat(time)
+            }
+    }
+
+    val countdownText by produceState(initialValue = "") {
+        countdownToNextRoute
             .flowWithLifecycle(lifecycle)
             .collect { time ->
                 value = ConverterLongToTime.getTimeInStringFormat(time)
@@ -809,7 +819,7 @@ fun HomeScreen(
                                                                 }
                                                         ) {
                                                             val numberTrainText =
-                                                                train.number ?: "???"
+                                                                train.number ?: "---"
                                                             Text(
                                                                 text = "№ $numberTrainText",
                                                                 color = MaterialTheme.colorScheme.primary,
@@ -995,6 +1005,135 @@ fun HomeScreen(
                                                 }
                                                 Text(
                                                     text = "Пассажиром",
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    maxLines = 1,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (currentRoute == null && nextFutureRoute != null) {
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .animateItem()
+                        ) {
+                            Text(
+                                modifier = Modifier
+                                    .padding(horizontal = 16.dp)
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onPress = {
+                                                onRouteClick(nextFutureRoute.basicData.id)
+                                            }
+                                        )
+                                    },
+                                text = "Следующий маршрут",
+                                maxLines = 2,
+                                overflow = TextOverflow.Visible,
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            LazyRow(
+                                modifier = Modifier.padding(top = 12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                item {
+                                    Card(
+                                        modifier = Modifier
+                                            .padding(start = 12.dp)
+                                            .defaultMinSize(
+                                                minWidth = (widthScreen / 3).dp,
+                                                minHeight = (widthScreen / 3).dp,
+                                            )
+                                            .clickable {
+                                                onRouteClick(nextFutureRoute.basicData.id)
+                                            },
+                                        elevation = CardDefaults.elevatedCardElevation(
+                                            defaultElevation = 2.dp,
+                                        ),
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .defaultMinSize(
+                                                    minWidth = (widthScreen / 3).dp,
+                                                    minHeight = (widthScreen / 3).dp,
+                                                )
+                                                .background(brushMain)
+                                        ) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .defaultMinSize(
+                                                        minWidth = (widthScreen / 3).dp,
+                                                        minHeight = (widthScreen / 3).dp,
+                                                    )
+                                                    .padding(12.dp),
+                                                verticalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                AnimatedCounter(
+                                                    count = countdownText,
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    color = MaterialTheme.colorScheme.secondary
+                                                )
+                                                Text(
+                                                    text = "До явки",
+                                                    color = MaterialTheme.colorScheme.secondary,
+                                                    maxLines = 1,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                                item {
+                                    Card(
+                                        modifier = Modifier
+                                            .defaultMinSize(
+                                                minWidth = (widthScreen / 3).dp,
+                                                minHeight = (widthScreen / 3).dp,
+                                            )
+                                            .padding(end = 12.dp),
+                                        elevation = CardDefaults.elevatedCardElevation(
+                                            defaultElevation = 2.dp,
+                                        )
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .defaultMinSize(
+                                                    minWidth = (widthScreen / 3).dp,
+                                                    minHeight = (widthScreen / 3).dp,
+                                                )
+                                                .background(MaterialTheme.colorScheme.secondary)
+                                        ) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .defaultMinSize(
+                                                        minWidth = (widthScreen / 3).dp,
+                                                        minHeight = (widthScreen / 3).dp,
+                                                    )
+                                                    .padding(12.dp),
+                                                verticalArrangement = Arrangement.SpaceBetween,
+                                            ) {
+                                                Text(
+                                                    text = dateAndTimeConverter?.getDateMiniAndTime(
+                                                        nextFutureRoute.basicData.timeStartWork
+                                                    ) ?: "",
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    maxLines = 1,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Text(
+                                                    text = "Явка",
                                                     color = MaterialTheme.colorScheme.primary,
                                                     maxLines = 1,
                                                     style = MaterialTheme.typography.bodySmall,

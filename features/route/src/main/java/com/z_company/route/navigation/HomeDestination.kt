@@ -58,6 +58,8 @@ fun HomeDestination(
         onePersonOperationTime = uiState.onePersonOperationTime,
         currentRoute = homeViewModel.currentRoute,
         currentRouteTimeWork = homeViewModel.workTimeInCurrentRoute,
+        nextFutureRoute = homeViewModel.nextFutureRoute,
+        countdownToNextRoute = homeViewModel.countdownToNextRoute,
         onNewLocoClick = {
             router.showEmptyLocoForm(it)
         },
