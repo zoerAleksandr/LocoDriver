@@ -2,7 +2,15 @@ package com.z_company.loco_driver.widget
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Typeface
+import android.text.Spannable
+import android.text.SpannableStringBuilder
+import android.text.style.ForegroundColorSpan
+import android.text.style.RelativeSizeSpan
+import android.text.style.StyleSpan
 import android.util.Log
+import android.view.View
+import android.widget.RemoteViews
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -21,9 +29,11 @@ import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
+import androidx.glance.appwidget.AndroidRemoteViews
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.state.updateAppWidgetState
+import androidx.glance.LocalContext
 import androidx.glance.background
 import androidx.glance.currentState
 import androidx.glance.layout.Alignment
@@ -118,70 +128,12 @@ class LocoDriverWidget : GlanceAppWidget() {
                 modifier = GlanceModifier.fillMaxSize()
             ) {
                 // ─── Top: work time / norm (left) + remaining (right) ───
-                Row(
-                    modifier = GlanceModifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.Bottom
-                ) {
-                    // Left: work time / norm
-                    Column(
-                        modifier = GlanceModifier.defaultWeight()
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.Bottom
-                        ) {
-                            Text(
-                                text = totalTimeText,
-                                style = TextStyle(
-                                    color = ColorProvider(WidgetColors.textPrimary),
-                                    fontSize = 36.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            )
-                            if (normHours.isNotEmpty()) {
-                                Text(
-                                    text = " / $normHours",
-                                    style = TextStyle(
-                                        color = ColorProvider(WidgetColors.accent),
-                                        fontSize = 18.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                )
-                            }
-                        }
-                        Text(
-                            text = "Отработано / норма",
-                            style = TextStyle(
-                                color = ColorProvider(WidgetColors.textSecondary),
-                                fontSize = 12.sp
-                            )
-                        )
-                    }
-
-                    // Right: remaining to norm / overtime
-                    if (normRemainingText.isNotEmpty()) {
-                        Column(
-                            horizontalAlignment = Alignment.End
-                        ) {
-                            Text(
-                                text = normRemainingText,
-                                style = TextStyle(
-                                    color = ColorProvider(
-                                        if (isOvertime) WidgetColors.overtimeColor else WidgetColors.accent
-                                    ),
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            )
-                            Text(
-                                text = if (isOvertime) "переработка" else "до нормы",
-                                style = TextStyle(
-                                    color = ColorProvider(WidgetColors.textSecondary),
-                                    fontSize = 12.sp
-                                )
-                            )
-                        }
-                    }
-                }
+                AutoSizedTopRow(
+                    totalTimeText = totalTimeText,
+                    normHours = normHours,
+                    normRemainingText = normRemainingText,
+                    isOvertime = isOvertime
+                )
 
                 // Spacer pushes bottom section to the bottom edge
                 Spacer(modifier = GlanceModifier.defaultWeight())
@@ -202,7 +154,8 @@ class LocoDriverWidget : GlanceAppWidget() {
                                     color = ColorProvider(WidgetColors.accent),
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Medium
-                                )
+                                ),
+                                maxLines = 1
                             )
                         }
                         if (stateInfoLine2.isNotEmpty()) {
@@ -212,7 +165,8 @@ class LocoDriverWidget : GlanceAppWidget() {
                                     color = ColorProvider(WidgetColors.textPrimary),
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Medium
-                                )
+                                ),
+                                maxLines = 1
                             )
                         }
                         if (stateInfoLine3.isNotEmpty()) {
@@ -222,7 +176,8 @@ class LocoDriverWidget : GlanceAppWidget() {
                                     color = ColorProvider(WidgetColors.textPrimary),
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Medium
-                                )
+                                ),
+                                maxLines = 1
                             )
                         }
                         if (nextReportText.isNotEmpty()) {
@@ -233,7 +188,8 @@ class LocoDriverWidget : GlanceAppWidget() {
                                     color = ColorProvider(WidgetColors.accent),
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Medium
-                                )
+                                ),
+                                maxLines = 1
                             )
                         }
                     }
@@ -274,7 +230,8 @@ class LocoDriverWidget : GlanceAppWidget() {
                                             color = ColorProvider(WidgetColors.addButtonText),
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.Medium
-                                        )
+                                        ),
+                                        maxLines = 1
                                     )
                                 }
                                 if (statusText.isNotEmpty()) {
@@ -337,6 +294,69 @@ class LocoDriverWidget : GlanceAppWidget() {
                 }
             }
         }
+    }
+
+    /** Auto-sized top row using AndroidRemoteViews with autoSizeTextType */
+    @Composable
+    private fun AutoSizedTopRow(
+        totalTimeText: String,
+        normHours: String,
+        normRemainingText: String,
+        isOvertime: Boolean
+    ) {
+        val context = LocalContext.current
+        val remoteViews = RemoteViews(context.packageName, R.layout.widget_autosize_top_row).apply {
+            // Build spannable for time + norm
+            setTextViewText(R.id.time_norm_text, buildTimeNormSpan(totalTimeText, normHours))
+
+            // Remaining / overtime
+            if (normRemainingText.isNotEmpty()) {
+                val remainingColor = if (isOvertime) 0xFFeb9e9e.toInt() else 0xFF92b2e5.toInt()
+                setTextViewText(R.id.remaining_text, normRemainingText)
+                setTextColor(R.id.remaining_text, remainingColor)
+
+                val labelText = if (isOvertime) "переработка" else "до нормы"
+                setTextViewText(R.id.remaining_label, labelText)
+
+                setViewVisibility(R.id.remaining_container, View.VISIBLE)
+            } else {
+                setViewVisibility(R.id.remaining_container, View.GONE)
+            }
+        }
+
+        AndroidRemoteViews(
+            remoteViews = remoteViews,
+            modifier = GlanceModifier.fillMaxWidth()
+        )
+    }
+
+    /** Build SpannableString: "164:30" (white, bold, 44sp) + " / 176ч" (accent, 22sp) */
+    private fun buildTimeNormSpan(totalTimeText: String, normHours: String): CharSequence {
+        val builder = SpannableStringBuilder()
+        builder.append(totalTimeText)
+        builder.setSpan(
+            ForegroundColorSpan(0xFFf0f0f0.toInt()),
+            0, totalTimeText.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+        builder.setSpan(
+            StyleSpan(Typeface.BOLD),
+            0, totalTimeText.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+
+        if (normHours.isNotEmpty()) {
+            val normStart = builder.length
+            builder.append(" / $normHours")
+            builder.setSpan(
+                ForegroundColorSpan(0xFF92b2e5.toInt()),
+                normStart, builder.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            builder.setSpan(
+                RelativeSizeSpan(0.5f),
+                normStart, builder.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+
+        return builder
     }
 
     /** Widget color palette — matches app dark theme (Color.kt) */

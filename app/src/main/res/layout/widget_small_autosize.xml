@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center">
+
+    <TextView
+        android:id="@+id/time_norm_text"
+        android:layout_width="match_parent"
+        android:layout_height="42dp"
+        android:autoSizeTextType="uniform"
+        android:autoSizeMinTextSize="12sp"
+        android:autoSizeMaxTextSize="32sp"
+        android:autoSizeStepGranularity="1sp"
+        android:maxLines="1"
+        android:gravity="center"
+        android:includeFontPadding="false" />
+
+    <TextView
+        android:id="@+id/time_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Отработано / норма"
+        android:textColor="#EBE8E8"
+        android:textSize="10sp"
+        android:maxLines="1" />
+</LinearLayout>
