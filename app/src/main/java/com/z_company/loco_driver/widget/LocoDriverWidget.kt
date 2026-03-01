@@ -96,11 +96,15 @@ class LocoDriverWidget : GlanceAppWidget() {
         val normHours = prefs[Keys.NORM_HOURS] ?: ""
         val hasCurrentRoute = prefs[Keys.HAS_CURRENT_ROUTE] ?: false
         val isDepartureNext = prefs[Keys.IS_DEPARTURE_NEXT] ?: true
-        val lastActionText = prefs[Keys.LAST_ACTION_TEXT] ?: ""
         val stateInfoLine1 = prefs[Keys.STATE_INFO_LINE1] ?: ""
         val stateInfoLine2 = prefs[Keys.STATE_INFO_LINE2] ?: ""
         val stateInfoLine3 = prefs[Keys.STATE_INFO_LINE3] ?: ""
         val nextReportText = prefs[Keys.NEXT_REPORT_TEXT] ?: ""
+        val normRemainingText = prefs[Keys.NORM_REMAINING_TEXT] ?: ""
+        val isOvertime = prefs[Keys.IS_OVERTIME] ?: false
+        val trainNumberText = prefs[Keys.TRAIN_NUMBER_TEXT] ?: ""
+        val statusText = prefs[Keys.STATUS_TEXT] ?: ""
+        val statusTimeText = prefs[Keys.STATUS_TIME_TEXT] ?: ""
 
         Box(
             modifier = GlanceModifier
@@ -113,37 +117,71 @@ class LocoDriverWidget : GlanceAppWidget() {
             Column(
                 modifier = GlanceModifier.fillMaxSize()
             ) {
-                // ─── Top: work time / norm ───
+                // ─── Top: work time / norm (left) + remaining to norm (right) ───
                 Row(
                     modifier = GlanceModifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.Bottom
+                    verticalAlignment = Alignment.Top
                 ) {
-                    Text(
-                        text = totalTimeText,
-                        style = TextStyle(
-                            color = ColorProvider(WidgetColors.textPrimary),
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    )
-                    if (normHours.isNotEmpty()) {
+                    // Left: work time / norm
+                    Column(
+                        modifier = GlanceModifier.defaultWeight()
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            Text(
+                                text = totalTimeText,
+                                style = TextStyle(
+                                    color = ColorProvider(WidgetColors.textPrimary),
+                                    fontSize = 44.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                            if (normHours.isNotEmpty()) {
+                                Text(
+                                    text = " / $normHours",
+                                    style = TextStyle(
+                                        color = ColorProvider(WidgetColors.accent),
+                                        fontSize = 22.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                )
+                            }
+                        }
                         Text(
-                            text = " / $normHours",
+                            text = "Отработано / норма",
                             style = TextStyle(
-                                color = ColorProvider(WidgetColors.accent),
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Medium
+                                color = ColorProvider(WidgetColors.textSecondary),
+                                fontSize = 12.sp
                             )
                         )
                     }
+
+                    // Right upper corner: remaining to norm / overtime
+                    if (normRemainingText.isNotEmpty()) {
+                        Column(
+                            horizontalAlignment = Alignment.End
+                        ) {
+                            Text(
+                                text = normRemainingText,
+                                style = TextStyle(
+                                    color = ColorProvider(
+                                        if (isOvertime) WidgetColors.overtimeColor else WidgetColors.accent
+                                    ),
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                            Text(
+                                text = if (isOvertime) "переработка" else "до нормы",
+                                style = TextStyle(
+                                    color = ColorProvider(WidgetColors.textSecondary),
+                                    fontSize = 10.sp
+                                )
+                            )
+                        }
+                    }
                 }
-                Text(
-                    text = "Отработано / норма",
-                    style = TextStyle(
-                        color = ColorProvider(WidgetColors.textSecondary),
-                        fontSize = 12.sp
-                    )
-                )
 
                 // Spacer pushes bottom section to the bottom edge
                 Spacer(modifier = GlanceModifier.defaultWeight())
@@ -204,10 +242,10 @@ class LocoDriverWidget : GlanceAppWidget() {
                     if (hasCurrentRoute) {
                         Box(
                             modifier = GlanceModifier
-                                .width(80.dp)
+                                .width(90.dp)
                                 .cornerRadius(12.dp)
                                 .background(WidgetColors.buttonBackground)
-                                .padding(vertical = 8.dp),
+                                .padding(vertical = 4.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Column(
@@ -215,7 +253,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                             ) {
                                 Box(
                                     modifier = GlanceModifier
-                                        .size(56.dp)
+                                        .size(48.dp)
                                         .clickable(actionRunCallback<GoActionCallback>()),
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -224,16 +262,35 @@ class LocoDriverWidget : GlanceAppWidget() {
                                             if (isDepartureNext) R.drawable.widget_play else R.drawable.widget_stop
                                         ),
                                         contentDescription = if (isDepartureNext) "Отправление" else "Прибытие",
-                                        modifier = GlanceModifier.size(48.dp)
+                                        modifier = GlanceModifier.size(40.dp)
                                     )
                                 }
-                                if (lastActionText.isNotEmpty()) {
-                                    Spacer(modifier = GlanceModifier.height(4.dp))
+                                if (trainNumberText.isNotEmpty()) {
+                                    Spacer(modifier = GlanceModifier.height(2.dp))
                                     Text(
-                                        text = lastActionText,
+                                        text = trainNumberText,
+                                        style = TextStyle(
+                                            color = ColorProvider(WidgetColors.textPrimary),
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    )
+                                }
+                                if (statusText.isNotEmpty()) {
+                                    Text(
+                                        text = statusText,
                                         style = TextStyle(
                                             color = ColorProvider(WidgetColors.textSecondary),
-                                            fontSize = 11.sp
+                                            fontSize = 10.sp
+                                        )
+                                    )
+                                }
+                                if (statusTimeText.isNotEmpty()) {
+                                    Text(
+                                        text = statusTimeText,
+                                        style = TextStyle(
+                                            color = ColorProvider(WidgetColors.textSecondary),
+                                            fontSize = 10.sp
                                         )
                                     )
                                 }
@@ -252,6 +309,7 @@ class LocoDriverWidget : GlanceAppWidget() {
         val textPrimary = Color(0xFFf0f0f0)         // DarkPrimary
         val textSecondary = Color(0xFFEBE8E8)       // DarkOnSurface
         val accent = Color(0xFF92b2e5)              // DarkTertiary
+        val overtimeColor = Color(0xFFeb9e9e)       // DarkError — for overtime indicator
     }
 
     /** Preference keys */
@@ -267,6 +325,11 @@ class LocoDriverWidget : GlanceAppWidget() {
         val STATE_INFO_LINE2 = stringPreferencesKey("state_info_line2")
         val STATE_INFO_LINE3 = stringPreferencesKey("state_info_line3")
         val NEXT_REPORT_TEXT = stringPreferencesKey("next_report_text")
+        val NORM_REMAINING_TEXT = stringPreferencesKey("norm_remaining_text")
+        val IS_OVERTIME = booleanPreferencesKey("is_overtime")
+        val TRAIN_NUMBER_TEXT = stringPreferencesKey("train_number_text")
+        val STATUS_TEXT = stringPreferencesKey("status_text")
+        val STATUS_TIME_TEXT = stringPreferencesKey("status_time_text")
     }
 
     companion object {
@@ -282,7 +345,12 @@ class LocoDriverWidget : GlanceAppWidget() {
             stateInfoLine1: String,
             stateInfoLine2: String,
             stateInfoLine3: String,
-            nextReportText: String
+            nextReportText: String,
+            normRemainingText: String,
+            isOvertime: Boolean,
+            trainNumberText: String,
+            statusText: String,
+            statusTimeText: String
         ) {
             val manager = GlanceAppWidgetManager(context)
             val glanceIds = manager.getGlanceIds(LocoDriverWidget::class.java)
@@ -300,6 +368,11 @@ class LocoDriverWidget : GlanceAppWidget() {
                         this[Keys.STATE_INFO_LINE2] = stateInfoLine2
                         this[Keys.STATE_INFO_LINE3] = stateInfoLine3
                         this[Keys.NEXT_REPORT_TEXT] = nextReportText
+                        this[Keys.NORM_REMAINING_TEXT] = normRemainingText
+                        this[Keys.IS_OVERTIME] = isOvertime
+                        this[Keys.TRAIN_NUMBER_TEXT] = trainNumberText
+                        this[Keys.STATUS_TEXT] = statusText
+                        this[Keys.STATUS_TIME_TEXT] = statusTimeText
                     }
                 }
                 LocoDriverWidget().update(context, glanceId)
@@ -395,8 +468,17 @@ object WidgetDataLoader : KoinComponent {
             dateAndTimeConverter.getDateMiniAndTime(currentRoute?.basicData?.timeStartWork)
         } else ""
 
-        // Last action text (under play/stop button)
-        val lastActionText = computeLastActionText(currentRoute, dateAndTimeConverter)
+        // Button info (train number, status, time — under play/stop button)
+        val buttonInfo = computeButtonInfo(currentRoute, dateAndTimeConverter)
+
+        // Norm remaining / overtime
+        val normHoursInt = monthOfYear?.getPersonalNormaHours() ?: 0
+        val normMillis = normHoursInt.toLong() * 3_600_000L
+        val diff = totalTimeMillis - normMillis
+        val isOvertime = diff >= 0
+        val remainingMillis = if (isOvertime) diff else -diff
+        val remainingHours = remainingMillis / 3_600_000L
+        val normRemainingText = if (normHoursInt > 0) "${remainingHours}ч" else ""
 
         // State info lines (middle section)
         val stateInfo = computeStateInfo(
@@ -422,22 +504,37 @@ object WidgetDataLoader : KoinComponent {
             hasCurrentRoute = hasCurrentRoute,
             reportTime = reportTime,
             isDepartureNext = isDepartureNext,
-            lastActionText = lastActionText,
+            lastActionText = "",
             stateInfoLine1 = stateInfo.line1,
             stateInfoLine2 = stateInfo.line2,
             stateInfoLine3 = stateInfo.line3,
-            nextReportText = nextReportText
+            nextReportText = nextReportText,
+            normRemainingText = normRemainingText,
+            isOvertime = isOvertime,
+            trainNumberText = buttonInfo.trainNumber,
+            statusText = buttonInfo.statusText,
+            statusTimeText = buttonInfo.statusTime
         )
     }
 
-    /** Compute "В пути с HH:mm" / "Стоянка с HH:mm" from last train stations */
-    private fun computeLastActionText(
+    /** Button info: train number, status text, status time */
+    private data class ButtonInfo(
+        val trainNumber: String,  // "п. №3" or ""
+        val statusText: String,   // "В пути" / "Стоянка" or ""
+        val statusTime: String    // "с 13:45" or ""
+    )
+
+    /** Compute button info from last train: train number, status, time */
+    private fun computeButtonInfo(
         currentRoute: Route?,
         dateAndTimeConverter: DateAndTimeConverter
-    ): String {
-        val lastTrain = currentRoute?.trains?.lastOrNull() ?: return ""
+    ): ButtonInfo {
+        val lastTrain = currentRoute?.trains?.lastOrNull()
+            ?: return ButtonInfo("", "", "")
         val stations = lastTrain.stations
-        if (stations.isEmpty()) return ""
+        if (stations.isEmpty()) return ButtonInfo("", "", "")
+
+        val trainNumber = lastTrain.number?.let { "п. №$it" } ?: ""
 
         val hasServicePhase = lastTrain.servicePhase != null
         val endIdx = if (hasServicePhase && stations.size >= 2)
@@ -446,13 +543,21 @@ object WidgetDataLoader : KoinComponent {
         for (i in endIdx downTo 0) {
             val s = stations[i]
             if (s.timeDeparture != null) {
-                return "В пути с ${dateAndTimeConverter.getTime(s.timeDeparture)}"
+                return ButtonInfo(
+                    trainNumber = trainNumber,
+                    statusText = "В пути",
+                    statusTime = "с ${dateAndTimeConverter.getTime(s.timeDeparture)}"
+                )
             }
             if (s.timeArrival != null) {
-                return "Стоянка с ${dateAndTimeConverter.getTime(s.timeArrival)}"
+                return ButtonInfo(
+                    trainNumber = trainNumber,
+                    statusText = "Стоянка",
+                    statusTime = "с ${dateAndTimeConverter.getTime(s.timeArrival)}"
+                )
             }
         }
-        return ""
+        return ButtonInfo(trainNumber, "", "")
     }
 
     private data class StateInfo(val line1: String, val line2: String, val line3: String)
@@ -469,7 +574,7 @@ object WidgetDataLoader : KoinComponent {
         // State 1: Current route — show report time
         if (hasCurrentRoute && currentRoute != null) {
             val reportText =
-                "Явка ${dateAndTimeConverter.getDateMiniAndTime(currentRoute.basicData.timeStartWork)}"
+                "Текущая явка ${dateAndTimeConverter.getDateMiniAndTime(currentRoute.basicData.timeStartWork)}"
             return StateInfo(reportText, "", "")
         }
 

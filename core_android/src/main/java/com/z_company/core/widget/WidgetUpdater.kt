@@ -32,6 +32,11 @@ interface WidgetUpdater {
         stateInfoLine1: String,
         stateInfoLine2: String,
         stateInfoLine3: String,
-        nextReportText: String
+        nextReportText: String,
+        normRemainingText: String,
+        isOvertime: Boolean,
+        trainNumberText: String,
+        statusText: String,
+        statusTimeText: String
     )
 }
