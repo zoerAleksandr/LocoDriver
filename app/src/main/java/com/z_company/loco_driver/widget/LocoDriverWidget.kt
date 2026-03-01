@@ -326,7 +326,7 @@ class LocoDriverWidget : GlanceAppWidget() {
 
         AndroidRemoteViews(
             remoteViews = remoteViews,
-            modifier = GlanceModifier.fillMaxWidth()
+            modifier = GlanceModifier.fillMaxWidth().height(78.dp)
         )
     }
 
