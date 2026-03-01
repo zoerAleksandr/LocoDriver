@@ -49,12 +49,15 @@ class MainActivity : ComponentActivity(), KoinComponent {
         setContent {
             val appState = rememberLocoDriverAppState()
             val pendingImportRoute by mainViewModel.pendingImportRoute.collectAsState()
+            val pendingFormOpen by mainViewModel.pendingFormOpen.collectAsState()
             LocoDriverApp(
                 appState = appState,
                 isShowUpdatePresentation = mainViewModel.showUpdatePresentation,
                 pendingImportRoute = pendingImportRoute,
                 onConfirmImport = mainViewModel::confirmImportRoute,
-                onDismissImport = mainViewModel::dismissImportRoute
+                onDismissImport = mainViewModel::dismissImportRoute,
+                pendingFormOpen = pendingFormOpen,
+                onFormOpened = mainViewModel::clearOpenForm
             )
         }
         VKID.logsEnabled = true
@@ -81,6 +84,11 @@ class MainActivity : ComponentActivity(), KoinComponent {
             if (isCustomMime || (isOctetStream && isZrouteFile(data))) {
                 importRouteFrom(data)
             }
+        }
+
+        // Навигация из виджета → добавить маршрут
+        if (i?.getBooleanExtra("widget_add_route", false) == true) {
+            mainViewModel.requestOpenForm()
         }
     }
 
