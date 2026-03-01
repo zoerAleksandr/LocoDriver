@@ -74,7 +74,7 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
             db.locomotiveQueries.insertOrReplace(
                 locoId = loco.locoId,
                 basicId = locoBasicId,
-                removeObjectId = loco.remoteObjectId ?: "",
+                removeObjectId = loco.remoteObjectId,
                 series = loco.series,
                 number = loco.number,
                 type = loco.type.ordinal.toLong(),
@@ -96,7 +96,6 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
             db.trainQueries.insertOrReplace(
                 trainId = train.trainId,
                 basicId = trainBasicId,
-                remoteObjectId = train.remoteObjectId,
                 number = train.number,
                 additionalNumbers = TrainMapper.encodeAdditionalNumbers(train.additionalNumbers),
                 distance = train.distance,
@@ -293,7 +292,7 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
             db.locomotiveQueries.insertOrReplace(
                 locoId = locoId,
                 basicId = locomotive.basicId,
-                removeObjectId = locomotive.remoteObjectId ?: "",
+                removeObjectId = locomotive.remoteObjectId,
                 series = locomotive.series,
                 number = locomotive.number,
                 type = locomotive.type.ordinal.toLong(),
@@ -317,7 +316,6 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
             db.trainQueries.insertOrReplace(
                 trainId = train.trainId.ifBlank { generateId() },
                 basicId = train.basicId,
-                remoteObjectId = train.remoteObjectId,
                 number = train.number,
                 additionalNumbers = TrainMapper.encodeAdditionalNumbers(train.additionalNumbers),
                 distance = train.distance,
@@ -374,10 +372,6 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
 
     override fun setRemoteObjectIdLocomotive(locoId: String, remoteObjectId: String): Flow<ResultState<Unit>> {
         return flowRequest { db.locomotiveQueries.setRemoteObjectId(remoteObjectId, locoId) }
-    }
-
-    override fun setRemoteObjectIdTrain(trainId: String, remoteObjectId: String): Flow<ResultState<Unit>> {
-        return flowRequest { db.trainQueries.setRemoteObjectId(remoteObjectId, trainId) }
     }
 
     override fun setRemoteObjectIdPassenger(passengerId: String, objectId: String): Flow<ResultState<Unit>> {

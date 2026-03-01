@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS Locomotive (
     locoId TEXT NOT NULL PRIMARY KEY,
     basicId TEXT NOT NULL,
-    removeObjectId TEXT NOT NULL,
+    removeObjectId TEXT DEFAULT NULL,
     series TEXT,
     number TEXT,
     type INTEGER NOT NULL,

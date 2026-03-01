@@ -74,7 +74,6 @@ internal object TrainMapper {
     fun toData(row: TrainRow): Train = Train(
         trainId = row.trainId,
         basicId = row.basicId,
-        remoteObjectId = row.remoteObjectId,
         number = row.number,
         additionalNumbers = decodeAdditionalNumbers(row.additionalNumbers),
         distance = row.distance,

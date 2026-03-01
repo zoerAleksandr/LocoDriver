@@ -20,7 +20,6 @@ data class TrainAssist(
 data class Train(
     var trainId: String = generateId(),
     var basicId: String = "",
-    var remoteObjectId: String? = null,
     var number: String? = null,
     var additionalNumbers: MutableList<String> = mutableListOf(),
     var distance: String? = null,

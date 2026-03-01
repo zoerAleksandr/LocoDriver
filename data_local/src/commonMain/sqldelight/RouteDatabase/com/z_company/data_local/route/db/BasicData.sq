@@ -35,7 +35,7 @@ WHERE isDeleted = 0
     (timeStartWork >= :startPeriod AND timeStartWork <= :endPeriod)
     OR (timeEndWork >= :startPeriod AND timeEndWork <= :endPeriod)
     OR (timeStartWork <= :startPeriod AND timeEndWork >= :endPeriod)
-    OR (timeStartWork <= :endPeriod AND timeEndWork IS NULL)
+    OR (timeStartWork >= :startPeriod AND timeStartWork <= :endPeriod AND timeEndWork IS NULL)
   )
 ORDER BY timeStartWork DESC;
 
