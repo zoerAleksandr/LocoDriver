@@ -822,8 +822,17 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     dateAndTimeConverter.getDateMiniAndTime(route?.basicData?.timeStartWork)
                 } else ""
 
-                // Last action text (under play/stop button)
-                val lastActionText = computeLastActionText(route, dateAndTimeConverter)
+                // Button info (train number, status, time — under play/stop button)
+                val buttonInfo = computeButtonInfo(route, dateAndTimeConverter)
+
+                // Norm remaining / overtime
+                val normHoursInt = monthOfYear?.getPersonalNormaHours() ?: 0
+                val normMillis = normHoursInt.toLong() * 3_600_000L
+                val diff = totalTimeMillis - normMillis
+                val isOvertime = diff >= 0
+                val remainingMillis = if (isOvertime) diff else -diff
+                val remainingHours = remainingMillis / 3_600_000L
+                val normRemainingText = if (normHoursInt > 0) "${remainingHours}ч" else ""
 
                 // State info lines
                 val stateInfo = computeStateInfo(
@@ -848,11 +857,16 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     hasCurrentRoute = hasCurrentRoute,
                     reportTime = reportTime,
                     isDepartureNext = isDeparture,
-                    lastActionText = lastActionText,
+                    lastActionText = "",
                     stateInfoLine1 = stateInfo.first,
                     stateInfoLine2 = stateInfo.second,
                     stateInfoLine3 = stateInfo.third,
-                    nextReportText = nextReportText
+                    nextReportText = nextReportText,
+                    normRemainingText = normRemainingText,
+                    isOvertime = isOvertime,
+                    trainNumberText = buttonInfo.trainNumber,
+                    statusText = buttonInfo.statusText,
+                    statusTimeText = buttonInfo.statusTime
                 )
             } catch (e: Exception) {
                 Log.w("HomeViewModel", "Widget update failed", e)
@@ -860,14 +874,24 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    /** Compute "В пути с HH:mm" / "Стоянка с HH:mm" from last train stations */
-    private fun computeLastActionText(
+    /** Button info: train number, status text, status time */
+    private data class ButtonInfo(
+        val trainNumber: String,  // "п. №3" or ""
+        val statusText: String,   // "В пути" / "Стоянка" or ""
+        val statusTime: String    // "с 13:45" or ""
+    )
+
+    /** Compute button info from last train: train number, status, time */
+    private fun computeButtonInfo(
         route: Route?,
         dateAndTimeConverter: DateAndTimeConverter
-    ): String {
-        val lastTrain = route?.trains?.lastOrNull() ?: return ""
+    ): ButtonInfo {
+        val lastTrain = route?.trains?.lastOrNull()
+            ?: return ButtonInfo("", "", "")
         val stations = lastTrain.stations
-        if (stations.isEmpty()) return ""
+        if (stations.isEmpty()) return ButtonInfo("", "", "")
+
+        val trainNumber = lastTrain.number?.let { "п. №$it" } ?: ""
 
         val hasServicePhase = lastTrain.servicePhase != null
         val endIdx = if (hasServicePhase && stations.size >= 2)
@@ -876,13 +900,21 @@ class HomeViewModel : ViewModel(), KoinComponent {
         for (i in endIdx downTo 0) {
             val s = stations[i]
             if (s.timeDeparture != null) {
-                return "В пути с ${dateAndTimeConverter.getTime(s.timeDeparture)}"
+                return ButtonInfo(
+                    trainNumber = trainNumber,
+                    statusText = "В пути",
+                    statusTime = "с ${dateAndTimeConverter.getTime(s.timeDeparture)}"
+                )
             }
             if (s.timeArrival != null) {
-                return "Стоянка с ${dateAndTimeConverter.getTime(s.timeArrival)}"
+                return ButtonInfo(
+                    trainNumber = trainNumber,
+                    statusText = "Стоянка",
+                    statusTime = "с ${dateAndTimeConverter.getTime(s.timeArrival)}"
+                )
             }
         }
-        return ""
+        return ButtonInfo(trainNumber, "", "")
     }
 
     /** Compute state info: report time / rest info / empty. Returns Triple(line1, line2, line3). */
@@ -897,7 +929,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
         // State 1: Current route — show report time
         if (hasCurrentRoute && currentRoute != null) {
             val reportText =
-                "Явка ${dateAndTimeConverter.getDateMiniAndTime(currentRoute.basicData.timeStartWork)}"
+                "Текущая явка ${dateAndTimeConverter.getDateMiniAndTime(currentRoute.basicData.timeStartWork)}"
             return Triple(reportText, "", "")
         }
 
