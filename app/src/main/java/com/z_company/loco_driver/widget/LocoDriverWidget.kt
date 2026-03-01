@@ -31,6 +31,7 @@ import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
+import androidx.glance.layout.fillMaxHeight
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
@@ -183,7 +184,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                         )
                     }
 
-                    Spacer(modifier = GlanceModifier.defaultWeight())
+                    Spacer(modifier = GlanceModifier.height(6.dp))
 
                     // Bottom: next report
                     if (nextReportText.isNotEmpty()) {
@@ -200,41 +201,42 @@ class LocoDriverWidget : GlanceAppWidget() {
 
                 // Right column — play/stop button (only when current route exists)
                 if (hasCurrentRoute) {
-                    Column(
+                    Box(
                         modifier = GlanceModifier
                             .width(80.dp)
+                            .fillMaxHeight()
                             .cornerRadius(12.dp)
-                            .background(WidgetColors.buttonBackground)
-                            .padding(vertical = 8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalAlignment = Alignment.CenterVertically
+                            .background(WidgetColors.buttonBackground),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Spacer(modifier = GlanceModifier.defaultWeight())
-                        Box(
-                            modifier = GlanceModifier
-                                .size(56.dp)
-                                .clickable(actionRunCallback<GoActionCallback>()),
-                            contentAlignment = Alignment.Center
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Image(
-                                provider = ImageProvider(
-                                    if (isDepartureNext) R.drawable.widget_play else R.drawable.widget_stop
-                                ),
-                                contentDescription = if (isDepartureNext) "Отправление" else "Прибытие",
-                                modifier = GlanceModifier.size(48.dp)
-                            )
-                        }
-                        if (lastActionText.isNotEmpty()) {
-                            Spacer(modifier = GlanceModifier.height(4.dp))
-                            Text(
-                                text = lastActionText,
-                                style = TextStyle(
-                                    color = ColorProvider(WidgetColors.textSecondary),
-                                    fontSize = 10.sp
+                            Box(
+                                modifier = GlanceModifier
+                                    .size(56.dp)
+                                    .clickable(actionRunCallback<GoActionCallback>()),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Image(
+                                    provider = ImageProvider(
+                                        if (isDepartureNext) R.drawable.widget_play else R.drawable.widget_stop
+                                    ),
+                                    contentDescription = if (isDepartureNext) "Отправление" else "Прибытие",
+                                    modifier = GlanceModifier.size(48.dp)
                                 )
-                            )
+                            }
+                            if (lastActionText.isNotEmpty()) {
+                                Spacer(modifier = GlanceModifier.height(4.dp))
+                                Text(
+                                    text = lastActionText,
+                                    style = TextStyle(
+                                        color = ColorProvider(WidgetColors.textSecondary),
+                                        fontSize = 10.sp
+                                    )
+                                )
+                            }
                         }
-                        Spacer(modifier = GlanceModifier.defaultWeight())
                     }
                 }
             }
