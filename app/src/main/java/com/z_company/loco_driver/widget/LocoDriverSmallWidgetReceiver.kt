@@ -1,0 +1,8 @@
+package com.z_company.loco_driver.widget
+
+import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.GlanceAppWidgetReceiver
+
+class LocoDriverSmallWidgetReceiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget = LocoDriverSmallWidget()
+}

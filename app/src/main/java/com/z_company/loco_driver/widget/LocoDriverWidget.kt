@@ -565,6 +565,13 @@ object WidgetDataLoader : KoinComponent {
             statusText = buttonInfo.statusText,
             statusTimeText = buttonInfo.statusTime
         )
+
+        // Update small widget
+        LocoDriverSmallWidget.updateAllSmallWidgets(
+            context = context,
+            totalTimeText = totalTimeText,
+            normHours = normHours
+        )
     }
 
     /** Button info: train number, status text, status time */
