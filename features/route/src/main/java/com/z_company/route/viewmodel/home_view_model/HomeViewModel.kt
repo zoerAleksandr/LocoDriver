@@ -773,7 +773,6 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
                 val route = currentRoute
                 val hasCurrentRoute = route != null
-                val trainNumber = route?.trains?.lastOrNull()?.number ?: ""
                 val isDeparture = isNextDeparture()
 
                 val dateAndTimeConverter = DateAndTimeConverter(userSettings)
@@ -781,33 +780,125 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     dateAndTimeConverter.getDateMiniAndTime(route?.basicData?.timeStartWork)
                 } else ""
 
-                // Find nearest future route
+                // Last action text (under play/stop button)
+                val lastActionText = computeLastActionText(route, dateAndTimeConverter)
+
+                // State info lines
+                val stateInfo = computeStateInfo(
+                    hasCurrentRoute = hasCurrentRoute,
+                    currentRoute = route,
+                    allRoutes = fullRouteList,
+                    currentTimeInMillis = currentTimeInMillis,
+                    userSettings = userSettings,
+                    dateAndTimeConverter = dateAndTimeConverter
+                )
+
+                // Next report text
                 val futureRoute = fullRouteList
                     .filter { it.isFuture(userSettings.timeZone) }
                     .minByOrNull { it.basicData.timeStartWork ?: Long.MAX_VALUE }
-                val hasFutureRoute = futureRoute != null
-                val futureReportTime = if (hasFutureRoute) {
-                    dateAndTimeConverter.getDateMiniAndTime(futureRoute?.basicData?.timeStartWork)
-                } else ""
-                val futureTrainNumber = futureRoute?.trains?.lastOrNull()?.number ?: ""
+                val nextReportText = if (futureRoute != null) {
+                    "Следующая явка ${dateAndTimeConverter.getDateMiniAndTime(futureRoute.basicData.timeStartWork)}"
+                } else "Следующая явка неизвестна"
 
                 widgetUpdater.update(
                     totalTimeText = totalTimeText,
                     normHours = normHours,
                     monthYear = monthYear,
                     hasCurrentRoute = hasCurrentRoute,
-                    trainNumber = trainNumber,
                     reportTime = reportTime,
                     isDepartureNext = isDeparture,
-                    routeCount = routeCount.toString(),
-                    hasFutureRoute = hasFutureRoute,
-                    futureReportTime = futureReportTime,
-                    futureTrainNumber = futureTrainNumber
+                    lastActionText = lastActionText,
+                    stateInfoLine1 = stateInfo.first,
+                    stateInfoLine2 = stateInfo.second,
+                    stateInfoLine3 = stateInfo.third,
+                    nextReportText = nextReportText
                 )
             } catch (e: Exception) {
                 Log.w("HomeViewModel", "Widget update failed", e)
             }
         }
+    }
+
+    /** Compute "В пути с HH:mm" / "Стоянка с HH:mm" from last train stations */
+    private fun computeLastActionText(
+        route: Route?,
+        dateAndTimeConverter: DateAndTimeConverter
+    ): String {
+        val lastTrain = route?.trains?.lastOrNull() ?: return ""
+        val stations = lastTrain.stations
+        if (stations.isEmpty()) return ""
+
+        val hasServicePhase = lastTrain.servicePhase != null
+        val endIdx = if (hasServicePhase && stations.size >= 2)
+            stations.lastIndex - 1 else stations.lastIndex
+
+        for (i in endIdx downTo 0) {
+            val s = stations[i]
+            if (s.timeDeparture != null) {
+                return "В пути с ${dateAndTimeConverter.getTime(s.timeDeparture)}"
+            }
+            if (s.timeArrival != null) {
+                return "Стоянка с ${dateAndTimeConverter.getTime(s.timeArrival)}"
+            }
+        }
+        return ""
+    }
+
+    /** Compute state info: report time / rest info / empty. Returns Triple(line1, line2, line3). */
+    private fun computeStateInfo(
+        hasCurrentRoute: Boolean,
+        currentRoute: Route?,
+        allRoutes: List<Route>,
+        currentTimeInMillis: Long,
+        userSettings: UserSettings,
+        dateAndTimeConverter: DateAndTimeConverter
+    ): Triple<String, String, String> {
+        // State 1: Current route — show report time
+        if (hasCurrentRoute && currentRoute != null) {
+            val reportText =
+                "Явка ${dateAndTimeConverter.getDateMiniAndTime(currentRoute.basicData.timeStartWork)}"
+            return Triple(reportText, "", "")
+        }
+
+        // State 2: No current route — find previous completed route
+        val previousRoute = allRoutes
+            .filter {
+                it.basicData.timeEndWork != null &&
+                    it.basicData.timeEndWork!! < currentTimeInMillis &&
+                    it.basicData.timeStartWork != null
+            }
+            .maxByOrNull { it.basicData.timeEndWork ?: 0L }
+
+        if (previousRoute != null) {
+            val startWork = previousRoute.basicData.timeStartWork!!
+            val endWork = previousRoute.basicData.timeEndWork!!
+            val workTime = endWork - startWork
+
+            if (previousRoute.basicData.restPointOfTurnover) {
+                // Turnaround rest
+                val minTime = userSettings.minTimeRestPointOfTurnover
+                val shortRest = maxOf(workTime / 2, minTime)
+                val fullRest = maxOf(workTime, minTime)
+                val line1 =
+                    "Короткий ${ConverterLongToTime.formatDurationFromMillis(shortRest)} до ${dateAndTimeConverter.getDateMiniAndTime(endWork + shortRest)}"
+                val line2 =
+                    "Полный ${ConverterLongToTime.formatDurationFromMillis(fullRest)} до ${dateAndTimeConverter.getDateMiniAndTime(endWork + fullRest)}"
+                return Triple(line1, line2, "")
+            } else {
+                // Home rest (simplified — single route, no chain)
+                val rawDuration = (workTime.toDouble() * 2.6).toLong()
+                val duration = maxOf(rawDuration, userSettings.minTimeHomeRest)
+                val endRestTime = endWork + duration
+                val line1 =
+                    "Продлится ${ConverterLongToTime.formatDurationFromMillis(duration)}"
+                val line2 = "До ${dateAndTimeConverter.getDateMiniAndTime(endRestTime)}"
+                return Triple(line1, line2, "")
+            }
+        }
+
+        // State 3: No routes at all
+        return Triple("", "", "")
     }
 
     fun setCurrentMonth(yearAndMonth: Pair<Int, Int>) {
