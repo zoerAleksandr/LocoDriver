@@ -59,13 +59,25 @@ fun LocoDriverApp(
     isShowUpdatePresentation: Boolean,
     pendingImportRoute: Route? = null,
     onConfirmImport: () -> Unit = {},
-    onDismissImport: () -> Unit = {}
+    onDismissImport: () -> Unit = {},
+    pendingFormOpen: Boolean = false,
+    onFormOpened: () -> Unit = {}
 ) {
     LocoDriverTheme {
         val navController = rememberNavController()
 
         LaunchedEffect(navController) {
             (appState.router as? RouterImpl)?.updateNavController(navController)
+        }
+
+        // Навигация из виджета → FormScreen (добавить маршрут)
+        LaunchedEffect(pendingFormOpen) {
+            if (pendingFormOpen) {
+                navController.navigate(FormRoute.buildDetailsRoute(null, false)) {
+                    launchSingleTop = true
+                }
+                onFormOpened()
+            }
         }
 
         val backgroundColor = MaterialTheme.colorScheme.background

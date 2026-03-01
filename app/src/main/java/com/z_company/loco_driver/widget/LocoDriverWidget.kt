@@ -1,6 +1,7 @@
 package com.z_company.loco_driver.widget
 
 import android.content.Context
+import android.content.Intent
 import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -117,71 +118,57 @@ class LocoDriverWidget : GlanceAppWidget() {
             Column(
                 modifier = GlanceModifier.fillMaxSize()
             ) {
-                // ─── Top: work time / norm (left) + remaining to norm (right) ───
+                // ─── Top: work time / norm / remaining — all on one line ───
                 Row(
                     modifier = GlanceModifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.Top
+                    verticalAlignment = Alignment.Bottom
                 ) {
-                    // Left: work time / norm
-                    Column(
-                        modifier = GlanceModifier.defaultWeight()
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.Bottom
-                        ) {
-                            Text(
-                                text = totalTimeText,
-                                style = TextStyle(
-                                    color = ColorProvider(WidgetColors.textPrimary),
-                                    fontSize = 44.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            )
-                            if (normHours.isNotEmpty()) {
-                                Text(
-                                    text = " / $normHours",
-                                    style = TextStyle(
-                                        color = ColorProvider(WidgetColors.accent),
-                                        fontSize = 22.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                )
-                            }
-                        }
+                    Text(
+                        text = totalTimeText,
+                        style = TextStyle(
+                            color = ColorProvider(WidgetColors.textPrimary),
+                            fontSize = 44.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                    if (normHours.isNotEmpty()) {
                         Text(
-                            text = "Отработано / норма",
+                            text = " / $normHours",
                             style = TextStyle(
-                                color = ColorProvider(WidgetColors.textSecondary),
-                                fontSize = 12.sp
+                                color = ColorProvider(WidgetColors.accent),
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Medium
                             )
                         )
                     }
-
-                    // Right upper corner: remaining to norm / overtime
+                    Spacer(modifier = GlanceModifier.defaultWeight())
                     if (normRemainingText.isNotEmpty()) {
-                        Column(
-                            horizontalAlignment = Alignment.End
-                        ) {
-                            Text(
-                                text = normRemainingText,
-                                style = TextStyle(
-                                    color = ColorProvider(
-                                        if (isOvertime) WidgetColors.overtimeColor else WidgetColors.accent
-                                    ),
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                        Text(
+                            text = normRemainingText,
+                            style = TextStyle(
+                                color = ColorProvider(
+                                    if (isOvertime) WidgetColors.overtimeColor else WidgetColors.accent
+                                ),
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
                             )
-                            Text(
-                                text = if (isOvertime) "переработка" else "до нормы",
-                                style = TextStyle(
-                                    color = ColorProvider(WidgetColors.textSecondary),
-                                    fontSize = 10.sp
-                                )
+                        )
+                        Text(
+                            text = if (isOvertime) " переработка" else " до нормы",
+                            style = TextStyle(
+                                color = ColorProvider(WidgetColors.textSecondary),
+                                fontSize = 10.sp
                             )
-                        }
+                        )
                     }
                 }
+                Text(
+                    text = "Отработано / норма",
+                    style = TextStyle(
+                        color = ColorProvider(WidgetColors.textSecondary),
+                        fontSize = 12.sp
+                    )
+                )
 
                 // Spacer pushes bottom section to the bottom edge
                 Spacer(modifier = GlanceModifier.defaultWeight())
@@ -238,16 +225,17 @@ class LocoDriverWidget : GlanceAppWidget() {
                         }
                     }
 
-                    // Right: play/stop button (only when current route exists)
-                    if (hasCurrentRoute) {
-                        Box(
-                            modifier = GlanceModifier
-                                .width(90.dp)
-                                .cornerRadius(12.dp)
-                                .background(WidgetColors.buttonBackground)
-                                .padding(vertical = 4.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
+                    // Right: play/stop button OR add button
+                    Box(
+                        modifier = GlanceModifier
+                            .width(90.dp)
+                            .cornerRadius(12.dp)
+                            .background(WidgetColors.buttonBackground)
+                            .padding(vertical = 4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (hasCurrentRoute) {
+                            // Play/stop button with train info
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
@@ -294,6 +282,27 @@ class LocoDriverWidget : GlanceAppWidget() {
                                         )
                                     )
                                 }
+                            }
+                        } else {
+                            // Add route button
+                            Column(
+                                modifier = GlanceModifier
+                                    .clickable(actionRunCallback<AddRouteActionCallback>()),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Image(
+                                    provider = ImageProvider(R.drawable.widget_add),
+                                    contentDescription = "Добавить маршрут",
+                                    modifier = GlanceModifier.size(40.dp)
+                                )
+                                Spacer(modifier = GlanceModifier.height(2.dp))
+                                Text(
+                                    text = "Добавить",
+                                    style = TextStyle(
+                                        color = ColorProvider(WidgetColors.textSecondary),
+                                        fontSize = 10.sp
+                                    )
+                                )
                             }
                         }
                     }
@@ -420,16 +429,26 @@ object WidgetDataLoader : KoinComponent {
         // Load all routes
         val allRoutes = routeUseCase.getListRoutes()
 
-        // Filter routes for current month
+        // Filter routes for current month (include transitional routes)
         val routesForMonth = if (monthOfYear != null) {
             allRoutes.filter { route ->
                 val startWork = route.basicData.timeStartWork ?: return@filter false
-                val routeCal = Calendar.getInstance(TimeZone.getTimeZone(timeZoneText)).apply {
+                val startCal = Calendar.getInstance(TimeZone.getTimeZone(timeZoneText)).apply {
                     timeInMillis = startWork
                 }
-                val routeMonth = routeCal.get(Calendar.MONTH) // 0-based
-                val routeYear = routeCal.get(Calendar.YEAR)
-                routeMonth == monthOfYear.month - 1 && routeYear == monthOfYear.year
+                val startInMonth = startCal.get(Calendar.MONTH) == monthOfYear.month - 1
+                    && startCal.get(Calendar.YEAR) == monthOfYear.year
+
+                val endWork = route.basicData.timeEndWork
+                val endInMonth = if (endWork != null) {
+                    val endCal = Calendar.getInstance(TimeZone.getTimeZone(timeZoneText)).apply {
+                        timeInMillis = endWork
+                    }
+                    endCal.get(Calendar.MONTH) == monthOfYear.month - 1
+                        && endCal.get(Calendar.YEAR) == monthOfYear.year
+                } else false
+
+                startInMonth || endInMonth
             }
         } else allRoutes
 
@@ -737,5 +756,22 @@ class GoActionCallback : ActionCallback, KoinComponent {
 
         // 6. Reload all widget data (recalculates isDepartureNext etc.)
         WidgetDataLoader.loadAndPush(context)
+    }
+}
+
+/**
+ * ActionCallback for "Add route" button — opens MainActivity with FormScreen.
+ */
+class AddRouteActionCallback : ActionCallback {
+    override suspend fun onAction(
+        context: Context,
+        glanceId: GlanceId,
+        parameters: ActionParameters
+    ) {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            putExtra("widget_add_route", true)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        context.startActivity(intent)
     }
 }

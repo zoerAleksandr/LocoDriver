@@ -60,6 +60,13 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private val _pendingImportRoute = MutableStateFlow<Route?>(null)
     val pendingImportRoute: StateFlow<Route?> = _pendingImportRoute.asStateFlow()
 
+    // Навигация из виджета → FormScreen (добавить маршрут)
+    private val _pendingFormOpen = MutableStateFlow(false)
+    val pendingFormOpen: StateFlow<Boolean> = _pendingFormOpen.asStateFlow()
+
+    fun requestOpenForm() { _pendingFormOpen.value = true }
+    fun clearOpenForm() { _pendingFormOpen.value = false }
+
     fun setPendingImportRoute(route: Route) {
         _pendingImportRoute.value = route
     }
