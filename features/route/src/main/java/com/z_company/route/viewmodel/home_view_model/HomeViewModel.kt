@@ -953,20 +953,20 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 val minTime = userSettings.minTimeRestPointOfTurnover
                 val shortRest = maxOf(workTime / 2, minTime)
                 val fullRest = maxOf(workTime, minTime)
-                val line1 =
+                val shortLine =
                     "Короткий ${ConverterLongToTime.formatDurationFromMillis(shortRest)} до ${dateAndTimeConverter.getDateMiniAndTime(endWork + shortRest)}"
-                val line2 =
+                val fullLine =
                     "Полный ${ConverterLongToTime.formatDurationFromMillis(fullRest)} до ${dateAndTimeConverter.getDateMiniAndTime(endWork + fullRest)}"
-                return Triple(line1, line2, "")
+                return Triple("Отдых в ПО", shortLine, fullLine)
             } else {
                 // Home rest (simplified — single route, no chain)
                 val rawDuration = (workTime.toDouble() * 2.6).toLong()
                 val duration = maxOf(rawDuration, userSettings.minTimeHomeRest)
                 val endRestTime = endWork + duration
-                val line1 =
+                val durationLine =
                     "Продлится ${ConverterLongToTime.formatDurationFromMillis(duration)}"
-                val line2 = "До ${dateAndTimeConverter.getDateMiniAndTime(endRestTime)}"
-                return Triple(line1, line2, "")
+                val endLine = "До ${dateAndTimeConverter.getDateMiniAndTime(endRestTime)}"
+                return Triple("Домашний отдых", durationLine, endLine)
             }
         }
 

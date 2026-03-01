@@ -200,7 +200,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                             Text(
                                 text = stateInfoLine1,
                                 style = TextStyle(
-                                    color = ColorProvider(WidgetColors.textPrimary),
+                                    color = ColorProvider(WidgetColors.accent),
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -227,7 +227,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                             )
                         }
                         if (nextReportText.isNotEmpty()) {
-                            Spacer(modifier = GlanceModifier.height(4.dp))
+                            Spacer(modifier = GlanceModifier.height(8.dp))
                             Text(
                                 text = nextReportText,
                                 style = TextStyle(
@@ -240,15 +240,15 @@ class LocoDriverWidget : GlanceAppWidget() {
                     }
 
                     // Right: play/stop button OR add button
-                    Box(
-                        modifier = GlanceModifier
-                            .width(90.dp)
-                            .cornerRadius(12.dp)
-                            .background(WidgetColors.buttonBackground)
-                            .padding(vertical = 4.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (hasCurrentRoute) {
+                    if (hasCurrentRoute) {
+                        Box(
+                            modifier = GlanceModifier
+                                .width(90.dp)
+                                .cornerRadius(12.dp)
+                                .background(WidgetColors.buttonBackground)
+                                .padding(vertical = 4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
                             // Play/stop button with train info
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally
@@ -297,15 +297,23 @@ class LocoDriverWidget : GlanceAppWidget() {
                                     )
                                 }
                             }
-                        } else {
-                            // Add route button
+                        }
+                    } else {
+                        // Add route button — light background, dark icon/text
+                        Box(
+                            modifier = GlanceModifier
+                                .width(90.dp)
+                                .cornerRadius(12.dp)
+                                .background(WidgetColors.addButtonBackground)
+                                .clickable(actionRunCallback<AddRouteActionCallback>())
+                                .padding(vertical = 4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
                             Column(
-                                modifier = GlanceModifier
-                                    .clickable(actionRunCallback<AddRouteActionCallback>()),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Image(
-                                    provider = ImageProvider(R.drawable.widget_add),
+                                    provider = ImageProvider(R.drawable.widget_add_dark),
                                     contentDescription = "Добавить маршрут",
                                     modifier = GlanceModifier.size(40.dp)
                                 )
@@ -313,14 +321,14 @@ class LocoDriverWidget : GlanceAppWidget() {
                                 Text(
                                     text = "Добавить",
                                     style = TextStyle(
-                                        color = ColorProvider(WidgetColors.textSecondary),
+                                        color = ColorProvider(WidgetColors.addButtonText),
                                         fontSize = 10.sp
                                     )
                                 )
                                 Text(
                                     text = "маршрут",
                                     style = TextStyle(
-                                        color = ColorProvider(WidgetColors.textSecondary),
+                                        color = ColorProvider(WidgetColors.addButtonText),
                                         fontSize = 10.sp
                                     )
                                 )
@@ -340,6 +348,8 @@ class LocoDriverWidget : GlanceAppWidget() {
         val textSecondary = Color(0xFFEBE8E8)       // DarkOnSurface
         val accent = Color(0xFF92b2e5)              // DarkTertiary
         val overtimeColor = Color(0xFFeb9e9e)       // DarkError — for overtime indicator
+        val addButtonBackground = Color(0xDDf0f0f0) // Light background for "Добавить" button
+        val addButtonText = Color(0xFF333333)        // Dark text for "Добавить" button
     }
 
     /** Preference keys */
