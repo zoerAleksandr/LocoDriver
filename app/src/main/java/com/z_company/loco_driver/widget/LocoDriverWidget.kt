@@ -16,7 +16,6 @@ import androidx.glance.GlanceTheme
 import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.action.ActionParameters
-import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetManager
@@ -112,7 +111,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                 .fillMaxSize()
                 .cornerRadius(16.dp)
                 .background(WidgetColors.background)
-                .clickable(actionStartActivity<MainActivity>())
+                .clickable(actionRunCallback<OpenAppActionCallback>())
                 .padding(12.dp)
         ) {
             Column(
@@ -245,8 +244,8 @@ class LocoDriverWidget : GlanceAppWidget() {
                             modifier = GlanceModifier
                                 .width(90.dp)
                                 .cornerRadius(12.dp)
-                                .background(WidgetColors.buttonBackground)
-                                .padding(vertical = 4.dp),
+                                .background(WidgetColors.addButtonBackground)
+                                .padding(vertical = 6.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             // Play/stop button with train info
@@ -272,7 +271,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                                     Text(
                                         text = trainNumberText,
                                         style = TextStyle(
-                                            color = ColorProvider(WidgetColors.textPrimary),
+                                            color = ColorProvider(WidgetColors.addButtonText),
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.Medium
                                         )
@@ -282,7 +281,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                                     Text(
                                         text = statusText,
                                         style = TextStyle(
-                                            color = ColorProvider(WidgetColors.textSecondary),
+                                            color = ColorProvider(WidgetColors.addButtonText),
                                             fontSize = 10.sp
                                         )
                                     )
@@ -291,7 +290,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                                     Text(
                                         text = statusTimeText,
                                         style = TextStyle(
-                                            color = ColorProvider(WidgetColors.textSecondary),
+                                            color = ColorProvider(WidgetColors.addButtonText),
                                             fontSize = 10.sp
                                         )
                                     )
@@ -306,7 +305,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                                 .cornerRadius(12.dp)
                                 .background(WidgetColors.addButtonBackground)
                                 .clickable(actionRunCallback<AddRouteActionCallback>())
-                                .padding(vertical = 4.dp),
+                                .padding(vertical = 6.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Column(
@@ -828,6 +827,24 @@ class AddRouteActionCallback : ActionCallback {
     ) {
         val intent = Intent(context, MainActivity::class.java).apply {
             putExtra("widget_add_route", true)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        context.startActivity(intent)
+    }
+}
+
+/**
+ * ActionCallback for tapping widget body — opens MainActivity at HomeScreen.
+ * Ensures navigation always goes to Home, even if FormScreen was previously open.
+ */
+class OpenAppActionCallback : ActionCallback {
+    override suspend fun onAction(
+        context: Context,
+        glanceId: GlanceId,
+        parameters: ActionParameters
+    ) {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            putExtra("widget_open_home", true)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         context.startActivity(intent)

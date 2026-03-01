@@ -67,6 +67,13 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     fun requestOpenForm() { _pendingFormOpen.value = true }
     fun clearOpenForm() { _pendingFormOpen.value = false }
 
+    // Навигация из виджета → HomeScreen (по тапу на тело виджета)
+    private val _pendingNavigateHome = MutableStateFlow(false)
+    val pendingNavigateHome: StateFlow<Boolean> = _pendingNavigateHome.asStateFlow()
+
+    fun requestNavigateHome() { _pendingNavigateHome.value = true }
+    fun clearNavigateHome() { _pendingNavigateHome.value = false }
+
     fun setPendingImportRoute(route: Route) {
         _pendingImportRoute.value = route
     }
