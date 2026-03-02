@@ -23,4 +23,5 @@ interface SettingsRepository {
     fun getStations(): List<String>
     fun setLocomotiveSeriesList(locomotiveSeries: List<String>): Flow<ResultState<Unit>>
     fun getLocomotiveSeriesList(): List<String>
+    fun setShowBreak(value: Boolean): Flow<ResultState<Unit>>
 }

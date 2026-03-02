@@ -137,6 +137,9 @@ fun FormScreen(
     onNotesChanged: (String) -> Unit,
     onTimeStartWorkChanged: (Long?) -> Unit,
     onTimeEndWorkChanged: (Long?) -> Unit,
+    onTimeStartBreakChanged: (Long?) -> Unit,
+    onTimeEndBreakChanged: (Long?) -> Unit,
+    isShowBreak: Boolean,
     onRestChanged: (Boolean) -> Unit,
     onChangedLocoClick: (loco: Locomotive) -> Unit,
     onNewLocoClick: (basicId: String) -> Unit,
@@ -478,6 +481,103 @@ fun FormScreen(
 
                 var showEndDatePicker by remember {
                     mutableStateOf(false)
+                }
+
+                var showStartBreakDatePicker by remember {
+                    mutableStateOf(false)
+                }
+
+                var showEndBreakDatePicker by remember {
+                    mutableStateOf(false)
+                }
+
+                var showBottomSheetRemoveTimeStartBreak by remember {
+                    mutableStateOf(false)
+                }
+
+                var showBottomSheetRemoveTimeEndBreak by remember {
+                    mutableStateOf(false)
+                }
+
+                var isBreakFieldsVisible by remember {
+                    mutableStateOf(
+                        route.basicData.timeStartBreak != null || route.basicData.timeEndBreak != null
+                    )
+                }
+
+                if (showStartBreakDatePicker) {
+                    DateTimePickerBottomSheet(
+                        title = "Начало перерыва",
+                        onDateTimeSelected = { timestamp ->
+                            onTimeStartBreakChanged(timestamp)
+                        },
+                        onDismiss = { showStartBreakDatePicker = false },
+                        startDateTime = route.basicData.timeStartBreak
+                            ?: route.basicData.timeStartWork
+                            ?: Calendar.getInstance().timeInMillis
+                    )
+                }
+
+                if (showEndBreakDatePicker) {
+                    DateTimePickerBottomSheet(
+                        title = "Окончание перерыва",
+                        onDateTimeSelected = { timestamp ->
+                            onTimeEndBreakChanged(timestamp)
+                        },
+                        onDismiss = { showEndBreakDatePicker = false },
+                        startDateTime = route.basicData.timeEndBreak
+                            ?: route.basicData.timeStartBreak
+                            ?: route.basicData.timeStartWork
+                            ?: Calendar.getInstance().timeInMillis
+                    )
+                }
+
+                if (showBottomSheetRemoveTimeStartBreak) {
+                    AppBottomSheet(
+                        onDismissRequest = { showBottomSheetRemoveTimeStartBreak = false },
+                        sheetState = sheetState,
+                        headerContent = {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Text(
+                                    text = "Начало перерыва",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        },
+                        actions = listOf(
+                            BottomSheetAction(text = "Удалить значение") {
+                                onTimeStartBreakChanged(null)
+                            }
+                        )
+                    )
+                }
+
+                if (showBottomSheetRemoveTimeEndBreak) {
+                    AppBottomSheet(
+                        onDismissRequest = { showBottomSheetRemoveTimeEndBreak = false },
+                        sheetState = sheetState,
+                        headerContent = {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Text(
+                                    text = "Окончание перерыва",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        },
+                        actions = listOf(
+                            BottomSheetAction(text = "Удалить значение") {
+                                onTimeEndBreakChanged(null)
+                            }
+                        )
+                    )
                 }
 
                 if (showStartDatePicker) {
@@ -1121,6 +1221,162 @@ fun FormScreen(
                                         color = textColor,
                                         style = MaterialTheme.typography.bodyLarge
                                     )
+                                }
+                            }
+
+                            // Перерыв
+                            if (isShowBreak) {
+                                TextButton(
+                                    onClick = { isBreakFieldsVisible = !isBreakFieldsVisible }
+                                ) {
+                                    Text(
+                                        text = "Перерыв",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.tertiary
+                                    )
+                                }
+
+                                AnimatedVisibility(visible = isBreakFieldsVisible) {
+                                    Column(
+                                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        val animatedBgStartBreak by animateColorAsState(
+                                            targetValue = if (route.basicData.timeStartBreak == null) MaterialTheme.colorScheme.surface
+                                            else MaterialTheme.colorScheme.secondary,
+                                            animationSpec = tween(
+                                                durationMillis = 200,
+                                                easing = FastOutSlowInEasing
+                                            )
+                                        )
+
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .shadow(
+                                                    elevation = 2.dp,
+                                                    shape = Shapes.medium
+                                                )
+                                                .background(
+                                                    color = animatedBgStartBreak,
+                                                    shape = Shapes.medium
+                                                )
+                                                .combinedClickable(
+                                                    onClick = {
+                                                        showStartBreakDatePicker = true
+                                                    },
+                                                    onLongClick = {
+                                                        route.basicData.timeStartBreak?.let {
+                                                            showBottomSheetRemoveTimeStartBreak =
+                                                                true
+                                                        }
+                                                    }
+                                                )
+                                                .padding(
+                                                    horizontal = 16.dp,
+                                                    vertical = 12.dp
+                                                ),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "Начало",
+                                                color = MaterialTheme.colorScheme.primary.copy(
+                                                    alpha = 0.6f
+                                                ),
+                                                style = LocalTextStyle.current.copy(
+                                                    fontWeight = FontWeight.Light
+                                                )
+                                            )
+                                            Row(
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically,
+                                            ) {
+                                                var textColor =
+                                                    MaterialTheme.colorScheme.primary.copy(
+                                                        alpha = 0.6f
+                                                    )
+                                                val breakStartText =
+                                                    route.basicData.timeStartBreak?.let {
+                                                        textColor =
+                                                            MaterialTheme.colorScheme.primary
+                                                        dateAndTimeConverter?.getDateAndTime(it)
+                                                    } ?: ""
+                                                Text(
+                                                    text = breakStartText,
+                                                    color = textColor,
+                                                    style = MaterialTheme.typography.bodyLarge
+                                                )
+                                            }
+                                        }
+
+                                        val animatedBgEndBreak by animateColorAsState(
+                                            targetValue = if (route.basicData.timeEndBreak == null) MaterialTheme.colorScheme.surface
+                                            else MaterialTheme.colorScheme.secondary,
+                                            animationSpec = tween(
+                                                durationMillis = 200,
+                                                easing = FastOutSlowInEasing
+                                            )
+                                        )
+
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .shadow(
+                                                    elevation = 2.dp,
+                                                    shape = Shapes.medium
+                                                )
+                                                .background(
+                                                    color = animatedBgEndBreak,
+                                                    shape = Shapes.medium
+                                                )
+                                                .combinedClickable(
+                                                    onClick = {
+                                                        showEndBreakDatePicker = true
+                                                    },
+                                                    onLongClick = {
+                                                        route.basicData.timeEndBreak?.let {
+                                                            showBottomSheetRemoveTimeEndBreak =
+                                                                true
+                                                        }
+                                                    }
+                                                )
+                                                .padding(
+                                                    horizontal = 16.dp,
+                                                    vertical = 12.dp
+                                                ),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "Окончание",
+                                                color = MaterialTheme.colorScheme.primary.copy(
+                                                    alpha = 0.6f
+                                                ),
+                                                style = LocalTextStyle.current.copy(
+                                                    fontWeight = FontWeight.Light
+                                                )
+                                            )
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                            ) {
+                                                var textColor =
+                                                    MaterialTheme.colorScheme.primary.copy(
+                                                        alpha = 0.6f
+                                                    )
+                                                val breakEndText =
+                                                    route.basicData.timeEndBreak?.let {
+                                                        textColor =
+                                                            MaterialTheme.colorScheme.primary
+                                                        dateAndTimeConverter?.getDateAndTime(it)
+                                                    } ?: ""
+                                                Text(
+                                                    text = breakEndText,
+                                                    color = textColor,
+                                                    style = MaterialTheme.typography.bodyLarge
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
 

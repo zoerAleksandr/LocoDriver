@@ -61,7 +61,8 @@ internal object SettingsMapper {
         servicePhases = decodeServicePhaseList(row.servicePhases),
         standardTimesStartWork = decodeLongList(row.standardTimesStartWork),
         subscriptionPeriod = row.subscriptionPeriod,
-        isDecimalTime = row.isDecimalTime != 0L
+        isDecimalTime = row.isDecimalTime != 0L,
+        isShowBreak = row.isShowBreak != 0L
     )
 }
 

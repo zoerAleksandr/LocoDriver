@@ -43,7 +43,8 @@ class SqlDelightSettingRepository : SettingsRepository, KoinComponent {
             servicePhases = SettingsMapper.encodeServicePhaseList(us.servicePhases),
             standardTimesStartWork = SettingsMapper.encodeLongList(us.standardTimesStartWork),
             subscriptionPeriod = us.subscriptionPeriod,
-            isDecimalTime = if (us.isDecimalTime) 1L else 0L
+            isDecimalTime = if (us.isDecimalTime) 1L else 0L,
+            isShowBreak = if (us.isShowBreak) 1L else 0L
         )
     }
 
@@ -141,6 +142,13 @@ class SqlDelightSettingRepository : SettingsRepository, KoinComponent {
     }
 
     override fun getLocomotiveSeriesList(): List<String> = getUserSettings().locomotiveSeriesList
+
+    override fun setShowBreak(value: Boolean): Flow<ResultState<Unit>> {
+        return flowRequest {
+            val current = getUserSettings()
+            insertUserSettings(current.copy(isShowBreak = value))
+        }
+    }
 
     override fun clearRepository(): Flow<ResultState<Unit>> {
         return flowRequest { db.monthOfYearQueries.deleteAll() }
