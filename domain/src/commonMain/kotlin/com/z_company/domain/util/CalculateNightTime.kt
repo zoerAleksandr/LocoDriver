@@ -14,6 +14,13 @@ import kotlinx.datetime.toLocalDateTime
 
 object CalculateNightTime {
 
+    /** Пересечение двух интервалов [a1,a2) и [b1,b2). */
+    private fun overlapDuration(a1: Long, a2: Long, b1: Long, b2: Long): Long {
+        val start = maxOf(a1, b1)
+        val end = minOf(a2, b2)
+        return if (end > start) end - start else 0L
+    }
+
     fun getNightTime(
         startMillis: Long?,
         endMillis: Long?,
@@ -22,6 +29,8 @@ object CalculateNightTime {
         hourEnd: Int,
         minuteEnd: Int,
         offsetInMoscow: Long,
+        breakStartMillis: Long? = null,
+        breakEndMillis: Long? = null,
     ): Flow<Long?> {
         return channelFlow {
             if (startMillis == null || endMillis == null) {
@@ -29,6 +38,10 @@ object CalculateNightTime {
             } else {
                 val startLocalMillis = startMillis + offsetInMoscow
                 val endLocalMillis = endMillis + offsetInMoscow
+
+                val hasBreak = breakStartMillis != null && breakEndMillis != null && breakEndMillis > breakStartMillis
+                val bStart = if (hasBreak) breakStartMillis!! + offsetInMoscow else 0L
+                val bEnd = if (hasBreak) breakEndMillis!! + offsetInMoscow else 0L
 
                 val dateList = mutableListOf<Long>()
                 dateList.add(startLocalMillis)
@@ -45,6 +58,7 @@ object CalculateNightTime {
                 }
 
                 var countNightTime = 0L
+                var breakNightOverlap = 0L
                 val timeZoneStr = getTimeZone(offsetInMoscow)
 
                 dateList.forEach { calMillis ->
@@ -57,6 +71,9 @@ object CalculateNightTime {
                                 if (endNightMillis < endLocalMillis) endNightMillis else endLocalMillis
                             val nightTime = endNightTime - calMillis
                             countNightTime += nightTime
+                            if (hasBreak) {
+                                breakNightOverlap += overlapDuration(bStart, bEnd, calMillis, endNightTime)
+                            }
                         }
                     } else {
                         val startNightTime = if (calMillis < startNightMillis) {
@@ -81,13 +98,22 @@ object CalculateNightTime {
                         if (calMillis < endNightTime) {
                             val nightTime = endNightTime - calMillis
                             countNightTime += nightTime
+                            if (hasBreak) {
+                                breakNightOverlap += overlapDuration(bStart, bEnd, calMillis, endNightTime)
+                            }
                         }
                         // Second part night
                         if (endTimeThisDay > startNightTime) {
                             val nightTime = endTimeThisDay - startNightTime
                             countNightTime += nightTime
+                            if (hasBreak) {
+                                breakNightOverlap += overlapDuration(bStart, bEnd, startNightTime, endTimeThisDay)
+                            }
                         }
                     }
+                }
+                if (hasBreak) {
+                    countNightTime = maxOf(0L, countNightTime - breakNightOverlap)
                 }
                 trySend(countNightTime)
             }
@@ -103,6 +129,8 @@ object CalculateNightTime {
         hourEnd: Int,
         minuteEnd: Int,
         offsetInMoscow: Long,
+        breakStartMillis: Long? = null,
+        breakEndMillis: Long? = null,
     ): Flow<Long?> {
         return channelFlow {
             if (startMillis == null || endMillis == null) {
@@ -111,6 +139,10 @@ object CalculateNightTime {
                 val tz = TimeZone.currentSystemDefault()
                 val startWorkMonthNumber =
                     Instant.fromEpochMilliseconds(startMillis).toLocalDateTime(tz).monthNumber - 1
+
+                val hasBreak = breakStartMillis != null && breakEndMillis != null && breakEndMillis > breakStartMillis
+                val bStart = if (hasBreak) breakStartMillis!! + offsetInMoscow else 0L
+                val bEnd = if (hasBreak) breakEndMillis!! + offsetInMoscow else 0L
 
                 if (startWorkMonthNumber == month) {
                     val startLocalMillis = startMillis + offsetInMoscow
@@ -130,6 +162,7 @@ object CalculateNightTime {
                     }
 
                     var countNightTime = 0L
+                    var breakNightOverlap = 0L
                     val timeZoneStr = getTimeZone(offsetInMoscow)
 
                     dateList.forEach { calMillis ->
@@ -142,6 +175,9 @@ object CalculateNightTime {
                                     if (endNightMillis < endLocalMillis) endNightMillis else endLocalMillis
                                 val nightTime = endNightTime - calMillis
                                 countNightTime += nightTime
+                                if (hasBreak) {
+                                    breakNightOverlap += overlapDuration(bStart, bEnd, calMillis, endNightTime)
+                                }
                             }
                         } else {
                             val startNightTime = if (calMillis < startNightMillis) {
@@ -162,8 +198,14 @@ object CalculateNightTime {
                             if (endTimeThisDay > startNightTime) {
                                 val nightTime = endTimeThisDay - startNightTime
                                 countNightTime += nightTime
+                                if (hasBreak) {
+                                    breakNightOverlap += overlapDuration(bStart, bEnd, startNightTime, endTimeThisDay)
+                                }
                             }
                         }
+                    }
+                    if (hasBreak) {
+                        countNightTime = maxOf(0L, countNightTime - breakNightOverlap)
                     }
                     trySend(countNightTime)
                 } else {
@@ -184,6 +226,7 @@ object CalculateNightTime {
                     }
 
                     var countNightTime = 0L
+                    var breakNightOverlap = 0L
                     dateList.forEach { calMillis ->
                         val startNightMillis = withTime(calMillis, hourStart, minuteStart, null)
                         val endNightMillis = withTime(calMillis, hourEnd, minuteEnd, null)
@@ -194,6 +237,9 @@ object CalculateNightTime {
                                     if (endNightMillis < endLocalMillis) endNightMillis else endLocalMillis
                                 val nightTime = endNightTime - calMillis
                                 countNightTime += nightTime
+                                if (hasBreak) {
+                                    breakNightOverlap += overlapDuration(bStart, bEnd, calMillis, endNightTime)
+                                }
                             }
                         } else {
                             val endNightTime = if (endLocalMillis < endNightMillis) {
@@ -205,8 +251,14 @@ object CalculateNightTime {
                             if (calMillis < endNightTime) {
                                 val nightTime = endNightTime - calMillis
                                 countNightTime += nightTime
+                                if (hasBreak) {
+                                    breakNightOverlap += overlapDuration(bStart, bEnd, calMillis, endNightTime)
+                                }
                             }
                         }
+                    }
+                    if (hasBreak) {
+                        countNightTime = maxOf(0L, countNightTime - breakNightOverlap)
                     }
                     trySend(countNightTime)
                 }

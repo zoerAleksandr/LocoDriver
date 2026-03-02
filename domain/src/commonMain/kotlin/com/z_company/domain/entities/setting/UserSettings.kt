@@ -31,7 +31,8 @@ data class UserSettings(
     var servicePhases: List<ServicePhase> = listOf(),
     val standardTimesStartWork: List<Long> = listOf(hourInMillis8, hourInMillis20),
     val subscriptionPeriod: Long = 0,
-    val isDecimalTime: Boolean = false
+    val isDecimalTime: Boolean = false,
+    val isShowBreak: Boolean = true
 )
 
 @Serializable
