@@ -1325,8 +1325,8 @@ fun FormScreen(
                                                         horizontal = 12.dp,
                                                         vertical = 8.dp
                                                     ),
-                                                text = "Время перерыва не учитывается при расчёте рабочего времени",
-                                                style = MaterialTheme.typography.bodySmall,
+                                                text = "Время перерыва не учитывается при расчёте рабочего времени. Можно отключить в настройках.",
+                                                style = MaterialTheme.typography.bodyMedium,
                                                 color = MaterialTheme.colorScheme.primary
                                             )
                                         },
