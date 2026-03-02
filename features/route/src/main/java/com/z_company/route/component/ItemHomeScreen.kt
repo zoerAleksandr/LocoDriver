@@ -407,6 +407,30 @@ fun ItemHomeScreen(
                                             Icon(
                                                 tint = MaterialTheme.colorScheme.primary,
                                                 modifier = Modifier.size(20.dp),
+                                                painter = painterResource(id = R.drawable.pause_24px),
+                                                contentDescription = null
+                                            )
+                                            Text(
+                                                overflow = TextOverflow.Visible,
+                                                text = " - ",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                            Text(
+                                                overflow = TextOverflow.Visible,
+                                                text = "Перерыв в работе",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                        }
+                                    }
+                                    item {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(20.dp),
                                                 painter = painterResource(id = R.drawable.long_distance_24px),
                                                 contentDescription = null
                                             )
