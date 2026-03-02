@@ -93,6 +93,7 @@ import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Train
+import com.z_company.domain.entities.route.UtilsForEntities.getBreakDuration
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.util.minus
@@ -656,7 +657,8 @@ fun FormScreen(
                 ) {
                     val startTimeInLong = route.basicData.timeStartWork
                     val endTimeInLong = route.basicData.timeEndWork
-                    val workTimeInLong = endTimeInLong - startTimeInLong
+                    val breakDuration = route.getBreakDuration()
+                    val workTimeInLong = (endTimeInLong - startTimeInLong)?.let { it - breakDuration }
                     val workTimeInFormatted =
                         viewModel.convertTimeToStringFormat(workTimeInLong)
 
@@ -732,35 +734,41 @@ fun FormScreen(
                                     ) {
                                         val holidayTime by viewModel.holidayTime.collectAsState()
 
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(
-                                                modifier = Modifier
-                                                    .size(32.dp)
-                                                    .padding(end = 4.dp),
-                                                painter = painterResource(id = R.drawable.dark_mode_24px),
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary
-                                            )
-                                            Text(
-                                                text = viewModel.convertTimeToStringFormat(nightTime),
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
+                                        if (nightTime != null && nightTime > 0L) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    modifier = Modifier
+                                                        .size(32.dp)
+                                                        .padding(end = 4.dp),
+                                                    painter = painterResource(id = R.drawable.dark_mode_24px),
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                                Text(
+                                                    text = viewModel.convertTimeToStringFormat(nightTime),
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
                                         }
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(
-                                                modifier = Modifier
-                                                    .size(32.dp)
-                                                    .padding(end = 4.dp),
-                                                painter = painterResource(id = R.drawable.passenger_24px),
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary
-                                            )
-                                            Text(
-                                                text = viewModel.convertTimeToStringFormat(route.getPassengerTime()),
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
+                                        route.getPassengerTime()?.let { passengerTime ->
+                                            if (passengerTime > 0L) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(
+                                                        modifier = Modifier
+                                                            .size(32.dp)
+                                                            .padding(end = 4.dp),
+                                                        painter = painterResource(id = R.drawable.passenger_24px),
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.primary
+                                                    )
+                                                    Text(
+                                                        text = viewModel.convertTimeToStringFormat(passengerTime),
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
+                                            }
                                         }
 
                                         holidayTime?.let { time ->
@@ -1224,6 +1232,64 @@ fun FormScreen(
                                 }
                             }
 
+                            val animatedBackgroundColorsEndWork by animateColorAsState(
+                                targetValue = if (route.basicData.timeEndWork == null) MaterialTheme.colorScheme.surface
+                                else MaterialTheme.colorScheme.secondary,
+                                animationSpec = tween(
+                                    durationMillis = 200,
+                                    easing = FastOutSlowInEasing
+                                )
+                            )
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                    .background(
+                                        color = animatedBackgroundColorsEndWork,
+                                        shape = Shapes.medium
+                                    )
+                                    .combinedClickable(
+                                        onClick = {
+                                            showEndDatePicker = true
+                                        },
+                                        onLongClick = {
+                                            endTimeInLong?.let {
+                                                showBottomSheetRemoveTimeEndWork = true
+                                            }
+                                        }
+                                    )
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Сдача",
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                                    style = LocalTextStyle.current.copy(
+                                        fontWeight = FontWeight.Light
+                                    )
+                                )
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    var textColor =
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+
+                                    val dateAndTimeEndText = endTimeInLong?.let {
+                                        textColor = MaterialTheme.colorScheme.primary
+                                        dateAndTimeConverter?.getDateAndTime(
+                                            endTimeInLong
+                                        )
+                                    } ?: ""
+                                    Text(
+                                        text = dateAndTimeEndText,
+                                        color = textColor,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                    )
+                                }
+                            }
+
                             // Перерыв
                             if (isShowBreak) {
                                 TextButton(
@@ -1377,64 +1443,6 @@ fun FormScreen(
                                             }
                                         }
                                     }
-                                }
-                            }
-
-                            val animatedBackgroundColorsEndWork by animateColorAsState(
-                                targetValue = if (route.basicData.timeEndWork == null) MaterialTheme.colorScheme.surface
-                                else MaterialTheme.colorScheme.secondary,
-                                animationSpec = tween(
-                                    durationMillis = 200,
-                                    easing = FastOutSlowInEasing
-                                )
-                            )
-
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .shadow(elevation = 2.dp, shape = Shapes.medium)
-                                    .background(
-                                        color = animatedBackgroundColorsEndWork,
-                                        shape = Shapes.medium
-                                    )
-                                    .combinedClickable(
-                                        onClick = {
-                                            showEndDatePicker = true
-                                        },
-                                        onLongClick = {
-                                            endTimeInLong?.let {
-                                                showBottomSheetRemoveTimeEndWork = true
-                                            }
-                                        }
-                                    )
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "Сдача",
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                                    style = LocalTextStyle.current.copy(
-                                        fontWeight = FontWeight.Light
-                                    )
-                                )
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                                ) {
-                                    var textColor =
-                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-
-                                    val dateAndTimeEndText = endTimeInLong?.let {
-                                        textColor = MaterialTheme.colorScheme.primary
-                                        dateAndTimeConverter?.getDateAndTime(
-                                            endTimeInLong
-                                        )
-                                    } ?: ""
-                                    Text(
-                                        text = dateAndTimeEndText,
-                                        color = textColor,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                    )
                                 }
                             }
                         }

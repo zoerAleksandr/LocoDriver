@@ -725,5 +725,19 @@ private fun FiltersRow(selected: Set<RouteFilter>, onToggle: (RouteFilter) -> Un
             },
             label = "Длинные поезда"
         )
+
+        ChipApp(
+            selected = selected.contains(RouteFilter.HAS_BREAK),
+            onClick = { onToggle(RouteFilter.HAS_BREAK) },
+            leading = {
+                Icon(
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                    painter = painterResource(id = R.drawable.pause_24px),
+                    contentDescription = null
+                )
+            },
+            label = "С перерывами"
+        )
     }
 }
