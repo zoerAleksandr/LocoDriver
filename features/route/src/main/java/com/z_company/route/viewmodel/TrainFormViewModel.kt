@@ -53,6 +53,14 @@ class TrainFormViewModel(
     private var isNewTrain by Delegates.notNull<Boolean>()
 
     private val stationNameList = mutableStateListOf<String>()
+
+    // Locomotive series for dropdown (same pattern as LocoFormViewModel)
+    private val locomotiveSeriesList = mutableStateListOf<String>()
+    private var mutableFilteredSeriesList = mutableStateListOf<String>()
+
+    var dropDownSeriesList: SnapshotStateList<String>
+        get() = mutableFilteredSeriesList
+        set(value) { mutableFilteredSeriesList = value }
     var currentTrain: Train?
         get() {
             return _uiState.value.trainDetailState.let {
@@ -181,6 +189,8 @@ class TrainFormViewModel(
                         }
                         stationNameList.addAllOrSkip(settings.stationList.toMutableStateList())
                         mutableStationList.addAllOrSkip(stationNameList)
+                        locomotiveSeriesList.addAllOrSkip(settings.locomotiveSeriesList.toMutableStateList())
+                        mutableFilteredSeriesList.addAllOrSkip(locomotiveSeriesList)
                         servicePhaseList.clear()
                         servicePhaseList.addAllOrSkip(settings.servicePhases.toMutableStateList())
                     }
@@ -261,6 +271,7 @@ class TrainFormViewModel(
 
     private fun performSave(train: Train) {
         saveStationsName(train)
+        saveAssistSeries()
         saveTrainJob?.cancel()
         saveTrainJob = viewModelScope.launch {
             trainUseCase.saveTrain(train).collect { resultState ->
@@ -511,6 +522,43 @@ class TrainFormViewModel(
             doubledTrain = (currentTrain?.doubledTrain ?: TrainAssist()).copy(notes = value.ifBlank { null })
         )
         changesHave()
+    }
+
+    // --- Series dropdown ---
+    fun changeSeriesMenuExpanded(expanded: Boolean) {
+        _uiState.update { it.copy(isExpandedDropDownMenuSeries = expanded) }
+    }
+
+    fun onChangedSeriesDropDown(content: String) {
+        if (content.isEmpty()) {
+            mutableFilteredSeriesList.addAllOrSkip(locomotiveSeriesList)
+        } else {
+            mutableFilteredSeriesList.clear()
+            val filtered = locomotiveSeriesList
+                .filter { it.startsWith(prefix = content, ignoreCase = true) }
+                .filterNot { it == content }
+                .toMutableStateList()
+            filtered.forEach { ser ->
+                mutableFilteredSeriesList.add(ser)
+                changeSeriesMenuExpanded(true)
+            }
+        }
+    }
+
+    fun removeSeries(series: String) {
+        viewModelScope.launch {
+            dropDownSeriesList.remove(series)
+            settingsUseCase.removeLocomotiveSeries(series)
+            changesHave()
+        }
+    }
+
+    private fun saveAssistSeries() {
+        viewModelScope.launch(Dispatchers.IO) {
+            currentTrain?.pusher?.locomotiveSeries?.let { settingsUseCase.setLocomotiveSeries(it) }
+            currentTrain?.doubleTraction?.locomotiveSeries?.let { settingsUseCase.setLocomotiveSeries(it) }
+            currentTrain?.doubledTrain?.locomotiveSeries?.let { settingsUseCase.setLocomotiveSeries(it) }
+        }
     }
 
     private fun setStations(stations: MutableList<Station>) {
