@@ -14,6 +14,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.FlowRow
@@ -35,11 +37,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
@@ -92,6 +97,7 @@ import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.domain.entities.route.Train
+import com.z_company.domain.entities.route.TrainAssist
 import com.z_company.domain.entities.route.UtilsForEntities.trainCategory
 import com.z_company.route.component.BottomShadow
 import com.z_company.route.component.OutlinedTextFieldApp
@@ -174,12 +180,24 @@ fun FormTrainScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showSettingsSheet = true }) {
-                        Icon(
-                            painter = painterResource(com.z_company.route.R.drawable.settings_24px),
-                            contentDescription = "Настройки",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
+                    val hasAnyAssist = currentTrain?.let {
+                        it.pusher != null || it.doubleTraction != null || it.doubledTrain != null
+                    } ?: false
+
+                    BadgedBox(
+                        badge = {
+                            if (hasAnyAssist) {
+                                Badge(containerColor = Color(0xFFf1642e))
+                            }
+                        }
+                    ) {
+                        IconButton(onClick = { showSettingsSheet = true }) {
+                            Icon(
+                                painter = painterResource(com.z_company.route.R.drawable.settings_24px),
+                                contentDescription = "Настройки",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -265,12 +283,91 @@ fun FormTrainScreen(
 
         // Настройки поезда
         if (showSettingsSheet) {
-            AppBottomSheet(
-                onDismissRequest = { showSettingsSheet = false },
-                sheetState = sheetState,
-                title = "Настройки поезда",
-                actions = emptyList()
+            val settingsSheetState = rememberModalBottomSheetState(
+                skipPartiallyExpanded = true
             )
+            ModalBottomSheet(
+                onDismissRequest = { showSettingsSheet = false },
+                sheetState = settingsSheetState,
+                containerColor = MaterialTheme.colorScheme.secondary,
+                dragHandle = {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(40.dp)
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                        )
+                    }
+                }
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = "Настройки поезда",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = primaryColor
+                    )
+
+                    TrainAssistSection(
+                        title = "Толкач",
+                        assist = currentTrain?.pusher,
+                        onAdd = viewModel::addPusher,
+                        onRemove = viewModel::removePusher,
+                        onSeriesChange = viewModel::setPusherSeries,
+                        onNumberChange = viewModel::setPusherNumber,
+                        onDriverNameChange = viewModel::setPusherDriverName,
+                        onNotesChange = viewModel::setPusherNotes,
+                        hintStyle = hintStyle,
+                        dataTextStyle = dataTextStyle,
+                        primaryColor = primaryColor,
+                        noValueColor = noValueColor
+                    )
+
+                    TrainAssistSection(
+                        title = "Двойная тяга",
+                        assist = currentTrain?.doubleTraction,
+                        onAdd = viewModel::addDoubleTraction,
+                        onRemove = viewModel::removeDoubleTraction,
+                        onSeriesChange = viewModel::setDoubleTractionSeries,
+                        onNumberChange = viewModel::setDoubleTractionNumber,
+                        onDriverNameChange = viewModel::setDoubleTractionDriverName,
+                        onNotesChange = viewModel::setDoubleTractionNotes,
+                        hintStyle = hintStyle,
+                        dataTextStyle = dataTextStyle,
+                        primaryColor = primaryColor,
+                        noValueColor = noValueColor
+                    )
+
+                    TrainAssistSection(
+                        title = "Сдвоенный поезд",
+                        assist = currentTrain?.doubledTrain,
+                        onAdd = viewModel::addDoubledTrain,
+                        onRemove = viewModel::removeDoubledTrain,
+                        onSeriesChange = viewModel::setDoubledTrainSeries,
+                        onNumberChange = viewModel::setDoubledTrainNumber,
+                        onDriverNameChange = viewModel::setDoubledTrainDriverName,
+                        onNotesChange = viewModel::setDoubledTrainNotes,
+                        hintStyle = hintStyle,
+                        dataTextStyle = dataTextStyle,
+                        primaryColor = primaryColor,
+                        noValueColor = noValueColor
+                    )
+
+                    Spacer(modifier = Modifier.height(40.dp))
+                }
+            }
         }
 
         if (formUiState.showCreateServicePhaseSheet) {
@@ -898,6 +995,35 @@ fun FormTrainScreen(
                             }
                         }
                     }
+                    item {
+                        val assistParts = buildList {
+                            currentTrain?.pusher?.let { add(formatAssistInfo("толкач", it)) }
+                            currentTrain?.doubleTraction?.let { add(formatAssistInfo("двойная тяга", it)) }
+                            currentTrain?.doubledTrain?.let { add(formatAssistInfo("сдвоенный", it)) }
+                        }
+                        if (assistParts.isNotEmpty()) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp)
+                                    .clickable { showSettingsSheet = true }
+                                    .background(
+                                        color = MaterialTheme.colorScheme.surfaceDim,
+                                        shape = Shapes.medium
+                                    )
+                                    .padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                assistParts.forEach { text ->
+                                    Text(
+                                        text = text,
+                                        style = hintStyle,
+                                        color = primaryColor.copy(alpha = 0.8f)
+                                    )
+                                }
+                            }
+                        }
+                    }
                     item { Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.secondary_spacing))) }
                     item {
                         Row(
@@ -1029,6 +1155,187 @@ fun FormTrainScreen(
                     item { Spacer(modifier = Modifier.height(20.dp)) }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun TrainAssistSection(
+    title: String,
+    assist: TrainAssist?,
+    onAdd: () -> Unit,
+    onRemove: () -> Unit,
+    onSeriesChange: (String) -> Unit,
+    onNumberChange: (String) -> Unit,
+    onDriverNameChange: (String) -> Unit,
+    onNotesChange: (String) -> Unit,
+    hintStyle: androidx.compose.ui.text.TextStyle,
+    dataTextStyle: androidx.compose.ui.text.TextStyle,
+    primaryColor: Color,
+    noValueColor: Color
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                style = hintStyle,
+                color = primaryColor
+            )
+            if (assist == null) {
+                TextButton(onClick = onAdd) {
+                    Text(
+                        text = "Добавить",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                }
+            } else {
+                IconButton(
+                    modifier = Modifier.size(24.dp),
+                    onClick = onRemove
+                ) {
+                    Icon(
+                        painter = painterResource(com.z_company.core.R.drawable.ic_clear),
+                        contentDescription = "Удалить $title",
+                        tint = noValueColor
+                    )
+                }
+            }
+        }
+
+        AnimatedVisibility(visible = assist != null) {
+            if (assist != null) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextFieldApp(
+                            modifier = Modifier.weight(1f),
+                            value = assist.locomotiveSeries ?: "",
+                            onValueChange = onSeriesChange,
+                            placeholder = {
+                                Text(
+                                    text = "Серия",
+                                    style = LocalTextStyle.current.copy(
+                                        fontWeight = FontWeight.Light
+                                    ),
+                                    color = noValueColor
+                                )
+                            },
+                            textStyle = dataTextStyle,
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(
+                                imeAction = ImeAction.Next
+                            )
+                        )
+                        OutlinedTextFieldApp(
+                            modifier = Modifier.weight(1f),
+                            value = assist.locomotiveNumber ?: "",
+                            onValueChange = onNumberChange,
+                            placeholder = {
+                                Text(
+                                    text = "Номер",
+                                    style = LocalTextStyle.current.copy(
+                                        fontWeight = FontWeight.Light
+                                    ),
+                                    color = noValueColor
+                                )
+                            },
+                            prefix = {
+                                if (!assist.locomotiveNumber.isNullOrBlank()) {
+                                    Text(
+                                        text = "№ ",
+                                        style = hintStyle,
+                                        color = noValueColor
+                                    )
+                                }
+                            },
+                            textStyle = dataTextStyle,
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(
+                                imeAction = ImeAction.Next
+                            )
+                        )
+                    }
+                    OutlinedTextFieldApp(
+                        modifier = Modifier.fillMaxWidth(),
+                        value = assist.driverName ?: "",
+                        onValueChange = onDriverNameChange,
+                        placeholder = {
+                            Text(
+                                text = "Машинист",
+                                style = LocalTextStyle.current.copy(
+                                    fontWeight = FontWeight.Light
+                                ),
+                                color = noValueColor
+                            )
+                        },
+                        prefix = {
+                            if (!assist.driverName.isNullOrBlank()) {
+                                Text(
+                                    text = "ТЧМ ",
+                                    style = hintStyle,
+                                    color = noValueColor
+                                )
+                            }
+                        },
+                        textStyle = dataTextStyle,
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            imeAction = ImeAction.Next
+                        )
+                    )
+                    OutlinedTextFieldApp(
+                        modifier = Modifier.fillMaxWidth(),
+                        value = assist.notes ?: "",
+                        onValueChange = onNotesChange,
+                        placeholder = {
+                            Text(
+                                text = "Примечание",
+                                style = LocalTextStyle.current.copy(
+                                    fontWeight = FontWeight.Light
+                                ),
+                                color = noValueColor
+                            )
+                        },
+                        textStyle = dataTextStyle,
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            imeAction = ImeAction.Done
+                        )
+                    )
+                }
+            }
+        }
+
+        HorizontalDivider(
+            color = primaryColor.copy(alpha = 0.2f),
+            thickness = 0.5.dp
+        )
+    }
+}
+
+private fun formatAssistInfo(type: String, assist: TrainAssist): String {
+    return buildString {
+        append("$type: ")
+        assist.locomotiveSeries?.let { append(it) }
+        assist.locomotiveNumber?.let {
+            if (isNotEmpty() && last() != ' ') append(" ")
+            append("№$it")
+        }
+        assist.driverName?.let {
+            if (isNotEmpty() && last() != ' ') append(" ")
+            append("ТЧМ $it")
         }
     }
 }

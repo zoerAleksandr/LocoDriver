@@ -11,6 +11,7 @@ import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
+import com.z_company.domain.entities.route.TrainAssist
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -391,6 +392,123 @@ class TrainFormViewModel(
     fun setConditionalLength(length: String) {
         currentTrain = currentTrain?.copy(
             conditionalLength = length.ifBlank { null }
+        )
+        changesHave()
+    }
+
+    // --- Pusher (Толкач) ---
+    fun addPusher() {
+        currentTrain = currentTrain?.copy(pusher = TrainAssist())
+        changesHave()
+    }
+
+    fun removePusher() {
+        currentTrain = currentTrain?.copy(pusher = null)
+        changesHave()
+    }
+
+    fun setPusherSeries(value: String) {
+        currentTrain = currentTrain?.copy(
+            pusher = (currentTrain?.pusher ?: TrainAssist()).copy(locomotiveSeries = value.ifBlank { null })
+        )
+        changesHave()
+    }
+
+    fun setPusherNumber(value: String) {
+        currentTrain = currentTrain?.copy(
+            pusher = (currentTrain?.pusher ?: TrainAssist()).copy(locomotiveNumber = value.ifBlank { null })
+        )
+        changesHave()
+    }
+
+    fun setPusherDriverName(value: String) {
+        currentTrain = currentTrain?.copy(
+            pusher = (currentTrain?.pusher ?: TrainAssist()).copy(driverName = value.ifBlank { null })
+        )
+        changesHave()
+    }
+
+    fun setPusherNotes(value: String) {
+        currentTrain = currentTrain?.copy(
+            pusher = (currentTrain?.pusher ?: TrainAssist()).copy(notes = value.ifBlank { null })
+        )
+        changesHave()
+    }
+
+    // --- DoubleTraction (Двойная тяга) ---
+    fun addDoubleTraction() {
+        currentTrain = currentTrain?.copy(doubleTraction = TrainAssist())
+        changesHave()
+    }
+
+    fun removeDoubleTraction() {
+        currentTrain = currentTrain?.copy(doubleTraction = null)
+        changesHave()
+    }
+
+    fun setDoubleTractionSeries(value: String) {
+        currentTrain = currentTrain?.copy(
+            doubleTraction = (currentTrain?.doubleTraction ?: TrainAssist()).copy(locomotiveSeries = value.ifBlank { null })
+        )
+        changesHave()
+    }
+
+    fun setDoubleTractionNumber(value: String) {
+        currentTrain = currentTrain?.copy(
+            doubleTraction = (currentTrain?.doubleTraction ?: TrainAssist()).copy(locomotiveNumber = value.ifBlank { null })
+        )
+        changesHave()
+    }
+
+    fun setDoubleTractionDriverName(value: String) {
+        currentTrain = currentTrain?.copy(
+            doubleTraction = (currentTrain?.doubleTraction ?: TrainAssist()).copy(driverName = value.ifBlank { null })
+        )
+        changesHave()
+    }
+
+    fun setDoubleTractionNotes(value: String) {
+        currentTrain = currentTrain?.copy(
+            doubleTraction = (currentTrain?.doubleTraction ?: TrainAssist()).copy(notes = value.ifBlank { null })
+        )
+        changesHave()
+    }
+
+    // --- DoubledTrain (Сдвоенный поезд) ---
+    fun addDoubledTrain() {
+        currentTrain = currentTrain?.copy(doubledTrain = TrainAssist())
+        changesHave()
+    }
+
+    fun removeDoubledTrain() {
+        currentTrain = currentTrain?.copy(doubledTrain = null)
+        changesHave()
+    }
+
+    fun setDoubledTrainSeries(value: String) {
+        currentTrain = currentTrain?.copy(
+            doubledTrain = (currentTrain?.doubledTrain ?: TrainAssist()).copy(locomotiveSeries = value.ifBlank { null })
+        )
+        changesHave()
+    }
+
+    fun setDoubledTrainNumber(value: String) {
+        currentTrain = currentTrain?.copy(
+            doubledTrain = (currentTrain?.doubledTrain ?: TrainAssist()).copy(locomotiveNumber = value.ifBlank { null })
+        )
+        changesHave()
+    }
+
+    fun setDoubledTrainDriverName(value: String) {
+        currentTrain = currentTrain?.copy(
+            doubledTrain = (currentTrain?.doubledTrain ?: TrainAssist()).copy(driverName = value.ifBlank { null })
+        )
+        changesHave()
+    }
+
+    fun setDoubledTrainNotes(value: String) {
+        currentTrain = currentTrain?.copy(
+            doubledTrain = (currentTrain?.doubledTrain ?: TrainAssist()).copy(notes = value.ifBlank { null })
         )
         changesHave()
     }
