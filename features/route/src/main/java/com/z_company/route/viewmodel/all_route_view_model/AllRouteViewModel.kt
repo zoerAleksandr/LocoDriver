@@ -21,6 +21,7 @@ import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.UtilsForEntities.getBreakDuration
 import com.z_company.domain.entities.route.UtilsForEntities.getLongDistanceTime
 import com.z_company.domain.entities.route.UtilsForEntities.isExtendedServicePhaseTrains
 import com.z_company.domain.entities.route.UtilsForEntities.isHeavyTrains
@@ -52,7 +53,8 @@ enum class RouteFilter {
     FOLLOWING_RESERVE,
     ONE_PERSON,
     OVER_12_HOURS,
-    LONG_TRAINS
+    LONG_TRAINS,
+    HAS_BREAK
 }
 
 data class RoutesUiState(
@@ -566,6 +568,9 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                 val start = routeState.route.basicData?.timeStartWork ?: 0L
                 val end = routeState.route.basicData?.timeEndWork ?: 0L
                 ok = ok && (end > start && (end - start) > over12hMillis)
+            }
+            if (filters.contains(RouteFilter.HAS_BREAK)) {
+                ok = ok && (routeState.route.getBreakDuration() > 0L)
             }
             ok
         }
