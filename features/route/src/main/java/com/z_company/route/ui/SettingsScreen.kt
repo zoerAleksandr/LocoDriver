@@ -1127,7 +1127,8 @@ fun SettingsScreen(
                                         shape = Shapes.medium
                                     )
                                     .padding(horizontal = 16.dp, vertical = 12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
                                     modifier = Modifier
@@ -1172,7 +1173,8 @@ fun SettingsScreen(
                                         shape = Shapes.medium
                                     )
                                     .padding(horizontal = 16.dp, vertical = 12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
                                     modifier = Modifier

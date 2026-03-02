@@ -58,6 +58,7 @@ import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
+import com.z_company.domain.entities.route.UtilsForEntities.getBreakDuration
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.route.R
@@ -565,6 +566,14 @@ fun ItemHomeScreen(
                                     Image(
                                         modifier = Modifier.size(20.dp),
                                         painter = painterResource(id = R.drawable.icon_holiday),
+                                        contentDescription = null
+                                    )
+                                }
+                                if (route.getBreakDuration() > 0L) {
+                                    Icon(
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp),
+                                        painter = painterResource(id = R.drawable.pause_24px),
                                         contentDescription = null
                                     )
                                 }

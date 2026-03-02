@@ -192,6 +192,31 @@ class RouteUseCase(private val repository: RouteRepository) {
                     )
                 )
             }
+            val breakStart = route.basicData.timeStartBreak
+            val breakEnd = route.basicData.timeEndBreak
+            if (breakStart != null && breakEnd != null) {
+                if (breakStart >= breakEnd) {
+                    trySend(
+                        ResultState.Error(
+                            ErrorEntity(message = "Начало перерыва позже или равно окончанию.")
+                        )
+                    )
+                }
+                if (startTime != null && breakStart < startTime) {
+                    trySend(
+                        ResultState.Error(
+                            ErrorEntity(message = "Начало перерыва раньше явки.")
+                        )
+                    )
+                }
+                if (endTime != null && breakEnd > endTime) {
+                    trySend(
+                        ResultState.Error(
+                            ErrorEntity(message = "Окончание перерыва позже сдачи.")
+                        )
+                    )
+                }
+            }
             trySend(ResultState.Success(Unit))
             awaitClose()
         }
