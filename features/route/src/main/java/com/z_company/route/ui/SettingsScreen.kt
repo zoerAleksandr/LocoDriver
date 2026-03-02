@@ -90,6 +90,7 @@ fun SettingsScreen(
     changeEndNightTime: (Int, Int) -> Unit,
     changeUsingDefaultWorkTime: (Boolean) -> Unit,
     changeConsiderFutureRoute: (Boolean) -> Unit,
+    changeShowBreak: (Boolean) -> Unit,
     setTimeZone: (Long) -> Unit,
     timeZoneRussiaList: List<TimeZoneRussia>,
     servicePhases: SnapshotStateList<ServicePhase>?,
@@ -1150,6 +1151,51 @@ fun SettingsScreen(
                                     top = 8.dp
                                 ),
                                 text = "Маршруты, время явки которых не наступило, будут учитываться при подсчете отработаного времени.",
+                                style = styleHint,
+                                color = primaryColor
+                            )
+                        }
+                    }
+
+                    // показывать перерыв
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 16.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                    .background(
+                                        color = MaterialTheme.colorScheme.secondary,
+                                        shape = Shapes.medium
+                                    )
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    modifier = Modifier
+                                        .padding(end = 12.dp)
+                                        .weight(1f),
+                                    text = "Показывать перерыв",
+                                    style = styleData,
+                                    overflow = TextOverflow.Ellipsis,
+                                    maxLines = 2
+                                )
+                                Switch(
+                                    checked = currentSettings.isShowBreak,
+                                    onCheckedChange = {
+                                        changeShowBreak(it)
+                                    })
+                            }
+
+                            Text(
+                                modifier = Modifier.padding(
+                                    start = 16.dp,
+                                    top = 8.dp
+                                ),
+                                text = "Показывать поля перерыва в форме маршрута.",
                                 style = styleHint,
                                 color = primaryColor
                             )

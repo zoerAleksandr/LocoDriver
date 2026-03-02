@@ -114,6 +114,10 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
         return settingsRepository.clearRepository()
     }
 
+    fun setShowBreak(value: Boolean): Flow<ResultState<Unit>> {
+        return settingsRepository.setShowBreak(value)
+    }
+
     suspend fun removeStation(value: String) {
         coroutineScope {
             withContext(Dispatchers.Default) {

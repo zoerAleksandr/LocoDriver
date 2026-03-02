@@ -42,6 +42,7 @@ fun FormDestination(
 
     val currentRoute by viewModel.currentRoute.collectAsState()
     val dateAndTimeConverter by viewModel.dateAndTimeConverter.collectAsState()
+    val userSetting by viewModel.userSetting.collectAsState()
 
     LaunchedEffect(Unit) {
         scope.launch {
@@ -95,6 +96,9 @@ fun FormDestination(
         resetSaveState = viewModel::resetSaveState,
         onTimeStartWorkChanged = viewModel::setTimeStartWork,
         onTimeEndWorkChanged = viewModel::setTimeEndWork,
+        onTimeStartBreakChanged = viewModel::setTimeStartBreak,
+        onTimeEndBreakChanged = viewModel::setTimeEndBreak,
+        isShowBreak = userSetting?.isShowBreak ?: true,
         onRestChanged = viewModel::onRestChanged,
         onChangedLocoClick = router::showChangedLocoForm,
         onNewLocoClick = { viewModel.onAddChildEntity(it, ChildEntityType.LOCOMOTIVE) },
