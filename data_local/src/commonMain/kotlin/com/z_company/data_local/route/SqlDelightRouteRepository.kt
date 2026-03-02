@@ -67,7 +67,9 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
             timeEndWork = updatedBasic.timeEndWork,
             restPointOfTurnover = if (updatedBasic.restPointOfTurnover) 1L else 0L,
             notes = updatedBasic.notes,
-            isFavorite = if (updatedBasic.isFavorite) 1L else 0L
+            isFavorite = if (updatedBasic.isFavorite) 1L else 0L,
+            timeStartBreak = updatedBasic.timeStartBreak,
+            timeEndBreak = updatedBasic.timeEndBreak
         )
         route.locomotives.forEach { loco ->
             val locoBasicId = loco.basicId.ifBlank { basicId }

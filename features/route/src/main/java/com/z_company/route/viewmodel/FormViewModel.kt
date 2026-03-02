@@ -407,7 +407,9 @@ class FormViewModel(
                 minuteStart = time.startNightMinute,
                 hourEnd = time.endNightHour,
                 minuteEnd = time.endNightMinute,
-                offsetInMoscow = currentTimeZoneOffset ?: 0L
+                offsetInMoscow = currentTimeZoneOffset ?: 0L,
+                breakStartMillis = route.basicData.timeStartBreak,
+                breakEndMillis = route.basicData.timeEndBreak
             ).first()
             _uiState.update { it.copy(nightTime = nightMillis) }
         }
@@ -491,6 +493,16 @@ class FormViewModel(
 
     fun setTimeEndWork(time: Long?) {
         _currentRoute.update { it?.copy(basicData = it.basicData.copy(timeEndWork = time)) }
+        changesHave()
+    }
+
+    fun setTimeStartBreak(time: Long?) {
+        _currentRoute.update { it?.copy(basicData = it.basicData.copy(timeStartBreak = time)) }
+        changesHave()
+    }
+
+    fun setTimeEndBreak(time: Long?) {
+        _currentRoute.update { it?.copy(basicData = it.basicData.copy(timeEndBreak = time)) }
         changesHave()
     }
 

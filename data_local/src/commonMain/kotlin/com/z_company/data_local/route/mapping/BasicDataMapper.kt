@@ -29,6 +29,8 @@ internal object BasicDataMapper {
         timeEndWork = row.timeEndWork,
         restPointOfTurnover = row.restPointOfTurnover != 0L,
         notes = row.notes,
-        isFavorite = row.isFavorite != 0L
+        isFavorite = row.isFavorite != 0L,
+        timeStartBreak = row.timeStartBreak,
+        timeEndBreak = row.timeEndBreak
     )
 }

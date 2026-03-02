@@ -30,6 +30,7 @@ fun SettingDestination(
         changeEndNightTime = settingsViewModel::changeEndNightTime,
         changeUsingDefaultWorkTime = settingsViewModel::changeUsingDefaultWorkTime,
         changeConsiderFutureRoute = settingsViewModel::changeConsiderFutureRoute,
+        changeShowBreak = settingsViewModel::changeShowBreak,
         timeZoneRussiaList = settingsViewModel.timeZoneList,
         setTimeZone = settingsViewModel::setTimeZone,
         servicePhases = uiState.servicePhases,
