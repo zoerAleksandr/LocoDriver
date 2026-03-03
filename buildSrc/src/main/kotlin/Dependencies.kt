@@ -145,6 +145,7 @@ object Libs {
     const val project_feature_login = ":features:login"
     const val project_feature_route = ":features:route"
     const val project_feature_settings = ":features:settings"
+    const val project_feature_shared = ":features:shared"
 
     // Libs
     const val kotlin_x_serialization_json = "org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlin_x_serialization_json_ver"
