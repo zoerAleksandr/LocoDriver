@@ -20,7 +20,7 @@ import com.z_company.iosapp.screen.SearchScreen
 import com.z_company.iosapp.screen.SelectReleaseDaysScreen
 import com.z_company.iosapp.screen.SettingSalaryScreen
 import com.z_company.iosapp.screen.SettingsScreen
-import com.z_company.iosapp.screen.StubScreen
+import com.z_company.iosapp.screen.PurchasesScreen
 import com.z_company.iosapp.screen.WorkScheduleScreen
 
 /**
@@ -96,7 +96,7 @@ fun AppNavHost() {
             SearchScreen(router = router)
         }
         composable(PurchasesRoute.route) {
-            StubScreen(title = "Покупки", router = router)
+            PurchasesScreen(router = router)
         }
         composable(AllRouteScreenRoute.route) {
             AllRouteScreen(router = router)
