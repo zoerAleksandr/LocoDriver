@@ -2,6 +2,7 @@ package com.z_company.iosapp.di
 
 import com.z_company.data_local.route.di.sqlDelightRouteModule
 import com.z_company.data_local.setting.di.sqlDelightSettingsModule
+import com.z_company.shared.di.sharedModule
 import org.koin.core.module.Module
 
 /**
@@ -14,4 +15,5 @@ val allIosKoinModules: List<Module> = listOf(
     sqlDelightRouteModule,       // DatabaseDriverFactory, RouteDatabase, SearchResponseDatabase
     sqlDelightSettingsModule,    // SettingsDatabase, SalarySettingDatabase
     iosUseCaseModule,            // Repositories, UseCases, iOS ViewModels
+    sharedModule,                // Shared ViewModels (SearchShared, WorkScheduleShared, etc.)
 )

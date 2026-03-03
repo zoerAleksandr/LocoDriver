@@ -42,6 +42,9 @@ kotlin {
             implementation(project(Libs.project_domain))
             implementation(project(Libs.project_core))
 
+            // Shared UI screens and ViewModels
+            implementation(project(Libs.project_feature_shared))
+
             // DI + утилиты
             implementation(Libs.koin_core)
             implementation(Libs.koin_compose)   // koinInject() для Compose MP

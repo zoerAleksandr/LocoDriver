@@ -13,15 +13,17 @@ import com.z_company.iosapp.screen.FormPassengerScreen
 import com.z_company.iosapp.screen.FormScreen
 import com.z_company.iosapp.screen.FormTrainScreen
 import com.z_company.iosapp.screen.HomeScreen
-import com.z_company.iosapp.screen.MoreInfoScreen
 import com.z_company.iosapp.screen.ProfileScreen
-import com.z_company.iosapp.screen.SalaryCalculationScreen
-import com.z_company.iosapp.screen.SearchScreen
-import com.z_company.iosapp.screen.SelectReleaseDaysScreen
 import com.z_company.iosapp.screen.SettingSalaryScreen
-import com.z_company.iosapp.screen.SettingsScreen
 import com.z_company.iosapp.screen.PurchasesScreen
-import com.z_company.iosapp.screen.WorkScheduleScreen
+
+// Shared screens from :features:shared
+import com.z_company.shared.ui.screen.MoreInfoScreen as SharedMoreInfoScreen
+import com.z_company.shared.ui.screen.SalaryCalculationScreen as SharedSalaryCalculationScreen
+import com.z_company.shared.ui.screen.SearchScreen as SharedSearchScreen
+import com.z_company.shared.ui.screen.SelectReleaseDaysScreen as SharedSelectReleaseDaysScreen
+import com.z_company.shared.ui.screen.SettingsScreen as SharedSettingsScreen
+import com.z_company.shared.ui.screen.WorkScheduleScreen as SharedWorkScheduleScreen
 
 /**
  * Корневой NavHost iOS-приложения.
@@ -29,6 +31,8 @@ import com.z_company.iosapp.screen.WorkScheduleScreen
  * Маршруты совпадают со строками в features/route/navigation/Routes.kt,
  * чтобы при миграции features на Compose Multiplatform стабы заменялись
  * реальными экранами без изменения навигационного графа.
+ *
+ * Экраны, мигрированные в :features:shared, теперь используются напрямую.
  */
 @Composable
 fun AppNavHost() {
@@ -46,7 +50,6 @@ fun AppNavHost() {
         composable(HomeRoute.route) {
             HomeScreen(router = router)
         }
-        // FormRoute: "FormRoute?routeId={routeId}/?makeCopy={makeCopy}"
         composable(FormRoute.route) { backStackEntry ->
             val routeId = backStackEntry.arguments?.read {
                 if (contains("routeId")) getString("routeId") else null
@@ -80,20 +83,31 @@ fun AppNavHost() {
             }
             FormPassengerScreen(router = router, basicId = basicId, passengerId = passengerId)
         }
+
+        // --- Shared screens from :features:shared ---
         composable(SettingsScreenRoute.route) {
-            SettingsScreen(router = router)
+            SharedSettingsScreen(
+                onBackClick = { router.back() },
+                onShowSettingSalary = { router.showSettingSalary() },
+            )
         }
         composable(ProfileRoute.route) {
             ProfileScreen(router = router)
         }
         composable(SalaryCalculationRoute.route) {
-            SalaryCalculationScreen(router = router)
+            SharedSalaryCalculationScreen(
+                onBackClick = { router.back() },
+                onShowSettingSalary = { router.showSettingSalary() },
+            )
         }
         composable(SettingSalaryRoute.route) {
             SettingSalaryScreen(router = router)
         }
         composable(SearchRoute.route) {
-            SearchScreen(router = router)
+            SharedSearchScreen(
+                onBackClick = { router.back() },
+                onRouteClick = { basicData -> router.showRouteDetails(basicData) },
+            )
         }
         composable(PurchasesRoute.route) {
             PurchasesScreen(router = router)
@@ -102,16 +116,23 @@ fun AppNavHost() {
             AllRouteScreen(router = router)
         }
         composable(WorkScheduleScreenRoute.route) {
-            WorkScheduleScreen(router = router)
+            SharedWorkScheduleScreen(
+                onBackClick = { router.back() },
+            )
         }
         composable(SelectReleaseDaysScreenRoute.route) {
-            SelectReleaseDaysScreen(router = router)
+            SharedSelectReleaseDaysScreen(
+                onBackClick = { router.back() },
+            )
         }
         composable(MoreInfoRoute.route) { backStackEntry ->
             val monthId = backStackEntry.arguments?.read {
                 if (contains("monthId")) getString("monthId") else null
             }
-            MoreInfoScreen(router = router, monthId = monthId)
+            SharedMoreInfoScreen(
+                monthId = monthId,
+                onBackClick = { router.back() },
+            )
         }
     }
 }
