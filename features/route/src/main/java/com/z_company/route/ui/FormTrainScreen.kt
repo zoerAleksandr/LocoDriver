@@ -709,6 +709,7 @@ fun FormTrainScreen(
                                     placeholder = {
                                         Text(
                                             text = "Плечо",
+                                            maxLines = 1,
                                             style = LocalTextStyle.current.copy(
                                                 fontWeight = FontWeight.Light
                                             ),
@@ -716,11 +717,14 @@ fun FormTrainScreen(
                                         )
                                     },
                                     suffix = {
-                                        Text(
-                                            text = "км",
-                                            style = hintStyle,
-                                            color = noValueColor
-                                        )
+                                        val distanceValue = train.distance?.takeIf { it != "0" } ?: ""
+                                        if (distanceValue.isNotBlank()) {
+                                            Text(
+                                                text = "км",
+                                                style = hintStyle,
+                                                color = noValueColor
+                                            )
+                                        }
                                     },
                                     keyboardOptions = KeyboardOptions(
                                         keyboardType = KeyboardType.Decimal,
@@ -737,13 +741,25 @@ fun FormTrainScreen(
                                     singleLine = true,
                                 )
 
-                                var numberFieldValue by remember(train.number) {
+                                var numberFieldValue by remember {
                                     mutableStateOf(
                                         TextFieldValue(
                                             text = train.number ?: "",
-                                            selection = TextRange(0)
+                                            selection = TextRange(train.number?.length ?: 0)
                                         )
                                     )
+                                }
+
+                                // Синхронизация при внешнем изменении (загрузка данных)
+                                LaunchedEffect(train.number) {
+                                    val current = numberFieldValue.text
+                                    val external = train.number ?: ""
+                                    if (current != external) {
+                                        numberFieldValue = TextFieldValue(
+                                            text = external,
+                                            selection = TextRange(external.length)
+                                        )
+                                    }
                                 }
 
                                 OutlinedTextFieldApp(
