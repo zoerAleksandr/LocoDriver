@@ -38,6 +38,7 @@ dependencyResolutionManagement {
     include(":features:route")
     include(":features:login")
     include(":features:settings")
+    include(":features:shared")
     include(":data_remote")
     include(":data_remote")
     include(":data_remote")

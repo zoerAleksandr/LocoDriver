@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Content Descriptions -->
+    <string name="cd_back">Назад</string>
+    <string name="cd_close">Закрыть</string>
+
+    <!-- Title Screens -->
+    <string name="settings">Настройки</string>
+    <string name="settings_home_screen">Главный экран</string>
+    <string name="norma_hours">Норма часов</string>
+
+    <!-- Generic messages -->
+    <string name="msg_generic_error">Что-то пошло не так…</string>
+    <string name="msg_loading">Пожалуйста подождите…</string>
+
+    <!-- Button Texts -->
+    <string name="button_save">Сохранить</string>
+    <string name="button_ok">OK</string>
+    <string name="adding">Добавить</string>
+    <string name="text_btn_dismiss">Отмена</string>
+    <string name="text_btn_confirm">Выбрать</string>
+    <string name="text_btn_clear">Сбросить</string>
+    <string name="dieselType">Тепловоз</string>
+    <string name="electricType">Электоровоз</string>
+
+    <!-- Month short -->
+    <string name="january_short">ЯНВ</string>
+    <string name="february_short">ФЕВ</string>
+    <string name="march_short">МАР</string>
+    <string name="april_short">АПР</string>
+    <string name="may_short">МАЙ</string>
+    <string name="june_short">ИЮН</string>
+    <string name="july_short">ИЮЛ</string>
+    <string name="august_short">АВГ</string>
+    <string name="september_short">СЕН</string>
+    <string name="october_short">ОКТ</string>
+    <string name="november_short">НОЯ</string>
+    <string name="december_short">ДЕК</string>
+
+    <!-- Month full -->
+    <string name="january_full">Январь</string>
+    <string name="february_full">Февраль</string>
+    <string name="march_full">Март</string>
+    <string name="april_full">Апрель</string>
+    <string name="may_full">Май</string>
+    <string name="june_full">Июнь</string>
+    <string name="july_full">Июль</string>
+    <string name="august_full">Август</string>
+    <string name="september_full">Сентябрь</string>
+    <string name="october_full">Октябрь</string>
+    <string name="november_full">Ноябрь</string>
+    <string name="december_full">Декабрь</string>
+
+    <!-- Onboarding -->
+    <string name="onBoardingFirstPresentationTitle1">Добавляй маршруты</string>
+    <string name="onBoardingFirstPresentationTitle2">Больше информации</string>
+    <string name="onBoardingFirstPresentationTitle3">Расход топлива и электроэнергии</string>
+    <string name="onBoardingFirstPresentationTitle4">Просмотривай статистику</string>
+    <string name="onBoardingFirstPresentationTitle5">Рассчетный лист</string>
+    <string name="onBoardingFirstPresentationTitle6">Поиск</string>
+    <string name="onBoardingFirstPresentationTitle7">Персонализация</string>
+    <string name="onBoardingFirstPresentationDesc1">Данные хранятся в памяти телефона и в облачном хранилище</string>
+    <string name="onBoardingFirstPresentationDesc2">Запиши подробные данные о локомотиве и поезде</string>
+    <string name="onBoardingFirstPresentationDesc3">Посчитает за вас расход, переведет литры в киллограммы</string>
+    <string name="onBoardingFirstPresentationDesc4">Информация о отработанных часах всегда под рукой</string>
+    <string name="onBoardingFirstPresentationDesc5">Укажи свою ставку и надбавки и мы сделаем предварительный расчет зарплаты</string>
+    <string name="onBoardingFirstPresentationDesc6">Можно найти любой маршрут по локомотиву, станции или другой информации</string>
+    <string name="onBoardingFirstPresentationDesc7">Укажи стандартное время работы или тип локомотива, и они автоматически добавятся в новом маршруте</string>
+    <string name="onBoardingUpdatePresentationTitle1">Часовой пояс</string>
+    <string name="onBoardingUpdatePresentationTitle2">Главный экран</string>
+    <string name="onBoardingUpdatePresentationDesc1">Для учета переходных маршрутов, ночных и праздничных часов установите свой часовой пояс</string>
+    <string name="onBoardingUpdatePresentationDesc2">Добавили обшее отработанное время на главный экран</string>
+
+    <!-- Route feature strings -->
+    <string name="work_time">Время</string>
+    <string name="locomotive">Локомотив</string>
+    <string name="train">Поезд</string>
+    <string name="passenger">Пассажиром</string>
+    <string name="notes">Примечания</string>
+    <string name="msg_route_deleted">Маршрут удален</string>
+    <string name="msg_empty_route_list">Список маршрутов пуст</string>
+    <string name="text_switch_on_rest">Отдых в ПО</string>
+    <string name="info_text_min_time_rest">Время минимального отдыха составляет %1$s часа. Изменить это время можно в настройках.</string>
+    <string name="min_time_rest_text">Короткий до %1$s</string>
+    <string name="complete_time_rest_text">Полный до %1$s</string>
+    <string name="duration_time_rest">Время отдыха %1$s</string>
+
+    <!-- Purchases -->
+    <string name="billing_start_purchases">Начать покупки</string>
+    <string name="billing_common_ok">Продолжить бесплатно</string>
+    <string name="billing_common_error">Что-то пошло не так</string>
+    <string name="billing_products_tab">Продукты</string>
+    <string name="billing_purchases_tab">Покупки</string>
+    <string name="billing_buy_product">Покупка продукта</string>
+    <string name="billing_confirm_purchase">Подтверждение покупки</string>
+    <string name="billing_delete_purchase">Отмена покупки</string>
+    <string name="billing_general_error">Ошибка</string>
+    <string name="billing_purchase_result">Статус покупки продукта</string>
+    <string name="dialog_title_need_purchases">Необходима подписка</string>
+    <string name="test_period">Пробный период</string>
+    <string name="available_for_free_route">Бесплатно доступно 20 маршрутов. </string>
+    <string name="subscription_period_has_expired">Cрок подписки истек</string>
+
+    <!-- URLs -->
+    <string name="url_to_license_agreement">https://disk.yandex.ru/i/gTAxov93J0PZRQ</string>
+    <string name="url_to_user_agreement">https://disk.yandex.ru/i/QY8ToIfC9sS9Ow</string>
+
+    <!-- Salary settings -->
+    <string name="salary_settings_title">Настройка зарплаты</string>
+    <string name="salary_section_main">Основные</string>
+    <string name="salary_section_surcharges">Надбавки</string>
+    <string name="salary_section_deductions">Удержания</string>
+    <string name="salary_avg_payment_hour">Средняя оплата за час</string>
+    <string name="salary_night_percent">% ночных</string>
+    <string name="salary_zonal_surcharge">Зональная надбавка %</string>
+    <string name="salary_qualification_class">Квалификационный класс %</string>
+    <string name="salary_harmfulness">Вредность %</string>
+    <string name="salary_district_coefficient">Районный коэффициент</string>
+    <string name="salary_nordic_percent">Северная надбавка %</string>
+    <string name="salary_one_person_freight">Одно лицо (грузовой) %</string>
+    <string name="salary_one_person_passenger">Одно лицо (пассаж.) %</string>
+    <string name="salary_long_distance_train">Тяжеловесный поезд %</string>
+    <string name="salary_other_surcharge">Прочие надбавки</string>
+    <string name="salary_ndfl">НДФЛ %</string>
+    <string name="salary_unionists">Профсоюзные %</string>
+    <string name="salary_other_deductions">Прочие удержания</string>
+    <string name="salary_save_error">Ошибка сохранения настроек</string>
+</resources>
