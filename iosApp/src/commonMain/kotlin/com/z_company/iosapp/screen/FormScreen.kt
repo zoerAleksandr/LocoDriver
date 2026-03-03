@@ -3,24 +3,34 @@ package com.z_company.iosapp.screen
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -33,16 +43,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.z_company.domain.navigation.Router
+import com.z_company.iosapp.util.TimeFormatter
 import com.z_company.iosapp.viewmodel.FormIosViewModel
-import kotlinx.datetime.Instant
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import org.koin.compose.koinInject
 
 /**
- * Экран создания / редактирования маршрута.
+ * Route create/edit screen.
  *
- * [routeId] == null → новый маршрут; не null → редактирование существующего.
+ * [routeId] == null -> new route; non-null -> editing existing.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,19 +65,16 @@ internal fun FormScreen(
     val errorMessage by viewModel.errorMessage.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Загружаем маршрут при входе на экран
     LaunchedEffect(routeId) {
         viewModel.loadRoute(routeId)
     }
 
-    // Возвращаемся назад после успешного сохранения
     LaunchedEffect(isSaved) {
         if (isSaved) {
             router.back()
         }
     }
 
-    // Показываем ошибку
     LaunchedEffect(errorMessage) {
         errorMessage?.let { msg ->
             snackbarHostState.showSnackbar(msg)
@@ -87,6 +92,23 @@ internal fun FormScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
                     }
                 },
+                actions = {
+                    val isFavorite = route?.basicData?.isFavorite ?: false
+                    IconToggleButton(
+                        checked = isFavorite,
+                        onCheckedChange = { viewModel.toggleFavorite(it) },
+                    ) {
+                        Icon(
+                            imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
+                            contentDescription = "Избранное",
+                            tint = if (isFavorite) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
+                },
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -101,83 +123,221 @@ internal fun FormScreen(
             return@Scaffold
         }
 
-        val basicData = route?.basicData
+        val currentRoute = route
+        val basicData = currentRoute?.basicData
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
-            // Номер маршрута
-            OutlinedTextField(
-                value = basicData?.number ?: "",
-                onValueChange = { viewModel.updateNumber(it) },
-                label = { Text("Номер маршрута") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            // Время начала работы (read-only, отображаем если установлено)
-            basicData?.timeStartWork?.let { ms ->
-                Text(
-                    text = "Начало: ${formatEpochMs(ms)}",
-                    style = MaterialTheme.typography.bodyMedium,
+            // --- Section: Route Number ---
+            SectionCard(title = "Основные данные") {
+                OutlinedTextField(
+                    value = basicData?.number ?: "",
+                    onValueChange = { viewModel.updateNumber(it) },
+                    label = { Text("Номер маршрута") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
 
-            // Время окончания работы
-            basicData?.timeEndWork?.let { ms ->
-                Text(
-                    text = "Окончание: ${formatEpochMs(ms)}",
-                    style = MaterialTheme.typography.bodyMedium,
+            // --- Section: Work Times ---
+            SectionCard(title = "Время работы") {
+                FormReadOnlyRow(
+                    label = "Начало работы",
+                    value = basicData?.timeStartWork?.let { TimeFormatter.formatDateTime(it) },
+                )
+
+                FormReadOnlyRow(
+                    label = "Окончание работы",
+                    value = basicData?.timeEndWork?.let { TimeFormatter.formatDateTime(it) },
+                )
+
+                // Work duration
+                val workDurationMs = computeWorkDuration(
+                    startMs = basicData?.timeStartWork,
+                    endMs = basicData?.timeEndWork,
+                    breakStartMs = basicData?.timeStartBreak,
+                    breakEndMs = basicData?.timeEndBreak,
+                )
+                if (workDurationMs != null && workDurationMs > 0) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    FormReadOnlyRow(
+                        label = "Продолжительность",
+                        value = TimeFormatter.formatDuration(workDurationMs),
+                    )
+                }
+            }
+
+            // --- Section: Break Times (only if present) ---
+            val hasBreak = basicData?.timeStartBreak != null || basicData?.timeEndBreak != null
+            if (hasBreak) {
+                SectionCard(title = "Перерыв") {
+                    FormReadOnlyRow(
+                        label = "Начало перерыва",
+                        value = basicData?.timeStartBreak?.let { TimeFormatter.formatDateTime(it) },
+                    )
+                    FormReadOnlyRow(
+                        label = "Окончание перерыва",
+                        value = basicData?.timeEndBreak?.let { TimeFormatter.formatDateTime(it) },
+                    )
+
+                    val breakStart = basicData?.timeStartBreak
+                    val breakEnd = basicData?.timeEndBreak
+                    if (breakStart != null && breakEnd != null && breakEnd > breakStart) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                        FormReadOnlyRow(
+                            label = "Длительность перерыва",
+                            value = TimeFormatter.formatDuration(breakEnd - breakStart),
+                        )
+                    }
+                }
+            }
+
+            // --- Section: Counts ---
+            currentRoute?.let { r ->
+                val locoCount = r.locomotives.size
+                val trainCount = r.trains.size
+                val passengerCount = r.passengers.size
+
+                if (locoCount > 0 || trainCount > 0 || passengerCount > 0) {
+                    SectionCard(title = "Состав") {
+                        if (locoCount > 0) {
+                            FormReadOnlyRow(
+                                label = "Локомотивов",
+                                value = locoCount.toString(),
+                            )
+                        }
+                        if (trainCount > 0) {
+                            FormReadOnlyRow(
+                                label = "Поездов",
+                                value = trainCount.toString(),
+                            )
+                        }
+                        if (passengerCount > 0) {
+                            FormReadOnlyRow(
+                                label = "Пассажирских",
+                                value = passengerCount.toString(),
+                            )
+                        }
+                    }
+                }
+            }
+
+            // --- Section: Notes ---
+            SectionCard(title = "Заметки") {
+                OutlinedTextField(
+                    value = basicData?.notes ?: "",
+                    onValueChange = { viewModel.updateNotes(it) },
+                    label = { Text("Заметки") },
+                    minLines = 3,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
 
-            // Количество локомотивов / поездов / пассажирских
-            route?.let { r ->
-                Text(
-                    text = "Локомотивов: ${r.locomotives.size}  " +
-                            "Поездов: ${r.trains.size}  " +
-                            "Пассажирских: ${r.passengers.size}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            // --- Section: Favorite toggle ---
+            SectionCard(title = "Дополнительно") {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "Избранное",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Switch(
+                        checked = basicData?.isFavorite ?: false,
+                        onCheckedChange = { viewModel.toggleFavorite(it) },
+                    )
+                }
             }
 
-            // Заметки
-            OutlinedTextField(
-                value = basicData?.notes ?: "",
-                onValueChange = { viewModel.updateNotes(it) },
-                label = { Text("Заметки") },
-                minLines = 3,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Сохранить
+            // --- Save Button ---
             Button(
                 onClick = { viewModel.saveRoute() },
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("Сохранить")
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
 
-@OptIn(kotlin.time.ExperimentalTime::class)
-private fun formatEpochMs(ms: Long): String {
-    val instant = Instant.fromEpochMilliseconds(ms)
-    val ldt = instant.toLocalDateTime(TimeZone.currentSystemDefault())
-    val d = ldt.dayOfMonth.toString().padStart(2, '0')
-    val mo = ldt.monthNumber.toString().padStart(2, '0')
-    val h = ldt.hour.toString().padStart(2, '0')
-    val min = ldt.minute.toString().padStart(2, '0')
-    return "$d.$mo.${ldt.year} $h:$min"
+/**
+ * A Card-based section with a title header.
+ */
+@Composable
+private fun SectionCard(
+    title: String,
+    content: @Composable () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        ),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            content()
+        }
+    }
+}
+
+/**
+ * Read-only label-value row for displaying route data.
+ */
+@Composable
+private fun FormReadOnlyRow(label: String, value: String?) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value ?: "\u2014",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+}
+
+/**
+ * Computes work duration taking break into account.
+ */
+private fun computeWorkDuration(
+    startMs: Long?,
+    endMs: Long?,
+    breakStartMs: Long?,
+    breakEndMs: Long?,
+): Long? {
+    if (startMs == null || endMs == null || endMs <= startMs) return null
+    val raw = endMs - startMs
+    val breakDuration = if (breakStartMs != null && breakEndMs != null && breakEndMs > breakStartMs) {
+        breakEndMs - breakStartMs
+    } else {
+        0L
+    }
+    return raw - breakDuration
 }

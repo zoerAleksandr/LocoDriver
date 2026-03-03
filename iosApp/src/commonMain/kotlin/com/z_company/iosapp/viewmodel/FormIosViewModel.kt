@@ -12,12 +12,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 
 /**
- * KMP ViewModel для экрана создания / редактирования маршрута.
+ * KMP ViewModel for the route create/edit screen.
  *
- * Зарегистрирован как Koin single — один экземпляр на время жизни приложения.
- * Состояние сбрасывается при вызове [loadRoute].
+ * Registered as Koin single. State resets on [loadRoute] call.
  *
- * @param routeUseCase UseCase из domain-модуля (KMP-совместимый).
+ * @param routeUseCase UseCase from domain module (KMP-compatible).
  */
 class FormIosViewModel(
     private val routeUseCase: RouteUseCase,
@@ -38,7 +37,7 @@ class FormIosViewModel(
     private var loadJob: Job? = null
 
     /**
-     * Загружает маршрут по [routeId]. Если routeId == null — создаёт новый пустой маршрут.
+     * Loads route by [routeId]. If routeId == null, creates a new empty route.
      */
     fun loadRoute(routeId: String?) {
         loadJob?.cancel()
@@ -71,7 +70,7 @@ class FormIosViewModel(
         }
     }
 
-    /** Обновляет номер маршрута. */
+    /** Updates route number. */
     fun updateNumber(value: String) {
         val current = _route.value ?: return
         _route.value = current.copy(
@@ -79,7 +78,7 @@ class FormIosViewModel(
         )
     }
 
-    /** Обновляет заметки. */
+    /** Updates notes. */
     fun updateNotes(value: String) {
         val current = _route.value ?: return
         _route.value = current.copy(
@@ -87,7 +86,15 @@ class FormIosViewModel(
         )
     }
 
-    /** Сохраняет текущий маршрут в БД. */
+    /** Toggles favorite status. */
+    fun toggleFavorite(value: Boolean) {
+        val current = _route.value ?: return
+        _route.value = current.copy(
+            basicData = current.basicData.copy(isFavorite = value)
+        )
+    }
+
+    /** Saves the current route to the DB. */
     fun saveRoute() {
         val currentRoute = _route.value ?: return
         viewModelScope.launch {

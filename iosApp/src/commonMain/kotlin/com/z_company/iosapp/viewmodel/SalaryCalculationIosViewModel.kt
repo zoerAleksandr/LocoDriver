@@ -1,5 +1,9 @@
 package com.z_company.iosapp.viewmodel
 
+import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.UtilsForEntities.getBreakDuration
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
+import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -12,25 +16,33 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 
 /**
- * KMP ViewModel для экрана «Расчёт зарплаты».
+ * KMP ViewModel for the salary calculation screen.
  *
- * Вместо неиспользуемого SalaryCalculationUseCase (отмечен "НЕ ИСПОЛЬЗУЕТСЯ !!!") использует
- * RouteUseCase + SettingsUseCase — как это сделано в Android SalaryCalculationViewModel.
+ * Exposes monthly summary with total work/night/break time,
+ * plus a per-route breakdown list.
  */
 class SalaryCalculationIosViewModel(
     private val routeUseCase: RouteUseCase,
     private val settingsUseCase: SettingsUseCase,
 ) : ViewModel() {
 
+    /** Per-route breakdown info. */
+    data class RouteBreakdown(
+        val routeId: String,
+        val number: String,
+        val workMs: Long,
+        val breakMs: Long,
+    )
+
     data class MonthlySummary(
         val month: String,
         val routeCount: Int,
         val totalWorkMs: Long,
+        val totalBreakMs: Long,
+        val totalNightMs: Long,
+        val routes: List<RouteBreakdown>,
     ) {
-        /** Общее время работы в часах (целая часть). */
         val totalWorkHours: Long get() = totalWorkMs / (1000L * 60 * 60)
-
-        /** Остаток минут после вычитания полных часов. */
         val totalWorkMinutes: Long get() = (totalWorkMs / (1000L * 60)) % 60
     }
 
@@ -58,15 +70,34 @@ class SalaryCalculationIosViewModel(
                 monthOfYear = settings.selectMonthOfYear,
                 offsetInMoscow = settings.timeZone,
             ).collect { routes ->
-                val totalWorkMs = routes.sumOf { route ->
-                    val start = route.basicData.timeStartWork ?: 0L
-                    val end = route.basicData.timeEndWork ?: 0L
-                    if (end > start) end - start else 0L
+                val breakdowns = routes.map { route ->
+                    val workMs = route.getWorkTime() ?: 0L
+                    val breakMs = route.getBreakDuration()
+                    RouteBreakdown(
+                        routeId = route.basicData.id,
+                        number = route.basicData.number?.takeIf { it.isNotBlank() } ?: "Без номера",
+                        workMs = workMs,
+                        breakMs = breakMs,
+                    )
                 }
+
+                val totalWorkMs = breakdowns.sumOf { it.workMs }
+                val totalBreakMs = breakdowns.sumOf { it.breakMs }
+
+                // Calculate night time
+                val totalNightMs = try {
+                    routes.getNightTime(settings)
+                } catch (_: Exception) {
+                    0L
+                }
+
                 _summary.value = MonthlySummary(
                     month = formatMonth(settings),
                     routeCount = routes.size,
                     totalWorkMs = totalWorkMs,
+                    totalBreakMs = totalBreakMs,
+                    totalNightMs = totalNightMs,
+                    routes = breakdowns,
                 )
                 _isLoading.value = false
             }
