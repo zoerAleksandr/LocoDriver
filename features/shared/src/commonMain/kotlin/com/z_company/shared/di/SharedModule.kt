@@ -2,6 +2,7 @@ package com.z_company.shared.di
 
 import com.z_company.shared.platform.PlatformActions
 import com.z_company.shared.platform.createPlatformActions
+import com.z_company.shared.viewmodel.SettingSalarySharedViewModel
 import org.koin.dsl.module
 
 /**
@@ -12,5 +13,6 @@ val sharedModule = module {
     // Platform services
     single<PlatformActions> { createPlatformActions() }
 
-    // ViewModels will be added here as screens are migrated
+    // Shared ViewModels
+    factory { SettingSalarySharedViewModel(get()) }
 }
