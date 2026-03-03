@@ -2,6 +2,7 @@ package com.z_company.iosapp.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.use_cases.RouteUseCase
@@ -12,19 +13,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/**
- * KMP ViewModel для главного экрана.
- *
- * Упрощённая версия HomeViewModel из features/route (Android), без:
- *   - KoinComponent (используется конструкторная инжекция)
- *   - RuStore AppUpdate (Android-специфично)
- *   - java.util.Calendar (заменён kotlinx-datetime в UseCases)
- *   - Activity-констант
- *
- * Регистрируется в Koin через iosUseCaseModule.
- *
- * Шаг 17: добавить SalaryCalculationUseCase для отображения итоговой зарплаты.
- */
 class HomeIosViewModel(
     private val routeUseCase: RouteUseCase,
     private val settingsUseCase: SettingsUseCase,
@@ -58,9 +46,39 @@ class HomeIosViewModel(
                 monthOfYear = userSettings.selectMonthOfYear,
                 offsetInMoscow = userSettings.timeZone,
             ).collect { routes ->
-                _routes.value = routes
+                _routes.value = routes.sortedByDescending { it.basicData.timeStartWork ?: 0L }
                 _isLoading.value = false
             }
+        }
+    }
+
+    fun removeRoute(route: Route) {
+        viewModelScope.launch {
+            routeUseCase.markAsRemoved(route).collect { /* result */ }
+        }
+    }
+
+    fun setNextMonth() {
+        val current = _settings.value ?: return
+        val moy = current.selectMonthOfYear
+        val newMonth = if (moy.month >= 11) 0 else moy.month + 1
+        val newYear = if (moy.month >= 11) moy.year + 1 else moy.year
+        updateMonth(newYear, newMonth)
+    }
+
+    fun setPreviousMonth() {
+        val current = _settings.value ?: return
+        val moy = current.selectMonthOfYear
+        val newMonth = if (moy.month <= 0) 11 else moy.month - 1
+        val newYear = if (moy.month <= 0) moy.year - 1 else moy.year
+        updateMonth(newYear, newMonth)
+    }
+
+    private fun updateMonth(year: Int, month: Int) {
+        viewModelScope.launch {
+            settingsUseCase.updateMonthOfYearInUserSetting(
+                MonthOfYear(year = year, month = month)
+            ).collect { /* result */ }
         }
     }
 }
