@@ -15,9 +15,11 @@ import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.use_cases.TrainUseCase
+import com.z_company.iosapp.viewmodel.AllRouteIosViewModel
 import com.z_company.iosapp.viewmodel.FormIosViewModel
 import com.z_company.iosapp.viewmodel.HomeIosViewModel
 import com.z_company.iosapp.viewmodel.LocoFormIosViewModel
+import com.z_company.iosapp.viewmodel.MoreInfoIosViewModel
 import com.z_company.iosapp.viewmodel.PassengerFormIosViewModel
 import com.z_company.iosapp.viewmodel.ProfileIosViewModel
 import com.z_company.iosapp.viewmodel.SalaryCalculationIosViewModel
@@ -25,6 +27,7 @@ import com.z_company.iosapp.viewmodel.SearchIosViewModel
 import com.z_company.iosapp.viewmodel.SettingSalaryIosViewModel
 import com.z_company.iosapp.viewmodel.SettingsIosViewModel
 import com.z_company.iosapp.viewmodel.TrainFormIosViewModel
+import com.z_company.iosapp.viewmodel.WorkScheduleIosViewModel
 import org.koin.dsl.module
 
 /**
@@ -74,4 +77,7 @@ val iosUseCaseModule = module {
     single { LocoFormIosViewModel(get()) }
     single { TrainFormIosViewModel(get()) }
     single { PassengerFormIosViewModel(get()) }
+    single { AllRouteIosViewModel(get()) }
+    single { WorkScheduleIosViewModel(get(), get()) }
+    single { MoreInfoIosViewModel(get(), get()) }
 }
