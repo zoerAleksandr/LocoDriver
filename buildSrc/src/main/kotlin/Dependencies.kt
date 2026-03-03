@@ -129,9 +129,9 @@ object Versions {
     const val ktor_ver = "3.0.3"
     const val sqldelight_ver = "2.0.2"
     // Compose Multiplatform (совместим с Kotlin 2.2.0)
-    const val compose_mp_ver = "1.8.0"
-    // KMP Navigation-Compose (JetBrains fork androidx.navigation, совместим с Compose MP 1.8.0)
-    const val navigation_kmp_ver = "2.8.0-alpha10"
+    const val compose_mp_ver = "1.10.1"
+    // KMP Navigation-Compose (JetBrains fork androidx.navigation, совместим с Compose MP 1.10.x)
+    const val navigation_kmp_ver = "2.9.2"
 }
 
 object Libs {

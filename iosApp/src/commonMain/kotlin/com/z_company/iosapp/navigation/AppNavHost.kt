@@ -6,6 +6,7 @@ import androidx.compose.runtime.remember
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.savedstate.read
 import com.z_company.iosapp.screen.FormScreen
 import com.z_company.iosapp.screen.HomeScreen
 import com.z_company.iosapp.screen.ProfileScreen
@@ -38,7 +39,9 @@ fun AppNavHost() {
         }
         // FormRoute: "FormRoute?routeId={routeId}/?makeCopy={makeCopy}"
         composable(FormRoute.route) { backStackEntry ->
-            val routeId = backStackEntry.arguments?.getString("routeId")
+            val routeId = backStackEntry.arguments?.read {
+                if (contains("routeId")) getString("routeId") else null
+            }
             FormScreen(router = router, routeId = routeId)
         }
         composable(FormLoco.route) {
