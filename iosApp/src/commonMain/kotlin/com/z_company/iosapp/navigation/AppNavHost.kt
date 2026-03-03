@@ -7,10 +7,15 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.savedstate.read
+import com.z_company.iosapp.screen.FormLocoScreen
+import com.z_company.iosapp.screen.FormPassengerScreen
 import com.z_company.iosapp.screen.FormScreen
+import com.z_company.iosapp.screen.FormTrainScreen
 import com.z_company.iosapp.screen.HomeScreen
 import com.z_company.iosapp.screen.ProfileScreen
 import com.z_company.iosapp.screen.SalaryCalculationScreen
+import com.z_company.iosapp.screen.SearchScreen
+import com.z_company.iosapp.screen.SettingSalaryScreen
 import com.z_company.iosapp.screen.SettingsScreen
 import com.z_company.iosapp.screen.StubScreen
 
@@ -44,14 +49,32 @@ fun AppNavHost() {
             }
             FormScreen(router = router, routeId = routeId)
         }
-        composable(FormLoco.route) {
-            StubScreen(title = "Форма локомотива", router = router)
+        composable(FormLoco.route) { backStackEntry ->
+            val basicId = backStackEntry.arguments?.read {
+                if (contains("basicId")) getString("basicId") else null
+            } ?: ""
+            val locoId = backStackEntry.arguments?.read {
+                if (contains("locoId")) getString("locoId") else null
+            }
+            FormLocoScreen(router = router, basicId = basicId, locoId = locoId)
         }
-        composable(FormTrain.route) {
-            StubScreen(title = "Форма поезда", router = router)
+        composable(FormTrain.route) { backStackEntry ->
+            val basicId = backStackEntry.arguments?.read {
+                if (contains("basicId")) getString("basicId") else null
+            } ?: ""
+            val trainId = backStackEntry.arguments?.read {
+                if (contains("trainId")) getString("trainId") else null
+            }
+            FormTrainScreen(router = router, basicId = basicId, trainId = trainId)
         }
-        composable(FormPassenger.route) {
-            StubScreen(title = "Форма пассажирского", router = router)
+        composable(FormPassenger.route) { backStackEntry ->
+            val basicId = backStackEntry.arguments?.read {
+                if (contains("basicId")) getString("basicId") else null
+            } ?: ""
+            val passengerId = backStackEntry.arguments?.read {
+                if (contains("passengerId")) getString("passengerId") else null
+            }
+            FormPassengerScreen(router = router, basicId = basicId, passengerId = passengerId)
         }
         composable(SettingsScreenRoute.route) {
             SettingsScreen(router = router)
@@ -63,10 +86,10 @@ fun AppNavHost() {
             SalaryCalculationScreen(router = router)
         }
         composable(SettingSalaryRoute.route) {
-            StubScreen(title = "Настройка зарплаты", router = router)
+            SettingSalaryScreen(router = router)
         }
         composable(SearchRoute.route) {
-            StubScreen(title = "Поиск", router = router)
+            SearchScreen(router = router)
         }
         composable(PurchasesRoute.route) {
             StubScreen(title = "Покупки", router = router)
