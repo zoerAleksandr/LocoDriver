@@ -24,6 +24,9 @@ kotlin {
     iosSimulatorArm64()
 
     sourceSets {
+        all {
+            languageSettings.optIn("kotlin.time.ExperimentalTime")
+        }
         commonMain.dependencies {
             api(project(Libs.project_core))
             implementation(Libs.kotlinx_coroutines_core)

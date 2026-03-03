@@ -116,7 +116,7 @@ object Versions {
     const val mockito_core_ver = "3.10.0"
     const val mockito_inline_ver = "2.8.9"
     const val mockito_kotlin_ver = "1.5.0"
-    const val kotlinx_date_time_ver = "0.6.2"
+    const val kotlinx_date_time_ver = "0.7.1"
     const val ru_ok_tracer_platform_ver = "1.1.2"
     const val mytracker_sdk_ver = "3.3.2"
     const val retrofit_ver = "2.11.0"
