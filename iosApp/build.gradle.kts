@@ -22,6 +22,9 @@ kotlin {
     }
 
     sourceSets {
+        all {
+            languageSettings.optIn("kotlin.time.ExperimentalTime")
+        }
         commonMain.dependencies {
             // Compose Multiplatform UI
             implementation(compose.runtime)

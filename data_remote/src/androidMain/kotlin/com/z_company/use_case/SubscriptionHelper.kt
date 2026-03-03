@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import kotlinx.datetime.Clock
+import kotlin.time.Clock
 //
 class SubscriptionHelper() : KoinComponent {
     private val settingsUseCase: SettingsUseCase by inject()
