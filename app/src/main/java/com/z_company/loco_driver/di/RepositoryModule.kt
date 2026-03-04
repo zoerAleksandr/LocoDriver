@@ -29,6 +29,10 @@ import com.z_company.repository.remote_rest.SyncManager
 import com.z_company.core.widget.WidgetUpdater
 import com.z_company.loco_driver.widget.GlanceWidgetUpdater
 import com.z_company.route.viewmodel.RouteActionsHelper
+import com.z_company.shared.platform.AndroidAuthProvider
+import com.z_company.shared.platform.AndroidBillingProvider
+import com.z_company.shared.platform.AuthProvider
+import com.z_company.shared.platform.BillingProvider
 import com.z_company.use_case.SubscriptionHelper
 import org.koin.android.ext.koin.androidApplication
 import org.koin.android.ext.koin.androidContext
@@ -82,6 +86,25 @@ val repositoryModule = module {
             routesManager = get(),
             settingManager = get(),
             sharedPrefs = get()
+        )
+    }
+
+    // AuthProvider и BillingProvider для shared UI
+    single<AuthProvider> {
+        AndroidAuthProvider(
+            authManager = get(),
+            secureTokenStorage = get(),
+            syncManager = get(),
+            settingManager = get(),
+            settingsUseCase = get(),
+            sharedPrefs = get(),
+        )
+    }
+    single<BillingProvider> {
+        AndroidBillingProvider(
+            secureTokenStorage = get(),
+            settingsUseCase = get(),
+            settingManager = get(),
         )
     }
 }

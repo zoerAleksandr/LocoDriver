@@ -1,5 +1,7 @@
 package com.z_company.shared.di
 
+import com.z_company.shared.platform.AuthProvider
+import com.z_company.shared.platform.BillingProvider
 import com.z_company.shared.platform.PlatformActions
 import com.z_company.shared.platform.createPlatformActions
 import com.z_company.shared.search.SharedSearchRouteUseCase
@@ -11,6 +13,7 @@ import com.z_company.shared.viewmodel.FormTrainSharedViewModel
 import com.z_company.shared.viewmodel.HomeSharedViewModel
 import com.z_company.shared.viewmodel.MoreInfoSharedViewModel
 import com.z_company.shared.viewmodel.ProfileSharedViewModel
+import com.z_company.shared.viewmodel.PurchasesSharedViewModel
 import com.z_company.shared.viewmodel.SalaryCalculationSharedViewModel
 import com.z_company.shared.viewmodel.SearchSharedViewModel
 import com.z_company.shared.viewmodel.SettingSalarySharedViewModel
@@ -43,6 +46,7 @@ val sharedModule = module {
     // Phase 3 — complex screens
     factory { HomeSharedViewModel(get(), get(), get(), get()) }
     factory { FormRouteSharedViewModel(get(), get(), get(), get(), get()) }
-    factory { ProfileSharedViewModel(get(), get()) }
+    factory { ProfileSharedViewModel(get(), get(), get()) }
+    factory { PurchasesSharedViewModel(get(), get()) }
     factory { AllRouteSharedViewModel(get()) }
 }
