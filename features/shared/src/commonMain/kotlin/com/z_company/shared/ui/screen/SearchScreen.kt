@@ -149,116 +149,120 @@ fun SearchScreen(
                 }
             }
 
-            // Search results
-            when (val state = uiState.searchState) {
-                is SearchStateScreen.Loading -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) { CircularProgressIndicator() }
-                }
+            // Content area — Box with weight(1f) gives bounded height,
+            // preventing iOS Compose Multiplatform crash with Int.MAX_VALUE constraints.
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                // Search results
+                when (val state = uiState.searchState) {
+                    is SearchStateScreen.Loading -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) { CircularProgressIndicator() }
+                    }
 
-                is SearchStateScreen.Success -> {
-                    val results = state.data
-                    if (results != null && uiState.isVisibleResult) {
-                        if (results.isEmpty()) {
-                            Box(
-                                modifier = Modifier.fillMaxWidth().padding(24.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    text = "Ничего не найдено",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
-                            }
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier.padding(top = 12.dp),
-                                verticalArrangement = Arrangement.Top,
-                                state = scrollState,
-                            ) {
-                                items(results, key = { it.route.basicData.id }) { routeWithTag ->
-                                    SearchListItem(
-                                        route = routeWithTag.route,
-                                        searchTag = routeWithTag.tag,
-                                        searchValue = queryText,
-                                        entityString = viewModel.entityString,
-                                        onClick = { onRouteClick(routeWithTag.route.basicData) },
-                                    )
-                                }
-                            }
-                        }
-                    } else if (queryText.isBlank()) {
-                        if (!uiState.isVisibleHistory || uiState.searchHistoryList.isEmpty()) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    is SearchStateScreen.Success -> {
+                        val results = state.data
+                        if (results != null && uiState.isVisibleResult) {
+                            if (results.isEmpty()) {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                                    contentAlignment = Alignment.Center,
                                 ) {
-                                    Icon(
-                                        Icons.Default.Search,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(48.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                                    )
                                     Text(
-                                        text = "Введите запрос для поиска",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        text = "Ничего не найдено",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.primary,
                                     )
+                                }
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxSize().padding(top = 12.dp),
+                                    verticalArrangement = Arrangement.Top,
+                                    state = scrollState,
+                                ) {
+                                    items(results, key = { it.route.basicData.id }) { routeWithTag ->
+                                        SearchListItem(
+                                            route = routeWithTag.route,
+                                            searchTag = routeWithTag.tag,
+                                            searchValue = queryText,
+                                            entityString = viewModel.entityString,
+                                            onClick = { onRouteClick(routeWithTag.route.basicData) },
+                                        )
+                                    }
+                                }
+                            }
+                        } else if (queryText.isBlank()) {
+                            if (!uiState.isVisibleHistory || uiState.searchHistoryList.isEmpty()) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Search,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(48.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                        )
+                                        Text(
+                                            text = "Введите запрос для поиска",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
-                }
 
-                is SearchStateScreen.Input -> { /* hints shown above */ }
-                is SearchStateScreen.Failure -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = "Ошибка поиска: ${state.entity.message ?: "неизвестная ошибка"}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error,
-                        )
+                    is SearchStateScreen.Input -> { /* hints shown above */ }
+                    is SearchStateScreen.Failure -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = "Ошибка поиска: ${state.entity.message ?: "неизвестная ошибка"}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
                     }
                 }
-            }
 
-            // History with slide + fade animation
-            AnimatedVisibility(
-                modifier = Modifier.fillMaxWidth(),
-                visible = uiState.isVisibleHistory && uiState.searchHistoryList.isNotEmpty() && queryText.isEmpty(),
-                enter = fadeIn(
-                    animationSpec = tween(durationMillis = 500, delayMillis = 300)
-                ) + slideInVertically(
-                    animationSpec = tween(durationMillis = ANIMATION_SLIDE_TIME, delayMillis = 300)
-                ),
-                exit = fadeOut(
-                    animationSpec = tween(durationMillis = 150)
-                ) + slideOutVertically(
-                    animationSpec = tween(durationMillis = ANIMATION_SLIDE_TIME)
-                ),
-            ) {
-                LazyColumn(
+                // History with slide + fade animation
+                androidx.compose.animation.AnimatedVisibility(
                     modifier = Modifier.fillMaxWidth(),
-                    state = scrollState,
+                    visible = uiState.isVisibleHistory && uiState.searchHistoryList.isNotEmpty() && queryText.isEmpty(),
+                    enter = fadeIn(
+                        animationSpec = tween(durationMillis = 500, delayMillis = 300)
+                    ) + slideInVertically(
+                        animationSpec = tween(durationMillis = ANIMATION_SLIDE_TIME, delayMillis = 300)
+                    ),
+                    exit = fadeOut(
+                        animationSpec = tween(durationMillis = 150)
+                    ) + slideOutVertically(
+                        animationSpec = tween(durationMillis = ANIMATION_SLIDE_TIME)
+                    ),
                 ) {
-                    items(uiState.searchHistoryList) { response ->
-                        HistoryItem(
-                            request = response.responseText,
-                            removeOnClick = { viewModel.removeHistoryResponse(response.responseText) },
-                            itemOnClick = {
-                                viewModel.setQueryValue(response.responseText)
-                                viewModel.onSearch()
-                            },
-                        )
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        state = scrollState,
+                    ) {
+                        items(uiState.searchHistoryList) { response ->
+                            HistoryItem(
+                                request = response.responseText,
+                                removeOnClick = { viewModel.removeHistoryResponse(response.responseText) },
+                                itemOnClick = {
+                                    viewModel.setQueryValue(response.responseText)
+                                    viewModel.onSearch()
+                                },
+                            )
+                        }
                     }
                 }
             }

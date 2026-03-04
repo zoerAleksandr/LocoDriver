@@ -271,14 +271,14 @@ fun AllRouteScreen(
             when {
                 isLoading -> {
                     Box(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxWidth().weight(1f),
                         contentAlignment = Alignment.Center,
                     ) { CircularProgressIndicator() }
                 }
 
                 routes.isEmpty() -> {
                     Box(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxWidth().weight(1f),
                         contentAlignment = Alignment.Center,
                     ) {
                         Column(
@@ -309,7 +309,7 @@ fun AllRouteScreen(
                     )
 
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxWidth().weight(1f),
                         contentPadding = PaddingValues(8.dp),
                     ) {
                         items(routes, key = { it.basicData.id }) { route ->
