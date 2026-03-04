@@ -19,36 +19,21 @@ import com.z_company.iosapp.viewmodel.AllRouteIosViewModel
 import com.z_company.iosapp.viewmodel.FormIosViewModel
 import com.z_company.iosapp.viewmodel.HomeIosViewModel
 import com.z_company.iosapp.viewmodel.LocoFormIosViewModel
-import com.z_company.iosapp.viewmodel.MoreInfoIosViewModel
 import com.z_company.iosapp.viewmodel.PassengerFormIosViewModel
 import com.z_company.iosapp.viewmodel.ProfileIosViewModel
-import com.z_company.iosapp.viewmodel.SalaryCalculationIosViewModel
-import com.z_company.iosapp.viewmodel.SearchIosViewModel
 import com.z_company.iosapp.viewmodel.SettingSalaryIosViewModel
-import com.z_company.iosapp.viewmodel.SettingsIosViewModel
 import com.z_company.iosapp.viewmodel.TrainFormIosViewModel
-import com.z_company.iosapp.viewmodel.WorkScheduleIosViewModel
 import org.koin.dsl.module
 
 /**
- * Koin-модуль iOS: репозитории, UseCases и ViewModels.
+ * Koin-модуль iOS: репозитории, UseCases и iOS-specific ViewModels.
+ *
+ * Shared ViewModels (Settings, Search, WorkSchedule, SalaryCalculation, MoreInfo)
+ * зарегистрированы в sharedModule из :features:shared.
  *
  * Регистрируется в initKoin() поверх:
  *   sqlDelightRouteModule    — DatabaseDriverFactory, RouteDatabase, SearchResponseDatabase
  *   sqlDelightSettingsModule — SettingsDatabase, SalarySettingDatabase
- *
- * Цепочка зависимостей:
- *   RouteDatabase        → SqlDelightRouteRepository  → RouteUseCase → HomeIosViewModel
- *                                                                     → FormIosViewModel
- *                                                                     → SalaryCalculationIosViewModel
- *                                                                     → ProfileIosViewModel
- *                                                                     → SearchIosViewModel
- *   SettingsDatabase     → SqlDelightSettingRepository → SettingsUseCase → HomeIosViewModel
- *                                                                        → SettingsIosViewModel
- *                                                                        → SalaryCalculationIosViewModel
- *                       → SqlDelightCalendarRepository → CalendarUseCase → SalarySettingUseCase
- *   SalarySettingDatabase → SqlDelightSalarySettingRepository → SalarySettingUseCase
- *                                                             → SettingSalaryIosViewModel
  */
 val iosUseCaseModule = module {
     // Репозитории (KoinComponent внутри — получают DB из Koin-контекста)
@@ -66,18 +51,13 @@ val iosUseCaseModule = module {
     single { TrainUseCase(get()) }
     single { PassengerUseCase(get()) }
 
-    // ViewModels (single — живут на протяжении жизни приложения)
+    // iOS-specific ViewModels (screens not yet migrated to :features:shared)
     single { HomeIosViewModel(get(), get()) }
-    single { SettingsIosViewModel(get()) }
     single { FormIosViewModel(get()) }
-    single { SalaryCalculationIosViewModel(get(), get()) }
     single { ProfileIosViewModel(get()) }
-    single { SearchIosViewModel(get()) }
     single { SettingSalaryIosViewModel(get()) }
     single { LocoFormIosViewModel(get()) }
     single { TrainFormIosViewModel(get()) }
     single { PassengerFormIosViewModel(get()) }
     single { AllRouteIosViewModel(get()) }
-    single { WorkScheduleIosViewModel(get(), get()) }
-    single { MoreInfoIosViewModel(get(), get()) }
 }

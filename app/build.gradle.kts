@@ -114,6 +114,7 @@ dependencies {
     implementation(project(Libs.project_data_local))
     implementation(project(Libs.project_feature_login))
     implementation(project(Libs.project_feature_route))
+    implementation(project(Libs.project_feature_shared))
     implementation(project(Libs.project_feature_settings))
     implementation(project(Libs.project_data_remote))
     implementation(Libs.vkId)
