@@ -1,84 +1,26 @@
 package com.z_company.route.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.z_company.core.navigation.AppRoutes
 import com.z_company.domain.navigation.Router
-import com.z_company.route.ui.HomeScreen
-import com.z_company.route.viewmodel.home_view_model.HomeViewModel
+import com.z_company.shared.ui.screen.HomeScreen as SharedHomeScreen
 import com.z_company.route.R
 
 @Composable
 fun HomeDestination(
     router: Router
 ) {
-    val homeViewModel: HomeViewModel = viewModel()
-    val uiState by homeViewModel.uiState.collectAsState()
-    val previewRouteUiState by homeViewModel.previewRouteUiState.collectAsState()
-
-    val months by homeViewModel.monthList.collectAsState()
-    val years by homeViewModel.yearList.collectAsState()
-
-
-    HomeScreen(
-        viewModel = homeViewModel,
-        listRouteState = uiState.listItemState,
-        onRouteClick = {
-            router.showRouteForm(it)
+    SharedHomeScreen(
+        onRouteClick = { routeId ->
+            router.showRouteForm(routeId)
         },
-        makeCopyRoute = { basicId ->
-            router.showRouteForm(basicId = basicId, isMakeCopy = true)
-        },
-        onMoreInfoClick = { router.showMoreInfo(it) },
-        onDeleteRoute = homeViewModel::removeRoute,
+        onNewRouteClick = { router.showRouteForm() },
+        onSettingsClick = { router.showSettings() },
+        onSalaryClick = { router.showSalaryCalculation() },
+        onAllRouteClick = { router.showAllRoute() },
+        onWorkScheduleClick = { router.showWorkScheduleScreen() },
         onSearchClick = { router.showSearch() },
-        totalTime = homeViewModel.timeWithoutHoliday,
-        currentMonthOfYear = homeViewModel.currentMonthOfYear,
-        yearList = years,
-        monthList = months,
-        selectYearAndMonth = homeViewModel::setCurrentMonth,
-        minTimeRest = uiState.minTimeRest,
-        nightTimeState = uiState.nightTimeInRouteList,
-        totalTimeWithHoliday = uiState.totalTimeWithHoliday,
-        passengerTimeState = uiState.passengerTimeInRouteList,
-        singleLocomotiveTimeState = uiState.singleLocomotiveTimeState,
-        calculationHomeRest = homeViewModel::calculationHomeRest,
-        homeRestValue = previewRouteUiState.homeRest,
-        offsetInMoscow = uiState.offsetInMoscow,
-        syncRoute = homeViewModel::syncRoute,
-        completeUpdateRequested = homeViewModel::completeUpdateRequested,
-        updateEvent = homeViewModel.updateEvents,
-        setFavoriteState = homeViewModel::setFavoriteRoute,
-        dateAndTimeConverter = uiState.dateAndTimeConverter,
-        extendedServicePhaseTime = uiState.extendedServicePhaseTime,
-        longDistanceTrainsTime = uiState.longDistanceTrainsTime,
-        heavyTrainsTime = uiState.heavyTrainsTime,
-        onePersonOperationTime = uiState.onePersonOperationTime,
-        currentRoute = homeViewModel.currentRoute,
-        currentRouteTimeWork = homeViewModel.workTimeInCurrentRoute,
-        nextFutureRoute = homeViewModel.nextFutureRoute,
-        countdownToNextRoute = homeViewModel.countdownToNextRoute,
-        onNewLocoClick = {
-            router.showEmptyLocoForm(it)
-        },
-        onChangedLocoClick = router::showChangedLocoForm,
-        onNewTrainClick = {
-            router.showEmptyTrainForm(it)
-        },
-        onChangedTrainClick = router::showChangeTrainForm,
-        onNewPassengerClick = {
-            router.showEmptyPassengerForm(it)
-        },
-        onChangedPassengerClick = router::showChangePassengerForm,
-        onGoClicked = homeViewModel::onGoClicked,
-        onAllRouteClick = router::showAllRoute,
-        uiState = uiState.uiState,
-        saveTimeEvent = homeViewModel.saveTimeEvent,
-        isNextDeparture = homeViewModel::isNextDeparture,
-        onWorkScheduleScreen = router::showWorkScheduleScreen,
-        onClickVacation = router::showSelectReleaseDayScreen
+        onMoreInfoClick = { router.showMoreInfo(it) },
     )
 }
 
