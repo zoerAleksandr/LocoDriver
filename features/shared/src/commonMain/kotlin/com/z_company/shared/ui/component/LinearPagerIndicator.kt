@@ -1,0 +1,52 @@
+package com.z_company.shared.ui.component
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import kotlin.math.absoluteValue
+
+@Composable
+fun LinearPagerIndicator(
+    modifier: Modifier = Modifier,
+    state: PagerState,
+) {
+    fun PagerState.offsetForPage(page: Int) =
+        (currentPage - page) + currentPageOffsetFraction
+
+    fun PagerState.indicatorOffsetForPage(page: Int) =
+        1f - offsetForPage(page).coerceIn(-1f, 1f).absoluteValue
+
+    Row(
+        modifier = modifier
+            .padding(8.dp)
+            .width(32.dp * state.pageCount),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        for (i in 0 until state.pageCount) {
+            val offset = state.indicatorOffsetForPage(i)
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 2.dp)
+                    .weight(1f + (offset * 3f))
+                    .height(6.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                        shape = CircleShape,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {}
+        }
+    }
+}
