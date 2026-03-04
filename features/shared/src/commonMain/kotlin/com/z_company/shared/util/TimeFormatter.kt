@@ -24,6 +24,24 @@ object TimeFormatter {
         return "$d.$mo.${ldt.year} $h:$min"
     }
 
+    /** Format epoch millis to "dd.MM.yyyy" (date only) */
+    fun formatDate(millis: Long): String {
+        val instant = Instant.fromEpochMilliseconds(millis)
+        val ldt = instant.toLocalDateTime(TimeZone.currentSystemDefault())
+        val d = ldt.dayOfMonth.toString().padStart(2, '0')
+        val mo = ldt.monthNumber.toString().padStart(2, '0')
+        return "$d.$mo.${ldt.year}"
+    }
+
+    /** Format epoch millis to "HH:mm" (time only) */
+    fun formatTime(millis: Long): String {
+        val instant = Instant.fromEpochMilliseconds(millis)
+        val ldt = instant.toLocalDateTime(TimeZone.currentSystemDefault())
+        val h = ldt.hour.toString().padStart(2, '0')
+        val min = ldt.minute.toString().padStart(2, '0')
+        return "$h:$min"
+    }
+
     /** Format epoch millis to "dd.MM HH:mm" (short) */
     fun formatDateTimeShort(millis: Long): String {
         val instant = Instant.fromEpochMilliseconds(millis)

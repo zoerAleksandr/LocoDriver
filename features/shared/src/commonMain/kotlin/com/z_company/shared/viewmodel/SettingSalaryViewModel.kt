@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.setting.SalarySetting
+import com.z_company.domain.entities.setting.SurchargeExtendedServicePhase
+import com.z_company.domain.entities.setting.SurchargeHeavyTrains
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -89,6 +91,73 @@ class SettingSalarySharedViewModel(
 
     fun updateOtherRetention(value: Double) =
         update { copy(otherRetention = value) }
+
+    fun updateLengthLongDistanceTrain(value: Int) =
+        update { copy(lengthLongDistanceTrain = value) }
+
+    // -----------------------------------------------------------------------
+    // List CRUD: heavy trains
+    // -----------------------------------------------------------------------
+
+    fun addSurchargeHeavyTrain() {
+        _setting.value = _setting.value?.let { s ->
+            s.copy(surchargeHeavyTrainsList = s.surchargeHeavyTrainsList + SurchargeHeavyTrains())
+        }
+    }
+
+    fun removeSurchargeHeavyTrain(index: Int) {
+        _setting.value = _setting.value?.let { s ->
+            s.copy(surchargeHeavyTrainsList = s.surchargeHeavyTrainsList.toMutableList().apply { removeAt(index) })
+        }
+    }
+
+    fun updateSurchargeHeavyTrainWeight(index: Int, value: String) {
+        _setting.value = _setting.value?.let { s ->
+            s.copy(surchargeHeavyTrainsList = s.surchargeHeavyTrainsList.toMutableList().apply {
+                this[index] = this[index].copy(weight = value)
+            })
+        }
+    }
+
+    fun updateSurchargeHeavyTrainPercent(index: Int, value: String) {
+        _setting.value = _setting.value?.let { s ->
+            s.copy(surchargeHeavyTrainsList = s.surchargeHeavyTrainsList.toMutableList().apply {
+                this[index] = this[index].copy(percentSurcharge = value)
+            })
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // List CRUD: extended service phases
+    // -----------------------------------------------------------------------
+
+    fun addServicePhase() {
+        _setting.value = _setting.value?.let { s ->
+            s.copy(surchargeExtendedServicePhaseList = s.surchargeExtendedServicePhaseList + SurchargeExtendedServicePhase())
+        }
+    }
+
+    fun removeServicePhase(index: Int) {
+        _setting.value = _setting.value?.let { s ->
+            s.copy(surchargeExtendedServicePhaseList = s.surchargeExtendedServicePhaseList.toMutableList().apply { removeAt(index) })
+        }
+    }
+
+    fun updateServicePhaseDistance(index: Int, value: String) {
+        _setting.value = _setting.value?.let { s ->
+            s.copy(surchargeExtendedServicePhaseList = s.surchargeExtendedServicePhaseList.toMutableList().apply {
+                this[index] = this[index].copy(distance = value)
+            })
+        }
+    }
+
+    fun updateServicePhasePercent(index: Int, value: String) {
+        _setting.value = _setting.value?.let { s ->
+            s.copy(surchargeExtendedServicePhaseList = s.surchargeExtendedServicePhaseList.toMutableList().apply {
+                this[index] = this[index].copy(percentSurcharge = value)
+            })
+        }
+    }
 
     /** Persists current salary setting to the local DB. */
     fun saveSalarySetting() {
