@@ -1,10 +1,11 @@
-package com.z_company.iosapp.viewmodel
+package com.z_company.shared.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.use_cases.PassengerUseCase
+import com.z_company.domain.use_cases.SettingsUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,14 +13,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * KMP ViewModel for the passenger train create/edit form.
+ * Shared KMP ViewModel for the passenger train create/edit form.
  *
- * Registered as Koin single. State resets on [loadPassenger] call.
- *
- * @param passengerUseCase UseCase from domain module (KMP-compatible).
+ * Based on Android PassengerFormViewModel with constructor injection.
+ * Supports station name autocomplete from settings.
  */
-class PassengerFormIosViewModel(
+class FormPassengerSharedViewModel(
     private val passengerUseCase: PassengerUseCase,
+    private val settingsUseCase: SettingsUseCase,
 ) : ViewModel() {
 
     private val _passenger = MutableStateFlow<Passenger?>(null)
@@ -34,10 +35,21 @@ class PassengerFormIosViewModel(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    private val _stationNames = MutableStateFlow<List<String>>(emptyList())
+    val stationNames: StateFlow<List<String>> = _stationNames.asStateFlow()
+
     private var loadJob: Job? = null
 
+    init {
+        viewModelScope.launch {
+            settingsUseCase.getUserSettingFlow().collect { settings ->
+                _stationNames.value = settings.stationList
+            }
+        }
+    }
+
     /**
-     * Loads passenger by [passengerId]. If null, creates a new empty passenger for [basicId].
+     * Loads passenger by [passengerId]. If null, creates a new passenger for [basicId].
      */
     fun loadPassenger(passengerId: String?, basicId: String) {
         loadJob?.cancel()
@@ -63,51 +75,23 @@ class PassengerFormIosViewModel(
                             result.entity.message ?: "Ошибка загрузки пассажирского"
                         _isLoading.value = false
                     }
-                    is ResultState.Loading -> {
-                        _isLoading.value = true
-                    }
+                    is ResultState.Loading -> _isLoading.value = true
                 }
             }
         }
     }
 
-    /** Updates passenger train number. */
-    fun updateTrainNumber(value: String) {
-        val current = _passenger.value ?: return
-        _passenger.value = current.copy(trainNumber = value.ifBlank { null })
-    }
+    // --- Fields ---
 
-    /** Updates departure station name. */
-    fun updateStationDeparture(value: String) {
-        val current = _passenger.value ?: return
-        _passenger.value = current.copy(stationDeparture = value.ifBlank { null })
-    }
+    fun updateTrainNumber(value: String) = updatePassenger { copy(trainNumber = value.ifBlank { null }) }
+    fun updateStationDeparture(value: String) = updatePassenger { copy(stationDeparture = value.ifBlank { null }) }
+    fun updateStationArrival(value: String) = updatePassenger { copy(stationArrival = value.ifBlank { null }) }
+    fun setTimeDeparture(millis: Long?) = updatePassenger { copy(timeDeparture = millis) }
+    fun setTimeArrival(millis: Long?) = updatePassenger { copy(timeArrival = millis) }
+    fun updateNotes(value: String) = updatePassenger { copy(notes = value.ifBlank { null }) }
 
-    /** Updates arrival station name. */
-    fun updateStationArrival(value: String) {
-        val current = _passenger.value ?: return
-        _passenger.value = current.copy(stationArrival = value.ifBlank { null })
-    }
+    // --- Save ---
 
-    /** Updates departure time (epoch millis). */
-    fun setTimeDeparture(millis: Long?) {
-        val current = _passenger.value ?: return
-        _passenger.value = current.copy(timeDeparture = millis)
-    }
-
-    /** Updates arrival time (epoch millis). */
-    fun setTimeArrival(millis: Long?) {
-        val current = _passenger.value ?: return
-        _passenger.value = current.copy(timeArrival = millis)
-    }
-
-    /** Updates notes. */
-    fun updateNotes(value: String) {
-        val current = _passenger.value ?: return
-        _passenger.value = current.copy(notes = value.ifBlank { null })
-    }
-
-    /** Saves the current passenger to the DB. */
     fun savePassenger() {
         val current = _passenger.value ?: return
         viewModelScope.launch {
@@ -116,14 +100,17 @@ class PassengerFormIosViewModel(
                     is ResultState.Success -> _isSaved.value = true
                     is ResultState.Error -> _errorMessage.value =
                         result.entity.message ?: "Ошибка сохранения"
-                    is ResultState.Loading -> {}
+                    is ResultState.Loading -> { /* waiting */ }
                 }
             }
         }
     }
 
-    /** Clears the error message after it has been shown. */
-    fun clearError() {
-        _errorMessage.value = null
+    fun clearError() { _errorMessage.value = null }
+
+    // --- Helpers ---
+
+    private inline fun updatePassenger(block: Passenger.() -> Passenger) {
+        _passenger.value = _passenger.value?.block()
     }
 }

@@ -8,20 +8,20 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.savedstate.read
 import com.z_company.iosapp.screen.AllRouteScreen
-import com.z_company.iosapp.screen.FormLocoScreen
-import com.z_company.iosapp.screen.FormPassengerScreen
 import com.z_company.iosapp.screen.FormScreen
-import com.z_company.iosapp.screen.FormTrainScreen
 import com.z_company.iosapp.screen.HomeScreen
 import com.z_company.iosapp.screen.ProfileScreen
-import com.z_company.iosapp.screen.SettingSalaryScreen
 import com.z_company.iosapp.screen.PurchasesScreen
 
 // Shared screens from :features:shared
+import com.z_company.shared.ui.screen.FormLocoScreen as SharedFormLocoScreen
+import com.z_company.shared.ui.screen.FormPassengerScreen as SharedFormPassengerScreen
+import com.z_company.shared.ui.screen.FormTrainScreen as SharedFormTrainScreen
 import com.z_company.shared.ui.screen.MoreInfoScreen as SharedMoreInfoScreen
 import com.z_company.shared.ui.screen.SalaryCalculationScreen as SharedSalaryCalculationScreen
 import com.z_company.shared.ui.screen.SearchScreen as SharedSearchScreen
 import com.z_company.shared.ui.screen.SelectReleaseDaysScreen as SharedSelectReleaseDaysScreen
+import com.z_company.shared.ui.screen.SettingSalaryScreen as SharedSettingSalaryScreen
 import com.z_company.shared.ui.screen.SettingsScreen as SharedSettingsScreen
 import com.z_company.shared.ui.screen.WorkScheduleScreen as SharedWorkScheduleScreen
 
@@ -63,7 +63,7 @@ fun AppNavHost() {
             val locoId = backStackEntry.arguments?.read {
                 if (contains("locoId")) getString("locoId") else null
             }
-            FormLocoScreen(router = router, basicId = basicId, locoId = locoId)
+            SharedFormLocoScreen(locoId = locoId, basicId = basicId, onBackClick = { router.back() })
         }
         composable(FormTrain.route) { backStackEntry ->
             val basicId = backStackEntry.arguments?.read {
@@ -72,7 +72,7 @@ fun AppNavHost() {
             val trainId = backStackEntry.arguments?.read {
                 if (contains("trainId")) getString("trainId") else null
             }
-            FormTrainScreen(router = router, basicId = basicId, trainId = trainId)
+            SharedFormTrainScreen(trainId = trainId, basicId = basicId, onBackClick = { router.back() })
         }
         composable(FormPassenger.route) { backStackEntry ->
             val basicId = backStackEntry.arguments?.read {
@@ -81,7 +81,7 @@ fun AppNavHost() {
             val passengerId = backStackEntry.arguments?.read {
                 if (contains("passengerId")) getString("passengerId") else null
             }
-            FormPassengerScreen(router = router, basicId = basicId, passengerId = passengerId)
+            SharedFormPassengerScreen(passengerId = passengerId, basicId = basicId, onBackClick = { router.back() })
         }
 
         // --- Shared screens from :features:shared ---
@@ -101,7 +101,9 @@ fun AppNavHost() {
             )
         }
         composable(SettingSalaryRoute.route) {
-            SettingSalaryScreen(router = router)
+            SharedSettingSalaryScreen(
+                onBackClick = { router.back() },
+            )
         }
         composable(SearchRoute.route) {
             SharedSearchScreen(

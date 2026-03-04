@@ -3,9 +3,13 @@ package com.z_company.shared.di
 import com.z_company.shared.platform.PlatformActions
 import com.z_company.shared.platform.createPlatformActions
 import com.z_company.shared.search.SharedSearchRouteUseCase
+import com.z_company.shared.viewmodel.FormLocoSharedViewModel
+import com.z_company.shared.viewmodel.FormPassengerSharedViewModel
+import com.z_company.shared.viewmodel.FormTrainSharedViewModel
 import com.z_company.shared.viewmodel.MoreInfoSharedViewModel
 import com.z_company.shared.viewmodel.SalaryCalculationSharedViewModel
 import com.z_company.shared.viewmodel.SearchSharedViewModel
+import com.z_company.shared.viewmodel.SettingSalarySharedViewModel
 import com.z_company.shared.viewmodel.SettingsSharedViewModel
 import com.z_company.shared.viewmodel.WorkScheduleSharedViewModel
 import org.koin.dsl.module
@@ -26,5 +30,9 @@ val sharedModule = module {
     factory { WorkScheduleSharedViewModel(get(), get(), get()) }
     factory { SalaryCalculationSharedViewModel(get(), get(), get()) }
     factory { SettingsSharedViewModel(get(), get()) }
+    factory { SettingSalarySharedViewModel(get()) }
+    factory { FormLocoSharedViewModel(get(), get()) }
+    factory { FormTrainSharedViewModel(get(), get()) }
+    factory { FormPassengerSharedViewModel(get(), get()) }
     factory { MoreInfoSharedViewModel(get(), get()) }
 }
