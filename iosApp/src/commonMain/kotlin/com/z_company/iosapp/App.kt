@@ -10,24 +10,8 @@ import com.z_company.iosapp.navigation.AppNavHost
 /**
  * Корневой Composable iOS-приложения.
  *
- * Шаг 15: подключена KMP-навигация (org.jetbrains.androidx.navigation).
- *   App() → AppNavHost() → NavHost с маршрутами, зеркалящими features/route/navigation/Routes.kt
- *
- * Шаг 16 (следующий): заменить stub-экраны реальными реализациями,
- *   портируя ViewModel из features/ на Compose Multiplatform.
- *
- * Структура навигации:
- *   App()
- *   └── AppNavHost()
- *       ├── HomeScreen              (список маршрутов)
- *       ├── FormScreen              (создание/редактирование маршрута)
- *       ├── FormLocoScreen          (форма локомотива)
- *       ├── FormTrainScreen         (форма поезда)
- *       ├── FormPassengerScreen
- *       ├── SettingsScreen
- *       ├── ProfileScreen
- *       ├── SalaryCalculationScreen
- *       └── StubScreen              (остальные маршруты — в разработке)
+ * Все экраны — из :features:shared (Compose Multiplatform).
+ * Навигация: AppNavHost() → NavHost с маршрутами из IosRouterImpl.
  */
 @Composable
 fun App() {
