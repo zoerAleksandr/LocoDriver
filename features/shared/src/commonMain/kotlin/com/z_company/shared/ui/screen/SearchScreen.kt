@@ -1,5 +1,6 @@
 package com.z_company.shared.ui.screen
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,8 +20,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -40,8 +43,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.z_company.domain.entities.SearchStateScreen
 import com.z_company.domain.entities.route.BasicData
-import com.z_company.domain.entities.route.Route
 import com.z_company.shared.util.TimeFormatter
 import com.z_company.shared.viewmodel.SearchSharedViewModel
 import org.koin.compose.koinInject
@@ -53,8 +56,8 @@ fun SearchScreen(
     onRouteClick: (BasicData) -> Unit,
 ) {
     val viewModel: SearchSharedViewModel = koinInject()
-    val query by viewModel.query.collectAsState()
-    val results by viewModel.results.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+    val queryText by viewModel.queryText.collectAsState()
 
     Scaffold(
         topBar = {
@@ -74,18 +77,18 @@ fun SearchScreen(
                 .padding(padding),
         ) {
             OutlinedTextField(
-                value = query,
-                onValueChange = { viewModel.search(it) },
+                value = queryText,
+                onValueChange = { viewModel.setQueryValue(it) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                placeholder = { Text("Введите номер маршрута или заметки") },
+                placeholder = { Text("Введите запрос для поиска") },
                 leadingIcon = {
                     Icon(Icons.Default.Search, contentDescription = null)
                 },
                 trailingIcon = {
-                    if (query.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.clearSearch() }) {
+                    if (queryText.isNotEmpty()) {
+                        IconButton(onClick = { viewModel.setQueryValue("") }) {
                             Icon(Icons.Default.Clear, contentDescription = "Очистить")
                         }
                     }
@@ -96,82 +99,146 @@ fun SearchScreen(
                     imeAction = ImeAction.Search,
                 ),
                 keyboardActions = KeyboardActions(
-                    onSearch = { /* search happens on input */ },
+                    onSearch = { viewModel.onSearch() },
                 ),
                 shape = RoundedCornerShape(12.dp),
             )
 
-            when {
-                query.isBlank() -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Icon(
-                                Icons.Default.Search,
-                                contentDescription = null,
-                                modifier = Modifier.size(48.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                            )
-                            Text(
-                                text = "Введите номер маршрута или заметки",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+            // Hints
+            if (uiState.isVisibleHints && uiState.hints.isNotEmpty()) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                ) {
+                    uiState.hints.forEach { hint ->
+                        Text(
+                            text = hint,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.setQueryValue(hint)
+                                    viewModel.onSearch()
+                                }
+                                .padding(vertical = 8.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
+            }
 
-                results.isEmpty() -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Icon(
-                                Icons.Default.Search,
-                                contentDescription = null,
-                                modifier = Modifier.size(48.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                            )
-                            Text(
-                                text = "Ничего не найдено",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
-                                text = "Попробуйте другой запрос",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            )
-                        }
-                    }
-                }
-
-                else -> {
+            // History
+            if (uiState.isVisibleHistory && uiState.searchHistoryList.isNotEmpty() && queryText.isEmpty()) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                ) {
                     Text(
-                        text = "Найдено: ${results.size}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                        text = "История поиска",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(vertical = 8.dp),
                     )
-
-                    LazyColumn(
-                        contentPadding = PaddingValues(bottom = 16.dp),
-                    ) {
-                        items(results, key = { it.basicData.id }) { route ->
-                            SearchResultCard(
-                                route = route,
-                                onClick = { onRouteClick(route.basicData) },
+                    uiState.searchHistoryList.forEach { response ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.setQueryValue(response.responseText)
+                                    viewModel.onSearch()
+                                }
+                                .padding(vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = response.responseText,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.weight(1f),
                             )
+                            IconButton(
+                                onClick = { viewModel.removeHistoryResponse(response.responseText) },
+                                modifier = Modifier.size(24.dp),
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Удалить",
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            }
                         }
+                    }
+                }
+            }
+
+            // Loading / Results
+            when (val state = uiState.searchState) {
+                is SearchStateScreen.Loading -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+
+                is SearchStateScreen.Success -> {
+                    val results = state.data
+                    if (results != null && uiState.isVisibleResult) {
+                        Text(
+                            text = "Найдено: ${results.size}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                        )
+
+                        LazyColumn(
+                            contentPadding = PaddingValues(bottom = 16.dp),
+                        ) {
+                            items(results, key = { it.route.basicData.id }) { routeWithTag ->
+                                SearchResultCard(
+                                    routeNumber = routeWithTag.route.basicData.number,
+                                    timeStartWork = routeWithTag.route.basicData.timeStartWork,
+                                    timeEndWork = routeWithTag.route.basicData.timeEndWork,
+                                    notes = routeWithTag.route.basicData.notes,
+                                    onClick = { onRouteClick(routeWithTag.route.basicData) },
+                                )
+                            }
+                        }
+                    } else if (queryText.isBlank()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Icon(
+                                    Icons.Default.Search,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(48.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                )
+                                Text(
+                                    text = "Введите запрос для поиска",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                is SearchStateScreen.Input -> { /* hints shown above */ }
+                is SearchStateScreen.Failure -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "Ошибка поиска: ${state.entity.message ?: "неизвестная ошибка"}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
                     }
                 }
             }
@@ -180,12 +247,16 @@ fun SearchScreen(
 }
 
 @Composable
-private fun SearchResultCard(route: Route, onClick: () -> Unit) {
-    val basicData = route.basicData
-
+private fun SearchResultCard(
+    routeNumber: String?,
+    timeStartWork: Long?,
+    timeEndWork: Long?,
+    notes: String?,
+    onClick: () -> Unit,
+) {
     val workDuration = run {
-        val start = basicData.timeStartWork ?: return@run null
-        val end = basicData.timeEndWork ?: return@run null
+        val start = timeStartWork ?: return@run null
+        val end = timeEndWork ?: return@run null
         if (end > start) end - start else null
     }
 
@@ -202,7 +273,7 @@ private fun SearchResultCard(route: Route, onClick: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = basicData.number?.takeIf { it.isNotBlank() } ?: "Без номера",
+                    text = routeNumber?.takeIf { it.isNotBlank() } ?: "Без номера",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.weight(1f),
@@ -222,7 +293,7 @@ private fun SearchResultCard(route: Route, onClick: () -> Unit) {
                 }
             }
 
-            basicData.timeStartWork?.let { start ->
+            timeStartWork?.let { start ->
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -233,7 +304,7 @@ private fun SearchResultCard(route: Route, onClick: () -> Unit) {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    basicData.timeEndWork?.let { end ->
+                    timeEndWork?.let { end ->
                         Text(
                             text = "\u2192",
                             style = MaterialTheme.typography.bodySmall,
@@ -248,10 +319,10 @@ private fun SearchResultCard(route: Route, onClick: () -> Unit) {
                 }
             }
 
-            basicData.notes?.takeIf { it.isNotBlank() }?.let { notes ->
+            notes?.takeIf { it.isNotBlank() }?.let { n ->
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = notes,
+                    text = n,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
