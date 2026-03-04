@@ -68,8 +68,10 @@ import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.getBreakDuration
+import com.z_company.shared.ui.component.picker.DateTimePickerBottomSheet
 import com.z_company.shared.util.ConverterLongToTime
 import com.z_company.shared.viewmodel.FormRouteSharedViewModel
+import kotlin.time.Clock
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
@@ -434,23 +436,50 @@ fun FormRouteScreen(
                         modifier = Modifier.fillMaxWidth(),
                     )
 
-                    // --- Work Times ---
+                    // --- Work Times with DateTimePicker ---
+                    var showStartWorkPicker by remember { mutableStateOf(false) }
+                    var showEndWorkPicker by remember { mutableStateOf(false) }
+
                     FormTimeRow(
                         label = "Явка",
                         value = basicData.timeStartWork,
                         converter = converter,
                         isFilled = basicData.timeStartWork != null,
+                        onClick = { showStartWorkPicker = true },
                     )
                     FormTimeRow(
                         label = "Сдача",
                         value = basicData.timeEndWork,
                         converter = converter,
                         isFilled = basicData.timeEndWork != null,
+                        onClick = { showEndWorkPicker = true },
                     )
+
+                    if (showStartWorkPicker) {
+                        DateTimePickerBottomSheet(
+                            title = "Явка",
+                            onDateTimeSelected = { viewModel.setTimeStartWork(it) },
+                            onDismiss = { showStartWorkPicker = false },
+                            startDateTime = basicData.timeStartWork
+                                ?: Clock.System.now().toEpochMilliseconds(),
+                        )
+                    }
+                    if (showEndWorkPicker) {
+                        DateTimePickerBottomSheet(
+                            title = "Сдача",
+                            onDateTimeSelected = { viewModel.setTimeEndWork(it) },
+                            onDismiss = { showEndWorkPicker = false },
+                            startDateTime = basicData.timeEndWork
+                                ?: basicData.timeStartWork
+                                ?: Clock.System.now().toEpochMilliseconds(),
+                        )
+                    }
 
                     // --- Break ---
                     val hasBreak = basicData.timeStartBreak != null || basicData.timeEndBreak != null
                     var isBreakVisible by remember { mutableStateOf(hasBreak) }
+                    var showStartBreakPicker by remember { mutableStateOf(false) }
+                    var showEndBreakPicker by remember { mutableStateOf(false) }
 
                     TextButton(
                         onClick = { isBreakVisible = !isBreakVisible },
@@ -469,14 +498,38 @@ fun FormRouteScreen(
                                 value = basicData.timeStartBreak,
                                 converter = converter,
                                 isFilled = basicData.timeStartBreak != null,
+                                onClick = { showStartBreakPicker = true },
                             )
                             FormTimeRow(
                                 label = "Окончание",
                                 value = basicData.timeEndBreak,
                                 converter = converter,
                                 isFilled = basicData.timeEndBreak != null,
+                                onClick = { showEndBreakPicker = true },
                             )
                         }
+                    }
+
+                    if (showStartBreakPicker) {
+                        DateTimePickerBottomSheet(
+                            title = "Начало перерыва",
+                            onDateTimeSelected = { viewModel.setTimeStartBreak(it) },
+                            onDismiss = { showStartBreakPicker = false },
+                            startDateTime = basicData.timeStartBreak
+                                ?: basicData.timeStartWork
+                                ?: Clock.System.now().toEpochMilliseconds(),
+                        )
+                    }
+                    if (showEndBreakPicker) {
+                        DateTimePickerBottomSheet(
+                            title = "Окончание перерыва",
+                            onDateTimeSelected = { viewModel.setTimeEndBreak(it) },
+                            onDismiss = { showEndBreakPicker = false },
+                            startDateTime = basicData.timeEndBreak
+                                ?: basicData.timeStartBreak
+                                ?: basicData.timeStartWork
+                                ?: Clock.System.now().toEpochMilliseconds(),
+                        )
                     }
                 }
             }
@@ -567,6 +620,7 @@ private fun FormTimeRow(
     value: Long?,
     converter: com.z_company.shared.util.DateAndTimeConverter?,
     isFilled: Boolean,
+    onClick: () -> Unit = {},
 ) {
     val bgColor = if (isFilled) MaterialTheme.colorScheme.secondaryContainer
     else MaterialTheme.colorScheme.surface
@@ -578,6 +632,7 @@ private fun FormTimeRow(
                 color = bgColor,
                 shape = MaterialTheme.shapes.medium,
             )
+            .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
