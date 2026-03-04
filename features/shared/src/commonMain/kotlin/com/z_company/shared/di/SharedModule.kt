@@ -41,8 +41,8 @@ val sharedModule = module {
     factory { MoreInfoSharedViewModel(get(), get()) }
 
     // Phase 3 — complex screens
-    factory { HomeSharedViewModel(get(), get(), get()) }
-    factory { FormRouteSharedViewModel(get(), get(), get(), get()) }
+    factory { HomeSharedViewModel(get(), get(), get(), get()) }
+    factory { FormRouteSharedViewModel(get(), get(), get(), get(), get()) }
     factory { ProfileSharedViewModel(get(), get()) }
     factory { AllRouteSharedViewModel(get()) }
 }

@@ -12,6 +12,14 @@ import kotlinx.datetime.toLocalDateTime
  */
 class DateAndTimeConverter(timeZoneId: String) {
 
+    /** Convenience constructor from UserSettings (uses domain getTimeZone). */
+    constructor(userSettings: com.z_company.domain.entities.setting.UserSettings) : this(
+        com.z_company.domain.util.getTimeZone(userSettings.timeZone)
+    )
+
+    /** Timezone text for display (e.g. "GMT+3"). */
+    val timeZoneText: String = timeZoneId
+
     private val timeZone: TimeZone = try {
         TimeZone.of(timeZoneId)
     } catch (_: Exception) {

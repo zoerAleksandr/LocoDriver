@@ -45,12 +45,14 @@ fun AppNavHost() {
     ) {
         composable(HomeRoute.route) {
             SharedHomeScreen(
-                onRouteClick = { basicData -> router.showRouteDetails(basicData) },
+                onRouteClick = { routeId -> router.showRouteForm(routeId) },
                 onNewRouteClick = { router.showRouteForm() },
                 onSettingsClick = { router.showSettings() },
                 onSalaryClick = { router.showSalaryCalculation() },
                 onAllRouteClick = { router.showAllRoute() },
                 onWorkScheduleClick = { router.showWorkScheduleScreen() },
+                onSearchClick = { router.showSearch() },
+                onMoreInfoClick = { monthId -> router.showMoreInfo(monthId) },
             )
         }
         composable(FormRoute.route) { backStackEntry ->
