@@ -3,10 +3,14 @@ package com.z_company.shared.di
 import com.z_company.shared.platform.PlatformActions
 import com.z_company.shared.platform.createPlatformActions
 import com.z_company.shared.search.SharedSearchRouteUseCase
+import com.z_company.shared.viewmodel.AllRouteSharedViewModel
 import com.z_company.shared.viewmodel.FormLocoSharedViewModel
 import com.z_company.shared.viewmodel.FormPassengerSharedViewModel
+import com.z_company.shared.viewmodel.FormRouteSharedViewModel
 import com.z_company.shared.viewmodel.FormTrainSharedViewModel
+import com.z_company.shared.viewmodel.HomeSharedViewModel
 import com.z_company.shared.viewmodel.MoreInfoSharedViewModel
+import com.z_company.shared.viewmodel.ProfileSharedViewModel
 import com.z_company.shared.viewmodel.SalaryCalculationSharedViewModel
 import com.z_company.shared.viewmodel.SearchSharedViewModel
 import com.z_company.shared.viewmodel.SettingSalarySharedViewModel
@@ -35,4 +39,10 @@ val sharedModule = module {
     factory { FormTrainSharedViewModel(get(), get()) }
     factory { FormPassengerSharedViewModel(get(), get()) }
     factory { MoreInfoSharedViewModel(get(), get()) }
+
+    // Phase 3 — complex screens
+    factory { HomeSharedViewModel(get(), get(), get()) }
+    factory { FormRouteSharedViewModel(get(), get(), get(), get()) }
+    factory { ProfileSharedViewModel(get(), get()) }
+    factory { AllRouteSharedViewModel(get()) }
 }

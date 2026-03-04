@@ -1,4 +1,4 @@
-package com.z_company.iosapp.screen
+package com.z_company.shared.ui.screen
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,22 +22,29 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.z_company.domain.navigation.Router
 
+/**
+ * Purchases screen — shared placeholder.
+ *
+ * Android-specific billing (Robokassa) stays in :features:route.
+ * iOS version shows this placeholder until StoreKit is integrated.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PurchasesScreen(router: Router) {
+fun PurchasesScreen(
+    onBackClick: () -> Unit,
+) {
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Покупки") },
                 navigationIcon = {
-                    IconButton(onClick = { router.back() }) {
+                    IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
                     }
-                }
+                },
             )
-        }
+        },
     ) { padding ->
         Column(
             modifier = Modifier
@@ -51,7 +58,7 @@ fun PurchasesScreen(router: Router) {
                 imageVector = Icons.Default.ShoppingCart,
                 contentDescription = null,
                 modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
@@ -60,7 +67,7 @@ fun PurchasesScreen(router: Router) {
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Покупки и подписки будут доступны в будущих версиях iOS-приложения.",
+                text = "Покупки и подписки будут доступны в будущих версиях.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

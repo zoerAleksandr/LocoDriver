@@ -15,17 +15,12 @@ import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.use_cases.TrainUseCase
-import com.z_company.iosapp.viewmodel.AllRouteIosViewModel
-import com.z_company.iosapp.viewmodel.FormIosViewModel
-import com.z_company.iosapp.viewmodel.HomeIosViewModel
-import com.z_company.iosapp.viewmodel.ProfileIosViewModel
 import org.koin.dsl.module
 
 /**
- * Koin-модуль iOS: репозитории, UseCases и iOS-specific ViewModels.
+ * Koin-модуль iOS: репозитории и UseCases.
  *
- * Shared ViewModels (Settings, Search, WorkSchedule, SalaryCalculation, MoreInfo,
- * SettingSalary, FormLoco, FormTrain, FormPassenger) зарегистрированы в sharedModule.
+ * Все ViewModels теперь зарегистрированы в sharedModule (:features:shared).
  *
  * Регистрируется в initKoin() поверх:
  *   sqlDelightRouteModule    — DatabaseDriverFactory, RouteDatabase, SearchResponseDatabase
@@ -46,10 +41,4 @@ val iosUseCaseModule = module {
     single { LocomotiveUseCase(get()) }
     single { TrainUseCase(get()) }
     single { PassengerUseCase(get()) }
-
-    // iOS-specific ViewModels (screens not yet migrated to :features:shared)
-    single { HomeIosViewModel(get(), get()) }
-    single { FormIosViewModel(get()) }
-    single { ProfileIosViewModel(get()) }
-    single { AllRouteIosViewModel(get()) }
 }

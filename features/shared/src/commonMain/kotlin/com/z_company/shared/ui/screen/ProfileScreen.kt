@@ -1,4 +1,4 @@
-package com.z_company.iosapp.screen
+package com.z_company.shared.ui.screen
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,18 +42,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.z_company.domain.navigation.Router
-import com.z_company.iosapp.viewmodel.ProfileIosViewModel
+import com.z_company.shared.viewmodel.ProfileSharedViewModel
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
 /**
- * Экран профиля — показывает статистику маршрутов и информацию о версии.
+ * Profile screen — shows route statistics and app version info.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun ProfileScreen(router: Router) {
-    val viewModel: ProfileIosViewModel = koinInject()
+fun ProfileScreen(
+    onBackClick: () -> Unit,
+    onPurchasesClick: () -> Unit,
+) {
+    val viewModel: ProfileSharedViewModel = koinInject()
     val totalRouteCount by viewModel.totalRouteCount.collectAsState()
     val favoritesCount by viewModel.favoritesCount.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -66,7 +68,7 @@ internal fun ProfileScreen(router: Router) {
             TopAppBar(
                 title = { Text("Профиль") },
                 navigationIcon = {
-                    IconButton(onClick = { router.back() }) {
+                    IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
                     }
                 },
@@ -78,9 +80,7 @@ internal fun ProfileScreen(router: Router) {
             Box(
                 modifier = Modifier.fillMaxSize().padding(padding),
                 contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator()
-            }
+            ) { CircularProgressIndicator() }
             return@Scaffold
         }
 
@@ -94,12 +94,12 @@ internal fun ProfileScreen(router: Router) {
         ) {
             Spacer(modifier = Modifier.height(4.dp))
 
-            // --- Раздел: Аккаунт ---
+            // --- Section: Account ---
             ProfileSectionCard(title = "Аккаунт") {
                 ProfileInfoRow(
                     icon = Icons.Default.Person,
                     label = "Платформа",
-                    value = "iOS",
+                    value = getPlatformName(),
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                 ProfileInfoRow(
@@ -109,7 +109,7 @@ internal fun ProfileScreen(router: Router) {
                 )
             }
 
-            // --- Раздел: Данные ---
+            // --- Section: Data ---
             ProfileSectionCard(title = "Данные") {
                 ProfileInfoRow(
                     icon = Icons.Default.DirectionsRailway,
@@ -124,7 +124,7 @@ internal fun ProfileScreen(router: Router) {
                 )
             }
 
-            // --- Раздел: Действия ---
+            // --- Section: Actions ---
             ProfileSectionCard(title = "Действия") {
                 Button(
                     onClick = {
@@ -138,7 +138,7 @@ internal fun ProfileScreen(router: Router) {
                 }
             }
 
-            // --- Раздел: Синхронизация ---
+            // --- Section: Sync ---
             ProfileSectionCard(title = "Синхронизация") {
                 Text(
                     text = "Синхронизация будет доступна в будущих версиях",
@@ -211,3 +211,9 @@ private fun ProfileInfoRow(
         )
     }
 }
+
+/**
+ * Returns platform name. In shared code defaults to "Multiplatform".
+ * Android/iOS implementations can override via expect/actual if needed.
+ */
+private fun getPlatformName(): String = "LocoDriver"

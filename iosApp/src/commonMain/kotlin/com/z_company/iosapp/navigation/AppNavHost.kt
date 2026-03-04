@@ -7,17 +7,17 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.savedstate.read
-import com.z_company.iosapp.screen.AllRouteScreen
-import com.z_company.iosapp.screen.FormScreen
-import com.z_company.iosapp.screen.HomeScreen
-import com.z_company.iosapp.screen.ProfileScreen
-import com.z_company.iosapp.screen.PurchasesScreen
 
-// Shared screens from :features:shared
+// All screens from :features:shared
+import com.z_company.shared.ui.screen.AllRouteScreen as SharedAllRouteScreen
 import com.z_company.shared.ui.screen.FormLocoScreen as SharedFormLocoScreen
 import com.z_company.shared.ui.screen.FormPassengerScreen as SharedFormPassengerScreen
+import com.z_company.shared.ui.screen.FormRouteScreen as SharedFormRouteScreen
 import com.z_company.shared.ui.screen.FormTrainScreen as SharedFormTrainScreen
+import com.z_company.shared.ui.screen.HomeScreen as SharedHomeScreen
 import com.z_company.shared.ui.screen.MoreInfoScreen as SharedMoreInfoScreen
+import com.z_company.shared.ui.screen.ProfileScreen as SharedProfileScreen
+import com.z_company.shared.ui.screen.PurchasesScreen as SharedPurchasesScreen
 import com.z_company.shared.ui.screen.SalaryCalculationScreen as SharedSalaryCalculationScreen
 import com.z_company.shared.ui.screen.SearchScreen as SharedSearchScreen
 import com.z_company.shared.ui.screen.SelectReleaseDaysScreen as SharedSelectReleaseDaysScreen
@@ -28,11 +28,7 @@ import com.z_company.shared.ui.screen.WorkScheduleScreen as SharedWorkScheduleSc
 /**
  * Корневой NavHost iOS-приложения.
  *
- * Маршруты совпадают со строками в features/route/navigation/Routes.kt,
- * чтобы при миграции features на Compose Multiplatform стабы заменялись
- * реальными экранами без изменения навигационного графа.
- *
- * Экраны, мигрированные в :features:shared, теперь используются напрямую.
+ * Все экраны теперь используются из :features:shared.
  */
 @Composable
 fun AppNavHost() {
@@ -48,13 +44,35 @@ fun AppNavHost() {
         startDestination = HomeRoute.route,
     ) {
         composable(HomeRoute.route) {
-            HomeScreen(router = router)
+            SharedHomeScreen(
+                onRouteClick = { basicData -> router.showRouteDetails(basicData) },
+                onNewRouteClick = { router.showRouteForm() },
+                onSettingsClick = { router.showSettings() },
+                onSalaryClick = { router.showSalaryCalculation() },
+                onAllRouteClick = { router.showAllRoute() },
+                onWorkScheduleClick = { router.showWorkScheduleScreen() },
+            )
         }
         composable(FormRoute.route) { backStackEntry ->
             val routeId = backStackEntry.arguments?.read {
                 if (contains("routeId")) getString("routeId") else null
             }
-            FormScreen(router = router, routeId = routeId)
+            SharedFormRouteScreen(
+                routeId = routeId,
+                onBackClick = { router.back() },
+                onLocoClick = { locoId, basicId ->
+                    navController.navigate(FormLoco.buildRoute(locoId, basicId))
+                },
+                onNewLocoClick = { basicId -> router.showEmptyLocoForm(basicId) },
+                onTrainClick = { trainId, basicId ->
+                    navController.navigate(FormTrain.buildRoute(trainId, basicId))
+                },
+                onNewTrainClick = { basicId -> router.showEmptyTrainForm(basicId) },
+                onPassengerClick = { passengerId, basicId ->
+                    navController.navigate(FormPassenger.buildRoute(passengerId, basicId))
+                },
+                onNewPassengerClick = { basicId -> router.showEmptyPassengerForm(basicId) },
+            )
         }
         composable(FormLoco.route) { backStackEntry ->
             val basicId = backStackEntry.arguments?.read {
@@ -84,7 +102,6 @@ fun AppNavHost() {
             SharedFormPassengerScreen(passengerId = passengerId, basicId = basicId, onBackClick = { router.back() })
         }
 
-        // --- Shared screens from :features:shared ---
         composable(SettingsScreenRoute.route) {
             SharedSettingsScreen(
                 onBackClick = { router.back() },
@@ -92,7 +109,10 @@ fun AppNavHost() {
             )
         }
         composable(ProfileRoute.route) {
-            ProfileScreen(router = router)
+            SharedProfileScreen(
+                onBackClick = { router.back() },
+                onPurchasesClick = { router.showPurchasesScreen() },
+            )
         }
         composable(SalaryCalculationRoute.route) {
             SharedSalaryCalculationScreen(
@@ -112,10 +132,15 @@ fun AppNavHost() {
             )
         }
         composable(PurchasesRoute.route) {
-            PurchasesScreen(router = router)
+            SharedPurchasesScreen(
+                onBackClick = { router.back() },
+            )
         }
         composable(AllRouteScreenRoute.route) {
-            AllRouteScreen(router = router)
+            SharedAllRouteScreen(
+                onBackClick = { router.back() },
+                onRouteClick = { basicData -> router.showRouteDetails(basicData) },
+            )
         }
         composable(WorkScheduleScreenRoute.route) {
             SharedWorkScheduleScreen(
