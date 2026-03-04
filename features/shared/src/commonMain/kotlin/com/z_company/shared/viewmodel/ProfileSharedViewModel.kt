@@ -1,20 +1,23 @@
-package com.z_company.iosapp.viewmodel
+package com.z_company.shared.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.domain.use_cases.RouteUseCase
+import com.z_company.shared.platform.PlatformActions
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * KMP ViewModel for the profile screen.
+ * Shared KMP ViewModel for the profile screen.
  *
+ * Based on Android ProfileViewModel with constructor injection.
  * Loads total route count and favorites count from the local DB.
  */
-class ProfileIosViewModel(
+class ProfileSharedViewModel(
     private val routeUseCase: RouteUseCase,
+    private val platformActions: PlatformActions,
 ) : ViewModel() {
 
     private val _totalRouteCount = MutableStateFlow(0)
@@ -35,5 +38,9 @@ class ProfileIosViewModel(
                 _isLoading.value = false
             }
         }
+    }
+
+    fun openUrl(url: String) {
+        platformActions.openUrl(url)
     }
 }

@@ -11,6 +11,7 @@ import com.z_company.loco_driver.di.resourcesModule
 import com.z_company.loco_driver.di.updateModule
 import com.z_company.loco_driver.di.useCaseModule
 import com.z_company.loco_driver.di.viewModelModule
+import com.z_company.shared.di.sharedModule
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
 import java.util.Locale
@@ -42,7 +43,8 @@ class StartApp : Application() {
                 repositoryModule,
                 useCaseModule,
                 resourcesModule,
-                updateModule
+                updateModule,
+                sharedModule
             )
         }
 

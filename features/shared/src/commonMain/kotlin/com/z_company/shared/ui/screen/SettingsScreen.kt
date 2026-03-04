@@ -13,6 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Done
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -31,6 +32,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.z_company.core.ResultState
+import com.z_company.shared.util.ConverterLongToTime
 import com.z_company.shared.util.TimeFormatter
 import com.z_company.shared.viewmodel.SettingsSharedViewModel
 import org.koin.compose.koinInject
@@ -42,8 +45,7 @@ fun SettingsScreen(
     onShowSettingSalary: () -> Unit,
 ) {
     val viewModel: SettingsSharedViewModel = koinInject()
-    val settings by viewModel.settings.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
         topBar = {
@@ -54,119 +56,130 @@ fun SettingsScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
                     }
                 },
+                actions = {
+                    IconButton(onClick = { viewModel.saveSettings() }) {
+                        Icon(Icons.Default.Done, contentDescription = "Сохранить")
+                    }
+                },
             )
         }
     ) { padding ->
-        if (isLoading) {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator()
-            }
-            return@Scaffold
-        }
-
-        val s = settings
-        if (s == null) {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "Настройки не найдены",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            return@Scaffold
-        }
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Spacer(modifier = Modifier.height(4.dp))
-
-            SettingsSectionCard(title = "Общие") {
-                SettingsToggleRow(
-                    label = "Учитывать будущие маршруты",
-                    checked = s.isConsiderFutureRoute,
-                    onCheckedChange = { viewModel.setConsiderFutureRoute(it) },
-                )
-                SettingsToggleRow(
-                    label = "Показывать перерыв",
-                    checked = s.isShowBreak,
-                    onCheckedChange = { viewModel.setShowBreak(it) },
-                )
-                SettingsValueRow(
-                    label = "Десятичное время",
-                    value = if (s.isDecimalTime) "Да" else "Нет",
-                )
+        when (val settingDetails = uiState.settingDetails) {
+            is ResultState.Loading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator()
+                }
             }
 
-            SettingsSectionCard(title = "Время") {
-                SettingsValueRow(
-                    label = "Ночное время",
-                    value = s.nightTime.toString(),
-                )
-                SettingsValueRow(
-                    label = "Временная зона",
-                    value = TimeFormatter.formatTimeZone(s.timeZone),
-                )
-                SettingsValueRow(
-                    label = "Минимальный отдых в ПО",
-                    value = TimeFormatter.formatHoursFromMs(s.minTimeRestPointOfTurnover),
-                )
-                SettingsValueRow(
-                    label = "Минимальный домашний отдых",
-                    value = TimeFormatter.formatHoursFromMs(s.minTimeHomeRest),
-                )
-                if (s.usingDefaultWorkTime) {
-                    SettingsValueRow(
-                        label = "Время работы по умолчанию",
-                        value = TimeFormatter.formatHoursFromMs(s.defaultWorkTime),
+            is ResultState.Error -> {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "Ошибка загрузки настроек",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
                     )
                 }
             }
 
-            SettingsSectionCard(title = "Локомотив") {
-                SettingsValueRow(
-                    label = "Тип по умолчанию",
-                    value = s.defaultLocoType.text,
-                )
-                SettingsValueRow(
-                    label = "Коэффициент дизтоплива",
-                    value = s.lastEnteredDieselCoefficient.toString(),
-                )
-                if (s.locomotiveSeriesList.isNotEmpty()) {
-                    SettingsValueRow(
-                        label = "Серии локомотивов",
-                        value = s.locomotiveSeriesList.joinToString(", "),
-                    )
-                }
-                if (s.stationList.isNotEmpty()) {
-                    SettingsValueRow(
-                        label = "Станции",
-                        value = s.stationList.joinToString(", "),
-                    )
+            is ResultState.Success -> {
+                val s = settingDetails.data ?: return@Scaffold
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    SettingsSectionCard(title = "Общие") {
+                        SettingsToggleRow(
+                            label = "Учитывать будущие маршруты",
+                            checked = s.isConsiderFutureRoute,
+                            onCheckedChange = { viewModel.changeConsiderFutureRoute(it) },
+                        )
+                        SettingsToggleRow(
+                            label = "Показывать перерыв",
+                            checked = s.isShowBreak,
+                            onCheckedChange = { viewModel.changeShowBreak(it) },
+                        )
+                        SettingsValueRow(
+                            label = "Формат времени",
+                            value = if (s.isDecimalTime) "Десятичный" else "Стандартный (ч:мин)",
+                        )
+                    }
+
+                    SettingsSectionCard(title = "Время") {
+                        SettingsValueRow(
+                            label = "Ночное время",
+                            value = "${s.nightTime.startNightHour}:${s.nightTime.startNightMinute.toString().padStart(2, '0')} — " +
+                                    "${s.nightTime.endNightHour}:${s.nightTime.endNightMinute.toString().padStart(2, '0')}",
+                        )
+                        SettingsValueRow(
+                            label = "Часовой пояс",
+                            value = viewModel.timeZoneList.find { it.offsetOfMoscow == s.timeZone }?.description
+                                ?: TimeFormatter.formatTimeZone(s.timeZone),
+                        )
+                        SettingsValueRow(
+                            label = "Минимальный отдых в ПО",
+                            value = ConverterLongToTime.getTimeInStringFormat(s.minTimeRestPointOfTurnover),
+                        )
+                        SettingsValueRow(
+                            label = "Минимальный домашний отдых",
+                            value = ConverterLongToTime.getTimeInStringFormat(s.minTimeHomeRest),
+                        )
+                        SettingsToggleRow(
+                            label = "Время работы по умолчанию",
+                            checked = s.usingDefaultWorkTime,
+                            onCheckedChange = { viewModel.changeUsingDefaultWorkTime(it) },
+                        )
+                        if (s.usingDefaultWorkTime) {
+                            SettingsValueRow(
+                                label = "Длительность",
+                                value = ConverterLongToTime.getTimeInStringFormat(s.defaultWorkTime),
+                            )
+                        }
+                    }
+
+                    SettingsSectionCard(title = "Локомотив") {
+                        SettingsValueRow(
+                            label = "Тип по умолчанию",
+                            value = s.defaultLocoType.text,
+                        )
+                    }
+
+                    // Service phases
+                    if (uiState.servicePhases.isNotEmpty()) {
+                        SettingsSectionCard(title = "Этапы обслуживания") {
+                            uiState.servicePhases.forEachIndexed { index, phase ->
+                                SettingsValueRow(
+                                    label = "Этап ${index + 1}",
+                                    value = "${phase.departureStation} → ${phase.arrivalStation} (${phase.distance} км)",
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Button(
+                        onClick = onShowSettingSalary,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Настройка зарплаты")
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Button(
-                onClick = onShowSettingSalary,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Настройка зарплаты")
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

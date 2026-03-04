@@ -1,4 +1,4 @@
-package com.z_company.iosapp.screen
+package com.z_company.shared.ui.screen
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,68 +35,90 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Route
-import com.z_company.domain.navigation.Router
-import com.z_company.iosapp.util.TimeFormatter
-import com.z_company.iosapp.viewmodel.HomeIosViewModel
+import com.z_company.shared.util.TimeFormatter
+import com.z_company.shared.viewmodel.HomeSharedViewModel
 import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun HomeScreen(router: Router) {
-    val viewModel: HomeIosViewModel = koinInject()
+fun HomeScreen(
+    onRouteClick: (BasicData) -> Unit,
+    onNewRouteClick: () -> Unit,
+    onSettingsClick: () -> Unit,
+    onSalaryClick: () -> Unit,
+    onAllRouteClick: () -> Unit,
+    onWorkScheduleClick: () -> Unit,
+) {
+    val viewModel: HomeSharedViewModel = koinInject()
     val routes by viewModel.routes.collectAsState()
     val settings by viewModel.settings.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
+
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val monthLabel = settings?.selectMonthOfYear?.let { moy ->
         "${TimeFormatter.monthNames.getOrElse(moy.month) { "?" }} ${moy.year}"
     } ?: "Загрузка\u2026"
+
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearError()
+        }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("LocoDriver") },
                 actions = {
-                    IconButton(onClick = { router.showSettings() }) {
+                    IconButton(onClick = onSettingsClick) {
                         Icon(Icons.Default.Settings, contentDescription = "Настройки")
                     }
-                }
+                },
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { router.showRouteForm() }) {
+            FloatingActionButton(onClick = onNewRouteClick) {
                 Icon(Icons.Default.Add, contentDescription = "Новый маршрут")
             }
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            // Month selector row
-            MonthSelector(
+            // Month selector
+            HomeMonthSelector(
                 monthLabel = monthLabel,
                 onPrevious = { viewModel.setPreviousMonth() },
                 onNext = { viewModel.setNextMonth() },
             )
 
-            // Quick action buttons
+            // Quick action chips
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 AssistChip(
-                    onClick = { router.showSalaryCalculation() },
+                    onClick = onSalaryClick,
                     label = { Text("Зарплата") },
                     leadingIcon = {
                         Icon(
@@ -108,11 +130,11 @@ internal fun HomeScreen(router: Router) {
                     modifier = Modifier.weight(1f),
                 )
                 AssistChip(
-                    onClick = { router.showSettings() },
-                    label = { Text("Настройки") },
+                    onClick = onAllRouteClick,
+                    label = { Text("Все маршруты") },
                     leadingIcon = {
                         Icon(
-                            Icons.Default.Settings,
+                            Icons.Default.DirectionsRailway,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
                         )
@@ -149,7 +171,7 @@ internal fun HomeScreen(router: Router) {
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            FilledTonalButton(onClick = { router.showRouteForm() }) {
+                            FilledTonalButton(onClick = onNewRouteClick) {
                                 Icon(Icons.Default.Add, contentDescription = null)
                                 Spacer(Modifier.width(8.dp))
                                 Text("Добавить маршрут")
@@ -159,7 +181,6 @@ internal fun HomeScreen(router: Router) {
                 }
 
                 else -> {
-                    // Route count header
                     Text(
                         text = "Маршрутов: ${routes.size}",
                         style = MaterialTheme.typography.labelMedium,
@@ -171,9 +192,9 @@ internal fun HomeScreen(router: Router) {
                         contentPadding = PaddingValues(bottom = 88.dp),
                     ) {
                         items(routes, key = { it.basicData.id }) { route ->
-                            RouteCard(
+                            HomeRouteCard(
                                 route = route,
-                                onClick = { router.showRouteDetails(route.basicData) },
+                                onClick = { onRouteClick(route.basicData) },
                             )
                         }
                     }
@@ -184,7 +205,7 @@ internal fun HomeScreen(router: Router) {
 }
 
 @Composable
-private fun MonthSelector(
+private fun HomeMonthSelector(
     monthLabel: String,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
@@ -209,7 +230,7 @@ private fun MonthSelector(
 }
 
 @Composable
-private fun RouteCard(route: Route, onClick: () -> Unit) {
+private fun HomeRouteCard(route: Route, onClick: () -> Unit) {
     val basicData = route.basicData
     val workDuration = run {
         val start = basicData.timeStartWork ?: return@run null
@@ -224,7 +245,7 @@ private fun RouteCard(route: Route, onClick: () -> Unit) {
         onClick = onClick,
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
-            // Header row: number + favorite icon + work duration
+            // Header: number + favorite + duration
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -265,7 +286,7 @@ private fun RouteCard(route: Route, onClick: () -> Unit) {
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // Time row: start -> end
+            // Time row: start → end
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -311,17 +332,17 @@ private fun RouteCard(route: Route, onClick: () -> Unit) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (locoCount > 0) {
-                        CountBadge(icon = Icons.Default.Train, count = locoCount, label = "лок.")
+                        HomeCountBadge(icon = Icons.Default.Train, count = locoCount, label = "лок.")
                     }
                     if (trainCount > 0) {
-                        CountBadge(
+                        HomeCountBadge(
                             icon = Icons.Default.DirectionsRailway,
                             count = trainCount,
                             label = "поезд.",
                         )
                     }
                     if (passCount > 0) {
-                        CountBadge(icon = Icons.Default.Person, count = passCount, label = "пасс.")
+                        HomeCountBadge(icon = Icons.Default.Person, count = passCount, label = "пасс.")
                     }
                 }
             }
@@ -342,7 +363,7 @@ private fun RouteCard(route: Route, onClick: () -> Unit) {
 }
 
 @Composable
-private fun CountBadge(icon: ImageVector, count: Int, label: String) {
+private fun HomeCountBadge(icon: ImageVector, count: Int, label: String) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(2.dp),
