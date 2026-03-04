@@ -1,11 +1,11 @@
 package com.z_company.iosapp
 
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.z_company.iosapp.navigation.AppNavHost
+import com.z_company.shared.theme.LocoAppTheme
 
 /**
  * Корневой Composable iOS-приложения.
@@ -15,7 +15,7 @@ import com.z_company.iosapp.navigation.AppNavHost
  */
 @Composable
 fun App() {
-    MaterialTheme {
+    LocoAppTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             AppNavHost()
         }

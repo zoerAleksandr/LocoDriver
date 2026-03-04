@@ -41,7 +41,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -351,12 +350,6 @@ fun HomeScreen(
             }
         }
 
-        // FAB
-        Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.BottomEnd) {
-            FloatingActionButton(modifier = Modifier.padding(16.dp), onClick = onNewRouteClick) {
-                Icon(Icons.Default.Add, contentDescription = "Новый маршрут")
-            }
-        }
     }
 }
 
@@ -753,6 +746,13 @@ private fun MonthPickerSheet(
     var selectedMonth by remember { mutableIntStateOf(currentMonth.month) }
     var selectedYear by remember { mutableIntStateOf(currentMonth.year) }
 
+    // Fallback: if DB is empty (fresh install), show all 12 months and nearby years
+    val effectiveMonthList = monthList.ifEmpty { (0..11).toList() }
+    val effectiveYearList = yearList.ifEmpty {
+        val curYear = currentMonth.year
+        listOf(curYear - 1, curYear, curYear + 1)
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -761,13 +761,13 @@ private fun MonthPickerSheet(
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Text("Выберите месяц и год", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 12.dp))
             FlowRow(modifier = Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                monthList.forEach { m ->
+                effectiveMonthList.forEach { m ->
                     FilterChip(selected = selectedMonth == m, onClick = { selectedMonth = m }, label = { Text(MonthFullText.getMonthFullText(m)) })
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
             FlowRow(modifier = Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                yearList.forEach { y ->
+                effectiveYearList.forEach { y ->
                     FilterChip(selected = selectedYear == y, onClick = { selectedYear = y }, label = { Text("$y") })
                 }
             }
