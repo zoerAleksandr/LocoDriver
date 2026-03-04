@@ -5,7 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
+// BoxWithConstraints removed — crashes on iOS CMP with unbounded LazyRow/LazyColumn constraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -88,6 +88,8 @@ import com.z_company.shared.viewmodel.HomeSharedViewModel
 import com.z_company.shared.viewmodel.HomeUiState
 import com.z_company.shared.viewmodel.ItemState
 import org.koin.compose.koinInject
+
+private val CARD_SIZE = 120.dp
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -496,8 +498,8 @@ private fun CurrentRouteSection(
         LazyRow(modifier = Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             // Work time card
             item {
-                BoxWithConstraints {
-                    val s = (maxWidth / 3).coerceAtLeast(100.dp)
+                run {
+                    val s = CARD_SIZE
                     Card(
                         modifier = Modifier.padding(start = 12.dp).defaultMinSize(minWidth = s, minHeight = s).clickable { onRouteClick(route.basicData.id) },
                         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
@@ -513,8 +515,8 @@ private fun CurrentRouteSection(
             }
             // Loco card
             item {
-                BoxWithConstraints {
-                    val s = (maxWidth / 3).coerceAtLeast(100.dp)
+                run {
+                    val s = CARD_SIZE
                     Card(modifier = Modifier.defaultMinSize(minWidth = s, minHeight = s), elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)) {
                         Box(Modifier.defaultMinSize(minWidth = s, minHeight = s).background(MaterialTheme.colorScheme.secondary)) {
                             Column(Modifier.defaultMinSize(minWidth = s, minHeight = s).padding(12.dp), verticalArrangement = Arrangement.SpaceBetween) {
@@ -542,8 +544,8 @@ private fun CurrentRouteSection(
             }
             // Train card
             item {
-                BoxWithConstraints {
-                    val s = (maxWidth / 3).coerceAtLeast(100.dp)
+                run {
+                    val s = CARD_SIZE
                     Card(modifier = Modifier.defaultMinSize(minWidth = s, minHeight = s), elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)) {
                         Box(Modifier.defaultMinSize(minWidth = s, minHeight = s).background(MaterialTheme.colorScheme.secondary)) {
                             Column(Modifier.defaultMinSize(minWidth = s, minHeight = s).padding(12.dp), verticalArrangement = Arrangement.SpaceBetween) {
@@ -569,8 +571,8 @@ private fun CurrentRouteSection(
             }
             // Passenger card
             item {
-                BoxWithConstraints {
-                    val s = (maxWidth / 3).coerceAtLeast(100.dp)
+                run {
+                    val s = CARD_SIZE
                     Card(modifier = Modifier.defaultMinSize(minWidth = s, minHeight = s).padding(end = 12.dp), elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)) {
                         Box(Modifier.defaultMinSize(minWidth = s, minHeight = s).background(MaterialTheme.colorScheme.secondary)) {
                             Column(Modifier.defaultMinSize(minWidth = s, minHeight = s).padding(12.dp), verticalArrangement = Arrangement.SpaceBetween) {
@@ -611,8 +613,8 @@ private fun NextRouteSection(
         Text(modifier = Modifier.padding(horizontal = 16.dp).clickable { onRouteClick(route.basicData.id) }, text = "Следующий маршрут", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
         LazyRow(modifier = Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
-                BoxWithConstraints {
-                    val s = (maxWidth / 3).coerceAtLeast(100.dp)
+                run {
+                    val s = CARD_SIZE
                     Card(modifier = Modifier.padding(start = 12.dp).defaultMinSize(minWidth = s, minHeight = s).clickable { onRouteClick(route.basicData.id) }, elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)) {
                         Box(Modifier.defaultMinSize(minWidth = s, minHeight = s).background(brush)) {
                             Column(Modifier.defaultMinSize(minWidth = s, minHeight = s).padding(12.dp), verticalArrangement = Arrangement.SpaceBetween) {
@@ -624,8 +626,8 @@ private fun NextRouteSection(
                 }
             }
             item {
-                BoxWithConstraints {
-                    val s = (maxWidth / 3).coerceAtLeast(100.dp)
+                run {
+                    val s = CARD_SIZE
                     Card(modifier = Modifier.defaultMinSize(minWidth = s, minHeight = s).padding(end = 12.dp), elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)) {
                         Box(Modifier.defaultMinSize(minWidth = s, minHeight = s).background(MaterialTheme.colorScheme.secondary)) {
                             Column(Modifier.defaultMinSize(minWidth = s, minHeight = s).padding(12.dp), verticalArrangement = Arrangement.SpaceBetween) {
@@ -646,8 +648,8 @@ private fun NextRouteSection(
 
 @Composable
 private fun ActionCard(modifier: Modifier = Modifier, title: String, icon: ImageVector, onClick: () -> Unit) {
-    BoxWithConstraints {
-        val s = (maxWidth / 3).coerceAtLeast(100.dp)
+    run {
+        val s = CARD_SIZE
         Card(
             modifier = modifier.defaultMinSize(minWidth = s, minHeight = s).clickable { onClick() },
             elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
