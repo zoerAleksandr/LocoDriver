@@ -14,9 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -119,6 +116,7 @@ fun WorkScheduleScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
         ) {
             // Month label
@@ -157,35 +155,44 @@ fun WorkScheduleScreen(
                     CircularProgressIndicator()
                 }
             } else {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(7),
+                // Regular grid instead of LazyVerticalGrid to avoid
+                // unbounded height crash on iOS Compose Multiplatform.
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    items(dayCells) { day ->
-                        val routes = routesByDay[day] ?: emptyList()
-                        val hasRoute = routes.isNotEmpty()
-                        val isSelected = selectedDays.containsKey(day)
-                        val isDeleteSelected = selectedRoutesToDelete.containsKey(day)
-
-                        CalendarDayCell(
-                            day = day,
-                            hasRoute = hasRoute,
-                            routeCount = routes.size,
-                            isSelected = isSelected,
-                            isDeleteSelected = isDeleteSelected,
-                            isDeleteMode = isDeleteMode,
-                            onClick = {
-                                if (day > 0) {
-                                    if (isDeleteMode) {
-                                        viewModel.onDayDeleteClicked(day)
-                                    } else if (activeTime != null) {
-                                        viewModel.togglePlannedTimeForDay(day, activeTime!!)
-                                    }
+                    dayCells.chunked(7).forEach { week ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            week.forEach { day ->
+                                val routes = routesByDay[day] ?: emptyList()
+                                Box(modifier = Modifier.weight(1f)) {
+                                    CalendarDayCell(
+                                        day = day,
+                                        hasRoute = routes.isNotEmpty(),
+                                        routeCount = routes.size,
+                                        isSelected = selectedDays.containsKey(day),
+                                        isDeleteSelected = selectedRoutesToDelete.containsKey(day),
+                                        isDeleteMode = isDeleteMode,
+                                        onClick = {
+                                            if (day > 0) {
+                                                if (isDeleteMode) {
+                                                    viewModel.onDayDeleteClicked(day)
+                                                } else if (activeTime != null) {
+                                                    viewModel.togglePlannedTimeForDay(day, activeTime!!)
+                                                }
+                                            }
+                                        },
+                                    )
                                 }
-                            },
-                        )
+                            }
+                            // Pad remaining cells in last row
+                            repeat(7 - week.size) {
+                                Box(modifier = Modifier.weight(1f)) {}
+                            }
+                        }
                     }
                 }
             }

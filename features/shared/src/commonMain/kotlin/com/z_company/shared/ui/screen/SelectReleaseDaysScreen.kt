@@ -13,10 +13,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -83,6 +82,7 @@ fun SelectReleaseDaysScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
         ) {
             Text(
@@ -144,26 +144,38 @@ fun SelectReleaseDaysScreen(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(7),
+            // Regular grid instead of LazyVerticalGrid to avoid
+            // unbounded height crash on iOS Compose Multiplatform.
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                items(cells) { day ->
-                    ReleaseDayCell(
-                        day = day,
-                        isSelected = day > 0 && selectedDays.contains(day),
-                        onToggle = {
-                            if (day > 0) {
-                                selectedDays = if (selectedDays.contains(day)) {
-                                    selectedDays - day
-                                } else {
-                                    selectedDays + day
-                                }
+                cells.chunked(7).forEach { week ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        week.forEach { day ->
+                            Box(modifier = Modifier.weight(1f)) {
+                                ReleaseDayCell(
+                                    day = day,
+                                    isSelected = day > 0 && selectedDays.contains(day),
+                                    onToggle = {
+                                        if (day > 0) {
+                                            selectedDays = if (selectedDays.contains(day)) {
+                                                selectedDays - day
+                                            } else {
+                                                selectedDays + day
+                                            }
+                                        }
+                                    },
+                                )
                             }
-                        },
-                    )
+                        }
+                        repeat(7 - week.size) {
+                            Box(modifier = Modifier.weight(1f)) {}
+                        }
+                    }
                 }
             }
 
