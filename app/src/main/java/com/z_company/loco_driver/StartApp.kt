@@ -12,6 +12,7 @@ import com.z_company.loco_driver.di.updateModule
 import com.z_company.loco_driver.di.useCaseModule
 import com.z_company.loco_driver.di.viewModelModule
 import com.z_company.shared.di.sharedModule
+import com.z_company.shared.platform.AppContextHolder
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
 import java.util.Locale
@@ -27,6 +28,7 @@ class StartApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        AppContextHolder.init(this)
         VKID.init(this)
         VKID.instance.setLocale(Locale("ru"))
         val myTrackerConfig = MyTracker.getTrackerConfig()
