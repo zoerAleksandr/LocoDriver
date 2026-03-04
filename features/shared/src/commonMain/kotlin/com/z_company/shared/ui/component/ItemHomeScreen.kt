@@ -51,6 +51,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getBreakDuration
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.shared.util.DateAndTimeConverter
+import com.z_company.shared.util.TimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,7 +64,7 @@ fun ItemHomeScreen(
     onLongClick: () -> Unit = {},
     containerColor: Color,
     onClick: () -> Unit,
-    dateAndTimeConverter: DateAndTimeConverter,
+    dateAndTimeConverter: DateAndTimeConverter? = null,
     isHeavyTrains: Boolean = false,
     isExtendedServicePhaseTrains: Boolean = false,
     isHolidayTimeInRoute: Boolean = false,
@@ -73,17 +74,23 @@ fun ItemHomeScreen(
 
     // Memoized texts
     val (timeText, workTimeString) = remember(route, dateAndTimeConverter) {
-        val startWork = dateAndTimeConverter.getDateMiniAndTime(route.basicData.timeStartWork)
-        val isDifference = dateAndTimeConverter.isDifferenceDate(
-            route.basicData.timeStartWork,
-            route.basicData.timeEndWork,
-        )
-        val endWork = if (isDifference) {
-            dateAndTimeConverter.getDateMiniAndTime(route.basicData.timeEndWork)
+        val time = if (dateAndTimeConverter != null) {
+            val startWork = dateAndTimeConverter.getDateMiniAndTime(route.basicData.timeStartWork)
+            val isDifference = dateAndTimeConverter.isDifferenceDate(
+                route.basicData.timeStartWork,
+                route.basicData.timeEndWork,
+            )
+            val endWork = if (isDifference) {
+                dateAndTimeConverter.getDateMiniAndTime(route.basicData.timeEndWork)
+            } else {
+                dateAndTimeConverter.getTime(route.basicData.timeEndWork)
+            }
+            "$startWork - $endWork"
         } else {
-            dateAndTimeConverter.getTime(route.basicData.timeEndWork)
+            val start = route.basicData.timeStartWork?.let { TimeFormatter.formatDateTime(it) } ?: ""
+            val end = route.basicData.timeEndWork?.let { TimeFormatter.formatTime(it) } ?: ""
+            if (start.isNotEmpty() && end.isNotEmpty()) "$start - $end" else start
         }
-        val time = "$startWork - $endWork"
         val workTime = convertTimeToString(route.getWorkTime())
         time to workTime
     }
