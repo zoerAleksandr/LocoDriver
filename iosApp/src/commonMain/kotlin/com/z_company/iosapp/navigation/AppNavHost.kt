@@ -111,6 +111,9 @@ fun AppNavHost() {
                     onWorkScheduleClick = { router.showWorkScheduleScreen() },
                     onSearchClick = { router.showSearch() },
                     onMoreInfoClick = { monthId -> router.showMoreInfo(monthId) },
+                    onLocoClick = { basicId -> navController.navigate(FormLoco.buildRoute(null, basicId)) },
+                    onTrainClick = { basicId -> navController.navigate(FormTrain.buildRoute(null, basicId)) },
+                    onPassengerClick = { basicId -> navController.navigate(FormPassenger.buildRoute(null, basicId)) },
                 )
             }
             composable(FormRoute.route) { backStackEntry ->
