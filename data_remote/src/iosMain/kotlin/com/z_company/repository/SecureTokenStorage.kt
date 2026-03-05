@@ -88,7 +88,7 @@ actual class SecureTokenStorage {
         )
         if (status == errSecSuccess) {
             (resultRef.value as? platform.Foundation.NSData)?.let { data ->
-                NSString.create(data = data, encoding = NSUTF8StringEncoding) as? String
+                NSString.create(data = data, encoding = NSUTF8StringEncoding)?.toString()
             }
         } else null
     }

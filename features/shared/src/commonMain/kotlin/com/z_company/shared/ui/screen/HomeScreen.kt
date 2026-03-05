@@ -25,12 +25,12 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CalendarMonth
+// CalendarMonth icon removed — using image resource instead
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.FlightTakeoff
+// FlightTakeoff icon removed — using image resource instead
 import androidx.compose.material.icons.filled.RemoveRedEye
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sync
@@ -66,13 +66,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import locodriver.features.shared.generated.resources.Res
+import locodriver.features.shared.generated.resources.calendar_3d_ver3
+import locodriver.features.shared.generated.resources.island_3d
+import org.jetbrains.compose.resources.DrawableResource
+import org.jetbrains.compose.resources.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.MonthOfYear
+import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHoursInDate
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
+import kotlin.time.Clock
 import com.z_company.domain.entities.route.Route
 import com.z_company.shared.ui.component.AnimatedCounter
 import com.z_company.shared.ui.component.AppBottomSheet
@@ -337,10 +346,10 @@ fun HomeScreen(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             item {
-                                ActionCard(Modifier.padding(start = 12.dp), "График", Icons.Default.CalendarMonth, onWorkScheduleClick)
+                                ActionCard(Modifier.padding(start = 12.dp), "График", Res.drawable.calendar_3d_ver3, onWorkScheduleClick)
                             }
                             item {
-                                ActionCard(Modifier.padding(end = 12.dp), "Отвлечения", Icons.Default.FlightTakeoff, onWorkScheduleClick)
+                                ActionCard(Modifier.padding(end = 12.dp), "Отвлечения", Res.drawable.island_3d, onWorkScheduleClick)
                             }
                         }
                     }
@@ -389,7 +398,20 @@ private fun MainInfoCard(
                             Text("Норма на месяц", maxLines = 1, modifier = Modifier.weight(1f), overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
                             Text("$normaHours ч.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
                         }
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(4.dp), trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f), color = MaterialTheme.colorScheme.secondary, progress = { percent })
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(4.dp), trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f), color = MaterialTheme.colorScheme.secondary, gapSize = 4.dp, drawStopIndicator = {}, progress = { percent })
+                    }
+                    Spacer(modifier = Modifier.height(7.dp))
+                    // Норма на сегодня
+                    val nowMs = Clock.System.now().toEpochMilliseconds()
+                    val normaHoursToday = month.getNormaHoursInDate(nowMs)
+                    val normaMsToday = (normaHoursToday * 3_600_000L).coerceAtLeast(1)
+                    val percentToday = (totalTime.toFloat() / normaMsToday.toFloat()).coerceIn(0f, 1f)
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("Норма на сегодня", maxLines = 1, modifier = Modifier.weight(1f), overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+                            Text("$normaHoursToday ч.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+                        }
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(4.dp), trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f), color = MaterialTheme.colorScheme.secondary, gapSize = 4.dp, drawStopIndicator = {}, progress = { percentToday })
                     }
                 }
             }
@@ -459,7 +481,7 @@ private fun StatProgressRow(label: String, resultState: ResultState<Long>?, tota
                 Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
                 Text("${convertTime(ms)} ($pct%)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.secondary)
             }
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(4.dp), trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f), color = MaterialTheme.colorScheme.secondary, progress = { progress })
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(4.dp), trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f), color = MaterialTheme.colorScheme.secondary, gapSize = 4.dp, drawStopIndicator = {}, progress = { progress })
         }
     }
 }
@@ -640,7 +662,7 @@ private fun NextRouteSection(
 // region Action Card
 
 @Composable
-private fun ActionCard(modifier: Modifier = Modifier, title: String, icon: ImageVector, onClick: () -> Unit) {
+private fun ActionCard(modifier: Modifier = Modifier, title: String, image: DrawableResource, onClick: () -> Unit) {
     run {
         val s = CARD_SIZE
         Card(
@@ -653,7 +675,12 @@ private fun ActionCard(modifier: Modifier = Modifier, title: String, icon: Image
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.Start,
             ) {
-                Icon(icon, contentDescription = null, modifier = Modifier.weight(1f).size(48.dp).align(Alignment.CenterHorizontally))
+                Image(
+                    painter = painterResource(image),
+                    contentDescription = null,
+                    modifier = Modifier.weight(1f).align(Alignment.CenterHorizontally),
+                    contentScale = ContentScale.Fit,
+                )
                 Text(title, maxLines = 1, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, overflow = TextOverflow.Ellipsis)
             }
         }
