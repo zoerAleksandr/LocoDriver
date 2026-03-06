@@ -33,6 +33,11 @@ actual class DatabaseDriverFactory(private val context: Context) {
         name = name,
         callback = object : AndroidSqliteDriver.Callback(schema) {
             override fun onDowngrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {
+                if (oldVersion < 14) {
+                    // SQLDelight → SQLDelight даунгрейд (например v4→v3).
+                    // Лишние столбцы (timeStartBreak и т.д.) безвредны — SQLite их игнорирует.
+                    return
+                }
                 // Room использовал version 14+, SQLDelight начинает с version 1-3.
                 // Пересоздаём таблицы Train (без remoteObjectId) и Locomotive (nullable removeObjectId).
                 db.execSQL("""
