@@ -1,6 +1,7 @@
 package com.z_company.data_local
 
 import android.content.Context
+import android.database.sqlite.SQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
@@ -12,17 +13,66 @@ import com.z_company.data_local.setting.db.SettingsDatabase
 import com.z_company.data_local.setting.salarydb.SalarySettingDatabase
 
 actual class DatabaseDriverFactory(private val context: Context) {
-    actual fun createRouteDriver(): SqlDriver =
-        createDriver(RouteDatabase.Schema, "Route.db")
+    actual fun createRouteDriver(): SqlDriver {
+        fixVersionIfColumnsExist("Route.db", RouteDatabase.Schema.version.toInt(),
+            "BasicData" to "timeStartBreak")
+        return createDriver(RouteDatabase.Schema, "Route.db")
+    }
 
-    actual fun createSettingsDriver(): SqlDriver =
-        createDriver(SettingsDatabase.Schema, "Settings.db")
+    actual fun createSettingsDriver(): SqlDriver {
+        fixVersionIfColumnsExist("Settings.db", SettingsDatabase.Schema.version.toInt(),
+            "UserSettings" to "isShowBreak")
+        return createDriver(SettingsDatabase.Schema, "Settings.db")
+    }
 
     actual fun createSalarySettingDriver(): SqlDriver =
         createDriver(SalarySettingDatabase.Schema, "SalarySetting.db")
 
     actual fun createSearchResponseDriver(): SqlDriver =
         createDriver(SearchResponseDatabase.Schema, "SearchResponse.db")
+
+    /**
+     * После даунгрейда (v4→v3) onDowngrade не удаляет столбцы —
+     * SQLite не поддерживает DROP COLUMN на старых API.
+     * Версия БД понижается, но столбцы остаются.
+     * При повторном апгрейде ALTER TABLE ADD COLUMN падает с "duplicate column".
+     *
+     * Фикс: перед созданием драйвера проверяем — если столбец уже существует,
+     * а версия ниже целевой, выставляем целевую версию, чтобы миграция не запускалась.
+     */
+    private fun fixVersionIfColumnsExist(
+        dbName: String,
+        targetVersion: Int,
+        vararg checks: Pair<String, String> // tableName to columnName
+    ) {
+        val dbFile = context.getDatabasePath(dbName)
+        if (!dbFile.exists()) return
+
+        val db = SQLiteDatabase.openDatabase(dbFile.path, null, SQLiteDatabase.OPEN_READWRITE)
+        try {
+            if (db.version in 1..<targetVersion) {
+                val allExist = checks.all { (table, column) -> hasColumn(db, table, column) }
+                if (allExist) {
+                    db.version = targetVersion
+                }
+            }
+        } finally {
+            db.close()
+        }
+    }
+
+    private fun hasColumn(db: SQLiteDatabase, table: String, column: String): Boolean {
+        val cursor = db.rawQuery("PRAGMA table_info($table)", null)
+        try {
+            val nameIndex = cursor.getColumnIndex("name")
+            while (cursor.moveToNext()) {
+                if (cursor.getString(nameIndex) == column) return true
+            }
+            return false
+        } finally {
+            cursor.close()
+        }
+    }
 
     private fun createDriver(
         schema: SqlSchema<QueryResult.Value<Unit>>,
