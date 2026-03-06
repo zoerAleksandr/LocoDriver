@@ -1,46 +1,22 @@
 package com.z_company.route.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.navigation.NavBackStackEntry
 import com.z_company.domain.navigation.Router
 import com.z_company.route.Const.NULLABLE_ID
-import com.z_company.route.ui.FormTrainScreen
-import com.z_company.route.viewmodel.TrainFormViewModel
-import org.koin.androidx.compose.koinViewModel
-import org.koin.core.parameter.parametersOf
+import com.z_company.shared.ui.screen.FormTrainScreen as SharedFormTrainScreen
 
 @Composable
 fun FormTrainDestination(
     router: Router,
     backStackEntry: NavBackStackEntry
 ) {
-    val trainId = FormTrain.getTrainId(backStackEntry) ?: NULLABLE_ID
-    val basicId = FormTrain.getBasicId(backStackEntry) ?: NULLABLE_ID
+    val trainId = FormTrain.getTrainId(backStackEntry)?.takeIf { it != NULLABLE_ID }
+    val basicId = FormTrain.getBasicId(backStackEntry) ?: ""
 
-    val viewModel = koinViewModel<TrainFormViewModel>(
-        parameters = { parametersOf(trainId, basicId) }
-    )
-    val formUiState by viewModel.uiState.collectAsState()
-
-    FormTrainScreen(
-        viewModel = viewModel,
-        formUiState = formUiState,
-        currentTrain = viewModel.currentTrain,
-        onTrainSaved = router::back,
-        resetSaveState = viewModel::resetSaveState,
-        onNumberChanged = viewModel::setNumber,
-        onDistanceChange = viewModel::setDistance,
-        onWeightChanged = viewModel::setWeight,
-        onAxleChanged = viewModel::setAxle,
-        onLengthChanged = viewModel::setConditionalLength,
-        stationListState = formUiState.stationsListState,
-        menuList = viewModel.stationList,
-        servicePhaseList = formUiState.servicePhaseList,
-        onSelectServicePhase = viewModel::setSelectedServicePhase,
-        selectedServicePhase = formUiState.selectedServicePhase,
-        onSettingClick = router::showSettings,
-        dateAndTimeConverter = formUiState.dateAndTimeConverter
+    SharedFormTrainScreen(
+        trainId = trainId,
+        basicId = basicId,
+        onBackClick = router::back,
     )
 }

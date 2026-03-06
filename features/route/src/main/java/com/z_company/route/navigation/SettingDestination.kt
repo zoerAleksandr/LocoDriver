@@ -1,12 +1,8 @@
 package com.z_company.route.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.z_company.domain.navigation.Router
-import com.z_company.route.ui.SettingsScreen
-import com.z_company.route.viewmodel.SettingsViewModel
+import com.z_company.shared.ui.screen.SettingsScreen as SharedSettingsScreen
 
 @Composable
 fun SettingDestination(

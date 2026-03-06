@@ -16,9 +16,9 @@ import org.koin.dsl.module
  * - androidContext() — Context не нужен на iOS
  * - ShareManager    — Android-специфичная утилита (Intent/Share sheet)
  * - DataStoreRepository — используется DataStore (Android), на iOS — n/a
- * - SharedPreferenceStorage — Android SharedPreferences, на iOS — n/a
- * - SyncManager     — зависит от SharedPreferencesRepositories; добавить отдельно
- *                     когда будет iOS-реализация SharedPreferencesRepositories
+ *
+ * SharedPreferencesRepositories, SyncManager, AuthProvider, BillingProvider
+ * регистрируются в iosUseCaseModule (iosApp), т.к. зависят от data_local.
  */
 val iosRepositoryModule = module {
     // Keychain-хранилище токенов (iosMain actual через platform.Security)

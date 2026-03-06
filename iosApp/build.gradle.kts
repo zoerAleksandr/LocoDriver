@@ -22,6 +22,9 @@ kotlin {
     }
 
     sourceSets {
+        all {
+            languageSettings.optIn("kotlin.time.ExperimentalTime")
+        }
         commonMain.dependencies {
             // Compose Multiplatform UI
             implementation(compose.runtime)
@@ -38,6 +41,9 @@ kotlin {
             implementation(project(Libs.project_data_local))
             implementation(project(Libs.project_domain))
             implementation(project(Libs.project_core))
+
+            // Shared UI screens and ViewModels
+            implementation(project(Libs.project_feature_shared))
 
             // DI + утилиты
             implementation(Libs.koin_core)

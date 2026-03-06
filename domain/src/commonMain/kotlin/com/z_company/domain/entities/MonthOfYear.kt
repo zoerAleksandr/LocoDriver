@@ -1,7 +1,7 @@
 package com.z_company.domain.entities
 
 import com.z_company.domain.util.generateId
-import kotlinx.datetime.Clock
+import kotlin.time.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.Serializable

@@ -41,6 +41,7 @@ android {
 kotlin {
     compilerOptions {
         jvmTarget = JvmTarget.fromTarget(Apps.jvm_target_version)
+        freeCompilerArgs.add("-opt-in=kotlin.time.ExperimentalTime")
     }
 }
 
@@ -56,6 +57,7 @@ dependencies {
     implementation(project(Libs.project_domain))
     implementation(project(Libs.project_data_remote))
     implementation(project(Libs.project_robokassa_sdk))
+    implementation(project(Libs.project_feature_shared))
 
 //    implementation(Libs.lifecycle_runtime_compose)
     implementation(Libs.activity_compose)

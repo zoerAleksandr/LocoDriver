@@ -1,6 +1,7 @@
 package com.z_company.route.component
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -124,7 +125,7 @@ fun StationEditBottomSheet(
             // ── Название станции ──
             Text(
                 text = "Название",
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = primaryColor.copy(alpha = 0.5f),
                 modifier = Modifier.padding(bottom = 5.dp)
@@ -233,6 +234,8 @@ fun StationEditBottomSheet(
                 onNow = { localArrival = nowTruncatedToMinutes() },
             )
 
+            Spacer(modifier = Modifier.height(16.dp))
+
             // ── Бейдж стоянки (между прибытием и отправлением) ──
             val stopMinutes = if (localArrival != null && localDeparture != null) {
                 val arr = localArrival!! - localArrival!! % 60_000L
@@ -244,7 +247,7 @@ fun StationEditBottomSheet(
             if (stopMinutes != null && stopMinutes > 0) {
                 StopDurationDivider(stopMinutes = stopMinutes)
             } else {
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(16.dp))
             }
 
             // ── Отправление ──
@@ -374,7 +377,7 @@ private fun TimeBlock(
         ) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = primaryColor.copy(alpha = 0.5f)
             )
@@ -383,7 +386,7 @@ private fun TimeBlock(
 
                 Text(
                     text = dateText,
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.bodySmall,
                     color = primaryColor.copy(alpha = 0.4f)
                 )
             }
@@ -424,8 +427,9 @@ private fun TimeBlock(
                     .size(32.dp)
                     .then(
                         if (timeMillis != null) Modifier
-                            .background(
-                                color = clearColor.copy(alpha = 0.1f),
+                            .border(
+                                width = 1.dp,
+                                color = clearColor.copy(alpha = 0.5f),
                                 shape = RoundedCornerShape(8.dp)
                             )
                             .clickable { onClear() }

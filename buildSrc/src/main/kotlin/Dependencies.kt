@@ -116,7 +116,7 @@ object Versions {
     const val mockito_core_ver = "3.10.0"
     const val mockito_inline_ver = "2.8.9"
     const val mockito_kotlin_ver = "1.5.0"
-    const val kotlinx_date_time_ver = "0.6.2"
+    const val kotlinx_date_time_ver = "0.7.1"
     const val ru_ok_tracer_platform_ver = "1.1.2"
     const val mytracker_sdk_ver = "3.3.2"
     const val retrofit_ver = "2.11.0"
@@ -129,9 +129,9 @@ object Versions {
     const val ktor_ver = "3.0.3"
     const val sqldelight_ver = "2.0.2"
     // Compose Multiplatform (совместим с Kotlin 2.2.0)
-    const val compose_mp_ver = "1.8.0"
-    // KMP Navigation-Compose (JetBrains fork androidx.navigation, совместим с Compose MP 1.8.0)
-    const val navigation_kmp_ver = "2.8.0-alpha10"
+    const val compose_mp_ver = "1.10.1"
+    // KMP Navigation-Compose (JetBrains fork androidx.navigation, совместим с Compose MP 1.10.x)
+    const val navigation_kmp_ver = "2.9.2"
 }
 
 object Libs {
@@ -145,6 +145,7 @@ object Libs {
     const val project_feature_login = ":features:login"
     const val project_feature_route = ":features:route"
     const val project_feature_settings = ":features:settings"
+    const val project_feature_shared = ":features:shared"
 
     // Libs
     const val kotlin_x_serialization_json = "org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlin_x_serialization_json_ver"
