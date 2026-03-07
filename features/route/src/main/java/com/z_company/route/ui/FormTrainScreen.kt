@@ -297,7 +297,10 @@ fun FormTrainScreen(
                 skipPartiallyExpanded = true
             )
             ModalBottomSheet(
-                onDismissRequest = { showSettingsSheet = false },
+                onDismissRequest = {
+                    showSettingsSheet = false
+                    viewModel.saveAssistSeries()
+                },
                 sheetState = settingsSheetState,
                 containerColor = MaterialTheme.colorScheme.secondary,
                 dragHandle = {
@@ -346,9 +349,9 @@ fun FormTrainScreen(
                         primaryColor = primaryColor,
                         noValueColor = noValueColor,
                         seriesMenuList = viewModel.dropDownSeriesList,
-                        isSeriesMenuExpanded = formUiState.isExpandedDropDownMenuSeries,
-                        onSeriesMenuExpandedChange = viewModel::changeSeriesMenuExpanded,
-                        onSeriesMenuContentChange = viewModel::onChangedSeriesDropDown,
+                        isSeriesMenuExpanded = formUiState.expandedSeriesSectionId == "pusher",
+                        onSeriesMenuExpandedChange = { expanded -> viewModel.changeSeriesMenuExpanded("pusher", expanded) },
+                        onSeriesMenuContentChange = { content -> viewModel.onChangedSeriesDropDown("pusher", content) },
                         onDeleteSeries = viewModel::removeSeries
                     )
 
@@ -366,9 +369,9 @@ fun FormTrainScreen(
                         primaryColor = primaryColor,
                         noValueColor = noValueColor,
                         seriesMenuList = viewModel.dropDownSeriesList,
-                        isSeriesMenuExpanded = formUiState.isExpandedDropDownMenuSeries,
-                        onSeriesMenuExpandedChange = viewModel::changeSeriesMenuExpanded,
-                        onSeriesMenuContentChange = viewModel::onChangedSeriesDropDown,
+                        isSeriesMenuExpanded = formUiState.expandedSeriesSectionId == "doubleTraction",
+                        onSeriesMenuExpandedChange = { expanded -> viewModel.changeSeriesMenuExpanded("doubleTraction", expanded) },
+                        onSeriesMenuContentChange = { content -> viewModel.onChangedSeriesDropDown("doubleTraction", content) },
                         onDeleteSeries = viewModel::removeSeries
                     )
 
@@ -386,9 +389,9 @@ fun FormTrainScreen(
                         primaryColor = primaryColor,
                         noValueColor = noValueColor,
                         seriesMenuList = viewModel.dropDownSeriesList,
-                        isSeriesMenuExpanded = formUiState.isExpandedDropDownMenuSeries,
-                        onSeriesMenuExpandedChange = viewModel::changeSeriesMenuExpanded,
-                        onSeriesMenuContentChange = viewModel::onChangedSeriesDropDown,
+                        isSeriesMenuExpanded = formUiState.expandedSeriesSectionId == "doubledTrain",
+                        onSeriesMenuExpandedChange = { expanded -> viewModel.changeSeriesMenuExpanded("doubledTrain", expanded) },
+                        onSeriesMenuContentChange = { content -> viewModel.onChangedSeriesDropDown("doubledTrain", content) },
                         onDeleteSeries = viewModel::removeSeries
                     )
 
@@ -766,7 +769,11 @@ fun FormTrainScreen(
                                     modifier = Modifier
                                         .weight(1.3f)
                                         .onFocusChanged { focusState ->
-                                            if (!focusState.isFocused) {
+                                            if (focusState.isFocused) {
+                                                numberFieldValue = numberFieldValue.copy(
+                                                    selection = TextRange(numberFieldValue.text.length)
+                                                )
+                                            } else {
                                                 numberFieldValue = numberFieldValue.copy(
                                                     selection = TextRange(0)
                                                 )

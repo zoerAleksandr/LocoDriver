@@ -525,11 +525,13 @@ class TrainFormViewModel(
     }
 
     // --- Series dropdown ---
-    fun changeSeriesMenuExpanded(expanded: Boolean) {
-        _uiState.update { it.copy(isExpandedDropDownMenuSeries = expanded) }
+    fun changeSeriesMenuExpanded(sectionId: String, expanded: Boolean) {
+        _uiState.update {
+            it.copy(expandedSeriesSectionId = if (expanded) sectionId else null)
+        }
     }
 
-    fun onChangedSeriesDropDown(content: String) {
+    fun onChangedSeriesDropDown(sectionId: String, content: String) {
         if (content.isEmpty()) {
             mutableFilteredSeriesList.addAllOrSkip(locomotiveSeriesList)
         } else {
@@ -540,7 +542,7 @@ class TrainFormViewModel(
                 .toMutableStateList()
             filtered.forEach { ser ->
                 mutableFilteredSeriesList.add(ser)
-                changeSeriesMenuExpanded(true)
+                changeSeriesMenuExpanded(sectionId, true)
             }
         }
     }
@@ -553,11 +555,21 @@ class TrainFormViewModel(
         }
     }
 
-    private fun saveAssistSeries() {
+    fun saveAssistSeries() {
         viewModelScope.launch(Dispatchers.IO) {
-            currentTrain?.pusher?.locomotiveSeries?.let { settingsUseCase.setLocomotiveSeries(it) }
-            currentTrain?.doubleTraction?.locomotiveSeries?.let { settingsUseCase.setLocomotiveSeries(it) }
-            currentTrain?.doubledTrain?.locomotiveSeries?.let { settingsUseCase.setLocomotiveSeries(it) }
+            val seriesToSave = listOfNotNull(
+                currentTrain?.pusher?.locomotiveSeries,
+                currentTrain?.doubleTraction?.locomotiveSeries,
+                currentTrain?.doubledTrain?.locomotiveSeries
+            ).filter { it.isNotBlank() }
+
+            seriesToSave.forEach { series ->
+                settingsUseCase.setLocomotiveSeries(series)
+                if (series !in locomotiveSeriesList) {
+                    locomotiveSeriesList.add(0, series)
+                    mutableFilteredSeriesList.add(0, series)
+                }
+            }
         }
     }
 

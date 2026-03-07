@@ -27,5 +27,5 @@ data class TrainFormUiState(
     val suggestedDepartureStation: String = "",
     val suggestedArrivalStation: String = "",
     val confirmDeleteStationIndex: Int? = null,
-    val isExpandedDropDownMenuSeries: Boolean = false
+    val expandedSeriesSectionId: String? = null
 )
