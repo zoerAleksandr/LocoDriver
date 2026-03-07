@@ -15,13 +15,17 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeightIn
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -32,14 +36,17 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
@@ -58,6 +65,18 @@ import com.z_company.domain.util.times
 import com.z_company.route.R
 import kotlin.collections.set
 
+// Colors matching the HTML mockup
+private val AccentBlue = Color(0xFF4F8EF7)
+private val AccentGreen = Color(0xFF34C98A)
+private val WarnOrange = Color(0xFFF0A84F)
+private val DangerRed = Color(0xFFE05C5C)
+private val MutedGray = Color(0xFF6B7294)
+
+private val CardShape = RoundedCornerShape(14.dp)
+private val SmallCardShape = RoundedCornerShape(12.dp)
+private val ChipShape = RoundedCornerShape(6.dp)
+private val TagShape = RoundedCornerShape(8.dp)
+
 @SuppressLint("ConfigurationScreenWidthHeight")
 @Composable
 fun PreviewRouteDialog(
@@ -71,9 +90,7 @@ fun PreviewRouteDialog(
     onRouteClick: (String) -> Unit,
     makeCopyRoute: (String) -> Unit,
     showDialogConfirmRemove: (Boolean, Route) -> Unit,
-//    shareRoute: (Route) -> Unit
 ) {
-    val redOrange = Color(0xFFf1642e)
     val heightScreen = LocalConfiguration.current.screenHeightDp
 
     LazyColumn(
@@ -96,13 +113,14 @@ fun PreviewRouteDialog(
                     .fillMaxWidth()
                     .requiredHeightIn(
                         min = heightScreen.times(0.3f).dp,
-                        max = heightScreen.times(0.65f).dp
+                        max = heightScreen.times(0.7f).dp
                     )
                     .padding(start = 12.dp, end = 12.dp, top = 30.dp, bottom = 12.dp)
                     .background(
-                        color = MaterialTheme.colorScheme.secondary,
-                        shape = Shapes.medium
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 16.dp, bottomEnd = 16.dp)
                     )
+                    .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 16.dp, bottomEnd = 16.dp))
                     .clickable {}
             ) {
                 PreviewRoute(
@@ -114,157 +132,197 @@ fun PreviewRouteDialog(
             }
         }
 
+        // Action buttons
         item {
             Column(
                 modifier = Modifier
-                    .padding(end = 12.dp)
-                    .fillMaxWidth(0.6f)
-                    .background(
-                        color = MaterialTheme.colorScheme.secondary,
-                        shape = Shapes.medium
-                    )
+                    .padding(start = 12.dp, end = 12.dp)
+                    .fillMaxWidth()
             ) {
+                // Primary button row
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .clickable {
-                            showContextDialog(false)
-                            syncRoute(routeForPreview)
-                        },
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text(
-                        text = "Сохранить в облаке",
-                        style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
-                    )
-                    Image(
-                        modifier = Modifier.size(25.dp),
-                        painter = painterResource(id = R.drawable.sync_on_icon),
-                        contentDescription = null,
-                    )
+                    // Просмотр — primary accent button (full width)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(AccentBlue, CardShape)
+                            .clickable {
+                                showContextDialog(false)
+                                onRouteClick(routeForPreview.basicData.id)
+                            }
+                            .padding(vertical = 13.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(7.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.rounded_visibility_24),
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "Просмотр",
+                                style = AppTypography.getType().bodyMedium.copy(
+                                    fontWeight = FontWeight.W600,
+                                    color = Color.White
+                                )
+                            )
+                        }
+                    }
                 }
-//                HorizontalDivider()
-//                Row(
-//                    modifier = Modifier
-//                        .fillMaxWidth()
-//                        .padding(horizontal = 16.dp, vertical = 8.dp)
-//                        .clickable {
-//                           shareRoute(routeForPreview)
-//                        },
-//                    horizontalArrangement = Arrangement.SpaceBetween,
-//                    verticalAlignment = Alignment.CenterVertically
-//                ) {
-//                    Text(
-//                        text = "Поделиться",
-//                        style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
-//                    )
-//                    Image(
-//                        modifier = Modifier.size(25.dp),
-//                        painter = painterResource(R.drawable.share_24px),
-//                        contentDescription = null,
-//                    )
-//                }
-                HorizontalDivider()
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Secondary buttons row
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .clickable {
-                            showContextDialog(false)
-                            setFavoriteState(routeForPreview)
-                        },
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    val text =
-                        if (routeForPreview.basicData.isFavorite) "Убрать из избранного" else "В избранное"
-                    val icon = if (routeForPreview.basicData.isFavorite) painterResource(R.drawable.favorite_fill_24px) else painterResource(R.drawable.favorite_24px)
+                    // Сохранить в облаке
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(MaterialTheme.colorScheme.surfaceVariant, CardShape)
+                            .clickable {
+                                showContextDialog(false)
+                                syncRoute(routeForPreview)
+                            }
+                            .padding(vertical = 13.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(7.dp)
+                        ) {
+                            Image(
+                                modifier = Modifier.size(18.dp),
+                                painter = painterResource(id = R.drawable.sync_on_icon),
+                                contentDescription = null,
+                            )
+                            Text(
+                                text = "Сохранить",
+                                style = AppTypography.getType().bodyMedium.copy(
+                                    fontWeight = FontWeight.W600,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            )
+                        }
+                    }
 
-                    val tint =
-                        if (routeForPreview.basicData.isFavorite) redOrange else MaterialTheme.colorScheme.primary
-
-
-                    Text(
-                        text = text,
-                        style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
-                    )
-                    Icon(
-                        modifier = Modifier.size(25.dp),
-                        painter = icon,
-                        tint = tint,
-                        contentDescription = null,
-                    )
+                    // В избранное
+                    val isFavorite = routeForPreview.basicData.isFavorite
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(MaterialTheme.colorScheme.surfaceVariant, CardShape)
+                            .clickable {
+                                showContextDialog(false)
+                                setFavoriteState(routeForPreview)
+                            }
+                            .padding(vertical = 13.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(7.dp)
+                        ) {
+                            Icon(
+                                modifier = Modifier.size(18.dp),
+                                painter = if (isFavorite) painterResource(R.drawable.favorite_fill_24px)
+                                else painterResource(R.drawable.favorite_24px),
+                                tint = if (isFavorite) Color(0xFFf1642e) else MaterialTheme.colorScheme.onSurface,
+                                contentDescription = null,
+                            )
+                            Text(
+                                text = if (isFavorite) "Избранное" else "Избранное",
+                                style = AppTypography.getType().bodyMedium.copy(
+                                    fontWeight = FontWeight.W600,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            )
+                        }
+                    }
                 }
-                HorizontalDivider()
 
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Icon buttons row (3 columns)
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .clickable {
-                            showContextDialog(false)
-                            onRouteClick(routeForPreview.basicData.id)
-                        },
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text(
-                        text = "Просмотр",
-                        style = AppTypography.getType().bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
-                    )
-                    Icon(
-                        painter = painterResource(id = R.drawable.rounded_visibility_24),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-                HorizontalDivider()
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .clickable {
-                            showContextDialog(false)
-                            makeCopyRoute(routeForPreview.basicData.id)
-                        },
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Дублировать",
-                        style = AppTypography.getType().bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Icon(
-                        painter = painterResource(id = R.drawable.outline_content_copy_24),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-                HorizontalDivider()
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .clickable {
-                            showContextDialog(false)
-                            showDialogConfirmRemove(true, routeForPreview)
-                        },
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Удалить",
-                        style = AppTypography.getType().bodyMedium,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                    Icon(
-                        painter = painterResource(id = R.drawable.delete_24px),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error
-                    )
+                    // Дублировать
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(MaterialTheme.colorScheme.surfaceVariant, CardShape)
+                            .clickable {
+                                showContextDialog(false)
+                                makeCopyRoute(routeForPreview.basicData.id)
+                            }
+                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.outline_content_copy_24),
+                                contentDescription = null,
+                                tint = MutedGray,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "Дублировать",
+                                style = AppTypography.getType().bodySmall.copy(
+                                    fontSize = 12.sp,
+                                    color = MutedGray
+                                )
+                            )
+                        }
+                    }
+
+                    // Удалить
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(
+                                DangerRed.copy(alpha = 0.1f),
+                                CardShape
+                            )
+                            .clickable {
+                                showContextDialog(false)
+                                showDialogConfirmRemove(true, routeForPreview)
+                            }
+                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.delete_24px),
+                                contentDescription = null,
+                                tint = DangerRed,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "Удалить",
+                                style = AppTypography.getType().bodySmall.copy(
+                                    fontSize = 12.sp,
+                                    color = DangerRed
+                                )
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -281,24 +339,19 @@ fun PreviewRoute(
     dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val styleTitle = AppTypography.getType().titleSmall.copy(
-        fontWeight = FontWeight.W600,
-        color = MaterialTheme.colorScheme.primary
+        fontWeight = FontWeight.W700,
+        fontSize = 10.sp,
+        letterSpacing = 1.2.sp,
+        color = MutedGray
     )
     val styleData = AppTypography.getType().bodyMedium.copy(
-        fontWeight = FontWeight.W400,
-        color = MaterialTheme.colorScheme.primary
+        fontWeight = FontWeight.W600,
+        color = MaterialTheme.colorScheme.onSurface
     )
     val styleHint = AppTypography.getType().bodySmall.copy(
-        fontWeight = FontWeight.W300,
-        color = MaterialTheme.colorScheme.primary
+        fontWeight = FontWeight.W400,
+        color = MutedGray
     )
-    val paddingBetweenBlocks = 20.dp
-    val paddingInsideBlock = 14.dp
-    val paddingIcon = 12.dp
-    val horizontalPaddingSecondItem = 32.dp
-    val iconSize = 50.dp
-    val iconSizeSecond = iconSize * .8f
-    val iconMiniSize = 18.dp
 
     val locomotiveExpandItemState = remember {
         mutableStateMapOf<Int, Boolean>()
@@ -310,203 +363,266 @@ fun PreviewRoute(
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
-                .wrapContentHeight()
-                .padding(horizontal = 24.dp),
+                .wrapContentHeight(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = paddingBetweenBlocks)
-                        .animateItem(),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = "Маршрут ${route.basicData.number ?: "б/н"}  ",
-                        style = styleTitle,
-                    )
-                }
-            }
-            item {
-                route.basicData.timeStartWork?.let {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = paddingBetweenBlocks)
-                            .animateItem(),
-                        contentAlignment = Alignment.CenterStart
-                    ) {
-                        Text(
-                            text = dateAndTimeConverter?.getDateFromDateLong(route.basicData.timeStartWork)
-                                ?: "загрузка",
-                            style = styleData,
-                        )
-                    }
-                }
-            }
+            // Handle bar
             item {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = paddingBetweenBlocks)
-                        .animateItem(),
-                    contentAlignment = Alignment.CenterStart
+                        .padding(top = 12.dp, bottom = 4.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "Рабочее время",
-                        style = styleTitle,
+                    Box(
+                        modifier = Modifier
+                            .width(40.dp)
+                            .height(4.dp)
+                            .background(
+                                MaterialTheme.colorScheme.outlineVariant,
+                                RoundedCornerShape(99.dp)
+                            )
                     )
                 }
             }
+
+            // Header
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .padding(top = 8.dp, bottom = 16.dp)
+                        .animateItem()
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "МАРШРУТ",
+                                style = styleTitle,
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = route.basicData.number ?: "б/н",
+                                style = AppTypography.getType().headlineSmall.copy(
+                                    fontWeight = FontWeight.W800,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    lineHeight = 26.sp
+                                ),
+                            )
+                            route.basicData.timeStartWork?.let {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .background(
+                                            AccentBlue.copy(alpha = 0.12f),
+                                            ChipShape
+                                        )
+                                        .padding(horizontal = 10.dp, vertical = 3.dp)
+                                ) {
+                                    Text(
+                                        text = dateAndTimeConverter?.getDateFromDateLong(route.basicData.timeStartWork)
+                                            ?: "...",
+                                        style = AppTypography.getType().bodySmall.copy(
+                                            fontWeight = FontWeight.W500,
+                                            color = AccentBlue,
+                                            fontSize = 12.sp
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Divider
+            item {
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant
+                )
+            }
+
+            // Work time section
             item {
                 if (route.basicData.timeStartWork != null || route.basicData.timeEndWork != null) {
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = paddingInsideBlock)
-                            .animateItem(),
+                            .padding(horizontal = 20.dp, vertical = 16.dp)
+                            .animateItem()
                     ) {
-                        // Icon
-                        Box(
-                            modifier = Modifier
-                                .size(iconSize)
-                                .background(
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    shape = Shapes.medium
-                                ),
-                            contentAlignment = Alignment.Center
+                        Text(
+                            text = "РАБОЧЕЕ ВРЕМЯ",
+                            style = styleTitle,
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Time cards grid
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Icon(
-                                modifier = Modifier.fillMaxSize(0.7f),
-                                tint = MaterialTheme.colorScheme.primary,
-                                painter = painterResource(id = R.drawable.schedule_24px),
-                                contentDescription = null
-                            )
-                        }
-                        Column(modifier = Modifier.padding(start = paddingIcon)) {
-                            Box {
-                                Text(
-                                    text = ConverterLongToTime.getTimeInStringFormat(route.getWorkTime()),
-                                    style = styleData,
-                                    maxLines = 1
+                            // Start time card
+                            route.basicData.timeStartWork?.let { startWork ->
+                                TimeCard(
+                                    modifier = Modifier.weight(1f),
+                                    label = "НАЧАЛО",
+                                    value = dateAndTimeConverter?.getTimeFromDateLong(startWork)
+                                        ?: "...",
+                                    subtitle = "явка",
+                                    accentColor = AccentGreen
                                 )
                             }
-                            Row {
-                                Text(
-                                    text = dateAndTimeConverter?.getTimeFromDateLong(route.basicData.timeStartWork)
-                                        ?: "загрузка",
-                                    style = styleHint,
-                                    maxLines = 1
-                                )
 
-                                Text(
-                                    text = " - ${dateAndTimeConverter?.getTimeFromDateLong(route.basicData.timeEndWork) ?: "загрузка"}",
-                                    style = styleHint,
-                                    maxLines = 1
+                            // End time card
+                            route.basicData.timeEndWork?.let { endWork ->
+                                val workTimeText =
+                                    ConverterLongToTime.getTimeInStringFormat(route.getWorkTime())
+                                TimeCard(
+                                    modifier = Modifier.weight(1f),
+                                    label = "КОНЕЦ",
+                                    value = dateAndTimeConverter?.getTimeFromDateLong(endWork)
+                                        ?: "...",
+                                    subtitle = workTimeText ?: "",
+                                    accentColor = AccentBlue
                                 )
                             }
                         }
                     }
                 }
             }
+
+            // Rest row
             item {
                 if (route.basicData.timeStartWork != null && route.basicData.timeEndWork != null) {
                     val restText = if (route.basicData.restPointOfTurnover) {
                         "Отдых в ПО"
                     } else {
-                        "Домашний отдых"
+                        "Домашний"
                     }
+
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = paddingInsideBlock)
+                            .padding(horizontal = 20.dp)
+                            .padding(bottom = 16.dp)
+                            .background(
+                                MaterialTheme.colorScheme.surfaceVariant,
+                                SmallCardShape
+                            )
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
                             .animateItem(),
-                        verticalAlignment = Alignment.Top
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
+                        // Rest icon
                         Box(
                             modifier = Modifier
-                                .size(iconSize)
+                                .size(32.dp)
                                 .background(
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    shape = Shapes.medium
+                                    MutedGray.copy(alpha = 0.12f),
+                                    RoundedCornerShape(8.dp)
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
-                            if (route.basicData.restPointOfTurnover) {
-                                Icon(
-                                    modifier = Modifier.fillMaxSize(0.7f),
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    painter = painterResource(id = R.drawable.hotel_24px),
-                                    contentDescription = null
-                                )
-                            } else {
-                                Icon(
-                                    modifier = Modifier.fillMaxSize(0.7f),
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    painter = painterResource(id = R.drawable.gite_24px),
-                                    contentDescription = null
-                                )
-                            }
+                            Icon(
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                painter = if (route.basicData.restPointOfTurnover)
+                                    painterResource(id = R.drawable.hotel_24px)
+                                else
+                                    painterResource(id = R.drawable.gite_24px),
+                                contentDescription = null
+                            )
                         }
 
-                        Column(modifier = Modifier.padding(start = paddingIcon)) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Отдых",
+                                style = AppTypography.getType().bodySmall.copy(
+                                    color = MutedGray,
+                                    fontSize = 13.sp
+                                ),
+                            )
                             Text(
                                 text = restText,
-                                style = styleData,
-                                maxLines = 1,
+                                style = AppTypography.getType().bodyMedium.copy(
+                                    fontWeight = FontWeight.W600,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 14.sp
+                                ),
                             )
-                            if (route.basicData.restPointOfTurnover) {
-                                minTimeRest?.let {
-                                    val shortRestText =
-                                        dateAndTimeConverter?.getDateMiniAndTime(
-                                            route.shortRest(minTimeRest)
-                                        ) ?: "загрузка"
-                                    val fullRestText = dateAndTimeConverter?.getDateMiniAndTime(
-                                        route.fullRest(minTimeRest)
-                                    ) ?: "загрузка"
-                                    Text(
-                                        text = "$shortRestText - $fullRestText",
-                                        style = styleHint,
-                                        maxLines = 1,
-                                    )
-                                }
-                            } else {
-                                homeRest?.let {
-                                    val homeRestInLongText =
-                                        dateAndTimeConverter?.getDateMiniAndTime(
-                                            homeRest
-                                        ) ?: "загрузка"
-                                    Text(
-                                        text = "до $homeRestInLongText",
-                                        style = styleHint,
-                                        maxLines = 1,
-                                    )
-                                }
+                        }
+
+                        // Rest time
+                        if (route.basicData.restPointOfTurnover) {
+                            minTimeRest?.let {
+                                val shortRestText =
+                                    dateAndTimeConverter?.getDateMiniAndTime(
+                                        route.shortRest(minTimeRest)
+                                    ) ?: "..."
+                                val fullRestText = dateAndTimeConverter?.getDateMiniAndTime(
+                                    route.fullRest(minTimeRest)
+                                ) ?: "..."
+                                Text(
+                                    text = "$shortRestText\n$fullRestText",
+                                    style = AppTypography.getType().bodySmall.copy(
+                                        color = MutedGray,
+                                        fontSize = 12.sp
+                                    ),
+                                )
+                            }
+                        } else {
+                            homeRest?.let {
+                                val homeRestText =
+                                    dateAndTimeConverter?.getDateMiniAndTime(homeRest) ?: "..."
+                                Text(
+                                    text = "до $homeRestText",
+                                    style = AppTypography.getType().bodySmall.copy(
+                                        color = MutedGray,
+                                        fontSize = 12.sp
+                                    ),
+                                )
                             }
                         }
                     }
                 }
             }
+
+            // Locomotives section
             if (route.locomotives.isNotEmpty()) {
                 item {
-                    Box(
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 20.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+                }
+                item {
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = paddingBetweenBlocks)
-                            .animateItem(),
-                        contentAlignment = Alignment.CenterStart
+                            .padding(horizontal = 20.dp)
+                            .padding(top = 16.dp)
+                            .animateItem()
                     ) {
                         Text(
-                            text = "Локомотив",
+                            text = "ЛОКОМОТИВ",
                             style = styleTitle,
                         )
                     }
                 }
             }
+
             itemsIndexed(
                 items = route.locomotives,
-                key = { _, item -> item.locoId }) { index, locomotive ->
+                key = { _, item -> item.locoId }
+            ) { index, locomotive ->
                 if (locomotiveExpandItemState[index] == null) {
                     locomotiveExpandItemState[index] = true
                 }
@@ -516,18 +632,6 @@ fun PreviewRoute(
                 }
                 val seriesText = locomotive.series.ifNullOrBlank { "" }
                 val numberText = locomotive.number.ifNullOrBlank { "" }
-                val timeStartAcceptedText =
-                    dateAndTimeConverter?.getTimeFromDateLong(locomotive.timeStartOfAcceptance)
-                        ?: "загрузка"
-                val timeEndAcceptedText =
-                    dateAndTimeConverter?.getTimeFromDateLong(locomotive.timeEndOfAcceptance)
-                        ?: "загрузка"
-                val timeStartDeliveryText =
-                    dateAndTimeConverter?.getTimeFromDateLong(locomotive.timeStartOfDelivery)
-                        ?: "загрузка"
-                val timeEndDeliveryText =
-                    dateAndTimeConverter?.getTimeFromDateLong(locomotive.timeEndOfDelivery)
-                        ?: "загрузка"
 
                 val rotationSectionButton =
                     animateFloatAsState(
@@ -535,416 +639,399 @@ fun PreviewRoute(
                         label = ""
                     )
 
-                Column(modifier = Modifier.animateItem()) {
-                    Row(
+                Column(
+                    modifier = Modifier
+                        .padding(horizontal = 20.dp, vertical = 6.dp)
+                        .animateItem()
+                ) {
+                    // Loco card
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = paddingInsideBlock),
-                        verticalAlignment = Alignment.Top,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .background(MaterialTheme.colorScheme.surfaceVariant, CardShape)
                     ) {
-                        Row {
-                            // Icon
+                        // Loco card header
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            // Loco icon
                             Box(
                                 modifier = Modifier
-                                    .size(iconSize)
+                                    .size(40.dp)
                                     .background(
-                                        color = MaterialTheme.colorScheme.secondary,
-                                        shape = Shapes.medium
+                                        AccentBlue.copy(alpha = 0.12f),
+                                        RoundedCornerShape(10.dp)
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
-                                when (locomotive.type) {
-                                    LocoType.ELECTRIC -> {
-                                        Icon(
-                                            modifier = Modifier.fillMaxSize(0.7f),
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            painter = painterResource(id = R.drawable.electric_loco),
-                                            contentDescription = null
-                                        )
-                                    }
+                                Icon(
+                                    modifier = Modifier.size(24.dp),
+                                    tint = AccentBlue,
+                                    painter = when (locomotive.type) {
+                                        LocoType.ELECTRIC -> painterResource(id = R.drawable.electric_loco)
+                                        LocoType.DIESEL -> painterResource(id = R.drawable.diesel_loco)
+                                    },
+                                    contentDescription = null
+                                )
+                            }
 
-                                    LocoType.DIESEL -> {
-                                        Icon(
-                                            modifier = Modifier.fillMaxSize(0.7f),
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            painter = painterResource(id = R.drawable.diesel_loco),
-                                            contentDescription = null
+                            Column(modifier = Modifier.weight(1f)) {
+                                val displayName = if (locomotive.series != null) {
+                                    "$seriesText${if (numberText.isNotEmpty()) " - $numberText" else ""}"
+                                } else {
+                                    typeLocoText
+                                }
+                                Text(
+                                    text = displayName,
+                                    style = AppTypography.getType().bodyLarge.copy(
+                                        fontWeight = FontWeight.W700,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontSize = 18.sp
+                                    ),
+                                )
+                                Text(
+                                    text = typeLocoText,
+                                    style = AppTypography.getType().bodySmall.copy(
+                                        color = MutedGray,
+                                        fontSize = 12.sp
+                                    ),
+                                )
+                            }
+
+                            // Tag
+                            if (locomotive.series != null) {
+                                Box(
+                                    modifier = Modifier
+                                        .background(
+                                            AccentBlue.copy(alpha = 0.12f),
+                                            ChipShape
                                         )
-                                    }
+                                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                                ) {
+                                    Text(
+                                        text = seriesText,
+                                        style = AppTypography.getType().bodySmall.copy(
+                                            color = AccentBlue,
+                                            fontSize = 11.sp
+                                        ),
+                                    )
                                 }
                             }
-                            Column(
+
+                            // Expand button
+                            IconButton(
                                 modifier = Modifier
-                                    .padding(start = paddingIcon)
+                                    .size(24.dp)
+                                    .graphicsLayer(
+                                        rotationZ = rotationSectionButton.value
+                                    ),
+                                onClick = {
+                                    locomotiveExpandItemState[index] =
+                                        !locomotiveExpandItemState[index]!!
+                                }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.keyboard_arrow_down_24px),
+                                    contentDescription = null,
+                                    tint = MutedGray
+                                )
+                            }
+                        }
+
+                        // Acceptance/Delivery info
+                        val timeStartAcceptedText =
+                            dateAndTimeConverter?.getTimeFromDateLong(locomotive.timeStartOfAcceptance)
+                                ?: "..."
+                        val timeEndAcceptedText =
+                            dateAndTimeConverter?.getTimeFromDateLong(locomotive.timeEndOfAcceptance)
+                                ?: "..."
+                        val timeStartDeliveryText =
+                            dateAndTimeConverter?.getTimeFromDateLong(locomotive.timeStartOfDelivery)
+                                ?: "..."
+                        val timeEndDeliveryText =
+                            dateAndTimeConverter?.getTimeFromDateLong(locomotive.timeEndOfDelivery)
+                                ?: "..."
+
+                        if (locomotive.timeStartOfAcceptance != null || locomotive.timeEndOfAcceptance != null ||
+                            locomotive.timeStartOfDelivery != null || locomotive.timeEndOfDelivery != null
+                        ) {
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                            Column(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
                             ) {
-                                Row {
-                                    if (locomotive.series == null) {
-                                        Text(
-                                            text = "$typeLocoText ",
-                                            style = styleData,
-                                        )
-                                    } else {
-                                        Text(
-                                            text = seriesText,
-                                            style = styleData,
-                                        )
-                                    }
-                                    locomotive.number?.let {
-                                        Text(
-                                            text = " - $numberText",
-                                            style = styleData,
-                                        )
-                                    }
-                                }
                                 if (locomotive.timeStartOfAcceptance != null || locomotive.timeEndOfAcceptance != null) {
-                                    Row {
-                                        Text(
-                                            text = "Приемка: ",
-                                            style = styleHint,
-                                        )
-                                        Text(
-                                            text = "$timeStartAcceptedText - ",
-                                            style = styleHint,
-                                        )
-                                        Text(
-                                            text = timeEndAcceptedText,
-                                            style = styleHint,
-                                        )
-                                    }
+                                    Text(
+                                        text = "Приемка: $timeStartAcceptedText - $timeEndAcceptedText",
+                                        style = styleHint,
+                                    )
                                 }
                                 if (locomotive.timeStartOfDelivery != null || locomotive.timeEndOfDelivery != null) {
-                                    Row {
-                                        Text(
-                                            text = "Сдача: ",
-                                            style = styleHint,
-                                        )
-                                        Text(
-                                            text = "$timeStartDeliveryText - ",
-                                            style = styleHint,
-                                        )
-                                        Text(
-                                            text = timeEndDeliveryText,
-                                            style = styleHint,
-                                        )
-                                    }
+                                    Text(
+                                        text = "Сдача: $timeStartDeliveryText - $timeEndDeliveryText",
+                                        style = styleHint,
+                                    )
                                 }
                             }
                         }
-                        IconButton(
-                            modifier = Modifier.graphicsLayer(
-                                rotationZ = rotationSectionButton.value
-                            ),
-                            onClick = {
-                                locomotiveExpandItemState[index] =
-                                    !locomotiveExpandItemState[index]!!
-                            }) {
-                            Icon(
-                                painter = painterResource(R.drawable.keyboard_arrow_down_24px),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
 
-                    when (locomotive.type) {
-                        LocoType.ELECTRIC -> {
-                            AnimatedVisibility(visible = locomotiveExpandItemState[index]!!) {
-                                Column {
-                                    locomotive.electricSectionList.forEachIndexed { index, sectionElectric ->
-                                        val acceptedEnergyText =
-                                            sectionElectric.acceptedEnergy?.str()
-                                                ?: ""
-                                        val deliveryEnergyText =
-                                            sectionElectric.deliveryEnergy?.str()
-                                                ?: ""
-                                        val acceptedRecoveryText =
-                                            sectionElectric.acceptedRecovery?.str()
-                                                ?: ""
-                                        val deliveryRecoveryText =
-                                            sectionElectric.deliveryRecovery?.str()
-                                                ?: ""
-                                        val consumptionEnergy =
-                                            CalculationEnergy.getTotalEnergyConsumption(
-                                                accepted = sectionElectric.acceptedEnergy,
-                                                delivery = sectionElectric.deliveryEnergy
-                                            )?.str() ?: ""
-                                        val consumptionRecovery =
-                                            CalculationEnergy.getTotalEnergyConsumption(
-                                                accepted = sectionElectric.acceptedRecovery,
-                                                delivery = sectionElectric.deliveryRecovery
-                                            )?.str() ?: ""
+                        // Sections (expanded)
+                        AnimatedVisibility(visible = locomotiveExpandItemState[index]!!) {
+                            when (locomotive.type) {
+                                LocoType.ELECTRIC -> {
+                                    Column {
+                                        locomotive.electricSectionList.forEachIndexed { sIndex, sectionElectric ->
+                                            val acceptedEnergyText =
+                                                sectionElectric.acceptedEnergy?.str() ?: ""
+                                            val deliveryEnergyText =
+                                                sectionElectric.deliveryEnergy?.str() ?: ""
+                                            val acceptedRecoveryText =
+                                                sectionElectric.acceptedRecovery?.str() ?: ""
+                                            val deliveryRecoveryText =
+                                                sectionElectric.deliveryRecovery?.str() ?: ""
+                                            val consumptionEnergy =
+                                                CalculationEnergy.getTotalEnergyConsumption(
+                                                    accepted = sectionElectric.acceptedEnergy,
+                                                    delivery = sectionElectric.deliveryEnergy
+                                                )?.str() ?: ""
+                                            val consumptionRecovery =
+                                                CalculationEnergy.getTotalEnergyConsumption(
+                                                    accepted = sectionElectric.acceptedRecovery,
+                                                    delivery = sectionElectric.deliveryRecovery
+                                                )?.str() ?: ""
 
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(
-                                                    top = paddingInsideBlock,
-                                                    start = horizontalPaddingSecondItem
+                                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                                            Row(
+                                                modifier = Modifier.padding(
+                                                    horizontal = 16.dp,
+                                                    vertical = 10.dp
                                                 ),
-                                            verticalAlignment = Alignment.Top
-                                        ) {
-                                            // Icon
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(iconSizeSecond)
-                                                    .background(
-                                                        color = MaterialTheme.colorScheme.secondary,
-                                                        shape = Shapes.medium
-                                                    ),
-                                                contentAlignment = Alignment.Center
+                                                verticalAlignment = Alignment.Top,
+                                                horizontalArrangement = Arrangement.spacedBy(10.dp)
                                             ) {
-                                                val image: Int = when (index) {
-                                                    0 -> R.drawable.one
-                                                    1 -> R.drawable.two
-                                                    2 -> R.drawable.three
-                                                    3 -> R.drawable.four
-                                                    4 -> R.drawable.five
-                                                    5 -> R.drawable.sex
-                                                    6 -> R.drawable.seven
-                                                    7 -> R.drawable.eight
-                                                    8 -> R.drawable.nine
-                                                    else -> R.drawable.one
-                                                }
-                                                Icon(
-                                                    modifier = Modifier.fillMaxSize(0.7f),
-                                                    tint = MaterialTheme.colorScheme.primary,
-                                                    painter = painterResource(id = image),
-                                                    contentDescription = null
-                                                )
-                                            }
-                                            Column(modifier = Modifier.padding(start = paddingIcon)) {
-                                                if (sectionElectric.acceptedEnergy != null ||
-                                                    sectionElectric.deliveryEnergy != null ||
-                                                    sectionElectric.acceptedRecovery != null ||
-                                                    sectionElectric.deliveryRecovery != null
+                                                // Section number badge
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(24.dp)
+                                                        .background(
+                                                            MaterialTheme.colorScheme.outline.copy(
+                                                                alpha = 0.3f
+                                                            ),
+                                                            RoundedCornerShape(6.dp)
+                                                        ),
+                                                    contentAlignment = Alignment.Center
                                                 ) {
-
+                                                    Text(
+                                                        text = "${sIndex + 1}",
+                                                        style = AppTypography.getType().bodySmall.copy(
+                                                            color = MutedGray,
+                                                            fontSize = 11.sp
+                                                        ),
+                                                    )
+                                                }
+                                                Column {
                                                     if (sectionElectric.acceptedEnergy != null ||
-                                                        sectionElectric.deliveryEnergy != null
+                                                        sectionElectric.deliveryEnergy != null ||
+                                                        sectionElectric.acceptedRecovery != null ||
+                                                        sectionElectric.deliveryRecovery != null
                                                     ) {
-                                                        Row(
-                                                            verticalAlignment = Alignment.CenterVertically,
-                                                            horizontalArrangement = Arrangement.spacedBy(
-                                                                paddingIcon / 2
-                                                            )
+                                                        if (sectionElectric.acceptedEnergy != null ||
+                                                            sectionElectric.deliveryEnergy != null
                                                         ) {
-                                                            // Icon energy symbol
-                                                            Box(
-                                                                modifier = Modifier
-                                                                    .size(iconMiniSize),
-                                                                contentAlignment = Alignment.Center
+                                                            Row(
+                                                                verticalAlignment = Alignment.CenterVertically,
+                                                                horizontalArrangement = Arrangement.spacedBy(
+                                                                    4.dp
+                                                                )
                                                             ) {
                                                                 Icon(
-                                                                    modifier = Modifier.fillMaxSize(
-                                                                        0.7f
-                                                                    ),
-                                                                    tint = MaterialTheme.colorScheme.primary,
+                                                                    modifier = Modifier.size(14.dp),
+                                                                    tint = MutedGray,
                                                                     painter = painterResource(id = R.drawable.electric_bolt_24px),
                                                                     contentDescription = null
                                                                 )
+                                                                Text(
+                                                                    text = "$acceptedEnergyText - $deliveryEnergyText",
+                                                                    style = styleHint,
+                                                                )
                                                             }
-                                                            Text(
-                                                                text = "$acceptedEnergyText - $deliveryEnergyText",
-                                                                style = styleHint,
-                                                            )
                                                         }
-                                                    }
-
-                                                    if (sectionElectric.acceptedRecovery != null ||
-                                                        sectionElectric.deliveryRecovery != null
-                                                    ) {
-                                                        Row(
-                                                            verticalAlignment = Alignment.CenterVertically,
-                                                            horizontalArrangement = Arrangement.spacedBy(
-                                                                paddingIcon / 2
-                                                            )
+                                                        if (sectionElectric.acceptedRecovery != null ||
+                                                            sectionElectric.deliveryRecovery != null
                                                         ) {
-                                                            // Icon recovery symbol
-                                                            Box(
-                                                                modifier = Modifier
-                                                                    .size(iconMiniSize),
-                                                                contentAlignment = Alignment.Center
+                                                            Row(
+                                                                verticalAlignment = Alignment.CenterVertically,
+                                                                horizontalArrangement = Arrangement.spacedBy(
+                                                                    4.dp
+                                                                )
                                                             ) {
                                                                 Icon(
-                                                                    modifier = Modifier.fillMaxSize(
-                                                                        0.7f
-                                                                    ),
-                                                                    tint = MaterialTheme.colorScheme.primary,
+                                                                    modifier = Modifier.size(14.dp),
+                                                                    tint = MutedGray,
                                                                     painter = painterResource(id = R.drawable.cycle_24px),
                                                                     contentDescription = null
                                                                 )
+                                                                Text(
+                                                                    text = "$acceptedRecoveryText - $deliveryRecoveryText",
+                                                                    style = styleHint,
+                                                                )
                                                             }
-                                                            Text(
-                                                                text = "$acceptedRecoveryText - $deliveryRecoveryText",
-                                                                style = styleHint,
-                                                            )
                                                         }
-                                                    }
-
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(
-                                                            paddingIcon / 2
+                                                        Row(
+                                                            horizontalArrangement = Arrangement.spacedBy(
+                                                                8.dp
+                                                            )
+                                                        ) {
+                                                            if (sectionElectric.acceptedEnergy != null &&
+                                                                sectionElectric.deliveryEnergy != null
+                                                            ) {
+                                                                Text(
+                                                                    text = "Расход: $consumptionEnergy",
+                                                                    style = styleHint,
+                                                                )
+                                                            }
+                                                            if (sectionElectric.acceptedRecovery != null &&
+                                                                sectionElectric.deliveryRecovery != null
+                                                            ) {
+                                                                Text(
+                                                                    text = "Рекуперация: $consumptionRecovery",
+                                                                    style = styleHint,
+                                                                )
+                                                            }
+                                                        }
+                                                    } else {
+                                                        Text(
+                                                            text = "Нет данных",
+                                                            style = styleHint.copy(fontStyle = FontStyle.Italic)
                                                         )
-                                                    ) {
-                                                        if (sectionElectric.acceptedEnergy != null &&
-                                                            sectionElectric.deliveryEnergy != null
-                                                        ) {
-                                                            Text(
-                                                                text = "Расход: $consumptionEnergy",
-                                                                style = styleHint,
-                                                            )
-                                                        }
-                                                        if (sectionElectric.acceptedRecovery != null &&
-                                                            sectionElectric.deliveryRecovery != null
-                                                        ) {
-                                                            Text(
-                                                                text = "Рекуперация: $consumptionRecovery",
-                                                                style = styleHint,
-                                                            )
-                                                        }
                                                     }
-                                                } else {
-                                                    Text(
-                                                        text = "Нет данных",
-                                                        style = styleHint
-                                                    )
                                                 }
                                             }
                                         }
                                     }
                                 }
-                            }
-                        }
 
-                        LocoType.DIESEL -> {
-                            AnimatedVisibility(visible = locomotiveExpandItemState[index]!!) {
-                                Column {
-                                    locomotive.dieselSectionList.forEachIndexed { index, sectionDiesel ->
-                                        val consumption =
-                                            CalculationEnergy.getTotalFuelConsumption(
-                                                accepted = sectionDiesel.acceptedFuel,
-                                                delivery = sectionDiesel.deliveryFuel,
-                                                refuel = sectionDiesel.fuelSupply
-                                            )
-                                        val consumptionText = rounding(consumption, 2).str()
-                                        val acceptedText = rounding(
-                                            sectionDiesel.acceptedFuel, 2
-                                        ).str()
-                                        val deliveryText = rounding(
-                                            sectionDiesel.deliveryFuel, 2
-                                        ).str()
-                                        val acceptedInKilo =
-                                            sectionDiesel.acceptedFuel.times(sectionDiesel.coefficient)
-                                        val acceptedInKiloText =
-                                            rounding(acceptedInKilo, 2).str()
-                                        val deliveryInKilo =
-                                            sectionDiesel.deliveryFuel.times(sectionDiesel.coefficient)
-                                        val deliveryInKiloText =
-                                            rounding(deliveryInKilo, 2).str()
-                                        val fuelSupplyText = sectionDiesel.fuelSupply.str()
-                                        val coefficientText = sectionDiesel.coefficient.str()
-                                        val consumptionInKilo =
-                                            CalculationEnergy.getTotalFuelInKiloConsumption(
-                                                acceptedInKilo = acceptedInKilo,
-                                                deliveryInKilo = deliveryInKilo,
-                                                refuelInKilo = sectionDiesel.fuelSupplyInKilo
-                                            )
-                                        val consumptionInKiloText = consumptionInKilo.str()
-
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(
-                                                    top = paddingInsideBlock,
-                                                    start = horizontalPaddingSecondItem
-                                                ),
-                                            verticalAlignment = Alignment.Top
-                                        ) {
-                                            // Icon
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(iconSizeSecond)
-                                                    .background(
-                                                        color = MaterialTheme.colorScheme.secondary,
-                                                        shape = Shapes.medium
-                                                    ),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                val image: Int = when (index) {
-                                                    0 -> R.drawable.one
-                                                    1 -> R.drawable.two
-                                                    2 -> R.drawable.three
-                                                    3 -> R.drawable.four
-                                                    4 -> R.drawable.five
-                                                    5 -> R.drawable.sex
-                                                    6 -> R.drawable.seven
-                                                    7 -> R.drawable.eight
-                                                    8 -> R.drawable.nine
-                                                    else -> R.drawable.one
-                                                }
-                                                Icon(
-                                                    modifier = Modifier.fillMaxSize(0.7f),
-                                                    tint = MaterialTheme.colorScheme.primary,
-                                                    painter = painterResource(id = image),
-                                                    contentDescription = null
+                                LocoType.DIESEL -> {
+                                    Column {
+                                        locomotive.dieselSectionList.forEachIndexed { sIndex, sectionDiesel ->
+                                            val consumption =
+                                                CalculationEnergy.getTotalFuelConsumption(
+                                                    accepted = sectionDiesel.acceptedFuel,
+                                                    delivery = sectionDiesel.deliveryFuel,
+                                                    refuel = sectionDiesel.fuelSupply
                                                 )
-                                            }
-                                            Column(modifier = Modifier.padding(start = paddingIcon)) {
-                                                if (acceptedText.isNotEmpty() || deliveryText.isNotEmpty()) {
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(
-                                                            paddingIcon / 2
-                                                        )
-                                                    ) {
-                                                        Text(
-                                                            text = "$acceptedText - $deliveryText",
-                                                            style = styleHint
-                                                        )
-                                                        Text(
-                                                            text = "$consumptionText л.",
-                                                            style = styleHint
-                                                        )
-                                                    }
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(
-                                                            paddingIcon / 2
-                                                        )
-                                                    ) {
-                                                        Text(
-                                                            text = "$acceptedInKiloText - $deliveryInKiloText",
-                                                            style = styleHint
-                                                        )
-                                                        Text(
-                                                            text = "$consumptionInKiloText кг.",
-                                                            style = styleHint
-                                                        )
-                                                    }
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(
-                                                            paddingIcon / 2
-                                                        )
-                                                    ) {
-                                                        Text(
-                                                            text = "k: $coefficientText",
-                                                            style = styleHint
-                                                        )
-                                                        sectionDiesel.fuelSupply?.let {
+                                            val consumptionText =
+                                                rounding(consumption, 2).str()
+                                            val acceptedText = rounding(
+                                                sectionDiesel.acceptedFuel, 2
+                                            ).str()
+                                            val deliveryText = rounding(
+                                                sectionDiesel.deliveryFuel, 2
+                                            ).str()
+                                            val acceptedInKilo =
+                                                sectionDiesel.acceptedFuel.times(sectionDiesel.coefficient)
+                                            val acceptedInKiloText =
+                                                rounding(acceptedInKilo, 2).str()
+                                            val deliveryInKilo =
+                                                sectionDiesel.deliveryFuel.times(sectionDiesel.coefficient)
+                                            val deliveryInKiloText =
+                                                rounding(deliveryInKilo, 2).str()
+                                            val fuelSupplyText =
+                                                sectionDiesel.fuelSupply.str()
+                                            val coefficientText =
+                                                sectionDiesel.coefficient.str()
+                                            val consumptionInKilo =
+                                                CalculationEnergy.getTotalFuelInKiloConsumption(
+                                                    acceptedInKilo = acceptedInKilo,
+                                                    deliveryInKilo = deliveryInKilo,
+                                                    refuelInKilo = sectionDiesel.fuelSupplyInKilo
+                                                )
+                                            val consumptionInKiloText =
+                                                consumptionInKilo.str()
+
+                                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                                            Row(
+                                                modifier = Modifier.padding(
+                                                    horizontal = 16.dp,
+                                                    vertical = 10.dp
+                                                ),
+                                                verticalAlignment = Alignment.Top,
+                                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                            ) {
+                                                // Section number badge
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(24.dp)
+                                                        .background(
+                                                            MaterialTheme.colorScheme.outline.copy(
+                                                                alpha = 0.3f
+                                                            ),
+                                                            RoundedCornerShape(6.dp)
+                                                        ),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Text(
+                                                        text = "${sIndex + 1}",
+                                                        style = AppTypography.getType().bodySmall.copy(
+                                                            color = MutedGray,
+                                                            fontSize = 11.sp
+                                                        ),
+                                                    )
+                                                }
+                                                Column {
+                                                    if (acceptedText.isNotEmpty() || deliveryText.isNotEmpty()) {
+                                                        Row(
+                                                            horizontalArrangement = Arrangement.spacedBy(
+                                                                4.dp
+                                                            )
+                                                        ) {
                                                             Text(
-                                                                text = "Снабжение: $fuelSupplyText л.",
+                                                                text = "$acceptedText - $deliveryText",
+                                                                style = styleHint
+                                                            )
+                                                            Text(
+                                                                text = "$consumptionText л.",
                                                                 style = styleHint
                                                             )
                                                         }
+                                                        Row(
+                                                            horizontalArrangement = Arrangement.spacedBy(
+                                                                4.dp
+                                                            )
+                                                        ) {
+                                                            Text(
+                                                                text = "$acceptedInKiloText - $deliveryInKiloText",
+                                                                style = styleHint
+                                                            )
+                                                            Text(
+                                                                text = "$consumptionInKiloText кг.",
+                                                                style = styleHint
+                                                            )
+                                                        }
+                                                        Row(
+                                                            horizontalArrangement = Arrangement.spacedBy(
+                                                                4.dp
+                                                            )
+                                                        ) {
+                                                            Text(
+                                                                text = "k: $coefficientText",
+                                                                style = styleHint
+                                                            )
+                                                            sectionDiesel.fuelSupply?.let {
+                                                                Text(
+                                                                    text = "Снабжение: $fuelSupplyText л.",
+                                                                    style = styleHint
+                                                                )
+                                                            }
+                                                        }
+                                                    } else {
+                                                        Text(
+                                                            text = "Нет данных",
+                                                            style = styleHint.copy(fontStyle = FontStyle.Italic)
+                                                        )
                                                     }
-                                                } else {
-                                                    Text(
-                                                        text = "Нет данных",
-                                                        style = styleHint
-                                                    )
                                                 }
                                             }
                                         }
@@ -955,23 +1042,34 @@ fun PreviewRoute(
                     }
                 }
             }
+
+            // Trains section
             if (route.trains.isNotEmpty()) {
                 item {
-                    Box(
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 20.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+                }
+                item {
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = paddingBetweenBlocks)
-                            .animateItem(),
-                        contentAlignment = Alignment.CenterStart
+                            .padding(horizontal = 20.dp)
+                            .padding(top = 16.dp)
+                            .animateItem()
                     ) {
                         Text(
-                            text = "Поезд",
+                            text = "ПОЕЗД",
                             style = styleTitle,
                         )
                     }
                 }
             }
-            itemsIndexed(route.trains, key = { _, train -> train.trainId }) { index, train ->
+            itemsIndexed(
+                route.trains,
+                key = { _, train -> train.trainId }
+            ) { index, train ->
                 if (trainExpandItemState[index] == null) {
                     trainExpandItemState[index] = true
                 }
@@ -986,131 +1084,151 @@ fun PreviewRoute(
                         label = ""
                     )
 
-                Column(modifier = Modifier.animateItem()) {
-                    Row(
+                Column(
+                    modifier = Modifier
+                        .padding(horizontal = 20.dp, vertical = 6.dp)
+                        .animateItem()
+                ) {
+                    // Train card
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = paddingInsideBlock),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .background(MaterialTheme.colorScheme.surfaceVariant, CardShape)
                     ) {
-                        Row {
-                            // Icon
-                            Box(
-                                modifier = Modifier
-                                    .size(iconSize)
-                                    .background(
-                                        color = MaterialTheme.colorScheme.secondary,
-                                        shape = Shapes.medium
+                        // Train header
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text(
+                                    text = if (numberText.isNotBlank()) "№ $numberText" else "Поезд",
+                                    style = AppTypography.getType().bodyLarge.copy(
+                                        fontWeight = FontWeight.W600,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontSize = 18.sp
                                     ),
-                                contentAlignment = Alignment.Center
-                            ) {
+                                )
+                                // Meta chips row
+                                Row(
+                                    modifier = Modifier.padding(top = 3.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    if (train.weight != null) {
+                                        MetaChip(text = "Вес: $weightText т")
+                                    }
+                                    if (train.axle != null) {
+                                        MetaChip(text = "Оси: $axleText")
+                                    }
+                                    if (train.conditionalLength != null) {
+                                        MetaChip(text = "У.д.: $lengthText")
+                                    }
+                                }
+                            }
+
+                            IconButton(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .graphicsLayer(
+                                        rotationZ = rotationStationButton.value
+                                    ),
+                                onClick = {
+                                    trainExpandItemState[index] =
+                                        !trainExpandItemState[index]!!
+                                }) {
                                 Icon(
-                                    modifier = Modifier.fillMaxSize(0.7f),
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    painter = painterResource(id = R.drawable.description_24px),
-                                    contentDescription = null
+                                    painter = painterResource(R.drawable.keyboard_arrow_down_24px),
+                                    contentDescription = null,
+                                    tint = MutedGray
                                 )
                             }
-                            Column(modifier = Modifier.padding(start = paddingIcon)) {
-                                Box {
-                                    Text(
-                                        text = numberText,
-                                        style = styleData,
-                                    )
-                                }
-                                Row {
-                                    train.weight?.let {
-                                        Text(
-                                            text = "Вес: ",
-                                            style = styleHint,
-                                        )
-                                        Text(
-                                            text = weightText,
-                                            style = styleHint,
-                                        )
-                                    }
-                                    train.axle?.let {
-                                        Text(
-                                            text = "  Оси: ",
-                                            style = styleHint,
-                                        )
-                                        Text(
-                                            text = axleText,
-                                            style = styleHint,
-                                        )
-                                    }
-                                    train.conditionalLength?.let {
-                                        Text(
-                                            text = "  у.д.: ",
-                                            style = styleHint,
-                                        )
-                                        Text(
-                                            text = lengthText,
-                                            style = styleHint,
-                                        )
-                                    }
-                                }
-                            }
                         }
-                        IconButton(
-                            modifier = Modifier.graphicsLayer(
-                                rotationZ = rotationStationButton.value
-                            ),
-                            onClick = {
-                                trainExpandItemState[index] = !trainExpandItemState[index]!!
-                            }) {
-                            Icon(
-                                painter = painterResource(R.drawable.keyboard_arrow_down_24px),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                    AnimatedVisibility(visible = trainExpandItemState[index]!!) {
-                        Column {
-                            train.stations.forEachIndexed { _, station ->
-                                val stationNameText = station.stationName.ifNullOrBlank { "" }
-                                val timeArrival =
-                                    dateAndTimeConverter?.getTimeFromDateLong(station.timeArrival)
-                                        ?: "загрузка"
-                                val timeDeparture =
-                                    dateAndTimeConverter?.getTimeFromDateLong(station.timeDeparture)
-                                        ?: "загрузка"
-                                // Icon
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(
-                                            top = paddingInsideBlock,
-                                            start = horizontalPaddingSecondItem
-                                        ),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(iconSizeSecond)
-                                            .background(
-                                                color = MaterialTheme.colorScheme.secondary,
-                                                shape = Shapes.medium
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            modifier = Modifier.fillMaxSize(0.7f),
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            painter = painterResource(id = R.drawable.location_on_24px),
-                                            contentDescription = null
-                                        )
-                                    }
-                                    Column(modifier = Modifier.padding(start = paddingIcon)) {
-                                        Text(text = stationNameText, style = styleHint)
 
-                                        Row {
-                                            Text(text = timeArrival, style = styleHint)
-                                            if (timeArrival.isNotBlank() && timeDeparture.isNotBlank()) {
-                                                Text(text = " - ", style = styleHint)
+                        // Stations (expanded)
+                        AnimatedVisibility(visible = trainExpandItemState[index]!!) {
+                            Column {
+                                train.stations.forEach { station ->
+                                    val stationNameText =
+                                        station.stationName.ifNullOrBlank { "" }
+                                    val timeArrival =
+                                        dateAndTimeConverter?.getTimeFromDateLong(station.timeArrival)
+                                            ?: "..."
+                                    val timeDeparture =
+                                        dateAndTimeConverter?.getTimeFromDateLong(station.timeDeparture)
+                                            ?: "..."
+                                    val displayTime = buildString {
+                                        if (station.timeArrival != null) append(timeArrival)
+                                        if (station.timeArrival != null && station.timeDeparture != null) append(" - ")
+                                        if (station.timeDeparture != null) append(timeDeparture)
+                                    }
+
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        // Station dot
+                                        Box(
+                                            modifier = Modifier
+                                                .size(10.dp)
+                                                .background(
+                                                    Color.Transparent,
+                                                    CircleShape
+                                                )
+                                                .then(
+                                                    Modifier.background(
+                                                        Color.Transparent,
+                                                        CircleShape
+                                                    )
+                                                ),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(10.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color.Transparent)
+                                            ) {
+                                                // Border dot
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .background(
+                                                            AccentBlue,
+                                                            CircleShape
+                                                        )
+                                                        .padding(2.dp)
+                                                        .background(
+                                                            MaterialTheme.colorScheme.surfaceVariant,
+                                                            CircleShape
+                                                        )
+                                                )
                                             }
-                                            Text(text = timeDeparture, style = styleHint)
+                                        }
+
+                                        Text(
+                                            text = stationNameText,
+                                            style = AppTypography.getType().bodyMedium.copy(
+                                                fontWeight = FontWeight.W600,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                fontSize = 15.sp
+                                            ),
+                                            modifier = Modifier.weight(1f)
+                                        )
+
+                                        if (displayTime.isNotBlank()) {
+                                            Text(
+                                                text = displayTime,
+                                                style = AppTypography.getType().bodySmall.copy(
+                                                    color = AccentBlue,
+                                                    fontSize = 14.sp
+                                                ),
+                                            )
                                         }
                                     }
                                 }
@@ -1119,166 +1237,246 @@ fun PreviewRoute(
                     }
                 }
             }
+
+            // Passengers section
             if (route.passengers.isNotEmpty()) {
                 item {
-                    Box(
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 20.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+                }
+                item {
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = paddingBetweenBlocks)
-                            .animateItem(),
-                        contentAlignment = Alignment.CenterStart
+                            .padding(horizontal = 20.dp)
+                            .padding(top = 16.dp)
+                            .animateItem()
                     ) {
                         Text(
-                            text = "Пассажир",
+                            text = "ПАССАЖИР",
                             style = styleTitle,
                         )
                     }
                 }
             }
-            items(route.passengers, key = { passenger -> passenger.passengerId }) { passenger ->
+            items(
+                route.passengers,
+                key = { passenger -> passenger.passengerId }
+            ) { passenger ->
                 val numberText = passenger.trainNumber.ifNullOrBlank { "" }
                 val stationDeparture = passenger.stationDeparture.ifNullOrBlank { "" }
                 val stationArrival = passenger.stationArrival.ifNullOrBlank { "" }
                 val timeDeparture =
                     dateAndTimeConverter?.getTimeFromDateLong(passenger.timeDeparture)
-                        ?: "загрузка"
+                        ?: "..."
                 val timeArrival =
                     dateAndTimeConverter?.getTimeFromDateLong(passenger.timeArrival)
-                        ?: "загрузка"
+                        ?: "..."
                 val timeFollowing =
                     ConverterLongToTime.getTimeInStringFormat(passenger.getFollowingTime())
                         .ifNullOrBlank { "" }
                 val notesText = passenger.notes.ifNullOrBlank { "" }
 
-                Column(modifier = Modifier.animateItem()) {
-                    Row(
+                Column(
+                    modifier = Modifier
+                        .padding(horizontal = 20.dp, vertical = 6.dp)
+                        .animateItem()
+                ) {
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = paddingInsideBlock)
+                            .background(MaterialTheme.colorScheme.surfaceVariant, CardShape)
+                            .padding(horizontal = 16.dp, vertical = 14.dp)
                     ) {
-                        // Icon
-                        Box(
-                            modifier = Modifier
-                                .size(iconSize)
-                                .background(
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    shape = Shapes.medium
-                                ),
-                            contentAlignment = Alignment.Center
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
+                            Column {
+                                if (numberText.isNotBlank()) {
+                                    Text(
+                                        text = "№ $numberText",
+                                        style = AppTypography.getType().bodyLarge.copy(
+                                            fontWeight = FontWeight.W600,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            fontSize = 16.sp
+                                        ),
+                                    )
+                                }
+                                if (timeFollowing.isNotBlank()) {
+                                    Text(
+                                        text = timeFollowing,
+                                        style = styleHint,
+                                    )
+                                }
+                            }
                             Icon(
-                                modifier = Modifier.fillMaxSize(0.7f),
-                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp),
+                                tint = MutedGray,
                                 painter = painterResource(id = R.drawable.passenger_24px),
                                 contentDescription = null
                             )
                         }
-                        Column(modifier = Modifier.padding(start = paddingIcon)) {
-                            Text(text = timeFollowing, style = styleData)
-                            if (passenger.timeDeparture != null || passenger.timeArrival != null) {
-                                Row {
-                                    Text(text = "$timeDeparture - ", style = styleHint)
-                                    Text(text = timeArrival, style = styleHint)
-                                }
+
+                        if (passenger.timeDeparture != null || passenger.timeArrival != null) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(text = "$timeDeparture - $timeArrival", style = styleHint)
                             }
                         }
-                    }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(
-                                top = paddingInsideBlock,
-                                start = horizontalPaddingSecondItem
-                            )
-                    ) {
-                        // Icon
-                        Box(
-                            modifier = Modifier
-                                .size(iconSizeSecond)
-                                .background(
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    shape = Shapes.medium
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                modifier = Modifier.fillMaxSize(0.7f),
-                                tint = MaterialTheme.colorScheme.primary,
-                                painter = painterResource(id = R.drawable.number_123_24px),
-                                contentDescription = null
-                            )
-                        }
-                        Column(modifier = Modifier.padding(start = paddingIcon)) {
-                            Text(text = numberText, style = styleData)
-                            if (stationDeparture.isNotBlank() && stationArrival.isNotBlank()) {
-                                Row {
-                                    Text(text = "$stationDeparture - ", style = styleHint)
-                                    Text(text = stationArrival, style = styleHint)
-                                }
+                        if (stationDeparture.isNotBlank() && stationArrival.isNotBlank()) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(
+                                    text = "$stationDeparture - $stationArrival",
+                                    style = styleHint
+                                )
                             }
+                        }
+                        if (notesText.isNotBlank()) {
                             Text(
                                 text = notesText,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                style = styleHint
+                                style = styleHint,
                             )
                         }
                     }
                 }
             }
-            if (!route.basicData.notes.isNullOrBlank() || route.photos.isNotEmpty()) {
+
+            // Notes section
+            if (!route.basicData.notes.isNullOrBlank()) {
                 item {
-                    Box(
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 20.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+                }
+                item {
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = paddingBetweenBlocks)
-                            .animateItem(),
-                        contentAlignment = Alignment.CenterStart
+                            .padding(horizontal = 20.dp)
+                            .padding(top = 16.dp)
+                            .animateItem()
                     ) {
                         Text(
-                            text = "Заметки",
+                            text = "ЗАМЕТКИ",
                             style = styleTitle,
                         )
-                    }
-                }
-            }
-            item {
-                val notesText = route.basicData.notes.ifNullOrBlank { "" }
-                Column(
-                    modifier = Modifier
-                        .padding(top = paddingInsideBlock)
-                        .fillMaxWidth()
-                ) {
-                    route.basicData.notes?.let {
-                        Row {
-                            Box(
+                        Spacer(modifier = Modifier.height(8.dp))
+                        route.basicData.notes?.let { notes ->
+                            Row(
                                 modifier = Modifier
-                                    .size(iconSize)
+                                    .fillMaxWidth()
                                     .background(
-                                        color = MaterialTheme.colorScheme.secondary,
-                                        shape = Shapes.medium
-                                    ),
-                                contentAlignment = Alignment.Center
+                                        MaterialTheme.colorScheme.surfaceVariant,
+                                        SmallCardShape
+                                    )
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.Top,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 Icon(
-                                    modifier = Modifier.fillMaxSize(0.7f),
-                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp),
+                                    tint = MutedGray,
                                     painter = painterResource(id = R.drawable.notes_24px),
                                     contentDescription = null
                                 )
+                                Text(
+                                    text = notes,
+                                    style = styleHint.copy(
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    ),
+                                )
                             }
-                            Text(
-                                text = notesText,
-                                style = styleData,
-                                modifier = Modifier.padding(start = paddingIcon)
-                            )
                         }
                     }
                 }
             }
             item {
-                Spacer(modifier = Modifier.padding(top = 24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
+    }
+}
+
+@Composable
+private fun TimeCard(
+    modifier: Modifier = Modifier,
+    label: String,
+    value: String,
+    subtitle: String,
+    accentColor: Color,
+) {
+    Box(
+        modifier = modifier
+            .background(MaterialTheme.colorScheme.surfaceVariant, CardShape)
+    ) {
+        Column {
+            // Top accent line
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(2.dp)
+                    .background(accentColor, RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
+            )
+            Column(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
+            ) {
+                Text(
+                    text = label,
+                    style = AppTypography.getType().bodySmall.copy(
+                        fontWeight = FontWeight.W600,
+                        letterSpacing = 0.8.sp,
+                        color = accentColor,
+                        fontSize = 10.sp
+                    ),
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = value,
+                    style = AppTypography.getType().headlineSmall.copy(
+                        fontWeight = FontWeight.W600,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 20.sp,
+                        lineHeight = 20.sp
+                    ),
+                )
+                if (subtitle.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text(
+                        text = subtitle,
+                        style = AppTypography.getType().bodySmall.copy(
+                            color = MutedGray,
+                            fontSize = 11.sp
+                        ),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MetaChip(text: String) {
+    Box(
+        modifier = Modifier
+            .background(
+                MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                RoundedCornerShape(5.dp)
+            )
+            .padding(horizontal = 7.dp, vertical = 2.dp)
+    ) {
+        Text(
+            text = text,
+            style = AppTypography.getType().bodySmall.copy(
+                color = MutedGray,
+                fontSize = 11.sp
+            ),
+        )
     }
 }
