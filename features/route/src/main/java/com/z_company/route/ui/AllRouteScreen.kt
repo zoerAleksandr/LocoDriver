@@ -739,5 +739,47 @@ private fun FiltersRow(selected: Set<RouteFilter>, onToggle: (RouteFilter) -> Un
             },
             label = "С перерывами"
         )
+
+        ChipApp(
+            selected = selected.contains(RouteFilter.PUSHER),
+            onClick = { onToggle(RouteFilter.PUSHER) },
+            leading = {
+                Icon(
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                    painter = painterResource(id = R.drawable.ic_pusher_24px),
+                    contentDescription = null
+                )
+            },
+            label = "Толкач"
+        )
+
+        ChipApp(
+            selected = selected.contains(RouteFilter.DOUBLE_TRACTION),
+            onClick = { onToggle(RouteFilter.DOUBLE_TRACTION) },
+            leading = {
+                Icon(
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                    painter = painterResource(id = R.drawable.ic_double_traction_24px),
+                    contentDescription = null
+                )
+            },
+            label = "Двойная тяга"
+        )
+
+        ChipApp(
+            selected = selected.contains(RouteFilter.DOUBLED_TRAIN),
+            onClick = { onToggle(RouteFilter.DOUBLED_TRAIN) },
+            leading = {
+                Icon(
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                    painter = painterResource(id = R.drawable.ic_doubled_train_24px),
+                    contentDescription = null
+                )
+            },
+            label = "Сдвоенный"
+        )
     }
 }

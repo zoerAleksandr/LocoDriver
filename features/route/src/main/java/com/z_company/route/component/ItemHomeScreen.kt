@@ -548,6 +548,78 @@ fun ItemHomeScreen(
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
+                                            Icon(
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(20.dp),
+                                                painter = painterResource(id = R.drawable.ic_pusher_24px),
+                                                contentDescription = null
+                                            )
+                                            Text(
+                                                overflow = TextOverflow.Visible,
+                                                text = " - ",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                            Text(
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                overflow = TextOverflow.Visible,
+                                                text = "Толкач",
+                                            )
+                                        }
+                                    }
+                                    item {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(20.dp),
+                                                painter = painterResource(id = R.drawable.ic_double_traction_24px),
+                                                contentDescription = null
+                                            )
+                                            Text(
+                                                overflow = TextOverflow.Visible,
+                                                text = " - ",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                            Text(
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                overflow = TextOverflow.Visible,
+                                                text = "Двойная тяга",
+                                            )
+                                        }
+                                    }
+                                    item {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(20.dp),
+                                                painter = painterResource(id = R.drawable.ic_doubled_train_24px),
+                                                contentDescription = null
+                                            )
+                                            Text(
+                                                overflow = TextOverflow.Visible,
+                                                text = " - ",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                            Text(
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                overflow = TextOverflow.Visible,
+                                                text = "Сдвоенный поезд",
+                                            )
+                                        }
+                                    }
+                                    item {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
                                             Image(
                                                 modifier = Modifier.size(20.dp),
                                                 painter = painterResource(id = R.drawable.sync_on_icon),
@@ -645,6 +717,30 @@ fun ItemHomeScreen(
                                             contentDescription = null,
                                         )
                                     }
+                                }
+                                if (route.trains.any { it.pusher != null }) {
+                                    Icon(
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp),
+                                        painter = painterResource(id = R.drawable.ic_pusher_24px),
+                                        contentDescription = null
+                                    )
+                                }
+                                if (route.trains.any { it.doubleTraction != null }) {
+                                    Icon(
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp),
+                                        painter = painterResource(id = R.drawable.ic_double_traction_24px),
+                                        contentDescription = null
+                                    )
+                                }
+                                if (route.trains.any { it.doubledTrain != null }) {
+                                    Icon(
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp),
+                                        painter = painterResource(id = R.drawable.ic_doubled_train_24px),
+                                        contentDescription = null
+                                    )
                                 }
                                 if (route.basicData.isFavorite) {
                                     Icon(

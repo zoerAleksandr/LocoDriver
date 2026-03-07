@@ -54,7 +54,10 @@ enum class RouteFilter {
     ONE_PERSON,
     OVER_12_HOURS,
     LONG_TRAINS,
-    HAS_BREAK
+    HAS_BREAK,
+    PUSHER,
+    DOUBLE_TRACTION,
+    DOUBLED_TRAIN
 }
 
 data class RoutesUiState(
@@ -571,6 +574,15 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
             }
             if (filters.contains(RouteFilter.HAS_BREAK)) {
                 ok = ok && (routeState.route.getBreakDuration() > 0L)
+            }
+            if (filters.contains(RouteFilter.PUSHER)) {
+                ok = ok && routeState.route.trains.any { it.pusher != null }
+            }
+            if (filters.contains(RouteFilter.DOUBLE_TRACTION)) {
+                ok = ok && routeState.route.trains.any { it.doubleTraction != null }
+            }
+            if (filters.contains(RouteFilter.DOUBLED_TRAIN)) {
+                ok = ok && routeState.route.trains.any { it.doubledTrain != null }
             }
             ok
         }
