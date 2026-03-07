@@ -775,6 +775,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
     // Для чего: Чтобы пользователь видел реальный прогресс вместо простого delay
     fun startMigration() {
         viewModelScope.launch {
+            try {
             _migrationUiState.update {
                 it.copy(
                     isMigrating = true,
@@ -788,7 +789,8 @@ class ProfileViewModel : ViewModel(), KoinComponent {
             val userId = secureTokenStorage.getUserIdFlow().first()
             // Получаем все локальные маршруты из Room
             routeUseCase.getListRoutesAsStateFlow()
-                .collect { result ->  // Предполагаем, что добавлен метод getAllRoutes(): Flow<ResultState<List<Route>>> в RouteUseCase; если нет, можно собрать по месяцам
+                .first { it !is ResultState.Loading }
+                .let { result ->
                     when (result) {
                         is ResultState.Success -> {
                             val routes = result.data
@@ -942,11 +944,24 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                                     migrationResult = ResultState.Error(result.entity)
                                 )
                             }
+                            completeMigration()
                         }
 
-                        else -> {}  // Loading
+                        else -> {}
                     }
                 }
+            } catch (e: Exception) {
+                Log.e("Migration", "Критическая ошибка миграции", e)
+                _migrationUiState.update {
+                    it.copy(
+                        isMigrating = false,
+                        migrationResult = ResultState.Error(
+                            ErrorEntity(message = "Перенос данных произошел с ошибкой, попробуйте позже.")
+                        )
+                    )
+                }
+                completeMigration()
+            }
         }
     }
 
