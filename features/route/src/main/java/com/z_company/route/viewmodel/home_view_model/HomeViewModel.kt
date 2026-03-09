@@ -1029,19 +1029,20 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
     fun calculationHomeRest(route: Route?) {
         viewModelScope.launch {
-            val result = routeHelper.calculationHomeRest(
+            routeHelper.calculationHomeRest(
                 route = route,
-            ).first { it !is ResultState.Loading }
-            when (result) {
-                is ResultState.Success -> { /* result.data is Long? */
-                    _previewRouteUiState.update {
-                        it.copy(
-                            homeRest = result.data?.second
-                        )
+            ).collect { result ->
+                when (result) {
+                    is ResultState.Success -> {
+                        _previewRouteUiState.update {
+                            it.copy(
+                                homeRest = result.data?.second
+                            )
+                        }
                     }
-                }
 
-                else -> {}
+                    else -> {}
+                }
             }
         }
     }
