@@ -66,16 +66,16 @@ import com.z_company.route.R
 import kotlin.collections.set
 
 // Colors matching the HTML mockup
-private val AccentBlue = Color(0xFF4F8EF7)
-private val AccentGreen = Color(0xFF34C98A)
-private val WarnOrange = Color(0xFFF0A84F)
-private val DangerRed = Color(0xFFE05C5C)
-private val MutedGray = Color(0xFF6B7294)
-
-private val CardShape = RoundedCornerShape(14.dp)
-private val SmallCardShape = RoundedCornerShape(12.dp)
-private val ChipShape = RoundedCornerShape(6.dp)
-private val TagShape = RoundedCornerShape(8.dp)
+//private val AccentBlue = MaterialTheme.colorScheme.tertiary
+//private val AccentGreen = Color(0xFF34C98A)
+//private val WarnOrange = Color(0xFFF0A84F)
+//private val DangerRed = Color(0xFFE05C5C)
+//private val MutedGray = Color(0xFF6B7294)
+//
+//private val CardShape = RoundedCornerShape(14.dp)
+//private val SmallCardShape = RoundedCornerShape(12.dp)
+//private val ChipShape = RoundedCornerShape(6.dp)
+//private val TagShape = RoundedCornerShape(8.dp)
 
 @SuppressLint("ConfigurationScreenWidthHeight")
 @Composable
@@ -91,6 +91,17 @@ fun PreviewRouteDialog(
     makeCopyRoute: (String) -> Unit,
     showDialogConfirmRemove: (Boolean, Route) -> Unit,
 ) {
+    val AccentBlue = MaterialTheme.colorScheme.tertiary
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val AccentGreen = Color(0xFF34C98A)
+    val WarnOrange = Color(0xFFF0A84F)
+    val DangerRed = MaterialTheme.colorScheme.error
+
+    val CardShape = Shapes.large
+    val SmallCardShape = RoundedCornerShape(12.dp)
+    val ChipShape = RoundedCornerShape(6.dp)
+    val TagShape = RoundedCornerShape(8.dp)
+
     val heightScreen = LocalConfiguration.current.screenHeightDp
 
     LazyColumn(
@@ -118,9 +129,21 @@ fun PreviewRouteDialog(
                     .padding(start = 12.dp, end = 12.dp, top = 30.dp, bottom = 12.dp)
                     .background(
                         color = MaterialTheme.colorScheme.surface,
-                        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 16.dp, bottomEnd = 16.dp)
+                        shape = RoundedCornerShape(
+                            topStart = 24.dp,
+                            topEnd = 24.dp,
+                            bottomStart = 16.dp,
+                            bottomEnd = 16.dp
+                        )
                     )
-                    .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 16.dp, bottomEnd = 16.dp))
+                    .clip(
+                        RoundedCornerShape(
+                            topStart = 24.dp,
+                            topEnd = 24.dp,
+                            bottomStart = 16.dp,
+                            bottomEnd = 16.dp
+                        )
+                    )
                     .clickable {}
             ) {
                 PreviewRoute(
@@ -276,14 +299,14 @@ fun PreviewRouteDialog(
                             Icon(
                                 painter = painterResource(id = R.drawable.outline_content_copy_24),
                                 contentDescription = null,
-                                tint = MutedGray,
+                                tint = primaryColor,
                                 modifier = Modifier.size(18.dp)
                             )
                             Text(
                                 text = "Дублировать",
                                 style = AppTypography.getType().bodySmall.copy(
                                     fontSize = 12.sp,
-                                    color = MutedGray
+                                    color = primaryColor
                                 )
                             )
                         }
@@ -294,7 +317,7 @@ fun PreviewRouteDialog(
                         modifier = Modifier
                             .weight(1f)
                             .background(
-                                DangerRed.copy(alpha = 0.1f),
+                                DangerRed.copy(alpha = 0.3f),
                                 CardShape
                             )
                             .clickable {
@@ -338,11 +361,23 @@ fun PreviewRoute(
     homeRest: Long?,
     dateAndTimeConverter: DateAndTimeConverter?
 ) {
+    val AccentBlue = MaterialTheme.colorScheme.tertiary
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val hintColor = primaryColor.copy(alpha = 0.6f)
+    val AccentGreen = Color(0xFF34C98A)
+    val WarnOrange = Color(0xFFF0A84F)
+    val DangerRed = MaterialTheme.colorScheme.error
+
+    val CardShape = Shapes.large
+    val SmallCardShape = RoundedCornerShape(12.dp)
+    val ChipShape = RoundedCornerShape(6.dp)
+    val TagShape = RoundedCornerShape(8.dp)
+
     val styleTitle = AppTypography.getType().titleSmall.copy(
         fontWeight = FontWeight.W700,
         fontSize = 10.sp,
         letterSpacing = 1.2.sp,
-        color = MutedGray
+        color = primaryColor
     )
     val styleData = AppTypography.getType().bodyMedium.copy(
         fontWeight = FontWeight.W600,
@@ -350,7 +385,8 @@ fun PreviewRoute(
     )
     val styleHint = AppTypography.getType().bodySmall.copy(
         fontWeight = FontWeight.W400,
-        color = MutedGray
+        fontSize = 11.sp,
+        color = primaryColor
     )
 
     val locomotiveExpandItemState = remember {
@@ -475,21 +511,19 @@ fun PreviewRoute(
                                     label = "НАЧАЛО",
                                     value = dateAndTimeConverter?.getTimeFromDateLong(startWork)
                                         ?: "...",
-                                    subtitle = "явка",
+                                    subtitle = dateAndTimeConverter?.getDate(startWork) ?: "",
                                     accentColor = AccentGreen
                                 )
                             }
 
                             // End time card
                             route.basicData.timeEndWork?.let { endWork ->
-                                val workTimeText =
-                                    ConverterLongToTime.getTimeInStringFormat(route.getWorkTime())
                                 TimeCard(
                                     modifier = Modifier.weight(1f),
-                                    label = "КОНЕЦ",
+                                    label = "ОКОНЧАНИЕ",
                                     value = dateAndTimeConverter?.getTimeFromDateLong(endWork)
                                         ?: "...",
-                                    subtitle = workTimeText ?: "",
+                                    subtitle = dateAndTimeConverter?.getDate(endWork) ?: "",
                                     accentColor = AccentBlue
                                 )
                             }
@@ -526,7 +560,7 @@ fun PreviewRoute(
                             modifier = Modifier
                                 .size(32.dp)
                                 .background(
-                                    MutedGray.copy(alpha = 0.12f),
+                                    primaryColor.copy(alpha = 0.12f),
                                     RoundedCornerShape(8.dp)
                                 ),
                             contentAlignment = Alignment.Center
@@ -542,15 +576,16 @@ fun PreviewRoute(
                             )
                         }
 
-                        Column(modifier = Modifier.weight(1f)) {
+//                        Column(modifier = Modifier.weight(1f)) {
+//                            Text(
+//                                text = "Отдых",
+//                                style = AppTypography.getType().bodySmall.copy(
+//                                    color = hintColor,
+//                                    fontSize = 13.sp
+//                                ),
+//                            )
                             Text(
-                                text = "Отдых",
-                                style = AppTypography.getType().bodySmall.copy(
-                                    color = MutedGray,
-                                    fontSize = 13.sp
-                                ),
-                            )
-                            Text(
+                                modifier = Modifier.weight(1f),
                                 text = restText,
                                 style = AppTypography.getType().bodyMedium.copy(
                                     fontWeight = FontWeight.W600,
@@ -558,7 +593,7 @@ fun PreviewRoute(
                                     fontSize = 14.sp
                                 ),
                             )
-                        }
+//                        }
 
                         // Rest time
                         if (route.basicData.restPointOfTurnover) {
@@ -573,7 +608,7 @@ fun PreviewRoute(
                                 Text(
                                     text = "$shortRestText\n$fullRestText",
                                     style = AppTypography.getType().bodySmall.copy(
-                                        color = MutedGray,
+                                        color = primaryColor,
                                         fontSize = 12.sp
                                     ),
                                 )
@@ -585,7 +620,7 @@ fun PreviewRoute(
                                 Text(
                                     text = "до $homeRestText",
                                     style = AppTypography.getType().bodySmall.copy(
-                                        color = MutedGray,
+                                        color = primaryColor,
                                         fontSize = 12.sp
                                     ),
                                 )
@@ -693,34 +728,34 @@ fun PreviewRoute(
                                         fontSize = 18.sp
                                     ),
                                 )
-                                Text(
-                                    text = typeLocoText,
-                                    style = AppTypography.getType().bodySmall.copy(
-                                        color = MutedGray,
-                                        fontSize = 12.sp
-                                    ),
-                                )
+//                                Text(
+//                                    text = typeLocoText,
+//                                    style = AppTypography.getType().bodySmall.copy(
+//                                        color = hintColor,
+//                                        fontSize = 12.sp
+//                                    ),
+//                                )
                             }
 
                             // Tag
-                            if (locomotive.series != null) {
-                                Box(
-                                    modifier = Modifier
-                                        .background(
-                                            AccentBlue.copy(alpha = 0.12f),
-                                            ChipShape
-                                        )
-                                        .padding(horizontal = 8.dp, vertical = 3.dp)
-                                ) {
-                                    Text(
-                                        text = seriesText,
-                                        style = AppTypography.getType().bodySmall.copy(
-                                            color = AccentBlue,
-                                            fontSize = 11.sp
-                                        ),
-                                    )
-                                }
-                            }
+//                            if (locomotive.series != null) {
+//                                Box(
+//                                    modifier = Modifier
+//                                        .background(
+//                                            AccentBlue.copy(alpha = 0.12f),
+//                                            ChipShape
+//                                        )
+//                                        .padding(horizontal = 8.dp, vertical = 3.dp)
+//                                ) {
+//                                    Text(
+//                                        text = seriesText,
+//                                        style = AppTypography.getType().bodySmall.copy(
+//                                            color = AccentBlue,
+//                                            fontSize = 11.sp
+//                                        ),
+//                                    )
+//                                }
+//                            }
 
                             // Expand button
                             IconButton(
@@ -736,7 +771,7 @@ fun PreviewRoute(
                                 Icon(
                                     painter = painterResource(R.drawable.keyboard_arrow_down_24px),
                                     contentDescription = null,
-                                    tint = MutedGray
+                                    tint = hintColor
                                 )
                             }
                         }
@@ -802,7 +837,11 @@ fun PreviewRoute(
                                                     delivery = sectionElectric.deliveryRecovery
                                                 )?.str() ?: ""
 
-                                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                                            HorizontalDivider(
+                                                color = MaterialTheme.colorScheme.outline.copy(
+                                                    alpha = 0.3f
+                                                )
+                                            )
                                             Row(
                                                 modifier = Modifier.padding(
                                                     horizontal = 16.dp,
@@ -826,7 +865,7 @@ fun PreviewRoute(
                                                     Text(
                                                         text = "${sIndex + 1}",
                                                         style = AppTypography.getType().bodySmall.copy(
-                                                            color = MutedGray,
+                                                            color = hintColor,
                                                             fontSize = 11.sp
                                                         ),
                                                     )
@@ -848,7 +887,7 @@ fun PreviewRoute(
                                                             ) {
                                                                 Icon(
                                                                     modifier = Modifier.size(14.dp),
-                                                                    tint = MutedGray,
+                                                                    tint = hintColor,
                                                                     painter = painterResource(id = R.drawable.electric_bolt_24px),
                                                                     contentDescription = null
                                                                 )
@@ -869,7 +908,7 @@ fun PreviewRoute(
                                                             ) {
                                                                 Icon(
                                                                     modifier = Modifier.size(14.dp),
-                                                                    tint = MutedGray,
+                                                                    tint = hintColor,
                                                                     painter = painterResource(id = R.drawable.cycle_24px),
                                                                     contentDescription = null
                                                                 )
@@ -951,7 +990,11 @@ fun PreviewRoute(
                                             val consumptionInKiloText =
                                                 consumptionInKilo.str()
 
-                                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                                            HorizontalDivider(
+                                                color = MaterialTheme.colorScheme.outline.copy(
+                                                    alpha = 0.3f
+                                                )
+                                            )
                                             Row(
                                                 modifier = Modifier.padding(
                                                     horizontal = 16.dp,
@@ -975,7 +1018,7 @@ fun PreviewRoute(
                                                     Text(
                                                         text = "${sIndex + 1}",
                                                         style = AppTypography.getType().bodySmall.copy(
-                                                            color = MutedGray,
+                                                            color = primaryColor,
                                                             fontSize = 11.sp
                                                         ),
                                                     )
@@ -1142,7 +1185,7 @@ fun PreviewRoute(
                                 Icon(
                                     painter = painterResource(R.drawable.keyboard_arrow_down_24px),
                                     contentDescription = null,
-                                    tint = MutedGray
+                                    tint = hintColor
                                 )
                             }
                         }
@@ -1161,7 +1204,9 @@ fun PreviewRoute(
                                             ?: "..."
                                     val displayTime = buildString {
                                         if (station.timeArrival != null) append(timeArrival)
-                                        if (station.timeArrival != null && station.timeDeparture != null) append(" - ")
+                                        if (station.timeArrival != null && station.timeDeparture != null) append(
+                                            " - "
+                                        )
                                         if (station.timeDeparture != null) append(timeDeparture)
                                     }
 
@@ -1315,7 +1360,7 @@ fun PreviewRoute(
                             }
                             Icon(
                                 modifier = Modifier.size(24.dp),
-                                tint = MutedGray,
+                                tint = hintColor,
                                 painter = painterResource(id = R.drawable.passenger_24px),
                                 contentDescription = null
                             )
@@ -1382,7 +1427,7 @@ fun PreviewRoute(
                             ) {
                                 Icon(
                                     modifier = Modifier.size(20.dp),
-                                    tint = MutedGray,
+                                    tint = hintColor,
                                     painter = painterResource(id = R.drawable.notes_24px),
                                     contentDescription = null
                                 )
@@ -1412,50 +1457,51 @@ private fun TimeCard(
     subtitle: String,
     accentColor: Color,
 ) {
+    val AccentBlue = MaterialTheme.colorScheme.tertiary
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val hintColor = primaryColor.copy(alpha = 0.6f)
+    val AccentGreen = Color(0xFF34C98A)
+    val WarnOrange = Color(0xFFF0A84F)
+    val DangerRed = MaterialTheme.colorScheme.error
+
+    val CardShape = Shapes.large
+
     Box(
         modifier = modifier
             .background(MaterialTheme.colorScheme.surfaceVariant, CardShape)
     ) {
-        Column {
-            // Top accent line
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(2.dp)
-                    .background(accentColor, RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
+        )
+        {
+            Text(
+                text = label,
+                style = AppTypography.getType().bodySmall.copy(
+                    fontWeight = FontWeight.W600,
+                    letterSpacing = 0.8.sp,
+                    color = accentColor,
+                    fontSize = 10.sp
+                ),
             )
-            Column(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
-            ) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = value,
+                style = AppTypography.getType().headlineSmall.copy(
+                    fontWeight = FontWeight.W600,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 20.sp,
+                    lineHeight = 20.sp
+                ),
+            )
+            if (subtitle.isNotBlank()) {
+                Spacer(modifier = Modifier.height(3.dp))
                 Text(
-                    text = label,
+                    text = subtitle,
                     style = AppTypography.getType().bodySmall.copy(
-                        fontWeight = FontWeight.W600,
-                        letterSpacing = 0.8.sp,
-                        color = accentColor,
-                        fontSize = 10.sp
+                        color = hintColor,
+                        fontSize = 11.sp
                     ),
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = value,
-                    style = AppTypography.getType().headlineSmall.copy(
-                        fontWeight = FontWeight.W600,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 20.sp,
-                        lineHeight = 20.sp
-                    ),
-                )
-                if (subtitle.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(3.dp))
-                    Text(
-                        text = subtitle,
-                        style = AppTypography.getType().bodySmall.copy(
-                            color = MutedGray,
-                            fontSize = 11.sp
-                        ),
-                    )
-                }
             }
         }
     }
@@ -1463,6 +1509,9 @@ private fun TimeCard(
 
 @Composable
 private fun MetaChip(text: String) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val hintColor = primaryColor.copy(alpha = 0.6f)
+
     Box(
         modifier = Modifier
             .background(
@@ -1474,7 +1523,7 @@ private fun MetaChip(text: String) {
         Text(
             text = text,
             style = AppTypography.getType().bodySmall.copy(
-                color = MutedGray,
+                color = hintColor,
                 fontSize = 11.sp
             ),
         )
