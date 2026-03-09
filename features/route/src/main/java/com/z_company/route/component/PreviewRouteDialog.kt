@@ -11,10 +11,9 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -41,11 +40,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -69,6 +66,18 @@ import com.z_company.domain.util.times
 import com.z_company.route.R
 import kotlin.collections.set
 
+// Colors matching the HTML mockup
+//private val AccentBlue = MaterialTheme.colorScheme.tertiary
+//private val AccentGreen = Color(0xFF34C98A)
+//private val WarnOrange = Color(0xFFF0A84F)
+//private val DangerRed = Color(0xFFE05C5C)
+//private val MutedGray = Color(0xFF6B7294)
+//
+//private val CardShape = RoundedCornerShape(14.dp)
+//private val SmallCardShape = RoundedCornerShape(12.dp)
+//private val ChipShape = RoundedCornerShape(6.dp)
+//private val TagShape = RoundedCornerShape(8.dp)
+
 @SuppressLint("ConfigurationScreenWidthHeight")
 @Composable
 fun PreviewRouteDialog(
@@ -83,12 +92,16 @@ fun PreviewRouteDialog(
     makeCopyRoute: (String) -> Unit,
     showDialogConfirmRemove: (Boolean, Route) -> Unit,
 ) {
-    val accentBlue = MaterialTheme.colorScheme.tertiary
+    val AccentBlue = MaterialTheme.colorScheme.tertiary
     val primaryColor = MaterialTheme.colorScheme.primary
-    val dangerRed = MaterialTheme.colorScheme.error
-    val largeShape = Shapes.large
+    val AccentGreen = Color(0xFF34C98A)
+    val WarnOrange = Color(0xFFF0A84F)
+    val DangerRed = MaterialTheme.colorScheme.error
 
-    val heightScreen = LocalConfiguration.current.screenHeightDp
+    val CardShape = Shapes.large
+    val SmallCardShape = RoundedCornerShape(12.dp)
+    val ChipShape = RoundedCornerShape(6.dp)
+    val TagShape = RoundedCornerShape(8.dp)
 
     Column(
         modifier = Modifier
@@ -145,7 +158,7 @@ fun PreviewRouteDialog(
                 .width(IntrinsicSize.Max)
                 .background(
                     color = MaterialTheme.colorScheme.surfaceVariant,
-                    shape = largeShape
+                    shape = CardShape
                 )
         ) {
             // Просмотр
@@ -171,8 +184,6 @@ fun PreviewRouteDialog(
                     style = AppTypography.getType().bodyMedium.copy(
                         color = MaterialTheme.colorScheme.onSurface
                     ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
                 )
             }
 
@@ -200,8 +211,6 @@ fun PreviewRouteDialog(
                     style = AppTypography.getType().bodyMedium.copy(
                         color = MaterialTheme.colorScheme.onSurface
                     ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
                 )
             }
 
@@ -231,8 +240,6 @@ fun PreviewRouteDialog(
                     style = AppTypography.getType().bodyMedium.copy(
                         color = MaterialTheme.colorScheme.onSurface
                     ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
                 )
             }
 
@@ -261,8 +268,6 @@ fun PreviewRouteDialog(
                     style = AppTypography.getType().bodyMedium.copy(
                         color = MaterialTheme.colorScheme.onSurface
                     ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
                 )
             }
 
@@ -282,17 +287,15 @@ fun PreviewRouteDialog(
                 Icon(
                     painter = painterResource(id = R.drawable.delete_24px),
                     contentDescription = null,
-                    tint = dangerRed,
+                    tint = DangerRed,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Удалить",
                     style = AppTypography.getType().bodyMedium.copy(
-                        color = dangerRed
+                        color = DangerRed
                     ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
@@ -308,21 +311,27 @@ fun PreviewRoute(
     homeRest: Long?,
     dateAndTimeConverter: DateAndTimeConverter?
 ) {
-    val accentBlue = MaterialTheme.colorScheme.tertiary
+    val AccentBlue = MaterialTheme.colorScheme.tertiary
     val primaryColor = MaterialTheme.colorScheme.primary
     val hintColor = primaryColor.copy(alpha = 0.6f)
-    val accentGreen = Color(0xFF34C98A)
-    val warnOrange = Color(0xFFF0A84F)
+    val AccentGreen = Color(0xFF34C98A)
+    val WarnOrange = Color(0xFFF0A84F)
+    val DangerRed = MaterialTheme.colorScheme.error
 
-    val cardShape = Shapes.large
-    val smallCardShape = RoundedCornerShape(12.dp)
-    val chipShape = RoundedCornerShape(6.dp)
+    val CardShape = Shapes.large
+    val SmallCardShape = RoundedCornerShape(12.dp)
+    val ChipShape = RoundedCornerShape(6.dp)
+    val TagShape = RoundedCornerShape(8.dp)
 
     val styleTitle = AppTypography.getType().titleSmall.copy(
         fontWeight = FontWeight.W700,
         fontSize = 10.sp,
         letterSpacing = 1.2.sp,
         color = primaryColor
+    )
+    val styleData = AppTypography.getType().bodyMedium.copy(
+        fontWeight = FontWeight.W600,
+        color = MaterialTheme.colorScheme.onSurface
     )
     val styleHint = AppTypography.getType().bodySmall.copy(
         fontWeight = FontWeight.W400,
@@ -375,7 +384,7 @@ fun PreviewRoute(
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.Top
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
@@ -396,8 +405,8 @@ fun PreviewRoute(
                                 Box(
                                     modifier = Modifier
                                         .background(
-                                            accentBlue.copy(alpha = 0.12f),
-                                            chipShape
+                                            AccentBlue.copy(alpha = 0.12f),
+                                            ChipShape
                                         )
                                         .padding(horizontal = 10.dp, vertical = 3.dp)
                                 ) {
@@ -406,24 +415,13 @@ fun PreviewRoute(
                                             ?: "...",
                                         style = AppTypography.getType().bodySmall.copy(
                                             fontWeight = FontWeight.W500,
-                                            color = accentBlue,
+                                            color = AccentBlue,
                                             fontSize = 12.sp
                                         )
                                     )
                                 }
                             }
                         }
-                        val workTime = ConverterLongToTime.getTimeInStringFormat(route.getWorkTime())
-                        Text(
-                            modifier = Modifier.weight(1f),
-                            text = workTime,
-                            textAlign = TextAlign.End,
-                            style = AppTypography.getType().headlineSmall.copy(
-                                fontWeight = FontWeight.W800,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                lineHeight = 26.sp
-                            ),
-                        )
                     }
                 }
             }
@@ -464,7 +462,7 @@ fun PreviewRoute(
                                     value = dateAndTimeConverter?.getTimeFromDateLong(startWork)
                                         ?: "...",
                                     subtitle = dateAndTimeConverter?.getDate(startWork) ?: "",
-                                    accentColor = accentGreen
+                                    accentColor = AccentGreen
                                 )
                             }
 
@@ -476,7 +474,7 @@ fun PreviewRoute(
                                     value = dateAndTimeConverter?.getTimeFromDateLong(endWork)
                                         ?: "...",
                                     subtitle = dateAndTimeConverter?.getDate(endWork) ?: "",
-                                    accentColor = accentBlue
+                                    accentColor = AccentBlue
                                 )
                             }
                         }
@@ -505,7 +503,7 @@ fun PreviewRoute(
                                 .padding(bottom = 8.dp)
                                 .background(
                                     MaterialTheme.colorScheme.surfaceVariant,
-                                    smallCardShape
+                                    SmallCardShape
                                 )
                                 .padding(horizontal = 14.dp, vertical = 10.dp)
                                 .animateItem(),
@@ -516,14 +514,14 @@ fun PreviewRoute(
                                 modifier = Modifier
                                     .size(32.dp)
                                     .background(
-                                        warnOrange.copy(alpha = 0.12f),
+                                        WarnOrange.copy(alpha = 0.12f),
                                         RoundedCornerShape(8.dp)
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     modifier = Modifier.size(20.dp),
-                                    tint = warnOrange,
+                                    tint = WarnOrange,
                                     painter = painterResource(id = R.drawable.pause_24px),
                                     contentDescription = null
                                 )
@@ -537,8 +535,6 @@ fun PreviewRoute(
                                     color = MaterialTheme.colorScheme.onSurface,
                                     fontSize = 14.sp
                                 ),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
                             )
 
                             Text(
@@ -569,7 +565,7 @@ fun PreviewRoute(
                             .padding(bottom = 16.dp)
                             .background(
                                 MaterialTheme.colorScheme.surfaceVariant,
-                                smallCardShape
+                                SmallCardShape
                             )
                             .padding(horizontal = 14.dp, vertical = 10.dp)
                             .animateItem(),
@@ -613,8 +609,6 @@ fun PreviewRoute(
                                     color = MaterialTheme.colorScheme.onSurface,
                                     fontSize = 14.sp
                                 ),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
                             )
 //                        }
 
@@ -706,7 +700,7 @@ fun PreviewRoute(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surfaceVariant, cardShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant, CardShape)
                     ) {
                         // Loco card header
                         Row(
@@ -721,14 +715,14 @@ fun PreviewRoute(
                                 modifier = Modifier
                                     .size(40.dp)
                                     .background(
-                                        accentBlue.copy(alpha = 0.12f),
+                                        AccentBlue.copy(alpha = 0.12f),
                                         RoundedCornerShape(10.dp)
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     modifier = Modifier.size(24.dp),
-                                    tint = accentBlue,
+                                    tint = AccentBlue,
                                     painter = when (locomotive.type) {
                                         LocoType.ELECTRIC -> painterResource(id = R.drawable.electric_loco)
                                         LocoType.DIESEL -> painterResource(id = R.drawable.diesel_loco)
@@ -875,7 +869,7 @@ fun PreviewRoute(
                                         }
                                         totalRecovery?.let {
                                             Text(
-                                                text = "рекуп. ${rounding(it, 2).str()}",
+                                                text = "рекуперация ${rounding(it, 2).str()}",
                                                 style = styleHint,
                                             )
                                         }
@@ -1057,7 +1051,7 @@ fun PreviewRoute(
                                                                 sectionElectric.deliveryRecovery != null
                                                             ) {
                                                                 Text(
-                                                                    text = "Рекуп.: $consumptionRecovery",
+                                                                    text = "Рекуперация: $consumptionRecovery",
                                                                     style = styleHint,
                                                                 )
                                                             }
@@ -1186,7 +1180,7 @@ fun PreviewRoute(
                                                             )
                                                             sectionDiesel.fuelSupply?.let {
                                                                 Text(
-                                                                    text = "Снабж.: $fuelSupplyText л.",
+                                                                    text = "Снабжение: $fuelSupplyText л.",
                                                                     style = styleHint
                                                                 )
                                                             }
@@ -1258,7 +1252,7 @@ fun PreviewRoute(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surfaceVariant, cardShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant, CardShape)
                     ) {
                         // Train header
                         Row(
@@ -1278,7 +1272,7 @@ fun PreviewRoute(
                                     ),
                                 )
                                 // Meta chips row
-                                FlowRow(
+                                Row(
                                     modifier = Modifier.padding(top = 3.dp),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
@@ -1366,7 +1360,7 @@ fun PreviewRoute(
                                                     modifier = Modifier
                                                         .fillMaxSize()
                                                         .background(
-                                                            accentBlue,
+                                                            AccentBlue,
                                                             CircleShape
                                                         )
                                                         .padding(2.dp)
@@ -1385,16 +1379,14 @@ fun PreviewRoute(
                                                 color = MaterialTheme.colorScheme.onSurface,
                                                 fontSize = 15.sp
                                             ),
-                                            modifier = Modifier.weight(1f),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
+                                            modifier = Modifier.weight(1f)
                                         )
 
                                         if (displayTime.isNotBlank()) {
                                             Text(
                                                 text = displayTime,
                                                 style = AppTypography.getType().bodySmall.copy(
-                                                    color = accentBlue,
+                                                    color = AccentBlue,
                                                     fontSize = 14.sp
                                                 ),
                                             )
@@ -1409,7 +1401,7 @@ fun PreviewRoute(
                                         iconRes = R.drawable.ic_pusher_24px,
                                         assist = assist,
                                         styleHint = styleHint,
-                                        accentColor = accentBlue
+                                        accentColor = AccentBlue
                                     )
                                 }
                                 train.doubleTraction?.let { assist ->
@@ -1418,7 +1410,7 @@ fun PreviewRoute(
                                         iconRes = R.drawable.ic_double_traction_24px,
                                         assist = assist,
                                         styleHint = styleHint,
-                                        accentColor = accentBlue
+                                        accentColor = AccentBlue
                                     )
                                 }
                                 train.doubledTrain?.let { assist ->
@@ -1427,7 +1419,7 @@ fun PreviewRoute(
                                         iconRes = R.drawable.ic_doubled_train_24px,
                                         assist = assist,
                                         styleHint = styleHint,
-                                        accentColor = accentBlue
+                                        accentColor = AccentBlue
                                     )
                                 }
                             }
@@ -1485,7 +1477,7 @@ fun PreviewRoute(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surfaceVariant, cardShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant, CardShape)
                             .padding(horizontal = 16.dp, vertical = 14.dp)
                     ) {
                         Row(
@@ -1572,7 +1564,7 @@ fun PreviewRoute(
                                     .fillMaxWidth()
                                     .background(
                                         MaterialTheme.colorScheme.surfaceVariant,
-                                        smallCardShape
+                                        SmallCardShape
                                     )
                                     .padding(horizontal = 14.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.Top,
@@ -1610,14 +1602,18 @@ private fun TimeCard(
     subtitle: String,
     accentColor: Color,
 ) {
+    val AccentBlue = MaterialTheme.colorScheme.tertiary
     val primaryColor = MaterialTheme.colorScheme.primary
     val hintColor = primaryColor.copy(alpha = 0.6f)
+    val AccentGreen = Color(0xFF34C98A)
+    val WarnOrange = Color(0xFFF0A84F)
+    val DangerRed = MaterialTheme.colorScheme.error
 
-    val cardShape = Shapes.large
+    val CardShape = Shapes.large
 
     Box(
         modifier = modifier
-            .background(MaterialTheme.colorScheme.surfaceVariant, cardShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant, CardShape)
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
@@ -1631,8 +1627,6 @@ private fun TimeCard(
                     color = accentColor,
                     fontSize = 10.sp
                 ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
@@ -1643,8 +1637,6 @@ private fun TimeCard(
                     fontSize = 20.sp,
                     lineHeight = 20.sp
                 ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
             )
             if (subtitle.isNotBlank()) {
                 Spacer(modifier = Modifier.height(3.dp))
@@ -1654,8 +1646,6 @@ private fun TimeCard(
                         color = hintColor,
                         fontSize = 11.sp
                     ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
                 )
             }
         }

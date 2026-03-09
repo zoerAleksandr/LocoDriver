@@ -37,6 +37,8 @@ data class SalaryCalculationUIState(
     val surchargeLongDistanceTrainsHours: Long? = null,
     val surchargeLongDistanceTrainsPercent: Double? = null,
     val surchargeLongDistanceTrainsMoney: Double? = null,
+    val surchargeDoubledTrainHours: Long? = null,
+    val surchargeDoubledTrainMoney: Double? = null,
     val paymentAtTimeOfWorkLong: Long? = null,
     val paymentAtTimeOfWorkMoney: Double? = null,
     val paymentNightTimeHours: Long? = null,

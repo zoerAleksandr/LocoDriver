@@ -524,6 +524,13 @@ class TrainFormViewModel(
         changesHave()
     }
 
+    fun setDoubledTrainIsFirst(isFirst: Boolean) {
+        currentTrain = currentTrain?.copy(
+            doubledTrain = (currentTrain?.doubledTrain ?: TrainAssist()).copy(isFirst = isFirst)
+        )
+        changesHave()
+    }
+
     // --- Series dropdown ---
     fun changeSeriesMenuExpanded(sectionId: String, expanded: Boolean) {
         _uiState.update {

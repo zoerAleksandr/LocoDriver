@@ -403,20 +403,19 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
 
     fun calculationHomeRest(route: Route?) {
         viewModelScope.launch {
-            routeHelper.calculationHomeRest(
+            val result = routeHelper.calculationHomeRest(
                 route = route,
-            ).collect { result ->
-                when (result) {
-                    is ResultState.Success -> {
-                        _previewRouteUiState.update {
-                            it.copy(
-                                homeRest = result.data?.second
-                            )
-                        }
+            ).first()
+            when (result) {
+                is ResultState.Success -> {
+                    _previewRouteUiState.update {
+                        it.copy(
+                            homeRest = result.data?.second
+                        )
                     }
-
-                    else -> {}
                 }
+
+                else -> {}
             }
         }
     }
