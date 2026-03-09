@@ -44,6 +44,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -67,18 +68,6 @@ import com.z_company.domain.util.times
 import com.z_company.route.R
 import kotlin.collections.set
 
-// Colors matching the HTML mockup
-//private val AccentBlue = MaterialTheme.colorScheme.tertiary
-//private val AccentGreen = Color(0xFF34C98A)
-//private val WarnOrange = Color(0xFFF0A84F)
-//private val DangerRed = Color(0xFFE05C5C)
-//private val MutedGray = Color(0xFF6B7294)
-//
-//private val CardShape = RoundedCornerShape(14.dp)
-//private val SmallCardShape = RoundedCornerShape(12.dp)
-//private val ChipShape = RoundedCornerShape(6.dp)
-//private val TagShape = RoundedCornerShape(8.dp)
-
 @SuppressLint("ConfigurationScreenWidthHeight")
 @Composable
 fun PreviewRouteDialog(
@@ -93,16 +82,10 @@ fun PreviewRouteDialog(
     makeCopyRoute: (String) -> Unit,
     showDialogConfirmRemove: (Boolean, Route) -> Unit,
 ) {
-    val AccentBlue = MaterialTheme.colorScheme.tertiary
+    val accentBlue = MaterialTheme.colorScheme.tertiary
     val primaryColor = MaterialTheme.colorScheme.primary
-    val AccentGreen = Color(0xFF34C98A)
-    val WarnOrange = Color(0xFFF0A84F)
-    val DangerRed = MaterialTheme.colorScheme.error
-
-    val CardShape = Shapes.large
-    val SmallCardShape = RoundedCornerShape(12.dp)
-    val ChipShape = RoundedCornerShape(6.dp)
-    val TagShape = RoundedCornerShape(8.dp)
+    val dangerRed = MaterialTheme.colorScheme.error
+    val largeShape = Shapes.large
 
     val heightScreen = LocalConfiguration.current.screenHeightDp
 
@@ -173,7 +156,7 @@ fun PreviewRouteDialog(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .background(AccentBlue, CardShape)
+                            .background(accentBlue, largeShape)
                             .clickable {
                                 showContextDialog(false)
                                 onRouteClick(routeForPreview.basicData.id)
@@ -213,7 +196,7 @@ fun PreviewRouteDialog(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .background(MaterialTheme.colorScheme.surfaceVariant, CardShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant, largeShape)
                             .clickable {
                                 showContextDialog(false)
                                 syncRoute(routeForPreview)
@@ -231,7 +214,7 @@ fun PreviewRouteDialog(
                                 contentDescription = null,
                             )
                             Text(
-                                text = "Сохранить",
+                                text = "Синхронизировать",
                                 style = AppTypography.getType().bodyMedium.copy(
                                     fontWeight = FontWeight.W600,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -245,7 +228,7 @@ fun PreviewRouteDialog(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .background(MaterialTheme.colorScheme.surfaceVariant, CardShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant, largeShape)
                             .clickable {
                                 showContextDialog(false)
                                 setFavoriteState(routeForPreview)
@@ -286,7 +269,7 @@ fun PreviewRouteDialog(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .background(MaterialTheme.colorScheme.surfaceVariant, CardShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant, largeShape)
                             .clickable {
                                 showContextDialog(false)
                                 makeCopyRoute(routeForPreview.basicData.id)
@@ -319,8 +302,8 @@ fun PreviewRouteDialog(
                         modifier = Modifier
                             .weight(1f)
                             .background(
-                                DangerRed.copy(alpha = 0.3f),
-                                CardShape
+                                dangerRed.copy(alpha = 0.3f),
+                                largeShape
                             )
                             .clickable {
                                 showContextDialog(false)
@@ -336,14 +319,14 @@ fun PreviewRouteDialog(
                             Icon(
                                 painter = painterResource(id = R.drawable.delete_24px),
                                 contentDescription = null,
-                                tint = DangerRed,
+                                tint = dangerRed,
                                 modifier = Modifier.size(18.dp)
                             )
                             Text(
                                 text = "Удалить",
                                 style = AppTypography.getType().bodySmall.copy(
                                     fontSize = 12.sp,
-                                    color = DangerRed
+                                    color = dangerRed
                                 )
                             )
                         }
@@ -368,22 +351,16 @@ fun PreviewRoute(
     val hintColor = primaryColor.copy(alpha = 0.6f)
     val AccentGreen = Color(0xFF34C98A)
     val WarnOrange = Color(0xFFF0A84F)
-    val DangerRed = MaterialTheme.colorScheme.error
 
     val CardShape = Shapes.large
     val SmallCardShape = RoundedCornerShape(12.dp)
     val ChipShape = RoundedCornerShape(6.dp)
-    val TagShape = RoundedCornerShape(8.dp)
 
     val styleTitle = AppTypography.getType().titleSmall.copy(
         fontWeight = FontWeight.W700,
         fontSize = 10.sp,
         letterSpacing = 1.2.sp,
         color = primaryColor
-    )
-    val styleData = AppTypography.getType().bodyMedium.copy(
-        fontWeight = FontWeight.W600,
-        color = MaterialTheme.colorScheme.onSurface
     )
     val styleHint = AppTypography.getType().bodySmall.copy(
         fontWeight = FontWeight.W400,
@@ -436,7 +413,7 @@ fun PreviewRoute(
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Top
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
@@ -474,6 +451,17 @@ fun PreviewRoute(
                                 }
                             }
                         }
+                        val workTime = ConverterLongToTime.getTimeInStringFormat(route.getWorkTime())
+                        Text(
+                            modifier = Modifier.weight(1f),
+                            text = workTime,
+                            textAlign = TextAlign.End,
+                            style = AppTypography.getType().headlineSmall.copy(
+                                fontWeight = FontWeight.W800,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                lineHeight = 26.sp
+                            ),
+                        )
                     }
                 }
             }
@@ -1654,18 +1642,14 @@ private fun TimeCard(
     subtitle: String,
     accentColor: Color,
 ) {
-    val AccentBlue = MaterialTheme.colorScheme.tertiary
     val primaryColor = MaterialTheme.colorScheme.primary
     val hintColor = primaryColor.copy(alpha = 0.6f)
-    val AccentGreen = Color(0xFF34C98A)
-    val WarnOrange = Color(0xFFF0A84F)
-    val DangerRed = MaterialTheme.colorScheme.error
 
-    val CardShape = Shapes.large
+    val cardShape = Shapes.large
 
     Box(
         modifier = modifier
-            .background(MaterialTheme.colorScheme.surfaceVariant, CardShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant, cardShape)
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)

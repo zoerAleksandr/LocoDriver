@@ -147,6 +147,8 @@ object Libs {
     const val project_feature_settings = ":features:settings"
 
     // Libs
+    const val compose_foundation = "androidx.compose.foundation:foundation:${compose_ui_version}"
+    const val compose_animation = "androidx.compose.animation:animation:${compose_ui_version}"
     const val kotlin_x_serialization_json = "org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlin_x_serialization_json_ver"
     const val datastore_preferences = "androidx.datastore:datastore-preferences:$datastore_preferences_ver"
 
