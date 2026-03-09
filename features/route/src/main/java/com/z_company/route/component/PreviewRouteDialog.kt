@@ -44,7 +44,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -68,6 +67,18 @@ import com.z_company.domain.util.times
 import com.z_company.route.R
 import kotlin.collections.set
 
+// Colors matching the HTML mockup
+//private val AccentBlue = MaterialTheme.colorScheme.tertiary
+//private val AccentGreen = Color(0xFF34C98A)
+//private val WarnOrange = Color(0xFFF0A84F)
+//private val DangerRed = Color(0xFFE05C5C)
+//private val MutedGray = Color(0xFF6B7294)
+//
+//private val CardShape = RoundedCornerShape(14.dp)
+//private val SmallCardShape = RoundedCornerShape(12.dp)
+//private val ChipShape = RoundedCornerShape(6.dp)
+//private val TagShape = RoundedCornerShape(8.dp)
+
 @SuppressLint("ConfigurationScreenWidthHeight")
 @Composable
 fun PreviewRouteDialog(
@@ -80,12 +91,18 @@ fun PreviewRouteDialog(
     setFavoriteState: (Route) -> Unit,
     onRouteClick: (String) -> Unit,
     makeCopyRoute: (String) -> Unit,
-    showDialogConfirmRemove: (Boolean, Route) -> Unit
+    showDialogConfirmRemove: (Boolean, Route) -> Unit,
 ) {
-    val accentBlue = MaterialTheme.colorScheme.tertiary
+    val AccentBlue = MaterialTheme.colorScheme.tertiary
     val primaryColor = MaterialTheme.colorScheme.primary
-    val dangerRed = MaterialTheme.colorScheme.error
-    val largeShape = Shapes.large
+    val AccentGreen = Color(0xFF34C98A)
+    val WarnOrange = Color(0xFFF0A84F)
+    val DangerRed = MaterialTheme.colorScheme.error
+
+    val CardShape = Shapes.large
+    val SmallCardShape = RoundedCornerShape(12.dp)
+    val ChipShape = RoundedCornerShape(6.dp)
+    val TagShape = RoundedCornerShape(8.dp)
 
     val heightScreen = LocalConfiguration.current.screenHeightDp
 
@@ -142,195 +159,157 @@ fun PreviewRouteDialog(
 
         // Action buttons
         item {
+            val isFavorite = routeForPreview.basicData.isFavorite
             Column(
                 modifier = Modifier
                     .padding(start = 12.dp, end = 12.dp)
                     .fillMaxWidth()
+                    .background(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = CardShape
+                    )
             ) {
-                // Primary button row
+                // Просмотр
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    // Просмотр — primary accent button (full width)
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .background(accentBlue, largeShape)
-                            .clickable {
-                                showContextDialog(false)
-                                onRouteClick(routeForPreview.basicData.id)
-                            }
-                            .padding(vertical = 13.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(7.dp)
-                        ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.rounded_visibility_24),
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Text(
-                                text = "Просмотр",
-                                style = AppTypography.getType().bodyMedium.copy(
-                                    fontWeight = FontWeight.W600,
-                                    color = Color.White
-                                )
-                            )
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            showContextDialog(false)
+                            onRouteClick(routeForPreview.basicData.id)
                         }
-                    }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.rounded_visibility_24),
+                        contentDescription = null,
+                        tint = primaryColor,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Просмотр",
+                        style = AppTypography.getType().bodyMedium.copy(
+                            color = MaterialTheme.colorScheme.onSurface
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
 
-                // Secondary buttons row
+                // Сохранить в облаке
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            showContextDialog(false)
+                            syncRoute(routeForPreview)
+                        }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Сохранить в облаке
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .background(MaterialTheme.colorScheme.surfaceVariant, largeShape)
-                            .clickable {
-                                showContextDialog(false)
-                                syncRoute(routeForPreview)
-                            }
-                            .padding(vertical = 13.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(7.dp)
-                        ) {
-                            Image(
-                                modifier = Modifier.size(18.dp),
-                                painter = painterResource(id = R.drawable.sync_on_icon),
-                                contentDescription = null,
-                            )
-                            Text(
-                                text = "Синхронизировать",
-                                style = AppTypography.getType().bodyMedium.copy(
-                                    fontWeight = FontWeight.W600,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                            )
-                        }
-                    }
-
-                    // В избранное
-                    val isFavorite = routeForPreview.basicData.isFavorite
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .background(MaterialTheme.colorScheme.surfaceVariant, largeShape)
-                            .clickable {
-                                showContextDialog(false)
-                                setFavoriteState(routeForPreview)
-                            }
-                            .padding(vertical = 13.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(7.dp)
-                        ) {
-                            Icon(
-                                modifier = Modifier.size(18.dp),
-                                painter = if (isFavorite) painterResource(R.drawable.favorite_fill_24px)
-                                else painterResource(R.drawable.favorite_24px),
-                                tint = if (isFavorite) Color(0xFFf1642e) else MaterialTheme.colorScheme.onSurface,
-                                contentDescription = null,
-                            )
-                            Text(
-                                text = if (isFavorite) "Избранное" else "Избранное",
-                                style = AppTypography.getType().bodyMedium.copy(
-                                    fontWeight = FontWeight.W600,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                            )
-                        }
-                    }
+                    Image(
+                        modifier = Modifier.size(20.dp),
+                        painter = painterResource(id = R.drawable.sync_on_icon),
+                        contentDescription = null,
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Сохранить в облаке",
+                        style = AppTypography.getType().bodyMedium.copy(
+                            color = MaterialTheme.colorScheme.onSurface
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
 
-                // Icon buttons row (3 columns)
+                // В избранное
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            showContextDialog(false)
+                            setFavoriteState(routeForPreview)
+                        }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Дублировать
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .background(MaterialTheme.colorScheme.surfaceVariant, largeShape)
-                            .clickable {
-                                showContextDialog(false)
-                                makeCopyRoute(routeForPreview.basicData.id)
-                            }
-                            .padding(vertical = 12.dp, horizontal = 8.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.outline_content_copy_24),
-                                contentDescription = null,
-                                tint = primaryColor,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Text(
-                                text = "Дублировать",
-                                style = AppTypography.getType().bodySmall.copy(
-                                    fontSize = 12.sp,
-                                    color = primaryColor
-                                )
-                            )
-                        }
-                    }
+                    Icon(
+                        modifier = Modifier.size(20.dp),
+                        painter = if (isFavorite) painterResource(R.drawable.favorite_fill_24px)
+                        else painterResource(R.drawable.favorite_24px),
+                        tint = if (isFavorite) Color(0xFFf1642e) else primaryColor,
+                        contentDescription = null,
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (isFavorite) "Убрать из избранного" else "В избранное",
+                        style = AppTypography.getType().bodyMedium.copy(
+                            color = MaterialTheme.colorScheme.onSurface
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
 
-                    // Удалить
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .background(
-                                dangerRed.copy(alpha = 0.3f),
-                                largeShape
-                            )
-                            .clickable {
-                                showContextDialog(false)
-                                showDialogConfirmRemove(true, routeForPreview)
-                            }
-                            .padding(vertical = 12.dp, horizontal = 8.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.delete_24px),
-                                contentDescription = null,
-                                tint = dangerRed,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Text(
-                                text = "Удалить",
-                                style = AppTypography.getType().bodySmall.copy(
-                                    fontSize = 12.sp,
-                                    color = dangerRed
-                                )
-                            )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+
+                // Дублировать
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            showContextDialog(false)
+                            makeCopyRoute(routeForPreview.basicData.id)
                         }
-                    }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.outline_content_copy_24),
+                        contentDescription = null,
+                        tint = primaryColor,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Дублировать",
+                        style = AppTypography.getType().bodyMedium.copy(
+                            color = MaterialTheme.colorScheme.onSurface
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+
+                // Удалить
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            showContextDialog(false)
+                            showDialogConfirmRemove(true, routeForPreview)
+                        }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.delete_24px),
+                        contentDescription = null,
+                        tint = DangerRed,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Удалить",
+                        style = AppTypography.getType().bodyMedium.copy(
+                            color = DangerRed
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
         }
@@ -351,16 +330,22 @@ fun PreviewRoute(
     val hintColor = primaryColor.copy(alpha = 0.6f)
     val AccentGreen = Color(0xFF34C98A)
     val WarnOrange = Color(0xFFF0A84F)
+    val DangerRed = MaterialTheme.colorScheme.error
 
     val CardShape = Shapes.large
     val SmallCardShape = RoundedCornerShape(12.dp)
     val ChipShape = RoundedCornerShape(6.dp)
+    val TagShape = RoundedCornerShape(8.dp)
 
     val styleTitle = AppTypography.getType().titleSmall.copy(
         fontWeight = FontWeight.W700,
         fontSize = 10.sp,
         letterSpacing = 1.2.sp,
         color = primaryColor
+    )
+    val styleData = AppTypography.getType().bodyMedium.copy(
+        fontWeight = FontWeight.W600,
+        color = MaterialTheme.colorScheme.onSurface
     )
     val styleHint = AppTypography.getType().bodySmall.copy(
         fontWeight = FontWeight.W400,
@@ -413,7 +398,7 @@ fun PreviewRoute(
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.Top
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
@@ -451,17 +436,6 @@ fun PreviewRoute(
                                 }
                             }
                         }
-                        val workTime = ConverterLongToTime.getTimeInStringFormat(route.getWorkTime())
-                        Text(
-                            modifier = Modifier.weight(1f),
-                            text = workTime,
-                            textAlign = TextAlign.End,
-                            style = AppTypography.getType().headlineSmall.copy(
-                                fontWeight = FontWeight.W800,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                lineHeight = 26.sp
-                            ),
-                        )
                     }
                 }
             }
@@ -1642,14 +1616,18 @@ private fun TimeCard(
     subtitle: String,
     accentColor: Color,
 ) {
+    val AccentBlue = MaterialTheme.colorScheme.tertiary
     val primaryColor = MaterialTheme.colorScheme.primary
     val hintColor = primaryColor.copy(alpha = 0.6f)
+    val AccentGreen = Color(0xFF34C98A)
+    val WarnOrange = Color(0xFFF0A84F)
+    val DangerRed = MaterialTheme.colorScheme.error
 
-    val cardShape = Shapes.large
+    val CardShape = Shapes.large
 
     Box(
         modifier = modifier
-            .background(MaterialTheme.colorScheme.surfaceVariant, cardShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant, CardShape)
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)

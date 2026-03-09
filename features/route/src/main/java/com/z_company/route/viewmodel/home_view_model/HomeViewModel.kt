@@ -1031,7 +1031,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
         viewModelScope.launch {
             val result = routeHelper.calculationHomeRest(
                 route = route,
-            ).first()
+            ).first { it !is ResultState.Loading }
             when (result) {
                 is ResultState.Success -> { /* result.data is Long? */
                     _previewRouteUiState.update {
