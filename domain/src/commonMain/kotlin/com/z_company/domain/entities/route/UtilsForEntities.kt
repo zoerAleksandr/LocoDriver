@@ -123,12 +123,18 @@ object UtilsForEntities {
         } else false
     }
 
+    /** Длительность перерыва (0 если не задан или невалидный). */
+    fun Route.getBreakDuration(): Long {
+        val start = this.basicData.timeStartBreak
+        val end = this.basicData.timeEndBreak
+        return if (start != null && end != null && end > start) (end - start) else 0L
+    }
+
     fun Route.getWorkTime(): Long? {
         val timeEnd = this.basicData.timeEndWork
         val timeStart = this.basicData.timeStartWork
         return if (timeEnd != null && timeStart != null) {
-            val timeWork = timeEnd - timeStart
-            timeWork
+            (timeEnd - timeStart) - getBreakDuration()
         } else {
             null
         }
@@ -139,8 +145,7 @@ object UtilsForEntities {
             val timeEnd = this@getWorkTimeFlow.basicData.timeEndWork
             val timeStart = this@getWorkTimeFlow.basicData.timeStartWork
             if (timeEnd != null && timeStart != null) {
-                val timeWork = timeEnd - timeStart
-                emit(timeWork)
+                emit((timeEnd - timeStart) - getBreakDuration())
             } else {
                 emit(null)
             }
@@ -159,7 +164,7 @@ object UtilsForEntities {
         return if (this.isTimeWorkValid()) {
             val startTime = this.basicData.timeStartWork
             val endTime = this.basicData.timeEndWork
-            val timeResult = endTime - startTime
+            val timeResult = (endTime - startTime) - getBreakDuration()
             var halfRest = timeResult / 2
             halfRest?.let { half ->
                 if (half % 60_000L != 0L) {
@@ -180,7 +185,7 @@ object UtilsForEntities {
         return if (this.isTimeWorkValid()) {
             val startTime = this.basicData.timeStartWork
             val endTime = this.basicData.timeEndWork
-            val timeResult = endTime - startTime
+            val timeResult = (endTime - startTime) - getBreakDuration()
             if (minTime.moreThan(timeResult)) {
                 endTime + minTime
             } else {
@@ -276,22 +281,41 @@ object UtilsForEntities {
         return true
     }
 
+    /** Пересечение двух интервалов [a1,a2] и [b1,b2]. Возвращает 0 если нет пересечения. */
+    private fun overlapDuration(a1: Long, a2: Long, b1: Long, b2: Long): Long {
+        val start = maxOf(a1, b1)
+        val end = minOf(a2, b2)
+        return if (end > start) end - start else 0L
+    }
+
+    /** Время перерыва, попадающее в заданный период. */
+    fun Route.getBreakInPeriod(startDate: Long, endDate: Long): Long {
+        val bs = this.basicData.timeStartBreak ?: return 0L
+        val be = this.basicData.timeEndBreak ?: return 0L
+        return if (be > bs) overlapDuration(bs, be, startDate, endDate) else 0L
+    }
+
     fun Route.timeInLongInPeriod(startDate: Long, endDate: Long): Long? {
         this.basicData.timeStartWork?.let { startWork ->
             this.basicData.timeEndWork?.let { endWork ->
-                if (startDate > startWork) {
-                    return if (endDate > endWork) {
+                val rawTime = if (startDate > startWork) {
+                    if (endDate > endWork) {
                         endWork - startDate
                     } else {
                         endDate - startDate
                     }
                 } else {
-                    return if (endDate > endWork) {
+                    if (endDate > endWork) {
                         endWork - startWork
                     } else {
                         endDate - startWork
                     }
                 }
+                // Вычитаем часть перерыва, попадающую в запрошенный период
+                val effectiveStart = maxOf(startDate, startWork)
+                val effectiveEnd = minOf(endDate, endWork)
+                val breakInPeriod = getBreakInPeriod(effectiveStart, effectiveEnd)
+                return rawTime - breakInPeriod
             }
         }
         return null
@@ -492,7 +516,9 @@ object UtilsForEntities {
                         minuteStart = startNightMinute,
                         hourEnd = endNightHour,
                         minuteEnd = endNightMinute,
-                        offsetInMoscow = userSettings.timeZone
+                        offsetInMoscow = userSettings.timeZone,
+                        breakStartMillis = route.basicData.timeStartBreak,
+                        breakEndMillis = route.basicData.timeEndBreak
                     ).first()
                 nightTime = nightTime.plus(nightTimeInRoute) ?: 0L
             } else {
@@ -503,7 +529,9 @@ object UtilsForEntities {
                     minuteStart = startNightMinute,
                     hourEnd = endNightHour,
                     minuteEnd = endNightMinute,
-                    offsetInMoscow = userSettings.timeZone
+                    offsetInMoscow = userSettings.timeZone,
+                    breakStartMillis = route.basicData.timeStartBreak,
+                    breakEndMillis = route.basicData.timeEndBreak
                 ).first()
                 nightTime = nightTime.plus(nightTimeInRoute) ?: 0L
             }

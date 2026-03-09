@@ -1142,7 +1142,9 @@ fun FormLocoScreen(
                                                 style = LocalTextStyle.current.copy(
                                                     fontWeight = FontWeight.Light
                                                 ),
-                                                color = noValueColor
+                                                color = noValueColor,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                         },
                                         onValueChange = {
@@ -1171,7 +1173,9 @@ fun FormLocoScreen(
                                                 style = LocalTextStyle.current.copy(
                                                     fontWeight = FontWeight.Light
                                                 ),
-                                                color = noValueColor
+                                                color = noValueColor,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                         },
                                         onValueChange = {

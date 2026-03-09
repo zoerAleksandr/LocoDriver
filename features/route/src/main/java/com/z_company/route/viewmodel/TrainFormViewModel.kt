@@ -11,6 +11,7 @@ import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
+import com.z_company.domain.entities.route.TrainAssist
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -52,6 +53,14 @@ class TrainFormViewModel(
     private var isNewTrain by Delegates.notNull<Boolean>()
 
     private val stationNameList = mutableStateListOf<String>()
+
+    // Locomotive series for dropdown (same pattern as LocoFormViewModel)
+    private val locomotiveSeriesList = mutableStateListOf<String>()
+    private var mutableFilteredSeriesList = mutableStateListOf<String>()
+
+    var dropDownSeriesList: SnapshotStateList<String>
+        get() = mutableFilteredSeriesList
+        set(value) { mutableFilteredSeriesList = value }
     var currentTrain: Train?
         get() {
             return _uiState.value.trainDetailState.let {
@@ -180,6 +189,8 @@ class TrainFormViewModel(
                         }
                         stationNameList.addAllOrSkip(settings.stationList.toMutableStateList())
                         mutableStationList.addAllOrSkip(stationNameList)
+                        locomotiveSeriesList.addAllOrSkip(settings.locomotiveSeriesList.toMutableStateList())
+                        mutableFilteredSeriesList.addAllOrSkip(locomotiveSeriesList)
                         servicePhaseList.clear()
                         servicePhaseList.addAllOrSkip(settings.servicePhases.toMutableStateList())
                     }
@@ -260,6 +271,7 @@ class TrainFormViewModel(
 
     private fun performSave(train: Train) {
         saveStationsName(train)
+        saveAssistSeries()
         saveTrainJob?.cancel()
         saveTrainJob = viewModelScope.launch {
             trainUseCase.saveTrain(train).collect { resultState ->
@@ -393,6 +405,172 @@ class TrainFormViewModel(
             conditionalLength = length.ifBlank { null }
         )
         changesHave()
+    }
+
+    // --- Pusher (Толкач) ---
+    fun addPusher() {
+        currentTrain = currentTrain?.copy(pusher = TrainAssist())
+        changesHave()
+    }
+
+    fun removePusher() {
+        currentTrain = currentTrain?.copy(pusher = null)
+        changesHave()
+    }
+
+    fun setPusherSeries(value: String) {
+        currentTrain = currentTrain?.copy(
+            pusher = (currentTrain?.pusher ?: TrainAssist()).copy(locomotiveSeries = value.ifBlank { null })
+        )
+        changesHave()
+    }
+
+    fun setPusherNumber(value: String) {
+        currentTrain = currentTrain?.copy(
+            pusher = (currentTrain?.pusher ?: TrainAssist()).copy(locomotiveNumber = value.ifBlank { null })
+        )
+        changesHave()
+    }
+
+    fun setPusherDriverName(value: String) {
+        currentTrain = currentTrain?.copy(
+            pusher = (currentTrain?.pusher ?: TrainAssist()).copy(driverName = value.ifBlank { null })
+        )
+        changesHave()
+    }
+
+    fun setPusherNotes(value: String) {
+        currentTrain = currentTrain?.copy(
+            pusher = (currentTrain?.pusher ?: TrainAssist()).copy(notes = value.ifBlank { null })
+        )
+        changesHave()
+    }
+
+    // --- DoubleTraction (Двойная тяга) ---
+    fun addDoubleTraction() {
+        currentTrain = currentTrain?.copy(doubleTraction = TrainAssist())
+        changesHave()
+    }
+
+    fun removeDoubleTraction() {
+        currentTrain = currentTrain?.copy(doubleTraction = null)
+        changesHave()
+    }
+
+    fun setDoubleTractionSeries(value: String) {
+        currentTrain = currentTrain?.copy(
+            doubleTraction = (currentTrain?.doubleTraction ?: TrainAssist()).copy(locomotiveSeries = value.ifBlank { null })
+        )
+        changesHave()
+    }
+
+    fun setDoubleTractionNumber(value: String) {
+        currentTrain = currentTrain?.copy(
+            doubleTraction = (currentTrain?.doubleTraction ?: TrainAssist()).copy(locomotiveNumber = value.ifBlank { null })
+        )
+        changesHave()
+    }
+
+    fun setDoubleTractionDriverName(value: String) {
+        currentTrain = currentTrain?.copy(
+            doubleTraction = (currentTrain?.doubleTraction ?: TrainAssist()).copy(driverName = value.ifBlank { null })
+        )
+        changesHave()
+    }
+
+    fun setDoubleTractionNotes(value: String) {
+        currentTrain = currentTrain?.copy(
+            doubleTraction = (currentTrain?.doubleTraction ?: TrainAssist()).copy(notes = value.ifBlank { null })
+        )
+        changesHave()
+    }
+
+    // --- DoubledTrain (Сдвоенный поезд) ---
+    fun addDoubledTrain() {
+        currentTrain = currentTrain?.copy(doubledTrain = TrainAssist())
+        changesHave()
+    }
+
+    fun removeDoubledTrain() {
+        currentTrain = currentTrain?.copy(doubledTrain = null)
+        changesHave()
+    }
+
+    fun setDoubledTrainSeries(value: String) {
+        currentTrain = currentTrain?.copy(
+            doubledTrain = (currentTrain?.doubledTrain ?: TrainAssist()).copy(locomotiveSeries = value.ifBlank { null })
+        )
+        changesHave()
+    }
+
+    fun setDoubledTrainNumber(value: String) {
+        currentTrain = currentTrain?.copy(
+            doubledTrain = (currentTrain?.doubledTrain ?: TrainAssist()).copy(locomotiveNumber = value.ifBlank { null })
+        )
+        changesHave()
+    }
+
+    fun setDoubledTrainDriverName(value: String) {
+        currentTrain = currentTrain?.copy(
+            doubledTrain = (currentTrain?.doubledTrain ?: TrainAssist()).copy(driverName = value.ifBlank { null })
+        )
+        changesHave()
+    }
+
+    fun setDoubledTrainNotes(value: String) {
+        currentTrain = currentTrain?.copy(
+            doubledTrain = (currentTrain?.doubledTrain ?: TrainAssist()).copy(notes = value.ifBlank { null })
+        )
+        changesHave()
+    }
+
+    // --- Series dropdown ---
+    fun changeSeriesMenuExpanded(sectionId: String, expanded: Boolean) {
+        _uiState.update {
+            it.copy(expandedSeriesSectionId = if (expanded) sectionId else null)
+        }
+    }
+
+    fun onChangedSeriesDropDown(sectionId: String, content: String) {
+        if (content.isEmpty()) {
+            mutableFilteredSeriesList.addAllOrSkip(locomotiveSeriesList)
+        } else {
+            mutableFilteredSeriesList.clear()
+            val filtered = locomotiveSeriesList
+                .filter { it.startsWith(prefix = content, ignoreCase = true) }
+                .filterNot { it == content }
+                .toMutableStateList()
+            filtered.forEach { ser ->
+                mutableFilteredSeriesList.add(ser)
+                changeSeriesMenuExpanded(sectionId, true)
+            }
+        }
+    }
+
+    fun removeSeries(series: String) {
+        viewModelScope.launch {
+            dropDownSeriesList.remove(series)
+            settingsUseCase.removeLocomotiveSeries(series)
+            changesHave()
+        }
+    }
+
+    fun saveAssistSeries() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val seriesToSave = listOfNotNull(
+                currentTrain?.pusher?.locomotiveSeries,
+                currentTrain?.doubleTraction?.locomotiveSeries,
+                currentTrain?.doubledTrain?.locomotiveSeries
+            ).filter { it.isNotBlank() }
+
+            seriesToSave.forEach { series ->
+                settingsUseCase.setLocomotiveSeries(series)
+                if (series !in locomotiveSeriesList) {
+                    locomotiveSeriesList.add(0, series)
+                    mutableFilteredSeriesList.add(0, series)
+                }
+            }
+        }
     }
 
     private fun setStations(stations: MutableList<Station>) {

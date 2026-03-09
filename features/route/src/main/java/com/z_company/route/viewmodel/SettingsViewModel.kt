@@ -313,6 +313,12 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         )
     }
 
+    fun changeShowBreak(isShow: Boolean) {
+        currentSettings = currentSettings?.copy(
+            isShowBreak = isShow
+        )
+    }
+
     fun setTimeZone(timeZone: Long) {
         currentSettings = currentSettings?.copy(
             timeZone = timeZone

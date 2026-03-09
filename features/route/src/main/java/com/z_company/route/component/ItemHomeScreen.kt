@@ -58,6 +58,7 @@ import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
+import com.z_company.domain.entities.route.UtilsForEntities.getBreakDuration
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.route.R
@@ -406,6 +407,30 @@ fun ItemHomeScreen(
                                             Icon(
                                                 tint = MaterialTheme.colorScheme.primary,
                                                 modifier = Modifier.size(20.dp),
+                                                painter = painterResource(id = R.drawable.pause_24px),
+                                                contentDescription = null
+                                            )
+                                            Text(
+                                                overflow = TextOverflow.Visible,
+                                                text = " - ",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                            Text(
+                                                overflow = TextOverflow.Visible,
+                                                text = "Перерыв в работе",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                        }
+                                    }
+                                    item {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(20.dp),
                                                 painter = painterResource(id = R.drawable.long_distance_24px),
                                                 contentDescription = null
                                             )
@@ -523,6 +548,78 @@ fun ItemHomeScreen(
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
+                                            Icon(
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(20.dp),
+                                                painter = painterResource(id = R.drawable.ic_pusher_24px),
+                                                contentDescription = null
+                                            )
+                                            Text(
+                                                overflow = TextOverflow.Visible,
+                                                text = " - ",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                            Text(
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                overflow = TextOverflow.Visible,
+                                                text = "Толкач",
+                                            )
+                                        }
+                                    }
+                                    item {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(20.dp),
+                                                painter = painterResource(id = R.drawable.ic_double_traction_24px),
+                                                contentDescription = null
+                                            )
+                                            Text(
+                                                overflow = TextOverflow.Visible,
+                                                text = " - ",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                            Text(
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                overflow = TextOverflow.Visible,
+                                                text = "Двойная тяга",
+                                            )
+                                        }
+                                    }
+                                    item {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(20.dp),
+                                                painter = painterResource(id = R.drawable.ic_doubled_train_24px),
+                                                contentDescription = null
+                                            )
+                                            Text(
+                                                overflow = TextOverflow.Visible,
+                                                text = " - ",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                            Text(
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                overflow = TextOverflow.Visible,
+                                                text = "Сдвоенный поезд",
+                                            )
+                                        }
+                                    }
+                                    item {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
                                             Image(
                                                 modifier = Modifier.size(20.dp),
                                                 painter = painterResource(id = R.drawable.sync_on_icon),
@@ -565,6 +662,14 @@ fun ItemHomeScreen(
                                     Image(
                                         modifier = Modifier.size(20.dp),
                                         painter = painterResource(id = R.drawable.icon_holiday),
+                                        contentDescription = null
+                                    )
+                                }
+                                if (route.getBreakDuration() > 0L) {
+                                    Icon(
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp),
+                                        painter = painterResource(id = R.drawable.pause_24px),
                                         contentDescription = null
                                     )
                                 }
@@ -612,6 +717,30 @@ fun ItemHomeScreen(
                                             contentDescription = null,
                                         )
                                     }
+                                }
+                                if (route.trains.any { it.pusher != null }) {
+                                    Icon(
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp),
+                                        painter = painterResource(id = R.drawable.ic_pusher_24px),
+                                        contentDescription = null
+                                    )
+                                }
+                                if (route.trains.any { it.doubleTraction != null }) {
+                                    Icon(
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp),
+                                        painter = painterResource(id = R.drawable.ic_double_traction_24px),
+                                        contentDescription = null
+                                    )
+                                }
+                                if (route.trains.any { it.doubledTrain != null }) {
+                                    Icon(
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp),
+                                        painter = painterResource(id = R.drawable.ic_doubled_train_24px),
+                                        contentDescription = null
+                                    )
                                 }
                                 if (route.basicData.isFavorite) {
                                     Icon(

@@ -21,5 +21,7 @@ data class BasicData(
     var timeEndWork: Long? = null,
     var restPointOfTurnover: Boolean = false,
     var notes: String? = null,
-    var isFavorite: Boolean = false
+    var isFavorite: Boolean = false,
+    var timeStartBreak: Long? = null,
+    var timeEndBreak: Long? = null
 )
