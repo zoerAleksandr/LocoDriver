@@ -57,7 +57,9 @@ dependencies {
     implementation(project(Libs.project_data_remote))
     implementation(project(Libs.project_robokassa_sdk))
 
-//    implementation(Libs.lifecycle_runtime_compose)
+    implementation(Libs.compose_foundation)
+    implementation(Libs.compose_animation)
+
     implementation(Libs.activity_compose)
     implementation(Libs.core_ktx)
     implementation(Libs.lifecycle_viewmodel_ktx)

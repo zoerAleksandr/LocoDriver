@@ -1418,7 +1418,8 @@ fun FormScreen(
                                                 Text(
                                                     text = breakStartText,
                                                     color = textColor,
-                                                    style = MaterialTheme.typography.bodyLarge
+                                                    style = MaterialTheme.typography.bodyLarge,
+                                                    textAlign = TextAlign.End
                                                 )
                                             }
                                         }
@@ -1486,7 +1487,8 @@ fun FormScreen(
                                                 Text(
                                                     text = breakEndText,
                                                     color = textColor,
-                                                    style = MaterialTheme.typography.bodyLarge
+                                                    style = MaterialTheme.typography.bodyLarge,
+                                                    textAlign = TextAlign.End
                                                 )
                                             }
                                         }
