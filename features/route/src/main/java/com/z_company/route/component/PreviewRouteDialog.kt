@@ -51,11 +51,13 @@ import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
+import com.z_company.domain.entities.route.TrainAssist
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.fullRest
 import com.z_company.domain.entities.route.UtilsForEntities.getFollowingTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
+import com.z_company.domain.entities.route.UtilsForEntities.getBreakDuration
 import com.z_company.domain.entities.route.UtilsForEntities.shortRest
 import com.z_company.domain.util.CalculationEnergy
 import com.z_company.domain.util.CalculationEnergy.rounding
@@ -532,6 +534,73 @@ fun PreviewRoute(
                 }
             }
 
+            // Break row
+            item {
+                if (route.basicData.timeStartBreak != null && route.basicData.timeEndBreak != null) {
+                    val breakDuration = route.getBreakDuration()
+                    if (breakDuration > 0) {
+                        val breakDurationText =
+                            ConverterLongToTime.getTimeInStringFormat(breakDuration)
+                        val breakStartText =
+                            dateAndTimeConverter?.getTimeFromDateLong(route.basicData.timeStartBreak)
+                                ?: "..."
+                        val breakEndText =
+                            dateAndTimeConverter?.getTimeFromDateLong(route.basicData.timeEndBreak)
+                                ?: "..."
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp)
+                                .padding(bottom = 8.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.surfaceVariant,
+                                    SmallCardShape
+                                )
+                                .padding(horizontal = 14.dp, vertical = 10.dp)
+                                .animateItem(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(
+                                        WarnOrange.copy(alpha = 0.12f),
+                                        RoundedCornerShape(8.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    modifier = Modifier.size(20.dp),
+                                    tint = WarnOrange,
+                                    painter = painterResource(id = R.drawable.pause_24px),
+                                    contentDescription = null
+                                )
+                            }
+
+                            Text(
+                                modifier = Modifier.weight(1f),
+                                text = "Перерыв  $breakDurationText",
+                                style = AppTypography.getType().bodyMedium.copy(
+                                    fontWeight = FontWeight.W600,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 14.sp
+                                ),
+                            )
+
+                            Text(
+                                text = "$breakStartText - $breakEndText",
+                                style = AppTypography.getType().bodySmall.copy(
+                                    color = primaryColor,
+                                    fontSize = 12.sp
+                                ),
+                            )
+                        }
+                    }
+                }
+            }
+
             // Rest row
             item {
                 if (route.basicData.timeStartWork != null && route.basicData.timeEndWork != null) {
@@ -808,6 +877,105 @@ fun PreviewRoute(
                                         text = "Сдача: $timeStartDeliveryText - $timeEndDeliveryText",
                                         style = styleHint,
                                     )
+                                }
+                            }
+                        }
+
+                        // Total consumption summary
+                        when (locomotive.type) {
+                            LocoType.ELECTRIC -> {
+                                val totalEnergy = locomotive.electricSectionList.mapNotNull { sec ->
+                                    CalculationEnergy.getTotalEnergyConsumption(
+                                        accepted = sec.acceptedEnergy,
+                                        delivery = sec.deliveryEnergy
+                                    )
+                                }.takeIf { it.isNotEmpty() }?.sum()
+
+                                val totalRecovery = locomotive.electricSectionList.mapNotNull { sec ->
+                                    CalculationEnergy.getTotalEnergyConsumption(
+                                        accepted = sec.acceptedRecovery,
+                                        delivery = sec.deliveryRecovery
+                                    )
+                                }.takeIf { it.isNotEmpty() }?.sum()
+
+                                if (totalEnergy != null || totalRecovery != null) {
+                                    HorizontalDivider(
+                                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                                    )
+                                    Row(
+                                        modifier = Modifier.padding(
+                                            horizontal = 16.dp,
+                                            vertical = 10.dp
+                                        ),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        Text(
+                                            text = "Итого:",
+                                            style = styleHint.copy(fontWeight = FontWeight.W600),
+                                        )
+                                        totalEnergy?.let {
+                                            Text(
+                                                text = "расход ${rounding(it, 2).str()}",
+                                                style = styleHint,
+                                            )
+                                        }
+                                        totalRecovery?.let {
+                                            Text(
+                                                text = "рекуперация ${rounding(it, 2).str()}",
+                                                style = styleHint,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            LocoType.DIESEL -> {
+                                val totalFuel = locomotive.dieselSectionList.mapNotNull { sec ->
+                                    CalculationEnergy.getTotalFuelConsumption(
+                                        accepted = sec.acceptedFuel,
+                                        delivery = sec.deliveryFuel,
+                                        refuel = sec.fuelSupply
+                                    )
+                                }.takeIf { it.isNotEmpty() }?.sum()
+
+                                val totalFuelKilo = locomotive.dieselSectionList.mapNotNull { sec ->
+                                    val accKilo = sec.acceptedFuel.times(sec.coefficient)
+                                    val delKilo = sec.deliveryFuel.times(sec.coefficient)
+                                    CalculationEnergy.getTotalFuelInKiloConsumption(
+                                        acceptedInKilo = accKilo,
+                                        deliveryInKilo = delKilo,
+                                        refuelInKilo = sec.fuelSupplyInKilo
+                                    )
+                                }.takeIf { it.isNotEmpty() }?.sum()
+
+                                if (totalFuel != null || totalFuelKilo != null) {
+                                    HorizontalDivider(
+                                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                                    )
+                                    Row(
+                                        modifier = Modifier.padding(
+                                            horizontal = 16.dp,
+                                            vertical = 10.dp
+                                        ),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        Text(
+                                            text = "Итого:",
+                                            style = styleHint.copy(fontWeight = FontWeight.W600),
+                                        )
+                                        totalFuel?.let {
+                                            Text(
+                                                text = "${rounding(it, 2).str()} л.",
+                                                style = styleHint,
+                                            )
+                                        }
+                                        totalFuelKilo?.let {
+                                            Text(
+                                                text = "${rounding(it, 2).str()} кг.",
+                                                style = styleHint,
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -1277,6 +1445,35 @@ fun PreviewRoute(
                                         }
                                     }
                                 }
+
+                                // Train assist info
+                                train.pusher?.let { assist ->
+                                    TrainAssistRow(
+                                        label = "Толкач",
+                                        iconRes = R.drawable.ic_pusher_24px,
+                                        assist = assist,
+                                        styleHint = styleHint,
+                                        accentColor = AccentBlue
+                                    )
+                                }
+                                train.doubleTraction?.let { assist ->
+                                    TrainAssistRow(
+                                        label = "Двойная тяга",
+                                        iconRes = R.drawable.ic_double_traction_24px,
+                                        assist = assist,
+                                        styleHint = styleHint,
+                                        accentColor = AccentBlue
+                                    )
+                                }
+                                train.doubledTrain?.let { assist ->
+                                    TrainAssistRow(
+                                        label = "Сдвоенный",
+                                        iconRes = R.drawable.ic_doubled_train_24px,
+                                        assist = assist,
+                                        styleHint = styleHint,
+                                        accentColor = AccentBlue
+                                    )
+                                }
                             }
                         }
                     }
@@ -1527,5 +1724,50 @@ private fun MetaChip(text: String) {
                 fontSize = 11.sp
             ),
         )
+    }
+}
+
+@Composable
+private fun TrainAssistRow(
+    label: String,
+    iconRes: Int,
+    assist: TrainAssist,
+    styleHint: androidx.compose.ui.text.TextStyle,
+    accentColor: Color,
+) {
+    HorizontalDivider(
+        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Icon(
+            modifier = Modifier.size(18.dp),
+            tint = accentColor,
+            painter = painterResource(id = iconRes),
+            contentDescription = null
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = styleHint.copy(fontWeight = FontWeight.W600),
+            )
+            val info = buildString {
+                assist.locomotiveSeries?.let { if (it.isNotBlank()) append(it) }
+                assist.locomotiveNumber?.let { if (it.isNotBlank()) append(" - $it") }
+            }.trimStart(' ', '-').trim()
+            if (info.isNotBlank()) {
+                Text(text = info, style = styleHint)
+            }
+            assist.driverName?.let {
+                if (it.isNotBlank()) {
+                    Text(text = it, style = styleHint)
+                }
+            }
+        }
     }
 }
