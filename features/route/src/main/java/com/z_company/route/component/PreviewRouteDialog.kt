@@ -80,7 +80,7 @@ fun PreviewRouteDialog(
     setFavoriteState: (Route) -> Unit,
     onRouteClick: (String) -> Unit,
     makeCopyRoute: (String) -> Unit,
-    showDialogConfirmRemove: (Boolean, Route) -> Unit,
+    showDialogConfirmRemove: (Boolean, Route) -> Unit
 ) {
     val accentBlue = MaterialTheme.colorScheme.tertiary
     val primaryColor = MaterialTheme.colorScheme.primary
