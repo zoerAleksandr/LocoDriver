@@ -57,9 +57,7 @@ dependencies {
     implementation(project(Libs.project_data_remote))
     implementation(project(Libs.project_robokassa_sdk))
 
-    implementation(Libs.compose_foundation)
-    implementation(Libs.compose_animation)
-
+//    implementation(Libs.lifecycle_runtime_compose)
     implementation(Libs.activity_compose)
     implementation(Libs.core_ktx)
     implementation(Libs.lifecycle_viewmodel_ktx)
@@ -95,4 +93,7 @@ dependencies {
     implementation(project(mapOf("path" to ":data_local")))
 //    debugImplementation("androidx.compose.ui:ui-tooling:1.6.6")
     debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
+
+    testImplementation(TestLibs.kotlin_test)
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:${Versions.coroutines_version}")
 }

@@ -375,8 +375,7 @@ fun FormTrainScreen(
                         onDeleteSeries = viewModel::removeSeries
                     )
 
-                    TrainAssistSection(
-                        title = "Сдвоенный поезд",
+                    DoubledTrainSection(
                         assist = currentTrain?.doubledTrain,
                         onAdd = viewModel::addDoubledTrain,
                         onRemove = viewModel::removeDoubledTrain,
@@ -384,6 +383,7 @@ fun FormTrainScreen(
                         onNumberChange = viewModel::setDoubledTrainNumber,
                         onDriverNameChange = viewModel::setDoubledTrainDriverName,
                         onNotesChange = viewModel::setDoubledTrainNotes,
+                        onIsFirstChange = viewModel::setDoubledTrainIsFirst,
                         hintStyle = hintStyle,
                         dataTextStyle = dataTextStyle,
                         primaryColor = primaryColor,
@@ -1389,6 +1389,318 @@ private fun TrainAssistSection(
                                                     text = selectionSeries,
                                                     selection = TextRange(selectionSeries.length)
                                                 )
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        OutlinedTextFieldApp(
+                            modifier = Modifier.weight(1f),
+                            value = assist.locomotiveNumber ?: "",
+                            onValueChange = onNumberChange,
+                            placeholder = {
+                                Text(
+                                    text = "Номер",
+                                    style = LocalTextStyle.current.copy(
+                                        fontWeight = FontWeight.Light
+                                    ),
+                                    color = noValueColor
+                                )
+                            },
+                            prefix = {
+                                if (!assist.locomotiveNumber.isNullOrBlank()) {
+                                    Text(
+                                        text = "№ ",
+                                        style = hintStyle,
+                                        color = noValueColor
+                                    )
+                                }
+                            },
+                            textStyle = dataTextStyle,
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(
+                                imeAction = ImeAction.Next
+                            ),
+                            colorBackgroundEmptyField = surfaceColor,
+                            colorBackgroundNotEmptyField = surfaceColor
+                        )
+                    }
+                    OutlinedTextFieldApp(
+                        modifier = Modifier.fillMaxWidth(),
+                        value = assist.driverName ?: "",
+                        onValueChange = onDriverNameChange,
+                        placeholder = {
+                            Text(
+                                text = "Машинист",
+                                style = LocalTextStyle.current.copy(
+                                    fontWeight = FontWeight.Light
+                                ),
+                                color = noValueColor
+                            )
+                        },
+                        prefix = {
+                            if (!assist.driverName.isNullOrBlank()) {
+                                Text(
+                                    text = "ТЧМ ",
+                                    style = hintStyle,
+                                    color = noValueColor
+                                )
+                            }
+                        },
+                        textStyle = dataTextStyle,
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            imeAction = ImeAction.Next
+                        ),
+                        colorBackgroundEmptyField = surfaceColor,
+                        colorBackgroundNotEmptyField = surfaceColor
+                    )
+                    OutlinedTextFieldApp(
+                        modifier = Modifier.fillMaxWidth(),
+                        value = assist.notes ?: "",
+                        onValueChange = onNotesChange,
+                        placeholder = {
+                            Text(
+                                text = "Примечание",
+                                style = LocalTextStyle.current.copy(
+                                    fontWeight = FontWeight.Light
+                                ),
+                                color = noValueColor
+                            )
+                        },
+                        textStyle = dataTextStyle,
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            imeAction = ImeAction.Done
+                        ),
+                        colorBackgroundEmptyField = surfaceColor,
+                        colorBackgroundNotEmptyField = surfaceColor
+                    )
+                }
+            }
+        }
+
+        HorizontalDivider(
+            color = primaryColor.copy(alpha = 0.2f),
+            thickness = 0.5.dp
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DoubledTrainSection(
+    assist: TrainAssist?,
+    onAdd: () -> Unit,
+    onRemove: () -> Unit,
+    onSeriesChange: (String) -> Unit,
+    onNumberChange: (String) -> Unit,
+    onDriverNameChange: (String) -> Unit,
+    onNotesChange: (String) -> Unit,
+    onIsFirstChange: (Boolean) -> Unit,
+    hintStyle: androidx.compose.ui.text.TextStyle,
+    dataTextStyle: androidx.compose.ui.text.TextStyle,
+    primaryColor: Color,
+    noValueColor: Color,
+    seriesMenuList: List<String> = emptyList(),
+    isSeriesMenuExpanded: Boolean = false,
+    onSeriesMenuExpandedChange: (Boolean) -> Unit = {},
+    onSeriesMenuContentChange: (String) -> Unit = {},
+    onDeleteSeries: (String) -> Unit = {}
+) {
+    val focusManager = LocalFocusManager.current
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val title = "Сдвоенный поезд"
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                style = hintStyle,
+                color = primaryColor
+            )
+            if (assist == null) {
+                TextButton(onClick = onAdd) {
+                    Text(
+                        text = "Добавить",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                }
+            } else {
+                IconButton(
+                    modifier = Modifier.size(24.dp),
+                    onClick = onRemove
+                ) {
+                    Icon(
+                        painter = painterResource(com.z_company.core.R.drawable.ic_clear),
+                        contentDescription = "Удалить $title",
+                        tint = noValueColor
+                    )
+                }
+            }
+        }
+
+        AnimatedVisibility(visible = assist != null) {
+            if (assist != null) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Переключатель "Я первый" / "Я второй"
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val isFirst = assist.isFirst
+                        if (isFirst == true) {
+                            Button(
+                                onClick = {},
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("Я первый")
+                            }
+                        } else {
+                            OutlinedButton(
+                                onClick = { onIsFirstChange(true) },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("Я первый")
+                            }
+                        }
+
+                        if (isFirst == false) {
+                            Button(
+                                onClick = {},
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("Я второй")
+                            }
+                        } else {
+                            OutlinedButton(
+                                onClick = { onIsFirstChange(false) },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("Я второй")
+                            }
+                        }
+                    }
+
+                    // Текст "Данные второго" / "Данные первого"
+                    if (assist.isFirst != null) {
+                        Text(
+                            text = if (assist.isFirst == true) "Данные второго" else "Данные первого",
+                            style = hintStyle,
+                            color = noValueColor
+                        )
+                    }
+
+                    // Поля ввода (серия + номер)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        ExposedDropdownMenuBox(
+                            modifier = Modifier.weight(1f),
+                            expanded = isSeriesMenuExpanded,
+                            onExpandedChange = onSeriesMenuExpandedChange
+                        ) {
+                            var seriesFieldValue by remember(assist.locomotiveSeries) {
+                                mutableStateOf(
+                                    TextFieldValue(
+                                        text = assist.locomotiveSeries ?: "",
+                                        selection = TextRange(assist.locomotiveSeries?.length ?: 0)
+                                    )
+                                )
+                            }
+
+                            OutlinedTextFieldApp(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor(),
+                                value = seriesFieldValue,
+                                onValueChange = {
+                                    seriesFieldValue = it
+                                    onSeriesChange(it.text)
+                                    onSeriesMenuContentChange(it.text)
+                                },
+                                placeholder = {
+                                    Text(
+                                        text = "Серия",
+                                        style = LocalTextStyle.current.copy(
+                                            fontWeight = FontWeight.Light
+                                        ),
+                                        color = noValueColor
+                                    )
+                                },
+                                textStyle = dataTextStyle,
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Text,
+                                    imeAction = ImeAction.Next
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onNext = { focusManager.moveFocus(FocusDirection.Next) }
+                                ),
+                                colorBackgroundEmptyField = surfaceColor,
+                                colorBackgroundNotEmptyField = surfaceColor
+                            )
+
+                            if (seriesMenuList.isNotEmpty()) {
+                                DropdownMenu(
+                                    modifier = Modifier
+                                        .background(
+                                            color = surfaceColor,
+                                            shape = Shapes.medium
+                                        )
+                                        .exposedDropdownSize(true),
+                                    expanded = isSeriesMenuExpanded,
+                                    properties = PopupProperties(focusable = false),
+                                    onDismissRequest = { onSeriesMenuExpandedChange(false) }
+                                ) {
+                                    seriesMenuList.forEach { selectionSeries ->
+                                        DropdownMenuItem(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .background(
+                                                    color = surfaceColor,
+                                                    shape = Shapes.medium
+                                                ),
+                                            text = {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    Text(
+                                                        text = selectionSeries,
+                                                        style = dataTextStyle,
+                                                        color = primaryColor
+                                                    )
+                                                    Icon(
+                                                        modifier = Modifier
+                                                            .size(20.dp)
+                                                            .clickable { onDeleteSeries(selectionSeries) },
+                                                        painter = painterResource(com.z_company.core.R.drawable.ic_clear),
+                                                        contentDescription = "Удалить серию",
+                                                        tint = noValueColor
+                                                    )
+                                                }
+                                            },
+                                            onClick = {
+                                                onSeriesChange(selectionSeries)
+                                                onSeriesMenuExpandedChange(false)
                                             }
                                         )
                                     }

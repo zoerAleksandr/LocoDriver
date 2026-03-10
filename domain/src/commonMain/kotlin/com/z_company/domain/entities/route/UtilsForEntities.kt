@@ -958,4 +958,14 @@ object UtilsForEntities {
         }
         return 0L
     }
+
+    /**
+     * Время в пути поезда: от отправления первой станции до прибытия последней.
+     */
+    fun Train.getTravelTime(): Long? {
+        if (stations.size < 2) return null
+        val departure = stations.first().timeDeparture ?: return null
+        val arrival = stations.last().timeArrival ?: return null
+        return if (arrival > departure) arrival - departure else null
+    }
 }

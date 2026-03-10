@@ -306,6 +306,13 @@ class FormViewModel(
                 salaryCalculationHelper.getMoneyListSurchargeExtendedHeavyTrainsFlow().first().sum()
             }
 
+            val deferredSurchargeAtDoubledTrainFirst = async {
+                salaryCalculationHelper.getMoneyDoubledTrainFirstSurchargeFlow(listOf(route)).first()
+            }
+            val deferredSurchargeAtDoubledTrainSecond = async {
+                salaryCalculationHelper.getMoneyDoubledTrainSecondSurchargeFlow(listOf(route)).first()
+            }
+
             val deferredMoneyAtQualificationClass = async {
                 salaryCalculationHelper.getMoneyAtQualificationClassFlow().first()
             }
@@ -363,10 +370,12 @@ class FormViewModel(
             val moneyAtHarmfulness = deferredMoneyAtHarmfulness.await()
             val otherSurchargeMoney = deferredOtherSurchargeMoney.await()
             val moneyAtOnePerson = deferredMoneyAtOnePerson.await()
+            val surchargeAtDoubledTrainFirst = deferredSurchargeAtDoubledTrainFirst.await()
+            val surchargeAtDoubledTrainSecond = deferredSurchargeAtDoubledTrainSecond.await()
 
             // Теперь, когда все значения получены, выполняем суммирование
             val surchargeAtTrains =
-                surchargeAtLongDistanceTrain + surchargeAtExtendedServicePhase + surchargeAtHeavyTrains
+                surchargeAtLongDistanceTrain + surchargeAtExtendedServicePhase + surchargeAtHeavyTrains + surchargeAtDoubledTrainFirst + surchargeAtDoubledTrainSecond
 
             val otherSurcharge =
                 moneyAtQualificationClass + nordicSurcharge + districtSurcharge + moneyAtHarmfulness + otherSurchargeMoney

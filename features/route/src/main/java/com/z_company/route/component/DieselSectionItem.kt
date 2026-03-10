@@ -517,7 +517,9 @@ fun DieselSectionItem(
                             style = LocalTextStyle.current.copy(
                                 fontWeight = FontWeight.Light
                             ),
-                            color = noValueColor
+                            color = noValueColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     },
                     suffix = {

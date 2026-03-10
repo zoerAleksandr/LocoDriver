@@ -395,6 +395,23 @@ private fun EarningsTable(uiState: SalaryCalculationUIState, convertTimeToString
             } else null
         }.toTypedArray(),
 
+        uiState.surchargeDoubledTrainFirstMoney?.takeIf { it > 0 }?.let {
+            EarningsRow(
+                "Сдвоенные поезда (30%)",
+                uiState.surchargeDoubledTrainFirstHours,
+                30.0,
+                it
+            )
+        },
+        uiState.surchargeDoubledTrainSecondMoney?.takeIf { it > 0 }?.let {
+            EarningsRow(
+                "Сдвоенные поезда (15%)",
+                uiState.surchargeDoubledTrainSecondHours,
+                15.0,
+                it
+            )
+        },
+
         // Сверхурочные
         EarningsRow(
             "Сверхурочные часы",

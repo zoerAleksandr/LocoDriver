@@ -118,6 +118,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                     async { setSurchargeHarmfulnessData(salaryCalculationHelper) },
                     async { setSurchargeLongDistanceData(salaryCalculationHelper) },
                     async { setSurchargeHeavyTransData(salaryCalculationHelper) },
+                    async { setSurchargeDoubledTrainData(salaryCalculationHelper) },
                     async { setZonalSurchargeData(salaryCalculationHelper) },
                     async { setOvertimeData(salaryCalculationHelper) },
                     async { setSurchargeOvertimeData(salaryCalculationHelper) },
@@ -195,6 +196,14 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                             ?: acc.surchargeLongDistanceTrainsPercent,
                         surchargeLongDistanceTrainsMoney = partial.surchargeLongDistanceTrainsMoney
                             ?: acc.surchargeLongDistanceTrainsMoney,
+                        surchargeDoubledTrainFirstHours = partial.surchargeDoubledTrainFirstHours
+                            ?: acc.surchargeDoubledTrainFirstHours,
+                        surchargeDoubledTrainFirstMoney = partial.surchargeDoubledTrainFirstMoney
+                            ?: acc.surchargeDoubledTrainFirstMoney,
+                        surchargeDoubledTrainSecondHours = partial.surchargeDoubledTrainSecondHours
+                            ?: acc.surchargeDoubledTrainSecondHours,
+                        surchargeDoubledTrainSecondMoney = partial.surchargeDoubledTrainSecondMoney
+                            ?: acc.surchargeDoubledTrainSecondMoney,
                         paymentAtTimeOfWorkLong = partial.paymentAtTimeOfWorkLong
                             ?: acc.paymentAtTimeOfWorkLong,
                         paymentAtTimeOfWorkMoney = partial.paymentAtTimeOfWorkMoney
@@ -287,6 +296,10 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                         surchargeLongDistanceTrainsHours = combinedPartial.surchargeLongDistanceTrainsHours,
                         surchargeLongDistanceTrainsPercent = combinedPartial.surchargeLongDistanceTrainsPercent,
                         surchargeLongDistanceTrainsMoney = combinedPartial.surchargeLongDistanceTrainsMoney,
+                        surchargeDoubledTrainFirstHours = combinedPartial.surchargeDoubledTrainFirstHours,
+                        surchargeDoubledTrainFirstMoney = combinedPartial.surchargeDoubledTrainFirstMoney,
+                        surchargeDoubledTrainSecondHours = combinedPartial.surchargeDoubledTrainSecondHours,
+                        surchargeDoubledTrainSecondMoney = combinedPartial.surchargeDoubledTrainSecondMoney,
                         paymentAtTimeOfWorkLong = combinedPartial.paymentAtTimeOfWorkLong,
                         paymentAtTimeOfWorkMoney = combinedPartial.paymentAtTimeOfWorkMoney,
                         paymentNightTimeHours = combinedPartial.paymentNightTimeHours,
@@ -495,6 +508,21 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         )
     }
 
+    // Метод для установки данных по надбавке за сдвоенные поезда (первый 30%, второй 15%).
+    private suspend fun setSurchargeDoubledTrainData(helper: SalaryCalculationHelper): PartialState {
+        val timeFirst = helper.getTimeDoubledTrainFirstSurchargeFlow().first()
+        val moneyFirst = helper.getMoneyDoubledTrainFirstSurchargeFlow().first()
+        val timeSecond = helper.getTimeDoubledTrainSecondSurchargeFlow().first()
+        val moneySecond = helper.getMoneyDoubledTrainSecondSurchargeFlow().first()
+
+        return PartialState(
+            surchargeDoubledTrainFirstHours = timeFirst,
+            surchargeDoubledTrainFirstMoney = moneyFirst,
+            surchargeDoubledTrainSecondHours = timeSecond,
+            surchargeDoubledTrainSecondMoney = moneySecond
+        )
+    }
+
     // Метод для установки данных по зональной надбавке (процент, сумма).
     private suspend fun setZonalSurchargeData(helper: SalaryCalculationHelper): PartialState {
         val percent = helper.getPercentZonalSurchargeFlow().first()
@@ -654,6 +682,10 @@ data class PartialState(
     val surchargeLongDistanceTrainsHours: Long? = null,
     val surchargeLongDistanceTrainsPercent: Double? = null,
     val surchargeLongDistanceTrainsMoney: Double? = null,
+    val surchargeDoubledTrainFirstHours: Long? = null,
+    val surchargeDoubledTrainFirstMoney: Double? = null,
+    val surchargeDoubledTrainSecondHours: Long? = null,
+    val surchargeDoubledTrainSecondMoney: Double? = null,
     val paymentAtTimeOfWorkLong: Long? = null,
     val paymentAtTimeOfWorkMoney: Double? = null,
     val paymentNightTimeHours: Long? = null,

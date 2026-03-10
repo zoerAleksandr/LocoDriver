@@ -13,7 +13,8 @@ data class TrainAssist(
     var locomotiveNumber: String? = null,   // номер локомотива
     var locomotiveSeries: String? = null,   // серия локомотива
     var driverName: String? = null,         // машинист
-    var notes: String? = null               // примечание
+    var notes: String? = null,              // примечание
+    var isFirst: Boolean? = null            // null = не задано, true = "Я первый", false = "Я второй"
 )
 
 @Serializable
