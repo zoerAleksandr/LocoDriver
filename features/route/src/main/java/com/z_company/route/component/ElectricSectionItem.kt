@@ -2,12 +2,12 @@ package com.z_company.route.component
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -33,7 +33,7 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
@@ -42,6 +42,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.util.CalculationEnergy.getTotalEnergyConsumption
@@ -49,7 +50,7 @@ import com.z_company.domain.util.str
 import com.z_company.route.R
 import com.z_company.route.viewmodel.ElectricSectionFormState
 import com.z_company.route.viewmodel.ElectricSectionType
-import androidx.compose.ui.Alignment
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -179,7 +180,10 @@ fun ElectricSectionItem(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(painter = painterResource(R.drawable.electric_bolt_24px), contentDescription = null)
+                Icon(
+                    painter = painterResource(R.drawable.electric_bolt_24px),
+                    contentDescription = null
+                )
 
                 OutlinedTextFieldApp(
                     modifier = Modifier
@@ -191,9 +195,13 @@ fun ElectricSectionItem(
                     },
                     textStyle = dataTextStyle,
                     placeholder = {
-                        Text(text = "Принял", style = LocalTextStyle.current.copy(
-                            fontWeight = FontWeight.Light
-                        ), color = noValueColor)
+                        Text(
+                            text = "Принял", style = LocalTextStyle.current.copy(
+                                fontWeight = FontWeight.Light
+                            ), color = noValueColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next
@@ -217,9 +225,11 @@ fun ElectricSectionItem(
                         focusChangedElectricSection(index, ElectricSectionType.DELIVERY)
                     },
                     placeholder = {
-                        Text(text = "Сдал", style = LocalTextStyle.current.copy(
-                            fontWeight = FontWeight.Light
-                        ), color = noValueColor)
+                        Text(
+                            text = "Сдал", style = LocalTextStyle.current.copy(
+                                fontWeight = FontWeight.Light
+                            ), color = noValueColor
+                        )
                     },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Number, imeAction = ImeAction.Done
@@ -246,7 +256,10 @@ fun ElectricSectionItem(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(painter = painterResource(R.drawable.electric_bolt_24px), contentDescription = null)
+                        Icon(
+                            painter = painterResource(R.drawable.electric_bolt_24px),
+                            contentDescription = null
+                        )
                         OutlinedTextFieldApp(
                             modifier = Modifier
                                 .weight(1f),
@@ -257,9 +270,13 @@ fun ElectricSectionItem(
                             },
                             textStyle = dataTextStyle,
                             placeholder = {
-                                Text(text = "Принял", style = LocalTextStyle.current.copy(
-                                    fontWeight = FontWeight.Light
-                                ), color = noValueColor)
+                                Text(
+                                    text = "Принял", style = LocalTextStyle.current.copy(
+                                        fontWeight = FontWeight.Light
+                                    ), color = noValueColor,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                             },
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next
@@ -282,9 +299,11 @@ fun ElectricSectionItem(
                                 focusChangedElectricSection(index, ElectricSectionType.DELIVERY2)
                             },
                             placeholder = {
-                                Text(text = "Сдал", style = LocalTextStyle.current.copy(
-                                    fontWeight = FontWeight.Light
-                                ), color = noValueColor)
+                                Text(
+                                    text = "Сдал", style = LocalTextStyle.current.copy(
+                                        fontWeight = FontWeight.Light
+                                    ), color = noValueColor
+                                )
                             },
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Number, imeAction = ImeAction.Done
@@ -311,7 +330,10 @@ fun ElectricSectionItem(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(painter = painterResource(R.drawable.cycle_24px), contentDescription = null)
+                            Icon(
+                                painter = painterResource(R.drawable.cycle_24px),
+                                contentDescription = null
+                            )
                             OutlinedTextFieldApp(
                                 modifier = Modifier
                                     .weight(0.5f),
@@ -330,7 +352,9 @@ fun ElectricSectionItem(
                                         style = LocalTextStyle.current.copy(
                                             fontWeight = FontWeight.Light
                                         ),
-                                        color = noValueColor
+                                        color = noValueColor,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 },
                                 keyboardOptions = KeyboardOptions(
@@ -388,7 +412,10 @@ fun ElectricSectionItem(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(painter = painterResource(R.drawable.cycle_24px), contentDescription = null)
+                                Icon(
+                                    painter = painterResource(R.drawable.cycle_24px),
+                                    contentDescription = null
+                                )
                                 OutlinedTextFieldApp(
                                     modifier = Modifier
                                         .weight(0.5f),
@@ -407,7 +434,9 @@ fun ElectricSectionItem(
                                             style = LocalTextStyle.current.copy(
                                                 fontWeight = FontWeight.Light
                                             ),
-                                            color = noValueColor
+                                            color = noValueColor,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     },
                                     keyboardOptions = KeyboardOptions(

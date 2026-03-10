@@ -16,6 +16,7 @@ import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -1142,7 +1143,9 @@ fun FormLocoScreen(
                                                 style = LocalTextStyle.current.copy(
                                                     fontWeight = FontWeight.Light
                                                 ),
-                                                color = noValueColor
+                                                color = noValueColor,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                         },
                                         onValueChange = {
@@ -1921,7 +1924,7 @@ fun FormLocoScreen(
                                         }.takeIf { it.isNotEmpty() }?.sum()
 
                                         if (totalFuelLiters != null || totalFuelKilo != null) {
-                                            Row(
+                                            FlowRow(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
                                                     .padding(horizontal = 16.dp, vertical = 10.dp),
@@ -2003,7 +2006,7 @@ fun FormLocoScreen(
                                         }.takeIf { it.isNotEmpty() }?.sum()
 
                                         if (totalEnergy != null || totalRecovery != null) {
-                                            Row(
+                                            FlowRow(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
                                                     .padding(horizontal = 16.dp, vertical = 10.dp),
