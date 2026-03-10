@@ -977,17 +977,15 @@ class SalaryCalculationHelper(
         }
     }
 
-    // --- Надбавка за сдвоенные поезда ---
+    // --- Надбавка за сдвоенные поезда (первый — 30%, второй — 15%) ---
 
-    fun getTimeDoubledTrainSurchargeFlow(routes: List<Route> = routeList): Flow<Long> {
+    fun getTimeDoubledTrainFirstSurchargeFlow(routes: List<Route> = routeList): Flow<Long> {
         return flow {
             var totalTime = 0L
             routes.forEach { route ->
                 route.trains.forEach { train ->
-                    train.doubledTrain?.isFirst?.let {
-                        train.getTravelTime()?.let { time ->
-                            totalTime += time
-                        }
+                    if (train.doubledTrain?.isFirst == true) {
+                        train.getTravelTime()?.let { time -> totalTime += time }
                     }
                 }
             }
@@ -995,16 +993,29 @@ class SalaryCalculationHelper(
         }
     }
 
-    fun getMoneyDoubledTrainSurchargeFlow(routes: List<Route> = routeList): Flow<Double> {
+    fun getTimeDoubledTrainSecondSurchargeFlow(routes: List<Route> = routeList): Flow<Long> {
+        return flow {
+            var totalTime = 0L
+            routes.forEach { route ->
+                route.trains.forEach { train ->
+                    if (train.doubledTrain?.isFirst == false) {
+                        train.getTravelTime()?.let { time -> totalTime += time }
+                    }
+                }
+            }
+            emit(totalTime)
+        }
+    }
+
+    fun getMoneyDoubledTrainFirstSurchargeFlow(routes: List<Route> = routeList): Flow<Double> {
         return flow {
             var totalMoney = 0.0
             if (dateSetTariffRate == null) {
                 routes.forEach { route ->
                     route.trains.forEach { train ->
-                        train.doubledTrain?.isFirst?.let { isFirst ->
-                            val percent = if (isFirst) 30.0 else 15.0
+                        if (train.doubledTrain?.isFirst == true) {
                             train.getTravelTime()?.let { time ->
-                                totalMoney += time.times(currentMonthOfYear.tariffRate * (percent / 100)) / 3_600_000.toDouble()
+                                totalMoney += time.times(currentMonthOfYear.tariffRate * 0.30) / 3_600_000.toDouble()
                             }
                         }
                     }
@@ -1013,20 +1024,56 @@ class SalaryCalculationHelper(
                 val pairRoutes = getTwoRouteList(routeList).first()
                 pairRoutes.first.forEach { route ->
                     route.trains.forEach { train ->
-                        train.doubledTrain?.isFirst?.let { isFirst ->
-                            val percent = if (isFirst) 30.0 else 15.0
+                        if (train.doubledTrain?.isFirst == true) {
                             train.getTravelTime()?.let { time ->
-                                totalMoney += time.times(dateSetTariffRate.oldRate * (percent / 100)) / 3_600_000.toDouble()
+                                totalMoney += time.times(dateSetTariffRate.oldRate * 0.30) / 3_600_000.toDouble()
                             }
                         }
                     }
                 }
                 pairRoutes.second.forEach { route ->
                     route.trains.forEach { train ->
-                        train.doubledTrain?.isFirst?.let { isFirst ->
-                            val percent = if (isFirst) 30.0 else 15.0
+                        if (train.doubledTrain?.isFirst == true) {
                             train.getTravelTime()?.let { time ->
-                                totalMoney += time.times(currentMonthOfYear.tariffRate * (percent / 100)) / 3_600_000.toDouble()
+                                totalMoney += time.times(currentMonthOfYear.tariffRate * 0.30) / 3_600_000.toDouble()
+                            }
+                        }
+                    }
+                }
+            }
+            emit(totalMoney)
+        }
+    }
+
+    fun getMoneyDoubledTrainSecondSurchargeFlow(routes: List<Route> = routeList): Flow<Double> {
+        return flow {
+            var totalMoney = 0.0
+            if (dateSetTariffRate == null) {
+                routes.forEach { route ->
+                    route.trains.forEach { train ->
+                        if (train.doubledTrain?.isFirst == false) {
+                            train.getTravelTime()?.let { time ->
+                                totalMoney += time.times(currentMonthOfYear.tariffRate * 0.15) / 3_600_000.toDouble()
+                            }
+                        }
+                    }
+                }
+            } else {
+                val pairRoutes = getTwoRouteList(routeList).first()
+                pairRoutes.first.forEach { route ->
+                    route.trains.forEach { train ->
+                        if (train.doubledTrain?.isFirst == false) {
+                            train.getTravelTime()?.let { time ->
+                                totalMoney += time.times(dateSetTariffRate.oldRate * 0.15) / 3_600_000.toDouble()
+                            }
+                        }
+                    }
+                }
+                pairRoutes.second.forEach { route ->
+                    route.trains.forEach { train ->
+                        if (train.doubledTrain?.isFirst == false) {
+                            train.getTravelTime()?.let { time ->
+                                totalMoney += time.times(currentMonthOfYear.tariffRate * 0.15) / 3_600_000.toDouble()
                             }
                         }
                     }
@@ -1171,14 +1218,15 @@ class SalaryCalculationHelper(
             val surchargeLongDistanceTrainsMoney = getMoneyLongDistanceTrainFlow().first()
             val surchargeHeavyTrains = getMoneyListSurchargeExtendedHeavyTrainsFlow().first().sum()
             val otherSurcharge = getMoneyOtherSurchargeFlow().first()
-            val surchargeDoubledTrain = getMoneyDoubledTrainSurchargeFlow().first()
+            val surchargeDoubledTrainFirst = getMoneyDoubledTrainFirstSurchargeFlow().first()
+            val surchargeDoubledTrainSecond = getMoneyDoubledTrainSecondSurchargeFlow().first()
             val basicMoney = paymentAtTariffMoney + paymentAtPassengerMoney +
                     paymentAtSingleLocomotiveMoney + zonalSurchargeMoney +
                     paymentNightTimeMoney + surchargeQualificationClassMoney +
                     surchargeExtendedServicePhaseMoney + surchargeOnePersonOperationMoney +
                     surchargeOnePersonOperationPassengerTrainFlow +
                     surchargeHarmfulnessSurchargeMoney + surchargeLongDistanceTrainsMoney +
-                    surchargeHeavyTrains + otherSurcharge + surchargeDoubledTrain
+                    surchargeHeavyTrains + otherSurcharge + surchargeDoubledTrainFirst + surchargeDoubledTrainSecond
 
             emit(basicMoney)
         }
