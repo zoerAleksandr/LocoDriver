@@ -1898,6 +1898,60 @@ fun FormLocoScreen(
                                         }
                                     }
                                 }
+                                if (dieselSectionListState.size > 1) {
+                                    item(key = "diesel_total") {
+                                        val totalFuelLiters = dieselSectionListState.mapNotNull { sec ->
+                                            CalculationEnergy.getTotalFuelConsumption(
+                                                accepted = sec.accepted.data?.toDoubleOrNull(),
+                                                delivery = sec.delivery.data?.toDoubleOrNull(),
+                                                refuel = sec.refuel.data?.toDoubleOrNull()
+                                            )
+                                        }.takeIf { it.isNotEmpty() }?.sum()
+
+                                        val totalFuelKilo = dieselSectionListState.mapNotNull { sec ->
+                                            val accKilo = sec.accepted.data?.toDoubleOrNull()
+                                                .times(sec.coefficient.data?.toDoubleOrNull())
+                                            val delKilo = sec.delivery.data?.toDoubleOrNull()
+                                                .times(sec.coefficient.data?.toDoubleOrNull())
+                                            CalculationEnergy.getTotalFuelInKiloConsumption(
+                                                acceptedInKilo = accKilo,
+                                                deliveryInKilo = delKilo,
+                                                refuelInKilo = sec.refuelInKilo.data?.toDoubleOrNull()
+                                            )
+                                        }.takeIf { it.isNotEmpty() }?.sum()
+
+                                        if (totalFuelLiters != null || totalFuelKilo != null) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                            ) {
+                                                Text(
+                                                    text = "Итого:",
+                                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                                        fontWeight = FontWeight.W600
+                                                    ),
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                                totalFuelLiters?.let {
+                                                    Text(
+                                                        text = "${rounding(it, 2).str()} л.",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
+                                                totalFuelKilo?.let {
+                                                    Text(
+                                                        text = "${rounding(it, 2).str()} кг.",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
 
@@ -1929,6 +1983,54 @@ fun FormLocoScreen(
 
                                         if (index == electricSectionListState.lastIndex) {
                                             CustomDivider(orientation = Orientation.Horizontal)
+                                        }
+                                    }
+                                }
+                                if (electricSectionListState.size > 1) {
+                                    item(key = "electric_total") {
+                                        val totalEnergy = electricSectionListState.mapNotNull { sec ->
+                                            CalculationEnergy.getTotalEnergyConsumption(
+                                                accepted = sec.accepted.data?.toDoubleOrNull(),
+                                                delivery = sec.delivery.data?.toDoubleOrNull()
+                                            )
+                                        }.takeIf { it.isNotEmpty() }?.sum()
+
+                                        val totalRecovery = electricSectionListState.mapNotNull { sec ->
+                                            CalculationEnergy.getTotalEnergyConsumption(
+                                                accepted = sec.recoveryAccepted.data?.toDoubleOrNull(),
+                                                delivery = sec.recoveryDelivery.data?.toDoubleOrNull()
+                                            )
+                                        }.takeIf { it.isNotEmpty() }?.sum()
+
+                                        if (totalEnergy != null || totalRecovery != null) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                            ) {
+                                                Text(
+                                                    text = "Итого:",
+                                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                                        fontWeight = FontWeight.W600
+                                                    ),
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                                totalEnergy?.let {
+                                                    Text(
+                                                        text = "расход ${rounding(it, 2).str()}",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
+                                                totalRecovery?.let {
+                                                    Text(
+                                                        text = "рекуперация ${rounding(it, 2).str()}",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }
