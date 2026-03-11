@@ -31,6 +31,7 @@ import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.repository.SecureTokenStorage
 import com.z_company.repository.remote_rest.RoutesManager
+import com.z_company.repository.remote_rest.SyncManager
 import com.z_company.route.viewmodel.PreviewRouteUiState
 import com.z_company.route.viewmodel.RouteActionsHelper
 import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
@@ -322,20 +323,32 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
             if (token == null) {
                 snackbarManager.show(message = "Неавторизованный пользователь")
             } else {
+                val label = SyncManager.routeLabel(route)
                 routesManager.saveRouteInRemote(route, fullToken).collect { resultState ->
                     when (resultState) {
                         is ResultState.Success -> {
-                            // show snackbar centrally
+                            val warnings = resultState.data.warnings
                             routeUseCase.setSynchronizedRoute(route.basicData.id).first()
-                            snackbarManager.show(message = "Маршрут сохранен в облаке")
+                            if (warnings.isNotEmpty()) {
+                                val warningText = warnings.joinToString("\n")
+                                snackbarManager.show(
+                                    message = "$label сохранен с предупреждениями:\n$warningText",
+                                    duration = androidx.compose.material3.SnackbarDuration.Long
+                                )
+                            } else {
+                                snackbarManager.show(message = "Маршрут сохранен в облаке")
+                            }
                             _uiState.update { it.copy(syncRouteState = null) }
                         }
 
                         is ResultState.Error -> {
-                            val message =
-                                resultState.entity.message ?: resultState.entity.throwable?.message
+                            val errorMsg = resultState.entity.message
+                                ?: resultState.entity.throwable?.message
                                 ?: "Ошибка синхронизации"
-                            snackbarManager.show(message = message)
+                            snackbarManager.show(
+                                message = "$label: $errorMsg",
+                                duration = androidx.compose.material3.SnackbarDuration.Long
+                            )
                             _uiState.update { it.copy(syncRouteState = ResultState.Error(resultState.entity)) }
                         }
 

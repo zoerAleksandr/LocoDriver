@@ -460,15 +460,20 @@ fun ProfileScreen(
                         }
                     }
 
-                    if (state is SyncStepState.Error) {  // Изменено: Добавил условный Text для сообщения об ошибке под Row.
-                        Text(  // Для чего: Чтобы ошибка отображалась под названием этапа, не смещая название и иконку.
-                            text = "Ошибка: ${state.message}",
+                    if (state is SyncStepState.Error) {
+                        Text(
+                            text = state.message,
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(
-                                start = 0.dp,
-                                top = 4.dp
-                            )  // Отступ сверху для разделения, без левого отступа для выравнивания
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                    if (state is SyncStepState.Success && state.details.contains("\n")) {
+                        Text(
+                            text = state.details,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 4.dp)
                         )
                     }
                 }
