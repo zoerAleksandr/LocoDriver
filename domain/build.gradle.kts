@@ -32,6 +32,7 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(TestLibs.kotlin_test)
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:${Versions.coroutines_version}")
         }
     }
 }

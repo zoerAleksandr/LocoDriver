@@ -15,7 +15,8 @@ import com.z_company.data_local.setting.salarydb.SalarySettingDatabase
 actual class DatabaseDriverFactory(private val context: Context) {
     actual fun createRouteDriver(): SqlDriver {
         fixVersionIfColumnsExist("Route.db", RouteDatabase.Schema.version.toInt(),
-            "BasicData" to "timeStartBreak")
+            "BasicData" to "timeStartBreak",
+            "Locomotive" to "auxiliaryCounterAccepted")
         return createDriver(RouteDatabase.Schema, "Route.db")
     }
 

@@ -229,8 +229,22 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                             newProgress["Months"] = SyncStepState.Success("загружены")
                         }
                         if (result.routesSavedCount >= 0) {
-                            newProgress["Routes"] =
-                                SyncStepState.Success("загружены ${result.routesSavedCount}(шт)")
+                            val routeDetails = buildString {
+                                append("загружены ${result.routesSavedCount}(шт)")
+                                if (result.routeWarnings.isNotEmpty()) {
+                                    append("\nПредупреждения:\n")
+                                    append(result.routeWarnings.joinToString("\n"))
+                                }
+                                if (result.routeErrors.isNotEmpty()) {
+                                    append("\nОшибки:\n")
+                                    append(result.routeErrors.joinToString("\n"))
+                                }
+                            }
+                            if (result.routeErrors.isNotEmpty()) {
+                                newProgress["Routes"] = SyncStepState.Error(message = routeDetails)
+                            } else {
+                                newProgress["Routes"] = SyncStepState.Success(routeDetails)
+                            }
                         }
 
                         _uiState.update {

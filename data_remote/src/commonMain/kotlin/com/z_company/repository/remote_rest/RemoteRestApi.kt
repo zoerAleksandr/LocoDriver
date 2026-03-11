@@ -12,6 +12,7 @@ import com.z_company.repository.remote_rest.request.RegisteredRequestByVKID
 import com.z_company.repository.remote_rest.request.UpdateEmailRequest
 import com.z_company.repository.remote_rest.response.AuthResponse
 import com.z_company.repository.remote_rest.response.LoginResponse
+import com.z_company.repository.remote_rest.response.SaveRouteResponse
 import com.z_company.repository.remote_rest.response.UserResponse
 
 /**
@@ -32,7 +33,7 @@ interface RemoteRestApi {
 
     suspend fun removeVKID(token: String): UserResponse
 
-    suspend fun saveRoute(token: String, data: Route)
+    suspend fun saveRoute(token: String, data: Route): SaveRouteResponse
 
     suspend fun getRoutes(token: String): List<Route>
 

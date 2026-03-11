@@ -39,7 +39,7 @@ class SalaryCalculationHelper(
 
     val date = userSettings.selectMonthOfYear.dateSetTariffRate?.dateNewRate ?: 1
     val firstDate = 1
-    val lastDate = userSettings.selectMonthOfYear.days.last().dayOfMonth
+    val lastDate = userSettings.selectMonthOfYear.days.lastOrNull()?.dayOfMonth ?: 28
 
     fun getWorkTimeAtTariffFlow(): Flow<Long> {
         return channelFlow {

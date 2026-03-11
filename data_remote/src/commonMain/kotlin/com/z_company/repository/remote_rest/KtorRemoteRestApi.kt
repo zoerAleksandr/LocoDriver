@@ -12,6 +12,7 @@ import com.z_company.repository.remote_rest.request.RegisteredRequestByVKID
 import com.z_company.repository.remote_rest.request.UpdateEmailRequest
 import com.z_company.repository.remote_rest.response.AuthResponse
 import com.z_company.repository.remote_rest.response.LoginResponse
+import com.z_company.repository.remote_rest.response.SaveRouteResponse
 import com.z_company.repository.remote_rest.response.UserResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -58,12 +59,17 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
             header("Authorization", token)
         }.body()
 
-    override suspend fun saveRoute(token: String, data: Route) {
-        client.post("v1/route/") {
+    override suspend fun saveRoute(token: String, data: Route): SaveRouteResponse {
+        val responseText = client.post("v1/route/") {
             contentType(ContentType.Application.Json)
             header("Authorization", token)
             setBody(data)
         }.bodyAsText()
+        return try {
+            RemoteRestClient.appJson.decodeFromString<SaveRouteResponse>(responseText)
+        } catch (_: Exception) {
+            SaveRouteResponse(message = responseText)
+        }
     }
 
     override suspend fun getRoutes(token: String): List<Route> =

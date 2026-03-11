@@ -7,6 +7,7 @@ import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.domain.entities.route.Route
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
@@ -23,7 +25,9 @@ data class SyncUploadResult(
     var salarySettingsSaved: Boolean = false,
     var monthsSaved: Boolean = false,
     var routesSavedCount: Int = -1,
-    var timestamp: Long? = null
+    var timestamp: Long? = null,
+    var routeWarnings: List<String> = emptyList(),
+    var routeErrors: List<String> = emptyList()
 )
 
 // Data class для результата загрузки с сервера (download).
@@ -120,36 +124,41 @@ class SyncManager(
         // 4. Сохранение всех маршрутов
         val routes = routeUseCase.getListRoutesAsFlow().first()
         var savedCount = 0
-        var hasError = false
+        val allWarnings = mutableListOf<String>()
+        val allErrors = mutableListOf<String>()
         for (route in routes) {
             if (!route.basicData.isSynchronized) {
+                val label = routeLabel(route)
                 routesManager.saveRouteInRemote(route, bearerToken)
                     .catch { e ->
-                        hasError = true
-                        emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения маршрута ${route.basicData.id}: ${e.message}")))
+                        allErrors.add("$label: ${e.message}")
                         return@catch
                     }
                     .collect { saveResult ->
                         if (saveResult is ResultState.Success) {
+                            val data = saveResult.data
+                            if (data.warnings.isNotEmpty()) {
+                                data.warnings.forEach { w -> allWarnings.add("$label: $w") }
+                            }
                             routeUseCase.setSynchronizedRoute(route.basicData.id).collect {}
                             savedCount++
                         } else if (saveResult is ResultState.Error) {
-                            hasError = true
-                            emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения маршрута ${route.basicData.id}: ${saveResult.entity.message}")))
-                            return@collect
+                            allErrors.add("$label: ${saveResult.entity.message ?: saveResult.entity.throwable?.message ?: "Ошибка"}")
                         }
                     }
             }
         }
-        if (!hasError) {
-            result.routesSavedCount = savedCount
-            emit(ResultState.Success(result.copy()))
-        }
+        result.routesSavedCount = savedCount
+        result.routeWarnings = allWarnings
+        result.routeErrors = allErrors
+        emit(ResultState.Success(result.copy()))
 
         if (result.userSettingsSaved && result.salarySettingsSaved && result.monthsSaved && result.routesSavedCount >= 0) {
             val timestamp = Clock.System.now().toEpochMilliseconds()
             sharedPrefs.setLastSyncTimestamp(timestamp)
             emit(ResultState.Success(result.copy(timestamp = timestamp)))
+        } else if (allErrors.isNotEmpty()) {
+            emit(ResultState.Error(ErrorEntity(message = allErrors.joinToString("\n"))))
         } else {
             emit(ResultState.Error(ErrorEntity(message = "Не все данные сохранены успешно")))
         }
@@ -377,38 +386,60 @@ class SyncManager(
         // 4. Сохранение всех маршрутов
         val routes = routeUseCase.getListRoutesAsFlow().first()
         var savedCount = 0
-        var hasError = false
+        val allWarnings2 = mutableListOf<String>()
+        val allErrors2 = mutableListOf<String>()
         for (route in routes) {
             if (!route.basicData.isSynchronized) {
+                val label = routeLabel(route)
                 routesManager.saveRouteInRemote(route, bearerToken)
                     .catch { e ->
-                        hasError = true
-                        emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения маршрута ${route.basicData.id}: ${e.message}")))
+                        allErrors2.add("$label: ${e.message}")
                         return@catch
                     }
                     .collect { saveResult ->
                         if (saveResult is ResultState.Success) {
+                            val data = saveResult.data
+                            if (data.warnings.isNotEmpty()) {
+                                data.warnings.forEach { w -> allWarnings2.add("$label: $w") }
+                            }
                             routeUseCase.setSynchronizedRoute(route.basicData.id).collect {}
                             savedCount++
                         } else if (saveResult is ResultState.Error) {
-                            hasError = true
-                            emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения маршрута ${route.basicData.id}: ${saveResult.entity.message}")))
-                            return@collect
+                            allErrors2.add("$label: ${saveResult.entity.message ?: saveResult.entity.throwable?.message ?: "Ошибка"}")
                         }
                     }
             }
         }
-        if (!hasError) {
-            result.routesSavedCount = savedCount
-            emit(ResultState.Success(result.copy()))
-        }
+        result.routesSavedCount = savedCount
+        result.routeWarnings = allWarnings2
+        result.routeErrors = allErrors2
+        emit(ResultState.Success(result.copy()))
 
         if (result.userSettingsSaved && result.salarySettingsSaved && result.monthsSaved && result.routesSavedCount >= 0) {
             val timestamp = Clock.System.now().toEpochMilliseconds()
             sharedPrefs.setLastSyncTimestamp(timestamp)
             emit(ResultState.Success(result.copy(timestamp = timestamp)))
+        } else if (allErrors2.isNotEmpty()) {
+            emit(ResultState.Error(ErrorEntity(message = allErrors2.joinToString("\n"))))
         } else {
             emit(ResultState.Error(ErrorEntity(message = "Не все данные сохранены успешно")))
         }
     }.flowOn(Dispatchers.Default)
+
+    companion object {
+        /**
+         * Формирует человекочитаемую метку маршрута: "Маршрут dd.MM.yy" + optional " №123"
+         */
+        fun routeLabel(route: Route): String {
+            val date = route.basicData.timeStartWork?.let {
+                val dt = Instant.fromEpochMilliseconds(it)
+                    .toLocalDateTime(TimeZone.currentSystemDefault())
+                "${dt.dayOfMonth.toString().padStart(2, '0')}.${
+                    dt.monthNumber.toString().padStart(2, '0')
+                }.${(dt.year % 100).toString().padStart(2, '0')}"
+            } ?: "?"
+            val number = route.basicData.number?.takeIf { it.isNotBlank() }?.let { " №$it" } ?: ""
+            return "Маршрут $date$number"
+        }
+    }
 }
