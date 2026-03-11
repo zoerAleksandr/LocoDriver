@@ -22,6 +22,7 @@ data class LocoFormUiState(
     val isExpandedDropDownMenuSeries: Boolean = false,
     var dateAndTimeConverter: DateAndTimeConverter? = null,
     var isShowHeatingCounter: Boolean = false,
+    var isShowAuxiliaryCounter: Boolean = false,
     var isShowOtherCurrent: Boolean = false,
     val isKiloMode: Boolean = false
 )

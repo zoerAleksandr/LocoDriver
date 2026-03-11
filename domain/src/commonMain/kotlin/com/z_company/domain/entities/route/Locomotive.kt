@@ -25,6 +25,8 @@ data class Locomotive(
     var normaDiesel: String? = null,
     var heatingCounterAccepted: Double? = null,
     var heatingCounterDelivery: Double? = null,
+    var auxiliaryCounterAccepted: Double? = null,
+    var auxiliaryCounterDelivery: Double? = null,
 )
 
 @Serializable

@@ -47,6 +47,8 @@ internal object LocomotiveMapper {
         normaElectricCurrent2 = row.normaElectricCurrent2?.toInt(),
         normaDiesel = row.normaDiesel,
         heatingCounterAccepted = row.heatingCounterAccepted?.toDoubleOrNull(),
-        heatingCounterDelivery = row.heatingCounterDelivery?.toDoubleOrNull()
+        heatingCounterDelivery = row.heatingCounterDelivery?.toDoubleOrNull(),
+        auxiliaryCounterAccepted = row.auxiliaryCounterAccepted?.toDoubleOrNull(),
+        auxiliaryCounterDelivery = row.auxiliaryCounterDelivery?.toDoubleOrNull()
     )
 }

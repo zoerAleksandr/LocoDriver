@@ -1,0 +1,2 @@
+ALTER TABLE Locomotive ADD COLUMN auxiliaryCounterAccepted TEXT DEFAULT NULL;
+ALTER TABLE Locomotive ADD COLUMN auxiliaryCounterDelivery TEXT DEFAULT NULL;

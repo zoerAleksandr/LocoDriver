@@ -90,7 +90,9 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
                 normaElectricCurrent2 = loco.normaElectricCurrent2?.toLong(),
                 normaDiesel = loco.normaDiesel,
                 heatingCounterAccepted = loco.heatingCounterAccepted?.toString(),
-                heatingCounterDelivery = loco.heatingCounterDelivery?.toString()
+                heatingCounterDelivery = loco.heatingCounterDelivery?.toString(),
+                auxiliaryCounterAccepted = loco.auxiliaryCounterAccepted?.toString(),
+                auxiliaryCounterDelivery = loco.auxiliaryCounterDelivery?.toString()
             )
         }
         route.trains.forEach { train ->
@@ -308,7 +310,9 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
                 normaElectricCurrent2 = locomotive.normaElectricCurrent2?.toLong(),
                 normaDiesel = locomotive.normaDiesel,
                 heatingCounterAccepted = locomotive.heatingCounterAccepted?.toString(),
-                heatingCounterDelivery = locomotive.heatingCounterDelivery?.toString()
+                heatingCounterDelivery = locomotive.heatingCounterDelivery?.toString(),
+                auxiliaryCounterAccepted = locomotive.auxiliaryCounterAccepted?.toString(),
+                auxiliaryCounterDelivery = locomotive.auxiliaryCounterDelivery?.toString()
             )
         }
     }

@@ -159,6 +159,8 @@ class LocoFormViewModel(
     private fun setSectionData(locomotive: Locomotive) {
         val heating =
             locomotive.heatingCounterAccepted != null || locomotive.heatingCounterDelivery != null
+        val auxiliary =
+            locomotive.auxiliaryCounterAccepted != null || locomotive.auxiliaryCounterDelivery != null
         var otherCurrent =
             locomotive.normaElectricCurrent2 != null && locomotive.normaElectricCurrent2 != 0
 
@@ -274,6 +276,7 @@ class LocoFormViewModel(
         _uiState.update {
             it.copy(
                 isShowHeatingCounter = heating,
+                isShowAuxiliaryCounter = auxiliary,
                 isShowOtherCurrent = otherCurrent
             )
         }
@@ -316,6 +319,18 @@ class LocoFormViewModel(
 
     fun showHeatingCounter(value: Boolean) {
         _uiState.update { it.copy(isShowHeatingCounter = value) }
+    }
+
+    fun setAuxiliaryCounterAccepted(value: String) {
+        _currentLoco.update { it?.copy(auxiliaryCounterAccepted = value.toDoubleOrNull()) }
+    }
+
+    fun setAuxiliaryCounterDelivery(value: String) {
+        _currentLoco.update { it?.copy(auxiliaryCounterDelivery = value.toDoubleOrNull()) }
+    }
+
+    fun showAuxiliaryCounter(value: Boolean) {
+        _uiState.update { it.copy(isShowAuxiliaryCounter = value) }
     }
 
     fun showOtherCurrent(value: Boolean) {

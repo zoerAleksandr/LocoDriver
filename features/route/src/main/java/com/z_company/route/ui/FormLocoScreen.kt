@@ -197,6 +197,15 @@ fun FormLocoScreen(
                             )
                         }
                         IconButton(
+                            onClick = { viewModel.showAuxiliaryCounter(!formUiState.isShowAuxiliaryCounter) }
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.electric_bolt_24px),
+                                tint = MaterialTheme.colorScheme.primary,
+                                contentDescription = null
+                            )
+                        }
+                        IconButton(
                             onClick = { resultVisible = !resultVisible }
                         ) {
                             Icon(
@@ -1201,6 +1210,110 @@ fun FormLocoScreen(
                                         Text(
                                             modifier = Modifier.padding(end = 16.dp),
                                             text = heatingResult.toString(),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // собственные нужды
+                    item {
+                        val auxAccepted =
+                            locomotive.auxiliaryCounterAccepted?.takeIf { it != 0.0 }
+                                ?.toLong()?.toString() ?: ""
+                        val auxDelivered =
+                            locomotive.auxiliaryCounterDelivery?.takeIf { it != 0.0 }
+                                ?.toLong()?.toString() ?: ""
+                        val auxiliaryResult = auxDelivered.toIntOrNull() - auxAccepted.toIntOrNull()
+                        AnimatedVisibility(formUiState.isShowAuxiliaryCounter) {
+                            Column(
+                                modifier = Modifier.padding(top = 16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                CustomDivider(orientation = Orientation.Horizontal)
+                                Text(
+                                    modifier = Modifier
+                                        .padding(horizontal = 16.dp),
+                                    text = "Собственные нужды",
+                                    style = subTitleTextStyle
+                                )
+                                Row(
+                                    modifier = Modifier
+                                        .padding(horizontal = 16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    OutlinedTextFieldApp(
+                                        modifier = Modifier.weight(1f),
+                                        value = auxAccepted,
+                                        textStyle = dataTextStyle,
+                                        placeholder = {
+                                            Text(
+                                                text = "Принял",
+                                                style = LocalTextStyle.current.copy(
+                                                    fontWeight = FontWeight.Light
+                                                ),
+                                                color = noValueColor,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        },
+                                        onValueChange = {
+                                            viewModel.setAuxiliaryCounterAccepted(it)
+                                        },
+                                        keyboardOptions = KeyboardOptions(
+                                            imeAction = ImeAction.Next,
+                                            keyboardType = KeyboardType.Decimal
+                                        ),
+                                        keyboardActions = KeyboardActions(
+                                            onNext = {
+                                                focusManager.moveFocus(FocusDirection.Right)
+                                            }
+                                        ),
+                                        singleLine = true,
+                                        shape = Shapes.medium,
+                                    )
+
+                                    OutlinedTextFieldApp(
+                                        modifier = Modifier.weight(1f),
+                                        value = auxDelivered,
+                                        textStyle = dataTextStyle,
+                                        placeholder = {
+                                            Text(
+                                                text = "Сдал",
+                                                style = LocalTextStyle.current.copy(
+                                                    fontWeight = FontWeight.Light
+                                                ),
+                                                color = noValueColor
+                                            )
+                                        },
+                                        onValueChange = {
+                                            viewModel.setAuxiliaryCounterDelivery(it)
+                                        },
+                                        keyboardOptions = KeyboardOptions(
+                                            imeAction = ImeAction.Done,
+                                            keyboardType = KeyboardType.Decimal
+                                        ),
+                                        keyboardActions = KeyboardActions(
+                                            onDone = {
+                                                focusManager.clearFocus()
+                                            }
+                                        ),
+                                        singleLine = true,
+                                        shape = Shapes.medium,
+                                    )
+                                }
+                                AnimatedVisibility(auxiliaryResult != null) {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        contentAlignment = Alignment.CenterEnd
+                                    ) {
+                                        Text(
+                                            modifier = Modifier.padding(end = 16.dp),
+                                            text = auxiliaryResult.toString(),
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.primary
                                         )
