@@ -478,6 +478,22 @@ fun PreviewRoute(
                                 )
                             }
                         }
+
+                        route.getWorkTime()?.let { workTime ->
+                            if (workTime > 0) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = ConverterLongToTime.getTimeInStringFormat(workTime),
+                                    style = AppTypography.getType().headlineSmall.copy(
+                                        fontWeight = FontWeight.W600,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontSize = 20.sp,
+                                        lineHeight = 20.sp
+                                    ),
+                                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                                )
+                            }
+                        }
                     }
                 }
             }
