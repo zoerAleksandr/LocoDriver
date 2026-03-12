@@ -384,9 +384,9 @@ fun PreviewRoute(
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Top
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
+                        Column() {
                             Text(
                                 text = "МАРШРУТ",
                                 style = styleTitle,
@@ -420,6 +420,20 @@ fun PreviewRoute(
                                         )
                                     )
                                 }
+                            }
+                        }
+                        route.getWorkTime()?.let { workTime ->
+                            if (workTime > 0) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = ConverterLongToTime.getTimeInStringFormat(workTime),
+                                    style = AppTypography.getType().headlineSmall.copy(
+                                        fontWeight = FontWeight.W600,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontSize = 26.sp,
+                                        lineHeight = 20.sp
+                                    ),
+                                )
                             }
                         }
                     }
@@ -475,22 +489,6 @@ fun PreviewRoute(
                                         ?: "...",
                                     subtitle = dateAndTimeConverter?.getDate(endWork) ?: "",
                                     accentColor = AccentBlue
-                                )
-                            }
-                        }
-
-                        route.getWorkTime()?.let { workTime ->
-                            if (workTime > 0) {
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(
-                                    text = ConverterLongToTime.getTimeInStringFormat(workTime),
-                                    style = AppTypography.getType().headlineSmall.copy(
-                                        fontWeight = FontWeight.W600,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        fontSize = 20.sp,
-                                        lineHeight = 20.sp
-                                    ),
-                                    modifier = Modifier.align(Alignment.CenterHorizontally)
                                 )
                             }
                         }
