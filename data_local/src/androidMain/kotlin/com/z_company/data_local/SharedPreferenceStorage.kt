@@ -17,6 +17,10 @@ private const val TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_16 =
 private const val STATION_SORT_REVERSED = "STATION_SORT_REVERSED"
 private const val TOKEN_INPUT_DIESEL_IN_KILO = "TOKEN_INPUT_DIESEL_IN_KILO"
 private const val TOKEN_SHOW_LOCO_FORM_UPDATE_V2_1_7 = "TOKEN_SHOW_LOCO_FORM_UPDATE_V2_1_7"
+private const val TOKEN_LOCO_SECTION_TIME = "TOKEN_LOCO_SECTION_TIME"
+private const val TOKEN_LOCO_SECTION_HEATING = "TOKEN_LOCO_SECTION_HEATING"
+private const val TOKEN_LOCO_SECTION_AUXILIARY = "TOKEN_LOCO_SECTION_AUXILIARY"
+private const val TOKEN_LOCO_SECTION_STATISTICS = "TOKEN_LOCO_SECTION_STATISTICS"
 
 private const val SORT_OPTION_TAG = "SORT_OPTION"
 private const val SELECTED_FILTERS_TAG = "SELECTED_FILTERS"
@@ -156,5 +160,33 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
 
     override fun setLocoFormUpdateHintShown() {
         editor.putBoolean(TOKEN_SHOW_LOCO_FORM_UPDATE_V2_1_7, false).apply()
+    }
+
+    override fun isLocoSectionTimeExpanded(): Boolean =
+        sharedpref.getBoolean(TOKEN_LOCO_SECTION_TIME, false)
+
+    override fun setLocoSectionTimeExpanded(value: Boolean) {
+        editor.putBoolean(TOKEN_LOCO_SECTION_TIME, value).apply()
+    }
+
+    override fun isLocoSectionHeatingExpanded(): Boolean =
+        sharedpref.getBoolean(TOKEN_LOCO_SECTION_HEATING, false)
+
+    override fun setLocoSectionHeatingExpanded(value: Boolean) {
+        editor.putBoolean(TOKEN_LOCO_SECTION_HEATING, value).apply()
+    }
+
+    override fun isLocoSectionAuxiliaryExpanded(): Boolean =
+        sharedpref.getBoolean(TOKEN_LOCO_SECTION_AUXILIARY, false)
+
+    override fun setLocoSectionAuxiliaryExpanded(value: Boolean) {
+        editor.putBoolean(TOKEN_LOCO_SECTION_AUXILIARY, value).apply()
+    }
+
+    override fun isLocoSectionStatisticsExpanded(): Boolean =
+        sharedpref.getBoolean(TOKEN_LOCO_SECTION_STATISTICS, false)
+
+    override fun setLocoSectionStatisticsExpanded(value: Boolean) {
+        editor.putBoolean(TOKEN_LOCO_SECTION_STATISTICS, value).apply()
     }
 }
