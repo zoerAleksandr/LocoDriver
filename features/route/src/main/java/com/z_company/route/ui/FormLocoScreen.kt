@@ -179,8 +179,9 @@ fun FormLocoScreen(
             confirmButton = {
                 TextButton(onClick = viewModel::dismissUpdateHint) {
                     Text(
-                        "Понятно",
-                        color = MaterialTheme.colorScheme.tertiary
+                        text = "Понятно",
+                        color = MaterialTheme.colorScheme.tertiary,
+                        style = MaterialTheme.typography.bodySmall
                     )
                 }
             }
@@ -788,6 +789,7 @@ fun FormLocoScreen(
                     // время
                     item {
                         CollapsibleSection(
+                            modifier = Modifier.padding(top = 12.dp),
                             title = "Время",
                             expanded = formUiState.isShowTime,
                             onToggle = viewModel::toggleTime,

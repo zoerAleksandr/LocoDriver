@@ -1224,7 +1224,8 @@ fun SettingsScreen(
                                     shape = Shapes.medium
                                 )
                                 .padding(vertical = 8.dp)
-                        ) {
+                        )
+                        {
                             // Отопление
                             Row(
                                 modifier = Modifier
@@ -1288,6 +1289,15 @@ fun SettingsScreen(
                                 )
                             }
                         }
+                        Text(
+                            modifier = Modifier.padding(
+                                start = 16.dp,
+                                top = 8.dp
+                            ),
+                            text = "Показывать эти поля в разделе Локомотив",
+                            style = styleHint,
+                            color = primaryColor
+                        )
                     }
 
                     item {
