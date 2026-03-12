@@ -166,6 +166,9 @@ fun FormLocoScreen(
     if (formUiState.isShowUpdateHint) {
         AlertDialog(
             onDismissRequest = viewModel::dismissUpdateHint,
+            containerColor = MaterialTheme.colorScheme.secondary,
+            titleContentColor = MaterialTheme.colorScheme.primary,
+            textContentColor = MaterialTheme.colorScheme.onBackground,
             title = { Text("Обновление") },
             text = {
                 Text(
@@ -175,7 +178,10 @@ fun FormLocoScreen(
             },
             confirmButton = {
                 TextButton(onClick = viewModel::dismissUpdateHint) {
-                    Text("Понятно")
+                    Text(
+                        "Понятно",
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
                 }
             }
         )
@@ -578,7 +584,6 @@ fun FormLocoScreen(
                 LazyColumn(
                     state = scrollState,
                     horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     item {
                         val currentType = locomotive.type
@@ -648,6 +653,7 @@ fun FormLocoScreen(
                         Row(
                             modifier = Modifier
                                 .padding(horizontal = 16.dp)
+                                .padding(top = 12.dp)
                                 .fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {

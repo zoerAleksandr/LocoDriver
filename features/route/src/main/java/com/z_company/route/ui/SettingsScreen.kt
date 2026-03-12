@@ -1233,19 +1233,13 @@ fun SettingsScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                                    Text(
-                                        text = "Отопление",
-                                        style = styleData,
-                                        overflow = TextOverflow.Ellipsis,
-                                        maxLines = 1
-                                    )
-                                    Text(
-                                        text = "Показывать счётчики отопления в форме локомотива",
-                                        style = styleHint,
-                                        color = primaryColor
-                                    )
-                                }
+                                Text(
+                                    text = "Отопление",
+                                    style = styleData,
+                                    overflow = TextOverflow.Ellipsis,
+                                    maxLines = 1,
+                                    modifier = Modifier.weight(1f).padding(end = 12.dp)
+                                )
                                 Switch(
                                     checked = currentSettings.isShowLocoHeating,
                                     onCheckedChange = { changeShowLocoHeating(it) }
@@ -1260,19 +1254,13 @@ fun SettingsScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                                    Text(
-                                        text = "Собственные нужды",
-                                        style = styleData,
-                                        overflow = TextOverflow.Ellipsis,
-                                        maxLines = 1
-                                    )
-                                    Text(
-                                        text = "Показывать счётчики собственных нужд",
-                                        style = styleHint,
-                                        color = primaryColor
-                                    )
-                                }
+                                Text(
+                                    text = "Собственные нужды",
+                                    style = styleData,
+                                    overflow = TextOverflow.Ellipsis,
+                                    maxLines = 1,
+                                    modifier = Modifier.weight(1f).padding(end = 12.dp)
+                                )
                                 Switch(
                                     checked = currentSettings.isShowLocoAuxiliary,
                                     onCheckedChange = { changeShowLocoAuxiliary(it) }
@@ -1287,19 +1275,13 @@ fun SettingsScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                                    Text(
-                                        text = "Статистика",
-                                        style = styleData,
-                                        overflow = TextOverflow.Ellipsis,
-                                        maxLines = 1
-                                    )
-                                    Text(
-                                        text = "Показывать раздел статистики расхода",
-                                        style = styleHint,
-                                        color = primaryColor
-                                    )
-                                }
+                                Text(
+                                    text = "Статистика",
+                                    style = styleData,
+                                    overflow = TextOverflow.Ellipsis,
+                                    maxLines = 1,
+                                    modifier = Modifier.weight(1f).padding(end = 12.dp)
+                                )
                                 Switch(
                                     checked = currentSettings.isShowLocoStatistics,
                                     onCheckedChange = { changeShowLocoStatistics(it) }
