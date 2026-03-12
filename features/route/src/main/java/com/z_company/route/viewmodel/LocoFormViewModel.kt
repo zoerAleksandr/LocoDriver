@@ -333,6 +333,22 @@ class LocoFormViewModel(
         _uiState.update { it.copy(isShowAuxiliaryCounter = value) }
     }
 
+    fun toggleHeatingCounter() {
+        _uiState.update { it.copy(isShowHeatingCounter = !it.isShowHeatingCounter) }
+    }
+
+    fun toggleAuxiliaryCounter() {
+        _uiState.update { it.copy(isShowAuxiliaryCounter = !it.isShowAuxiliaryCounter) }
+    }
+
+    fun toggleTime() {
+        _uiState.update { it.copy(isShowTime = !it.isShowTime) }
+    }
+
+    fun toggleResults() {
+        _uiState.update { it.copy(isShowResults = !it.isShowResults) }
+    }
+
     fun showOtherCurrent(value: Boolean) {
         _uiState.update {
             it.copy(
