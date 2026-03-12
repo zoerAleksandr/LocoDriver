@@ -22,7 +22,8 @@ actual class DatabaseDriverFactory(private val context: Context) {
 
     actual fun createSettingsDriver(): SqlDriver {
         fixVersionIfColumnsExist("Settings.db", SettingsDatabase.Schema.version.toInt(),
-            "UserSettings" to "isShowBreak")
+            "UserSettings" to "isShowBreak",
+            "UserSettings" to "isShowLocoHeating")
         return createDriver(SettingsDatabase.Schema, "Settings.db")
     }
 
