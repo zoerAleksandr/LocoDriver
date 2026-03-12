@@ -26,6 +26,7 @@ fun FormLocoDestination(
     val locoSeriesList by viewModel.seriesList.collectAsState()
     val electricSectionList by viewModel.electricSectionListState.collectAsState()
     val dieselSectionList by viewModel.dieselSectionListState.collectAsState()
+    val userSettings by viewModel.settings.collectAsState()
 
     FormLocoScreen(
         viewModel = viewModel,
@@ -61,6 +62,7 @@ fun FormLocoDestination(
         onExpandedMenuChange = viewModel::changeExpandedMenu,
         onChangedContentMenu = viewModel::onChangedDropDownContent,
         onDeleteSeries = viewModel::removeSeries,
-        dateAndTimeConverter = formUiState.dateAndTimeConverter
+        dateAndTimeConverter = formUiState.dateAndTimeConverter,
+        userSettings = userSettings
     )
 }

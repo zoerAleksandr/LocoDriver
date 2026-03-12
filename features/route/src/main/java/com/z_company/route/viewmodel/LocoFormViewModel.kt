@@ -66,6 +66,8 @@ class LocoFormViewModel(
         }
 
     private var isNewLoco by Delegates.notNull<Boolean>()
+    private var savedHeatingExpanded = false
+    private var savedAuxiliaryExpanded = false
 
     private val _currentLoco = MutableStateFlow<Locomotive?>(null)
     val currentLoco = _currentLoco.asStateFlow()
@@ -84,6 +86,11 @@ class LocoFormViewModel(
     init {
         viewModelScope.launch {
             val isKiloMode = sharedPreferenceStorage.isInputDieselInKilo()
+            val showUpdateHint = sharedPreferenceStorage.isShowLocoFormUpdateHint()
+            val savedTime = sharedPreferenceStorage.isLocoSectionTimeExpanded()
+            savedHeatingExpanded = sharedPreferenceStorage.isLocoSectionHeatingExpanded()
+            savedAuxiliaryExpanded = sharedPreferenceStorage.isLocoSectionAuxiliaryExpanded()
+            val savedStatistics = sharedPreferenceStorage.isLocoSectionStatisticsExpanded()
 
             this.launch {
                 val sett = settingsUseCase.getUserSettingFlow().first()
@@ -91,7 +98,12 @@ class LocoFormViewModel(
                 _uiState.update {
                     it.copy(
                         dateAndTimeConverter = DateAndTimeConverter(sett),
-                        isKiloMode = isKiloMode
+                        isKiloMode = isKiloMode,
+                        isShowUpdateHint = showUpdateHint,
+                        isShowTime = savedTime,
+                        isShowHeatingCounter = savedHeatingExpanded,
+                        isShowAuxiliaryCounter = savedAuxiliaryExpanded,
+                        isShowResults = savedStatistics
                     )
                 }
                 _seriesList.update { list ->
@@ -275,8 +287,8 @@ class LocoFormViewModel(
 
         _uiState.update {
             it.copy(
-                isShowHeatingCounter = heating,
-                isShowAuxiliaryCounter = auxiliary,
+                isShowHeatingCounter = heating || savedHeatingExpanded,
+                isShowAuxiliaryCounter = auxiliary || savedAuxiliaryExpanded,
                 isShowOtherCurrent = otherCurrent
             )
         }
@@ -331,6 +343,35 @@ class LocoFormViewModel(
 
     fun showAuxiliaryCounter(value: Boolean) {
         _uiState.update { it.copy(isShowAuxiliaryCounter = value) }
+    }
+
+    fun toggleHeatingCounter() {
+        val newValue = !_uiState.value.isShowHeatingCounter
+        _uiState.update { it.copy(isShowHeatingCounter = newValue) }
+        sharedPreferenceStorage.setLocoSectionHeatingExpanded(newValue)
+    }
+
+    fun toggleAuxiliaryCounter() {
+        val newValue = !_uiState.value.isShowAuxiliaryCounter
+        _uiState.update { it.copy(isShowAuxiliaryCounter = newValue) }
+        sharedPreferenceStorage.setLocoSectionAuxiliaryExpanded(newValue)
+    }
+
+    fun toggleTime() {
+        val newValue = !_uiState.value.isShowTime
+        _uiState.update { it.copy(isShowTime = newValue) }
+        sharedPreferenceStorage.setLocoSectionTimeExpanded(newValue)
+    }
+
+    fun toggleResults() {
+        val newValue = !_uiState.value.isShowResults
+        _uiState.update { it.copy(isShowResults = newValue) }
+        sharedPreferenceStorage.setLocoSectionStatisticsExpanded(newValue)
+    }
+
+    fun dismissUpdateHint() {
+        sharedPreferenceStorage.setLocoFormUpdateHintShown()
+        _uiState.update { it.copy(isShowUpdateHint = false) }
     }
 
     fun showOtherCurrent(value: Boolean) {

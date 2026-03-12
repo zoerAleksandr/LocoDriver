@@ -91,6 +91,9 @@ fun SettingsScreen(
     changeUsingDefaultWorkTime: (Boolean) -> Unit,
     changeConsiderFutureRoute: (Boolean) -> Unit,
     changeShowBreak: (Boolean) -> Unit,
+    changeShowLocoHeating: (Boolean) -> Unit,
+    changeShowLocoAuxiliary: (Boolean) -> Unit,
+    changeShowLocoStatistics: (Boolean) -> Unit,
     setTimeZone: (Long) -> Unit,
     timeZoneRussiaList: List<TimeZoneRussia>,
     servicePhases: SnapshotStateList<ServicePhase>?,
@@ -1202,6 +1205,99 @@ fun SettingsScreen(
                                 color = primaryColor
                             )
                         }
+                    }
+
+                    // Локомотив
+                    item {
+                        Text(
+                            modifier = Modifier.padding(top = 16.dp, start = 16.dp, bottom = 6.dp),
+                            text = "Локомотив",
+                            style = styleTitle
+                        )
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                .background(
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    shape = Shapes.medium
+                                )
+                                .padding(vertical = 8.dp)
+                        )
+                        {
+                            // Отопление
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Отопление",
+                                    style = styleData,
+                                    overflow = TextOverflow.Ellipsis,
+                                    maxLines = 1,
+                                    modifier = Modifier.weight(1f).padding(end = 12.dp)
+                                )
+                                Switch(
+                                    checked = currentSettings.isShowLocoHeating,
+                                    onCheckedChange = { changeShowLocoHeating(it) }
+                                )
+                            }
+
+                            // Собственные нужды
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Собственные нужды",
+                                    style = styleData,
+                                    overflow = TextOverflow.Ellipsis,
+                                    maxLines = 1,
+                                    modifier = Modifier.weight(1f).padding(end = 12.dp)
+                                )
+                                Switch(
+                                    checked = currentSettings.isShowLocoAuxiliary,
+                                    onCheckedChange = { changeShowLocoAuxiliary(it) }
+                                )
+                            }
+
+                            // Статистика
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Статистика",
+                                    style = styleData,
+                                    overflow = TextOverflow.Ellipsis,
+                                    maxLines = 1,
+                                    modifier = Modifier.weight(1f).padding(end = 12.dp)
+                                )
+                                Switch(
+                                    checked = currentSettings.isShowLocoStatistics,
+                                    onCheckedChange = { changeShowLocoStatistics(it) }
+                                )
+                            }
+                        }
+                        Text(
+                            modifier = Modifier.padding(
+                                start = 16.dp,
+                                top = 8.dp
+                            ),
+                            text = "Показывать эти поля в разделе Локомотив",
+                            style = styleHint,
+                            color = primaryColor
+                        )
                     }
 
                     item {

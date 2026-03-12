@@ -30,4 +30,14 @@ interface SharedPreferencesRepositories {
     fun setIsExpandedView(value: Boolean)
     fun toggleShowTravelTime(value: Boolean)
     fun isShowTravelTime(): Boolean
+    fun isShowLocoFormUpdateHint(): Boolean
+    fun setLocoFormUpdateHintShown()
+    fun isLocoSectionTimeExpanded(): Boolean
+    fun setLocoSectionTimeExpanded(value: Boolean)
+    fun isLocoSectionHeatingExpanded(): Boolean
+    fun setLocoSectionHeatingExpanded(value: Boolean)
+    fun isLocoSectionAuxiliaryExpanded(): Boolean
+    fun setLocoSectionAuxiliaryExpanded(value: Boolean)
+    fun isLocoSectionStatisticsExpanded(): Boolean
+    fun setLocoSectionStatisticsExpanded(value: Boolean)
 }

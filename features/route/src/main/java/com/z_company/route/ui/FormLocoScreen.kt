@@ -103,11 +103,16 @@ import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.ElectricSectionItem
 import com.z_company.route.component.OutlinedTextFieldApp
 import com.z_company.route.component.SwitchApp
+import com.z_company.route.component.CollapsibleSection
+import com.z_company.route.component.DieselStatisticsSection
+import com.z_company.route.component.ElectricStatisticsSection
 import com.z_company.route.viewmodel.DieselSectionFormState
 import com.z_company.route.viewmodel.DieselSectionType
 import com.z_company.route.viewmodel.ElectricSectionFormState
 import com.z_company.route.viewmodel.ElectricSectionType
 import com.z_company.route.viewmodel.LocoFormViewModel
+import com.z_company.domain.entities.setting.UserSettings
+import androidx.compose.material3.AlertDialog
 import kotlinx.coroutines.launch
 
 @OptIn(
@@ -149,15 +154,39 @@ fun FormLocoScreen(
     onExpandedMenuChange: (Boolean) -> Unit,
     onChangedContentMenu: (String) -> Unit,
     onDeleteSeries: (String) -> Unit,
-    dateAndTimeConverter: DateAndTimeConverter?
+    dateAndTimeConverter: DateAndTimeConverter?,
+    userSettings: UserSettings? = null
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     var showSettingBottomSheet by remember { mutableStateOf(false) }
-    var showTime by remember { mutableStateOf(false) }
-    var resultVisible by remember { mutableStateOf(false) }
 
     val noValueColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+
+    if (formUiState.isShowUpdateHint) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissUpdateHint,
+            containerColor = MaterialTheme.colorScheme.secondary,
+            titleContentColor = MaterialTheme.colorScheme.primary,
+            textContentColor = MaterialTheme.colorScheme.onBackground,
+            title = { Text("Обновление") },
+            text = {
+                Text(
+                    "В форму локомотива добавлены новые поля: счётчики отопления и собственных нужд.\n\n" +
+                            "Вы можете отключить их отображение в Настройках \u2192 Локомотив."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::dismissUpdateHint) {
+                    Text(
+                        text = "Понятно",
+                        color = MaterialTheme.colorScheme.tertiary,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        )
+    }
 
     Scaffold(
         modifier = Modifier
@@ -183,55 +212,14 @@ fun FormLocoScreen(
                     }
                 },
                 actions = {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End)
+                    IconButton(
+                        onClick = { showSettingBottomSheet = !showSettingBottomSheet }
                     ) {
-                        IconButton(
-                            onClick = { viewModel.showHeatingCounter(!formUiState.isShowHeatingCounter) }
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.nest_farsight_heat_24px),
-                                tint = MaterialTheme.colorScheme.primary,
-                                contentDescription = null
-                            )
-                        }
-                        IconButton(
-                            onClick = { viewModel.showAuxiliaryCounter(!formUiState.isShowAuxiliaryCounter) }
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.electric_bolt_24px),
-                                tint = MaterialTheme.colorScheme.primary,
-                                contentDescription = null
-                            )
-                        }
-                        IconButton(
-                            onClick = { resultVisible = !resultVisible }
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.finance_24px),
-                                tint = MaterialTheme.colorScheme.primary,
-                                contentDescription = null
-                            )
-                        }
-                        IconButton(
-                            onClick = { showTime = !showTime }
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.nest_clock_farsight_analog_24px),
-                                tint = MaterialTheme.colorScheme.primary,
-                                contentDescription = null
-                            )
-                        }
-                        IconButton(
-                            onClick = { showSettingBottomSheet = !showSettingBottomSheet }
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.settings_24px),
-                                tint = MaterialTheme.colorScheme.primary,
-                                contentDescription = null
-                            )
-                        }
+                        Icon(
+                            painter = painterResource(R.drawable.settings_24px),
+                            tint = MaterialTheme.colorScheme.primary,
+                            contentDescription = null
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -597,7 +585,6 @@ fun FormLocoScreen(
                 LazyColumn(
                     state = scrollState,
                     horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     item {
                         val currentType = locomotive.type
@@ -667,6 +654,7 @@ fun FormLocoScreen(
                         Row(
                             modifier = Modifier
                                 .padding(horizontal = 16.dp)
+                                .padding(top = 12.dp)
                                 .fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
@@ -800,12 +788,13 @@ fun FormLocoScreen(
 
                     // время
                     item {
-                        AnimatedVisibility(showTime) {
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                CustomDivider(orientation = Orientation.Horizontal)
+                        CollapsibleSection(
+                            modifier = Modifier.padding(top = 12.dp),
+                            title = "Время",
+                            expanded = formUiState.isShowTime,
+                            onToggle = viewModel::toggleTime,
+                            icon = R.drawable.schedule_24px
+                        ) {
                                 var showStartAcceptedDatePicker by remember {
                                     mutableStateOf(false)
                                 }
@@ -844,7 +833,7 @@ fun FormLocoScreen(
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Text(
-                                        text = "Время приемки",
+                                        text = "Приёмка",
                                         style = subTitleTextStyle
                                     )
                                     Row(
@@ -998,7 +987,7 @@ fun FormLocoScreen(
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Text(
-                                        text = "Время сдачи",
+                                        text = "Сдача",
                                         style = subTitleTextStyle
                                     )
                                     Row(
@@ -1113,9 +1102,8 @@ fun FormLocoScreen(
                                 }
                             }
                         }
-                    }
-
                     // отопление
+                    if (userSettings?.isShowLocoHeating != false) {
                     item {
                         val accepted =
                             locomotive.heatingCounterAccepted?.takeIf { it != 0.0 }
@@ -1124,102 +1112,71 @@ fun FormLocoScreen(
                             locomotive.heatingCounterDelivery?.takeIf { it != 0.0 }
                                 ?.toLong()?.toString() ?: ""
                         val heatingResult = delivered.toIntOrNull() - accepted.toIntOrNull()
-                        AnimatedVisibility(formUiState.isShowHeatingCounter) {
-                            Column(
-                                modifier = Modifier.padding(top = 16.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                        CollapsibleSection(
+                            title = "Отопление",
+                            expanded = formUiState.isShowHeatingCounter,
+                            onToggle = viewModel::toggleHeatingCounter,
+                            icon = R.drawable.nest_farsight_heat_24px,
+                            summaryText = heatingResult?.let { "Расход: $it" }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                CustomDivider(orientation = Orientation.Horizontal)
-                                Text(
-                                    modifier = Modifier
-                                        .padding(horizontal = 16.dp),
-                                    text = "Отопление",
-                                    style = subTitleTextStyle
-                                )
-                                Row(
-                                    modifier = Modifier
-                                        .padding(horizontal = 16.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    OutlinedTextFieldApp(
-                                        modifier = Modifier.weight(1f),
-                                        value = accepted,
-                                        textStyle = dataTextStyle,
-                                        placeholder = {
-                                            Text(
-                                                text = "Принял",
-                                                style = LocalTextStyle.current.copy(
-                                                    fontWeight = FontWeight.Light
-                                                ),
-                                                color = noValueColor,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        },
-                                        onValueChange = {
-                                            viewModel.setHeatingCounterAccepted(it)
-                                        },
-                                        keyboardOptions = KeyboardOptions(
-                                            imeAction = ImeAction.Next,
-                                            keyboardType = KeyboardType.Decimal
-                                        ),
-                                        keyboardActions = KeyboardActions(
-                                            onNext = {
-                                                focusManager.moveFocus(FocusDirection.Right)
-                                            }
-                                        ),
-                                        singleLine = true,
-                                        shape = Shapes.medium,
-                                    )
-
-                                    OutlinedTextFieldApp(
-                                        modifier = Modifier.weight(1f),
-                                        value = delivered,
-                                        textStyle = dataTextStyle,
-                                        placeholder = {
-                                            Text(
-                                                text = "Сдал",
-                                                style = LocalTextStyle.current.copy(
-                                                    fontWeight = FontWeight.Light
-                                                ),
-                                                color = noValueColor
-                                            )
-                                        },
-                                        onValueChange = {
-                                            viewModel.setHeatingCounterDelivery(it)
-                                        },
-                                        keyboardOptions = KeyboardOptions(
-                                            imeAction = ImeAction.Done,
-                                            keyboardType = KeyboardType.Decimal
-                                        ),
-                                        keyboardActions = KeyboardActions(
-                                            onDone = {
-                                                focusManager.clearFocus()
-                                            }
-                                        ),
-                                        singleLine = true,
-                                        shape = Shapes.medium,
-                                    )
-                                }
-                                AnimatedVisibility(heatingResult != null) {
-                                    Box(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        contentAlignment = Alignment.CenterEnd
-                                    ) {
+                                OutlinedTextFieldApp(
+                                    modifier = Modifier.weight(1f),
+                                    value = accepted,
+                                    textStyle = dataTextStyle,
+                                    placeholder = {
                                         Text(
-                                            modifier = Modifier.padding(end = 16.dp),
-                                            text = heatingResult.toString(),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.primary
+                                            text = "Принял",
+                                            style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
+                                            color = noValueColor,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
-                                    }
+                                    },
+                                    onValueChange = { viewModel.setHeatingCounterAccepted(it) },
+                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next, keyboardType = KeyboardType.Decimal),
+                                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Right) }),
+                                    singleLine = true,
+                                    shape = Shapes.medium,
+                                )
+                                OutlinedTextFieldApp(
+                                    modifier = Modifier.weight(1f),
+                                    value = delivered,
+                                    textStyle = dataTextStyle,
+                                    placeholder = {
+                                        Text(
+                                            text = "Сдал",
+                                            style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
+                                            color = noValueColor
+                                        )
+                                    },
+                                    onValueChange = { viewModel.setHeatingCounterDelivery(it) },
+                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done, keyboardType = KeyboardType.Decimal),
+                                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                                    singleLine = true,
+                                    shape = Shapes.medium,
+                                )
+                            }
+                            AnimatedVisibility(heatingResult != null) {
+                                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                                    Text(
+                                        modifier = Modifier.padding(end = 16.dp),
+                                        text = heatingResult.toString(),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
                                 }
                             }
                         }
                     }
+                    }
 
                     // собственные нужды
+                    if (userSettings?.isShowLocoAuxiliary != false) {
                     item {
                         val auxAccepted =
                             locomotive.auxiliaryCounterAccepted?.takeIf { it != 0.0 }
@@ -1228,760 +1185,97 @@ fun FormLocoScreen(
                             locomotive.auxiliaryCounterDelivery?.takeIf { it != 0.0 }
                                 ?.toLong()?.toString() ?: ""
                         val auxiliaryResult = auxDelivered.toIntOrNull() - auxAccepted.toIntOrNull()
-                        AnimatedVisibility(formUiState.isShowAuxiliaryCounter) {
-                            Column(
-                                modifier = Modifier.padding(top = 16.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                        CollapsibleSection(
+                            title = "Собственные нужды",
+                            expanded = formUiState.isShowAuxiliaryCounter,
+                            onToggle = viewModel::toggleAuxiliaryCounter,
+                            icon = R.drawable.electric_bolt_24px,
+                            summaryText = auxiliaryResult?.let { "Расход: $it" }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                CustomDivider(orientation = Orientation.Horizontal)
-                                Text(
-                                    modifier = Modifier
-                                        .padding(horizontal = 16.dp),
-                                    text = "Собственные нужды",
-                                    style = subTitleTextStyle
-                                )
-                                Row(
-                                    modifier = Modifier
-                                        .padding(horizontal = 16.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    OutlinedTextFieldApp(
-                                        modifier = Modifier.weight(1f),
-                                        value = auxAccepted,
-                                        textStyle = dataTextStyle,
-                                        placeholder = {
-                                            Text(
-                                                text = "Принял",
-                                                style = LocalTextStyle.current.copy(
-                                                    fontWeight = FontWeight.Light
-                                                ),
-                                                color = noValueColor,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        },
-                                        onValueChange = {
-                                            viewModel.setAuxiliaryCounterAccepted(it)
-                                        },
-                                        keyboardOptions = KeyboardOptions(
-                                            imeAction = ImeAction.Next,
-                                            keyboardType = KeyboardType.Decimal
-                                        ),
-                                        keyboardActions = KeyboardActions(
-                                            onNext = {
-                                                focusManager.moveFocus(FocusDirection.Right)
-                                            }
-                                        ),
-                                        singleLine = true,
-                                        shape = Shapes.medium,
-                                    )
-
-                                    OutlinedTextFieldApp(
-                                        modifier = Modifier.weight(1f),
-                                        value = auxDelivered,
-                                        textStyle = dataTextStyle,
-                                        placeholder = {
-                                            Text(
-                                                text = "Сдал",
-                                                style = LocalTextStyle.current.copy(
-                                                    fontWeight = FontWeight.Light
-                                                ),
-                                                color = noValueColor
-                                            )
-                                        },
-                                        onValueChange = {
-                                            viewModel.setAuxiliaryCounterDelivery(it)
-                                        },
-                                        keyboardOptions = KeyboardOptions(
-                                            imeAction = ImeAction.Done,
-                                            keyboardType = KeyboardType.Decimal
-                                        ),
-                                        keyboardActions = KeyboardActions(
-                                            onDone = {
-                                                focusManager.clearFocus()
-                                            }
-                                        ),
-                                        singleLine = true,
-                                        shape = Shapes.medium,
-                                    )
-                                }
-                                AnimatedVisibility(auxiliaryResult != null) {
-                                    Box(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        contentAlignment = Alignment.CenterEnd
-                                    ) {
+                                OutlinedTextFieldApp(
+                                    modifier = Modifier.weight(1f),
+                                    value = auxAccepted,
+                                    textStyle = dataTextStyle,
+                                    placeholder = {
                                         Text(
-                                            modifier = Modifier.padding(end = 16.dp),
-                                            text = auxiliaryResult.toString(),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.primary
+                                            text = "Принял",
+                                            style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
+                                            color = noValueColor,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
-                                    }
+                                    },
+                                    onValueChange = { viewModel.setAuxiliaryCounterAccepted(it) },
+                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next, keyboardType = KeyboardType.Decimal),
+                                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Right) }),
+                                    singleLine = true,
+                                    shape = Shapes.medium,
+                                )
+                                OutlinedTextFieldApp(
+                                    modifier = Modifier.weight(1f),
+                                    value = auxDelivered,
+                                    textStyle = dataTextStyle,
+                                    placeholder = {
+                                        Text(
+                                            text = "Сдал",
+                                            style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
+                                            color = noValueColor
+                                        )
+                                    },
+                                    onValueChange = { viewModel.setAuxiliaryCounterDelivery(it) },
+                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done, keyboardType = KeyboardType.Decimal),
+                                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                                    singleLine = true,
+                                    shape = Shapes.medium,
+                                )
+                            }
+                            AnimatedVisibility(auxiliaryResult != null) {
+                                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                                    Text(
+                                        modifier = Modifier.padding(end = 16.dp),
+                                        text = auxiliaryResult.toString(),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
                                 }
                             }
                         }
                     }
+                    }
 
                     // Итоги
+                    if (userSettings?.isShowLocoStatistics != false) {
                     item {
-                        AnimatedVisibility(
-                            modifier = Modifier
-                                .fillMaxWidth(),
-                            visible = resultVisible && currentLoco.type == LocoType.ELECTRIC
+                        CollapsibleSection(
+                            title = "Статистика",
+                            expanded = formUiState.isShowResults,
+                            onToggle = viewModel::toggleResults,
+                            icon = R.drawable.finance_24px
                         ) {
-                            var overResult: Double? = null
-                            var overRecovery: Double? = null
-
-                            var overResult2: Double? = null
-                            var overRecovery2: Double? = null
-
-                            electricSectionListState?.forEach {
-                                val accepted =
-                                    it.accepted.data?.toDoubleOrNull()
-                                val delivery =
-                                    it.delivery.data?.toDoubleOrNull()
-                                val acceptedRecovery =
-                                    it.recoveryAccepted.data?.toDoubleOrNull()
-                                val deliveryRecovery =
-                                    it.recoveryDelivery.data?.toDoubleOrNull()
-                                val accepted2 =
-                                    it.accepted2.data?.toDoubleOrNull()
-                                val delivery2 =
-                                    it.delivery2.data?.toDoubleOrNull()
-                                val acceptedRecovery2 =
-                                    it.recoveryAccepted2.data?.toDoubleOrNull()
-                                val deliveryRecovery2 =
-                                    it.recoveryDelivery2.data?.toDoubleOrNull()
-
-                                val result = delivery - accepted
-                                val resultRecovery =
-                                    deliveryRecovery - acceptedRecovery
-
-                                val result2 = delivery2 - accepted2
-                                val resultRecovery2 = deliveryRecovery2 - acceptedRecovery2
-
-                                overResult += result
-                                overRecovery += resultRecovery
-
-                                overResult2 += result2
-                                overRecovery2 += resultRecovery2
-                            }
-                            Column(
-                                modifier = Modifier.padding(top = 16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                CustomDivider(orientation = Orientation.Horizontal)
-                                LazyRow(
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    item {
-                                        Spacer(modifier = Modifier.height(16.dp))
-                                    }
-                                    item {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .shadow(
-                                                        elevation = 2.dp,
-                                                        shape = RoundedCornerShape(60.dp)
-                                                    )
-                                                    .background(
-                                                        color = MaterialTheme.colorScheme.surfaceDim,
-                                                        shape = RoundedCornerShape(60.dp)
-                                                    )
-                                                    .border(
-                                                        width = 0.5.dp,
-                                                        color = MaterialTheme.colorScheme.tertiary,
-                                                        shape = RoundedCornerShape(60.dp)
-                                                    )
-                                                    .size(40.dp),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Icon(
-                                                    painter = painterResource(R.drawable.electric_bolt_24px),
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.primary.copy(
-                                                        alpha = 0.8f
-                                                    ),
-                                                )
-                                            }
-                                            Text(
-                                                text = "Расход",
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
-                                            Text(
-                                                text = overResult?.toLong()?.toString()
-                                                    ?: "0",
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
-                                        }
-                                    }
-
-                                    item {
-                                        Column(
-                                            modifier = Modifier.noRippleEffect(
-                                                onClick = { showSettingBottomSheet = true }
-                                            ),
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .shadow(
-                                                        elevation = 2.dp,
-                                                        shape = RoundedCornerShape(60.dp)
-                                                    )
-                                                    .background(
-                                                        color = Color(0xFFE29960),
-                                                        shape = RoundedCornerShape(60.dp)
-                                                    )
-                                                    .border(
-                                                        width = 0.5.dp,
-                                                        color = MaterialTheme.colorScheme.tertiary,
-                                                        shape = RoundedCornerShape(60.dp)
-                                                    )
-                                                    .size(40.dp),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Icon(
-                                                    painter = painterResource(R.drawable.electric_bolt_24px),
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.primary.copy(
-                                                        alpha = 0.8f
-                                                    ),
-                                                )
-                                            }
-                                            Text(
-                                                text = "Норма",
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
-                                            Text(
-                                                text = locomotive.normaElectricCurrent1?.toString()
-                                                    ?: "0",
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
-                                        }
-                                    }
-
-                                    item {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                                        ) {
-                                            val result =
-                                                (locomotive.normaElectricCurrent1 ?: 0) -
-                                                    (overResult?.toLong()?.toInt() ?: 0)
-
-                                            val resultText = if (result > 0) {
-                                                "+${result}"
-                                            } else {
-                                                result.toString()
-                                            }
-
-                                            val backgroundColor = if (result < 0) {
-                                                MaterialTheme.colorScheme.error
-                                            } else {
-                                                MaterialTheme.colorScheme.surfaceContainerLow
-                                            }
-                                            Box(
-                                                modifier = Modifier
-                                                    .shadow(
-                                                        elevation = 2.dp,
-                                                        shape = RoundedCornerShape(60.dp)
-                                                    )
-                                                    .background(
-                                                        color = backgroundColor,
-                                                        shape = RoundedCornerShape(60.dp)
-                                                    )
-                                                    .border(
-                                                        width = 0.5.dp,
-                                                        color = MaterialTheme.colorScheme.tertiary,
-                                                        shape = RoundedCornerShape(60.dp)
-                                                    )
-                                                    .size(40.dp),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Icon(
-                                                    painter = painterResource(R.drawable.electric_bolt_24px),
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.secondary,
-                                                )
-                                            }
-
-                                            Text(
-                                                text = "Итог",
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
-                                            Text(
-                                                text = resultText,
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
-                                        }
-                                    }
-
-                                    item {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .shadow(
-                                                        elevation = 2.dp,
-                                                        shape = RoundedCornerShape(60.dp)
-                                                    )
-                                                    .background(
-                                                        color = MaterialTheme.colorScheme.surfaceDim,
-                                                        shape = RoundedCornerShape(60.dp)
-                                                    )
-                                                    .border(
-                                                        width = 0.5.dp,
-                                                        color = MaterialTheme.colorScheme.tertiary,
-                                                        shape = RoundedCornerShape(60.dp)
-                                                    )
-                                                    .size(40.dp),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Icon(
-                                                    painter = painterResource(R.drawable.cycle_24px),
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.primary.copy(
-                                                        alpha = 0.8f
-                                                    ),
-                                                )
-                                            }
-                                            Text(
-                                                text = "Рекуп",
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
-                                            Text(
-                                                text = overRecovery?.toLong()?.toString() ?: "0",
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
-                                        }
-                                    }
-
-                                    if (formUiState.isShowOtherCurrent) {
-                                        item {
-                                            Column(
-                                                horizontalAlignment = Alignment.CenterHorizontally,
-                                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                                            ) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .shadow(
-                                                            elevation = 2.dp,
-                                                            shape = RoundedCornerShape(60.dp)
-                                                        )
-                                                        .background(
-                                                            color = MaterialTheme.colorScheme.surfaceDim,
-                                                            shape = RoundedCornerShape(60.dp)
-                                                        )
-                                                        .border(
-                                                            width = 0.5.dp,
-                                                            color = MaterialTheme.colorScheme.tertiary,
-                                                            shape = RoundedCornerShape(60.dp)
-                                                        )
-                                                        .size(40.dp),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Icon(
-                                                        painter = painterResource(R.drawable.electric_bolt_24px),
-                                                        contentDescription = null
-                                                    )
-                                                }
-                                                Text(
-                                                    text = "Расход2",
-                                                    style = MaterialTheme.typography.bodyMedium
-                                                )
-                                                Text(
-                                                    text = overResult2?.toLong()?.toString()
-                                                        ?: "0",
-                                                    style = MaterialTheme.typography.bodyMedium
-                                                )
-                                            }
-                                        }
-
-                                        item {
-                                            Column(
-                                                modifier = Modifier.noRippleEffect(
-                                                    onClick = { showSettingBottomSheet = true }
-                                                ),
-                                                horizontalAlignment = Alignment.CenterHorizontally,
-                                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                                            ) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .shadow(
-                                                            elevation = 2.dp,
-                                                            shape = RoundedCornerShape(60.dp)
-                                                        )
-                                                        .background(
-                                                            color = Color(0xFFE29960),
-                                                            shape = RoundedCornerShape(60.dp)
-                                                        )
-                                                        .border(
-                                                            width = 0.5.dp,
-                                                            color = MaterialTheme.colorScheme.tertiary,
-                                                            shape = RoundedCornerShape(60.dp)
-                                                        )
-                                                        .size(40.dp),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Icon(
-                                                        painter = painterResource(R.drawable.electric_bolt_24px),
-                                                        contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.primary.copy(
-                                                            alpha = 0.8f
-                                                        ),
-                                                    )
-                                                }
-                                                Text(
-                                                    text = "Норма2",
-                                                    style = MaterialTheme.typography.bodyMedium
-                                                )
-                                                Text(
-                                                    text = locomotive.normaElectricCurrent2?.toString()
-                                                        ?: "0",
-                                                    style = MaterialTheme.typography.bodyMedium
-                                                )
-                                            }
-                                        }
-
-                                        item {
-                                            Column(
-                                                horizontalAlignment = Alignment.CenterHorizontally,
-                                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                                            ) {
-
-                                                val result2 =
-                                                    (locomotive.normaElectricCurrent2 ?: 0) -
-                                                        (overResult2?.toLong()?.toInt() ?: 0)
-
-                                                val resultText2 = if (result2 > 0) {
-                                                    "+${result2}"
-                                                } else {
-                                                    result2.toString()
-                                                }
-
-                                                val backgroundColor = if (result2 < 0) {
-                                                    MaterialTheme.colorScheme.error
-                                                } else {
-                                                    MaterialTheme.colorScheme.surfaceContainerLow
-                                                }
-
-                                                Box(
-                                                    modifier = Modifier
-                                                        .shadow(
-                                                            elevation = 2.dp,
-                                                            shape = RoundedCornerShape(60.dp)
-                                                        )
-                                                        .background(
-                                                            color = backgroundColor,
-                                                            shape = RoundedCornerShape(60.dp)
-                                                        )
-                                                        .border(
-                                                            width = 0.5.dp,
-                                                            color = MaterialTheme.colorScheme.tertiary,
-                                                            shape = RoundedCornerShape(60.dp)
-                                                        )
-                                                        .size(40.dp),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Icon(
-                                                        painter = painterResource(R.drawable.electric_bolt_24px),
-                                                        contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.secondary,
-                                                    )
-                                                }
-                                                Text(
-                                                    text = "Итог2",
-                                                    style = MaterialTheme.typography.bodyMedium
-                                                )
-                                                Text(
-                                                    text = resultText2,
-                                                    style = MaterialTheme.typography.bodyMedium
-                                                )
-                                            }
-                                        }
-
-                                        item {
-                                            Column(
-                                                horizontalAlignment = Alignment.CenterHorizontally,
-                                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                                            ) {
-                                                Box(
-                                                    modifier = Modifier
-
-                                                        .shadow(
-                                                            elevation = 2.dp,
-                                                            shape = RoundedCornerShape(60.dp)
-                                                        )
-                                                        .background(
-                                                            color = MaterialTheme.colorScheme.surfaceDim,
-                                                            shape = RoundedCornerShape(60.dp)
-                                                        )
-                                                        .border(
-                                                            width = 0.5.dp,
-                                                            color = MaterialTheme.colorScheme.tertiary,
-                                                            shape = RoundedCornerShape(60.dp)
-                                                        )
-                                                        .size(40.dp),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Icon(
-                                                        painter = painterResource(R.drawable.cycle_24px),
-                                                        contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.primary.copy(
-                                                            alpha = 0.8f
-                                                        ),
-                                                    )
-                                                }
-                                                Text(
-                                                    text = "Рекуп2",
-                                                    style = MaterialTheme.typography.bodyMedium
-                                                )
-                                                Text(
-                                                    text = overRecovery2?.toString() ?: "0",
-                                                    style = MaterialTheme.typography.bodyMedium
-                                                )
-                                            }
-                                        }
-                                    }
+                            when (currentLoco.type) {
+                                LocoType.ELECTRIC -> {
+                                    ElectricStatisticsSection(
+                                        electricSectionListState = electricSectionListState,
+                                        locomotive = locomotive,
+                                        isShowOtherCurrent = formUiState.isShowOtherCurrent,
+                                        onSettingsClick = { showSettingBottomSheet = true }
+                                    )
+                                }
+                                LocoType.DIESEL -> {
+                                    DieselStatisticsSection(
+                                        dieselSectionListState = dieselSectionListState,
+                                        locomotive = locomotive,
+                                        onSettingsClick = { showSettingBottomSheet = true }
+                                    )
                                 }
                             }
                         }
-
-                        AnimatedVisibility(
-                            modifier = Modifier
-                                .fillMaxWidth(),
-                            visible = resultVisible && currentLoco.type == LocoType.DIESEL
-                        ) {
-                            var overResultDieselInLiter: Double? = null
-                            var overResultDieselInKilo: Double? = null
-
-                            dieselSectionListState?.forEach {
-                                val accepted = it.accepted.data?.toDoubleOrNull()
-                                val delivery = it.delivery.data?.toDoubleOrNull()
-                                val refuel = it.refuel.data?.toDoubleOrNull()
-                                val result = CalculationEnergy.getTotalFuelConsumption(
-                                    accepted, delivery, refuel
-                                )
-                                val resultInKilo =
-                                    result.times(it.coefficient.data?.toDoubleOrZero())
-
-                                overResultDieselInLiter += result
-                                overResultDieselInKilo += resultInKilo
-                            }
-
-                            Column(
-                                modifier = Modifier.padding(top = 16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                CustomDivider(orientation = Orientation.Horizontal)
-                                LazyRow(
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    item {
-                                        Spacer(modifier = Modifier.height(16.dp))
-                                    }
-                                    item {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(40.dp)
-                                                    .shadow(
-                                                        elevation = 2.dp,
-                                                        shape = CircleShape
-                                                    )
-                                                    .background(
-                                                        color = MaterialTheme.colorScheme.surfaceDim,
-                                                        shape = CircleShape
-                                                    )
-                                                    .border(
-                                                        width = 0.5.dp,
-                                                        color = MaterialTheme.colorScheme.tertiary,
-                                                        shape = CircleShape
-                                                    ),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Text(
-                                                    text = "Л",
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    color = MaterialTheme.colorScheme.primary,
-                                                )
-                                            }
-                                            Text(
-                                                text = "Расход",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
-                                            Text(
-                                                text = rounding(
-                                                    overResultDieselInLiter,
-                                                    2
-                                                )?.toString() ?: "0",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
-                                        }
-                                    }
-
-                                    item {
-                                        Column(
-                                            modifier = Modifier.noRippleEffect(
-                                                onClick = { showSettingBottomSheet = true }
-                                            ),
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(40.dp)
-                                                    .shadow(
-                                                        elevation = 2.dp,
-                                                        shape = CircleShape
-                                                    )
-                                                    .background(
-                                                        color = MaterialTheme.colorScheme.surfaceDim,
-                                                        shape = CircleShape
-                                                    )
-                                                    .border(
-                                                        width = 0.5.dp,
-                                                        color = MaterialTheme.colorScheme.tertiary,
-                                                        shape = CircleShape
-                                                    ),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Text(
-                                                    text = "Кг",
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    color = MaterialTheme.colorScheme.primary,
-                                                )
-                                            }
-                                            Text(
-                                                text = "Расход",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
-                                            Text(
-                                                text = rounding(overResultDieselInKilo, 2)?.str()
-                                                    ?: "0",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
-                                        }
-                                    }
-
-                                    item {
-                                        Column(
-                                            modifier = Modifier.noRippleEffect(
-                                                onClick = { showSettingBottomSheet = true }
-                                            ),
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(40.dp)
-                                                    .shadow(
-                                                        elevation = 2.dp,
-                                                        shape = CircleShape
-                                                    )
-                                                    .background(
-                                                        color = Color(0xFFE29960),
-                                                        shape = CircleShape
-                                                    )
-                                                    .border(
-                                                        width = 0.5.dp,
-                                                        color = MaterialTheme.colorScheme.tertiary,
-                                                        shape = CircleShape
-                                                    ),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Text(
-                                                    text = "Кг",
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    color = MaterialTheme.colorScheme.primary,
-                                                )
-                                            }
-                                            Text(
-                                                text = "Норма",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
-                                            Text(
-                                                text = locomotive.normaDiesel?.toString() ?: "0",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
-                                        }
-                                    }
-
-                                    item {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                                        ) {
-                                            if (!locomotive.normaDiesel.isNullOrBlank()) {
-                                                val result = (locomotive.normaDiesel?.toDoubleOrZero() - overResultDieselInKilo) ?: 0.0
-
-                                                val resultText = if (result > 0) {
-                                                    "+${rounding(result, 2).str()}"
-                                                } else {
-                                                    rounding(result, 2).str2decimalSign()
-                                                }
-                                                val backgroundColor = if (result < 0) {
-                                                    MaterialTheme.colorScheme.error
-                                                } else {
-                                                    MaterialTheme.colorScheme.surfaceContainerLow
-                                                }
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(40.dp)
-                                                        .shadow(
-                                                            elevation = 2.dp,
-                                                            shape = CircleShape
-                                                        )
-                                                        .background(
-                                                            color = backgroundColor,
-                                                            shape = CircleShape
-                                                        )
-                                                        .border(
-                                                            width = 0.5.dp,
-                                                            color = MaterialTheme.colorScheme.tertiary,
-                                                            shape = CircleShape
-                                                        ),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Icon(
-                                                        painter = painterResource(R.drawable.opacity_24px),
-                                                        contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.secondary
-                                                    )
-                                                }
-
-                                                Text(
-                                                    text = "Итог",
-                                                    style = MaterialTheme.typography.bodyMedium
-                                                )
-                                                Text(
-                                                    text = resultText,
-                                                    style = MaterialTheme.typography.bodyMedium
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                    }
                     }
 
                     when (locomotive.type.name) {

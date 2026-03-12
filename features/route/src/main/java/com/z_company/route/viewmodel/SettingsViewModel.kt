@@ -319,6 +319,24 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         )
     }
 
+    fun changeShowLocoHeating(value: Boolean) {
+        currentSettings = currentSettings?.copy(
+            isShowLocoHeating = value
+        )
+    }
+
+    fun changeShowLocoAuxiliary(value: Boolean) {
+        currentSettings = currentSettings?.copy(
+            isShowLocoAuxiliary = value
+        )
+    }
+
+    fun changeShowLocoStatistics(value: Boolean) {
+        currentSettings = currentSettings?.copy(
+            isShowLocoStatistics = value
+        )
+    }
+
     fun setTimeZone(timeZone: Long) {
         currentSettings = currentSettings?.copy(
             timeZone = timeZone

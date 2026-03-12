@@ -24,5 +24,8 @@ data class LocoFormUiState(
     var isShowHeatingCounter: Boolean = false,
     var isShowAuxiliaryCounter: Boolean = false,
     var isShowOtherCurrent: Boolean = false,
-    val isKiloMode: Boolean = false
+    var isShowTime: Boolean = false,
+    var isShowResults: Boolean = false,
+    val isKiloMode: Boolean = false,
+    val isShowUpdateHint: Boolean = false
 )
