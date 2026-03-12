@@ -111,6 +111,8 @@ import com.z_company.route.viewmodel.DieselSectionType
 import com.z_company.route.viewmodel.ElectricSectionFormState
 import com.z_company.route.viewmodel.ElectricSectionType
 import com.z_company.route.viewmodel.LocoFormViewModel
+import com.z_company.domain.entities.setting.UserSettings
+import androidx.compose.material3.AlertDialog
 import kotlinx.coroutines.launch
 
 @OptIn(
@@ -152,13 +154,32 @@ fun FormLocoScreen(
     onExpandedMenuChange: (Boolean) -> Unit,
     onChangedContentMenu: (String) -> Unit,
     onDeleteSeries: (String) -> Unit,
-    dateAndTimeConverter: DateAndTimeConverter?
+    dateAndTimeConverter: DateAndTimeConverter?,
+    userSettings: UserSettings? = null
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     var showSettingBottomSheet by remember { mutableStateOf(false) }
 
     val noValueColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+
+    if (formUiState.isShowUpdateHint) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissUpdateHint,
+            title = { Text("Обновление") },
+            text = {
+                Text(
+                    "В форму локомотива добавлены новые поля: счётчики отопления и собственных нужд.\n\n" +
+                            "Вы можете отключить их отображение в Настройках \u2192 Локомотив."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::dismissUpdateHint) {
+                    Text("Понятно")
+                }
+            }
+        )
+    }
 
     Scaffold(
         modifier = Modifier
@@ -761,9 +782,10 @@ fun FormLocoScreen(
                     // время
                     item {
                         CollapsibleSection(
-                            title = "Время приёмки/сдачи",
+                            title = "Время",
                             expanded = formUiState.isShowTime,
-                            onToggle = viewModel::toggleTime
+                            onToggle = viewModel::toggleTime,
+                            icon = R.drawable.schedule_24px
                         ) {
                                 var showStartAcceptedDatePicker by remember {
                                     mutableStateOf(false)
@@ -803,7 +825,7 @@ fun FormLocoScreen(
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Text(
-                                        text = "Время приемки",
+                                        text = "Приёмка",
                                         style = subTitleTextStyle
                                     )
                                     Row(
@@ -957,7 +979,7 @@ fun FormLocoScreen(
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Text(
-                                        text = "Время сдачи",
+                                        text = "Сдача",
                                         style = subTitleTextStyle
                                     )
                                     Row(
@@ -1073,6 +1095,7 @@ fun FormLocoScreen(
                             }
                         }
                     // отопление
+                    if (userSettings?.isShowLocoHeating != false) {
                     item {
                         val accepted =
                             locomotive.heatingCounterAccepted?.takeIf { it != 0.0 }
@@ -1085,6 +1108,7 @@ fun FormLocoScreen(
                             title = "Отопление",
                             expanded = formUiState.isShowHeatingCounter,
                             onToggle = viewModel::toggleHeatingCounter,
+                            icon = R.drawable.nest_farsight_heat_24px,
                             summaryText = heatingResult?.let { "Расход: $it" }
                         ) {
                             Row(
@@ -1141,8 +1165,10 @@ fun FormLocoScreen(
                             }
                         }
                     }
+                    }
 
                     // собственные нужды
+                    if (userSettings?.isShowLocoAuxiliary != false) {
                     item {
                         val auxAccepted =
                             locomotive.auxiliaryCounterAccepted?.takeIf { it != 0.0 }
@@ -1155,6 +1181,7 @@ fun FormLocoScreen(
                             title = "Собственные нужды",
                             expanded = formUiState.isShowAuxiliaryCounter,
                             onToggle = viewModel::toggleAuxiliaryCounter,
+                            icon = R.drawable.electric_bolt_24px,
                             summaryText = auxiliaryResult?.let { "Расход: $it" }
                         ) {
                             Row(
@@ -1211,13 +1238,16 @@ fun FormLocoScreen(
                             }
                         }
                     }
+                    }
 
                     // Итоги
+                    if (userSettings?.isShowLocoStatistics != false) {
                     item {
                         CollapsibleSection(
                             title = "Статистика",
                             expanded = formUiState.isShowResults,
-                            onToggle = viewModel::toggleResults
+                            onToggle = viewModel::toggleResults,
+                            icon = R.drawable.finance_24px
                         ) {
                             when (currentLoco.type) {
                                 LocoType.ELECTRIC -> {
@@ -1237,6 +1267,7 @@ fun FormLocoScreen(
                                 }
                             }
                         }
+                    }
                     }
 
                     when (locomotive.type.name) {

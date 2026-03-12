@@ -32,7 +32,10 @@ data class UserSettings(
     val standardTimesStartWork: List<Long> = listOf(hourInMillis8, hourInMillis20),
     val subscriptionPeriod: Long = 0,
     val isDecimalTime: Boolean = false,
-    val isShowBreak: Boolean = true
+    val isShowBreak: Boolean = true,
+    val isShowLocoHeating: Boolean = true,
+    val isShowLocoAuxiliary: Boolean = true,
+    val isShowLocoStatistics: Boolean = true
 )
 
 @Serializable

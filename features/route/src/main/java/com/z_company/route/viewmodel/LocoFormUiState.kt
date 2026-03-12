@@ -26,5 +26,6 @@ data class LocoFormUiState(
     var isShowOtherCurrent: Boolean = false,
     var isShowTime: Boolean = false,
     var isShowResults: Boolean = false,
-    val isKiloMode: Boolean = false
+    val isKiloMode: Boolean = false,
+    val isShowUpdateHint: Boolean = false
 )

@@ -16,6 +16,7 @@ private const val TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_16 =
     "TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_16"
 private const val STATION_SORT_REVERSED = "STATION_SORT_REVERSED"
 private const val TOKEN_INPUT_DIESEL_IN_KILO = "TOKEN_INPUT_DIESEL_IN_KILO"
+private const val TOKEN_SHOW_LOCO_FORM_UPDATE_V2_1_7 = "TOKEN_SHOW_LOCO_FORM_UPDATE_V2_1_7"
 
 private const val SORT_OPTION_TAG = "SORT_OPTION"
 private const val SELECTED_FILTERS_TAG = "SELECTED_FILTERS"
@@ -149,4 +150,11 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
 
     override fun isShowTravelTime(): Boolean =
         sharedpref.getBoolean(SHOW_TRAVEL_TIME_TAG, false)
+
+    override fun isShowLocoFormUpdateHint(): Boolean =
+        sharedpref.getBoolean(TOKEN_SHOW_LOCO_FORM_UPDATE_V2_1_7, true)
+
+    override fun setLocoFormUpdateHintShown() {
+        editor.putBoolean(TOKEN_SHOW_LOCO_FORM_UPDATE_V2_1_7, false).apply()
+    }
 }

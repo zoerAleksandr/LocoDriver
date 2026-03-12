@@ -84,6 +84,7 @@ class LocoFormViewModel(
     init {
         viewModelScope.launch {
             val isKiloMode = sharedPreferenceStorage.isInputDieselInKilo()
+            val showUpdateHint = sharedPreferenceStorage.isShowLocoFormUpdateHint()
 
             this.launch {
                 val sett = settingsUseCase.getUserSettingFlow().first()
@@ -91,7 +92,8 @@ class LocoFormViewModel(
                 _uiState.update {
                     it.copy(
                         dateAndTimeConverter = DateAndTimeConverter(sett),
-                        isKiloMode = isKiloMode
+                        isKiloMode = isKiloMode,
+                        isShowUpdateHint = showUpdateHint
                     )
                 }
                 _seriesList.update { list ->
@@ -347,6 +349,11 @@ class LocoFormViewModel(
 
     fun toggleResults() {
         _uiState.update { it.copy(isShowResults = !it.isShowResults) }
+    }
+
+    fun dismissUpdateHint() {
+        sharedPreferenceStorage.setLocoFormUpdateHintShown()
+        _uiState.update { it.copy(isShowUpdateHint = false) }
     }
 
     fun showOtherCurrent(value: Boolean) {

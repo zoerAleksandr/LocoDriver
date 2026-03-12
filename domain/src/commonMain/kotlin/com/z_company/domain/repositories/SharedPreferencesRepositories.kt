@@ -30,4 +30,6 @@ interface SharedPreferencesRepositories {
     fun setIsExpandedView(value: Boolean)
     fun toggleShowTravelTime(value: Boolean)
     fun isShowTravelTime(): Boolean
+    fun isShowLocoFormUpdateHint(): Boolean
+    fun setLocoFormUpdateHintShown()
 }

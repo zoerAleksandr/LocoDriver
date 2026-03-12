@@ -72,8 +72,8 @@ fun ElectricStatisticsSection(
             valueColor = NormaColor,
             onClick = onSettingsClick
         )
-        run {
-            val result = (locomotive.normaElectricCurrent1 ?: 0) -
+        if (locomotive.normaElectricCurrent1 != null) {
+            val result = locomotive.normaElectricCurrent1!! -
                     (overResult?.toLong()?.toInt() ?: 0)
             val resultText = if (result > 0) "+$result" else "$result"
             val resultColor = if (result < 0) {
@@ -106,8 +106,8 @@ fun ElectricStatisticsSection(
                 valueColor = NormaColor,
                 onClick = onSettingsClick
             )
-            run {
-                val result2 = (locomotive.normaElectricCurrent2 ?: 0) -
+            if (locomotive.normaElectricCurrent2 != null) {
+                val result2 = locomotive.normaElectricCurrent2!! -
                         (overResult2?.toLong()?.toInt() ?: 0)
                 val resultText2 = if (result2 > 0) "+$result2" else "$result2"
                 val resultColor2 = if (result2 < 0) {
