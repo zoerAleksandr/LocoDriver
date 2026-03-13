@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.z_company.core.sendToSentry
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlin.collections.toMutableList
@@ -158,43 +159,47 @@ class TrainFormViewModel(
 
     init {
         viewModelScope.launch {
-            loadStationsSortOrder()
-            if (trainId == NULLABLE_ID) {
-                isNewTrain = true
-                currentTrain = Train(basicId = basicId)
-            } else {
-                isNewTrain = false
-                loadTrain(trainId!!)
-            }
-            val initJob = this.launch {
-                val setting = settingsUseCase.getUserSettingFlow().first()
-                timeZoneText = settingsUseCase.getTimeZone(setting.timeZone)
-            }
-            initJob.join()
+            try {
+                loadStationsSortOrder()
+                if (trainId == NULLABLE_ID) {
+                    isNewTrain = true
+                    currentTrain = Train(basicId = basicId)
+                } else {
+                    isNewTrain = false
+                    loadTrain(trainId!!)
+                }
+                val initJob = this.launch {
+                    val setting = settingsUseCase.getUserSettingFlow().first()
+                    timeZoneText = settingsUseCase.getTimeZone(setting.timeZone)
+                }
+                initJob.join()
 
-            // Load route once
-            val routeState = routeUseCase.routeDetails(basicId).first()
-            if (routeState is ResultState.Success) {
-                routeState.data?.let { route = it }
-            }
+                // Load route once
+                val routeState = routeUseCase.routeDetails(basicId).first()
+                if (routeState is ResultState.Success) {
+                    routeState.data?.let { route = it }
+                }
 
-            // Subscribe to settings changes (service phases can be updated)
-            settingsUseCase.getFlowCurrentSettingsState().collect { settingState ->
-                if (settingState is ResultState.Success) {
-                    settingState.data.let { settings ->
-                        _uiState.update {
-                            it.copy(
-                                dateAndTimeConverter = DateAndTimeConverter(settings)
-                            )
+                // Subscribe to settings changes (service phases can be updated)
+                settingsUseCase.getFlowCurrentSettingsState().collect { settingState ->
+                    if (settingState is ResultState.Success) {
+                        settingState.data.let { settings ->
+                            _uiState.update {
+                                it.copy(
+                                    dateAndTimeConverter = DateAndTimeConverter(settings)
+                                )
+                            }
+                            stationNameList.addAllOrSkip(settings.stationList.toMutableStateList())
+                            mutableStationList.addAllOrSkip(stationNameList)
+                            locomotiveSeriesList.addAllOrSkip(settings.locomotiveSeriesList.toMutableStateList())
+                            mutableFilteredSeriesList.addAllOrSkip(locomotiveSeriesList)
+                            servicePhaseList.clear()
+                            servicePhaseList.addAllOrSkip(settings.servicePhases.toMutableStateList())
                         }
-                        stationNameList.addAllOrSkip(settings.stationList.toMutableStateList())
-                        mutableStationList.addAllOrSkip(stationNameList)
-                        locomotiveSeriesList.addAllOrSkip(settings.locomotiveSeriesList.toMutableStateList())
-                        mutableFilteredSeriesList.addAllOrSkip(locomotiveSeriesList)
-                        servicePhaseList.clear()
-                        servicePhaseList.addAllOrSkip(settings.servicePhases.toMutableStateList())
                     }
                 }
+            } catch (e: Exception) {
+                e.sendToSentry("TrainFormViewModel", "init")
             }
         }
 

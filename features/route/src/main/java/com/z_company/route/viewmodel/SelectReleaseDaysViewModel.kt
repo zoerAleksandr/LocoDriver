@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
+import com.z_company.core.sendToSentry
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlin.collections.find
@@ -168,41 +169,49 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
 
     fun saveNormaHours() {
         viewModelScope.launch {
-            currentMonthOfYear?.let { monthOfYear ->
-                newMonthList.forEach {
-                    if (it.month == monthOfYear.month && it.year == monthOfYear.year) {
-                        saveCurrentMonthInLocal(it)
+            try {
+                currentMonthOfYear?.let { monthOfYear ->
+                    newMonthList.forEach {
+                        if (it.month == monthOfYear.month && it.year == monthOfYear.year) {
+                            saveCurrentMonthInLocal(it)
+                        }
+                        saveCurrentMonthJob?.cancel()
+                        saveCurrentMonthJob =
+                            calendarUseCase.updateMonthOfYear(it).onEach { resultState ->
+                                _uiState.update {
+                                    it.copy(saveReleaseDaysState = resultState)
+                                }
+                                if (resultState is ResultState.Success) {
+                                    saveCurrentMonthJob?.cancel()
+                                }
+                            }.launchIn(viewModelScope)
+                        saveCurrentMonthJob?.join()
                     }
-                    saveCurrentMonthJob?.cancel()
-                    saveCurrentMonthJob =
-                        calendarUseCase.updateMonthOfYear(it).onEach { resultState ->
-                            _uiState.update {
-                                it.copy(saveReleaseDaysState = resultState)
-                            }
-                            if (resultState is ResultState.Success) {
-                                saveCurrentMonthJob?.cancel()
-                            }
-                        }.launchIn(viewModelScope)
-                    saveCurrentMonthJob?.join()
                 }
+            } catch (e: Exception) {
+                e.sendToSentry("SelectReleaseDaysViewModel", "saveNormaHours")
             }
         }
     }
 
     private fun loadSettings() {
         viewModelScope.launch {
-            settingsUseCase.getFlowCurrentSettingsState().collect { result ->
-                if (result is ResultState.Success) {
-                    result.data?.let { setting ->
-                        _uiState.update {
-                            it.copy(
-                                currentMonthOfYearState = ResultState.Success(setting.selectMonthOfYear),
-                                dateAndTimeConverter = DateAndTimeConverter(setting)
-                            )
+            try {
+                settingsUseCase.getFlowCurrentSettingsState().collect { result ->
+                    if (result is ResultState.Success) {
+                        result.data?.let { setting ->
+                            _uiState.update {
+                                it.copy(
+                                    currentMonthOfYearState = ResultState.Success(setting.selectMonthOfYear),
+                                    dateAndTimeConverter = DateAndTimeConverter(setting)
+                                )
+                            }
+                            setReleasePeriodState(setting.selectMonthOfYear)
                         }
-                        setReleasePeriodState(setting.selectMonthOfYear)
                     }
                 }
+            } catch (e: Exception) {
+                e.sendToSentry("SelectReleaseDaysViewModel", "loadSettings")
             }
         }
     }

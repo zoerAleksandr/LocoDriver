@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.z_company.core.sendToSentry
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.util.Calendar
@@ -45,15 +46,19 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
 
     init {
         viewModelScope.launch {
-            combine(
-                settingsUseCase.getUserSettingFlow(),
-                salarySettingUseCase.salarySettingFlow()
-            ) { userRes, salaryRes ->
-                _userSetting.value = userRes
-                Pair(userRes, salaryRes)
-            }.collectLatest { (userRes, salaryRes) ->
-                _uiState.update { it.copy(screenState = ResultState.Loading("Пересчет...")) }
-                calculationSalary(userRes, salaryRes)
+            try {
+                combine(
+                    settingsUseCase.getUserSettingFlow(),
+                    salarySettingUseCase.salarySettingFlow()
+                ) { userRes, salaryRes ->
+                    _userSetting.value = userRes
+                    Pair(userRes, salaryRes)
+                }.collectLatest { (userRes, salaryRes) ->
+                    _uiState.update { it.copy(screenState = ResultState.Loading("Пересчет...")) }
+                    calculationSalary(userRes, salaryRes)
+                }
+            } catch (e: Exception) {
+                e.sendToSentry("SalaryCalculationViewModel", "init")
             }
         }
     }

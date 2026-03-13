@@ -12,6 +12,7 @@ plugins {
     id(Plugins.compose_multiplatform) version Versions.compose_mp_ver apply false
     id(Plugins.ksp) version Versions.ksp_ver apply false
     id(Plugins.sqldelight) version Versions.sqldelight_ver apply false
+    id(Plugins.sentry_kmp) version Versions.sentry_kmp_plugin_ver apply false
     id(Plugins.vkIdManifest) version Versions.vkIdManifestPluginVer apply true
     id("org.jetbrains.kotlin.plugin.serialization") version Versions.kotlin_version
 }

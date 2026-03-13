@@ -3,6 +3,7 @@ package com.z_company.loco_driver
 import android.app.Application
 import com.my.tracker.MyTracker
 import com.my.tracker.MyTrackerConfig.LocationTrackingMode
+import com.z_company.core.initSentry
 import com.vk.id.VKID
 import com.z_company.data_local.route.di.sqlDelightRouteModule
 import com.z_company.data_local.setting.di.sqlDelightSettingsModule
@@ -26,6 +27,7 @@ class StartApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        initSentry(BuildConfig.SENTRY_DSN)
         VKID.init(this)
         VKID.instance.setLocale(Locale("ru"))
         val myTrackerConfig = MyTracker.getTrackerConfig()

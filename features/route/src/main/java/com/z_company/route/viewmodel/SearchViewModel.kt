@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.z_company.core.sendToSentry
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -59,71 +60,75 @@ class SearchViewModel : ViewModel(), KoinComponent {
 
     fun sendRequest(value: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            // ADDED: Wait for settings to load if not initialized
-            if (entityString == null) {
-                delay(100) // Small delay to allow loading; better to use a StateFlow signal if possible
+            try {
+                // ADDED: Wait for settings to load if not initialized
                 if (entityString == null) {
-                    Log.e("SearchViewModel", "EntityString not initialized; aborting request")
-                    return@launch
+                    delay(100) // Small delay to allow loading; better to use a StateFlow signal if possible
+                    if (entityString == null) {
+                        Log.e("SearchViewModel", "EntityString not initialized; aborting request")
+                        return@launch
+                    }
                 }
-            }
 
-            val correctValue = value.trim()
-            if (correctValue.isNotEmpty()) {
-                searchRouteUseCase.searchRoute(
-                    correctValue,
-                    uiState.value.searchFilter,
-                    uiState.value.preliminarySearch,
-                    entityString!!
-                ).collect { result ->
-                    if (result is SearchStateScreen.Loading) {
-                        withContext(Dispatchers.Main) {
-                            _uiState.update {
-                                it.copy(
-                                    searchState = result,
-                                )
+                val correctValue = value.trim()
+                if (correctValue.isNotEmpty()) {
+                    searchRouteUseCase.searchRoute(
+                        correctValue,
+                        uiState.value.searchFilter,
+                        uiState.value.preliminarySearch,
+                        entityString!!
+                    ).collect { result ->
+                        if (result is SearchStateScreen.Loading) {
+                            withContext(Dispatchers.Main) {
+                                _uiState.update {
+                                    it.copy(
+                                        searchState = result,
+                                    )
+                                }
+                            }
+                        }
+                        if (result is SearchStateScreen.Input) {
+                            val resultList: MutableList<String> = result.hints
+                                .toMutableList()
+                            resultList.removeAll { it.isBlank() }
+                            val newList = resultList.safetySubList(0, COUNT_HINTS)
+                            withContext(Dispatchers.Main) {
+                                _uiState.update {
+                                    it.copy(
+                                        isVisibleHistory = true,
+                                        isVisibleHints = true,
+                                        searchState = result,
+                                        hints = newList
+                                    )
+                                }
+                            }
+                        }
+                        if (result is SearchStateScreen.Success) {
+                            Log.d("ZZZ", "$result")
+                            withContext(Dispatchers.Main) {
+                                _uiState.update {
+                                    it.copy(
+                                        isVisibleHistory = false,
+                                        isVisibleHints = false,
+                                        isVisibleResult = true,
+                                        searchState = result
+                                    )
+                                }
                             }
                         }
                     }
-                    if (result is SearchStateScreen.Input) {
-                        val resultList: MutableList<String> = result.hints
-                            .toMutableList()
-                        resultList.removeAll { it.isBlank() }
-                        val newList = resultList.safetySubList(0, COUNT_HINTS)
-                        withContext(Dispatchers.Main) {
-                            _uiState.update {
-                                it.copy(
-                                    isVisibleHistory = true,
-                                    isVisibleHints = true,
-                                    searchState = result,
-                                    hints = newList
-                                )
-                            }
-                        }
-                    }
-                    if (result is SearchStateScreen.Success) {
-                        Log.d("ZZZ", "$result")
-                        withContext(Dispatchers.Main) {
-                            _uiState.update {
-                                it.copy(
-                                    isVisibleHistory = false,
-                                    isVisibleHints = false,
-                                    isVisibleResult = true,
-                                    searchState = result
-                                )
-                            }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        _uiState.update {
+                            it.copy(
+                                searchState = SearchStateScreen.Success(null),
+                                isVisibleHistory = true
+                            )
                         }
                     }
                 }
-            } else {
-                withContext(Dispatchers.Main) {
-                    _uiState.update {
-                        it.copy(
-                            searchState = SearchStateScreen.Success(null),
-                            isVisibleHistory = true
-                        )
-                    }
-                }
+            } catch (e: Exception) {
+                e.sendToSentry("SearchViewModel", "sendRequest")
             }
         }
     }
@@ -239,14 +244,18 @@ class SearchViewModel : ViewModel(), KoinComponent {
     fun loadSetting() {
         loadSettingJob?.cancel()
         loadSettingJob = viewModelScope.launch {
-            settingsUseCase.getFlowCurrentSettingsState().collect { result ->
-                if (result is ResultState.Success) {
-                    result.data.let { setting ->
-                        entityString = EntityString(setting)
-                        dateAndTimeConverter = DateAndTimeConverter(setting)
+            try {
+                settingsUseCase.getFlowCurrentSettingsState().collect { result ->
+                    if (result is ResultState.Success) {
+                        result.data.let { setting ->
+                            entityString = EntityString(setting)
+                            dateAndTimeConverter = DateAndTimeConverter(setting)
+                        }
+                        loadSettingJob?.cancel()
                     }
-                    loadSettingJob?.cancel()
                 }
+            } catch (e: Exception) {
+                e.sendToSentry("SearchViewModel", "loadSetting")
             }
         }
     }
@@ -254,14 +263,18 @@ class SearchViewModel : ViewModel(), KoinComponent {
     init {
         loadSetting()
         viewModelScope.launch {
-            historyRepository.getAllResponse().collect { result ->
-                if (result is ResultState.Success) {
-                    _uiState.update {
-                        it.copy(
-                            searchHistoryList = result.data.asReversed()
-                        )
+            try {
+                historyRepository.getAllResponse().collect { result ->
+                    if (result is ResultState.Success) {
+                        _uiState.update {
+                            it.copy(
+                                searchHistoryList = result.data.asReversed()
+                            )
+                        }
                     }
                 }
+            } catch (e: Exception) {
+                e.sendToSentry("SearchViewModel", "init")
             }
         }
     }

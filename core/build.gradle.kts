@@ -25,6 +25,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(Libs.kotlinx_coroutines_core)
+            api(Libs.sentry_kmp)
         }
     }
 }

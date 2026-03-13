@@ -1,6 +1,7 @@
 package com.z_company.route.viewmodel
 
 import android.util.Log
+import io.sentry.kotlin.multiplatform.Sentry
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.robokassa.library.models.Culture
@@ -122,6 +123,7 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                     )
                 }
             } catch (t: Throwable) {
+                Sentry.captureException(t)
                 _event.tryEmit(BillingEvent.ShowError(t))
                 _state.update { it.copy(isLoading = false) }
             }

@@ -3,6 +3,7 @@ package com.z_company.route.viewmodel.home_view_model
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.util.Log
+import io.sentry.kotlin.multiplatform.Sentry
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -455,7 +456,9 @@ class HomeViewModel : ViewModel(), KoinComponent {
                         _saveTimeEvent.emit("$text $timeText")
                     }
                 }
-            } catch (_: Exception) { }
+            } catch (e: Exception) {
+                Sentry.captureException(e)
+            }
         }
     }
 
@@ -473,6 +476,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 )
             }
         } catch (e: Exception) {
+            Sentry.captureException(e)
             _uiState.update {
                 it.copy(
                     dayOffHours = ResultState.Error(ErrorEntity(e))
@@ -497,6 +501,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 }
             }
         } catch (e: Exception) {
+            Sentry.captureException(e)
             _uiState.update {
                 it.copy(
                     passengerTimeInRouteList = ResultState.Error(ErrorEntity(e))
@@ -521,6 +526,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     )
                 }
             } catch (e: Exception) {
+                Sentry.captureException(e)
                 _uiState.update {
                     it.copy(
                         nightTimeInRouteList = ResultState.Error(ErrorEntity(e))
@@ -545,6 +551,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     )
                 }
             } catch (e: Exception) {
+                Sentry.captureException(e)
                 _uiState.update {
                     it.copy(
                         singleLocomotiveTimeState = ResultState.Error(ErrorEntity(e))
@@ -572,6 +579,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 }
 
             } catch (e: Exception) {
+                Sentry.captureException(e)
                 _uiState.update {
                     it.copy(
                         longDistanceTrainsTime = ResultState.Error(ErrorEntity(e))
@@ -600,6 +608,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 }
 
             } catch (e: Exception) {
+                Sentry.captureException(e)
                 _uiState.update {
                     it.copy(
                         extendedServicePhaseTime = ResultState.Error(ErrorEntity(e))
@@ -635,6 +644,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 }
 
             } catch (e: Exception) {
+                Sentry.captureException(e)
                 _uiState.update {
                     it.copy(
                         onePersonOperationTime = ResultState.Error(ErrorEntity(e))
@@ -662,6 +672,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 }
 
             } catch (e: Exception) {
+                Sentry.captureException(e)
                 _uiState.update {
                     it.copy(
                         heavyTrainsTime = ResultState.Error(ErrorEntity(e))
@@ -690,6 +701,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     }
                 }
             } catch (e: Exception) {
+                Sentry.captureException(e)
                 _uiState.update {
                     it.copy(
                         nightTimeInRouteList = ResultState.Error(ErrorEntity(e))
@@ -780,6 +792,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 }
             }
         } catch (e: Exception) {
+            Sentry.captureException(e)
             _uiState.update {
                 it.copy(
                     totalTimeWithHoliday = ResultState.Error(ErrorEntity(e))
@@ -872,6 +885,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     statusTimeText = buttonInfo.statusTime
                 )
             } catch (e: Exception) {
+                Sentry.captureException(e)
                 Log.w("HomeViewModel", "Widget update failed", e)
             }
         }

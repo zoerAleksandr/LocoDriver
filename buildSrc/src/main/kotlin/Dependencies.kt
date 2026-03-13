@@ -35,7 +35,6 @@ import Versions.permission_accompanist_ver
 import Versions.rebugger_ver
 import Versions.retrofit_ver
 import Versions.room_version
-import Versions.ru_ok_tracer_platform_ver
 import Versions.rustore_bom_ver
 import Versions.splash_screen_ver
 import Versions.test_ext_version
@@ -58,6 +57,7 @@ object Plugins {
     const val ksp = "com.google.devtools.ksp"
     const val vkIdManifest = "vkid.manifest.placeholders"
     const val sqldelight = "app.cash.sqldelight"
+    const val sentry_kmp = "io.sentry.kotlin.multiplatform.gradle"
 }
 
 object Apps {
@@ -117,8 +117,9 @@ object Versions {
     const val mockito_inline_ver = "2.8.9"
     const val mockito_kotlin_ver = "1.5.0"
     const val kotlinx_date_time_ver = "0.6.2"
-    const val ru_ok_tracer_platform_ver = "1.1.2"
     const val mytracker_sdk_ver = "3.3.2"
+    const val sentry_kmp_ver = "0.23.1"
+    const val sentry_kmp_plugin_ver = "0.24.0"
     const val retrofit_ver = "2.11.0"
     const val lifecycle_runtime_compose_ver = "2.8.7"
     const val vkIdVer = "2.6.0"
@@ -158,10 +159,8 @@ object Libs {
         "androidx.lifecycle:lifecycle-runtime-compose:$lifecycle_runtime_compose_ver"
     const val retrofit2 = "com.squareup.retrofit2:retrofit:$retrofit_ver"
     const val ksp_api = "com.google.devtools.ksp:symbol-processing-api:$ksp_ver"
-    const val ru_ok_tracer_platform = "ru.ok.tracer:tracer-platform:$ru_ok_tracer_platform_ver"
-    const val ru_ok_tracer_tracer_crash_report = "ru.ok.tracer:tracer-crash-report"
-    const val ru_ok_tracer_tracer_heap_dumps = "ru.ok.tracer:tracer-heap-dumps"
     const val mytracker_sdk = "com.my.tracker:mytracker-sdk:$mytracker_sdk_ver"
+    const val sentry_kmp = "io.sentry:sentry-kotlin-multiplatform:${Versions.sentry_kmp_ver}"
 
     const val kotlinx_date_time = "org.jetbrains.kotlinx:kotlinx-datetime:$kotlinx_date_time_ver"
     const val desugaring = "com.android.tools:desugar_jdk_libs:$desugaring_ver"

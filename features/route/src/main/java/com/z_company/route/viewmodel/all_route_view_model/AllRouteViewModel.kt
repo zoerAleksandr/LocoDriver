@@ -3,6 +3,7 @@ package com.z_company.route.viewmodel.all_route_view_model
 import android.app.Application
 import android.content.Intent
 import android.util.Log
+import io.sentry.kotlin.multiplatform.Sentry
 import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.application
@@ -264,6 +265,7 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                 // Для чего: UI подхватит это и запустит startActivity из своего контекста.
                 _shareRouteEvent.emit(chooser)
             } catch (e: Exception) {
+                Sentry.captureException(e)
                 Log.e("ShareRoute", "Ошибка шаринга: ${e.message}")
                 // Можно добавить snackbar или другой event для ошибки
             }
