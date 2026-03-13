@@ -4,6 +4,7 @@ import com.robokassa.library.models.CheckPayState
 
 class RoboApiException : Exception {
 
+    @Transient
     var response: CheckPayState? = null
 
     constructor(message: String, response: CheckPayState, cause: Throwable) : super(message, cause) {
