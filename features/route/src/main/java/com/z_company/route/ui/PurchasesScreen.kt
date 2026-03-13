@@ -127,7 +127,7 @@ fun PurchasesScreen(
             },
             text = {
                 Box(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator(
@@ -149,7 +149,7 @@ fun PurchasesScreen(
                 Text(text = "Оплата не завершена")
             },
             text = {
-                Text(text = "Данные об оплате не получены. Если у вас есть вопросы, напишите в поддержку.")
+                Text(modifier = Modifier.padding(top = 24.dp), text = "Данные об оплате не получены. Если у вас есть вопросы, напишите в поддержку.")
             },
             confirmButton = {
                 Button(onClick = {
@@ -198,7 +198,7 @@ fun PurchasesScreen(
             iconContentColor = MaterialTheme.colorScheme.surfaceContainerLow,
             onDismissRequest = { viewModel.dismissPaymentSuccessDialog() },
             title = {
-                Text(text = "Платеж принят!")
+                Text(modifier = Modifier.padding(top = 24.dp), text = "Платеж принят!")
             },
             icon = {
                 Icon(
