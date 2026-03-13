@@ -101,18 +101,6 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
         _pendingImportRoute.value = null
     }
 
-    /** Тестовый метод для проверки Sentry. Удалить после проверки! */
-    fun testSentryCrash() {
-        viewModelScope.launch {
-            try {
-                throw RuntimeException("Тестовая ошибка Sentry — проверка логгирования")
-            } catch (e: Exception) {
-                e.sendToSentry("MainViewModel", "testSentryCrash")
-                Log.d(TAG, "Тестовая ошибка отправлена в Sentry")
-            }
-        }
-    }
-
     init {
         if (isFirstEntry) {
             sharedPreferenceStorage.setIsMigrated(true)
@@ -120,8 +108,6 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
             // на Android 16 он не остался true и не сбросил настройки при следующем запуске
             sharedPreferenceStorage.setTokenIsFirstAppEntry(false)
         }
-        // TODO: Удалить после проверки Sentry!
-        testSentryCrash()
         viewModelScope.launch {
             loadCalendar()
             delay(400L)
