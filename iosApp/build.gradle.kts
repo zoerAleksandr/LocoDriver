@@ -4,6 +4,7 @@ plugins {
     id(Plugins.kotlin_multiplatform)
     id(Plugins.compose_multiplatform)
     id(Plugins.compose_compiler)
+    id(Plugins.sentry_kmp)
 }
 
 kotlin {
@@ -18,6 +19,8 @@ kotlin {
             isStatic = true
             // Экспортируем DI-хелпер, чтобы Swift видел fun initKoin()
             export(project(Libs.project_data_remote))
+            // Экспортируем core, чтобы Swift видел fun initSentry()
+            export(project(Libs.project_core))
         }
     }
 
@@ -37,7 +40,7 @@ kotlin {
             api(project(Libs.project_data_remote))   // SecureTokenStorage, API, initKoin()
             implementation(project(Libs.project_data_local))
             implementation(project(Libs.project_domain))
-            implementation(project(Libs.project_core))
+            api(project(Libs.project_core))   // export для Swift: initSentry()
 
             // DI + утилиты
             implementation(Libs.koin_core)

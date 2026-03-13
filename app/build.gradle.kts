@@ -48,6 +48,11 @@ android {
             name = "PASSWORD_2",
             value = "\"${properties.getProperty("PASSWORD_2", "default_value")}\""
         )
+        buildConfigField(
+            type = "String",
+            name = "SENTRY_DSN",
+            value = "\"${properties.getProperty("SENTRY_DSN", "")}\""
+        )
     }
 
 
