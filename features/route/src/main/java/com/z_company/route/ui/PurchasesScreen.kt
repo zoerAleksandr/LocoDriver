@@ -1,12 +1,14 @@
 package com.z_company.route.ui
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,12 +45,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.lifecycle.flowWithLifecycle
 import com.robokassa.library.pay.RobokassaPayLauncher
 import com.z_company.core.ui.component.CustomSnackBar
@@ -102,6 +107,82 @@ fun PurchasesScreen(
                         color = MaterialTheme.colorScheme.onPrimary
                     ),
                     onClick = { alertDialogShow = !alertDialogShow }) {
+                }
+            }
+        )
+    }
+
+    val showPaymentLoadingDialog by viewModel.showPaymentLoadingDialog.collectAsState()
+    val showPaymentFailedDialog by viewModel.showPaymentFailedDialog.collectAsState()
+    val context = LocalContext.current
+
+    if (showPaymentLoadingDialog) {
+        AlertDialog(
+            containerColor = MaterialTheme.colorScheme.secondary,
+            titleContentColor = MaterialTheme.colorScheme.primary,
+            textContentColor = MaterialTheme.colorScheme.primary,
+            onDismissRequest = { },
+            title = {
+                Text(text = "Получаем данные...")
+            },
+            text = {
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.surfaceContainerLow
+                    )
+                }
+            },
+            confirmButton = { }
+        )
+    }
+
+    if (showPaymentFailedDialog) {
+        AlertDialog(
+            containerColor = MaterialTheme.colorScheme.secondary,
+            titleContentColor = MaterialTheme.colorScheme.primary,
+            textContentColor = MaterialTheme.colorScheme.primary,
+            onDismissRequest = { viewModel.dismissPaymentFailedDialog() },
+            title = {
+                Text(text = "Оплата не завершена")
+            },
+            text = {
+                Text(text = "Данные об оплате не получены. Если у вас есть вопросы, напишите в поддержку.")
+            },
+            confirmButton = {
+                Button(onClick = {
+                    viewModel.dismissPaymentFailedDialog()
+                    val email = "locodriver.app@yandex.ru"
+                    val subject = "Вопрос по оплате"
+                    val mailIntent = Intent(Intent.ACTION_SENDTO).apply {
+                        data = "mailto:$email?subject=$subject".toUri()
+                    }
+                    try {
+                        context.startActivity(mailIntent)
+                    } catch (_: Exception) {
+                        context.startActivity(
+                            Intent(Intent.ACTION_SENDTO).apply {
+                                data = "mailto:".toUri()
+                            }
+                        )
+                    }
+                }) {
+                    Text(
+                        text = "Написать в поддержку",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissPaymentFailedDialog() }) {
+                    Text(
+                        text = "Закрыть",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         )

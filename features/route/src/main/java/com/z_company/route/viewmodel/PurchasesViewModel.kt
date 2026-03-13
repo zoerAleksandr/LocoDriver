@@ -69,6 +69,12 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
     private val _showPaymentSuccessDialog = MutableStateFlow(false)
     val showPaymentSuccessDialog = _showPaymentSuccessDialog.asStateFlow()
 
+    private val _showPaymentLoadingDialog = MutableStateFlow(false)
+    val showPaymentLoadingDialog = _showPaymentLoadingDialog.asStateFlow()
+
+    private val _showPaymentFailedDialog = MutableStateFlow(false)
+    val showPaymentFailedDialog = _showPaymentFailedDialog.asStateFlow()
+
     private val _event = MutableSharedFlow<BillingEvent>(
         extraBufferCapacity = 1,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
@@ -212,20 +218,30 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
     fun handlePaymentSuccess(success: RobokassaPayLauncher.Success?) {
         viewModelScope.launch {
             val previousEndTime = _purchasesEndTime.value
+            _showPaymentLoadingDialog.value = true
             val token = secureTokenStorage.getAuthBearerTokenFlow().first()
             val result = subscriptionHelper.restorePurchases(null, token)
+            _showPaymentLoadingDialog.value = false
             if (result is ResultState.Success) {
                 val updatedSetting = settingsUseCase.getUserSettingFlow().first()
                 _purchasesEndTime.value = updatedSetting.subscriptionPeriod
                 if (updatedSetting.subscriptionPeriod > previousEndTime) {
                     _showPaymentSuccessDialog.value = true
+                } else {
+                    _showPaymentFailedDialog.value = true
                 }
+            } else {
+                _showPaymentFailedDialog.value = true
             }
         }
     }
 
     fun dismissPaymentSuccessDialog() {
         _showPaymentSuccessDialog.value = false
+    }
+
+    fun dismissPaymentFailedDialog() {
+        _showPaymentFailedDialog.value = false
     }
 
     // Новое: Метод для эмиссии события StartPayment.
