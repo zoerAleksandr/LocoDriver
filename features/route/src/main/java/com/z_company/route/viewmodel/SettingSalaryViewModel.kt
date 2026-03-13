@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.z_company.core.sendToSentry
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.util.Calendar
@@ -99,21 +100,25 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
 
     private fun loadUserSetting() {
         viewModelScope.launch(Dispatchers.IO) {
-            val userSettings = this.async { userSettingUseCase.getUserSetting() }.await()
-            val tariffRate =
-                this.async { salarySettingUseCase.getTariffRateFromCurrentMonthOfYear(userSettings.selectMonthOfYear) }
-                    .await()
-            withContext(Dispatchers.Main) {
-                _uiState.update {
-                    it.copy(
-                        oldTariffRate = ResultState.Success(userSettings.selectMonthOfYear.dateSetTariffRate?.oldRate.str()),
-                        tariffRate = ResultState.Success(tariffRate.str()),
-                        currentMonthOfYear = userSettings.selectMonthOfYear
-                    )
+            try {
+                val userSettings = this.async { userSettingUseCase.getUserSetting() }.await()
+                val tariffRate =
+                    this.async { salarySettingUseCase.getTariffRateFromCurrentMonthOfYear(userSettings.selectMonthOfYear) }
+                        .await()
+                withContext(Dispatchers.Main) {
+                    _uiState.update {
+                        it.copy(
+                            oldTariffRate = ResultState.Success(userSettings.selectMonthOfYear.dateSetTariffRate?.oldRate.str()),
+                            tariffRate = ResultState.Success(tariffRate.str()),
+                            currentMonthOfYear = userSettings.selectMonthOfYear
+                        )
+                    }
                 }
+                initialValueTariffRate = tariffRate
+                currentMonthOfYear = userSettings.selectMonthOfYear
+            } catch (e: Exception) {
+                e.sendToSentry("SettingSalaryViewModel", "loadUserSetting")
             }
-            initialValueTariffRate = tariffRate
-            currentMonthOfYear = userSettings.selectMonthOfYear
         }
     }
 

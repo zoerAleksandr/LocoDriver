@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.z_company.core.sendToSentry
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -182,34 +183,42 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private fun loadSettings() {
         loadSettingsJob?.cancel()
         loadSettingsJob = viewModelScope.launch {
-            settingsUseCase.getFlowCurrentSettingsState().collect { result ->
-                _uiState.update {
-                    it.copy(
-                        settingDetails = result,
-                    )
+            try {
+                settingsUseCase.getFlowCurrentSettingsState().collect { result ->
+                    _uiState.update {
+                        it.copy(
+                            settingDetails = result,
+                        )
+                    }
+                    if (result is ResultState.Success) {
+                        result.data?.let { userSettings ->
+                            _uiState.update {
+                                it.copy(
+                                    dateAndTimeConverter = DateAndTimeConverter(userSettings),
+                                    updateAt = userSettings.updateAt,
+                                    servicePhases = userSettings.servicePhases.toMutableStateList()
+                                )
+                            }
+                        }
+                    }
                 }
-                if (result is ResultState.Success) {
-                    result.data?.let { userSettings ->
+            } catch (e: Exception) {
+                e.sendToSentry("SettingsViewModel", "loadSettings")
+            }
+        }
+        viewModelScope.launch {
+            try {
+                calendarUseCase.loadFlowMonthOfYearListState().collect { result ->
+                    currentSettings?.let { setting ->
                         _uiState.update {
                             it.copy(
-                                dateAndTimeConverter = DateAndTimeConverter(userSettings),
-                                updateAt = userSettings.updateAt,
-                                servicePhases = userSettings.servicePhases.toMutableStateList()
+                                calendarState = ResultState.Success(setting.selectMonthOfYear)
                             )
                         }
                     }
                 }
-            }
-        }
-        viewModelScope.launch {
-            calendarUseCase.loadFlowMonthOfYearListState().collect { result ->
-                currentSettings?.let { setting ->
-                    _uiState.update {
-                        it.copy(
-                            calendarState = ResultState.Success(setting.selectMonthOfYear)
-                        )
-                    }
-                }
+            } catch (e: Exception) {
+                e.sendToSentry("SettingsViewModel", "loadCalendar")
             }
         }
     }
