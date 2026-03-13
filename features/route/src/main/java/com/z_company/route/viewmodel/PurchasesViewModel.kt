@@ -66,6 +66,9 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
     private val _purchasesEndTime = MutableStateFlow(0L)
     val purchasesEndTime = _purchasesEndTime.asStateFlow()
 
+    private val _showPaymentSuccessDialog = MutableStateFlow(false)
+    val showPaymentSuccessDialog = _showPaymentSuccessDialog.asStateFlow()
+
     private val _event = MutableSharedFlow<BillingEvent>(
         extraBufferCapacity = 1,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
@@ -208,16 +211,21 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
 
     fun handlePaymentSuccess(success: RobokassaPayLauncher.Success?) {
         viewModelScope.launch {
+            val previousEndTime = _purchasesEndTime.value
             val token = secureTokenStorage.getAuthBearerTokenFlow().first()
             val result = subscriptionHelper.restorePurchases(null, token)
             if (result is ResultState.Success) {
-                val updatedSetting = settingsUseCase.getUserSettingFlow().first()  // Sync fetch актуального значения
+                val updatedSetting = settingsUseCase.getUserSettingFlow().first()
                 _purchasesEndTime.value = updatedSetting.subscriptionPeriod
+                if (updatedSetting.subscriptionPeriod > previousEndTime) {
+                    _showPaymentSuccessDialog.value = true
+                }
             }
         }
-        success?.let {
-            snackbarManager.show("Оплата прошла успешна!")
-        }
+    }
+
+    fun dismissPaymentSuccessDialog() {
+        _showPaymentSuccessDialog.value = false
     }
 
     // Новое: Метод для эмиссии события StartPayment.

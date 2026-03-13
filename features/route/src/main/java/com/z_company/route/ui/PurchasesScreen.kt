@@ -107,6 +107,25 @@ fun PurchasesScreen(
         )
     }
 
+    val showPaymentSuccessDialog by viewModel.showPaymentSuccessDialog.collectAsState()
+
+    if (showPaymentSuccessDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissPaymentSuccessDialog() },
+            title = {
+                Text(text = "Оплата прошла успешно!")
+            },
+            text = {
+                Text(text = "Спасибо за поддержку приложения!")
+            },
+            confirmButton = {
+                Button(onClick = { viewModel.dismissPaymentSuccessDialog() }) {
+                    Text("ОК")
+                }
+            }
+        )
+    }
+
     val snackbarManager: ISnackbarManager = koinInject()
 
     LaunchedEffect(Unit) {
