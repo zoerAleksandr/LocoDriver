@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.launch
+import com.z_company.core.sendToSentry
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.util.Calendar
@@ -82,18 +83,34 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
         val route = _pendingImportRoute.value ?: return
         _pendingImportRoute.value = null
         viewModelScope.launch {
-            routeUseCase.saveRoute(route).collect { result ->
-                when (result) {
-                    is ResultState.Success -> snackbarManager.show("Маршрут импортирован")
-                    is ResultState.Error -> snackbarManager.show("Ошибка импорта маршрута")
-                    else -> {}
+            try {
+                routeUseCase.saveRoute(route).collect { result ->
+                    when (result) {
+                        is ResultState.Success -> snackbarManager.show("Маршрут импортирован")
+                        is ResultState.Error -> snackbarManager.show("Ошибка импорта маршрута")
+                        else -> {}
+                    }
                 }
+            } catch (e: Exception) {
+                e.sendToSentry("MainViewModel", "confirmImportRoute")
             }
         }
     }
 
     fun dismissImportRoute() {
         _pendingImportRoute.value = null
+    }
+
+    /** Тестовый метод для проверки Sentry. Удалить после проверки! */
+    fun testSentryCrash() {
+        viewModelScope.launch {
+            try {
+                throw RuntimeException("Тестовая ошибка Sentry — проверка логгирования")
+            } catch (e: Exception) {
+                e.sendToSentry("MainViewModel", "testSentryCrash")
+                Log.d(TAG, "Тестовая ошибка отправлена в Sentry")
+            }
+        }
     }
 
     init {
@@ -103,6 +120,8 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
             // на Android 16 он не остался true и не сбросил настройки при следующем запуске
             sharedPreferenceStorage.setTokenIsFirstAppEntry(false)
         }
+        // TODO: Удалить после проверки Sentry!
+        testSentryCrash()
         viewModelScope.launch {
             loadCalendar()
             delay(400L)
@@ -128,59 +147,63 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
 
     private fun loadCalendar() {
         viewModelScope.launch(Dispatchers.IO) {
-            val monthOfYearList = mutableListOf<MonthOfYear>()
-            this.launch {
-                calendarUseCase.loadFlowMonthOfYearListState().collect { monthListResult ->
-                    monthListResult.forEach { monthOfYear ->
-                        monthOfYearList.add(monthOfYear)
-                    }
-                    this.cancel()
-                }
-            }.join()
-
-            val lastMonthWithTariffRate = monthOfYearList.findLast { it.tariffRate != 0.0 }
-
-            val lastTariffRate = lastMonthWithTariffRate?.let { month ->
-                salarySettingUseCase.getTariffRateFromCurrentMonthOfYear(month)
-            } ?: 0.0
-
-            Log.d("zzz", "lastMonthWithTariffRate $lastMonthWithTariffRate")
-
-            this.launch {
-                loadCalendarFromStorage.getMonthOfYearList()
-                    .collect { resultState ->
-                        if (resultState is ResultState.Success) {
-                            val newMonthOfYearList = mutableListOf<MonthOfYear>()
-                            resultState.data.forEach { monthOfYear ->
-                                var month =
-                                    monthOfYearList.find { it.month == monthOfYear.month && it.year == monthOfYear.year }
-                                val newDays = mutableListOf<Day>()
-                                if (month != null) {
-                                    month.days.forEachIndexed { index, day ->
-                                        if (!day.isReleaseDay) {
-                                            newDays.add(monthOfYear.days[index])
-                                        } else {
-                                            newDays.add(
-                                                monthOfYear.days[index].copy(
-                                                    isReleaseDay = true,
-                                                    releaseType = day.releaseType
-                                                )
-                                            )
-                                        }
-                                    }
-                                    month = month.copy(days = newDays)
-                                    if (month.tariffRate == 0.0) {
-                                        month = month.copy(tariffRate = lastTariffRate)
-                                    }
-                                    newMonthOfYearList.add(month)
-                                } else {
-                                    newMonthOfYearList.add(monthOfYear.copy(tariffRate = lastTariffRate))
-                                }
-                            }
-                            saveCalendarInLocal(newMonthOfYearList)
-                            this.cancel()
+            try {
+                val monthOfYearList = mutableListOf<MonthOfYear>()
+                this.launch {
+                    calendarUseCase.loadFlowMonthOfYearListState().collect { monthListResult ->
+                        monthListResult.forEach { monthOfYear ->
+                            monthOfYearList.add(monthOfYear)
                         }
+                        this.cancel()
                     }
+                }.join()
+
+                val lastMonthWithTariffRate = monthOfYearList.findLast { it.tariffRate != 0.0 }
+
+                val lastTariffRate = lastMonthWithTariffRate?.let { month ->
+                    salarySettingUseCase.getTariffRateFromCurrentMonthOfYear(month)
+                } ?: 0.0
+
+                Log.d("zzz", "lastMonthWithTariffRate $lastMonthWithTariffRate")
+
+                this.launch {
+                    loadCalendarFromStorage.getMonthOfYearList()
+                        .collect { resultState ->
+                            if (resultState is ResultState.Success) {
+                                val newMonthOfYearList = mutableListOf<MonthOfYear>()
+                                resultState.data.forEach { monthOfYear ->
+                                    var month =
+                                        monthOfYearList.find { it.month == monthOfYear.month && it.year == monthOfYear.year }
+                                    val newDays = mutableListOf<Day>()
+                                    if (month != null) {
+                                        month.days.forEachIndexed { index, day ->
+                                            if (!day.isReleaseDay) {
+                                                newDays.add(monthOfYear.days[index])
+                                            } else {
+                                                newDays.add(
+                                                    monthOfYear.days[index].copy(
+                                                        isReleaseDay = true,
+                                                        releaseType = day.releaseType
+                                                    )
+                                                )
+                                            }
+                                        }
+                                        month = month.copy(days = newDays)
+                                        if (month.tariffRate == 0.0) {
+                                            month = month.copy(tariffRate = lastTariffRate)
+                                        }
+                                        newMonthOfYearList.add(month)
+                                    } else {
+                                        newMonthOfYearList.add(monthOfYear.copy(tariffRate = lastTariffRate))
+                                    }
+                                }
+                                saveCalendarInLocal(newMonthOfYearList)
+                                this.cancel()
+                            }
+                        }
+                }
+            } catch (e: Exception) {
+                e.sendToSentry("MainViewModel", "loadCalendar")
             }
         }
     }
@@ -188,28 +211,32 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private fun saveCalendarInLocal(calendar: List<MonthOfYear>) {
         saveCalendarInLocalJob?.cancel()
         saveCalendarInLocalJob = viewModelScope.launch {
-            this.launch {
-                calendarUseCase.clearCalendar().collect { clearResult ->
-                    if (clearResult is ResultState.Success) {
-                        this.cancel()
+            try {
+                this.launch {
+                    calendarUseCase.clearCalendar().collect { clearResult ->
+                        if (clearResult is ResultState.Success) {
+                            this.cancel()
+                        }
                     }
-                }
-            }.join()
+                }.join()
 
-            calendarUseCase.saveCalendar(calendar).collect { resultState ->
-                if (resultState is ResultState.Success) {
-                    Log.i(TAG, "production calendar is loading")
-                    val currentCalendar = Calendar.getInstance()
-                    val searchMonthOfYear = calendar.find {
-                        it.month == currentCalendar.get(MONTH) && it.year == currentCalendar.get(YEAR)
-                    }
-                    settingsUseCase.updateMonthOfYearInUserSetting(
-                        searchMonthOfYear ?: calendar.first()
-                    ).collect {}
-                    if (isFirstEntry) {
-                        setDefaultSettings(searchMonthOfYear ?: calendar.first())
+                calendarUseCase.saveCalendar(calendar).collect { resultState ->
+                    if (resultState is ResultState.Success) {
+                        Log.i(TAG, "production calendar is loading")
+                        val currentCalendar = Calendar.getInstance()
+                        val searchMonthOfYear = calendar.find {
+                            it.month == currentCalendar.get(MONTH) && it.year == currentCalendar.get(YEAR)
+                        }
+                        settingsUseCase.updateMonthOfYearInUserSetting(
+                            searchMonthOfYear ?: calendar.first()
+                        ).collect {}
+                        if (isFirstEntry) {
+                            setDefaultSettings(searchMonthOfYear ?: calendar.first())
+                        }
                     }
                 }
+            } catch (e: Exception) {
+                e.sendToSentry("MainViewModel", "saveCalendarInLocal")
             }
         }
     }
