@@ -1057,6 +1057,22 @@ fun FormScreen(
                                                 )
                                             }
                                         }
+                                        if (salaryForRouteState.overRestMoney != null && salaryForRouteState.overRestMoney != 0.0) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Text(
+                                                    text = "Переотдых",
+                                                    style = MaterialTheme.typography.bodyMedium
+                                                )
+                                                Text(
+                                                    text = salaryForRouteState.overRestMoney.toMoneyString(),
+                                                    style = MaterialTheme.typography.bodyMedium
+                                                )
+                                            }
+                                        }
                                     } else {
                                         Box(modifier = Modifier.fillMaxWidth()) {
                                             Text(

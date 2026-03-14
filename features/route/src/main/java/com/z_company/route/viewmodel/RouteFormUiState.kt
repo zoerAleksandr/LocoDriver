@@ -27,5 +27,6 @@ data class SalaryForRouteState(
     val paymentHolidayMoney: Double? = null,
     val surchargesAtTrain: Double? = null,
     val paymentAtOnePerson: Double? = null,
-    val otherSurcharge: Double? = null
+    val otherSurcharge: Double? = null,
+    val overRestMoney: Double? = null
 )

@@ -361,6 +361,14 @@ private fun EarningsTable(uiState: SalaryCalculationUIState, convertTimeToString
                 uiState.otherSurchargeMoney
             )
         },
+        uiState.restInExcessOfTheNormMoney?.takeIf { it > 0 }?.let {
+            EarningsRow(
+                "Переотдых",
+                uiState.restInExcessOfTheNormTime,
+                null,
+                it
+            )
+        },
 
         // Добавляем списки надбавок (если не пустые)
         *(0 until minOf(
