@@ -1,7 +1,7 @@
 package com.z_company.route.viewmodel
 
 import android.util.Log
-import io.sentry.kotlin.multiplatform.Sentry
+import com.z_company.core.sendToSentry
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
@@ -187,7 +187,7 @@ class WorkScheduleViewModel : ViewModel(), KoinComponent {
 
             } catch (t: Throwable) {
                 if (t is CancellationException) throw t
-                Sentry.captureException(t)
+                t.sendToSentry("WorkScheduleViewModel", "prepareScreen")
                 snackbarManager.show(
                     message = "Ошибка загрузки: ${t.message ?: t.javaClass.simpleName}",
                 )
@@ -480,7 +480,7 @@ class WorkScheduleViewModel : ViewModel(), KoinComponent {
                 )
             } catch (t: Throwable) {
                 if (t is CancellationException) throw t
-                Sentry.captureException(t)
+                t.sendToSentry("WorkScheduleViewModel", "saveSelectedSchedules")
                 snackbarManager.show(
                     message = "Ошибка сохранения: ${t.message ?: t.javaClass.simpleName}",
                 )
@@ -656,7 +656,7 @@ class WorkScheduleViewModel : ViewModel(), KoinComponent {
                 }
             } catch (t: Throwable) {
                 if (t is CancellationException) throw t
-                Sentry.captureException(t)
+                t.sendToSentry("WorkScheduleViewModel", "deleteSelectedRoutes")
                 snackbarManager.show(
                     message = "Ошибка при удалении: ${t.message ?: t.javaClass.simpleName}",
                 )

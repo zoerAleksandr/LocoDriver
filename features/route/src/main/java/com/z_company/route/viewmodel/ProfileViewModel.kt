@@ -1,7 +1,6 @@
 package com.z_company.route.viewmodel
 
 import android.util.Log
-import io.sentry.kotlin.multiplatform.Sentry
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -18,6 +17,7 @@ import com.vk.id.refreshuser.VKIDGetUserCallback
 import com.vk.id.refreshuser.VKIDGetUserFail
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
+import com.z_company.core.sendToSentry
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.setting.SalarySetting
@@ -762,7 +762,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                         else -> {}  // Не должно быть, но на всякий
                     }
                 } catch (e: Exception) {
-                    Sentry.captureException(e)
+                    e.sendToSentry("ProfileViewModel", "saveRouteInLocal")
                     hasError = true
                     Log.e("zzz", "Exception saving route: ${e.message}")
                 }
@@ -967,7 +967,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                     }
                 }
             } catch (e: Exception) {
-                Sentry.captureException(e)
+                e.sendToSentry("ProfileViewModel", "startMigration")
                 Log.e("Migration", "Критическая ошибка миграции", e)
                 _migrationUiState.update {
                     it.copy(
