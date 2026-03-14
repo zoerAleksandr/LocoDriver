@@ -1,1 +1,7 @@
 ALTER TABLE SalarySetting ADD COLUMN surchargeLongTrainsList TEXT NOT NULL DEFAULT '[]';
+
+-- Миграция: перенос старой одиночной доплаты за длинносоставные в новый список
+-- Если surchargeLongTrain > 0 и lengthLongDistanceTrain > 0, создаём элемент списка
+UPDATE SalarySetting
+SET surchargeLongTrainsList = '[{"conditionalLength":"' || CAST(lengthLongDistanceTrain AS TEXT) || '","percentSurcharge":"' || CAST(surchargeLongTrain AS TEXT) || '"}]'
+WHERE surchargeLongTrain > 0 AND lengthLongDistanceTrain > 0;

@@ -561,34 +561,6 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    private fun calculationOfLongDistanceTrainsTime(
-        salaryCalculationHelper: SalaryCalculationHelper
-    ) {
-        viewModelScope.launch(Dispatchers.IO) {
-            _uiState.update {
-                it.copy(
-                    longDistanceTrainsTime = ResultState.Loading()
-                )
-            }
-            try {
-                val timeState = salaryCalculationHelper.getTimeLongDistanceTrainFlow().first()
-                _uiState.update {
-                    it.copy(
-                        longDistanceTrainsTime = ResultState.Success(timeState)
-                    )
-                }
-
-            } catch (e: Exception) {
-                e.sendToSentry("HomeViewModel", "calculationOfLongDistanceTrainsTime")
-                _uiState.update {
-                    it.copy(
-                        longDistanceTrainsTime = ResultState.Error(ErrorEntity(e))
-                    )
-                }
-            }
-        }
-    }
-
     private fun calculationOfExtendedServicePhaseTime(
         salaryCalculationHelper: SalaryCalculationHelper
     ) {

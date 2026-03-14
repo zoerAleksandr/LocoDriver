@@ -329,14 +329,6 @@ private fun EarningsTable(uiState: SalaryCalculationUIState, convertTimeToString
                 uiState.harmfulnessSurchargeMoney
             )
         },
-        uiState.surchargeLongDistanceTrainsPercent?.let {
-            EarningsRow(
-                "Длинные поезда",
-                uiState.surchargeLongDistanceTrainsHours,
-                it,
-                uiState.surchargeLongDistanceTrainsMoney
-            )
-        },
         uiState.districtSurchargeCoefficient?.let {
             EarningsRow(
                 "Районный коэффициент",

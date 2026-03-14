@@ -7,7 +7,6 @@ import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHoursIncludingW
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHoursInPeriod
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.route.Route
-import com.z_company.domain.entities.route.UtilsForEntities.getLongDistanceTime
 import com.z_company.domain.entities.route.UtilsForEntities.getNewRoutesToDayRange
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getOnePersonOperationTime
@@ -592,52 +591,6 @@ class SalaryCalculationHelper(
                 combine(
                     getTimeHarmfulnessFlow(firstRoutes),
                     getTimeHarmfulnessFlow(secondRoutes)
-                ) { firstTime, secondTime ->
-                    val moneyFirstTime =
-                        firstTime.times(dateSetTariffRate.oldRate * (percent / 100))
-                    val moneySecondTime =
-                        secondTime.times(currentMonthOfYear.tariffRate * (percent / 100))
-                    val result = (moneyFirstTime + moneySecondTime) / 3_600_000.toDouble()
-                    trySend(result)
-                }.collect { }
-            }
-            awaitClose()
-        }
-    }
-
-    fun getPercentLongDistanceTrainFlow(): Flow<Double> {
-        return flow {
-            val percent = salarySetting.percentLongDistanceTrain
-            emit(percent)
-        }
-    }
-
-    fun getTimeLongDistanceTrainFlow(routes: List<Route> = routeList): Flow<Long> {
-        return channelFlow {
-            val time = routes.getLongDistanceTime(salarySetting.lengthLongDistanceTrain)
-            trySend(time)
-            awaitClose()
-        }
-    }
-
-
-    fun getMoneyLongDistanceTrainFlow(): Flow<Double> {
-        return channelFlow {
-            val percent = getPercentLongDistanceTrainFlow().first()
-            if (dateSetTariffRate == null) {
-                getTimeLongDistanceTrainFlow().collect { time ->
-                    val money =
-                        time.times(currentMonthOfYear.tariffRate * (percent / 100)) / 3_600_000.toDouble()
-                    trySend(money)
-                }
-            } else {
-                val pairRoutes = getTwoRouteList(routeList).first()
-                val firstRoutes = pairRoutes.first
-                val secondRoutes = pairRoutes.second
-
-                combine(
-                    getTimeLongDistanceTrainFlow(firstRoutes),
-                    getTimeLongDistanceTrainFlow(secondRoutes)
                 ) { firstTime, secondTime ->
                     val moneyFirstTime =
                         firstTime.times(dateSetTariffRate.oldRate * (percent / 100))
@@ -1305,7 +1258,6 @@ class SalaryCalculationHelper(
             val surchargeOnePersonOperationPassengerTrainFlow =
                 getMoneyOnePersonOperationPassengerTrainFlow().first()
             val surchargeHarmfulnessSurchargeMoney = getMoneyHarmfulnessFlow().first()
-            val surchargeLongDistanceTrainsMoney = getMoneyLongDistanceTrainFlow().first()
             val surchargeHeavyTrains = getMoneyListSurchargeExtendedHeavyTrainsFlow().first().sum()
             val surchargeLongTrains = getMoneyListSurchargeLongTrainsFlow().first().sum()
             val otherSurcharge = getMoneyOtherSurchargeFlow().first()
@@ -1317,7 +1269,7 @@ class SalaryCalculationHelper(
                     paymentNightTimeMoney + surchargeQualificationClassMoney +
                     surchargeExtendedServicePhaseMoney + surchargeOnePersonOperationMoney +
                     surchargeOnePersonOperationPassengerTrainFlow +
-                    surchargeHarmfulnessSurchargeMoney + surchargeLongDistanceTrainsMoney +
+                    surchargeHarmfulnessSurchargeMoney +
                     surchargeHeavyTrains + surchargeLongTrains + otherSurcharge + surchargeDoubledTrainFirst + surchargeDoubledTrainSecond +
                     overRestMoney
 

@@ -98,12 +98,6 @@ fun SettingSalaryScreen(
     harmfulnessPercentState: ResultState<String>,
     setHarmfulnessPercent: (String) -> Unit,
     isErrorInputHarmfulness: Boolean,
-    surchargeLongDistanceTrainState: ResultState<String>,
-    setSurchargeLongTrain: (String) -> Unit,
-    isErrorInputSurchargeLongDistance: Boolean,
-    lengthLongDistanceTrainState: ResultState<String>,
-    setLengthLongDistanceTrain: (String) -> Unit,
-    isErrorInputLengthLongDistance: Boolean,
     surchargeHeavyTrainsState: SnapshotStateList<SurchargeHeavyTrains>,
     addSurchargeHeavyTran: () -> Unit,
     setSurchargeHeavyTrainPercent: (Int, String) -> Unit,
@@ -796,88 +790,6 @@ fun SettingSalaryScreen(
                                     keyboardType = KeyboardType.Decimal
                                 )
                             )
-                        }
-                    }
-                }
-            }
-
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = paddingLarge),
-                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
-                ) {
-                    Text(
-                        text = "Доплата за длинносоставные поезда",
-                        overflow = TextOverflow.Visible,
-                        maxLines = 2,
-                        style = hintStyle,
-                        color = primaryColor
-                    )
-
-                    Row(
-                        modifier = Modifier
-                            .background(
-                                color = MaterialTheme.colorScheme.background,
-                                shape = Shapes.medium
-                            )
-                            .fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        AsyncDataValue(resultState = lengthLongDistanceTrainState) { lengthLongDistanceTrain ->
-                            lengthLongDistanceTrain?.let { lengthInAxle ->
-                                OutlinedTextFieldApp(
-                                    modifier = Modifier.weight(1f),
-                                    value = lengthInAxle,
-                                    onValueChange = { value ->
-                                        setLengthLongDistanceTrain(value)
-                                    },
-                                    singleLine = true,
-                                    suffix = {
-                                        Text(
-                                            text = "у.д.",
-                                            style = hintStyle
-                                        )
-                                    },
-                                    isError = isErrorInputLengthLongDistance,
-                                    supportingText = {
-                                        if (isErrorInputLengthLongDistance) {
-                                            Text(text = "Некорректные данные")
-                                        }
-                                    },
-                                    keyboardOptions = KeyboardOptions(
-                                        keyboardType = KeyboardType.Decimal
-                                    )
-                                )
-                            }
-                        }
-                        AsyncDataValue(resultState = surchargeLongDistanceTrainState) { surchargeLongDistanceTrain ->
-                            surchargeLongDistanceTrain?.let { surcharge ->
-                                OutlinedTextFieldApp(
-                                    modifier = Modifier.weight(1f),
-                                    value = surcharge,
-                                    onValueChange = { value ->
-                                        setSurchargeLongTrain(value)
-                                    },
-                                    singleLine = true,
-                                    suffix = {
-                                        Text(
-                                            text = "%",
-                                            style = hintStyle
-                                        )
-                                    },
-                                    isError = isErrorInputSurchargeLongDistance,
-                                    supportingText = {
-                                        if (isErrorInputSurchargeLongDistance) {
-                                            Text(text = "Некорректные данные")
-                                        }
-                                    },
-                                    keyboardOptions = KeyboardOptions(
-                                        keyboardType = KeyboardType.Decimal
-                                    )
-                                )
-                            }
                         }
                     }
                 }

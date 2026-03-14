@@ -58,8 +58,6 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                     onePersonOperationPercent = ResultState.Success(value?.onePersonOperationPercent.str()),
                     onePersonOperationPassengerTrainPercent = ResultState.Success(value?.onePersonOperationPassengerTrainPercent.str()),
                     harmfulnessPercent = ResultState.Success(value?.harmfulnessPercent.str()),
-                    longDistanceTrainPercent = ResultState.Success(value?.percentLongDistanceTrain.str()),
-                    lengthLongDistanceTrain = ResultState.Success(value?.lengthLongDistanceTrain.str()),
                     zonalSurcharge = ResultState.Success(value?.zonalSurcharge.str()),
                     surchargeQualificationClass = ResultState.Success(value?.surchargeQualificationClass.str()),
                     otherSurchargeState = ResultState.Success(value?.otherSurcharge.str()),
@@ -490,31 +488,6 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
             )
         }
     }
-
-    fun setSurchargeLongTrain(value: String) {
-        currentSalarySetting = currentSalarySetting?.copy(
-            percentLongDistanceTrain = value.toDoubleOrZero()
-        )
-        _uiState.update {
-            it.copy(
-                longDistanceTrainPercent = ResultState.Success(value),
-                isErrorInputLongDistanceTrainPercent = isErrorInputDouble(value)
-            )
-        }
-    }
-
-    fun setLengthLongDistanceTrain(value: String) {
-        currentSalarySetting = currentSalarySetting?.copy(
-            lengthLongDistanceTrain = value.toIntOrZero()
-        )
-        _uiState.update {
-            it.copy(
-                lengthLongDistanceTrain = ResultState.Success(value),
-                isErrorInputLengthLongDistanceTrain = isErrorInputDouble(value)
-            )
-        }
-    }
-
 
     fun addSurchargeHeavyTrain() {
         surchargeHeavyTrainsState.add(SurchargeHeavyTrains())

@@ -1196,29 +1196,52 @@ fun FormTrainScreen(
                             )
                         }
 
-                        // Скорости
+                        // Скорости (реактивно из stationList)
                         item {
-                            val sectionSpeed = train.getSectionSpeed()
-                            val technicalSpeed = train.getTechnicalSpeed()
-                            if (sectionSpeed != null || technicalSpeed != null) {
+                            val distance = train.distance?.toDoubleOrNull()
+                            val firstDeparture = stationList.firstOrNull()?.departure?.data
+                            val lastArrival = stationList.lastOrNull()?.arrival?.data
+                            if (distance != null && distance > 0 && firstDeparture != null && lastArrival != null && lastArrival > firstDeparture) {
+                                val travelTime = lastArrival - firstDeparture
+                                val sectionSpeed = distance / (travelTime / 3_600_000.0)
+
+                                var stopTime = 0L
+                                for (i in 1 until stationList.size - 1) {
+                                    val arr = stationList[i].arrival.data
+                                    val dep = stationList[i].departure.data
+                                    if (arr != null && dep != null && dep > arr) {
+                                        stopTime += dep - arr
+                                    }
+                                }
+                                val runningTime = travelTime - stopTime
+                                val technicalSpeed = if (runningTime > 0) distance / (runningTime / 3_600_000.0) else null
+
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(top = 8.dp),
+                                        .padding(top = 8.dp)
+                                        .background(
+                                            color = MaterialTheme.colorScheme.surfaceDim,
+                                            shape = Shapes.medium
+                                        )
+                                        .border(
+                                            width = 0.5.dp,
+                                            color = MaterialTheme.colorScheme.tertiary,
+                                            shape = Shapes.medium
+                                        )
+                                        .padding(12.dp),
                                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
-                                    sectionSpeed?.let {
-                                        Text(
-                                            text = "Уч: ${"%.1f".format(it)} км/ч",
-                                            style = dataTextStyle,
-                                            color = noValueColor
-                                        )
-                                    }
+                                    Text(
+                                        text = "Уч: ${"%.1f".format(sectionSpeed)} км/ч",
+                                        style = hintStyle,
+                                        color = primaryColor
+                                    )
                                     technicalSpeed?.let {
                                         Text(
                                             text = "Техн: ${"%.1f".format(it)} км/ч",
-                                            style = dataTextStyle,
-                                            color = noValueColor
+                                            style = hintStyle,
+                                            color = primaryColor
                                         )
                                     }
                                 }
