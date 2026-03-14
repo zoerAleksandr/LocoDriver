@@ -17,6 +17,7 @@ import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Train
+import com.z_company.domain.entities.route.UtilsForEntities.getOverRestTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
@@ -333,6 +334,26 @@ class FormViewModel(
                 salaryCalculationHelper.getMoneyOtherSurchargeFlow().first()
             }
 
+            // Расчёт переотдыха: ищем предыдущий маршрут с restPointOfTurnover
+            val deferredOverRestMoney = async {
+                val monthRoutes = routeUseCase.listRoutesByMonth(
+                    setting.selectMonthOfYear, setting.timeZone
+                ).first { it is ResultState.Success }
+                if (monthRoutes is ResultState.Success) {
+                    val sorted = monthRoutes.data.sortedBy { it.basicData.timeStartWork }
+                    val currentIndex = sorted.indexOfFirst { it.basicData.id == route.basicData.id }
+                    if (currentIndex > 0) {
+                        val prevRoute = sorted[currentIndex - 1]
+                        if (prevRoute.basicData.restPointOfTurnover) {
+                            val overRestTime = prevRoute.getOverRestTime(route, setting.minTimeRestPointOfTurnover)
+                            if (overRestTime > 0L) {
+                                overRestTime.times(setting.selectMonthOfYear.tariffRate * (2.0 / 3.0)) / 3_600_000.toDouble()
+                            } else 0.0
+                        } else 0.0
+                    } else 0.0
+                } else 0.0
+            }
+
             // Синхронная логика (не требует async)
             var isPassengerTrain = false
             passengerTrainNumberList.forEach { interval ->
@@ -372,6 +393,7 @@ class FormViewModel(
             val moneyAtOnePerson = deferredMoneyAtOnePerson.await()
             val surchargeAtDoubledTrainFirst = deferredSurchargeAtDoubledTrainFirst.await()
             val surchargeAtDoubledTrainSecond = deferredSurchargeAtDoubledTrainSecond.await()
+            val overRestMoney = deferredOverRestMoney.await()
 
             // Теперь, когда все значения получены, выполняем суммирование
             val surchargeAtTrains =
@@ -381,7 +403,7 @@ class FormViewModel(
                 moneyAtQualificationClass + nordicSurcharge + districtSurcharge + moneyAtHarmfulness + otherSurchargeMoney
 
             val totalMoney =
-                moneyAtTariffRate + moneyAtNightHours + zonalSurchargeMoney + moneyAtPassengerTime + moneyAtHoliday + surchargeAtTrains + moneyAtOnePerson + otherSurcharge
+                moneyAtTariffRate + moneyAtNightHours + zonalSurchargeMoney + moneyAtPassengerTime + moneyAtHoliday + surchargeAtTrains + moneyAtOnePerson + otherSurcharge + overRestMoney
 
             // Логи (оставляем как есть)
             Log.d("zzz", "moneyAtTariffRate $moneyAtTariffRate")
@@ -400,7 +422,8 @@ class FormViewModel(
                     paymentHolidayMoney = moneyAtHoliday,
                     surchargesAtTrain = surchargeAtTrains,
                     paymentAtOnePerson = moneyAtOnePerson,
-                    otherSurcharge = otherSurcharge
+                    otherSurcharge = otherSurcharge,
+                    overRestMoney = overRestMoney
                 )
             }
 

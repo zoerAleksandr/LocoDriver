@@ -1,6 +1,7 @@
 package com.z_company.route.viewmodel
 
 import android.util.Log
+import io.sentry.kotlin.multiplatform.Sentry
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -761,6 +762,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                         else -> {}  // Не должно быть, но на всякий
                     }
                 } catch (e: Exception) {
+                    Sentry.captureException(e)
                     hasError = true
                     Log.e("zzz", "Exception saving route: ${e.message}")
                 }
@@ -965,6 +967,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                     }
                 }
             } catch (e: Exception) {
+                Sentry.captureException(e)
                 Log.e("Migration", "Критическая ошибка миграции", e)
                 _migrationUiState.update {
                     it.copy(

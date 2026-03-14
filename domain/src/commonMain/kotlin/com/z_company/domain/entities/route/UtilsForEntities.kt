@@ -262,6 +262,7 @@ object UtilsForEntities {
         }
     }
 
+
     fun Route.inTimePeriod(period: TimePeriod): Boolean {
         period.startDate?.let { startDateInFilter ->
             this.basicData.timeStartWork?.let { currentDate ->
@@ -967,5 +968,27 @@ object UtilsForEntities {
         val departure = stations.first().timeDeparture ?: return null
         val arrival = stations.last().timeArrival ?: return null
         return if (arrival > departure) arrival - departure else null
+    }
+
+    fun Route.getOverRestTime(nextRoute: Route?, minTimeRest: Long): Long {
+        if (!this.basicData.restPointOfTurnover) return 0L
+        val endWork = this.basicData.timeEndWork ?: return 0L
+        val nextStart = nextRoute?.basicData?.timeStartWork ?: return 0L
+        val workTime = this.getWorkTime() ?: return 0L
+        val fullRestDuration = maxOf(workTime, minTimeRest)
+        val actualRest = nextStart - endWork
+        return if (actualRest > fullRestDuration) actualRest - fullRestDuration else 0L
+    }
+
+    fun List<Route>.getTotalOverRestTime(minTimeRest: Long): Long {
+        val sorted = this.sortedBy { it.basicData.timeStartWork }
+        var total = 0L
+        for (i in sorted.indices) {
+            if (sorted[i].basicData.restPointOfTurnover) {
+                val next = sorted.getOrNull(i + 1)
+                total += sorted[i].getOverRestTime(next, minTimeRest)
+            }
+        }
+        return total
     }
 }

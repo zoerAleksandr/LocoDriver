@@ -132,6 +132,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                     async { setAveragePaymentData(salaryCalculationHelper) },
                     async { setCaringForDisableChildrenPaymentData(salaryCalculationHelper) },
                     async { setOtherSurchargeData(salaryCalculationHelper) },
+                    async { setRestInExcessOfTheNormData(salaryCalculationHelper) },
                     async { setTotalCharged(salaryCalculationHelper) },
                     async { setRetentionData(salaryCalculationHelper) },
                     async { setToBeCredited(salaryCalculationHelper) }
@@ -605,6 +606,16 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         return PartialState(
             caringForDisableChildrenHours = hours,
             caringForDisableChildrenMoney = money
+        )
+    }
+
+    // Метод для установки данных по переотдыху (время, сумма).
+    private suspend fun setRestInExcessOfTheNormData(helper: SalaryCalculationHelper): PartialState {
+        val time = helper.getOverRestTimeFlow().first()
+        val money = helper.getMoneyOverRestFlow().first()
+        return PartialState(
+            restInExcessOfTheNormTime = time,
+            restInExcessOfTheNormMoney = money
         )
     }
 

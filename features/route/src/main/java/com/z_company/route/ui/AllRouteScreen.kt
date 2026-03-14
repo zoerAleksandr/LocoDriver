@@ -3,10 +3,12 @@ package com.z_company.route.ui
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -560,10 +562,10 @@ fun AllRouteScreen(
                         contentPadding = PaddingValues(8.dp)
                     ) {
                         viewModel.dateAndTimeConverter?.let { converter ->
-                            items(
+                            itemsIndexed(
                                 items = displayedRoutes,
-                                key = { it.route.basicData.id }
-                            ) { routeState ->
+                                key = { _, it -> it.route.basicData.id }
+                            ) { index, routeState ->
                                 val route = routeState.route
                                 background =
                                     if (route.isFuture(viewModel.offsetInMoscow)) {
@@ -601,7 +603,39 @@ fun AllRouteScreen(
                                     number = displayedRoutes.size - displayedRoutes.indexOf(routeState)
                                 )
 
-                                Spacer(modifier = Modifier.height(12.dp))
+                                val showRestLine = if (index + 1 < displayedRoutes.size) {
+                                    val r1 = route
+                                    val r2 = displayedRoutes[index + 1].route
+                                    val t1 = r1.basicData.timeStartWork ?: Long.MAX_VALUE
+                                    val t2 = r2.basicData.timeStartWork ?: Long.MAX_VALUE
+                                    if (t1 < t2) r1.basicData.restPointOfTurnover
+                                    else r2.basicData.restPointOfTurnover
+                                } else false
+
+                                if (showRestLine) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(12.dp),
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .width(1.dp)
+                                                .fillMaxHeight()
+                                                .background(MaterialTheme.colorScheme.primary)
+                                        )
+                                        Spacer(modifier = Modifier.width(5.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .width(1.dp)
+                                                .fillMaxHeight()
+                                                .background(MaterialTheme.colorScheme.primary)
+                                        )
+                                    }
+                                } else {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                }
                             }
                         }
                     }

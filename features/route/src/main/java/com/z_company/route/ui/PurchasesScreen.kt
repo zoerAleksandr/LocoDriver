@@ -1,46 +1,10 @@
 package com.z_company.route.ui
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.util.Log
-import androidx.compose.foundation.background
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
-import androidx.lifecycle.flowWithLifecycle
-import com.z_company.core.ui.component.CustomSnackBar
-import com.z_company.core.ui.snackbar.ISnackbarManager
-import com.z_company.core.ui.theme.Shapes
-import com.z_company.route.viewmodel.BillingEvent
-import com.z_company.route.viewmodel.BillingState
-import com.z_company.route.viewmodel.PurchasesViewModel
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.launch
-import org.koin.compose.koinInject
-import com.robokassa.library.pay.RobokassaPayLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -52,15 +16,56 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
+import androidx.lifecycle.flowWithLifecycle
+import com.robokassa.library.pay.RobokassaPayLauncher
+import com.z_company.core.ui.component.CustomSnackBar
+import com.z_company.core.ui.snackbar.ISnackbarManager
+import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.entities.Product
-import com.z_company.domain.util.toMoneyString
+import com.z_company.route.R
+import com.z_company.route.viewmodel.BillingEvent
+import com.z_company.route.viewmodel.BillingState
+import com.z_company.route.viewmodel.PurchasesViewModel
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -102,6 +107,116 @@ fun PurchasesScreen(
                         color = MaterialTheme.colorScheme.onPrimary
                     ),
                     onClick = { alertDialogShow = !alertDialogShow }) {
+                }
+            }
+        )
+    }
+
+    val showPaymentLoadingDialog by viewModel.showPaymentLoadingDialog.collectAsState()
+    val showPaymentFailedDialog by viewModel.showPaymentFailedDialog.collectAsState()
+    val context = LocalContext.current
+
+    if (showPaymentLoadingDialog) {
+        AlertDialog(
+            containerColor = MaterialTheme.colorScheme.secondary,
+            titleContentColor = MaterialTheme.colorScheme.primary,
+            textContentColor = MaterialTheme.colorScheme.primary,
+            onDismissRequest = { },
+            title = {
+                Text(text = "Получаем данные...")
+            },
+            text = {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.surfaceContainerLow
+                    )
+                }
+            },
+            confirmButton = { }
+        )
+    }
+
+    if (showPaymentFailedDialog) {
+        AlertDialog(
+            containerColor = MaterialTheme.colorScheme.secondary,
+            titleContentColor = MaterialTheme.colorScheme.primary,
+            textContentColor = MaterialTheme.colorScheme.primary,
+            onDismissRequest = { viewModel.dismissPaymentFailedDialog() },
+            title = {
+                Text(text = "Оплата не завершена")
+            },
+            text = {
+                Text(modifier = Modifier.padding(top = 24.dp), text = "Данные об оплате не получены. Если у вас есть вопросы, напишите в поддержку.")
+            },
+            confirmButton = {
+                Button(onClick = {
+                    viewModel.dismissPaymentFailedDialog()
+                    val email = "locodriver.app@yandex.ru"
+                    val subject = "Вопрос по оплате"
+                    val mailIntent = Intent(Intent.ACTION_SENDTO).apply {
+                        data = "mailto:$email?subject=$subject".toUri()
+                    }
+                    try {
+                        context.startActivity(mailIntent)
+                    } catch (_: Exception) {
+                        context.startActivity(
+                            Intent(Intent.ACTION_SENDTO).apply {
+                                data = "mailto:".toUri()
+                            }
+                        )
+                    }
+                }) {
+                    Text(
+                        text = "Написать в поддержку",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissPaymentFailedDialog() }) {
+                    Text(
+                        text = "Закрыть",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        )
+    }
+
+    val showPaymentSuccessDialog by viewModel.showPaymentSuccessDialog.collectAsState()
+
+    if (showPaymentSuccessDialog) {
+        AlertDialog(
+            containerColor = MaterialTheme.colorScheme.secondary,
+            titleContentColor = MaterialTheme.colorScheme.primary,
+            textContentColor = MaterialTheme.colorScheme.primary,
+            iconContentColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            onDismissRequest = { viewModel.dismissPaymentSuccessDialog() },
+            title = {
+                Text(modifier = Modifier.padding(top = 24.dp), text = "Платеж принят!")
+            },
+            icon = {
+                Icon(
+                    modifier = Modifier.size(86.dp),
+                    painter = painterResource(R.drawable.check_circle_24px),
+                    contentDescription = null
+                )
+            },
+            text = {
+                Text(text = "Спасибо за поддержку приложения!")
+            },
+            confirmButton = {
+                Button(onClick = { viewModel.dismissPaymentSuccessDialog() }) {
+                    Text(
+                        text = "Отлично!",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
                 }
             }
         )
@@ -213,10 +328,15 @@ fun PurchasesScreen(
         ) {
             val purchasesEndTimeInLong = viewModel.purchasesEndTime.collectAsState()
             val currentState by viewModel.state.collectAsState()  // Reactive для всего state, чтобы converter был актуальным
-            val purchasesEndTime = currentState.dateAndTimeConverter?.getDateAndTime(purchasesEndTimeInLong.value)
+            val purchasesEndTime =
+                currentState.dateAndTimeConverter?.getDateAndTime(purchasesEndTimeInLong.value)
             Spacer(modifier = Modifier.height(16.dp))
             if (!purchasesEndTime.isNullOrBlank() && purchasesEndTimeInLong.value != 0L) {
-                Text(text = "Оплачено до $purchasesEndTime",color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text = "Оплачено до $purchasesEndTime",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.bodyLarge
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))

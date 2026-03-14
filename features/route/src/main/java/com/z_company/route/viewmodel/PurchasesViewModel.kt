@@ -1,6 +1,7 @@
 package com.z_company.route.viewmodel
 
 import android.util.Log
+import io.sentry.kotlin.multiplatform.Sentry
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.robokassa.library.models.Culture
@@ -65,6 +66,15 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
     private val _purchasesEndTime = MutableStateFlow(0L)
     val purchasesEndTime = _purchasesEndTime.asStateFlow()
 
+    private val _showPaymentSuccessDialog = MutableStateFlow(false)
+    val showPaymentSuccessDialog = _showPaymentSuccessDialog.asStateFlow()
+
+    private val _showPaymentLoadingDialog = MutableStateFlow(false)
+    val showPaymentLoadingDialog = _showPaymentLoadingDialog.asStateFlow()
+
+    private val _showPaymentFailedDialog = MutableStateFlow(false)
+    val showPaymentFailedDialog = _showPaymentFailedDialog.asStateFlow()
+
     private val _event = MutableSharedFlow<BillingEvent>(
         extraBufferCapacity = 1,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
@@ -122,6 +132,7 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                     )
                 }
             } catch (t: Throwable) {
+                Sentry.captureException(t)
                 _event.tryEmit(BillingEvent.ShowError(t))
                 _state.update { it.copy(isLoading = false) }
             }
@@ -206,16 +217,31 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
 
     fun handlePaymentSuccess(success: RobokassaPayLauncher.Success?) {
         viewModelScope.launch {
+            val previousEndTime = _purchasesEndTime.value
+            _showPaymentLoadingDialog.value = true
             val token = secureTokenStorage.getAuthBearerTokenFlow().first()
             val result = subscriptionHelper.restorePurchases(null, token)
+            _showPaymentLoadingDialog.value = false
             if (result is ResultState.Success) {
-                val updatedSetting = settingsUseCase.getUserSettingFlow().first()  // Sync fetch актуального значения
+                val updatedSetting = settingsUseCase.getUserSettingFlow().first()
                 _purchasesEndTime.value = updatedSetting.subscriptionPeriod
+                if (updatedSetting.subscriptionPeriod > previousEndTime) {
+                    _showPaymentSuccessDialog.value = true
+                } else {
+                    _showPaymentFailedDialog.value = true
+                }
+            } else {
+                _showPaymentFailedDialog.value = true
             }
         }
-        success?.let {
-            snackbarManager.show("Оплата прошла успешна!")
-        }
+    }
+
+    fun dismissPaymentSuccessDialog() {
+        _showPaymentSuccessDialog.value = false
+    }
+
+    fun dismissPaymentFailedDialog() {
+        _showPaymentFailedDialog.value = false
     }
 
     // Новое: Метод для эмиссии события StartPayment.

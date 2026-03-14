@@ -16,6 +16,8 @@ import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getSingleLocomotiveTime
 import com.z_company.domain.entities.route.UtilsForEntities.getTimeInHeavyTrain
 import com.z_company.domain.entities.route.UtilsForEntities.getTimeInServicePhase
+import com.z_company.domain.entities.route.UtilsForEntities.getOverRestTime
+import com.z_company.domain.entities.route.UtilsForEntities.getTotalOverRestTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getTravelTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
@@ -1189,6 +1191,18 @@ class SalaryCalculationHelper(
         }
     }
 
+    fun getOverRestTimeFlow(): Flow<Long> = flow {
+        val minTimeRest = userSettings.minTimeRestPointOfTurnover
+        emit(routeList.getTotalOverRestTime(minTimeRest))
+    }
+
+    fun getMoneyOverRestFlow(): Flow<Double> = flow {
+        val time = getOverRestTimeFlow().first()
+        val tariffRate = currentMonthOfYear.tariffRate
+        val money = time.times(tariffRate * (2.0 / 3.0)) / 3_600_000.toDouble()
+        emit(money)
+    }
+
     private fun getBasicMoney(): Flow<Double> {
         return flow {
             val basicForOvertime = getBasicMoneyForOvertimeCalculation().first()
@@ -1220,13 +1234,15 @@ class SalaryCalculationHelper(
             val otherSurcharge = getMoneyOtherSurchargeFlow().first()
             val surchargeDoubledTrainFirst = getMoneyDoubledTrainFirstSurchargeFlow().first()
             val surchargeDoubledTrainSecond = getMoneyDoubledTrainSecondSurchargeFlow().first()
+            val overRestMoney = getMoneyOverRestFlow().first()
             val basicMoney = paymentAtTariffMoney + paymentAtPassengerMoney +
                     paymentAtSingleLocomotiveMoney + zonalSurchargeMoney +
                     paymentNightTimeMoney + surchargeQualificationClassMoney +
                     surchargeExtendedServicePhaseMoney + surchargeOnePersonOperationMoney +
                     surchargeOnePersonOperationPassengerTrainFlow +
                     surchargeHarmfulnessSurchargeMoney + surchargeLongDistanceTrainsMoney +
-                    surchargeHeavyTrains + otherSurcharge + surchargeDoubledTrainFirst + surchargeDoubledTrainSecond
+                    surchargeHeavyTrains + otherSurcharge + surchargeDoubledTrainFirst + surchargeDoubledTrainSecond +
+                    overRestMoney
 
             emit(basicMoney)
         }
