@@ -133,6 +133,7 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                 }
             } catch (t: Throwable) {
                 t.sendToSentry("PurchasesViewModel", "refreshProductsAndPurchases")
+
                 _event.tryEmit(BillingEvent.ShowError(t))
                 _state.update { it.copy(isLoading = false) }
             }
