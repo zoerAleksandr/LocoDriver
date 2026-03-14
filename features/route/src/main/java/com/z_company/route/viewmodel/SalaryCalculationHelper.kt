@@ -15,6 +15,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getOnePersonOperatio
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getSingleLocomotiveTime
 import com.z_company.domain.entities.route.UtilsForEntities.getTimeInHeavyTrain
+import com.z_company.domain.entities.route.UtilsForEntities.getTimeInLongTrain
 import com.z_company.domain.entities.route.UtilsForEntities.getTimeInServicePhase
 import com.z_company.domain.entities.route.UtilsForEntities.getOverRestTime
 import com.z_company.domain.entities.route.UtilsForEntities.getTotalOverRestTime
@@ -751,6 +752,81 @@ class SalaryCalculationHelper(
         }
     }
 
+    fun getPercentListSurchargeLongTrainsFlow(): Flow<List<String>> {
+        return channelFlow {
+            val percentList =
+                salarySetting.surchargeLongTrainsList.sortedBy {
+                    it.conditionalLength
+                }.map {
+                    it.percentSurcharge
+                }
+            trySend(percentList)
+            awaitClose()
+        }
+    }
+
+    fun getTimeListSurchargeLongTrainsFlow(routes: List<Route> = routeList): Flow<List<Long>> {
+        return channelFlow {
+            val surchargeListSorted = salarySetting.surchargeLongTrainsList.sortedBy {
+                it.conditionalLength
+            }
+            val timeList: MutableList<Long> = mutableListOf()
+            surchargeListSorted.forEachIndexed { index, _ ->
+                var totalTimeLongTrain = 0L
+                routes.forEach { route ->
+                    totalTimeLongTrain += route.getTimeInLongTrain(
+                        surchargeListSorted.map { it.conditionalLength.toIntOrZero() },
+                        index
+                    )
+                }
+                timeList.add(totalTimeLongTrain)
+            }
+            trySend(timeList)
+            awaitClose()
+        }
+    }
+
+    fun getMoneyListSurchargeLongTrainsFlow(): Flow<List<Double>> {
+        return channelFlow {
+            val percentList = getPercentListSurchargeLongTrainsFlow().first()
+            val moneyList: MutableList<Double> = mutableListOf()
+
+            if (dateSetTariffRate == null) {
+                getTimeListSurchargeLongTrainsFlow().collect { timeList ->
+                    timeList.forEachIndexed { index, timeInLongTrains ->
+                        val money =
+                            timeInLongTrains
+                                .times(currentMonthOfYear.tariffRate * (percentList[index].toDoubleOrZero() / 100)) / 3_600_000.toDouble()
+                        moneyList.add(money)
+                    }
+                    trySend(moneyList)
+                }
+            } else {
+                val pairRoutes = getTwoRouteList(routeList).first()
+                val firstRoutes = pairRoutes.first
+                val secondRoutes = pairRoutes.second
+                combine(
+                    getTimeListSurchargeLongTrainsFlow(firstRoutes),
+                    getTimeListSurchargeLongTrainsFlow(secondRoutes),
+                ) { firstTimeList, secondTimeList ->
+                    firstTimeList.forEachIndexed { index, timeInLongTrains ->
+                        val money =
+                            timeInLongTrains.times(dateSetTariffRate.oldRate * (percentList[index].toDoubleOrZero() / 100)) / 3_600_000.toDouble()
+                        moneyList.add(money)
+                    }
+                    secondTimeList.forEachIndexed { index, timeInLongTrains ->
+                        val money =
+                            timeInLongTrains.times(currentMonthOfYear.tariffRate * (percentList[index].toDoubleOrZero() / 100)) / 3_600_000.toDouble()
+                        val summaryMoney = money + moneyList[index]
+                        moneyList[index] = summaryMoney
+                    }
+                    trySend(moneyList)
+                }.collect {}
+            }
+            awaitClose()
+        }
+    }
+
     fun getPercentZonalSurchargeFlow(): Flow<Double> {
         return flow {
             val percent = salarySetting.zonalSurcharge
@@ -1231,6 +1307,7 @@ class SalaryCalculationHelper(
             val surchargeHarmfulnessSurchargeMoney = getMoneyHarmfulnessFlow().first()
             val surchargeLongDistanceTrainsMoney = getMoneyLongDistanceTrainFlow().first()
             val surchargeHeavyTrains = getMoneyListSurchargeExtendedHeavyTrainsFlow().first().sum()
+            val surchargeLongTrains = getMoneyListSurchargeLongTrainsFlow().first().sum()
             val otherSurcharge = getMoneyOtherSurchargeFlow().first()
             val surchargeDoubledTrainFirst = getMoneyDoubledTrainFirstSurchargeFlow().first()
             val surchargeDoubledTrainSecond = getMoneyDoubledTrainSecondSurchargeFlow().first()
@@ -1241,7 +1318,7 @@ class SalaryCalculationHelper(
                     surchargeExtendedServicePhaseMoney + surchargeOnePersonOperationMoney +
                     surchargeOnePersonOperationPassengerTrainFlow +
                     surchargeHarmfulnessSurchargeMoney + surchargeLongDistanceTrainsMoney +
-                    surchargeHeavyTrains + otherSurcharge + surchargeDoubledTrainFirst + surchargeDoubledTrainSecond +
+                    surchargeHeavyTrains + surchargeLongTrains + otherSurcharge + surchargeDoubledTrainFirst + surchargeDoubledTrainSecond +
                     overRestMoney
 
             emit(basicMoney)

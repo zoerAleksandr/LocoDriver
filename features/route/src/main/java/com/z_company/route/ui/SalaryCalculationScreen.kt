@@ -403,6 +403,22 @@ private fun EarningsTable(uiState: SalaryCalculationUIState, convertTimeToString
             } else null
         }.toTypedArray(),
 
+        *(0 until minOf(
+            uiState.surchargeLongTrainHour.size,
+            uiState.surchargeLongTrainPercent.size,
+            uiState.surchargeLongTrainMoney.size
+        )).mapNotNull { i ->
+            val money = uiState.surchargeLongTrainMoney.getOrNull(i) ?: 0.0
+            if (money > 0) {
+                EarningsRow(
+                    "Длинносост. (${uiState.surchargeLongTrainPercent[i] ?: ""}%)",
+                    uiState.surchargeLongTrainHour.getOrNull(i),
+                    uiState.surchargeLongTrainPercent.getOrNull(i)?.toDoubleOrNull(),
+                    money
+                )
+            } else null
+        }.toTypedArray(),
+
         uiState.surchargeDoubledTrainFirstMoney?.takeIf { it > 0 }?.let {
             EarningsRow(
                 "Сдвоенные поезда (30%)",

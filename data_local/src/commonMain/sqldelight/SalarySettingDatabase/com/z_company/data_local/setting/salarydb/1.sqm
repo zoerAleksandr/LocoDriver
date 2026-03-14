@@ -1,0 +1,1 @@
+ALTER TABLE SalarySetting ADD COLUMN surchargeLongTrainsList TEXT NOT NULL DEFAULT '[]';

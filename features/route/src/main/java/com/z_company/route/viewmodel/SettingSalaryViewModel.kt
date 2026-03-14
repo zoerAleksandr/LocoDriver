@@ -9,6 +9,7 @@ import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.SurchargeExtendedServicePhase
 import com.z_company.domain.entities.setting.SurchargeHeavyTrains
+import com.z_company.domain.entities.setting.SurchargeLongTrains
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -89,6 +90,18 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
             _uiState.update {
                 it.copy(
                     surchargeHeavyTrain = value
+                )
+            }
+        }
+
+    private var surchargeLongTrainsState: SnapshotStateList<SurchargeLongTrains>
+        get() {
+            return _uiState.value.surchargeLongTrain
+        }
+        private set(value) {
+            _uiState.update {
+                it.copy(
+                    surchargeLongTrain = value
                 )
             }
         }
@@ -227,6 +240,14 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                                 percentSurcharge = surcharge.percentSurcharge
                             )
                         }.toMutableList()
+                    salarySetting.surchargeLongTrainsList =
+                        surchargeLongTrainsState.map { surcharge ->
+                            SurchargeLongTrains(
+                                id = surcharge.id,
+                                conditionalLength = surcharge.conditionalLength,
+                                percentSurcharge = surcharge.percentSurcharge
+                            )
+                        }.toMutableList()
 
                     salarySettingUseCase.saveSalarySetting(salarySetting).collect { saveResult ->
                         withContext(Dispatchers.Main) {
@@ -266,6 +287,7 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                     currentSalarySetting?.let {
                         setSurchargeExtendedServicePhaseListState(it.surchargeExtendedServicePhaseList)
                         setSurchargeHeavyTrainState(it.surchargeHeavyTrainsList)
+                        setSurchargeLongTrainState(it.surchargeLongTrainsList)
                     }
                 }
             }
@@ -522,6 +544,39 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                     id = surchargeHeavyTrains.id,
                     percentSurcharge = surchargeHeavyTrains.percentSurcharge,
                     weight = surchargeHeavyTrains.weight
+                )
+            )
+        }
+    }
+
+    fun addSurchargeLongTrain() {
+        surchargeLongTrainsState.add(SurchargeLongTrains())
+    }
+
+    fun setSurchargeLongTrainPercent(index: Int, percent: String) {
+        surchargeLongTrainsState[index] = surchargeLongTrainsState[index].copy(
+            percentSurcharge = percent
+        )
+    }
+
+    fun setSurchargeLongTrainLength(index: Int, length: String) {
+        surchargeLongTrainsState[index] = surchargeLongTrainsState[index].copy(
+            conditionalLength = length
+        )
+    }
+
+    fun deleteSurchargeLongTrain(index: Int) {
+        surchargeLongTrainsState.removeAt(index)
+    }
+
+    private fun setSurchargeLongTrainState(surcharges: List<SurchargeLongTrains>) {
+        surchargeLongTrainsState.clear()
+        surcharges.forEach { surchargeLongTrains ->
+            surchargeLongTrainsState.addOrReplace(
+                SurchargeLongTrains(
+                    id = surchargeLongTrains.id,
+                    percentSurcharge = surchargeLongTrains.percentSurcharge,
+                    conditionalLength = surchargeLongTrains.conditionalLength
                 )
             )
         }

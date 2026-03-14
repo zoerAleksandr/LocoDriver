@@ -123,6 +123,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                     async { setSurchargeHarmfulnessData(salaryCalculationHelper) },
                     async { setSurchargeLongDistanceData(salaryCalculationHelper) },
                     async { setSurchargeHeavyTransData(salaryCalculationHelper) },
+                    async { setSurchargeLongTrainData(salaryCalculationHelper) },
                     async { setSurchargeDoubledTrainData(salaryCalculationHelper) },
                     async { setZonalSurchargeData(salaryCalculationHelper) },
                     async { setOvertimeData(salaryCalculationHelper) },
@@ -196,6 +197,9 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                         surchargeHeavyTransHour = partial.surchargeHeavyTransHour.ifEmpty { acc.surchargeHeavyTransHour },
                         surchargeHeavyTransPercent = partial.surchargeHeavyTransPercent.ifEmpty { acc.surchargeHeavyTransPercent },
                         surchargeHeavyTransMoney = partial.surchargeHeavyTransMoney.ifEmpty { acc.surchargeHeavyTransMoney },
+                        surchargeLongTrainHour = partial.surchargeLongTrainHour.ifEmpty { acc.surchargeLongTrainHour },
+                        surchargeLongTrainPercent = partial.surchargeLongTrainPercent.ifEmpty { acc.surchargeLongTrainPercent },
+                        surchargeLongTrainMoney = partial.surchargeLongTrainMoney.ifEmpty { acc.surchargeLongTrainMoney },
                         surchargeLongDistanceTrainsHours = partial.surchargeLongDistanceTrainsHours
                             ?: acc.surchargeLongDistanceTrainsHours,
                         surchargeLongDistanceTrainsPercent = partial.surchargeLongDistanceTrainsPercent
@@ -299,6 +303,9 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                         surchargeHeavyTransHour = combinedPartial.surchargeHeavyTransHour,
                         surchargeHeavyTransPercent = combinedPartial.surchargeHeavyTransPercent,
                         surchargeHeavyTransMoney = combinedPartial.surchargeHeavyTransMoney,
+                        surchargeLongTrainHour = combinedPartial.surchargeLongTrainHour,
+                        surchargeLongTrainPercent = combinedPartial.surchargeLongTrainPercent,
+                        surchargeLongTrainMoney = combinedPartial.surchargeLongTrainMoney,
                         surchargeLongDistanceTrainsHours = combinedPartial.surchargeLongDistanceTrainsHours,
                         surchargeLongDistanceTrainsPercent = combinedPartial.surchargeLongDistanceTrainsPercent,
                         surchargeLongDistanceTrainsMoney = combinedPartial.surchargeLongDistanceTrainsMoney,
@@ -514,6 +521,18 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         )
     }
 
+    private suspend fun setSurchargeLongTrainData(helper: SalaryCalculationHelper): PartialState {
+        val timeList = helper.getTimeListSurchargeLongTrainsFlow().first()
+        val percentList = helper.getPercentListSurchargeLongTrainsFlow().first()
+        val moneyList = helper.getMoneyListSurchargeLongTrainsFlow().first()
+
+        return PartialState(
+            surchargeLongTrainHour = timeList,
+            surchargeLongTrainPercent = percentList,
+            surchargeLongTrainMoney = moneyList
+        )
+    }
+
     // Метод для установки данных по надбавке за сдвоенные поезда (первый 30%, второй 15%).
     private suspend fun setSurchargeDoubledTrainData(helper: SalaryCalculationHelper): PartialState {
         val timeFirst = helper.getTimeDoubledTrainFirstSurchargeFlow().first()
@@ -695,6 +714,9 @@ data class PartialState(
     val surchargeHeavyTransHour: List<Long?> = emptyList(),
     val surchargeHeavyTransPercent: List<String?> = emptyList(),
     val surchargeHeavyTransMoney: List<Double?> = emptyList(),
+    val surchargeLongTrainHour: List<Long?> = emptyList(),
+    val surchargeLongTrainPercent: List<String?> = emptyList(),
+    val surchargeLongTrainMoney: List<Double?> = emptyList(),
     val surchargeLongDistanceTrainsHours: Long? = null,
     val surchargeLongDistanceTrainsPercent: Double? = null,
     val surchargeLongDistanceTrainsMoney: Double? = null,

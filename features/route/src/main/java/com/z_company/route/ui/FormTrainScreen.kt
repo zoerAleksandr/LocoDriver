@@ -106,6 +106,8 @@ import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.TrainAssist
+import com.z_company.domain.entities.route.UtilsForEntities.getSectionSpeed
+import com.z_company.domain.entities.route.UtilsForEntities.getTechnicalSpeed
 import com.z_company.domain.entities.route.UtilsForEntities.trainCategory
 import com.z_company.route.component.BottomShadow
 import com.z_company.route.component.OutlinedTextFieldApp
@@ -1192,6 +1194,35 @@ fun FormTrainScreen(
                                     viewModel.requestDeleteStation(originalIndex)
                                 },
                             )
+                        }
+
+                        // Скорости
+                        item {
+                            val sectionSpeed = train.getSectionSpeed()
+                            val technicalSpeed = train.getTechnicalSpeed()
+                            if (sectionSpeed != null || technicalSpeed != null) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    sectionSpeed?.let {
+                                        Text(
+                                            text = "Уч: ${"%.1f".format(it)} км/ч",
+                                            style = dataTextStyle,
+                                            color = noValueColor
+                                        )
+                                    }
+                                    technicalSpeed?.let {
+                                        Text(
+                                            text = "Техн: ${"%.1f".format(it)} км/ч",
+                                            style = dataTextStyle,
+                                            color = noValueColor
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                     item {
