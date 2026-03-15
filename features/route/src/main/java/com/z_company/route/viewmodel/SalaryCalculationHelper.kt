@@ -739,6 +739,34 @@ class SalaryCalculationHelper(
         }
     }
 
+    fun getTotalTimeLongTrainsFlow(routes: List<Route> = routeList): Flow<Long> {
+        return channelFlow {
+            val surchargeListSorted = salarySetting.surchargeLongTrainsList.sortedBy {
+                it.conditionalLength
+            }
+            val numCats = surchargeListSorted.size
+            var totalLongTime = 0L
+            routes.forEach { route ->
+                var selectedTime = 0L
+                for (index in numCats - 1 downTo 0) {
+                    val time = route.getTimeInLongTrain(
+                        surchargeListSorted.map { it.conditionalLength.toIntOrZero() },
+                        index
+                    )
+                    if (time > 0) {
+                        selectedTime = time
+                        break
+                    }
+                }
+                totalLongTime += selectedTime
+            }
+            val totalWorkTime = getTotalWorkTime(routes).first()
+            totalLongTime = minOf(totalLongTime, totalWorkTime)
+            trySend(totalLongTime)
+            awaitClose()
+        }
+    }
+
     fun getMoneyListSurchargeLongTrainsFlow(): Flow<List<Double>> {
         return channelFlow {
             val percentList = getPercentListSurchargeLongTrainsFlow().first()
