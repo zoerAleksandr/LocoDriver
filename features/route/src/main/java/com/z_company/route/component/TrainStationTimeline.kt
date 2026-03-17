@@ -16,6 +16,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -131,6 +133,7 @@ fun TrainStationTimeline(
     modifier: Modifier = Modifier,
     colors: TimelineColors = defaultTimelineColors(),
     trainNumber: String? = null,
+    distance: Double? = null,
     reorderingStationId: String? = null,
     onStationClick: ((Int) -> Unit)? = null,
     onStationLongPress: ((Int) -> Unit)? = null,
@@ -252,11 +255,35 @@ fun TrainStationTimeline(
             val startTime = stations.first().timeDeparture ?: stations.first().timeArrival
             val endTime = stations.last().timeArrival ?: stations.last().timeDeparture
             if (startTime != null && endTime != null && endTime > startTime) {
+                val totalMillis = endTime - startTime
                 TotalTimeBadge(
-                    totalMillis = endTime - startTime,
+                    totalMillis = totalMillis,
                     colors = colors,
                     isAnyReordering = isAnyReordering,
                 )
+
+                // ── Бейдж скоростей ──
+                if (distance != null && distance > 0) {
+                    val sectionSpeed = distance / (totalMillis / 3_600_000.0)
+                    var stopTime = 0L
+                    for (i in 1 until stations.size - 1) {
+                        val arr = stations[i].timeArrival
+                        val dep = stations[i].timeDeparture
+                        if (arr != null && dep != null && dep > arr) {
+                            stopTime += dep - arr
+                        }
+                    }
+                    val runningTime = totalMillis - stopTime
+                    val technicalSpeed =
+                        if (runningTime > 0) distance / (runningTime / 3_600_000.0) else null
+
+                    SpeedBadge(
+                        sectionSpeed = sectionSpeed,
+                        technicalSpeed = technicalSpeed,
+                        colors = colors,
+                        isAnyReordering = isAnyReordering,
+                    )
+                }
             }
         }
     }
@@ -522,6 +549,67 @@ private fun TotalTimeBadge(
                 fontWeight = FontWeight.Medium,
                 color = colors.segmentTextColor,
             )
+        }
+    }
+}
+
+// ─── Бейдж скоростей ────────────────────────────────────────────────────────
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SpeedBadge(
+    sectionSpeed: Double,
+    technicalSpeed: Double?,
+    colors: TimelineColors,
+    isAnyReordering: Boolean = false,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = ContentPadding)
+            .padding(top = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AnimatedVisibility(
+            visible = isAnyReordering,
+            enter = expandHorizontally(),
+            exit = shrinkHorizontally()
+        ) {
+            Spacer(modifier = Modifier.width(48.dp))
+        }
+
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(colors.segmentBackgroundColor)
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+            ) {
+                Text(
+                    text = "Уч: ${"%.1f".format(sectionSpeed)} км/ч",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = colors.segmentTextColor,
+                )
+            }
+            if (technicalSpeed != null) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(colors.segmentBackgroundColor)
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                ) {
+                    Text(
+                        text = "Техн: ${"%.1f".format(technicalSpeed)} км/ч",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = colors.segmentTextColor,
+                    )
+                }
+            }
         }
     }
 }

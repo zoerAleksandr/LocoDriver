@@ -799,7 +799,7 @@ fun SettingSalaryScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = paddingLarge),
+                        .padding(top = 18.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -853,7 +853,7 @@ fun SettingSalaryScreen(
                             Icon(
                                 modifier = Modifier.padding(end = 16.dp),
                                 painter = painterResource(com.z_company.route.R.drawable.delete_24px),
-                                tint = MaterialTheme.colorScheme.background,
+                                tint = MaterialTheme.colorScheme.onError,
                                 contentDescription = null
                             )
                         }
@@ -911,7 +911,7 @@ fun SettingSalaryScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = paddingLarge),
+                        .padding(top = 18.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -965,7 +965,7 @@ fun SettingSalaryScreen(
                             Icon(
                                 modifier = Modifier.padding(end = 16.dp),
                                 painter = painterResource(com.z_company.route.R.drawable.delete_24px),
-                                tint = MaterialTheme.colorScheme.background,
+                                tint = MaterialTheme.colorScheme.onError,
                                 contentDescription = null
                             )
                         }
@@ -1078,7 +1078,7 @@ fun SettingSalaryScreen(
                             Icon(
                                 modifier = Modifier.padding(end = 16.dp),
                                 painter = painterResource(com.z_company.route.R.drawable.delete_24px),
-                                tint = MaterialTheme.colorScheme.background,
+                                tint = MaterialTheme.colorScheme.onError,
                                 contentDescription = null
                             )
                         }

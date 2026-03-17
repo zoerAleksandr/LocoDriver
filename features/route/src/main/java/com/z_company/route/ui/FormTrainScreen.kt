@@ -14,30 +14,28 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
@@ -62,6 +60,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -75,6 +74,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -83,13 +83,12 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
@@ -99,17 +98,15 @@ import com.z_company.core.ResultState
 import com.z_company.core.ui.component.CustomDivider
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
-import com.z_company.route.component.AppBottomSheet
-import com.z_company.route.component.BottomSheetAction
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.DateAndTimeConverter
-import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.TrainAssist
-import com.z_company.domain.entities.route.UtilsForEntities.getSectionSpeed
-import com.z_company.domain.entities.route.UtilsForEntities.getTechnicalSpeed
 import com.z_company.domain.entities.route.UtilsForEntities.trainCategory
+import com.z_company.domain.entities.setting.ServicePhase
+import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.BottomShadow
+import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.OutlinedTextFieldApp
 import com.z_company.route.component.StationEditBottomSheet
 import com.z_company.route.component.TrainStationTimeline
@@ -119,7 +116,6 @@ import com.z_company.route.viewmodel.StationFormState
 import com.z_company.route.viewmodel.TrainFormUiState
 import com.z_company.route.viewmodel.TrainFormViewModel
 import kotlinx.coroutines.launch
-import kotlin.text.isNullOrBlank
 
 @SuppressLint("SuspiciousIndentation")
 @OptIn(
@@ -255,7 +251,12 @@ fun FormTrainScreen(
             StationEditBottomSheet(
                 stationFormState = editingStation,
                 menuList = menuList,
-                onFilterMenu = { viewModel.onChangedDropDownContent(editingIndex.coerceAtLeast(0), it) },
+                onFilterMenu = {
+                    viewModel.onChangedDropDownContent(
+                        editingIndex.coerceAtLeast(0),
+                        it
+                    )
+                },
                 onDeleteStationName = { viewModel.removeStationName(it) },
                 onSave = { name, arrival, departure ->
                     viewModel.saveStationFromSheet(editingIndex, name, arrival, departure)
@@ -352,8 +353,18 @@ fun FormTrainScreen(
                         noValueColor = noValueColor,
                         seriesMenuList = viewModel.dropDownSeriesList,
                         isSeriesMenuExpanded = formUiState.expandedSeriesSectionId == "pusher",
-                        onSeriesMenuExpandedChange = { expanded -> viewModel.changeSeriesMenuExpanded("pusher", expanded) },
-                        onSeriesMenuContentChange = { content -> viewModel.onChangedSeriesDropDown("pusher", content) },
+                        onSeriesMenuExpandedChange = { expanded ->
+                            viewModel.changeSeriesMenuExpanded(
+                                "pusher",
+                                expanded
+                            )
+                        },
+                        onSeriesMenuContentChange = { content ->
+                            viewModel.onChangedSeriesDropDown(
+                                "pusher",
+                                content
+                            )
+                        },
                         onDeleteSeries = viewModel::removeSeries
                     )
 
@@ -372,8 +383,18 @@ fun FormTrainScreen(
                         noValueColor = noValueColor,
                         seriesMenuList = viewModel.dropDownSeriesList,
                         isSeriesMenuExpanded = formUiState.expandedSeriesSectionId == "doubleTraction",
-                        onSeriesMenuExpandedChange = { expanded -> viewModel.changeSeriesMenuExpanded("doubleTraction", expanded) },
-                        onSeriesMenuContentChange = { content -> viewModel.onChangedSeriesDropDown("doubleTraction", content) },
+                        onSeriesMenuExpandedChange = { expanded ->
+                            viewModel.changeSeriesMenuExpanded(
+                                "doubleTraction",
+                                expanded
+                            )
+                        },
+                        onSeriesMenuContentChange = { content ->
+                            viewModel.onChangedSeriesDropDown(
+                                "doubleTraction",
+                                content
+                            )
+                        },
                         onDeleteSeries = viewModel::removeSeries
                     )
 
@@ -392,8 +413,18 @@ fun FormTrainScreen(
                         noValueColor = noValueColor,
                         seriesMenuList = viewModel.dropDownSeriesList,
                         isSeriesMenuExpanded = formUiState.expandedSeriesSectionId == "doubledTrain",
-                        onSeriesMenuExpandedChange = { expanded -> viewModel.changeSeriesMenuExpanded("doubledTrain", expanded) },
-                        onSeriesMenuContentChange = { content -> viewModel.onChangedSeriesDropDown("doubledTrain", content) },
+                        onSeriesMenuExpandedChange = { expanded ->
+                            viewModel.changeSeriesMenuExpanded(
+                                "doubledTrain",
+                                expanded
+                            )
+                        },
+                        onSeriesMenuContentChange = { content ->
+                            viewModel.onChangedSeriesDropDown(
+                                "doubledTrain",
+                                content
+                            )
+                        },
                         onDeleteSeries = viewModel::removeSeries
                     )
 
@@ -666,7 +697,10 @@ fun FormTrainScreen(
                             if (train.additionalNumbers.isNotEmpty()) {
                                 FlowRow(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
+                                    horizontalArrangement = Arrangement.spacedBy(
+                                        6.dp,
+                                        Alignment.End
+                                    ),
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     train.additionalNumbers.forEachIndexed { index, num ->
@@ -688,7 +722,11 @@ fun FormTrainScreen(
                                             Icon(
                                                 modifier = Modifier
                                                     .size(16.dp)
-                                                    .clickable { viewModel.removeAdditionalNumber(index) },
+                                                    .clickable {
+                                                        viewModel.removeAdditionalNumber(
+                                                            index
+                                                        )
+                                                    },
                                                 painter = painterResource(R.drawable.ic_clear),
                                                 contentDescription = "Удалить",
                                                 tint = noValueColor
@@ -722,7 +760,8 @@ fun FormTrainScreen(
                                         )
                                     },
                                     suffix = {
-                                        val distanceValue = train.distance?.takeIf { it != "0" } ?: ""
+                                        val distanceValue =
+                                            train.distance?.takeIf { it != "0" } ?: ""
                                         if (distanceValue.isNotBlank()) {
                                             Text(
                                                 text = "км",
@@ -1067,8 +1106,22 @@ fun FormTrainScreen(
                     item {
                         val assistParts = buildList {
                             currentTrain?.pusher?.let { add(formatAssistInfo("толкач", it)) }
-                            currentTrain?.doubleTraction?.let { add(formatAssistInfo("двойная тяга", it)) }
-                            currentTrain?.doubledTrain?.let { add(formatAssistInfo("сдвоенный", it)) }
+                            currentTrain?.doubleTraction?.let {
+                                add(
+                                    formatAssistInfo(
+                                        "двойная тяга",
+                                        it
+                                    )
+                                )
+                            }
+                            currentTrain?.doubledTrain?.let {
+                                add(
+                                    formatAssistInfo(
+                                        "сдвоенный",
+                                        it
+                                    )
+                                )
+                            }
                         }
                         if (assistParts.isNotEmpty()) {
                             Column(
@@ -1193,59 +1246,8 @@ fun FormTrainScreen(
                                         else displayIndex
                                     viewModel.requestDeleteStation(originalIndex)
                                 },
+                                distance = train.distance?.toDoubleOrNull(),
                             )
-                        }
-
-                        // Скорости (реактивно из stationList)
-                        item {
-                            val distance = train.distance?.toDoubleOrNull()
-                            val firstDeparture = stationList.firstOrNull()?.departure?.data
-                            val lastArrival = stationList.lastOrNull()?.arrival?.data
-                            if (distance != null && distance > 0 && firstDeparture != null && lastArrival != null && lastArrival > firstDeparture) {
-                                val travelTime = lastArrival - firstDeparture
-                                val sectionSpeed = distance / (travelTime / 3_600_000.0)
-
-                                var stopTime = 0L
-                                for (i in 1 until stationList.size - 1) {
-                                    val arr = stationList[i].arrival.data
-                                    val dep = stationList[i].departure.data
-                                    if (arr != null && dep != null && dep > arr) {
-                                        stopTime += dep - arr
-                                    }
-                                }
-                                val runningTime = travelTime - stopTime
-                                val technicalSpeed = if (runningTime > 0) distance / (runningTime / 3_600_000.0) else null
-
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 8.dp)
-                                        .background(
-                                            color = MaterialTheme.colorScheme.surfaceDim,
-                                            shape = Shapes.medium
-                                        )
-                                        .border(
-                                            width = 0.5.dp,
-                                            color = MaterialTheme.colorScheme.tertiary,
-                                            shape = Shapes.medium
-                                        )
-                                        .padding(12.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                                ) {
-                                    Text(
-                                        text = "Уч: ${"%.1f".format(sectionSpeed)} км/ч",
-                                        style = hintStyle,
-                                        color = primaryColor
-                                    )
-                                    technicalSpeed?.let {
-                                        Text(
-                                            text = "Техн: ${"%.1f".format(it)} км/ч",
-                                            style = hintStyle,
-                                            color = primaryColor
-                                        )
-                                    }
-                                }
-                            }
                         }
                     }
                     item {
@@ -1745,7 +1747,11 @@ private fun DoubledTrainSection(
                                                     Icon(
                                                         modifier = Modifier
                                                             .size(20.dp)
-                                                            .clickable { onDeleteSeries(selectionSeries) },
+                                                            .clickable {
+                                                                onDeleteSeries(
+                                                                    selectionSeries
+                                                                )
+                                                            },
                                                         painter = painterResource(com.z_company.core.R.drawable.ic_clear),
                                                         contentDescription = "Удалить серию",
                                                         tint = noValueColor
