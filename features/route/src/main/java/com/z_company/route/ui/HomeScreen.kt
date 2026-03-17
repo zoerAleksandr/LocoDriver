@@ -325,7 +325,7 @@ fun HomeScreen(
                         text = "Выберите месяц и год",
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(bottom = 12.dp)
+                        modifier = Modifier.padding(bottom = 24.dp)
                     )
 
                     var selectedMonth by remember { mutableIntStateOf(current.month) }

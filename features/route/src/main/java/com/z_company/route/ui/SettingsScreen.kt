@@ -24,7 +24,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
+import com.z_company.route.viewmodel.Passenger12hOption
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -1158,6 +1160,118 @@ fun SettingsScreen(
                                 style = styleHint,
                                 color = primaryColor
                             )
+                        }
+                    }
+
+                    // пассажир при >12 часах
+                    item {
+                        val currentOption by viewModel.passenger12hOption.collectAsState()
+                        var showOptionSheet by remember { mutableStateOf(false) }
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 16.dp)
+                        ) {
+                            Text(
+                                modifier = Modifier
+                                    .padding(start = 16.dp, bottom = 6.dp),
+                                text = "Свыше 12-ти часов относить в следование пассажиром",
+                                style = styleTitle,
+                                color = primaryColor
+                            )
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                    .background(
+                                        color = MaterialTheme.colorScheme.secondary,
+                                        shape = Shapes.medium
+                                    )
+                                    .clickable { showOptionSheet = true }
+                                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                            ) {
+                                Text(
+                                    text = currentOption.label,
+                                    style = styleData,
+                                    color = primaryColor
+                                )
+                            }
+
+                            Text(
+                                modifier = Modifier.padding(
+                                    start = 16.dp,
+                                    top = 8.dp
+                                ),
+                                text = currentOption.hint,
+                                style = styleHint,
+                                color = primaryColor
+                            )
+                        }
+
+                        if (showOptionSheet) {
+                            val optionSheetState = rememberModalBottomSheetState(
+                                skipPartiallyExpanded = true
+                            )
+                            ModalBottomSheet(
+                                onDismissRequest = { showOptionSheet = false },
+                                sheetState = optionSheetState,
+                                containerColor = MaterialTheme.colorScheme.secondary,
+                                shape = Shapes.large
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 20.dp)
+                                        .padding(bottom = 40.dp)
+                                ) {
+                                    Text(
+                                        text = "Свыше 12-ти часов относить в следование пассажиром",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                                        color = primaryColor,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(bottom = 24.dp),
+                                        textAlign = TextAlign.Center
+                                    )
+
+                                    Passenger12hOption.entries.forEach { option ->
+                                        val isSelected = option == currentOption
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(bottom = 8.dp)
+                                                .shadow(
+                                                    elevation = if (isSelected) 4.dp else 1.dp,
+                                                    shape = Shapes.medium
+                                                )
+                                                .background(
+                                                    color = if (isSelected)
+                                                        MaterialTheme.colorScheme.surfaceContainerLow
+                                                    else
+                                                        MaterialTheme.colorScheme.surface,
+                                                    shape = Shapes.medium
+                                                )
+                                                .clickable {
+                                                    viewModel.setPassenger12hOption(option)
+                                                    showOptionSheet = false
+                                                }
+                                                .padding(horizontal = 16.dp, vertical = 14.dp)
+                                        ) {
+                                            Text(
+                                                text = option.label,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = if (isSelected)
+                                                    MaterialTheme.colorScheme.secondary
+                                                else
+                                                    primaryColor
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
 

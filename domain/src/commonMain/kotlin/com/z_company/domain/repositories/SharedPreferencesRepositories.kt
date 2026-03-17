@@ -40,4 +40,8 @@ interface SharedPreferencesRepositories {
     fun setLocoSectionAuxiliaryExpanded(value: Boolean)
     fun isLocoSectionStatisticsExpanded(): Boolean
     fun setLocoSectionStatisticsExpanded(value: Boolean)
+    fun isPassenger12hDontAskAgain(): Boolean
+    fun setPassenger12hDontAskAgain(value: Boolean)
+    fun isPassenger12hAutoAccepted(): Boolean
+    fun setPassenger12hAutoAccepted(value: Boolean)
 }

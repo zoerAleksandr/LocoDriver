@@ -107,6 +107,7 @@ import com.z_company.domain.util.toMoneyString
 import com.z_company.route.R
 import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.BottomShadow
+import com.z_company.route.component.Passenger12hBottomSheet
 import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.OutlinedTextFieldApp
 import com.z_company.route.extention.isScrollInInitialState
@@ -607,6 +608,34 @@ fun FormScreen(
                         startDateTime = route.basicData.timeEndWork
                             ?: route.basicData.timeStartWork
                             ?: Calendar.getInstance().timeInMillis
+                    )
+                }
+
+                val showPassenger12hSheet by viewModel.showPassenger12hSheet.collectAsState()
+                if (showPassenger12hSheet) {
+                    val (prefilledDep, prefilledArr) = viewModel.getPrefilledPassengerTimes()
+                    val prefilledStation = viewModel.getPrefilledDepartureStation()
+                    val userSettingValue = viewModel.userSetting.collectAsState().value
+                    Passenger12hBottomSheet(
+                        prefilledTimeDeparture = prefilledDep,
+                        prefilledTimeArrival = prefilledArr,
+                        prefilledStationDeparture = prefilledStation,
+                        workTimeStart = route.basicData.timeStartWork!!,
+                        workTimeEnd = route.basicData.timeEndWork!!,
+                        stationList = userSettingValue?.stationList ?: emptyList(),
+                        dateAndTimeConverter = dateAndTimeConverter,
+                        onSave = { stDep, stArr, timeDep, timeArr ->
+                            viewModel.savePassengerFromSheet(stDep, stArr, timeDep, timeArr)
+                            viewModel.dismissPassenger12hSheet()
+                        },
+                        onDismissNo = {
+                            viewModel.dismissPassenger12hSheet()
+                        },
+                        onNavigateToSettings = {
+                            viewModel.dismissPassenger12hSheet()
+                            onSettingClick()
+                        },
+                        onDismiss = { viewModel.dismissPassenger12hSheet() }
                     )
                 }
 
