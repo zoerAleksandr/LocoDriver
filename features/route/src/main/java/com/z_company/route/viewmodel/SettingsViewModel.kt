@@ -351,6 +351,52 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             timeZone = timeZone
         )
     }
+
+    private val _passenger12hOption = MutableStateFlow(resolvePassenger12hOption())
+    val passenger12hOption = _passenger12hOption.asStateFlow()
+
+    private fun resolvePassenger12hOption(): Passenger12hOption {
+        val dontAsk = sharedPreferenceStorage.isPassenger12hDontAskAgain()
+        if (!dontAsk) return Passenger12hOption.ALWAYS_ASK
+        return if (sharedPreferenceStorage.isPassenger12hAutoAccepted()) {
+            Passenger12hOption.AUTO
+        } else {
+            Passenger12hOption.NEVER_ASK
+        }
+    }
+
+    fun setPassenger12hOption(option: Passenger12hOption) {
+        when (option) {
+            Passenger12hOption.ALWAYS_ASK -> {
+                sharedPreferenceStorage.setPassenger12hDontAskAgain(false)
+                sharedPreferenceStorage.setPassenger12hAutoAccepted(false)
+            }
+            Passenger12hOption.AUTO -> {
+                sharedPreferenceStorage.setPassenger12hDontAskAgain(true)
+                sharedPreferenceStorage.setPassenger12hAutoAccepted(true)
+            }
+            Passenger12hOption.NEVER_ASK -> {
+                sharedPreferenceStorage.setPassenger12hDontAskAgain(true)
+                sharedPreferenceStorage.setPassenger12hAutoAccepted(false)
+            }
+        }
+        _passenger12hOption.value = option
+    }
+}
+
+enum class Passenger12hOption(val label: String, val hint: String) {
+    ALWAYS_ASK(
+        "Всегда спрашивать",
+        "При работе свыше 12-ти часов будет предложено создать следование пассажиром."
+    ),
+    AUTO(
+        "Автоматически",
+        "При включении время свыше 12 часов будет автоматически записано как следование пассажиром."
+    ),
+    NEVER_ASK(
+        "Никогда не спрашивать",
+        "Шторка не будет показана."
+    )
 }
 
 data class TimeZoneRussia(

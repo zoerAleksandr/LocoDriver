@@ -128,6 +128,9 @@ class FormViewModel(
     val dateAndTimeConverter: StateFlow<DateAndTimeConverter?> = _dateAndTimeConverter.asStateFlow()
 
 
+    private val _showPassenger12hSheet = MutableStateFlow(false)
+    val showPassenger12hSheet: StateFlow<Boolean> = _showPassenger12hSheet.asStateFlow()
+
     var timeZoneText: String = "GMT+3"
 
     private var isNewRoute = routeId == NULLABLE_ID
@@ -527,6 +530,9 @@ class FormViewModel(
     fun setTimeEndWork(time: Long?) {
         _currentRoute.update { it?.copy(basicData = it.basicData.copy(timeEndWork = time)) }
         changesHave()
+        if (time != null) {
+            checkWorkTimeExceeds12h()
+        }
     }
 
     fun setTimeStartBreak(time: Long?) {
@@ -537,6 +543,77 @@ class FormViewModel(
     fun setTimeEndBreak(time: Long?) {
         _currentRoute.update { it?.copy(basicData = it.basicData.copy(timeEndBreak = time)) }
         changesHave()
+    }
+
+    private fun checkWorkTimeExceeds12h() {
+        val route = currentRoute.value ?: return
+        val start = route.basicData.timeStartWork ?: return
+        val end = route.basicData.timeEndWork ?: return
+        val duration = end - start
+        val twelveHours = 12 * 3_600_000L
+        if (duration <= twelveHours) return
+
+        val dontAsk = sharedPreferenceStorage.isPassenger12hDontAskAgain()
+        if (dontAsk) {
+            if (sharedPreferenceStorage.isPassenger12hAutoAccepted()) {
+                val (timeDep, timeArr) = getPrefilledPassengerTimes()
+                val stationDep = getPrefilledDepartureStation()
+                savePassengerFromSheet(stationDep, null, timeDep, timeArr)
+            }
+            return
+        }
+        _showPassenger12hSheet.value = true
+    }
+
+    fun getPrefilledPassengerTimes(): Pair<Long, Long> {
+        val route = currentRoute.value!!
+        val start = route.basicData.timeStartWork!!
+        val end = route.basicData.timeEndWork!!
+        val twelveHours = 12 * 3_600_000L
+        val oneMinute = 60_000L
+        val departure = (start + twelveHours + oneMinute).let { it - it % 60_000L }
+        val arrival = (end - oneMinute).let { it - it % 60_000L }
+        return departure to arrival
+    }
+
+    fun getPrefilledDepartureStation(): String? {
+        return currentRoute.value?.trains?.lastOrNull()?.stations?.lastOrNull()?.stationName
+    }
+
+    fun savePassengerFromSheet(
+        stationDeparture: String?,
+        stationArrival: String?,
+        timeDeparture: Long,
+        timeArrival: Long
+    ) {
+        viewModelScope.launch {
+            val route = currentRoute.value ?: return@launch
+            val basicId = route.basicData.id
+
+            // Сначала сохраняем маршрут с актуальным временем работы,
+            // чтобы subscribeToChanges не перезаписал его старыми значениями из БД
+            preSaveRoute()
+
+            val passenger = Passenger(
+                basicId = basicId,
+                stationDeparture = stationDeparture,
+                stationArrival = stationArrival,
+                timeDeparture = timeDeparture - timeDeparture % 60_000L,
+                timeArrival = timeArrival - timeArrival % 60_000L
+            )
+
+            passengerUseCase.savePassenger(passenger)
+                .onEach { result ->
+                    if (result is ResultState.Success) {
+                        subscribeToChanges(basicId)
+                    }
+                }
+                .launchIn(viewModelScope)
+        }
+    }
+
+    fun dismissPassenger12hSheet() {
+        _showPassenger12hSheet.value = false
     }
 
     fun onRestChanged(isRest: Boolean) {

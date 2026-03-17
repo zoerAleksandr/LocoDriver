@@ -30,6 +30,9 @@ private const val TOKEN_IS_MIGRATED = "TOKEN_IS_MIGRATED"
 
 private const val OP_KEY_PREF = "OP_KEY_PREF"
 
+private const val TOKEN_PASSENGER_12H_DONT_ASK = "TOKEN_PASSENGER_12H_DONT_ASK"
+private const val TOKEN_PASSENGER_12H_ACCEPTED = "TOKEN_PASSENGER_12H_ACCEPTED"
+
 private const val TOKEN_LAST_SYNC_TIME = "TOKEN_LAST_SYNC_TIME"
 class SharedPreferenceStorage(application: Application) : SharedPreferencesRepositories,
     KoinComponent {
@@ -188,5 +191,19 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
 
     override fun setLocoSectionStatisticsExpanded(value: Boolean) {
         editor.putBoolean(TOKEN_LOCO_SECTION_STATISTICS, value).apply()
+    }
+
+    override fun isPassenger12hDontAskAgain(): Boolean =
+        sharedpref.getBoolean(TOKEN_PASSENGER_12H_DONT_ASK, false)
+
+    override fun setPassenger12hDontAskAgain(value: Boolean) {
+        editor.putBoolean(TOKEN_PASSENGER_12H_DONT_ASK, value).apply()
+    }
+
+    override fun isPassenger12hAutoAccepted(): Boolean =
+        sharedpref.getBoolean(TOKEN_PASSENGER_12H_ACCEPTED, false)
+
+    override fun setPassenger12hAutoAccepted(value: Boolean) {
+        editor.putBoolean(TOKEN_PASSENGER_12H_ACCEPTED, value).apply()
     }
 }
