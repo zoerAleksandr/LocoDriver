@@ -2141,8 +2141,6 @@ fun DetailTrainCard(
                                     ) {
                                         val longDistanceTrainsTimeText =
                                             convertTimeToString(longDistanceTrainsTime)
-                                        val percent =
-                                            ((longDistanceTrainsTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
 
                                         val percentLong =
                                             (longDistanceTrainsTime.toFloat() / safeTotal.toFloat()).coerceIn(

@@ -7,6 +7,7 @@ import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.SurchargeExtendedServicePhase
 import com.z_company.domain.entities.setting.SurchargeHeavyTrains
+import com.z_company.domain.entities.setting.SurchargeLongTrains
 
 data class SettingSalaryUIState(
     val currentMonthOfYear: MonthOfYear? = null,
@@ -33,12 +34,9 @@ data class SettingSalaryUIState(
     val isErrorInputOnePersonOperationPassengerTrain: Boolean = false,
     val harmfulnessPercent: ResultState<String> = ResultState.Loading(),
     val isErrorInputHarmfulnessPercent: Boolean = false,
-    val longDistanceTrainPercent: ResultState<String> = ResultState.Loading(),
-    val isErrorInputLongDistanceTrainPercent: Boolean = false,
-    val lengthLongDistanceTrain: ResultState<String> = ResultState.Loading(),
-    val isErrorInputLengthLongDistanceTrain: Boolean = false,
     val surchargeHeavyTrain: SnapshotStateList<SurchargeHeavyTrains> = mutableStateListOf(SurchargeHeavyTrains()),
     val isErrorInputSurchargeHeavyTrain: Boolean = false,
+    val surchargeLongTrain: SnapshotStateList<SurchargeLongTrains> = mutableStateListOf(SurchargeLongTrains()),
     val surchargeExtendedServicePhaseList: SnapshotStateList<SurchargeExtendedServicePhase> = mutableStateListOf(SurchargeExtendedServicePhase()),
     val isErrorInputSurchargeExtendedServicePhase: Boolean = false,
     val otherSurchargeState: ResultState<String> = ResultState.Loading(),

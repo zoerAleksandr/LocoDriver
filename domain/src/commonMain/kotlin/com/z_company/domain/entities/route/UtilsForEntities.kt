@@ -819,6 +819,49 @@ object UtilsForEntities {
         return summaryTimeFollowing
     }
 
+    fun Route.getTimeInLongTrain(listLength: List<Int>, index: Int): Long {
+        val startInterval = listLength[index]
+        val endInterval =
+            if (index + 1 < listLength.size) listLength[index + 1] else Int.MAX_VALUE
+        val searchIntervalLength = startInterval until endInterval
+        var resultTime = 0L
+        this.trains.forEach { train ->
+            val length = train.conditionalLength.toIntOrZero()
+            if (searchIntervalLength.contains(length)) {
+                val startWork = this.basicData.timeStartWork
+                val endWork = this.basicData.timeEndWork
+                if (startWork != null && endWork != null) {
+                    resultTime += endWork - startWork
+                    return resultTime
+                }
+            }
+        }
+        return 0L
+    }
+
+    fun Train.getTechnicalSpeed(): Double? {
+        val distance = this.distance?.toDoubleOrNull() ?: return null
+        val travelTime = getTravelTime() ?: return null
+        var stopTime = 0L
+        for (i in 1 until stations.size - 1) {
+            val arrival = stations[i].timeArrival
+            val departure = stations[i].timeDeparture
+            if (arrival != null && departure != null && departure > arrival) {
+                stopTime += departure - arrival
+            }
+        }
+        val runningTime = travelTime - stopTime
+        if (runningTime <= 0) return null
+        return distance / (runningTime / 3_600_000.0)
+    }
+
+    fun Train.getSectionSpeed(): Double? {
+        val distance = this.distance?.toDoubleOrNull() ?: return null
+        val travelTime = getTravelTime() ?: return null
+        if (travelTime <= 0) return null
+        return distance / (travelTime / 3_600_000.0)
+    }
+
     fun Route.getTimeInHeavyTrain(listWeight: List<Int>, index: Int): Long {
         val startInterval = listWeight[index]
         val endInterval =

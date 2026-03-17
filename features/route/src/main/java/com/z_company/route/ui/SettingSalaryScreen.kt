@@ -55,6 +55,7 @@ import com.z_company.core.util.MonthFullText.getMonthFullText
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.setting.SurchargeExtendedServicePhase
 import com.z_company.domain.entities.setting.SurchargeHeavyTrains
+import com.z_company.domain.entities.setting.SurchargeLongTrains
 import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.OutlinedTextFieldApp
 import com.z_company.route.viewmodel.SettingSalaryUIState
@@ -97,17 +98,16 @@ fun SettingSalaryScreen(
     harmfulnessPercentState: ResultState<String>,
     setHarmfulnessPercent: (String) -> Unit,
     isErrorInputHarmfulness: Boolean,
-    surchargeLongDistanceTrainState: ResultState<String>,
-    setSurchargeLongTrain: (String) -> Unit,
-    isErrorInputSurchargeLongDistance: Boolean,
-    lengthLongDistanceTrainState: ResultState<String>,
-    setLengthLongDistanceTrain: (String) -> Unit,
-    isErrorInputLengthLongDistance: Boolean,
     surchargeHeavyTrainsState: SnapshotStateList<SurchargeHeavyTrains>,
     addSurchargeHeavyTran: () -> Unit,
     setSurchargeHeavyTrainPercent: (Int, String) -> Unit,
     setSurchargeHeavyTrainWeight: (Int, String) -> Unit,
     onSurchargeHeavyTrainDismissed: (Int) -> Unit,
+    surchargeLongTrainsState: SnapshotStateList<SurchargeLongTrains>,
+    addSurchargeLongTrain: () -> Unit,
+    setSurchargeLongTrainPercent: (Int, String) -> Unit,
+    setSurchargeLongTrainLength: (Int, String) -> Unit,
+    onSurchargeLongTrainDismissed: (Int) -> Unit,
     ndflValueState: ResultState<String>,
     setNDFL: (String) -> Unit,
     isErrorInputNdfl: Boolean,
@@ -796,92 +796,10 @@ fun SettingSalaryScreen(
             }
 
             item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = paddingLarge),
-                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
-                ) {
-                    Text(
-                        text = "Доплата за длинносоставные поезда",
-                        overflow = TextOverflow.Visible,
-                        maxLines = 2,
-                        style = hintStyle,
-                        color = primaryColor
-                    )
-
-                    Row(
-                        modifier = Modifier
-                            .background(
-                                color = MaterialTheme.colorScheme.background,
-                                shape = Shapes.medium
-                            )
-                            .fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        AsyncDataValue(resultState = lengthLongDistanceTrainState) { lengthLongDistanceTrain ->
-                            lengthLongDistanceTrain?.let { lengthInAxle ->
-                                OutlinedTextFieldApp(
-                                    modifier = Modifier.weight(1f),
-                                    value = lengthInAxle,
-                                    onValueChange = { value ->
-                                        setLengthLongDistanceTrain(value)
-                                    },
-                                    singleLine = true,
-                                    suffix = {
-                                        Text(
-                                            text = "у.д.",
-                                            style = hintStyle
-                                        )
-                                    },
-                                    isError = isErrorInputLengthLongDistance,
-                                    supportingText = {
-                                        if (isErrorInputLengthLongDistance) {
-                                            Text(text = "Некорректные данные")
-                                        }
-                                    },
-                                    keyboardOptions = KeyboardOptions(
-                                        keyboardType = KeyboardType.Decimal
-                                    )
-                                )
-                            }
-                        }
-                        AsyncDataValue(resultState = surchargeLongDistanceTrainState) { surchargeLongDistanceTrain ->
-                            surchargeLongDistanceTrain?.let { surcharge ->
-                                OutlinedTextFieldApp(
-                                    modifier = Modifier.weight(1f),
-                                    value = surcharge,
-                                    onValueChange = { value ->
-                                        setSurchargeLongTrain(value)
-                                    },
-                                    singleLine = true,
-                                    suffix = {
-                                        Text(
-                                            text = "%",
-                                            style = hintStyle
-                                        )
-                                    },
-                                    isError = isErrorInputSurchargeLongDistance,
-                                    supportingText = {
-                                        if (isErrorInputSurchargeLongDistance) {
-                                            Text(text = "Некорректные данные")
-                                        }
-                                    },
-                                    keyboardOptions = KeyboardOptions(
-                                        keyboardType = KeyboardType.Decimal
-                                    )
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            item {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = paddingLarge),
+                        .padding(top = 18.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -935,7 +853,7 @@ fun SettingSalaryScreen(
                             Icon(
                                 modifier = Modifier.padding(end = 16.dp),
                                 painter = painterResource(com.z_company.route.R.drawable.delete_24px),
-                                tint = MaterialTheme.colorScheme.background,
+                                tint = MaterialTheme.colorScheme.onError,
                                 contentDescription = null
                             )
                         }
@@ -973,6 +891,118 @@ fun SettingSalaryScreen(
                             value = item.percentSurcharge,
                             onValueChange = { value ->
                                 setSurchargeHeavyTrainPercent(index, value)
+                            },
+                            singleLine = true,
+                            suffix = {
+                                Text(
+                                    text = "%",
+                                    style = hintStyle
+                                )
+                            },
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal
+                            )
+                        )
+                    }
+                }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        modifier = Modifier.weight(1f),
+                        text = "Доплата за длинносост. поезда",
+                        overflow = TextOverflow.Visible,
+                        style = hintStyle,
+                        color = primaryColor,
+                        maxLines = 2
+                    )
+
+                    Text(
+                        modifier = Modifier.noRippleEffect {
+                            addSurchargeLongTrain()
+                        },
+                        text = "Добавить",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+
+                }
+            }
+
+            itemsIndexed(
+                items = surchargeLongTrainsState,
+                key = { _, item -> item.id }
+            ) { index, item ->
+                val dismissState = rememberSwipeToDismissBoxState()
+                if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
+                    onSurchargeLongTrainDismissed(index)
+                }
+                SwipeToDismissBox(
+                    state = dismissState,
+                    enableDismissFromStartToEnd = false,
+                    backgroundContent = {
+                        val color by animateColorAsState(
+                            when (dismissState.targetValue) {
+                                SwipeToDismissBoxValue.Settled -> Color.Transparent
+                                SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.error
+                                else -> Color.Transparent
+                            }, label = ""
+                        )
+                        Box(
+                            Modifier
+                                .padding(top = 6.dp)
+                                .fillMaxSize()
+                                .background(color = color, shape = Shapes.medium),
+                            contentAlignment = Alignment.CenterEnd
+                        ) {
+                            Icon(
+                                modifier = Modifier.padding(end = 16.dp),
+                                painter = painterResource(com.z_company.route.R.drawable.delete_24px),
+                                tint = MaterialTheme.colorScheme.onError,
+                                contentDescription = null
+                            )
+                        }
+                    }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .padding(top = 6.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.background,
+                                shape = Shapes.medium
+                            )
+                            .fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextFieldApp(
+                            modifier = Modifier.weight(1f),
+                            value = item.conditionalLength,
+                            onValueChange = { value ->
+                                setSurchargeLongTrainLength(index, value)
+                            },
+                            singleLine = true,
+                            suffix = {
+                                Text(
+                                    text = "ваг.",
+                                    style = hintStyle
+                                )
+                            },
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal
+                            )
+                        )
+                        OutlinedTextFieldApp(
+                            modifier = Modifier.weight(1f),
+                            value = item.percentSurcharge,
+                            onValueChange = { value ->
+                                setSurchargeLongTrainPercent(index, value)
                             },
                             singleLine = true,
                             suffix = {
@@ -1048,7 +1078,7 @@ fun SettingSalaryScreen(
                             Icon(
                                 modifier = Modifier.padding(end = 16.dp),
                                 painter = painterResource(com.z_company.route.R.drawable.delete_24px),
-                                tint = MaterialTheme.colorScheme.background,
+                                tint = MaterialTheme.colorScheme.onError,
                                 contentDescription = null
                             )
                         }

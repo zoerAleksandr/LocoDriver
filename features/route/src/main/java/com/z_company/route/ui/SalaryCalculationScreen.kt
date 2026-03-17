@@ -329,14 +329,6 @@ private fun EarningsTable(uiState: SalaryCalculationUIState, convertTimeToString
                 uiState.harmfulnessSurchargeMoney
             )
         },
-        uiState.surchargeLongDistanceTrainsPercent?.let {
-            EarningsRow(
-                "Длинные поезда",
-                uiState.surchargeLongDistanceTrainsHours,
-                it,
-                uiState.surchargeLongDistanceTrainsMoney
-            )
-        },
         uiState.districtSurchargeCoefficient?.let {
             EarningsRow(
                 "Районный коэффициент",
@@ -398,6 +390,22 @@ private fun EarningsTable(uiState: SalaryCalculationUIState, convertTimeToString
                     "Тяжелые поезда (${uiState.surchargeHeavyTransPercent[i] ?: ""}%)",
                     uiState.surchargeHeavyTransHour.getOrNull(i),
                     uiState.surchargeHeavyTransPercent.getOrNull(i)?.toDoubleOrNull(),
+                    money
+                )
+            } else null
+        }.toTypedArray(),
+
+        *(0 until minOf(
+            uiState.surchargeLongTrainHour.size,
+            uiState.surchargeLongTrainPercent.size,
+            uiState.surchargeLongTrainMoney.size
+        )).mapNotNull { i ->
+            val money = uiState.surchargeLongTrainMoney.getOrNull(i) ?: 0.0
+            if (money > 0) {
+                EarningsRow(
+                    "Длинносост. (${uiState.surchargeLongTrainPercent[i] ?: ""}%)",
+                    uiState.surchargeLongTrainHour.getOrNull(i),
+                    uiState.surchargeLongTrainPercent.getOrNull(i)?.toDoubleOrNull(),
                     money
                 )
             } else null

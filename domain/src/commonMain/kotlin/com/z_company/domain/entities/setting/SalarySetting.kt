@@ -21,6 +21,7 @@ data class SalarySetting(
     val surchargeQualificationClass: Double = 0.0,
     var surchargeExtendedServicePhaseList: List<SurchargeExtendedServicePhase> = emptyList(),
     var surchargeHeavyTrainsList: List<SurchargeHeavyTrains> = emptyList(),
+    var surchargeLongTrainsList: List<SurchargeLongTrains> = emptyList(),
     val otherSurcharge: Double = 0.0,
     val ndfl: Double = 13.0,
     val unionistsRetention: Double = 1.0,
@@ -38,5 +39,12 @@ data class SurchargeExtendedServicePhase(
 data class SurchargeHeavyTrains(
     val id: String = generateId(),
     val weight: String = "",
+    val percentSurcharge: String = ""
+)
+
+@Serializable
+data class SurchargeLongTrains(
+    val id: String = generateId(),
+    val conditionalLength: String = "",
     val percentSurcharge: String = ""
 )

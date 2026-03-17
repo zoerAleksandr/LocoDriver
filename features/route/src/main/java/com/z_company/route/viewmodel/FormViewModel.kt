@@ -294,10 +294,6 @@ class FormViewModel(
                 salaryCalculationHelper.getMoneyAtHolidayFlow().first()
             }
 
-            val deferredSurchargeAtLongDistanceTrain = async {
-                salaryCalculationHelper.getMoneyLongDistanceTrainFlow().first()
-            }
-
             val deferredSurchargeAtExtendedServicePhase = async {
                 salaryCalculationHelper.getMoneyListSurchargeExtendedServicePhaseFlow().first()
                     .sum()
@@ -305,6 +301,10 @@ class FormViewModel(
 
             val deferredSurchargeAtHeavyTrains = async {
                 salaryCalculationHelper.getMoneyListSurchargeExtendedHeavyTrainsFlow().first().sum()
+            }
+
+            val deferredSurchargeAtLongTrains = async {
+                salaryCalculationHelper.getMoneyListSurchargeLongTrainsFlow().first().sum()
             }
 
             val deferredSurchargeAtDoubledTrainFirst = async {
@@ -382,9 +382,10 @@ class FormViewModel(
             val zonalSurchargeMoney = deferredZonalSurchargeMoney.await()
             val moneyAtPassengerTime = deferredMoneyAtPassengerTime.await()
             val moneyAtHoliday = deferredMoneyAtHoliday.await()
-            val surchargeAtLongDistanceTrain = deferredSurchargeAtLongDistanceTrain.await()
+
             val surchargeAtExtendedServicePhase = deferredSurchargeAtExtendedServicePhase.await()
             val surchargeAtHeavyTrains = deferredSurchargeAtHeavyTrains.await()
+            val surchargeAtLongTrains = deferredSurchargeAtLongTrains.await()
             val moneyAtQualificationClass = deferredMoneyAtQualificationClass.await()
             val nordicSurcharge = deferredNordicSurcharge.await()
             val districtSurcharge = deferredDistrictSurcharge.await()
@@ -397,7 +398,7 @@ class FormViewModel(
 
             // Теперь, когда все значения получены, выполняем суммирование
             val surchargeAtTrains =
-                surchargeAtLongDistanceTrain + surchargeAtExtendedServicePhase + surchargeAtHeavyTrains + surchargeAtDoubledTrainFirst + surchargeAtDoubledTrainSecond
+                surchargeAtExtendedServicePhase + surchargeAtHeavyTrains + surchargeAtLongTrains + surchargeAtDoubledTrainFirst + surchargeAtDoubledTrainSecond
 
             val otherSurcharge =
                 moneyAtQualificationClass + nordicSurcharge + districtSurcharge + moneyAtHarmfulness + otherSurchargeMoney

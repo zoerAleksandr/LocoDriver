@@ -9,6 +9,7 @@ import com.z_company.data_local.setting.salarydb.SalarySettingDatabase
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.SurchargeExtendedServicePhase
 import com.z_company.domain.entities.setting.SurchargeHeavyTrains
+import com.z_company.domain.entities.setting.SurchargeLongTrains
 import com.z_company.domain.repositories.SalarySettingRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -35,6 +36,12 @@ class SqlDelightSalarySettingRepository : SalarySettingRepository, KoinComponent
     private fun decodeHeavyTrainsList(v: String): List<SurchargeHeavyTrains> =
         runCatching { salaryJson.decodeFromString<List<SurchargeHeavyTrains>>(v) }.getOrElse { emptyList() }
 
+    private fun encodeLongTrainsList(list: List<SurchargeLongTrains>): String =
+        salaryJson.encodeToString(list)
+
+    private fun decodeLongTrainsList(v: String): List<SurchargeLongTrains> =
+        runCatching { salaryJson.decodeFromString<List<SurchargeLongTrains>>(v) }.getOrElse { emptyList() }
+
     private fun rowToData(row: com.zcompany.datalocal.setting.salarydb.SalarySetting): SalarySetting =
         SalarySetting(
             key = row.salarySettingKey,
@@ -49,8 +56,7 @@ class SqlDelightSalarySettingRepository : SalarySettingRepository, KoinComponent
             onePersonOperationPassengerTrainPercent = row.onePersonOperationPassengerTrainPercent,
             surchargeExtendedServicePhaseList = decodeExtendedPhaseList(row.surchargeExtendedServicePhaseList),
             surchargeHeavyTrainsList = decodeHeavyTrainsList(row.surchargeHeavyTrainsList),
-            percentLongDistanceTrain = row.surchargeLongTrain,
-            lengthLongDistanceTrain = row.lengthLongDistanceTrain.toInt(),
+            surchargeLongTrainsList = decodeLongTrainsList(row.surchargeLongTrainsList),
             otherSurcharge = row.otherSurcharge,
             ndfl = row.ndfl,
             unionistsRetention = row.unionistsRetention,
@@ -88,8 +94,9 @@ class SqlDelightSalarySettingRepository : SalarySettingRepository, KoinComponent
                 surchargeQualificationClass = setting.surchargeQualificationClass,
                 surchargeExtendedServicePhaseList = encodeExtendedPhaseList(setting.surchargeExtendedServicePhaseList),
                 surchargeHeavyTrainsList = encodeHeavyTrainsList(setting.surchargeHeavyTrainsList),
-                surchargeLongTrain = setting.percentLongDistanceTrain,
-                lengthLongDistanceTrain = setting.lengthLongDistanceTrain.toLong(),
+                surchargeLongTrainsList = encodeLongTrainsList(setting.surchargeLongTrainsList),
+                surchargeLongTrain = 0.0,
+                lengthLongDistanceTrain = 0L,
                 otherSurcharge = setting.otherSurcharge,
                 ndfl = setting.ndfl,
                 unionistsRetention = setting.unionistsRetention,
