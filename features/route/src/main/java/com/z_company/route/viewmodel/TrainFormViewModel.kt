@@ -305,21 +305,32 @@ class TrainFormViewModel(
         }
     }
 
-    fun createServicePhaseAndSave(distance: String) {
+    fun createServicePhaseAndSave(distance: String, createReverse: Boolean = false) {
         _uiState.update {
             it.copy(showCreateServicePhaseSheet = false)
         }
         viewModelScope.launch {
             val uiValue = _uiState.value
+            val dist = distance.toIntOrNull() ?: 0
             val newPhase = ServicePhase(
                 departureStation = uiValue.suggestedDepartureStation,
                 arrivalStation = uiValue.suggestedArrivalStation,
-                distance = distance.toIntOrNull() ?: 0
+                distance = dist
             )
             // Get current settings and add new service phase
             val currentSettings = settingsUseCase.getUserSettingFlow().first()
+            val newPhases = mutableListOf(newPhase)
+            if (createReverse) {
+                newPhases.add(
+                    ServicePhase(
+                        departureStation = uiValue.suggestedArrivalStation,
+                        arrivalStation = uiValue.suggestedDepartureStation,
+                        distance = dist
+                    )
+                )
+            }
             val updatedSettings = currentSettings.copy(
-                servicePhases = currentSettings.servicePhases + newPhase
+                servicePhases = currentSettings.servicePhases + newPhases
             )
             settingsUseCase.saveSetting(updatedSettings).first()
 

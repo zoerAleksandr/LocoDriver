@@ -92,7 +92,7 @@ fun FormDestination(
         onNumberChanged = viewModel::setNumber,
         checkedOnePersonOperation = viewModel::checkedOnePersonOperation,
         onNotesChanged = viewModel::setNotes,
-        onSettingClick = router::showSettings,
+        onSettingClick = router::showSettingsRoute,
         resetSaveState = viewModel::resetSaveState,
         onTimeStartWorkChanged = viewModel::setTimeStartWork,
         onTimeEndWorkChanged = viewModel::setTimeEndWork,

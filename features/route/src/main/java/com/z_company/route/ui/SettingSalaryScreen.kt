@@ -18,6 +18,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -133,11 +134,6 @@ fun SettingSalaryScreen(
     val paddingLarge = 6.dp
     val paddingSmall = 6.dp
 
-    if (saveSettingState is ResultState.Success) {
-        LaunchedEffect(Unit) {
-            onBack()
-        }
-    }
     if (saveSettingState is ResultState.Error) {
         LaunchedEffect(Unit) {
             scope.launch {
@@ -303,20 +299,20 @@ fun SettingSalaryScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {},
+                title = {
+                    Text(
+                        text = "Зарплата",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = primaryColor
+                    )
+                },
                 navigationIcon = {
-                    TextButton(
-                        modifier = Modifier
-                            .padding(end = 16.dp),
-                        enabled = isEnableSaveButton,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.Transparent,
-                            disabledContainerColor = Color.Transparent,
-                            contentColor = MaterialTheme.colorScheme.tertiary
-                        ),
-                        onClick = { onSaveClick() }
-                    ) {
-                        Text(text = "Сохранить", style = MaterialTheme.typography.bodySmall)
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            painter = painterResource(com.z_company.core.R.drawable.ic_arrow_back),
+                            contentDescription = "Назад",
+                            tint = primaryColor
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),

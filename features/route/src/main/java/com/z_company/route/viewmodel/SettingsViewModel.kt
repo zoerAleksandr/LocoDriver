@@ -20,13 +20,12 @@ import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.z_company.core.sendToSentry
@@ -41,11 +40,9 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState = _uiState.asStateFlow()
 
-    private val _saveEvent = Channel<Unit>(Channel.CONFLATED)
-    val saveEvent = _saveEvent.receiveAsFlow()
-
     private var loadSettingsJob: Job? = null
     private var saveSettingsJob: Job? = null
+    private var autoSaveJob: Job? = null
     private var loadCalendarJob: Job? = null
 
     var currentSettings: UserSettings?
@@ -58,6 +55,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             _uiState.update {
                 it.copy(settingDetails = ResultState.Success(value))
             }
+            scheduleAutoSave()
         }
 
     private var servicePhases: SnapshotStateList<ServicePhase>
@@ -124,10 +122,12 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             )
         }
         hideDialogAddServicePhase()
+        scheduleAutoSave()
     }
 
     fun deleteServicePhase(index: Int) {
         servicePhases.removeAt(index)
+        scheduleAutoSave()
     }
 
     fun selectToUpdateServicePhase(phase: ServicePhase, index: Int) {
@@ -184,21 +184,21 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         loadSettingsJob?.cancel()
         loadSettingsJob = viewModelScope.launch {
             try {
-                settingsUseCase.getFlowCurrentSettingsState().collect { result ->
-                    _uiState.update {
-                        it.copy(
-                            settingDetails = result,
-                        )
-                    }
-                    if (result is ResultState.Success) {
-                        result.data?.let { userSettings ->
-                            _uiState.update {
-                                it.copy(
-                                    dateAndTimeConverter = DateAndTimeConverter(userSettings),
-                                    updateAt = userSettings.updateAt,
-                                    servicePhases = userSettings.servicePhases.toMutableStateList()
-                                )
-                            }
+                val result = settingsUseCase.getFlowCurrentSettingsState()
+                    .first { it is ResultState.Success }
+                _uiState.update {
+                    it.copy(
+                        settingDetails = result,
+                    )
+                }
+                if (result is ResultState.Success) {
+                    result.data?.let { userSettings ->
+                        _uiState.update {
+                            it.copy(
+                                dateAndTimeConverter = DateAndTimeConverter(userSettings),
+                                updateAt = userSettings.updateAt,
+                                servicePhases = userSettings.servicePhases.toMutableStateList()
+                            )
                         }
                     }
                 }
@@ -223,21 +223,29 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun saveSettings() {
+    private fun scheduleAutoSave() {
+        autoSaveJob?.cancel()
+        autoSaveJob = viewModelScope.launch {
+            delay(300)
+            saveSettingsQuietly()
+        }
+    }
+
+    private fun saveSettingsQuietly() {
         val state = uiState.value.settingDetails
         if (state is ResultState.Success) {
             state.data?.let { settings ->
                 settings.servicePhases = servicePhases.toMutableList()
                 saveSettingsJob?.cancel()
                 saveSettingsJob = viewModelScope.launch {
-                    settingsUseCase.saveSetting(settings).collect { result ->
-                        if (result is ResultState.Success) {
-                            _saveEvent.trySend(Unit)
-                        }
-                    }
+                    settingsUseCase.saveSetting(settings).collect { }
                 }
             }
         }
+    }
+
+    fun saveServicePhases() {
+        scheduleAutoSave()
     }
 
     fun changeMinTimeRest(time: Long) {

@@ -16,7 +16,7 @@ fun SettingSalaryDestination(
     val uiState by viewModel.uiState.collectAsState()
 
     SettingSalaryScreen(
-        onBack = { router.showHome(HomeRoute.route) },
+        onBack = router::back,
         onSaveClick = viewModel::checkForChangesTariffRate,
         saveSettingState = uiState.saveSettingState,
         uiState = uiState,
@@ -47,8 +47,8 @@ fun SettingSalaryDestination(
         isErrorInputHarmfulness = uiState.isErrorInputHarmfulnessPercent,
         surchargeHeavyTrainsState = uiState.surchargeHeavyTrain,
         addSurchargeHeavyTran = viewModel::addSurchargeHeavyTrain,
-        setSurchargeHeavyTrainWeight = viewModel::setSurchargeHeavyTrainWeight,
         setSurchargeHeavyTrainPercent = viewModel::setSurchargeHeavyTrainPercent,
+        setSurchargeHeavyTrainWeight = viewModel::setSurchargeHeavyTrainWeight,
         onSurchargeHeavyTrainDismissed = viewModel::deleteSurchargeHeavyTrain,
         surchargeLongTrainsState = uiState.surchargeLongTrain,
         addSurchargeLongTrain = viewModel::addSurchargeLongTrain,
@@ -61,10 +61,10 @@ fun SettingSalaryDestination(
         addServicePhase = viewModel::addSurchargeExtendedServicePhase,
         ndflValueState = uiState.ndfl,
         setNDFL = viewModel::setNDFL,
+        isErrorInputNdfl = uiState.isErrorInputNdfl,
         unionistsRetentionState = uiState.unionistsRetentionState,
         setUnionistsRetention = viewModel::setUnionistsRetention,
         isErrorInputUnionistsRetention = uiState.isErrorInputUnionistsRetention,
-        isErrorInputNdfl = uiState.isErrorInputNdfl,
         otherRetentionValueState = uiState.otherRetention,
         setOtherRetention = viewModel::setOtherRetention,
         isErrorInputOtherRetention = uiState.isErrorInputOtherRetention,

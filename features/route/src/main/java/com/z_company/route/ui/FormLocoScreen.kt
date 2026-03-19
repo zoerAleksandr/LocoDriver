@@ -391,7 +391,7 @@ fun FormLocoScreen(
                     ModalBottomSheet(
                         onDismissRequest = { showSettingBottomSheet = false },
                         sheetState = sheetState,
-                        containerColor = MaterialTheme.colorScheme.secondary,
+                        containerColor = MaterialTheme.colorScheme.background,
                         dragHandle = {
                             Box(
                                 modifier = Modifier

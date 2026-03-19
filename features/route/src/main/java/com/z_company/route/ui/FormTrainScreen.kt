@@ -56,6 +56,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -437,6 +438,7 @@ fun FormTrainScreen(
             var newPhaseDistance by remember {
                 mutableStateOf(currentTrain?.distance?.takeIf { it != "0" } ?: "")
             }
+            var createReverse by remember { mutableStateOf(false) }
             val createPhaseSheetState = rememberModalBottomSheetState(
                 skipPartiallyExpanded = true
             )
@@ -464,10 +466,11 @@ fun FormTrainScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = 16.dp, vertical = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
+                        modifier = Modifier.padding(bottom = 16.dp),
                         text = "Новое плечо",
                         style = MaterialTheme.typography.titleSmall,
                         color = primaryColor
@@ -484,7 +487,7 @@ fun FormTrainScreen(
                         placeholder = {
                             Text(
                                 text = "Расстояние",
-                                style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
+                                style = dataTextStyle,
                                 color = noValueColor
                             )
                         },
@@ -496,15 +499,46 @@ fun FormTrainScreen(
                             imeAction = ImeAction.Done
                         ),
                         textStyle = dataTextStyle,
-                        singleLine = true
+                        singleLine = true,
+                        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surface
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Button(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = Shapes.medium,
-                        onClick = { viewModel.createServicePhaseAndSave(newPhaseDistance) }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(text = "Добавить", style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            text = "Создать плечо в обратном направлении",
+                            style = hintStyle,
+                            color = primaryColor,
+                            modifier = Modifier.weight(1f).padding(end = 12.dp)
+                        )
+                        Switch(
+                            checked = createReverse,
+                            onCheckedChange = { createReverse = it }
+                        )
+                    }
+
+                    Button(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 32.dp),
+                        shape = Shapes.medium,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                            disabledContainerColor = MaterialTheme.colorScheme.surface
+                        ),
+                        enabled = newPhaseDistance.isNotBlank() && newPhaseDistance.toIntOrNull() != null && newPhaseDistance.toInt() > 0,
+                        onClick = { viewModel.createServicePhaseAndSave(newPhaseDistance, createReverse) }
+                    ) {
+                        Text(
+                            text = "Добавить",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
                     }
                     TextButton(
                         modifier = Modifier.fillMaxWidth(),
@@ -516,7 +550,6 @@ fun FormTrainScreen(
                             color = primaryColor.copy(alpha = 0.7f)
                         )
                     }
-                    Spacer(modifier = Modifier.height(40.dp))
                 }
             }
         }
