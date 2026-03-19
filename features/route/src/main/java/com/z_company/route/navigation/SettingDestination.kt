@@ -4,21 +4,24 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavBackStackEntry
 import com.z_company.domain.navigation.Router
 import com.z_company.route.ui.SettingsScreen
 import com.z_company.route.viewmodel.SettingsViewModel
 
 @Composable
 fun SettingDestination(
-    router: Router
+    router: Router,
+    backStackEntry: NavBackStackEntry
 ) {
     val settingsViewModel: SettingsViewModel = viewModel()
     val uiState by settingsViewModel.uiState.collectAsState()
+    val initialSubScreen = SettingsScreenRoute.getSubScreen(backStackEntry)
     SettingsScreen(
         viewModel = settingsViewModel,
         settingsUiState = uiState,
         currentSettings = settingsViewModel.currentSettings,
-        onSettingSaved = { router.showHome(HomeRoute.route) },
+        initialSubScreen = initialSubScreen,
         workTimeChanged = settingsViewModel::changeDefaultWorkTime,
         restTimeChanged = settingsViewModel::changeMinTimeRest,
         homeRestTimeChanged = settingsViewModel::changeMinTimeHomeRest,
@@ -42,5 +45,7 @@ fun SettingDestination(
         addServicePhase = settingsViewModel::addServicePhase,
         deleteServicePhase = settingsViewModel::deleteServicePhase,
         updateServicePhase = settingsViewModel::selectToUpdateServicePhase,
+        showSettingSalary = router::showSettingSalary,
+        onBack = router::back,
     )
 }

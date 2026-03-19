@@ -10,6 +10,9 @@ import com.z_company.core.ui.theme.LightColorPalette
 data class AppColors(
     val materialColors: ColorScheme,
     val someCustomColor: Color,
+    val accentGreen: Color = Color(0xFF34C98A),
+    val warnOrange: Color = Color(0xFFF0A84F),
+    val favoriteColor: Color = Color(0xFFf1642e),
 ) {
     val primary: Color
         get() = materialColors.primary

@@ -14,6 +14,7 @@ interface Router {
     fun showRouteForm(basicId: String? = null, isMakeCopy: Boolean = false)
     fun showRouteDetails(basicData: BasicData)
     fun showSettings()
+    fun showSettingsRoute() { showSettings() }
     fun showSearch()
     fun back()
     fun navigationUp(): Boolean

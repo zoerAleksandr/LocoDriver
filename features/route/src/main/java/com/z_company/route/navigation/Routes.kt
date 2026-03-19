@@ -140,6 +140,22 @@ object SettingSalaryRoute: AppRoutes("SettingSalaryRoute")
 object UpdatePresentationBlockRoute: AppRoutes("UpdatePresentationBlockRoute")
 object AllRouteScreenRoute: AppRoutes("AllRouteScreenRoute")
 object WorkScheduleScreenRoute: AppRoutes("WorkScheduleScreenRoute")
-object SettingsScreenRoute : AppRoutes("SettingsScreen")
+object SettingsScreenRoute : AppRoutes("SettingsScreen") {
+    private const val paramSubScreen = "subScreen"
+    override val route: String = "$basicRoute?$paramSubScreen={$paramSubScreen}"
+    val navArguments = listOf(
+        navArgument(paramSubScreen) {
+            type = NavType.StringType
+            nullable = true
+            defaultValue = null
+        }
+    )
+
+    fun getSubScreen(backStackEntry: NavBackStackEntry): String? =
+        backStackEntry.arguments?.getString(paramSubScreen)
+
+    fun buildRoute(subScreen: String? = null): String =
+        if (subScreen != null) "$basicRoute?$paramSubScreen=$subScreen" else basicRoute
+}
 object SelectReleaseDaysScreenRoute: AppRoutes("SelectReleaseDaysScreen")
 object ProfileRoute: AppRoutes("ProfileRoute")

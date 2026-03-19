@@ -31,8 +31,11 @@ fun NavGraphBuilder.homeGraph(
         ) { backStackEntry ->
             FormDestination(router = router, backStackEntry = backStackEntry)
         }
-        composableScreen(SettingsScreenRoute.route) {
-            SettingDestination(router = router)
+        composableScreen(
+            route = SettingsScreenRoute.route,
+            arguments = SettingsScreenRoute.navArguments
+        ) { backStackEntry ->
+            SettingDestination(router = router, backStackEntry = backStackEntry)
         }
 
         composableScreen(ProfileRoute.route) {
@@ -101,8 +104,11 @@ fun NavGraphBuilder.homeGraph(
         ){
             AllRouteScreenDestination(router = router)
         }
-        composableScreen(SettingsScreenRoute.route) {
-            SettingDestination(router = router)
+        composableScreen(
+            route = SettingsScreenRoute.route,
+            arguments = SettingsScreenRoute.navArguments
+        ) { backStackEntry ->
+            SettingDestination(router = router, backStackEntry = backStackEntry)
         }
         composableScreen(SelectReleaseDaysScreenRoute.route) {
             SelectReleaseDaysDestination(router = router)

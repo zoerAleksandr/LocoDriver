@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -37,6 +38,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -47,7 +49,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.Shapes
-import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.route.TrainAssist
@@ -63,15 +64,9 @@ import com.z_company.domain.util.CalculationEnergy.rounding
 import com.z_company.domain.util.ifNullOrBlank
 import com.z_company.domain.util.str
 import com.z_company.domain.util.times
+import com.z_company.core.ui.theme.custom.AppTheme
 import com.z_company.route.R
 import kotlin.collections.set
-
-// Colors matching the HTML mockup
-//private val AccentBlue = MaterialTheme.colorScheme.tertiary
-//private val AccentGreen = Color(0xFF34C98A)
-//private val WarnOrange = Color(0xFFF0A84F)
-//private val DangerRed = Color(0xFFE05C5C)
-//private val MutedGray = Color(0xFF6B7294)
 //
 //private val CardShape = RoundedCornerShape(14.dp)
 //private val SmallCardShape = RoundedCornerShape(12.dp)
@@ -92,16 +87,9 @@ fun PreviewRouteDialog(
     makeCopyRoute: (String) -> Unit,
     showDialogConfirmRemove: (Boolean, Route) -> Unit,
 ) {
-    val AccentBlue = MaterialTheme.colorScheme.tertiary
     val primaryColor = MaterialTheme.colorScheme.primary
-    val AccentGreen = Color(0xFF34C98A)
-    val WarnOrange = Color(0xFFF0A84F)
-    val DangerRed = MaterialTheme.colorScheme.error
-
-    val CardShape = Shapes.large
-    val SmallCardShape = RoundedCornerShape(12.dp)
-    val ChipShape = RoundedCornerShape(6.dp)
-    val TagShape = RoundedCornerShape(8.dp)
+    val dangerRed = MaterialTheme.colorScheme.error
+    val cardShape = Shapes.large
 
     Column(
         modifier = Modifier
@@ -124,7 +112,7 @@ fun PreviewRouteDialog(
                 .fillMaxWidth()
                 .padding(start = 12.dp, end = 12.dp, top = 30.dp, bottom = 12.dp)
                 .background(
-                    color = MaterialTheme.colorScheme.surface,
+                    color = MaterialTheme.colorScheme.background,
                     shape = RoundedCornerShape(
                         topStart = 24.dp,
                         topEnd = 24.dp,
@@ -157,8 +145,8 @@ fun PreviewRouteDialog(
                 .padding(end = 12.dp)
                 .width(IntrinsicSize.Max)
                 .background(
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    shape = CardShape
+                    color = MaterialTheme.colorScheme.background,
+                    shape = cardShape
                 )
         ) {
             // Просмотр
@@ -181,8 +169,8 @@ fun PreviewRouteDialog(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Просмотр",
-                    style = AppTypography.getType().bodyMedium.copy(
-                        color = MaterialTheme.colorScheme.onSurface
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = primaryColor
                     ),
                 )
             }
@@ -208,8 +196,8 @@ fun PreviewRouteDialog(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Сохранить в облаке",
-                    style = AppTypography.getType().bodyMedium.copy(
-                        color = MaterialTheme.colorScheme.onSurface
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = primaryColor
                     ),
                 )
             }
@@ -231,14 +219,14 @@ fun PreviewRouteDialog(
                     modifier = Modifier.size(20.dp),
                     painter = if (isFavorite) painterResource(R.drawable.favorite_fill_24px)
                     else painterResource(R.drawable.favorite_24px),
-                    tint = if (isFavorite) Color(0xFFf1642e) else primaryColor,
+                    tint = if (isFavorite) AppTheme.colors.favoriteColor else primaryColor,
                     contentDescription = null,
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = if (isFavorite) "Убрать из избранного" else "В избранное",
-                    style = AppTypography.getType().bodyMedium.copy(
-                        color = MaterialTheme.colorScheme.onSurface
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = primaryColor
                     ),
                 )
             }
@@ -265,8 +253,8 @@ fun PreviewRouteDialog(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Дублировать",
-                    style = AppTypography.getType().bodyMedium.copy(
-                        color = MaterialTheme.colorScheme.onSurface
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = primaryColor
                     ),
                 )
             }
@@ -287,14 +275,14 @@ fun PreviewRouteDialog(
                 Icon(
                     painter = painterResource(id = R.drawable.delete_24px),
                     contentDescription = null,
-                    tint = DangerRed,
+                    tint = dangerRed,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Удалить",
-                    style = AppTypography.getType().bodyMedium.copy(
-                        color = DangerRed
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = dangerRed
                     ),
                 )
             }
@@ -311,29 +299,24 @@ fun PreviewRoute(
     homeRest: Long?,
     dateAndTimeConverter: DateAndTimeConverter?
 ) {
-    val AccentBlue = MaterialTheme.colorScheme.tertiary
+    val accentBlue = MaterialTheme.colorScheme.tertiary
     val primaryColor = MaterialTheme.colorScheme.primary
     val hintColor = primaryColor.copy(alpha = 0.6f)
-    val AccentGreen = Color(0xFF34C98A)
-    val WarnOrange = Color(0xFFF0A84F)
-    val DangerRed = MaterialTheme.colorScheme.error
+    val accentGreen = AppTheme.colors.accentGreen
+    val warnOrange = AppTheme.colors.warnOrange
 
-    val CardShape = Shapes.large
-    val SmallCardShape = RoundedCornerShape(12.dp)
-    val ChipShape = RoundedCornerShape(6.dp)
-    val TagShape = RoundedCornerShape(8.dp)
+    val cardShape = Shapes.large
+    val mediumShape = Shapes.medium
+    val chipShape = RoundedCornerShape(6.dp)
 
-    val styleTitle = AppTypography.getType().titleSmall.copy(
+    val styleTitle = MaterialTheme.typography.titleSmall.copy(
         fontWeight = FontWeight.W700,
         fontSize = 10.sp,
         letterSpacing = 1.2.sp,
         color = primaryColor
     )
-    val styleData = AppTypography.getType().bodyMedium.copy(
-        fontWeight = FontWeight.W600,
-        color = MaterialTheme.colorScheme.onSurface
-    )
-    val styleHint = AppTypography.getType().bodySmall.copy(
+
+    val styleHint = MaterialTheme.typography.bodySmall.copy(
         fontWeight = FontWeight.W400,
         fontSize = 11.sp,
         color = primaryColor
@@ -394,9 +377,9 @@ fun PreviewRoute(
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = route.basicData.number ?: "б/н",
-                                style = AppTypography.getType().headlineSmall.copy(
+                                style = MaterialTheme.typography.headlineSmall.copy(
                                     fontWeight = FontWeight.W800,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    color = primaryColor,
                                     lineHeight = 26.sp
                                 ),
                             )
@@ -405,17 +388,17 @@ fun PreviewRoute(
                                 Box(
                                     modifier = Modifier
                                         .background(
-                                            AccentBlue.copy(alpha = 0.12f),
-                                            ChipShape
+                                            accentBlue.copy(alpha = 0.12f),
+                                            chipShape
                                         )
                                         .padding(horizontal = 10.dp, vertical = 3.dp)
                                 ) {
                                     Text(
                                         text = dateAndTimeConverter?.getDateFromDateLong(route.basicData.timeStartWork)
                                             ?: "...",
-                                        style = AppTypography.getType().bodySmall.copy(
+                                        style = MaterialTheme.typography.bodySmall.copy(
                                             fontWeight = FontWeight.W500,
-                                            color = AccentBlue,
+                                            color = accentBlue,
                                             fontSize = 12.sp
                                         )
                                     )
@@ -427,9 +410,9 @@ fun PreviewRoute(
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Text(
                                     text = ConverterLongToTime.getTimeInStringFormat(workTime),
-                                    style = AppTypography.getType().headlineSmall.copy(
+                                    style = MaterialTheme.typography.headlineSmall.copy(
                                         fontWeight = FontWeight.W600,
-                                        color = MaterialTheme.colorScheme.onSurface,
+                                        color = primaryColor,
                                         fontSize = 26.sp,
                                         lineHeight = 20.sp
                                     ),
@@ -476,7 +459,7 @@ fun PreviewRoute(
                                     value = dateAndTimeConverter?.getTimeFromDateLong(startWork)
                                         ?: "...",
                                     subtitle = dateAndTimeConverter?.getDate(startWork) ?: "",
-                                    accentColor = AccentGreen
+                                    accentColor = accentGreen
                                 )
                             }
 
@@ -488,7 +471,7 @@ fun PreviewRoute(
                                     value = dateAndTimeConverter?.getTimeFromDateLong(endWork)
                                         ?: "...",
                                     subtitle = dateAndTimeConverter?.getDate(endWork) ?: "",
-                                    accentColor = AccentBlue
+                                    accentColor = accentBlue
                                 )
                             }
                         }
@@ -515,10 +498,9 @@ fun PreviewRoute(
                                 .fillMaxWidth()
                                 .padding(horizontal = 20.dp)
                                 .padding(bottom = 8.dp)
-                                .background(
-                                    MaterialTheme.colorScheme.surfaceVariant,
-                                    SmallCardShape
-                                )
+                                .shadow(elevation = 2.dp, shape = Shapes.medium)
+//                                .border(width = 0.5.dp, color = hintColor, shape = mediumShape)
+                                .background(MaterialTheme.colorScheme.secondary, mediumShape)
                                 .padding(horizontal = 14.dp, vertical = 10.dp)
                                 .animateItem(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -528,14 +510,14 @@ fun PreviewRoute(
                                 modifier = Modifier
                                     .size(32.dp)
                                     .background(
-                                        WarnOrange.copy(alpha = 0.12f),
+                                        warnOrange.copy(alpha = 0.12f),
                                         RoundedCornerShape(8.dp)
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     modifier = Modifier.size(20.dp),
-                                    tint = WarnOrange,
+                                    tint = warnOrange,
                                     painter = painterResource(id = R.drawable.pause_24px),
                                     contentDescription = null
                                 )
@@ -544,16 +526,16 @@ fun PreviewRoute(
                             Text(
                                 modifier = Modifier.weight(1f),
                                 text = "Перерыв  $breakDurationText",
-                                style = AppTypography.getType().bodyMedium.copy(
+                                style = MaterialTheme.typography.bodyMedium.copy(
                                     fontWeight = FontWeight.W600,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    color = primaryColor,
                                     fontSize = 14.sp
                                 ),
                             )
 
                             Text(
                                 text = "$breakStartText - $breakEndText",
-                                style = AppTypography.getType().bodySmall.copy(
+                                style = MaterialTheme.typography.bodySmall.copy(
                                     color = primaryColor,
                                     fontSize = 12.sp
                                 ),
@@ -577,10 +559,9 @@ fun PreviewRoute(
                             .fillMaxWidth()
                             .padding(horizontal = 20.dp)
                             .padding(bottom = 16.dp)
-                            .background(
-                                MaterialTheme.colorScheme.surfaceVariant,
-                                SmallCardShape
-                            )
+                            .shadow(elevation = 2.dp, shape = Shapes.medium)
+//                            .border(width = 0.5.dp, color = hintColor, shape = mediumShape)
+                            .background(MaterialTheme.colorScheme.secondary, mediumShape)
                             .padding(horizontal = 14.dp, vertical = 10.dp)
                             .animateItem(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -598,7 +579,7 @@ fun PreviewRoute(
                         ) {
                             Icon(
                                 modifier = Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.onSurface,
+                                tint = primaryColor,
                                 painter = if (route.basicData.restPointOfTurnover)
                                     painterResource(id = R.drawable.hotel_24px)
                                 else
@@ -606,25 +587,15 @@ fun PreviewRoute(
                                 contentDescription = null
                             )
                         }
-
-//                        Column(modifier = Modifier.weight(1f)) {
-//                            Text(
-//                                text = "Отдых",
-//                                style = AppTypography.getType().bodySmall.copy(
-//                                    color = hintColor,
-//                                    fontSize = 13.sp
-//                                ),
-//                            )
                             Text(
                                 modifier = Modifier.weight(1f),
                                 text = restText,
-                                style = AppTypography.getType().bodyMedium.copy(
+                                style = MaterialTheme.typography.bodyMedium.copy(
                                     fontWeight = FontWeight.W600,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    color = primaryColor,
                                     fontSize = 14.sp
                                 ),
                             )
-//                        }
 
                         // Rest time
                         if (route.basicData.restPointOfTurnover) {
@@ -638,7 +609,7 @@ fun PreviewRoute(
                                 ) ?: "..."
                                 Text(
                                     text = "$shortRestText\n$fullRestText",
-                                    style = AppTypography.getType().bodySmall.copy(
+                                    style = MaterialTheme.typography.bodySmall.copy(
                                         color = primaryColor,
                                         fontSize = 12.sp
                                     ),
@@ -650,7 +621,7 @@ fun PreviewRoute(
                                     dateAndTimeConverter?.getDateMiniAndTime(homeRest) ?: "..."
                                 Text(
                                     text = "до $homeRestText",
-                                    style = AppTypography.getType().bodySmall.copy(
+                                    style = MaterialTheme.typography.bodySmall.copy(
                                         color = primaryColor,
                                         fontSize = 12.sp
                                     ),
@@ -663,12 +634,6 @@ fun PreviewRoute(
 
             // Locomotives section
             if (route.locomotives.isNotEmpty()) {
-                item {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 20.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant
-                    )
-                }
                 item {
                     Column(
                         modifier = Modifier
@@ -714,8 +679,9 @@ fun PreviewRoute(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surfaceVariant, CardShape)
-                    ) {
+                            .shadow(elevation = 2.dp, shape = Shapes.medium)
+//                            .border(width = 0.5.dp, color = hintColor, shape = mediumShape)
+                            .background(MaterialTheme.colorScheme.secondary, mediumShape)                    ) {
                         // Loco card header
                         Row(
                             modifier = Modifier
@@ -729,14 +695,14 @@ fun PreviewRoute(
                                 modifier = Modifier
                                     .size(40.dp)
                                     .background(
-                                        AccentBlue.copy(alpha = 0.12f),
+                                        accentBlue.copy(alpha = 0.12f),
                                         RoundedCornerShape(10.dp)
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     modifier = Modifier.size(24.dp),
-                                    tint = AccentBlue,
+                                    tint = accentBlue,
                                     painter = when (locomotive.type) {
                                         LocoType.ELECTRIC -> painterResource(id = R.drawable.electric_loco)
                                         LocoType.DIESEL -> painterResource(id = R.drawable.diesel_loco)
@@ -753,40 +719,13 @@ fun PreviewRoute(
                                 }
                                 Text(
                                     text = displayName,
-                                    style = AppTypography.getType().bodyLarge.copy(
+                                    style = MaterialTheme.typography.bodyLarge.copy(
                                         fontWeight = FontWeight.W700,
-                                        color = MaterialTheme.colorScheme.onSurface,
+                                        color = primaryColor,
                                         fontSize = 18.sp
                                     ),
                                 )
-//                                Text(
-//                                    text = typeLocoText,
-//                                    style = AppTypography.getType().bodySmall.copy(
-//                                        color = hintColor,
-//                                        fontSize = 12.sp
-//                                    ),
-//                                )
                             }
-
-                            // Tag
-//                            if (locomotive.series != null) {
-//                                Box(
-//                                    modifier = Modifier
-//                                        .background(
-//                                            AccentBlue.copy(alpha = 0.12f),
-//                                            ChipShape
-//                                        )
-//                                        .padding(horizontal = 8.dp, vertical = 3.dp)
-//                                ) {
-//                                    Text(
-//                                        text = seriesText,
-//                                        style = AppTypography.getType().bodySmall.copy(
-//                                            color = AccentBlue,
-//                                            fontSize = 11.sp
-//                                        ),
-//                                    )
-//                                }
-//                            }
 
                             // Expand button
                             IconButton(
@@ -994,7 +933,7 @@ fun PreviewRoute(
                                                 ) {
                                                     Text(
                                                         text = "${sIndex + 1}",
-                                                        style = AppTypography.getType().bodySmall.copy(
+                                                        style = MaterialTheme.typography.bodySmall.copy(
                                                             color = hintColor,
                                                             fontSize = 11.sp
                                                         ),
@@ -1147,7 +1086,7 @@ fun PreviewRoute(
                                                 ) {
                                                     Text(
                                                         text = "${sIndex + 1}",
-                                                        style = AppTypography.getType().bodySmall.copy(
+                                                        style = MaterialTheme.typography.bodySmall.copy(
                                                             color = primaryColor,
                                                             fontSize = 11.sp
                                                         ),
@@ -1219,12 +1158,6 @@ fun PreviewRoute(
             // Trains section
             if (route.trains.isNotEmpty()) {
                 item {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 20.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant
-                    )
-                }
-                item {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1266,8 +1199,9 @@ fun PreviewRoute(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surfaceVariant, CardShape)
-                    ) {
+                            .shadow(elevation = 2.dp, shape = Shapes.medium)
+//                            .border(width = 0.5.dp, color = hintColor, shape = mediumShape)
+                            .background(MaterialTheme.colorScheme.secondary, mediumShape)                    ) {
                         // Train header
                         Row(
                             modifier = Modifier
@@ -1279,9 +1213,9 @@ fun PreviewRoute(
                             Column {
                                 Text(
                                     text = if (numberText.isNotBlank()) "№ $numberText" else "Поезд",
-                                    style = AppTypography.getType().bodyLarge.copy(
+                                    style = MaterialTheme.typography.bodyLarge.copy(
                                         fontWeight = FontWeight.W600,
-                                        color = MaterialTheme.colorScheme.onSurface,
+                                        color = primaryColor,
                                         fontSize = 18.sp
                                     ),
                                 )
@@ -1374,12 +1308,12 @@ fun PreviewRoute(
                                                     modifier = Modifier
                                                         .fillMaxSize()
                                                         .background(
-                                                            AccentBlue,
+                                                            accentBlue,
                                                             CircleShape
                                                         )
                                                         .padding(2.dp)
                                                         .background(
-                                                            MaterialTheme.colorScheme.surfaceVariant,
+                                                            MaterialTheme.colorScheme.surface,
                                                             CircleShape
                                                         )
                                                 )
@@ -1388,9 +1322,9 @@ fun PreviewRoute(
 
                                         Text(
                                             text = stationNameText,
-                                            style = AppTypography.getType().bodyMedium.copy(
+                                            style = MaterialTheme.typography.bodyMedium.copy(
                                                 fontWeight = FontWeight.W600,
-                                                color = MaterialTheme.colorScheme.onSurface,
+                                                color = primaryColor,
                                                 fontSize = 15.sp
                                             ),
                                             modifier = Modifier.weight(1f)
@@ -1399,8 +1333,8 @@ fun PreviewRoute(
                                         if (displayTime.isNotBlank()) {
                                             Text(
                                                 text = displayTime,
-                                                style = AppTypography.getType().bodySmall.copy(
-                                                    color = AccentBlue,
+                                                style = MaterialTheme.typography.bodySmall.copy(
+                                                    color = accentBlue,
                                                     fontSize = 14.sp
                                                 ),
                                             )
@@ -1415,7 +1349,7 @@ fun PreviewRoute(
                                         iconRes = R.drawable.ic_pusher_24px,
                                         assist = assist,
                                         styleHint = styleHint,
-                                        accentColor = AccentBlue
+                                        accentColor = accentBlue
                                     )
                                 }
                                 train.doubleTraction?.let { assist ->
@@ -1424,7 +1358,7 @@ fun PreviewRoute(
                                         iconRes = R.drawable.ic_double_traction_24px,
                                         assist = assist,
                                         styleHint = styleHint,
-                                        accentColor = AccentBlue
+                                        accentColor = accentBlue
                                     )
                                 }
                                 train.doubledTrain?.let { assist ->
@@ -1433,7 +1367,7 @@ fun PreviewRoute(
                                         iconRes = R.drawable.ic_doubled_train_24px,
                                         assist = assist,
                                         styleHint = styleHint,
-                                        accentColor = AccentBlue
+                                        accentColor = accentBlue
                                     )
                                 }
                             }
@@ -1444,12 +1378,6 @@ fun PreviewRoute(
 
             // Passengers section
             if (route.passengers.isNotEmpty()) {
-                item {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 20.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant
-                    )
-                }
                 item {
                     Column(
                         modifier = Modifier
@@ -1491,7 +1419,9 @@ fun PreviewRoute(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surfaceVariant, CardShape)
+                            .shadow(elevation = 2.dp, shape = Shapes.medium)
+//                            .border(width = 0.5.dp, color = hintColor, shape = mediumShape)
+                            .background(MaterialTheme.colorScheme.secondary, mediumShape)
                             .padding(horizontal = 16.dp, vertical = 14.dp)
                     ) {
                         Row(
@@ -1503,9 +1433,9 @@ fun PreviewRoute(
                                 if (numberText.isNotBlank()) {
                                     Text(
                                         text = "№ $numberText",
-                                        style = AppTypography.getType().bodyLarge.copy(
+                                        style = MaterialTheme.typography.bodyLarge.copy(
                                             fontWeight = FontWeight.W600,
-                                            color = MaterialTheme.colorScheme.onSurface,
+                                            color = primaryColor,
                                             fontSize = 16.sp
                                         ),
                                     )
@@ -1554,12 +1484,6 @@ fun PreviewRoute(
             // Notes section
             if (!route.basicData.notes.isNullOrBlank()) {
                 item {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 20.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant
-                    )
-                }
-                item {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1576,10 +1500,9 @@ fun PreviewRoute(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(
-                                        MaterialTheme.colorScheme.surfaceVariant,
-                                        SmallCardShape
-                                    )
+                                    .shadow(elevation = 2.dp, shape = Shapes.medium)
+//                                    .border(width = 0.5.dp, color = hintColor, shape = mediumShape)
+                                    .background(MaterialTheme.colorScheme.secondary, mediumShape)
                                     .padding(horizontal = 14.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.Top,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -1593,7 +1516,7 @@ fun PreviewRoute(
                                 Text(
                                     text = notes,
                                     style = styleHint.copy(
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        color = primaryColor
                                     ),
                                 )
                             }
@@ -1616,18 +1539,16 @@ private fun TimeCard(
     subtitle: String,
     accentColor: Color,
 ) {
-    val AccentBlue = MaterialTheme.colorScheme.tertiary
     val primaryColor = MaterialTheme.colorScheme.primary
     val hintColor = primaryColor.copy(alpha = 0.6f)
-    val AccentGreen = Color(0xFF34C98A)
-    val WarnOrange = Color(0xFFF0A84F)
-    val DangerRed = MaterialTheme.colorScheme.error
 
-    val CardShape = Shapes.large
+    val mediumShape = Shapes.medium
 
     Box(
         modifier = modifier
-            .background(MaterialTheme.colorScheme.surfaceVariant, CardShape)
+            .shadow(elevation = 2.dp, shape = Shapes.medium)
+//            .border(width = 0.5.dp, color = hintColor, shape = mediumShape)
+            .background(MaterialTheme.colorScheme.secondary, mediumShape)
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
@@ -1635,7 +1556,7 @@ private fun TimeCard(
         {
             Text(
                 text = label,
-                style = AppTypography.getType().bodySmall.copy(
+                style = MaterialTheme.typography.bodySmall.copy(
                     fontWeight = FontWeight.W600,
                     letterSpacing = 0.8.sp,
                     color = accentColor,
@@ -1645,9 +1566,9 @@ private fun TimeCard(
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = value,
-                style = AppTypography.getType().headlineSmall.copy(
+                style = MaterialTheme.typography.headlineSmall.copy(
                     fontWeight = FontWeight.W600,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = primaryColor,
                     fontSize = 20.sp,
                     lineHeight = 20.sp
                 ),
@@ -1656,7 +1577,7 @@ private fun TimeCard(
                 Spacer(modifier = Modifier.height(3.dp))
                 Text(
                     text = subtitle,
-                    style = AppTypography.getType().bodySmall.copy(
+                    style = MaterialTheme.typography.bodySmall.copy(
                         color = hintColor,
                         fontSize = 11.sp
                     ),
@@ -1681,7 +1602,7 @@ private fun MetaChip(text: String) {
     ) {
         Text(
             text = text,
-            style = AppTypography.getType().bodySmall.copy(
+            style = MaterialTheme.typography.bodySmall.copy(
                 color = hintColor,
                 fontSize = 11.sp
             ),

@@ -254,7 +254,7 @@ fun DieselSectionItem(
                             contentColor = MaterialTheme.colorScheme.secondary
                         ),
                         elevation = ButtonDefaults.elevatedButtonElevation(
-                            defaultElevation = 3.dp,
+                            defaultElevation = 2.dp,
                             pressedElevation = 0.dp
                         ),
                         onClick = {
@@ -356,7 +356,7 @@ fun DieselSectionItem(
                             contentColor = MaterialTheme.colorScheme.secondary
                         ),
                         elevation = ButtonDefaults.elevatedButtonElevation(
-                            defaultElevation = 3.dp,
+                            defaultElevation = 2.dp,
                             pressedElevation = 0.dp
                         ),
                         onClick = {
