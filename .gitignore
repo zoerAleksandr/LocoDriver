@@ -15,3 +15,8 @@
 local.properties
 secret.properties
 .kotlin
+*.dex
+*.class
+buildSrc/build/
+robokassa_sdk/build/
+.claude/worktrees/

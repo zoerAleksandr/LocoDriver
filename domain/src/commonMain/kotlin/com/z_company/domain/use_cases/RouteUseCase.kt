@@ -5,6 +5,7 @@ import com.z_company.core.ResultState
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.route.Photo
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.UtilsForEntities.fullRest
 import com.z_company.domain.entities.route.UtilsForEntities.shortRest
 import com.z_company.domain.repositories.RouteRepository
@@ -117,7 +118,44 @@ class RouteUseCase(private val repository: RouteRepository) {
     }
 
     fun saveRouteAfterLoading(route: Route): Flow<ResultState<Unit>> {
-        return repository.saveRoute(route)
+        // Очистка данных после загрузки из облака
+        val cleanedRoute = route.copy(
+            trains = route.trains.map { train ->
+                train.copy(
+                    stations = sortStations(
+                        train.stations.map { station ->
+                            station.copy(
+                                // Python-сервер конвертирует null → "None"
+                                stationName = if (station.stationName == "None") null else station.stationName
+                            )
+                        }
+                    ).toMutableList()
+                )
+            }.toMutableList()
+        )
+        return repository.saveRoute(cleanedRoute)
+    }
+
+    /**
+     * Восстанавливает порядок станций после загрузки из облака.
+     * Приоритет: orderIndex (если хотя бы у одной станции != 0),
+     * иначе — по времени (отправление, затем прибытие).
+     * Станции без времени сохраняют относительный порядок.
+     */
+    private fun sortStations(stations: List<Station>): List<Station> {
+        if (stations.size <= 1) return stations
+
+        val hasOrderIndex = stations.any { it.orderIndex != 0 }
+        if (hasOrderIndex) {
+            return stations.sortedBy { it.orderIndex }
+        }
+
+        // Сортируем по времени: берём самое раннее время каждой станции
+        val withTime = stations.filter { it.timeDeparture != null || it.timeArrival != null }
+        val withoutTime = stations.filter { it.timeDeparture == null && it.timeArrival == null }
+
+        val sorted = withTime.sortedBy { it.timeDeparture ?: it.timeArrival ?: Long.MAX_VALUE }
+        return sorted + withoutTime
     }
 
     fun setSynchronizedRoute(basicId: String): Flow<ResultState<Unit>> {

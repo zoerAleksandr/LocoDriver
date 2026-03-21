@@ -32,11 +32,13 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import com.z_company.route.component.StationDropdownMenu
 import com.z_company.core.ui.theme.Shapes
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -386,27 +388,26 @@ fun FormPassengerScreen(
                     item {
                         val focusRequester = remember { FocusRequester() }
 
+                        var stationName by remember {
+                            mutableStateOf(
+                                TextFieldValue(
+                                    text = passenger.stationDeparture ?: "",
+                                    selection = TextRange(
+                                        passenger.stationDeparture?.length ?: 0
+                                    )
+                                )
+                            )
+                        }
+
                         ExposedDropdownMenuBox(
-                            modifier = Modifier
-                                .fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth(),
                             expanded = isExpandedMenuDepartureStation,
                             onExpandedChange = { changeExpandMenuDepartureStation(it) }
                         ) {
-                            var stationName by remember {
-                                mutableStateOf(
-                                    TextFieldValue(
-                                        text = passenger.stationDeparture ?: "",
-                                        selection = TextRange(
-                                            passenger.stationDeparture?.length ?: 0
-                                        )
-                                    )
-                                )
-                            }
-
                             OutlinedTextFieldApp(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .menuAnchor()
+                                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true)
                                     .focusRequester(focusRequester),
                                 value = stationName,
                                 onValueChange = {
@@ -437,53 +438,22 @@ fun FormPassengerScreen(
                                 ),
                                 singleLine = true,
                             )
-                            if (dropDownMenuList.isNotEmpty()) {
-                                DropdownMenu(
-                                    modifier = Modifier
-                                        .background(
-                                            color = MaterialTheme.colorScheme.surface,
-                                            shape = Shapes.medium
-                                        )
-                                        .exposedDropdownSize(true),
-                                    expanded = isExpandedMenuDepartureStation,
-                                    properties = PopupProperties(focusable = false),
-                                    onDismissRequest = { changeExpandMenuDepartureStation(false) }
-                                ) {
-                                    dropDownMenuList.forEach { selectionStation ->
-                                        DropdownMenuItem(
-                                            modifier = Modifier
-                                                .fillMaxWidth(),
-                                            text = {
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.SpaceBetween
-                                                ) {
-                                                    Text(
-                                                        text = selectionStation,
-                                                        style = dataTextStyle,
-                                                        color = primaryColor
-                                                    )
-                                                    Icon(
-                                                        modifier = Modifier.clickable {
-                                                            onDeleteStationName(selectionStation)
-                                                        },
-                                                        painter = painterResource(R.drawable.ic_clear),
-                                                        contentDescription = null
-                                                    )
-                                                }
 
-                                            },
-                                            onClick = {
-                                                onStationDepartureChanged(selectionStation)
-                                                changeExpandMenuDepartureStation(false)
-                                                stationName = stationName.copy(
-                                                    text = selectionStation,
-                                                    selection = TextRange(selectionStation.length)
-                                                )
-                                            })
-                                    }
-                                }
-                            }
+                            StationDropdownMenu(
+                                expanded = isExpandedMenuDepartureStation,
+                                stations = dropDownMenuList,
+                                onSelect = { selectionStation ->
+                                    onStationDepartureChanged(selectionStation)
+                                    changeExpandMenuDepartureStation(false)
+                                    stationName = stationName.copy(
+                                        text = selectionStation,
+                                        selection = TextRange(selectionStation.length)
+                                    )
+                                },
+                                onDelete = onDeleteStationName,
+                                onDismiss = { changeExpandMenuDepartureStation(false) },
+                                textStyle = dataTextStyle
+                            )
                         }
                     }
 
@@ -573,24 +543,23 @@ fun FormPassengerScreen(
                     item {
                         val focusRequester = remember { FocusRequester() }
 
+                        var stationName by remember {
+                            mutableStateOf(
+                                TextFieldValue(
+                                    text = passenger.stationArrival ?: "",
+                                    selection = TextRange(passenger.stationArrival?.length ?: 0)
+                                )
+                            )
+                        }
+
                         ExposedDropdownMenuBox(
-                            modifier = Modifier
-                                .fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth(),
                             expanded = isExpandedMenuArrivalStation,
                             onExpandedChange = { changeExpandMenuArrivalStation(it) }
                         ) {
-                            var stationName by remember {
-                                mutableStateOf(
-                                    TextFieldValue(
-                                        text = passenger.stationArrival ?: "",
-                                        selection = TextRange(passenger.stationArrival?.length ?: 0)
-                                    )
-                                )
-                            }
-
                             OutlinedTextFieldApp(
                                 modifier = Modifier
-                                    .menuAnchor()
+                                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true)
                                     .focusRequester(focusRequester)
                                     .fillMaxWidth(),
                                 value = stationName,
@@ -615,53 +584,22 @@ fun FormPassengerScreen(
                                 ),
                                 singleLine = true,
                             )
-                            if (dropDownMenuList.isNotEmpty()) {
-                                DropdownMenu(
-                                    modifier = Modifier
-                                        .background(
-                                            color = MaterialTheme.colorScheme.surface,
-                                            shape = Shapes.medium
-                                        )
-                                        .exposedDropdownSize(true),
-                                    expanded = isExpandedMenuArrivalStation,
-                                    properties = PopupProperties(focusable = false),
-                                    onDismissRequest = { changeExpandMenuArrivalStation(false) }
-                                ) {
-                                    dropDownMenuList.forEach { selectionStation ->
-                                        DropdownMenuItem(
-                                            modifier = Modifier
-                                                .fillMaxWidth(),
-                                            text = {
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.SpaceBetween
-                                                ) {
-                                                    Text(
-                                                        text = selectionStation,
-                                                        style = dataTextStyle,
-                                                        color = primaryColor
-                                                    )
-                                                    Icon(
-                                                        modifier = Modifier.clickable {
-                                                            onDeleteStationName(selectionStation)
-                                                        },
-                                                        painter = painterResource(R.drawable.ic_clear),
-                                                        contentDescription = null
-                                                    )
-                                                }
 
-                                            },
-                                            onClick = {
-                                                onStationArrivalChanged(selectionStation)
-                                                changeExpandMenuArrivalStation(false)
-                                                stationName = stationName.copy(
-                                                    text = selectionStation,
-                                                    selection = TextRange(selectionStation.length)
-                                                )
-                                            })
-                                    }
-                                }
-                            }
+                            StationDropdownMenu(
+                                expanded = isExpandedMenuArrivalStation,
+                                stations = dropDownMenuList,
+                                onSelect = { selectionStation ->
+                                    onStationArrivalChanged(selectionStation)
+                                    changeExpandMenuArrivalStation(false)
+                                    stationName = stationName.copy(
+                                        text = selectionStation,
+                                        selection = TextRange(selectionStation.length)
+                                    )
+                                },
+                                onDelete = onDeleteStationName,
+                                onDismiss = { changeExpandMenuArrivalStation(false) },
+                                textStyle = dataTextStyle
+                            )
                         }
                     }
 

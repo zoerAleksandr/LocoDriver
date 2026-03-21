@@ -42,5 +42,6 @@ data class Station(
     @SerialName("name")
     var stationName: String? = null,
     var timeArrival: Long? = null,
-    var timeDeparture: Long? = null
+    var timeDeparture: Long? = null,
+    var orderIndex: Int = 0
 )

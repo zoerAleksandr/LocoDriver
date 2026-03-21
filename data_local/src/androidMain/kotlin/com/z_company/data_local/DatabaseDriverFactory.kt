@@ -14,33 +14,33 @@ import com.z_company.data_local.setting.salarydb.SalarySettingDatabase
 
 actual class DatabaseDriverFactory(private val context: Context) {
     actual fun createRouteDriver(): SqlDriver {
-        fixVersionIfColumnsExist("Route.db", RouteDatabase.Schema.version.toInt(),
-            "BasicData" to "timeStartBreak",
-            "Locomotive" to "auxiliaryCounterAccepted")
+        migrateRouteDbIfNeeded()
         return createDriver(RouteDatabase.Schema, "Route.db")
     }
 
     actual fun createSettingsDriver(): SqlDriver {
         fixVersionIfColumnsExist("Settings.db", SettingsDatabase.Schema.version.toInt(),
-            "UserSettings" to "isShowBreak",
-            "UserSettings" to "isShowLocoHeating")
+            "UserSettings" to "isShowBreak")
         return createDriver(SettingsDatabase.Schema, "Settings.db")
     }
 
-    actual fun createSalarySettingDriver(): SqlDriver =
-        createDriver(SalarySettingDatabase.Schema, "SalarySetting.db")
+    actual fun createSalarySettingDriver(): SqlDriver {
+        fixVersionIfColumnsExist("SalarySetting.db", SalarySettingDatabase.Schema.version.toInt(),
+            "SalarySetting" to "surchargeLongTrainsList")
+        return createDriver(SalarySettingDatabase.Schema, "SalarySetting.db")
+    }
 
     actual fun createSearchResponseDriver(): SqlDriver =
         createDriver(SearchResponseDatabase.Schema, "SearchResponse.db")
 
     /**
-     * После даунгрейда (v4→v3) onDowngrade не удаляет столбцы —
-     * SQLite не поддерживает DROP COLUMN на старых API.
-     * Версия БД понижается, но столбцы остаются.
-     * При повторном апгрейде ALTER TABLE ADD COLUMN падает с "duplicate column".
+     * Перед созданием драйвера гарантируем, что все нужные столбцы существуют
+     * и версия БД соответствует SQLDelight-схеме.
      *
-     * Фикс: перед созданием драйвера проверяем — если столбец уже существует,
-     * а версия ниже целевой, выставляем целевую версию, чтобы миграция не запускалась.
+     * Покрывает все сценарии:
+     * - Room → SQLDelight (любая Room-версия): добавляет недостающие столбцы
+     * - SQLDelight → SQLDelight (повторный апгрейд после даунгрейда): пропускает существующие
+     * - Свежая установка (файла нет): ничего не делает
      */
     private fun fixVersionIfColumnsExist(
         dbName: String,
@@ -52,15 +52,50 @@ actual class DatabaseDriverFactory(private val context: Context) {
 
         val db = SQLiteDatabase.openDatabase(dbFile.path, null, SQLiteDatabase.OPEN_READWRITE)
         try {
-            if (db.version in 1..<targetVersion) {
-                val allExist = checks.all { (table, column) -> hasColumn(db, table, column) }
-                if (allExist) {
-                    db.version = targetVersion
+            // Добавляем недостающие столбцы (безопасно — если уже есть, пропускаем)
+            for ((table, column) in checks) {
+                if (!hasColumn(db, table, column)) {
+                    val spec = COLUMN_SPECS["$table.$column"]
+                        ?: ColumnSpec("INTEGER", true, "NULL")
+                    val notNull = if (spec.nullable) "" else " NOT NULL"
+                    db.execSQL(
+                        "ALTER TABLE $table ADD COLUMN $column ${spec.type}$notNull DEFAULT ${spec.defaultValue}"
+                    )
                 }
+            }
+            // Выставляем целевую версию, чтобы SQLDelight-миграции не падали
+            if (db.version != targetVersion) {
+                db.version = targetVersion
             }
         } finally {
             db.close()
         }
+    }
+
+    private data class ColumnSpec(
+        val type: String,
+        val nullable: Boolean,
+        val defaultValue: String
+    )
+
+    companion object {
+        private val COLUMN_SPECS = mapOf(
+            // Settings
+            "UserSettings.isShowBreak" to ColumnSpec("INTEGER", false, "1"),
+            // Route — BasicData
+            "BasicData.timeStartBreak" to ColumnSpec("INTEGER", true, "NULL"),
+            "BasicData.timeEndBreak" to ColumnSpec("INTEGER", true, "NULL"),
+            // Route — Locomotive
+            "Locomotive.auxiliaryCounterAccepted" to ColumnSpec("TEXT", true, "NULL"),
+            "Locomotive.auxiliaryCounterDelivery" to ColumnSpec("TEXT", true, "NULL"),
+            // Route — Train
+            "Train.additionalNumbers" to ColumnSpec("TEXT", true, "NULL"),
+            "Train.pusher" to ColumnSpec("TEXT", true, "NULL"),
+            "Train.doubleTraction" to ColumnSpec("TEXT", true, "NULL"),
+            "Train.doubledTrain" to ColumnSpec("TEXT", true, "NULL"),
+            // SalarySetting
+            "SalarySetting.surchargeLongTrainsList" to ColumnSpec("TEXT", false, "'[]'")
+        )
     }
 
     private fun hasColumn(db: SQLiteDatabase, table: String, column: String): Boolean {
@@ -76,6 +111,9 @@ actual class DatabaseDriverFactory(private val context: Context) {
         }
     }
 
+    /**
+     * Общий драйвер — при даунгрейде просто пропускает (лишние столбцы безвредны).
+     */
     private fun createDriver(
         schema: SqlSchema<QueryResult.Value<Unit>>,
         name: String
@@ -85,13 +123,27 @@ actual class DatabaseDriverFactory(private val context: Context) {
         name = name,
         callback = object : AndroidSqliteDriver.Callback(schema) {
             override fun onDowngrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {
-                if (oldVersion < 14) {
-                    // SQLDelight → SQLDelight даунгрейд (например v4→v3).
-                    // Лишние столбцы (timeStartBreak и т.д.) безвредны — SQLite их игнорирует.
-                    return
-                }
-                // Room использовал version 14+, SQLDelight начинает с version 1-3.
-                // Пересоздаём таблицы Train (без remoteObjectId) и Locomotive (nullable removeObjectId).
+                // Все миграции выполнены в fix*IfNeeded — просто пропускаем.
+            }
+        }
+    )
+
+    /**
+     * Route.db: пересоздаёт Train и Locomotive при миграции с Room (v14+),
+     * добавляет недостающие столбцы, выставляет целевую версию.
+     */
+    private fun migrateRouteDbIfNeeded() {
+        val dbFile = context.getDatabasePath("Route.db")
+        if (!dbFile.exists()) return
+
+        val targetVersion = RouteDatabase.Schema.version.toInt()
+        val db = SQLiteDatabase.openDatabase(dbFile.path, null, SQLiteDatabase.OPEN_READWRITE)
+        try {
+            // Room → SQLDelight: пересоздаём таблицы с несовместимой схемой
+            val needsTrainRecreate = hasColumn(db, "Train", "remoteObjectId")
+            val needsLocoRecreate = hasColumn(db, "Locomotive", "removeObjectId")
+
+            if (needsTrainRecreate) {
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS Train_new (
                         trainId TEXT NOT NULL PRIMARY KEY,
@@ -113,18 +165,19 @@ actual class DatabaseDriverFactory(private val context: Context) {
                 """.trimIndent())
                 db.execSQL("""
                     INSERT INTO Train_new (trainId, basicId, number, additionalNumbers, distance, weight, axle, conditionalLength, isHeavyLongDistance, stations, servicePhase, pusher, doubleTraction, doubledTrain)
-                    SELECT trainId, basicId, number, additionalNumbers, distance, weight, axle, conditionalLength, isHeavyLongDistance, stations, servicePhase, pusher, doubleTraction, doubledTrain
+                    SELECT trainId, basicId, number, CASE WHEN additionalNumbers IS NULL THEN NULL ELSE additionalNumbers END, distance, weight, axle, conditionalLength, isHeavyLongDistance, stations, CASE WHEN servicePhase IS NULL THEN NULL ELSE servicePhase END, CASE WHEN pusher IS NULL THEN NULL ELSE pusher END, CASE WHEN doubleTraction IS NULL THEN NULL ELSE doubleTraction END, CASE WHEN doubledTrain IS NULL THEN NULL ELSE doubledTrain END
                     FROM Train
                 """.trimIndent())
                 db.execSQL("DROP TABLE Train")
                 db.execSQL("ALTER TABLE Train_new RENAME TO Train")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_Train_basicId ON Train(basicId)")
+            }
 
+            if (needsLocoRecreate) {
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS Locomotive_new (
                         locoId TEXT NOT NULL PRIMARY KEY,
                         basicId TEXT NOT NULL,
-                        removeObjectId TEXT DEFAULT NULL,
                         series TEXT,
                         number TEXT,
                         type INTEGER NOT NULL,
@@ -139,18 +192,48 @@ actual class DatabaseDriverFactory(private val context: Context) {
                         normaDiesel TEXT DEFAULT NULL,
                         heatingCounterAccepted TEXT DEFAULT NULL,
                         heatingCounterDelivery TEXT DEFAULT NULL,
+                        auxiliaryCounterAccepted TEXT DEFAULT NULL,
+                        auxiliaryCounterDelivery TEXT DEFAULT NULL,
                         FOREIGN KEY (basicId) REFERENCES BasicData(id) ON DELETE CASCADE ON UPDATE CASCADE
                     )
                 """.trimIndent())
                 db.execSQL("""
-                    INSERT INTO Locomotive_new (locoId, basicId, removeObjectId, series, number, type, electricSectionList, dieselSectionList, timeStartOfAcceptance, timeEndOfAcceptance, timeStartOfDelivery, timeEndOfDelivery, normaElectricCurrent1, normaElectricCurrent2, normaDiesel, heatingCounterAccepted, heatingCounterDelivery)
-                    SELECT locoId, basicId, CASE WHEN removeObjectId = '' THEN NULL ELSE removeObjectId END, series, number, type, electricSectionList, dieselSectionList, timeStartOfAcceptance, timeEndOfAcceptance, timeStartOfDelivery, timeEndOfDelivery, normaElectricCurrent1, normaElectricCurrent2, normaDiesel, heatingCounterAccepted, heatingCounterDelivery
+                    INSERT INTO Locomotive_new (locoId, basicId, series, number, type, electricSectionList, dieselSectionList, timeStartOfAcceptance, timeEndOfAcceptance, timeStartOfDelivery, timeEndOfDelivery, normaElectricCurrent1, normaElectricCurrent2, normaDiesel, heatingCounterAccepted, heatingCounterDelivery)
+                    SELECT locoId, basicId, series, number, type, electricSectionList, dieselSectionList, timeStartOfAcceptance, timeEndOfAcceptance, timeStartOfDelivery, timeEndOfDelivery, normaElectricCurrent1, normaElectricCurrent2, normaDiesel, heatingCounterAccepted, heatingCounterDelivery
                     FROM Locomotive
                 """.trimIndent())
                 db.execSQL("DROP TABLE Locomotive")
                 db.execSQL("ALTER TABLE Locomotive_new RENAME TO Locomotive")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_Locomotive_basicId ON Locomotive(basicId)")
             }
+
+            // Добавляем недостающие столбцы (для случаев когда таблицы не пересоздавались)
+            val routeChecks = arrayOf(
+                "BasicData" to "timeStartBreak",
+                "BasicData" to "timeEndBreak",
+                "Locomotive" to "auxiliaryCounterAccepted",
+                "Locomotive" to "auxiliaryCounterDelivery",
+                "Train" to "additionalNumbers",
+                "Train" to "pusher",
+                "Train" to "doubleTraction",
+                "Train" to "doubledTrain"
+            )
+            for ((table, column) in routeChecks) {
+                if (!hasColumn(db, table, column)) {
+                    val spec = COLUMN_SPECS["$table.$column"]
+                        ?: ColumnSpec("INTEGER", true, "NULL")
+                    val notNull = if (spec.nullable) "" else " NOT NULL"
+                    db.execSQL(
+                        "ALTER TABLE $table ADD COLUMN $column ${spec.type}$notNull DEFAULT ${spec.defaultValue}"
+                    )
+                }
+            }
+
+            if (db.version != targetVersion) {
+                db.version = targetVersion
+            }
+        } finally {
+            db.close()
         }
-    )
+    }
 }

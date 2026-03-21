@@ -37,6 +37,8 @@ fun SettingDestination(
         changeShowLocoHeating = settingsViewModel::changeShowLocoHeating,
         changeShowLocoAuxiliary = settingsViewModel::changeShowLocoAuxiliary,
         changeShowLocoStatistics = settingsViewModel::changeShowLocoStatistics,
+        changeShowLocoNorma = settingsViewModel::changeShowLocoNorma,
+        changeShowOtherCurrent = settingsViewModel::changeShowOtherCurrent,
         timeZoneRussiaList = settingsViewModel.timeZoneList,
         setTimeZone = settingsViewModel::setTimeZone,
         servicePhases = uiState.servicePhases,

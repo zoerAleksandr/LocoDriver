@@ -62,10 +62,7 @@ internal object SettingsMapper {
         standardTimesStartWork = decodeLongList(row.standardTimesStartWork),
         subscriptionPeriod = row.subscriptionPeriod,
         isDecimalTime = row.isDecimalTime != 0L,
-        isShowBreak = row.isShowBreak != 0L,
-        isShowLocoHeating = row.isShowLocoHeating != 0L,
-        isShowLocoAuxiliary = row.isShowLocoAuxiliary != 0L,
-        isShowLocoStatistics = row.isShowLocoStatistics != 0L
+        isShowBreak = row.isShowBreak != 0L
     )
 }
 

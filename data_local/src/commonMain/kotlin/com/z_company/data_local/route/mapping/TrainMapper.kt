@@ -23,21 +23,32 @@ private data class StationRow(
     @SerialName("stationName") val stationNameGson: String? = null,
     @SerialName("name") val stationNameNew: String? = null,
     val timeArrival: Long? = null,
-    val timeDeparture: Long? = null
+    val timeDeparture: Long? = null,
+    val orderIndex: Int = 0
 ) {
-    fun toStation(): Station = Station(
-        stationId = stationId,
-        trainId = trainId,
-        stationName = stationNameGson ?: stationNameNew,
-        timeArrival = timeArrival,
-        timeDeparture = timeDeparture
-    )
+    fun toStation(): Station {
+        val rawName = stationNameGson ?: stationNameNew
+        // Сервер (Python) конвертирует null → "None" — убираем
+        val cleanName = if (rawName == "None") null else rawName
+        return Station(
+            stationId = stationId,
+            trainId = trainId,
+            stationName = cleanName,
+            timeArrival = timeArrival,
+            timeDeparture = timeDeparture,
+            orderIndex = orderIndex
+        )
+    }
 }
 
 internal object TrainMapper {
 
-    fun encodeStations(stations: List<Station>): String =
-        json.encodeToString(stations)
+    fun encodeStations(stations: List<Station>): String {
+        val indexed = stations.mapIndexed { index, station ->
+            station.copy(orderIndex = index)
+        }
+        return json.encodeToString(indexed)
+    }
 
     fun encodeServicePhase(phase: ServicePhase?): String? =
         phase?.let { json.encodeToString(it) }
@@ -50,7 +61,10 @@ internal object TrainMapper {
 
     private fun decodeStations(value: String): MutableList<Station> =
         runCatching {
-            json.decodeFromString<List<StationRow>>(value).map { it.toStation() }.toMutableList()
+            json.decodeFromString<List<StationRow>>(value)
+                .map { it.toStation() }
+                .sortedBy { it.orderIndex }
+                .toMutableList()
         }.getOrElse { e ->
             println("TrainMapper: Failed to decode stations: ${e.message}, raw=$value")
             mutableListOf()

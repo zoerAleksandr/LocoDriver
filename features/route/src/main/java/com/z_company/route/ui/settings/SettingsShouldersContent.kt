@@ -59,6 +59,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
+import com.z_company.route.component.StationDropdownMenu
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.domain.util.toIntOrZero
@@ -78,8 +79,9 @@ fun SettingsShouldersContent(
     showDialogAddServicePhase: (ServicePhase) -> Unit,
     hideDialogAddServicePhase: () -> Unit,
     addServicePhase: (ServicePhase, Int) -> Unit,
-    deleteServicePhase: (Int) -> Unit,
+    deleteServicePhase: (ServicePhase) -> Unit,
     updateServicePhase: (ServicePhase, Int) -> Unit,
+    onDeleteStationName: (String) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val styleData = MaterialTheme.typography.bodyLarge
@@ -186,44 +188,20 @@ fun SettingsShouldersContent(
                         colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surface
                     )
 
-                    if (filteredDepartureStations.isNotEmpty() && isDepartureDropdownExpanded) {
-                        DropdownMenu(
-                            modifier = Modifier
-                                .background(
-                                    color = MaterialTheme.colorScheme.surface,
-                                    shape = Shapes.medium
-                                )
-                                .exposedDropdownSize(true),
-                            expanded = isDepartureDropdownExpanded,
-                            properties = PopupProperties(focusable = false),
-                            onDismissRequest = { isDepartureDropdownExpanded = false }
-                        ) {
-                            filteredDepartureStations.forEach { station ->
-                                DropdownMenuItem(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(
-                                            color = MaterialTheme.colorScheme.surface,
-                                            shape = Shapes.medium
-                                        ),
-                                    text = {
-                                        Text(
-                                            text = station,
-                                            style = styleData,
-                                            color = primaryColor
-                                        )
-                                    },
-                                    onClick = {
-                                        departureStation = TextFieldValue(
-                                            text = station,
-                                            selection = TextRange(station.length)
-                                        )
-                                        isDepartureDropdownExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
+                    StationDropdownMenu(
+                        expanded = isDepartureDropdownExpanded,
+                        stations = filteredDepartureStations,
+                        onSelect = { station ->
+                            departureStation = TextFieldValue(
+                                text = station,
+                                selection = TextRange(station.length)
+                            )
+                            isDepartureDropdownExpanded = false
+                        },
+                        onDelete = onDeleteStationName,
+                        onDismiss = { isDepartureDropdownExpanded = false },
+                        textStyle = styleData
+                    )
                 }
 
                 // Arrival station with dropdown
@@ -258,44 +236,20 @@ fun SettingsShouldersContent(
                         colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surface
                     )
 
-                    if (filteredArrivalStations.isNotEmpty() && isArrivalDropdownExpanded) {
-                        DropdownMenu(
-                            modifier = Modifier
-                                .background(
-                                    color = MaterialTheme.colorScheme.surface,
-                                    shape = Shapes.medium
-                                )
-                                .exposedDropdownSize(true),
-                            expanded = isArrivalDropdownExpanded,
-                            properties = PopupProperties(focusable = false),
-                            onDismissRequest = { isArrivalDropdownExpanded = false }
-                        ) {
-                            filteredArrivalStations.forEach { station ->
-                                DropdownMenuItem(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(
-                                            color = MaterialTheme.colorScheme.surface,
-                                            shape = Shapes.medium
-                                        ),
-                                    text = {
-                                        Text(
-                                            text = station,
-                                            style = styleData,
-                                            color = primaryColor
-                                        )
-                                    },
-                                    onClick = {
-                                        arrivalStation = TextFieldValue(
-                                            text = station,
-                                            selection = TextRange(station.length)
-                                        )
-                                        isArrivalDropdownExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
+                    StationDropdownMenu(
+                        expanded = isArrivalDropdownExpanded,
+                        stations = filteredArrivalStations,
+                        onSelect = { station ->
+                            arrivalStation = TextFieldValue(
+                                text = station,
+                                selection = TextRange(station.length)
+                            )
+                            isArrivalDropdownExpanded = false
+                        },
+                        onDelete = onDeleteStationName,
+                        onDismiss = { isArrivalDropdownExpanded = false },
+                        textStyle = styleData
+                    )
                 }
 
                 OutlinedTextFieldApp(
@@ -390,17 +344,17 @@ fun SettingsShouldersContent(
 
     if (pendingDeleteItem != null) {
         val deleteSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        val capturedIndex = pendingDeleteIndex
+        val capturedItem = pendingDeleteItem!!
         AppBottomSheet(
             onDismissRequest = {
                 pendingDeleteIndex = -1
                 pendingDeleteItem = null
             },
             sheetState = deleteSheetState,
-            title = "Удалить плечо?\n${pendingDeleteItem!!.departureStation} — ${pendingDeleteItem!!.arrivalStation}",
+            title = "Удалить плечо?\n${capturedItem.departureStation} — ${capturedItem.arrivalStation}",
             actions = listOf(
                 BottomSheetAction(text = "Да, удалить") {
-                    deleteServicePhase(capturedIndex)
+                    deleteServicePhase(capturedItem)
                     pendingDeleteIndex = -1
                     pendingDeleteItem = null
                 }

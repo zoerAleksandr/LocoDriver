@@ -40,8 +40,21 @@ interface SharedPreferencesRepositories {
     fun setLocoSectionAuxiliaryExpanded(value: Boolean)
     fun isLocoSectionStatisticsExpanded(): Boolean
     fun setLocoSectionStatisticsExpanded(value: Boolean)
+    fun isLocoSectionNormaExpanded(): Boolean
+    fun setLocoSectionNormaExpanded(value: Boolean)
     fun isPassenger12hDontAskAgain(): Boolean
     fun setPassenger12hDontAskAgain(value: Boolean)
     fun isPassenger12hAutoAccepted(): Boolean
     fun setPassenger12hAutoAccepted(value: Boolean)
+
+    fun isShowLocoHeating(): Boolean
+    fun setShowLocoHeating(value: Boolean)
+    fun isShowLocoAuxiliary(): Boolean
+    fun setShowLocoAuxiliary(value: Boolean)
+    fun isShowLocoStatistics(): Boolean
+    fun setShowLocoStatistics(value: Boolean)
+    fun isShowLocoNorma(): Boolean
+    fun setShowLocoNorma(value: Boolean)
+    fun isShowOtherCurrent(): Boolean
+    fun setShowOtherCurrent(value: Boolean)
 }

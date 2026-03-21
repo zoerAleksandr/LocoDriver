@@ -23,34 +23,29 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material3.Switch
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.z_company.route.component.StationDropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -65,7 +60,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
@@ -155,11 +149,11 @@ fun FormLocoScreen(
     onChangedContentMenu: (String) -> Unit,
     onDeleteSeries: (String) -> Unit,
     dateAndTimeConverter: DateAndTimeConverter?,
-    userSettings: UserSettings? = null
+    userSettings: UserSettings? = null,
+    onSettingsClick: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
-    var showSettingBottomSheet by remember { mutableStateOf(false) }
 
     val noValueColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
 
@@ -213,7 +207,7 @@ fun FormLocoScreen(
                 },
                 actions = {
                     IconButton(
-                        onClick = { showSettingBottomSheet = !showSettingBottomSheet }
+                        onClick = onSettingsClick
                     ) {
                         Icon(
                             painter = painterResource(R.drawable.settings_24px),
@@ -387,201 +381,6 @@ fun FormLocoScreen(
                     )
                 }
 
-                if (showSettingBottomSheet) {
-                    ModalBottomSheet(
-                        onDismissRequest = { showSettingBottomSheet = false },
-                        sheetState = sheetState,
-                        containerColor = MaterialTheme.colorScheme.background,
-                        dragHandle = {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 12.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .width(40.dp)
-                                        .height(4.dp)
-                                        .clip(RoundedCornerShape(2.dp))
-                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
-                                )
-                            }
-                        }
-                    ) {
-                        val switchColors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f),
-                            checkedThumbColor = MaterialTheme.colorScheme.tertiary,
-                            uncheckedTrackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
-                            uncheckedThumbColor = MaterialTheme.colorScheme.surface
-                        )
-
-                        LazyColumn(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            item { Spacer(modifier = Modifier.height(16.dp)) }
-                            item {
-                                Text(
-                                    text = "Настройки",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            item { Spacer(modifier = Modifier.height(20.dp)) }
-                            item {
-                                Text(
-                                    text = "Норма на поездку",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            if (locomotive.type == LocoType.ELECTRIC) {
-                                item {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                    ) {
-                                        var norma1 =
-                                            locomotive.normaElectricCurrent1?.takeIf { it != 0 }
-                                                ?.toString() ?: ""
-                                        val norma2 =
-                                            locomotive.normaElectricCurrent2?.takeIf { it != 0 }
-                                                ?.toString() ?: ""
-
-                                        OutlinedTextFieldApp(
-                                            modifier = Modifier.weight(1f),
-                                            value = norma1,
-                                            placeholder = {
-                                                Text(
-                                                    text = "Ток 1",
-                                                    style = LocalTextStyle.current.copy(
-                                                        fontWeight = FontWeight.Light
-                                                    ),
-                                                    color = noValueColor
-                                                )
-                                            },
-                                            textStyle = dataTextStyle,
-                                            onValueChange = { viewModel.setNormaElectricCurrent1(it) },
-                                            borderColor = MaterialTheme.colorScheme.primary,
-                                            keyboardOptions = KeyboardOptions(
-                                                keyboardType = KeyboardType.Decimal,
-                                                imeAction = ImeAction.Done
-                                            ),
-                                            singleLine = true
-                                        )
-
-                                        Row(modifier = Modifier.weight(1f)) {
-                                            AnimatedVisibility(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                visible = formUiState.isShowOtherCurrent
-                                            ) {
-                                                OutlinedTextFieldApp(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    value = norma2,
-                                                    placeholder = {
-                                                        Text(
-                                                            text = "Ток 2",
-                                                            style = LocalTextStyle.current.copy(
-                                                                fontWeight = FontWeight.Light
-                                                            ),
-                                                            color = noValueColor
-                                                        )
-                                                    },
-                                                    textStyle = dataTextStyle,
-                                                    onValueChange = {
-                                                        viewModel.setNormaElectricCurrent2(
-                                                            it
-                                                        )
-                                                    },
-                                                    borderColor = MaterialTheme.colorScheme.primary,
-                                                    keyboardOptions = KeyboardOptions(
-                                                        keyboardType = KeyboardType.Decimal,
-                                                        imeAction = ImeAction.Done
-                                                    ),
-                                                    singleLine = true
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                                item {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            modifier = Modifier.weight(1f),
-                                            text = "Смена рода тока",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            overflow = TextOverflow.Visible,
-                                            maxLines = 2
-                                        )
-                                        Switch(
-                                            checked = formUiState.isShowOtherCurrent,
-                                            onCheckedChange = { viewModel.showOtherCurrent(it) },
-                                            colors = switchColors
-                                        )
-                                    }
-                                }
-                            } else {
-                                item {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                    ) {
-                                        var norma = locomotive.normaDiesel ?: ""
-                                        OutlinedTextFieldApp(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            value = norma,
-                                            textStyle = dataTextStyle,
-                                            suffix = {
-                                                Text(
-                                                    text = "Кг.",
-                                                    style = MaterialTheme.typography.bodyMedium
-                                                )
-                                            },
-                                            onValueChange = { viewModel.setNormaDiesel(it) },
-                                            borderColor = MaterialTheme.colorScheme.primary,
-                                            keyboardOptions = KeyboardOptions(
-                                                keyboardType = KeyboardType.Decimal,
-                                                imeAction = ImeAction.Done
-                                            ),
-                                            singleLine = true
-                                        )
-                                    }
-                                }
-                            }
-                            item { Spacer(modifier = Modifier.height(20.dp)) }
-                            item {
-                                Button(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = Shapes.medium,
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                                        contentColor = MaterialTheme.colorScheme.secondary
-                                    ),
-                                    elevation = ButtonDefaults.elevatedButtonElevation(
-                                        defaultElevation = 3.dp,
-                                        pressedElevation = 0.dp
-                                    ),
-                                    onClick = { scope.launch { showSettingBottomSheet = false } }
-                                ) {
-                                    Text(
-                                        text = "Готово",
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                }
-                            }
-                            item { Spacer(modifier = Modifier.height(20.dp)) }
-                        }
-                    }
-                }
-
                 LazyColumn(
                     state = scrollState,
                     horizontalAlignment = Alignment.End,
@@ -651,6 +450,15 @@ fun FormLocoScreen(
                     }
 
                     item {
+                        var seriesName by remember {
+                            mutableStateOf(
+                                TextFieldValue(
+                                    text = locomotive.series ?: "",
+                                    selection = TextRange(locomotive.series?.length ?: 0)
+                                )
+                            )
+                        }
+
                         Row(
                             modifier = Modifier
                                 .padding(horizontal = 16.dp)
@@ -658,25 +466,16 @@ fun FormLocoScreen(
                                 .fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            ExposedDropdownMenuBox(
-                                modifier = Modifier
-                                    .weight(1f),
-                                expanded = isExpandedMenu,
-                                onExpandedChange = onExpandedMenuChange
-                            ) {
-                                var seriesName by remember {
-                                    mutableStateOf(
-                                        TextFieldValue(
-                                            text = locomotive.series ?: "",
-                                            selection = TextRange(locomotive.series?.length ?: 0)
-                                        )
-                                    )
-                                }
 
+                            ExposedDropdownMenuBox(
+                                modifier = Modifier.weight(1f),
+                                expanded = isExpandedMenu,
+                                onExpandedChange = { onExpandedMenuChange(it) }
+                            ) {
                                 OutlinedTextFieldApp(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .menuAnchor(),
+                                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true),
                                     value = seriesName,
                                     onValueChange = {
                                         seriesName = it
@@ -703,58 +502,21 @@ fun FormLocoScreen(
                                     singleLine = true
                                 )
 
-                                if (dropDownSeriesMenuList.isNotEmpty()) {
-                                    DropdownMenu(
-                                        modifier = Modifier
-                                            .background(
-                                                color = MaterialTheme.colorScheme.surface,
-                                                shape = Shapes.medium
-                                            )
-                                            .exposedDropdownSize(true),
-                                        expanded = isExpandedMenu,
-                                        properties = PopupProperties(focusable = false),
-                                        onDismissRequest = { onExpandedMenuChange(false) }
-                                    ) {
-                                        dropDownSeriesMenuList.forEach { selectionSeries ->
-                                            DropdownMenuItem(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .background(
-                                                        color = MaterialTheme.colorScheme.surface,
-                                                        shape = Shapes.medium
-                                                    ),
-                                                text = {
-                                                    Row(
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.SpaceBetween
-                                                    ) {
-                                                        Text(
-                                                            text = selectionSeries,
-                                                            style = dataTextStyle,
-                                                            color = MaterialTheme.colorScheme.primary
-                                                        )
-                                                        Icon(
-                                                            modifier = Modifier.clickable {
-                                                                onDeleteSeries(selectionSeries)
-                                                            },
-                                                            painter = painterResource(com.z_company.core.R.drawable.ic_clear),
-                                                            contentDescription = null,
-                                                            tint = MaterialTheme.colorScheme.primary
-                                                        )
-                                                    }
-                                                },
-                                                onClick = {
-                                                    onSeriesChanged(selectionSeries)
-                                                    onExpandedMenuChange(false)
-                                                    seriesName = seriesName.copy(
-                                                        text = selectionSeries,
-                                                        selection = TextRange(selectionSeries.length)
-                                                    )
-                                                }
-                                            )
-                                        }
-                                    }
-                                }
+                                StationDropdownMenu(
+                                    expanded = isExpandedMenu,
+                                    stations = dropDownSeriesMenuList,
+                                    onSelect = { selectionSeries ->
+                                        onSeriesChanged(selectionSeries)
+                                        onExpandedMenuChange(false)
+                                        seriesName = seriesName.copy(
+                                            text = selectionSeries,
+                                            selection = TextRange(selectionSeries.length)
+                                        )
+                                    },
+                                    onDelete = onDeleteSeries,
+                                    onDismiss = { onExpandedMenuChange(false) },
+                                    textStyle = dataTextStyle
+                                )
                             }
 
                             OutlinedTextFieldApp(
@@ -784,6 +546,7 @@ fun FormLocoScreen(
                                 singleLine = true,
                             )
                         }
+
                     }
 
                     // время
@@ -1263,15 +1026,112 @@ fun FormLocoScreen(
                                         electricSectionListState = electricSectionListState,
                                         locomotive = locomotive,
                                         isShowOtherCurrent = formUiState.isShowOtherCurrent,
-                                        onSettingsClick = { showSettingBottomSheet = true }
+                                        onSettingsClick = onSettingsClick
                                     )
                                 }
                                 LocoType.DIESEL -> {
                                     DieselStatisticsSection(
                                         dieselSectionListState = dieselSectionListState,
                                         locomotive = locomotive,
-                                        onSettingsClick = { showSettingBottomSheet = true }
+                                        onSettingsClick = onSettingsClick
                                     )
+                                }
+                            }
+                        }
+                    }
+                    }
+
+                    // Норма
+                    if (userSettings?.isShowLocoNorma != false) {
+                    item {
+                        CollapsibleSection(
+                            title = "Норма",
+                            expanded = formUiState.isShowNorma,
+                            onToggle = viewModel::toggleNorma,
+                            icon = R.drawable.weight_24px
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                when (locomotive.type) {
+                                    LocoType.ELECTRIC -> {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            val norma1 =
+                                                locomotive.normaElectricCurrent1?.takeIf { it != 0 }
+                                                    ?.toString() ?: ""
+                                            val norma2 =
+                                                locomotive.normaElectricCurrent2?.takeIf { it != 0 }
+                                                    ?.toString() ?: ""
+
+                                            OutlinedTextFieldApp(
+                                                modifier = Modifier.weight(1f),
+                                                value = norma1,
+                                                placeholder = {
+                                                    Text(
+                                                        text = "Ток 1",
+                                                        style = LocalTextStyle.current.copy(
+                                                            fontWeight = FontWeight.Light
+                                                        ),
+                                                        color = noValueColor
+                                                    )
+                                                },
+                                                textStyle = dataTextStyle,
+                                                onValueChange = { viewModel.setNormaElectricCurrent1(it) },
+                                                keyboardOptions = KeyboardOptions(
+                                                    keyboardType = KeyboardType.Decimal,
+                                                    imeAction = ImeAction.Done
+                                                ),
+                                                singleLine = true
+                                            )
+
+                                            if (userSettings?.isShowOtherCurrent == true) {
+                                                OutlinedTextFieldApp(
+                                                    modifier = Modifier.weight(1f),
+                                                    value = norma2,
+                                                    placeholder = {
+                                                        Text(
+                                                            text = "Ток 2",
+                                                            style = LocalTextStyle.current.copy(
+                                                                fontWeight = FontWeight.Light
+                                                            ),
+                                                            color = noValueColor
+                                                        )
+                                                    },
+                                                    textStyle = dataTextStyle,
+                                                    onValueChange = { viewModel.setNormaElectricCurrent2(it) },
+                                                    keyboardOptions = KeyboardOptions(
+                                                        keyboardType = KeyboardType.Decimal,
+                                                        imeAction = ImeAction.Done
+                                                    ),
+                                                    singleLine = true
+                                                )
+                                            }
+                                        }
+                                    }
+                                    LocoType.DIESEL -> {
+                                        val norma = locomotive.normaDiesel ?: ""
+                                        OutlinedTextFieldApp(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            value = norma,
+                                            textStyle = dataTextStyle,
+                                            suffix = {
+                                                Text(
+                                                    text = "Кг.",
+                                                    style = MaterialTheme.typography.bodyMedium
+                                                )
+                                            },
+                                            onValueChange = { viewModel.setNormaDiesel(it) },
+                                            keyboardOptions = KeyboardOptions(
+                                                keyboardType = KeyboardType.Decimal,
+                                                imeAction = ImeAction.Done
+                                            ),
+                                            singleLine = true
+                                        )
+                                    }
                                 }
                             }
                         }
