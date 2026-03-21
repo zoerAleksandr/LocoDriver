@@ -16,6 +16,7 @@ import com.z_company.repository.remote_rest.response.SaveRouteResponse
 import com.z_company.repository.remote_rest.response.UserResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.patch
@@ -76,6 +77,12 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
         client.get("v1/route/") {
             header("Authorization", token)
         }.body()
+
+    override suspend fun deleteRoute(token: String, routeId: String) {
+        client.delete("v1/route/$routeId") {
+            header("Authorization", token)
+        }
+    }
 
     override suspend fun attachVKID(token: String, data: AddVKIDRequest): UserResponse =
         client.patch("v1/auth/vkId/add") {

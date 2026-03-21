@@ -37,6 +37,8 @@ interface RemoteRestApi {
 
     suspend fun getRoutes(token: String): List<Route>
 
+    suspend fun deleteRoute(token: String, routeId: String)
+
     suspend fun attachVKID(token: String, data: AddVKIDRequest): UserResponse
 
     suspend fun saveUserSetting(token: String, body: UserSettings)
