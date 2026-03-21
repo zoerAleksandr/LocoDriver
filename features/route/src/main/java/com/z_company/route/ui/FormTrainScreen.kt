@@ -42,9 +42,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.z_company.route.component.StationDropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -1381,6 +1381,15 @@ private fun TrainAssistSection(
                 Column(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    var seriesFieldValue by remember(assist.locomotiveSeries) {
+                        mutableStateOf(
+                            TextFieldValue(
+                                text = assist.locomotiveSeries ?: "",
+                                selection = TextRange(assist.locomotiveSeries?.length ?: 0)
+                            )
+                        )
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1388,21 +1397,12 @@ private fun TrainAssistSection(
                         ExposedDropdownMenuBox(
                             modifier = Modifier.weight(1f),
                             expanded = isSeriesMenuExpanded,
-                            onExpandedChange = onSeriesMenuExpandedChange
+                            onExpandedChange = { onSeriesMenuExpandedChange(it) }
                         ) {
-                            var seriesFieldValue by remember(assist.locomotiveSeries) {
-                                mutableStateOf(
-                                    TextFieldValue(
-                                        text = assist.locomotiveSeries ?: "",
-                                        selection = TextRange(assist.locomotiveSeries?.length ?: 0)
-                                    )
-                                )
-                            }
-
                             OutlinedTextFieldApp(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .menuAnchor(),
+                                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true),
                                 value = seriesFieldValue,
                                 onValueChange = {
                                     seriesFieldValue = it
@@ -1431,58 +1431,21 @@ private fun TrainAssistSection(
                                 colorBackgroundNotEmptyField = surfaceColor
                             )
 
-                            if (seriesMenuList.isNotEmpty()) {
-                                DropdownMenu(
-                                    modifier = Modifier
-                                        .background(
-                                            color = surfaceColor,
-                                            shape = Shapes.medium
-                                        )
-                                        .exposedDropdownSize(true),
-                                    expanded = isSeriesMenuExpanded,
-                                    properties = PopupProperties(focusable = false),
-                                    onDismissRequest = { onSeriesMenuExpandedChange(false) }
-                                ) {
-                                    seriesMenuList.forEach { selectionSeries ->
-                                        DropdownMenuItem(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .background(
-                                                    color = surfaceColor,
-                                                    shape = Shapes.medium
-                                                ),
-                                            text = {
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.SpaceBetween
-                                                ) {
-                                                    Text(
-                                                        text = selectionSeries,
-                                                        style = dataTextStyle,
-                                                        color = primaryColor
-                                                    )
-                                                    Icon(
-                                                        modifier = Modifier.clickable {
-                                                            onDeleteSeries(selectionSeries)
-                                                        },
-                                                        painter = painterResource(com.z_company.core.R.drawable.ic_clear),
-                                                        contentDescription = null,
-                                                        tint = primaryColor
-                                                    )
-                                                }
-                                            },
-                                            onClick = {
-                                                onSeriesChange(selectionSeries)
-                                                onSeriesMenuExpandedChange(false)
-                                                seriesFieldValue = seriesFieldValue.copy(
-                                                    text = selectionSeries,
-                                                    selection = TextRange(selectionSeries.length)
-                                                )
-                                            }
-                                        )
-                                    }
-                                }
-                            }
+                            StationDropdownMenu(
+                                expanded = isSeriesMenuExpanded,
+                                stations = seriesMenuList,
+                                onSelect = { selectionSeries ->
+                                    onSeriesChange(selectionSeries)
+                                    onSeriesMenuExpandedChange(false)
+                                    seriesFieldValue = seriesFieldValue.copy(
+                                        text = selectionSeries,
+                                        selection = TextRange(selectionSeries.length)
+                                    )
+                                },
+                                onDelete = onDeleteSeries,
+                                onDismiss = { onSeriesMenuExpandedChange(false) },
+                                textStyle = dataTextStyle
+                            )
                         }
 
                         OutlinedTextFieldApp(
@@ -1516,6 +1479,7 @@ private fun TrainAssistSection(
                             colorBackgroundNotEmptyField = surfaceColor
                         )
                     }
+
                     OutlinedTextFieldApp(
                         modifier = Modifier.fillMaxWidth(),
                         value = assist.driverName ?: "",
@@ -1697,6 +1661,15 @@ private fun DoubledTrainSection(
                     }
 
                     // Поля ввода (серия + номер)
+                    var seriesFieldValue2 by remember(assist.locomotiveSeries) {
+                        mutableStateOf(
+                            TextFieldValue(
+                                text = assist.locomotiveSeries ?: "",
+                                selection = TextRange(assist.locomotiveSeries?.length ?: 0)
+                            )
+                        )
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1704,24 +1677,15 @@ private fun DoubledTrainSection(
                         ExposedDropdownMenuBox(
                             modifier = Modifier.weight(1f),
                             expanded = isSeriesMenuExpanded,
-                            onExpandedChange = onSeriesMenuExpandedChange
+                            onExpandedChange = { onSeriesMenuExpandedChange(it) }
                         ) {
-                            var seriesFieldValue by remember(assist.locomotiveSeries) {
-                                mutableStateOf(
-                                    TextFieldValue(
-                                        text = assist.locomotiveSeries ?: "",
-                                        selection = TextRange(assist.locomotiveSeries?.length ?: 0)
-                                    )
-                                )
-                            }
-
                             OutlinedTextFieldApp(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .menuAnchor(),
-                                value = seriesFieldValue,
+                                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true),
+                                value = seriesFieldValue2,
                                 onValueChange = {
-                                    seriesFieldValue = it
+                                    seriesFieldValue2 = it
                                     onSeriesChange(it.text)
                                     onSeriesMenuContentChange(it.text)
                                 },
@@ -1747,58 +1711,21 @@ private fun DoubledTrainSection(
                                 colorBackgroundNotEmptyField = surfaceColor
                             )
 
-                            if (seriesMenuList.isNotEmpty()) {
-                                DropdownMenu(
-                                    modifier = Modifier
-                                        .background(
-                                            color = surfaceColor,
-                                            shape = Shapes.medium
-                                        )
-                                        .exposedDropdownSize(true),
-                                    expanded = isSeriesMenuExpanded,
-                                    properties = PopupProperties(focusable = false),
-                                    onDismissRequest = { onSeriesMenuExpandedChange(false) }
-                                ) {
-                                    seriesMenuList.forEach { selectionSeries ->
-                                        DropdownMenuItem(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .background(
-                                                    color = surfaceColor,
-                                                    shape = Shapes.medium
-                                                ),
-                                            text = {
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.SpaceBetween
-                                                ) {
-                                                    Text(
-                                                        text = selectionSeries,
-                                                        style = dataTextStyle,
-                                                        color = primaryColor
-                                                    )
-                                                    Icon(
-                                                        modifier = Modifier
-                                                            .size(20.dp)
-                                                            .clickable {
-                                                                onDeleteSeries(
-                                                                    selectionSeries
-                                                                )
-                                                            },
-                                                        painter = painterResource(com.z_company.core.R.drawable.ic_clear),
-                                                        contentDescription = "Удалить серию",
-                                                        tint = noValueColor
-                                                    )
-                                                }
-                                            },
-                                            onClick = {
-                                                onSeriesChange(selectionSeries)
-                                                onSeriesMenuExpandedChange(false)
-                                            }
-                                        )
-                                    }
-                                }
-                            }
+                            StationDropdownMenu(
+                                expanded = isSeriesMenuExpanded,
+                                stations = seriesMenuList,
+                                onSelect = { selectionSeries ->
+                                    onSeriesChange(selectionSeries)
+                                    onSeriesMenuExpandedChange(false)
+                                    seriesFieldValue2 = seriesFieldValue2.copy(
+                                        text = selectionSeries,
+                                        selection = TextRange(selectionSeries.length)
+                                    )
+                                },
+                                onDelete = onDeleteSeries,
+                                onDismiss = { onSeriesMenuExpandedChange(false) },
+                                textStyle = dataTextStyle
+                            )
                         }
 
                         OutlinedTextFieldApp(
@@ -1832,6 +1759,7 @@ private fun DoubledTrainSection(
                             colorBackgroundNotEmptyField = surfaceColor
                         )
                     }
+
                     OutlinedTextFieldApp(
                         modifier = Modifier.fillMaxWidth(),
                         value = assist.driverName ?: "",

@@ -27,11 +27,10 @@ ALTER TABLE Train_new RENAME TO Train;
 
 CREATE INDEX IF NOT EXISTS index_Train_basicId ON Train(basicId);
 
--- Fix Locomotive: removeObjectId NOT NULL -> nullable
+-- Fix Locomotive: remove removeObjectId column
 CREATE TABLE IF NOT EXISTS Locomotive_new (
     locoId TEXT NOT NULL PRIMARY KEY,
     basicId TEXT NOT NULL,
-    removeObjectId TEXT DEFAULT NULL,
     series TEXT,
     number TEXT,
     type INTEGER NOT NULL,
@@ -49,8 +48,8 @@ CREATE TABLE IF NOT EXISTS Locomotive_new (
     FOREIGN KEY (basicId) REFERENCES BasicData(id) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
-INSERT INTO Locomotive_new (locoId, basicId, removeObjectId, series, number, type, electricSectionList, dieselSectionList, timeStartOfAcceptance, timeEndOfAcceptance, timeStartOfDelivery, timeEndOfDelivery, normaElectricCurrent1, normaElectricCurrent2, normaDiesel, heatingCounterAccepted, heatingCounterDelivery)
-SELECT locoId, basicId, CASE WHEN removeObjectId = '' THEN NULL ELSE removeObjectId END, series, number, type, electricSectionList, dieselSectionList, timeStartOfAcceptance, timeEndOfAcceptance, timeStartOfDelivery, timeEndOfDelivery, normaElectricCurrent1, normaElectricCurrent2, normaDiesel, heatingCounterAccepted, heatingCounterDelivery
+INSERT INTO Locomotive_new (locoId, basicId, series, number, type, electricSectionList, dieselSectionList, timeStartOfAcceptance, timeEndOfAcceptance, timeStartOfDelivery, timeEndOfDelivery, normaElectricCurrent1, normaElectricCurrent2, normaDiesel, heatingCounterAccepted, heatingCounterDelivery)
+SELECT locoId, basicId, series, number, type, electricSectionList, dieselSectionList, timeStartOfAcceptance, timeEndOfAcceptance, timeStartOfDelivery, timeEndOfDelivery, normaElectricCurrent1, normaElectricCurrent2, normaDiesel, heatingCounterAccepted, heatingCounterDelivery
 FROM Locomotive;
 
 DROP TABLE Locomotive;

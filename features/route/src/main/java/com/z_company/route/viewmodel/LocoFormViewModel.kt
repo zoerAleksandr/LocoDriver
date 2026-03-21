@@ -1,5 +1,6 @@
 package com.z_company.route.viewmodel
 
+import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
@@ -91,9 +92,17 @@ class LocoFormViewModel(
             savedHeatingExpanded = sharedPreferenceStorage.isLocoSectionHeatingExpanded()
             savedAuxiliaryExpanded = sharedPreferenceStorage.isLocoSectionAuxiliaryExpanded()
             val savedStatistics = sharedPreferenceStorage.isLocoSectionStatisticsExpanded()
+            val savedNorma = sharedPreferenceStorage.isLocoSectionNormaExpanded()
 
             this.launch {
-                val sett = settingsUseCase.getUserSettingFlow().first()
+                val dbSett = settingsUseCase.getUserSettingFlow().first()
+                val sett = dbSett.copy(
+                    isShowLocoHeating = sharedPreferenceStorage.isShowLocoHeating(),
+                    isShowLocoAuxiliary = sharedPreferenceStorage.isShowLocoAuxiliary(),
+                    isShowLocoStatistics = sharedPreferenceStorage.isShowLocoStatistics(),
+                    isShowLocoNorma = sharedPreferenceStorage.isShowLocoNorma(),
+                    isShowOtherCurrent = sharedPreferenceStorage.isShowOtherCurrent()
+                )
                 _settings.value = sett
                 _uiState.update {
                     it.copy(
@@ -103,7 +112,8 @@ class LocoFormViewModel(
                         isShowTime = savedTime,
                         isShowHeatingCounter = savedHeatingExpanded,
                         isShowAuxiliaryCounter = savedAuxiliaryExpanded,
-                        isShowResults = savedStatistics
+                        isShowResults = savedStatistics,
+                        isShowNorma = savedNorma
                     )
                 }
                 _seriesList.update { list ->
@@ -285,11 +295,12 @@ class LocoFormViewModel(
             }
         }
 
+        val globalShowOtherCurrent = _settings.value?.isShowOtherCurrent == true
         _uiState.update {
             it.copy(
                 isShowHeatingCounter = heating || savedHeatingExpanded,
                 isShowAuxiliaryCounter = auxiliary || savedAuxiliaryExpanded,
-                isShowOtherCurrent = otherCurrent
+                isShowOtherCurrent = otherCurrent || globalShowOtherCurrent
             )
         }
     }
@@ -369,9 +380,50 @@ class LocoFormViewModel(
         sharedPreferenceStorage.setLocoSectionStatisticsExpanded(newValue)
     }
 
+    fun toggleNorma() {
+        val newValue = !_uiState.value.isShowNorma
+        _uiState.update { it.copy(isShowNorma = newValue) }
+        sharedPreferenceStorage.setLocoSectionNormaExpanded(newValue)
+    }
+
     fun dismissUpdateHint() {
         sharedPreferenceStorage.setLocoFormUpdateHintShown()
         _uiState.update { it.copy(isShowUpdateHint = false) }
+    }
+
+    fun changeShowLocoHeating(value: Boolean) {
+        sharedPreferenceStorage.setShowLocoHeating(value)
+        _settings.value = _settings.value?.copy(isShowLocoHeating = value)
+    }
+
+    fun changeShowLocoAuxiliary(value: Boolean) {
+        sharedPreferenceStorage.setShowLocoAuxiliary(value)
+        _settings.value = _settings.value?.copy(isShowLocoAuxiliary = value)
+    }
+
+    fun changeShowLocoStatistics(value: Boolean) {
+        sharedPreferenceStorage.setShowLocoStatistics(value)
+        _settings.value = _settings.value?.copy(isShowLocoStatistics = value)
+    }
+
+    fun changeDefaultLocoType() {
+        _settings.value?.let { s ->
+            _settings.value = when (s.defaultLocoType) {
+                com.z_company.domain.entities.route.LocoType.ELECTRIC ->
+                    s.copy(defaultLocoType = com.z_company.domain.entities.route.LocoType.DIESEL)
+                com.z_company.domain.entities.route.LocoType.DIESEL ->
+                    s.copy(defaultLocoType = com.z_company.domain.entities.route.LocoType.ELECTRIC)
+            }
+            saveSettingsQuietly()
+        }
+    }
+
+    private fun saveSettingsQuietly() {
+        _settings.value?.let { settings ->
+            viewModelScope.launch {
+                settingsUseCase.saveSetting(settings).collect { }
+            }
+        }
     }
 
     fun showOtherCurrent(value: Boolean) {
@@ -1003,6 +1055,7 @@ class LocoFormViewModel(
                     settingsUseCase.setLocomotiveSeries(series)
                 }
                 locomotiveUseCase.saveLocomotive(updatedLoco).collect { result ->
+                    Log.d("zzz", "save loco result $result")
                     _uiState.update { it.copy(saveLocoState = result) }
                 }
             }

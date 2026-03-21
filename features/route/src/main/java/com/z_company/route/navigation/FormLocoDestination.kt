@@ -63,6 +63,7 @@ fun FormLocoDestination(
         onChangedContentMenu = viewModel::onChangedDropDownContent,
         onDeleteSeries = viewModel::removeSeries,
         dateAndTimeConverter = formUiState.dateAndTimeConverter,
-        userSettings = userSettings
+        userSettings = userSettings,
+        onSettingsClick = router::showSettingsLoco
     )
 }

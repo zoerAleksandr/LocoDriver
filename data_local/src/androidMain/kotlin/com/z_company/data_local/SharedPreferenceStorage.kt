@@ -21,6 +21,12 @@ private const val TOKEN_LOCO_SECTION_TIME = "TOKEN_LOCO_SECTION_TIME"
 private const val TOKEN_LOCO_SECTION_HEATING = "TOKEN_LOCO_SECTION_HEATING"
 private const val TOKEN_LOCO_SECTION_AUXILIARY = "TOKEN_LOCO_SECTION_AUXILIARY"
 private const val TOKEN_LOCO_SECTION_STATISTICS = "TOKEN_LOCO_SECTION_STATISTICS"
+private const val TOKEN_LOCO_SECTION_NORMA = "TOKEN_LOCO_SECTION_NORMA"
+private const val TOKEN_SHOW_LOCO_HEATING = "TOKEN_SHOW_LOCO_HEATING"
+private const val TOKEN_SHOW_LOCO_AUXILIARY = "TOKEN_SHOW_LOCO_AUXILIARY"
+private const val TOKEN_SHOW_LOCO_STATISTICS = "TOKEN_SHOW_LOCO_STATISTICS"
+private const val TOKEN_SHOW_LOCO_NORMA = "TOKEN_SHOW_LOCO_NORMA"
+private const val TOKEN_SHOW_OTHER_CURRENT = "TOKEN_SHOW_OTHER_CURRENT"
 
 private const val SORT_OPTION_TAG = "SORT_OPTION"
 private const val SELECTED_FILTERS_TAG = "SELECTED_FILTERS"
@@ -193,6 +199,13 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
         editor.putBoolean(TOKEN_LOCO_SECTION_STATISTICS, value).apply()
     }
 
+    override fun isLocoSectionNormaExpanded(): Boolean =
+        sharedpref.getBoolean(TOKEN_LOCO_SECTION_NORMA, false)
+
+    override fun setLocoSectionNormaExpanded(value: Boolean) {
+        editor.putBoolean(TOKEN_LOCO_SECTION_NORMA, value).apply()
+    }
+
     override fun isPassenger12hDontAskAgain(): Boolean =
         sharedpref.getBoolean(TOKEN_PASSENGER_12H_DONT_ASK, false)
 
@@ -205,5 +218,40 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
 
     override fun setPassenger12hAutoAccepted(value: Boolean) {
         editor.putBoolean(TOKEN_PASSENGER_12H_ACCEPTED, value).apply()
+    }
+
+    override fun isShowLocoHeating(): Boolean =
+        sharedpref.getBoolean(TOKEN_SHOW_LOCO_HEATING, true)
+
+    override fun setShowLocoHeating(value: Boolean) {
+        editor.putBoolean(TOKEN_SHOW_LOCO_HEATING, value).apply()
+    }
+
+    override fun isShowLocoAuxiliary(): Boolean =
+        sharedpref.getBoolean(TOKEN_SHOW_LOCO_AUXILIARY, true)
+
+    override fun setShowLocoAuxiliary(value: Boolean) {
+        editor.putBoolean(TOKEN_SHOW_LOCO_AUXILIARY, value).apply()
+    }
+
+    override fun isShowLocoStatistics(): Boolean =
+        sharedpref.getBoolean(TOKEN_SHOW_LOCO_STATISTICS, true)
+
+    override fun setShowLocoStatistics(value: Boolean) {
+        editor.putBoolean(TOKEN_SHOW_LOCO_STATISTICS, value).apply()
+    }
+
+    override fun isShowLocoNorma(): Boolean =
+        sharedpref.getBoolean(TOKEN_SHOW_LOCO_NORMA, true)
+
+    override fun setShowLocoNorma(value: Boolean) {
+        editor.putBoolean(TOKEN_SHOW_LOCO_NORMA, value).apply()
+    }
+
+    override fun isShowOtherCurrent(): Boolean =
+        sharedpref.getBoolean(TOKEN_SHOW_OTHER_CURRENT, false)
+
+    override fun setShowOtherCurrent(value: Boolean) {
+        editor.putBoolean(TOKEN_SHOW_OTHER_CURRENT, value).apply()
     }
 }

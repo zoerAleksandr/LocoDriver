@@ -165,57 +165,20 @@ fun StationEditBottomSheet(
                     colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surface
                 )
 
-                if (menuList.isNotEmpty() && isDropdownExpanded) {
-                    DropdownMenu(
-                        modifier = Modifier
-                            .background(
-                                color = MaterialTheme.colorScheme.surface,
-                                shape = Shapes.medium
-                            )
-                            .exposedDropdownSize(true),
-                        expanded = isDropdownExpanded,
-                        properties = PopupProperties(focusable = false),
-                        onDismissRequest = { isDropdownExpanded = false }
-                    ) {
-                        menuList.forEach { stationName ->
-                            DropdownMenuItem(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(
-                                        color = MaterialTheme.colorScheme.surface,
-                                        shape = Shapes.medium
-                                    ),
-                                text = {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(
-                                            text = stationName,
-                                            style = dataTextStyle,
-                                            color = primaryColor
-                                        )
-                                        Icon(
-                                            modifier = Modifier.clickable {
-                                                onDeleteStationName(stationName)
-                                            },
-                                            painter = painterResource(com.z_company.core.R.drawable.ic_clear),
-                                            contentDescription = null,
-                                            tint = primaryColor
-                                        )
-                                    }
-                                },
-                                onClick = {
-                                    localName = localName.copy(
-                                        text = stationName,
-                                        selection = TextRange(stationName.length)
-                                    )
-                                    isDropdownExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
+                StationDropdownMenu(
+                    expanded = isDropdownExpanded,
+                    stations = menuList,
+                    onSelect = { stationName ->
+                        localName = localName.copy(
+                            text = stationName,
+                            selection = TextRange(stationName.length)
+                        )
+                        isDropdownExpanded = false
+                    },
+                    onDelete = onDeleteStationName,
+                    onDismiss = { isDropdownExpanded = false },
+                    textStyle = dataTextStyle
+                )
             }
 
             Spacer(modifier = Modifier.height(36.dp))

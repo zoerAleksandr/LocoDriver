@@ -33,7 +33,6 @@ internal object LocomotiveMapper {
     fun toData(row: LocomotiveRow): Locomotive = Locomotive(
         locoId = row.locoId,
         basicId = row.basicId,
-        remoteObjectId = row.removeObjectId,
         series = row.series,
         number = row.number,
         type = LocoType.entries.getOrElse(row.type.toInt()) { LocoType.ELECTRIC },

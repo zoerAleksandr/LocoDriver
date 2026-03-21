@@ -125,9 +125,17 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         scheduleAutoSave()
     }
 
-    fun deleteServicePhase(index: Int) {
-        servicePhases.removeAt(index)
-        scheduleAutoSave()
+    fun removeStationName(name: String) {
+        viewModelScope.launch {
+            settingsUseCase.removeStation(name)
+        }
+    }
+
+    fun deleteServicePhase(phase: ServicePhase) {
+        val removed = servicePhases.removeAll { it.id == phase.id }
+        if (removed) {
+            scheduleAutoSave()
+        }
     }
 
     fun selectToUpdateServicePhase(phase: ServicePhase, index: Int) {
@@ -193,11 +201,19 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                 }
                 if (result is ResultState.Success) {
                     result.data?.let { userSettings ->
+                        val merged = userSettings.copy(
+                            isShowLocoHeating = sharedPreferenceStorage.isShowLocoHeating(),
+                            isShowLocoAuxiliary = sharedPreferenceStorage.isShowLocoAuxiliary(),
+                            isShowLocoStatistics = sharedPreferenceStorage.isShowLocoStatistics(),
+                            isShowLocoNorma = sharedPreferenceStorage.isShowLocoNorma(),
+                            isShowOtherCurrent = sharedPreferenceStorage.isShowOtherCurrent()
+                        )
                         _uiState.update {
                             it.copy(
-                                dateAndTimeConverter = DateAndTimeConverter(userSettings),
-                                updateAt = userSettings.updateAt,
-                                servicePhases = userSettings.servicePhases.toMutableStateList()
+                                settingDetails = ResultState.Success(merged),
+                                dateAndTimeConverter = DateAndTimeConverter(merged),
+                                updateAt = merged.updateAt,
+                                servicePhases = merged.servicePhases.toMutableStateList()
                             )
                         }
                     }
@@ -337,21 +353,28 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     }
 
     fun changeShowLocoHeating(value: Boolean) {
-        currentSettings = currentSettings?.copy(
-            isShowLocoHeating = value
-        )
+        sharedPreferenceStorage.setShowLocoHeating(value)
+        currentSettings = currentSettings?.copy(isShowLocoHeating = value)
     }
 
     fun changeShowLocoAuxiliary(value: Boolean) {
-        currentSettings = currentSettings?.copy(
-            isShowLocoAuxiliary = value
-        )
+        sharedPreferenceStorage.setShowLocoAuxiliary(value)
+        currentSettings = currentSettings?.copy(isShowLocoAuxiliary = value)
     }
 
     fun changeShowLocoStatistics(value: Boolean) {
-        currentSettings = currentSettings?.copy(
-            isShowLocoStatistics = value
-        )
+        sharedPreferenceStorage.setShowLocoStatistics(value)
+        currentSettings = currentSettings?.copy(isShowLocoStatistics = value)
+    }
+
+    fun changeShowLocoNorma(value: Boolean) {
+        sharedPreferenceStorage.setShowLocoNorma(value)
+        currentSettings = currentSettings?.copy(isShowLocoNorma = value)
+    }
+
+    fun changeShowOtherCurrent(value: Boolean) {
+        sharedPreferenceStorage.setShowOtherCurrent(value)
+        currentSettings = currentSettings?.copy(isShowOtherCurrent = value)
     }
 
     fun setTimeZone(timeZone: Long) {

@@ -116,7 +116,7 @@ fun SettingsNormaContent(
                 color = primaryColor,
                 overflow = TextOverflow.Ellipsis
             )
-            Column(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                 Box(
                     modifier = Modifier
                         .background(

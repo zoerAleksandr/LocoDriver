@@ -76,7 +76,6 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
             db.locomotiveQueries.insertOrReplace(
                 locoId = loco.locoId,
                 basicId = locoBasicId,
-                removeObjectId = loco.remoteObjectId,
                 series = loco.series,
                 number = loco.number,
                 type = loco.type.ordinal.toLong(),
@@ -296,7 +295,6 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
             db.locomotiveQueries.insertOrReplace(
                 locoId = locoId,
                 basicId = locomotive.basicId,
-                removeObjectId = locomotive.remoteObjectId,
                 series = locomotive.series,
                 number = locomotive.number,
                 type = locomotive.type.ordinal.toLong(),
@@ -377,7 +375,8 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
     }
 
     override fun setRemoteObjectIdLocomotive(locoId: String, remoteObjectId: String): Flow<ResultState<Unit>> {
-        return flowRequest { db.locomotiveQueries.setRemoteObjectId(remoteObjectId, locoId) }
+        // removeObjectId removed from Locomotive table — no-op
+        return flowRequest { }
     }
 
     override fun setRemoteObjectIdPassenger(passengerId: String, objectId: String): Flow<ResultState<Unit>> {
