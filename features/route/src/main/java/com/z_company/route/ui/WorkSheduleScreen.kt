@@ -605,16 +605,31 @@ fun WorkScheduleScreen(
                                 .fillMaxWidth()
                                 .height(calendarHeightDp)
                         ) {
+                            // Сегодняшний день по Московскому часовому поясу с учётом настроек
+                            val userSettings by viewModel.userSettings.collectAsState()
+                            val todayDay = remember(month, userSettings?.timeZone) {
+                                val tzOffset = userSettings?.timeZone ?: (3L * 3600 * 1000) // default Moscow
+                                val nowUtc = System.currentTimeMillis()
+                                val cal = Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")).apply {
+                                    timeInMillis = nowUtc + tzOffset
+                                }
+                                val todayYear = cal.get(Calendar.YEAR)
+                                val todayMonth = cal.get(Calendar.MONTH)
+                                val todayDayOfMonth = cal.get(Calendar.DAY_OF_MONTH)
+                                if (month.year == todayYear && month.month == todayMonth) todayDayOfMonth else null
+                            }
+
                             CalendarView(
                                 cells = cells,
                                 routesByDay = routesByDay,
                                 plannedTimesByDay = plannedMap,
                                 onDayClick = onDayClick,
-                                daysToDelete = selectedRoutesToDeleteMap.keys, // set<Int> дней, которые имеют пометки
+                                daysToDelete = selectedRoutesToDeleteMap.keys,
                                 isDeleteMode = isDeleteMode,
                                 timeConverter = dateAndTimeConverter,
                                 maxHeightPx = maxHeightCell ?: 24.dp,
-                                releaseByDay = releaseByDay
+                                releaseByDay = releaseByDay,
+                                todayDay = todayDay
                             )
                         }
                     }
@@ -1063,7 +1078,8 @@ private fun CalendarView(
     daysToDelete: Set<Int>,
     isDeleteMode: Boolean,
     timeConverter: DateAndTimeConverter?,
-    maxHeightPx: Dp
+    maxHeightPx: Dp,
+    todayDay: Int? = null,
 ) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(7),
@@ -1107,7 +1123,8 @@ private fun CalendarView(
                     isDeleteMode = isDeleteMode,
                     isMarkedForDelete = daysToDelete.contains(day),
                     height = maxHeightPx,
-                    releaseByDay = releaseByDay
+                    releaseByDay = releaseByDay,
+                    isToday = day == todayDay
                 )
             }
         }
@@ -1128,6 +1145,7 @@ private fun DayCell(
     isMarkedForDelete: Boolean,
     height: Dp,
     releaseByDay: Map<Int, Pair<ReleaseType?, Int>>,
+    isToday: Boolean = false,
 ) {
     val redColor = MaterialTheme.colorScheme.error
 
@@ -1145,10 +1163,10 @@ private fun DayCell(
 //        ?: MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f)
     else MaterialTheme.colorScheme.secondary
 
+    val todayBorderColor = MaterialTheme.colorScheme.surfaceContainerLow
     val borderColor =
         if (isDeleteMode && isMarkedForDelete) redColor.copy(alpha = 0.4f)
-//        else if (releaseByDay.containsKey(day)) typeColors[releaseByDay[day]?.first]
-//            ?: MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f)
+        else if (isToday) todayBorderColor
         else MaterialTheme.colorScheme.secondary
 
     val textColor = if (isDeleteMode && isMarkedForDelete)
@@ -1166,7 +1184,7 @@ private fun DayCell(
             )
             .clickable { onClick() },
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
-        border = BorderStroke(width = 1.dp, color = borderColor),
+        border = BorderStroke(width = if (isToday) 2.dp else 1.dp, color = borderColor),
         colors = CardDefaults.cardColors(containerColor = bgColor),
         shape = RoundedCornerShape(6.dp)
     ) {
