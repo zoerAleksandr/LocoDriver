@@ -2,6 +2,7 @@ package com.z_company.repository.remote_rest
 
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
+import com.z_company.core.sendToSentry
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.RouteUseCase
@@ -121,11 +122,37 @@ class SyncManager(
                 }
             }
 
-        // 4. Сохранение всех маршрутов
-        val routes = routeUseCase.getListRoutesAsFlow().first()
-        var savedCount = 0
         val allWarnings = mutableListOf<String>()
         val allErrors = mutableListOf<String>()
+
+        // 4. Удаление маршрутов, помеченных isDeleted = true
+        val allRoutesWithDeleted = routeUseCase.listRouteWithDeleting()
+        val deletedRoutes = allRoutesWithDeleted.filter { it.basicData.isDeleted }
+        for (route in deletedRoutes) {
+            val label = routeLabel(route)
+            try {
+                routesManager.deleteRouteInRemote(route.basicData.id, bearerToken)
+                    .collect { deleteResult ->
+                        if (deleteResult is ResultState.Success) {
+                            routeUseCase.removeRoute(route).collect {}
+                        } else if (deleteResult is ResultState.Error) {
+                            val msg = deleteResult.entity.message
+                                ?: deleteResult.entity.throwable?.message ?: "Ошибка"
+                            allErrors.add("Удаление $label: $msg")
+                            deleteResult.entity.throwable?.sendToSentry(
+                                "SyncManager", "deleteDeletedRoutes"
+                            )
+                        }
+                    }
+            } catch (e: Exception) {
+                allErrors.add("Удаление $label: ${e.message}")
+                e.sendToSentry("SyncManager", "deleteDeletedRoutes")
+            }
+        }
+
+        // 5. Сохранение всех маршрутов
+        val routes = routeUseCase.getListRoutesAsFlow().first()
+        var savedCount = 0
         for (route in routes) {
             if (!route.basicData.isSynchronized) {
                 val label = routeLabel(route)
