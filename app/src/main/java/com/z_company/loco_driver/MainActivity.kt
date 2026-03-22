@@ -133,12 +133,7 @@ class MainActivity : ComponentActivity(), KoinComponent {
         lifecycle.removeObserver(mainViewModel)
     }
 
-    override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
-        if (currentFocus != null) {
-            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.hideSoftInputFromWindow(currentFocus!!.windowToken, 0)
-            currentFocus?.clearFocus()
-        }
-        return super.dispatchTouchEvent(ev)
-    }
+    // Скрытие клавиатуры реализовано через Compose (clearFocusOnTap)
+    // а не через dispatchTouchEvent, чтобы не скрывать клавиатуру
+    // при нажатии на само поле ввода
 }
