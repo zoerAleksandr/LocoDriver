@@ -526,6 +526,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                     val token = state.accessToken
                     if (token.isNotEmpty()) {
                         secureTokenStorage.saveAuthToken(token)  // Сохранение зашифрованного токена
+                        secureTokenStorage.saveVkId(vkid)  // Сохранение VK ID
                         _isLoggedIn.value = true  // Обновляем состояние логина после успеха
                         refresh()  // Перезагружаем данные после входа
                         syncManager.syncFromRemote("Bearer $token").collect {}
@@ -646,6 +647,14 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                     if (state is GetUserProfileState.Success) {
                         currentEmail = state.user.email
                         secureTokenStorage.saveUserId(state.user.id)
+                        // Восстанавливаем vkId из профиля сервера (если не сохранён локально)
+                        val serverVkId = state.user.vkId
+                        if (!serverVkId.isNullOrBlank()) {
+                            val localVkId = secureTokenStorage.getVkIdFlow().first()
+                            if (localVkId.isNullOrBlank()) {
+                                secureTokenStorage.saveVkId(serverVkId)
+                            }
+                        }
                         _uiState.update {
                             it.copy(userDetailsState = ResultState.Success(state.user))
                         }
@@ -711,12 +720,15 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                     }
 
                     override fun onFail(fail: VKIDRefreshTokenFail) {
-                        when (fail) {
-                            is VKIDRefreshTokenFail.FailedApiCall -> fail.description // Использование текста ошибки.
-                            is VKIDRefreshTokenFail.FailedOAuthState -> fail.description // Использование текста ошибки.
-                            is VKIDRefreshTokenFail.RefreshTokenExpired -> fail // Ошибка истечения срока жизни RT. Это уведомление о том, что пользователю нужно перелогиниться.
-                            is VKIDRefreshTokenFail.NotAuthenticated -> fail // Ошибка отсутствия авторизации у пользователя. Это уведомление о том, что пользователю нужно авторизоваться.
+                        val message = when (fail) {
+                            is VKIDRefreshTokenFail.FailedApiCall -> fail.description
+                            is VKIDRefreshTokenFail.FailedOAuthState -> fail.description
+                            is VKIDRefreshTokenFail.RefreshTokenExpired -> "VK сессия истекла"
+                            is VKIDRefreshTokenFail.NotAuthenticated -> "VK не авторизован"
                         }
+                        Log.w("ProfileViewModel", "VK refreshToken failed: $message")
+                        // При ошибке показываем кнопку входа (vkUserState = null)
+                        _uiState.update { it.copy(vkUserState = ResultState.Success(null)) }
                     }
                 }
             )
