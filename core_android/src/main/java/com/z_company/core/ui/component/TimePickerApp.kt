@@ -42,7 +42,7 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalTime
 
 @SuppressLint("DefaultLocale")
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun TimePickerApp(
     onTimeSelected: (Long) -> Unit,
@@ -50,7 +50,9 @@ fun TimePickerApp(
     initialTimeMillis: Long = 0L,
     title: String = "Выберите время",
     cancelButtonText: String = "Пропустить",
-    onCancelButton: () -> Unit = onDismiss
+    onCancelButton: () -> Unit = onDismiss,
+    recentTimes: List<Long> = emptyList(),
+    onRecentTimeSaved: ((Long) -> Unit)? = null,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val viewModel = remember { TimePickerViewModel(initialTimeMillis) }
@@ -138,7 +140,52 @@ fun TimePickerApp(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(48.dp))
+                    // Текущее выбранное время под барабаном
+                    Text(
+                        text = "%02d:%02d".format(uiState.hour, uiState.minute),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
+                        textAlign = TextAlign.Center
+                    )
+
+                    // Быстрый выбор из последних значений
+                    if (recentTimes.isNotEmpty()) {
+                        FlowRow(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            recentTimes.forEach { timeMillis ->
+                                val h = (timeMillis / 3_600_000).toInt()
+                                val m = ((timeMillis % 3_600_000) / 60_000).toInt()
+                                SuggestionChip(
+                                    onClick = {
+                                        onTimeSelected(timeMillis)
+                                        onRecentTimeSaved?.invoke(timeMillis)
+                                        onDismiss()
+                                    },
+                                    label = {
+                                        Text(
+                                            text = "%02d:%02d".format(h, m),
+                                            style = MaterialTheme.typography.bodySmall
+                                        )
+                                    },
+                                    colors = SuggestionChipDefaults.suggestionChipColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.3f),
+                                        labelColor = MaterialTheme.colorScheme.primary
+                                    ),
+                                    border = null
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(if (recentTimes.isEmpty()) 36.dp else 8.dp))
 
                 }
                 // Кнопки внизу
@@ -167,6 +214,7 @@ fun TimePickerApp(
                                 val selectedMillis =
                                     (uiState.hour * 3_600_000L) + (uiState.minute * 60_000L)
                                 onTimeSelected(selectedMillis)
+                                onRecentTimeSaved?.invoke(selectedMillis)
                                 onDismiss()
                             }
                         ) {
@@ -206,6 +254,10 @@ fun TimeScrollPicker(
             )
         )
     }
+
+    // Флаг: true, когда прокрутка вызвана внешним обновлением (чипом или ручным вводом)
+    // Блокирует обратный вызов onHourChange/onMinuteChange, предотвращая цикл
+    var isExternalScrolling by remember { mutableStateOf(false) }
 
     var height = 145.dp
     val rowCount = 5
@@ -261,8 +313,10 @@ fun TimeScrollPicker(
         val maxK = (longHoursRange.size - 1 - currentHour) / hoursCycle
         val candidates = (0..maxK).map { currentHour + it * hoursCycle }
         val closest = candidates.minByOrNull { kotlin.math.abs(it - currentCenter) } ?: 0
+        isExternalScrolling = true
         scope.launch {
             hourListState.animateScrollToItem(closest.coerceIn(0, hours.size - 1))
+            isExternalScrolling = false
         }
     }
 
@@ -273,8 +327,10 @@ fun TimeScrollPicker(
         val maxK = (longMinutesRange.size - 1 - currentMinute) / minutesCycle
         val candidates = (0..maxK).map { currentMinute + it * minutesCycle }
         val closest = candidates.minByOrNull { kotlin.math.abs(it - currentCenter) } ?: 0
+        isExternalScrolling = true
         scope.launch {
             minuteListState.animateScrollToItem(closest.coerceIn(0, minutes.size - 1))
+            isExternalScrolling = false
         }
     }
 
@@ -294,15 +350,16 @@ fun TimeScrollPicker(
                     interactionSource = remember { MutableInteractionSource() }
                 ) { onChangeEditTime() }
         ) {
+            // Часы: широкая зона свайпа, текст прижат к центру (к двоеточию)
             MyWheelTextPicker(
-                modifier = Modifier.width(80.dp),
+                modifier = Modifier.weight(1f).padding(end = 12.dp),
                 lazyListState = hourListState,
                 height = height,
                 texts = hours.map { "%02d".format(it.value) },
                 rowCount = rowCount,
                 style = textStyle,
                 color = textColor,
-                contentArrangement = Arrangement.Center,
+                contentArrangement = Arrangement.End,
                 dampingRatio = Spring.DampingRatioLowBouncy,
                 stiffness = Spring.StiffnessLow,
                 frictionMultiplier = 0.5f
@@ -310,13 +367,18 @@ fun TimeScrollPicker(
                 val newHour =
                     hours.getOrNull(snappedIndex)?.value ?: return@MyWheelTextPicker snappedIndex
                 snappedTime = snappedTime.withHour(newHour)
-                if (!isEditing) {
+                if (!isEditing && !isExternalScrolling) {
                     onHourChange(newHour)
                 }
                 snappedIndex
             }
 
-            Box(modifier = Modifier.height(height), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .height(height)
+                    .padding(horizontal = 4.dp),
+                contentAlignment = Alignment.Center
+            ) {
                 AutoSizeText(
                     maxTextSize = 26.sp,
                     minTextSize = 22.sp,
@@ -328,15 +390,16 @@ fun TimeScrollPicker(
                 )
             }
 
+            // Минуты: широкая зона свайпа, текст прижат к центру (к двоеточию)
             MyWheelTextPicker(
-                modifier = Modifier.width(80.dp),
+                modifier = Modifier.weight(1f).padding(start = 12.dp),
                 lazyListState = minuteListState,
                 height = height,
                 texts = minutes.map { "%02d".format(it.value) },
                 rowCount = rowCount,
                 style = textStyle,
                 color = textColor,
-                contentArrangement = Arrangement.Center,
+                contentArrangement = Arrangement.Start,
                 dampingRatio = Spring.DampingRatioLowBouncy,
                 stiffness = Spring.StiffnessLow,
                 frictionMultiplier = 0.5f
@@ -344,9 +407,8 @@ fun TimeScrollPicker(
                 val newMinute =
                     minutes.getOrNull(snappedIndex)?.value ?: return@MyWheelTextPicker snappedIndex
                 snappedTime = snappedTime.withMinute(newMinute)
-                if (!isEditing) {
+                if (!isEditing && !isExternalScrolling) {
                     onMinuteChange(newMinute)
-//                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 }
                 snappedIndex
             }

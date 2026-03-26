@@ -21,12 +21,6 @@ private const val TOKEN_LOCO_SECTION_TIME = "TOKEN_LOCO_SECTION_TIME"
 private const val TOKEN_LOCO_SECTION_HEATING = "TOKEN_LOCO_SECTION_HEATING"
 private const val TOKEN_LOCO_SECTION_AUXILIARY = "TOKEN_LOCO_SECTION_AUXILIARY"
 private const val TOKEN_LOCO_SECTION_STATISTICS = "TOKEN_LOCO_SECTION_STATISTICS"
-private const val TOKEN_LOCO_SECTION_NORMA = "TOKEN_LOCO_SECTION_NORMA"
-private const val TOKEN_SHOW_LOCO_HEATING = "TOKEN_SHOW_LOCO_HEATING"
-private const val TOKEN_SHOW_LOCO_AUXILIARY = "TOKEN_SHOW_LOCO_AUXILIARY"
-private const val TOKEN_SHOW_LOCO_STATISTICS = "TOKEN_SHOW_LOCO_STATISTICS"
-private const val TOKEN_SHOW_LOCO_NORMA = "TOKEN_SHOW_LOCO_NORMA"
-private const val TOKEN_SHOW_OTHER_CURRENT = "TOKEN_SHOW_OTHER_CURRENT"
 
 private const val SORT_OPTION_TAG = "SORT_OPTION"
 private const val SELECTED_FILTERS_TAG = "SELECTED_FILTERS"
@@ -36,6 +30,12 @@ private const val TOKEN_IS_MIGRATED = "TOKEN_IS_MIGRATED"
 
 private const val OP_KEY_PREF = "OP_KEY_PREF"
 
+private const val TOKEN_SHOW_LOCO_HEATING = "TOKEN_SHOW_LOCO_HEATING"
+private const val TOKEN_SHOW_LOCO_AUXILIARY = "TOKEN_SHOW_LOCO_AUXILIARY"
+private const val TOKEN_SHOW_LOCO_STATISTICS = "TOKEN_SHOW_LOCO_STATISTICS"
+private const val TOKEN_SHOW_LOCO_NORMA = "TOKEN_SHOW_LOCO_NORMA"
+private const val TOKEN_SHOW_OTHER_CURRENT = "TOKEN_SHOW_OTHER_CURRENT"
+private const val TOKEN_LOCO_SECTION_NORMA = "TOKEN_LOCO_SECTION_NORMA"
 private const val TOKEN_PASSENGER_12H_DONT_ASK = "TOKEN_PASSENGER_12H_DONT_ASK"
 private const val TOKEN_PASSENGER_12H_ACCEPTED = "TOKEN_PASSENGER_12H_ACCEPTED"
 
@@ -199,6 +199,41 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
         editor.putBoolean(TOKEN_LOCO_SECTION_STATISTICS, value).apply()
     }
 
+    override fun isShowLocoHeating(): Boolean =
+        sharedpref.getBoolean(TOKEN_SHOW_LOCO_HEATING, false)
+
+    override fun setShowLocoHeating(value: Boolean) {
+        editor.putBoolean(TOKEN_SHOW_LOCO_HEATING, value).apply()
+    }
+
+    override fun isShowLocoAuxiliary(): Boolean =
+        sharedpref.getBoolean(TOKEN_SHOW_LOCO_AUXILIARY, false)
+
+    override fun setShowLocoAuxiliary(value: Boolean) {
+        editor.putBoolean(TOKEN_SHOW_LOCO_AUXILIARY, value).apply()
+    }
+
+    override fun isShowLocoStatistics(): Boolean =
+        sharedpref.getBoolean(TOKEN_SHOW_LOCO_STATISTICS, false)
+
+    override fun setShowLocoStatistics(value: Boolean) {
+        editor.putBoolean(TOKEN_SHOW_LOCO_STATISTICS, value).apply()
+    }
+
+    override fun isShowLocoNorma(): Boolean =
+        sharedpref.getBoolean(TOKEN_SHOW_LOCO_NORMA, false)
+
+    override fun setShowLocoNorma(value: Boolean) {
+        editor.putBoolean(TOKEN_SHOW_LOCO_NORMA, value).apply()
+    }
+
+    override fun isShowOtherCurrent(): Boolean =
+        sharedpref.getBoolean(TOKEN_SHOW_OTHER_CURRENT, false)
+
+    override fun setShowOtherCurrent(value: Boolean) {
+        editor.putBoolean(TOKEN_SHOW_OTHER_CURRENT, value).apply()
+    }
+
     override fun isLocoSectionNormaExpanded(): Boolean =
         sharedpref.getBoolean(TOKEN_LOCO_SECTION_NORMA, false)
 
@@ -220,38 +255,31 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
         editor.putBoolean(TOKEN_PASSENGER_12H_ACCEPTED, value).apply()
     }
 
-    override fun isShowLocoHeating(): Boolean =
-        sharedpref.getBoolean(TOKEN_SHOW_LOCO_HEATING, true)
-
-    override fun setShowLocoHeating(value: Boolean) {
-        editor.putBoolean(TOKEN_SHOW_LOCO_HEATING, value).apply()
+    override fun getRecentTimes(key: String): List<Long> {
+        val json = sharedpref.getString("recent_times_$key", null) ?: return emptyList()
+        return try {
+            json.removeSurrounding("[", "]")
+                .split(",")
+                .filter { it.isNotBlank() }
+                .map { it.trim().toLong() }
+        } catch (_: Exception) {
+            emptyList()
+        }
     }
 
-    override fun isShowLocoAuxiliary(): Boolean =
-        sharedpref.getBoolean(TOKEN_SHOW_LOCO_AUXILIARY, true)
+    override fun addRecentTime(key: String, timeMillis: Long) {
+        val cal = java.util.Calendar.getInstance().apply { this.timeInMillis = timeMillis }
+        val newH = cal.get(java.util.Calendar.HOUR_OF_DAY)
+        val newM = cal.get(java.util.Calendar.MINUTE)
 
-    override fun setShowLocoAuxiliary(value: Boolean) {
-        editor.putBoolean(TOKEN_SHOW_LOCO_AUXILIARY, value).apply()
-    }
-
-    override fun isShowLocoStatistics(): Boolean =
-        sharedpref.getBoolean(TOKEN_SHOW_LOCO_STATISTICS, true)
-
-    override fun setShowLocoStatistics(value: Boolean) {
-        editor.putBoolean(TOKEN_SHOW_LOCO_STATISTICS, value).apply()
-    }
-
-    override fun isShowLocoNorma(): Boolean =
-        sharedpref.getBoolean(TOKEN_SHOW_LOCO_NORMA, true)
-
-    override fun setShowLocoNorma(value: Boolean) {
-        editor.putBoolean(TOKEN_SHOW_LOCO_NORMA, value).apply()
-    }
-
-    override fun isShowOtherCurrent(): Boolean =
-        sharedpref.getBoolean(TOKEN_SHOW_OTHER_CURRENT, false)
-
-    override fun setShowOtherCurrent(value: Boolean) {
-        editor.putBoolean(TOKEN_SHOW_OTHER_CURRENT, value).apply()
+        val current = getRecentTimes(key).toMutableList()
+        // Убираем дубликаты по часам и минутам (игнорируя дату)
+        current.removeAll { existing ->
+            val c = java.util.Calendar.getInstance().apply { this.timeInMillis = existing }
+            c.get(java.util.Calendar.HOUR_OF_DAY) == newH && c.get(java.util.Calendar.MINUTE) == newM
+        }
+        current.add(0, timeMillis)
+        val trimmed = current.take(5)
+        editor.putString("recent_times_$key", trimmed.joinToString(",", "[", "]")).apply()
     }
 }

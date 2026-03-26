@@ -3,6 +3,7 @@ package com.z_company.route.ui
 import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -851,6 +852,13 @@ fun FullCalendarForRelease(
             val daysInMonth = firstDayOfMonth.getActualMaximum(Calendar.DAY_OF_MONTH)
             val weeks = (firstDayOfWeek + daysInMonth + 6) / 7
 
+            val todayDayOfMonth = remember(thisMonth) {
+                val now = Calendar.getInstance()
+                if (now.get(Calendar.YEAR) == thisMonth.year && now.get(Calendar.MONTH) == thisMonth.month)
+                    now.get(Calendar.DAY_OF_MONTH) else -1
+            }
+            val todayCircleColor = MaterialTheme.colorScheme.surfaceContainerLow
+
             Column {
                 for (week in 0 until weeks) {
                     Row(
@@ -926,6 +934,19 @@ fun FullCalendarForRelease(
                                                 .height(24.dp)
                                                 .background(intermediateColor)
                                                 .align(Alignment.Center)
+                                        )
+                                    }
+
+                                    if (dayNumber == todayDayOfMonth) {
+                                        Box(
+                                            modifier = Modifier
+                                                .padding(4.dp)
+                                                .matchParentSize()
+                                                .border(
+                                                    width = 2.dp,
+                                                    color = todayCircleColor,
+                                                    shape = CircleShape
+                                                )
                                         )
                                     }
 

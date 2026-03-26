@@ -10,6 +10,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -41,10 +43,13 @@ import kotlin.getValue
 @SuppressLint("DefaultLocale")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+//@OptIn(ExperimentalLayoutApi::class)
 fun DateTimePickerBottomSheet(
     onDateTimeSelected: (Long) -> Unit, onDismiss: () -> Unit,
     startDateTime: Long?,
     title: String = "",
+    recentTimes: List<Long> = emptyList(),
+    onRecentTimeSaved: ((Long) -> Unit)? = null,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val viewModel = remember { DateTimePickerViewModel(initialTimestamp = startDateTime) }
@@ -180,10 +185,51 @@ fun DateTimePickerBottomSheet(
                     }
                 }
 
+                // Быстрый выбор из последних значений
+                if (recentTimes.isNotEmpty()) {
+                    item {
+                        val chips = recentTimes.take(10).map { timeMillis ->
+                            val cal = Calendar.getInstance(TimeZone.getTimeZone(timeZoneStr)).apply {
+                                this.timeInMillis = timeMillis
+                            }
+                            Triple(timeMillis, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE))
+                        }.distinctBy { (_, h, m) -> h * 60 + m }
+
+                        LazyRow(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            contentPadding = PaddingValues(horizontal = 16.dp)
+                        ) {
+                            items(chips.size) { index ->
+                                val (_, h, m) = chips[index]
+                                SuggestionChip(
+                                    onClick = {
+                                        viewModel.setTime(h, m)
+                                    },
+                                    label = {
+                                        Text(
+                                            text = "%02d:%02d".format(h, m),
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                                            ),
+                                            maxLines = 1
+                                        )
+                                    },
+                                    colors = SuggestionChipDefaults.suggestionChipColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.3f),
+                                        labelColor = MaterialTheme.colorScheme.primary
+                                    ),
+                                    border = null
+                                )
+                            }
+                        }
+                    }
+                }
+
                 item {
-                    Spacer(
-                        modifier = Modifier.height(48.dp)
-                    )
+                    Spacer(modifier = Modifier.height(if (recentTimes.isEmpty()) 48.dp else 8.dp))
                 }
 
                 // Дата и время внизу
@@ -226,7 +272,9 @@ fun DateTimePickerBottomSheet(
                                     set(Calendar.SECOND, 0)
                                     set(Calendar.MILLISECOND, 0)
                                 }
-                            onDateTimeSelected(calendar.timeInMillis)
+                            val resultMillis = calendar.timeInMillis
+                            onRecentTimeSaved?.invoke(resultMillis)
+                            onDateTimeSelected(resultMillis)
                             onDismiss()
                         },
                         modifier = Modifier
@@ -611,6 +659,10 @@ class DateTimePickerViewModel(initialTimestamp: Long? = null) : ViewModel(), Koi
 
     fun setMinute(minute: Int) {
         _uiState.value = _uiState.value.copy(minute = minute)
+    }
+
+    fun setTime(hour: Int, minute: Int) {
+        _uiState.value = _uiState.value.copy(hour = hour, minute = minute)
     }
 
     fun toggleEditMode() {

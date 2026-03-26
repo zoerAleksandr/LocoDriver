@@ -746,9 +746,34 @@ object WidgetDataLoader : KoinComponent {
                     "до ${dateAndTimeConverter.getDateMiniAndTime(endWork + fullRest)}"
                 return StateInfo("Отдых в ПО", shortDuration, shortEnd, fullDuration, fullEnd)
             } else {
-                // Home rest (simplified — single route, no chain)
-                val rawDuration = (workTime.toDouble() * 2.6).toLong()
-                val duration = maxOf(rawDuration, userSettings.minTimeHomeRest)
+                // Home rest — с учётом цепочки предыдущих маршрутов с отдыхом в ПО
+                val sorted = allRoutes
+                    .filter { it.basicData.timeStartWork != null && it.basicData.timeEndWork != null }
+                    .sortedByDescending { it.basicData.timeStartWork!! }
+
+                val idx = sorted.indexOfFirst { it.basicData.id == previousRoute.basicData.id }
+                val chain = mutableListOf(previousRoute)
+
+                if (idx != -1) {
+                    var nextIdx = idx + 1
+                    while (nextIdx < sorted.size) {
+                        if (sorted[nextIdx].basicData.restPointOfTurnover == true) {
+                            chain.add(sorted[nextIdx])
+                            nextIdx++
+                        } else {
+                            break
+                        }
+                    }
+                }
+
+                val sumWork = chain.sumOf { it.basicData.timeEndWork!! - it.basicData.timeStartWork!! }
+                var sumRest = 0L
+                for (i in 1 until chain.size) {
+                    sumRest += chain[i - 1].basicData.timeStartWork!! - chain[i].basicData.timeEndWork!!
+                }
+
+                val rawDuration = (sumWork.toDouble() * 2.6).toLong()
+                val duration = maxOf(rawDuration - sumRest, userSettings.minTimeHomeRest)
                 val endRestTime = endWork + duration
                 val durationLine =
                     "Продлится ${ConverterLongToTime.formatDurationFromMillis(duration)}"

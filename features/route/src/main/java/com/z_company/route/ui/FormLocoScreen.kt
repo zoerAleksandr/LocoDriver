@@ -85,6 +85,8 @@ import com.z_company.route.component.DieselSectionItem
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.component.DateTimePickerBottomSheet
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
+import com.z_company.domain.repositories.SharedPreferencesRepositories
+import org.koin.compose.koinInject
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.route.viewmodel.LocoFormUiState
@@ -154,6 +156,7 @@ fun FormLocoScreen(
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    val sharedPrefs: SharedPreferencesRepositories = koinInject()
 
     val noValueColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
 
@@ -570,7 +573,9 @@ fun FormLocoScreen(
                                         },
                                         onDismiss = { showStartAcceptedDatePicker = false },
                                         startDateTime = locomotive.timeStartOfAcceptance
-                                            ?: Calendar.getInstance().timeInMillis
+                                            ?: Calendar.getInstance().timeInMillis,
+                                        recentTimes = sharedPrefs.getRecentTimes("time_start_acceptance"),
+                                        onRecentTimeSaved = { sharedPrefs.addRecentTime("time_start_acceptance", it) }
                                     )
                                 }
 
@@ -586,7 +591,9 @@ fun FormLocoScreen(
                                         },
                                         onDismiss = { showEndAcceptedDatePicker = false },
                                         startDateTime = locomotive.timeEndOfAcceptance
-                                            ?: Calendar.getInstance().timeInMillis
+                                            ?: Calendar.getInstance().timeInMillis,
+                                        recentTimes = sharedPrefs.getRecentTimes("time_end_acceptance"),
+                                        onRecentTimeSaved = { sharedPrefs.addRecentTime("time_end_acceptance", it) }
                                     )
                                 }
 
@@ -723,7 +730,9 @@ fun FormLocoScreen(
                                         },
                                         onDismiss = { showStartDeliveryDatePicker = false },
                                         startDateTime = locomotive.timeStartOfDelivery
-                                            ?: Calendar.getInstance().timeInMillis
+                                            ?: Calendar.getInstance().timeInMillis,
+                                        recentTimes = sharedPrefs.getRecentTimes("time_start_delivery"),
+                                        onRecentTimeSaved = { sharedPrefs.addRecentTime("time_start_delivery", it) }
                                     )
                                 }
 
@@ -739,7 +748,9 @@ fun FormLocoScreen(
                                         },
                                         onDismiss = { showEndDeliveryDatePicker = false },
                                         startDateTime = locomotive.timeEndOfDelivery
-                                            ?: Calendar.getInstance().timeInMillis
+                                            ?: Calendar.getInstance().timeInMillis,
+                                        recentTimes = sharedPrefs.getRecentTimes("time_end_delivery"),
+                                        onRecentTimeSaved = { sharedPrefs.addRecentTime("time_end_delivery", it) }
                                     )
                                 }
 
