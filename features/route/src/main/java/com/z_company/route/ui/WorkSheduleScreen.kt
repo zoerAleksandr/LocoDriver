@@ -1047,7 +1047,7 @@ fun WorkScheduleScreen(
                     viewModel.newRouteClick()
                 }
                 showEndTimeSheet = false
-            },
+            }
         )
     }
 }

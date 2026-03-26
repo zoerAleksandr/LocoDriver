@@ -36,6 +36,7 @@ fun SettingsAccountingContent(
     val styleHint = MaterialTheme.typography.bodyMedium
     val primaryColor = MaterialTheme.colorScheme.primary
 
+
     var showNightTimeStartDialog by remember { mutableStateOf(false) }
     var showNightTimeEndDialog by remember { mutableStateOf(false) }
 
@@ -88,7 +89,7 @@ fun SettingsAccountingContent(
                         color = MaterialTheme.colorScheme.secondary,
                         shape = Shapes.medium
                     )
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(

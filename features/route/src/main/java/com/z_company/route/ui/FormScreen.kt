@@ -263,6 +263,7 @@ fun FormScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     val snackbarManager: ISnackbarManager = koinInject()
+    val sharedPrefs: com.z_company.domain.repositories.SharedPreferencesRepositories = koinInject()
 
     LaunchedEffect(Unit) {
         snackbarManager.events
@@ -520,7 +521,9 @@ fun FormScreen(
                         onDismiss = { showStartBreakDatePicker = false },
                         startDateTime = route.basicData.timeStartBreak
                             ?: route.basicData.timeStartWork
-                            ?: Calendar.getInstance().timeInMillis
+                            ?: Calendar.getInstance().timeInMillis,
+                        recentTimes = sharedPrefs.getRecentTimes("time_start_break"),
+                        onRecentTimeSaved = { sharedPrefs.addRecentTime("time_start_break", it) }
                     )
                 }
 
@@ -534,7 +537,9 @@ fun FormScreen(
                         startDateTime = route.basicData.timeEndBreak
                             ?: route.basicData.timeStartBreak
                             ?: route.basicData.timeStartWork
-                            ?: Calendar.getInstance().timeInMillis
+                            ?: Calendar.getInstance().timeInMillis,
+                        recentTimes = sharedPrefs.getRecentTimes("time_end_break"),
+                        onRecentTimeSaved = { sharedPrefs.addRecentTime("time_end_break", it) }
                     )
                 }
 
@@ -594,7 +599,9 @@ fun FormScreen(
                         },
                         onDismiss = { showStartDatePicker = false },
                         startDateTime = route.basicData.timeStartWork
-                            ?: Calendar.getInstance().timeInMillis
+                            ?: Calendar.getInstance().timeInMillis,
+                        recentTimes = sharedPrefs.getRecentTimes("time_start_work"),
+                        onRecentTimeSaved = { sharedPrefs.addRecentTime("time_start_work", it) }
                     )
                 }
 
@@ -607,7 +614,9 @@ fun FormScreen(
                         onDismiss = { showEndDatePicker = false },
                         startDateTime = route.basicData.timeEndWork
                             ?: route.basicData.timeStartWork
-                            ?: Calendar.getInstance().timeInMillis
+                            ?: Calendar.getInstance().timeInMillis,
+                        recentTimes = sharedPrefs.getRecentTimes("time_end_work"),
+                        onRecentTimeSaved = { sharedPrefs.addRecentTime("time_end_work", it) }
                     )
                 }
 

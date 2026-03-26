@@ -24,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
@@ -98,6 +99,19 @@ fun MyWheelPicker(
 ) {
     val snapperLayoutInfo = rememberLazyListSnapperLayoutInfo(lazyListState = lazyListState)
     val isScrollInProgress = lazyListState.isScrollInProgress
+    val haptic = LocalHapticFeedback.current
+
+    // Haptic feedback на каждом пройденном значении при скролле
+    LaunchedEffect(Unit) {
+        var lastIndex = startIndex
+        snapshotFlow { snapperLayoutInfo.currentItem?.index }
+            .collect { currentIndex ->
+                if (currentIndex != null && currentIndex != lastIndex) {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    lastIndex = currentIndex
+                }
+            }
+    }
 
     LaunchedEffect(isScrollInProgress, count) {
         if (!isScrollInProgress) {
@@ -137,6 +151,12 @@ fun MyWheelPicker(
                 val isCentered = index == snapperLayoutInfo.currentItem?.index
                 val alpha = if (isCentered) 1f else 0.6f
 
+                val textAlignment = when (contentArrangement) {
+                    Arrangement.End -> Alignment.CenterEnd
+                    Arrangement.Start -> Alignment.CenterStart
+                    else -> Alignment.Center
+                }
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -149,7 +169,7 @@ fun MyWheelPicker(
                         minTextSize = 18.sp,
                         modifier = Modifier.fillMaxWidth(),
                         text = texts[index],
-                        alignment = Alignment.Center,
+                        alignment = textAlignment,
                         color = color.copy(alpha = alpha),
                         style = style
                     )
