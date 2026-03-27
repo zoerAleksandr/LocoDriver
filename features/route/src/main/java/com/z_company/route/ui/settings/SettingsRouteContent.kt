@@ -37,7 +37,9 @@ import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.domain.entities.setting.UserSettings
+import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.route.viewmodel.Passenger12hOption
+import org.koin.compose.koinInject
 import com.z_company.route.viewmodel.SettingsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -54,6 +56,7 @@ fun SettingsRouteContent(
     val styleTitle = MaterialTheme.typography.titleSmall
     val primaryColor = MaterialTheme.colorScheme.primary
 
+    val sharedPrefs: SharedPreferencesRepositories = koinInject()
     var showWorkTimeDialog by remember { mutableStateOf(false) }
 
     if (showWorkTimeDialog) {
@@ -64,7 +67,9 @@ fun SettingsRouteContent(
                 showWorkTimeDialog = false
             },
             onDismiss = { showWorkTimeDialog = false },
-            title = "Время работы по умолчанию"
+            title = "Время работы по умолчанию",
+            recentTimes = sharedPrefs.getRecentTimes("default_work_time"),
+            onRecentTimeSaved = { sharedPrefs.addRecentTime("default_work_time", it) }
         )
     }
 

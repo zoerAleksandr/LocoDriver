@@ -35,7 +35,9 @@ data class UserSettings(
     val isShowBreak: Boolean = true,
     val isShowLocoHeating: Boolean = true,
     val isShowLocoAuxiliary: Boolean = true,
-    val isShowLocoStatistics: Boolean = true
+    val isShowLocoStatistics: Boolean = true,
+    val isShowLocoNorma: Boolean = true,
+    val isShowOtherCurrent: Boolean = false
 )
 
 @Serializable

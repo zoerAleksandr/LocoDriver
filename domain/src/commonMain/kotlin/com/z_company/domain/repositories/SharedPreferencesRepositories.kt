@@ -44,4 +44,7 @@ interface SharedPreferencesRepositories {
     fun setPassenger12hDontAskAgain(value: Boolean)
     fun isPassenger12hAutoAccepted(): Boolean
     fun setPassenger12hAutoAccepted(value: Boolean)
+
+    fun getRecentTimes(key: String): List<Long>
+    fun addRecentTime(key: String, timeMillis: Long)
 }

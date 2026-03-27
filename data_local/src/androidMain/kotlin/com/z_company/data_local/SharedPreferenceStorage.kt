@@ -206,4 +206,24 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
     override fun setPassenger12hAutoAccepted(value: Boolean) {
         editor.putBoolean(TOKEN_PASSENGER_12H_ACCEPTED, value).apply()
     }
+
+    override fun getRecentTimes(key: String): List<Long> {
+        val json = sharedpref.getString("recent_times_$key", null) ?: return emptyList()
+        return try {
+            json.removeSurrounding("[", "]")
+                .split(",")
+                .filter { it.isNotBlank() }
+                .map { it.trim().toLong() }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    override fun addRecentTime(key: String, timeMillis: Long) {
+        val current = getRecentTimes(key).toMutableList()
+        current.remove(timeMillis)
+        current.add(0, timeMillis)
+        val trimmed = current.take(5)
+        editor.putString("recent_times_$key", trimmed.joinToString(",", "[", "]")).apply()
+    }
 }

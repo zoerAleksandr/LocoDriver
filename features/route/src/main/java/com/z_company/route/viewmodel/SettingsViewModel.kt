@@ -354,6 +354,18 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         )
     }
 
+    fun changeShowLocoNorma(value: Boolean) {
+        currentSettings = currentSettings?.copy(
+            isShowLocoNorma = value
+        )
+    }
+
+    fun changeShowOtherCurrent(value: Boolean) {
+        currentSettings = currentSettings?.copy(
+            isShowOtherCurrent = value
+        )
+    }
+
     fun setTimeZone(timeZone: Long) {
         currentSettings = currentSettings?.copy(
             timeZone = timeZone

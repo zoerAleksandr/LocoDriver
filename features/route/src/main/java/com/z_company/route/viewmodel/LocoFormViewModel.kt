@@ -285,11 +285,12 @@ class LocoFormViewModel(
             }
         }
 
+        val globalShowOtherCurrent = _settings.value?.isShowOtherCurrent == true
         _uiState.update {
             it.copy(
                 isShowHeatingCounter = heating || savedHeatingExpanded,
                 isShowAuxiliaryCounter = auxiliary || savedAuxiliaryExpanded,
-                isShowOtherCurrent = otherCurrent
+                isShowOtherCurrent = otherCurrent || globalShowOtherCurrent
             )
         }
     }
@@ -367,6 +368,11 @@ class LocoFormViewModel(
         val newValue = !_uiState.value.isShowResults
         _uiState.update { it.copy(isShowResults = newValue) }
         sharedPreferenceStorage.setLocoSectionStatisticsExpanded(newValue)
+    }
+
+    fun toggleNorma() {
+        val newValue = !_uiState.value.isShowNorma
+        _uiState.update { it.copy(isShowNorma = newValue) }
     }
 
     fun dismissUpdateHint() {

@@ -99,6 +99,8 @@ fun SettingsScreen(
     changeShowLocoHeating: (Boolean) -> Unit,
     changeShowLocoAuxiliary: (Boolean) -> Unit,
     changeShowLocoStatistics: (Boolean) -> Unit,
+    changeShowLocoNorma: (Boolean) -> Unit,
+    changeShowOtherCurrent: (Boolean) -> Unit,
     setTimeZone: (Long) -> Unit,
     timeZoneRussiaList: List<TimeZoneRussia>,
     servicePhases: SnapshotStateList<ServicePhase>?,
@@ -279,6 +281,8 @@ fun SettingsScreen(
                                 changeShowLocoHeating = changeShowLocoHeating,
                                 changeShowLocoAuxiliary = changeShowLocoAuxiliary,
                                 changeShowLocoStatistics = changeShowLocoStatistics,
+                                changeShowLocoNorma = changeShowLocoNorma,
+                                changeShowOtherCurrent = changeShowOtherCurrent,
                             )
                         }
                     }

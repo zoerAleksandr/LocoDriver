@@ -47,7 +47,9 @@ class SqlDelightSettingRepository : SettingsRepository, KoinComponent {
             isShowBreak = if (us.isShowBreak) 1L else 0L,
             isShowLocoHeating = if (us.isShowLocoHeating) 1L else 0L,
             isShowLocoAuxiliary = if (us.isShowLocoAuxiliary) 1L else 0L,
-            isShowLocoStatistics = if (us.isShowLocoStatistics) 1L else 0L
+            isShowLocoStatistics = if (us.isShowLocoStatistics) 1L else 0L,
+            isShowLocoNorma = if (us.isShowLocoNorma) 1L else 0L,
+            isShowOtherCurrent = if (us.isShowOtherCurrent) 1L else 0L
         )
     }
 

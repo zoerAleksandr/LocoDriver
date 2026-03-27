@@ -25,6 +25,8 @@ import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.domain.entities.setting.UserSettings
+import com.z_company.domain.repositories.SharedPreferencesRepositories
+import org.koin.compose.koinInject
 
 @Composable
 fun SettingsRestContent(
@@ -36,6 +38,7 @@ fun SettingsRestContent(
     val styleHint = MaterialTheme.typography.bodyMedium
     val primaryColor = MaterialTheme.colorScheme.primary
 
+    val sharedPrefs: SharedPreferencesRepositories = koinInject()
     var showRestDialog by remember { mutableStateOf(false) }
     var showHomeRestDialog by remember { mutableStateOf(false) }
 
@@ -47,7 +50,9 @@ fun SettingsRestContent(
                 showRestDialog = false
             },
             onDismiss = { showRestDialog = false },
-            title = "Минимальный отдых в ПО"
+            title = "Минимальный отдых в ПО",
+            recentTimes = sharedPrefs.getRecentTimes("rest_point_of_turnover"),
+            onRecentTimeSaved = { sharedPrefs.addRecentTime("rest_point_of_turnover", it) }
         )
     }
 
@@ -59,7 +64,9 @@ fun SettingsRestContent(
                 showHomeRestDialog = false
             },
             onDismiss = { showHomeRestDialog = false },
-            title = "Минимальный домашний отдых"
+            title = "Минимальный домашний отдых",
+            recentTimes = sharedPrefs.getRecentTimes("home_rest"),
+            onRecentTimeSaved = { sharedPrefs.addRecentTime("home_rest", it) }
         )
     }
 

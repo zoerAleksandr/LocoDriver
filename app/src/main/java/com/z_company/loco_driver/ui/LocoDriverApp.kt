@@ -47,10 +47,14 @@ import com.z_company.route.navigation.SettingsScreenRoute
 import com.z_company.route.navigation.UpdatePresentationBlockDestination
 import com.z_company.route.navigation.homeGraph
 import androidx.activity.ComponentActivity // Изменено: Уже был, но подтверждено — нужен для доступа к window.
-import androidx.compose.foundation.layout.WindowInsets // Изменено: Уже были, но добавлены комментарии для ясности.
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.systemBars // Изменено: Добавлен импорт для WindowInsets.systemBars, чтобы использовать в paddings.
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
@@ -123,10 +127,19 @@ fun LocoDriverApp(
             insetsController.isAppearanceLightNavigationBars = isLightNavBar
         }
 
+        val focusManager = LocalFocusManager.current
+        val keyboardController = LocalSoftwareKeyboardController.current
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(backgroundColor)
+                .pointerInput(Unit) {
+                    detectTapGestures(onTap = {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                    })
+                }
         ) {
             val density = LocalDensity.current
             val navInsets = WindowInsets.navigationBars.asPaddingValues()

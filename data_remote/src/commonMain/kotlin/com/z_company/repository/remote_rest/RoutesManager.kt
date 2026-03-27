@@ -50,6 +50,26 @@ class RoutesManager(
             emit(ResultState.Error(ErrorEntity(throwable = e)))
         }
 
+    fun deleteRouteInRemote(
+        routeId: String,
+        bearerToken: String
+    ): Flow<ResultState<Unit>> = flow {
+        emit(ResultState.Loading())
+        try {
+            remoteRestApi.deleteRoute(token = bearerToken, routeId = routeId)
+            emit(ResultState.Success(Unit))
+        } catch (e: ClientRequestException) {
+            val errorBody = try { e.response.bodyAsText() } catch (_: Exception) { "" }
+            val errorMessage = parseServerError(e.response.status.value, errorBody)
+            emit(ResultState.Error(ErrorEntity(message = errorMessage)))
+        } catch (e: Exception) {
+            emit(ResultState.Error(ErrorEntity(throwable = e)))
+        }
+    }.flowOn(Dispatchers.Default)
+        .catch { e ->
+            emit(ResultState.Error(ErrorEntity(throwable = e)))
+        }
+
     fun getRoutesFromRemote(bearerToken: String): Flow<ResultState<List<Route>>> = flow {
         emit(ResultState.Loading())
         try {

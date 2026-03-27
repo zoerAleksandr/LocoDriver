@@ -83,7 +83,7 @@ sqldelight {
         create("SettingsDatabase") {
             packageName.set("com.z_company.data_local.setting.db")
             srcDirs.setFrom("src/commonMain/sqldelight/SettingsDatabase")
-            version = 3
+            version = 4
             verifyMigrations.set(false)
         }
         create("SalarySettingDatabase") {

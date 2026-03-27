@@ -25,6 +25,8 @@ fun SettingsLocoContent(
     changeShowLocoHeating: (Boolean) -> Unit,
     changeShowLocoAuxiliary: (Boolean) -> Unit,
     changeShowLocoStatistics: (Boolean) -> Unit,
+    changeShowLocoNorma: (Boolean) -> Unit,
+    changeShowOtherCurrent: (Boolean) -> Unit,
 ) {
     val styleData = MaterialTheme.typography.bodyLarge
     val styleHint = MaterialTheme.typography.bodyMedium
@@ -108,6 +110,50 @@ fun SettingsLocoContent(
                 Switch(
                     checked = currentSettings.isShowLocoStatistics,
                     onCheckedChange = { changeShowLocoStatistics(it) }
+                )
+            }
+            HorizontalDivider()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Норма",
+                    style = styleData,
+                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 1,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 12.dp)
+                )
+                Switch(
+                    checked = currentSettings.isShowLocoNorma,
+                    onCheckedChange = { changeShowLocoNorma(it) }
+                )
+            }
+            HorizontalDivider()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Смена рода тока",
+                    style = styleData,
+                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 2,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 12.dp)
+                )
+                Switch(
+                    checked = currentSettings.isShowOtherCurrent,
+                    onCheckedChange = { changeShowOtherCurrent(it) }
                 )
             }
         }

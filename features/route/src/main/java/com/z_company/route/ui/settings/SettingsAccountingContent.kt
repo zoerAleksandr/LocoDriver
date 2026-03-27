@@ -24,6 +24,8 @@ import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.domain.entities.setting.UserSettings
+import com.z_company.domain.repositories.SharedPreferencesRepositories
+import org.koin.compose.koinInject
 
 @Composable
 fun SettingsAccountingContent(
@@ -36,6 +38,7 @@ fun SettingsAccountingContent(
     val styleHint = MaterialTheme.typography.bodyMedium
     val primaryColor = MaterialTheme.colorScheme.primary
 
+    val sharedPrefs: SharedPreferencesRepositories = koinInject()
     var showNightTimeStartDialog by remember { mutableStateOf(false) }
     var showNightTimeEndDialog by remember { mutableStateOf(false) }
 
@@ -53,7 +56,9 @@ fun SettingsAccountingContent(
                 showNightTimeEndDialog = true
             },
             onDismiss = { showNightTimeStartDialog = false },
-            title = "Начало ночи"
+            title = "Начало ночи",
+            recentTimes = sharedPrefs.getRecentTimes("night_start"),
+            onRecentTimeSaved = { sharedPrefs.addRecentTime("night_start", it) }
         )
     }
 
@@ -69,7 +74,9 @@ fun SettingsAccountingContent(
                 changeEndNightTime(hour, minute)
             },
             onDismiss = { showNightTimeEndDialog = false },
-            title = "Окончание ночи"
+            title = "Окончание ночи",
+            recentTimes = sharedPrefs.getRecentTimes("night_end"),
+            onRecentTimeSaved = { sharedPrefs.addRecentTime("night_end", it) }
         )
     }
 
