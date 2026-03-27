@@ -2,6 +2,7 @@ package com.z_company.repository.remote_rest
 
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
+import com.z_company.core.sendToSentry
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.RouteUseCase
@@ -121,11 +122,37 @@ class SyncManager(
                 }
             }
 
-        // 4. Сохранение всех маршрутов
-        val routes = routeUseCase.getListRoutesAsFlow().first()
-        var savedCount = 0
         val allWarnings = mutableListOf<String>()
         val allErrors = mutableListOf<String>()
+
+        // 4. Удаление маршрутов, помеченных isDeleted = true
+        val allRoutesWithDeleted = routeUseCase.listRouteWithDeleting()
+        val deletedRoutes = allRoutesWithDeleted.filter { it.basicData.isDeleted }
+        for (route in deletedRoutes) {
+            val label = routeLabel(route)
+            try {
+                routesManager.deleteRouteInRemote(route.basicData.id, bearerToken)
+                    .collect { deleteResult ->
+                        if (deleteResult is ResultState.Success) {
+                            routeUseCase.removeRoute(route).collect {}
+                        } else if (deleteResult is ResultState.Error) {
+                            val msg = deleteResult.entity.message
+                                ?: deleteResult.entity.throwable?.message ?: "Ошибка"
+                            allErrors.add("Удаление $label: $msg")
+                            deleteResult.entity.throwable?.sendToSentry(
+                                "SyncManager", "deleteDeletedRoutes"
+                            )
+                        }
+                    }
+            } catch (e: Exception) {
+                allErrors.add("Удаление $label: ${e.message}")
+                e.sendToSentry("SyncManager", "deleteDeletedRoutes")
+            }
+        }
+
+        // 5. Сохранение всех маршрутов
+        val routes = routeUseCase.getListRoutesAsFlow().first()
+        var savedCount = 0
         for (route in routes) {
             if (!route.basicData.isSynchronized) {
                 val label = routeLabel(route)
@@ -247,8 +274,17 @@ class SyncManager(
                         val currentMonthOfYear = listMonthOfYear.find {
                             it.month == now.monthNumber - 1 && it.year == now.year
                         }
+                        // Защита подписки: берём максимум из локального и серверного значения,
+                        // чтобы не затереть локально сохранённую подписку.
+                        val localSettings = settingsUseCase.getFlowCurrentSettingsState()
+                            .first { it is ResultState.Success || it is ResultState.Error }
+                        val localSubscriptionPeriod = (localSettings as? ResultState.Success)
+                            ?.data?.subscriptionPeriod ?: 0L
+                        val remoteSubscriptionPeriod = loadState.data.subscriptionPeriod
+                        val mergedSubscriptionPeriod = maxOf(localSubscriptionPeriod, remoteSubscriptionPeriod)
                         val userSettings = loadState.data.copy(
-                            selectMonthOfYear = currentMonthOfYear ?: listMonthOfYear.firstOrNull() ?: com.z_company.domain.entities.MonthOfYear()
+                            selectMonthOfYear = currentMonthOfYear ?: listMonthOfYear.firstOrNull() ?: com.z_company.domain.entities.MonthOfYear(),
+                            subscriptionPeriod = mergedSubscriptionPeriod
                         )
                         settingsUseCase.saveSetting(userSettings)
                             .collect { saveResult ->
@@ -328,9 +364,9 @@ class SyncManager(
             .first { it is ResultState.Success || it is ResultState.Error }
         if (localUserSettingsState is ResultState.Success) {
             val localUserSettings = localUserSettingsState.data
-            val endTimeSubscription = sharedPrefs.getSubscriptionExpiration()
-            val l = localUserSettings.copy(subscriptionPeriod = endTimeSubscription)
-            settingManager.saveUserSettingInRemote(l, bearerToken)
+            // Не перезаписываем subscriptionPeriod из SharedPreferences (там всегда 0),
+            // используем локальное значение из БД напрямую.
+            settingManager.saveUserSettingInRemote(localUserSettings, bearerToken)
                 .catch { e ->
                     emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения UserSettings: ${e.message}")))
                     return@catch

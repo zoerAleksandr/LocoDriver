@@ -21,9 +21,13 @@ actual class DatabaseDriverFactory(private val context: Context) {
     }
 
     actual fun createSettingsDriver(): SqlDriver {
+        // Проверяем ВСЕ столбцы из всех миграций (включая последнюю 3.sqm),
+        // чтобы не пропустить 3.sqm у пользователей, у которых уже есть isShowLocoHeating
+        // (из старой v3-схемы), но нет isShowLocoNorma/isShowOtherCurrent.
         fixVersionIfColumnsExist("Settings.db", SettingsDatabase.Schema.version.toInt(),
             "UserSettings" to "isShowBreak",
-            "UserSettings" to "isShowLocoHeating")
+            "UserSettings" to "isShowLocoHeating",
+            "UserSettings" to "isShowLocoNorma")
         return createDriver(SettingsDatabase.Schema, "Settings.db")
     }
 
