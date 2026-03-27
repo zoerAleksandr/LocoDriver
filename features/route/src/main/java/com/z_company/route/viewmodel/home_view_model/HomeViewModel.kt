@@ -45,6 +45,7 @@ import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.use_cases.TrainUseCase
 import com.z_company.repository.SecureTokenStorage
 import com.z_company.repository.remote_rest.RoutesManager
+import com.z_company.repository.remote_rest.SyncManager
 import com.z_company.route.viewmodel.PreviewRouteUiState
 import com.z_company.route.viewmodel.RouteActionsHelper
 import com.z_company.route.viewmodel.SalaryCalculationHelper
@@ -102,6 +103,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
     private val snackbarManager: ISnackbarManager by inject()
     private val secureTokenStorage: SecureTokenStorage by inject()
     private val routesManager: RoutesManager by inject()
+    private val syncManager: SyncManager by inject()
     private val widgetUpdater: WidgetUpdater by inject()
 
     var timeWithoutHoliday by mutableLongStateOf(0L)
@@ -773,6 +775,53 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
+    private var syncJob: kotlinx.coroutines.Job? = null
+
+    fun manualSync() {
+        syncJob?.cancel()
+        syncJob = viewModelScope.launch {
+            _uiState.update { it.copy(syncDialogState = SyncDialogState.Loading) }
+            try {
+                val token = secureTokenStorage.getAuthBearerTokenFlow().first()
+                if (token.isNullOrBlank()) {
+                    _uiState.update { it.copy(syncDialogState = SyncDialogState.Error("Неавторизованный пользователь")) }
+                    return@launch
+                }
+                val bearerToken = "Bearer $token"
+                syncManager.syncToRemote(bearerToken).collect { result ->
+                    when (result) {
+                        is ResultState.Success -> _uiState.update { it.copy(syncDialogState = SyncDialogState.Hidden) }
+                        is ResultState.Error -> {
+                            val throwable = result.entity.throwable
+                            val displayMsg = if (isNoInternetError(throwable)) "Нет интернета."
+                                else result.entity.message ?: throwable?.message ?: "Ошибка синхронизации"
+                            _uiState.update { it.copy(syncDialogState = SyncDialogState.Error(displayMsg)) }
+                        }
+                        is ResultState.Loading -> {}
+                    }
+                }
+            } catch (_: kotlinx.coroutines.CancellationException) {
+            } catch (e: Exception) {
+                val displayMsg = if (isNoInternetError(e)) "Нет интернета." else (e.message ?: "Ошибка синхронизации")
+                _uiState.update { it.copy(syncDialogState = SyncDialogState.Error(displayMsg)) }
+            }
+        }
+    }
+
+    fun closeSyncDialog() {
+        syncJob?.cancel()
+        _uiState.update { it.copy(syncDialogState = SyncDialogState.Hidden) }
+    }
+
+    private fun isNoInternetError(e: Throwable?): Boolean {
+        if (e == null) return false
+        return e is java.net.UnknownHostException || e is java.net.SocketException ||
+            e is java.net.ConnectException ||
+            (e.message?.lowercase()?.contains("unable to resolve host") == true) ||
+            (e.message?.lowercase()?.contains("no address") == true) ||
+            (e.message?.lowercase()?.contains("failed to connect") == true)
+    }
+
     private fun calculationTotalTime(routes: List<Route>, offsetInMoscow: Long) {
         _uiState.update {
             it.copy(
@@ -1104,6 +1153,12 @@ class HomeViewModel : ViewModel(), KoinComponent {
             sharedPreferenceStorage.enableShowingUpdatePresentation()
             initUpdateManager()
             initLoading()
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            routeUseCase.getListRoutesAsFlow().collect { allRoutes ->
+                val unsyncedCount = allRoutes.count { !it.basicData.isSynchronized }
+                _uiState.update { it.copy(unsyncedRoutesCount = unsyncedCount) }
+            }
         }
     }
 

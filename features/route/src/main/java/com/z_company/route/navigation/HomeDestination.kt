@@ -78,7 +78,11 @@ fun HomeDestination(
         saveTimeEvent = homeViewModel.saveTimeEvent,
         isNextDeparture = homeViewModel::isNextDeparture,
         onWorkScheduleScreen = router::showWorkScheduleScreen,
-        onClickVacation = router::showSelectReleaseDayScreen
+        onClickVacation = router::showSelectReleaseDayScreen,
+        unsyncedRoutesCount = uiState.unsyncedRoutesCount,
+        onSyncClick = homeViewModel::manualSync,
+        syncDialogState = uiState.syncDialogState,
+        onCloseSyncDialog = homeViewModel::closeSyncDialog
     )
 }
 

@@ -2,6 +2,7 @@ package com.z_company.route.ui
 
 import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BasicTooltipBox
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -56,6 +57,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -68,6 +71,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -75,6 +79,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
@@ -176,7 +181,11 @@ fun HomeScreen(
     isNextDeparture: () -> Boolean,
     saveTimeEvent: SharedFlow<String>,
     onWorkScheduleScreen: () -> Unit,
-    onClickVacation: () -> Unit
+    onClickVacation: () -> Unit,
+    unsyncedRoutesCount: Int = 0,
+    onSyncClick: () -> Unit = {},
+    syncDialogState: com.z_company.route.viewmodel.home_view_model.SyncDialogState = com.z_company.route.viewmodel.home_view_model.SyncDialogState.Hidden,
+    onCloseSyncDialog: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -269,6 +278,83 @@ fun HomeScreen(
         saveTimeEvent.collectLatest {
             scope.launch {
                 snackbarHostState.showSnackbar(it)
+            }
+        }
+    }
+
+    // Диалог синхронизации
+    if (syncDialogState !is com.z_company.route.viewmodel.home_view_model.SyncDialogState.Hidden) {
+        val context = LocalContext.current
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = onCloseSyncDialog,
+            properties = androidx.compose.ui.window.DialogProperties(dismissOnClickOutside = false)
+        ) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondary),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Синхронизация",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        IconButton(onClick = onCloseSyncDialog) {
+                            Icon(
+                                imageVector = Icons.Rounded.Close,
+                                contentDescription = "Закрыть",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                    when (syncDialogState) {
+                        is com.z_company.route.viewmodel.home_view_model.SyncDialogState.Loading -> {
+                            Spacer(Modifier.height(12.dp))
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                            Spacer(Modifier.height(16.dp))
+                            OutlinedButton(
+                                onClick = onCloseSyncDialog,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Прервать", color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                        is com.z_company.route.viewmodel.home_view_model.SyncDialogState.Error -> {
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = syncDialogState.message,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            OutlinedButton(
+                                onClick = {
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
+                                        data = android.net.Uri.parse("mailto:locodriver.app@yandex.ru?subject=Ошибка%20синхронизации")
+                                    }
+                                    context.startActivity(intent)
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Написать в поддержку", color = MaterialTheme.colorScheme.primary)
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedButton(
+                                onClick = onSyncClick,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Повторить", color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                        else -> {}
+                    }
+                }
             }
         }
     }
@@ -553,6 +639,51 @@ fun HomeScreen(
                                 .animateItem(),
                             state = pagerState
                         )
+                        AnimatedVisibility(visible = unsyncedRoutesCount > 2) {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.secondary
+                                ),
+                                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        text = "Внимание!",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = "Не синхронизировано маршрутов: $unsyncedRoutesCount",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = "Данные не были отправлены на сервер. Проверьте подключение к интернету и выполните синхронизацию.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(MaterialTheme.shapes.extraSmall)
+                                            .background(brushMain)
+                                            .clickable(onClick = onSyncClick),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "Синхронизировать",
+                                            color = MaterialTheme.colorScheme.secondary,
+                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 

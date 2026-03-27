@@ -169,6 +169,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
         private set
 
     private var loadSettingsJob: Job? = null
+    private var getUserInfoJob: Job? = null
 
     init {
         getUserInfo()
@@ -633,9 +634,13 @@ class ProfileViewModel : ViewModel(), KoinComponent {
 
 
     fun getUserInfo() {
-        viewModelScope.launch {
+        getUserInfoJob?.cancel()
+        getUserInfoJob = viewModelScope.launch {
             val token = secureTokenStorage.getAuthBearerTokenFlow().first()
             if (!token.isNullOrBlank()) {
+                // Токен есть — сразу показываем профиль (не ждём сетевого ответа).
+                // На 401 откатываемся обратно.
+                _isLoggedIn.value = true
                 val fullToken = "Bearer $token"
                 authManager.getUserProfile(fullToken).collect { state ->
                     if (state is GetUserProfileState.Loading) {
@@ -649,7 +654,6 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                         _uiState.update {
                             it.copy(userDetailsState = ResultState.Success(state.user))
                         }
-                        _isLoggedIn.value = true
                         subscriptionHelper.restorePurchases(null, token)
                     }
                     if (state is GetUserProfileState.Error) {
@@ -662,6 +666,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                     }
                 }
             } else {
+                _isLoggedIn.value = false
                 _uiState.update {
                     it.copy(userDetailsState = ResultState.Success(null))
                 }

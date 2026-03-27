@@ -33,8 +33,16 @@ data class HomeUiState(
     val offsetInMoscow: Long = 0L,
     val listItemState: MutableList<ItemState> = mutableListOf<ItemState>(),
     var dateAndTimeConverter: DateAndTimeConverter? = null,
-    val showSnackbar: Boolean = false
+    val showSnackbar: Boolean = false,
+    val unsyncedRoutesCount: Int = 0,
+    val syncDialogState: SyncDialogState = SyncDialogState.Hidden
 )
+
+sealed class SyncDialogState {
+    object Hidden : SyncDialogState()
+    object Loading : SyncDialogState()
+    data class Error(val message: String) : SyncDialogState()
+}
 
 data class ItemState(
     val route: Route,
