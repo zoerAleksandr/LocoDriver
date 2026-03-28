@@ -49,8 +49,6 @@ import com.z_company.repository.remote_rest.SyncManager
 import com.z_company.route.viewmodel.PreviewRouteUiState
 import com.z_company.route.viewmodel.RouteActionsHelper
 import com.z_company.route.viewmodel.SalaryCalculationHelper
-import com.z_company.route.viewmodel.SyncStepState
-import com.z_company.route.viewmodel.SyncType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -777,7 +775,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    private var syncJob: Job? = null
+    private var syncJob: kotlinx.coroutines.Job? = null
 
     fun manualSync() {
         syncJob?.cancel()
@@ -787,15 +785,14 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 _uiState.update {
                     it.copy(
                         showSyncDialog = true,
-                        syncType = SyncType.Upload,
+                        syncType = com.z_company.route.viewmodel.SyncType.Upload,
                         syncUploadProgress = mapOf(
-                            "UserSettings" to SyncStepState.Error("Неавторизованный пользователь"),
-                            "SalarySettings" to SyncStepState.Error(""),
-                            "Months" to SyncStepState.Error(""),
-                            "Routes" to SyncStepState.Error("")
+                            "UserSettings" to com.z_company.route.viewmodel.SyncStepState.Error("Неавторизованный пользователь"),
+                            "SalarySettings" to com.z_company.route.viewmodel.SyncStepState.Error(""),
+                            "Months" to com.z_company.route.viewmodel.SyncStepState.Error(""),
+                            "Routes" to com.z_company.route.viewmodel.SyncStepState.Error("")
                         ),
-                        isSyncComplete = true,
-                        isSyncSuccess = false
+                        isSyncComplete = true
                     )
                 }
                 return@launch
@@ -803,12 +800,12 @@ class HomeViewModel : ViewModel(), KoinComponent {
             _uiState.update {
                 it.copy(
                     showSyncDialog = true,
-                    syncType = SyncType.Upload,
+                    syncType = com.z_company.route.viewmodel.SyncType.Upload,
                     syncUploadProgress = mapOf(
-                        "UserSettings" to SyncStepState.Loading,
-                        "SalarySettings" to SyncStepState.Loading,
-                        "Months" to SyncStepState.Loading,
-                        "Routes" to SyncStepState.Loading
+                        "UserSettings" to com.z_company.route.viewmodel.SyncStepState.Loading,
+                        "SalarySettings" to com.z_company.route.viewmodel.SyncStepState.Loading,
+                        "Months" to com.z_company.route.viewmodel.SyncStepState.Loading,
+                        "Routes" to com.z_company.route.viewmodel.SyncStepState.Loading
                     ),
                     isSyncComplete = false,
                     isSyncSuccess = false
@@ -821,58 +818,60 @@ class HomeViewModel : ViewModel(), KoinComponent {
                         is ResultState.Success -> {
                             val result = state.data
                             val newProgress = _uiState.value.syncUploadProgress.toMutableMap()
-                            if (result.userSettingsSaved) newProgress["UserSettings"] = SyncStepState.Success("загружены")
-                            if (result.salarySettingsSaved) newProgress["SalarySettings"] = SyncStepState.Success("загружены")
-                            if (result.monthsSaved) newProgress["Months"] = SyncStepState.Success("загружены")
+                            if (result.userSettingsSaved) newProgress["UserSettings"] = com.z_company.route.viewmodel.SyncStepState.Success("загружены")
+                            if (result.salarySettingsSaved) newProgress["SalarySettings"] = com.z_company.route.viewmodel.SyncStepState.Success("загружены")
+                            if (result.monthsSaved) newProgress["Months"] = com.z_company.route.viewmodel.SyncStepState.Success("загружены")
+                            val routeErrors = result.routeErrors
                             if (result.routesSavedCount >= 0) {
-                                if (result.routeErrors.isNotEmpty()) {
-                                    newProgress["Routes"] = SyncStepState.Error("")
+                                if (routeErrors.isNotEmpty()) {
+                                    newProgress["Routes"] = com.z_company.route.viewmodel.SyncStepState.Error("синхронизировано ${result.routesSavedCount} из ${routeErrors.size + result.routesSavedCount}")
                                 } else {
-                                    newProgress["Routes"] = SyncStepState.Success("загружены ${result.routesSavedCount}(шт)")
+                                    val details = buildString {
+                                        append("загружены ${result.routesSavedCount}(шт)")
+                                        if (result.routeWarnings.isNotEmpty()) append("\n${result.routeWarnings.joinToString("\n")}")
+                                    }
+                                    newProgress["Routes"] = com.z_company.route.viewmodel.SyncStepState.Success(details)
                                 }
                             }
-                            val hasErrors = result.routeErrors.isNotEmpty()
-                            val totalAttempted = result.routesSavedCount + result.routeErrors.size
+                            val isFullSuccess = result.timestamp != null && routeErrors.isEmpty()
                             _uiState.update {
                                 it.copy(
                                     syncUploadProgress = newProgress,
-                                    isSyncComplete = true,
-                                    isSyncSuccess = !hasErrors,
-                                    showSyncDialog = hasErrors,
-                                    syncRouteErrors = if (hasErrors) result.routeErrors else emptyList(),
-                                    syncRoutesTotalAttempted = if (hasErrors) totalAttempted else 0,
-                                    syncRoutesSavedCount = if (hasErrors) result.routesSavedCount else 0
+                                    isSyncComplete = !isFullSuccess,
+                                    isSyncSuccess = isFullSuccess,
+                                    showSyncDialog = !isFullSuccess,
+                                    syncRouteErrors = routeErrors,
+                                    syncRoutesTotalAttempted = routeErrors.size + result.routesSavedCount,
+                                    syncRoutesSavedCount = result.routesSavedCount
                                 )
                             }
                             result.timestamp?.let { sharedPreferenceStorage.setLastSyncTimestamp(it) }
                         }
                         is ResultState.Error -> {
-                            val msg = networkSafeErrorMessage(
-                                state.entity.message ?: state.entity.throwable?.message
-                            )
-                            val newProgress = _uiState.value.syncUploadProgress.mapValues {
-                                if (it.value is SyncStepState.Loading) SyncStepState.Error(msg) else it.value
-                            }
-                            _uiState.update {
-                                it.copy(
-                                    syncUploadProgress = newProgress,
-                                    isSyncComplete = true,
-                                    isSyncSuccess = false
-                                )
+                            val msg = state.entity.message ?: ""
+                            val stepKey = parseSyncStep(msg)
+                            val newProgress = _uiState.value.syncUploadProgress.toMutableMap()
+                            if (stepKey != null) {
+                                newProgress[stepKey] = com.z_company.route.viewmodel.SyncStepState.Error(message = cleanSyncError(msg))
+                                _uiState.update { it.copy(syncUploadProgress = newProgress) }
+                            } else {
+                                newProgress.replaceAll { _, v ->
+                                    if (v is com.z_company.route.viewmodel.SyncStepState.Loading)
+                                        com.z_company.route.viewmodel.SyncStepState.Error(message = msg)
+                                    else v
+                                }
+                                _uiState.update { it.copy(syncUploadProgress = newProgress, isSyncComplete = true) }
                             }
                         }
                     }
                 }
-            } catch (_: kotlinx.coroutines.CancellationException) {
-                // отменено пользователем
             } catch (e: Exception) {
-                val msg = networkSafeErrorMessage(e.message)
                 val newProgress = _uiState.value.syncUploadProgress.mapValues {
-                    if (it.value is SyncStepState.Loading) SyncStepState.Error(msg) else it.value
+                    if (it.value is com.z_company.route.viewmodel.SyncStepState.Loading)
+                        com.z_company.route.viewmodel.SyncStepState.Error(message = e.message ?: "Ошибка синхронизации")
+                    else it.value
                 }
-                _uiState.update {
-                    it.copy(syncUploadProgress = newProgress, isSyncComplete = true, isSyncSuccess = false)
-                }
+                _uiState.update { it.copy(syncUploadProgress = newProgress, isSyncComplete = true) }
             }
         }
     }
@@ -882,9 +881,10 @@ class HomeViewModel : ViewModel(), KoinComponent {
         _uiState.update {
             it.copy(
                 showSyncDialog = false,
+                syncUploadProgress = emptyMap(),
                 isSyncComplete = false,
                 isSyncSuccess = false,
-                syncUploadProgress = emptyMap(),
+                syncType = null,
                 syncRouteErrors = emptyList(),
                 syncRoutesTotalAttempted = 0,
                 syncRoutesSavedCount = 0
@@ -892,53 +892,46 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    // ⚠️ ТОЛЬКО ДЛЯ ТЕСТИРОВАНИЯ — удалить перед релизом
     fun debugShowTestSyncError() {
         _uiState.update {
             it.copy(
                 showSyncDialog = true,
-                syncType = SyncType.Upload,
+                syncType = com.z_company.route.viewmodel.SyncType.Upload,
                 syncUploadProgress = mapOf(
-                    "UserSettings" to SyncStepState.Success("загружены"),
-                    "SalarySettings" to SyncStepState.Success("загружены"),
-                    "Months" to SyncStepState.Error("Тестовая ошибка: 500 Internal Server Error"),
-                    "Routes" to SyncStepState.Error("")
+                    "UserSettings" to com.z_company.route.viewmodel.SyncStepState.Success("загружены"),
+                    "SalarySettings" to com.z_company.route.viewmodel.SyncStepState.Success("загружены"),
+                    "Months" to com.z_company.route.viewmodel.SyncStepState.Success("загружены"),
+                    "Routes" to com.z_company.route.viewmodel.SyncStepState.Error("синхронизировано 1 из 3")
                 ),
                 isSyncComplete = true,
                 isSyncSuccess = false,
                 syncRouteErrors = listOf(
-                    "Маршрут 28.03.26 Москва→Тверь: Connection timeout после 30 сек",
-                    "Маршрут 29.03.26 Тверь→Бологое: 500 Internal Server Error"
+                    "Маршрут 15.01.26 №101: Нет соединения",
+                    "Маршрут 20.01.26 №202: Server error 500"
                 ),
-                syncRoutesTotalAttempted = 5,
-                syncRoutesSavedCount = 3
+                syncRoutesTotalAttempted = 3,
+                syncRoutesSavedCount = 1
             )
         }
     }
 
-    @Deprecated("Используй resetSyncState()")
-    fun closeSyncDialog() = resetSyncState()
-
-    private fun networkSafeErrorMessage(message: String?): String {
-        if (message == null) return "Ошибка синхронизации"
-        return if (isNoInternetMessage(message)) "Нет интернета" else message
+    private fun parseSyncStep(message: String): String? = when {
+        message.contains("UserSettings") -> "UserSettings"
+        message.contains("SalarySetting") -> "SalarySettings"
+        message.contains("MonthOfYearList") -> "Months"
+        else -> null
     }
 
-    private fun isNoInternetError(e: Throwable?): Boolean {
-        if (e == null) return false
-        return e is java.net.UnknownHostException ||
-            e is java.net.SocketException ||
-            e is java.net.ConnectException ||
-            isNoInternetMessage(e.message ?: "")
-    }
-
-    private fun isNoInternetMessage(message: String): Boolean {
-        val lower = message.lowercase()
-        return lower.contains("failed to connect") ||
-            lower.contains("unable to resolve host") ||
-            lower.contains("no address associated") ||
-            lower.contains("connection refused") ||
-            lower.contains("network is unreachable")
+    private fun cleanSyncError(message: String): String {
+        val prefixes = listOf(
+            "Ошибка сохранения UserSettings: ",
+            "Ошибка сохранения SalarySetting: ",
+            "Ошибка сохранения MonthOfYearList: "
+        )
+        for (prefix in prefixes) {
+            if (message.startsWith(prefix)) return message.removePrefix(prefix)
+        }
+        return message
     }
 
     private fun calculationTotalTime(routes: List<Route>, offsetInMoscow: Long) {
@@ -1156,34 +1149,9 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     "до ${dateAndTimeConverter.getDateMiniAndTime(endWork + fullRest)}"
                 return WidgetStateInfo("Отдых в ПО", shortDuration, shortEnd, fullDuration, fullEnd)
             } else {
-                // Home rest — с учётом цепочки предыдущих маршрутов с отдыхом в ПО
-                val sorted = allRoutes
-                    .filter { it.basicData.timeStartWork != null && it.basicData.timeEndWork != null }
-                    .sortedByDescending { it.basicData.timeStartWork!! }
-
-                val idx = sorted.indexOfFirst { it.basicData.id == previousRoute.basicData.id }
-                val chain = mutableListOf(previousRoute)
-
-                if (idx != -1) {
-                    var nextIdx = idx + 1
-                    while (nextIdx < sorted.size) {
-                        if (sorted[nextIdx].basicData.restPointOfTurnover == true) {
-                            chain.add(sorted[nextIdx])
-                            nextIdx++
-                        } else {
-                            break
-                        }
-                    }
-                }
-
-                val sumWork = chain.sumOf { it.basicData.timeEndWork!! - it.basicData.timeStartWork!! }
-                var sumRest = 0L
-                for (i in 1 until chain.size) {
-                    sumRest += chain[i - 1].basicData.timeStartWork!! - chain[i].basicData.timeEndWork!!
-                }
-
-                val rawDuration = (sumWork.toDouble() * 2.6).toLong()
-                val duration = maxOf(rawDuration - sumRest, userSettings.minTimeHomeRest)
+                // Home rest (simplified — single route, no chain)
+                val rawDuration = (workTime.toDouble() * 2.6).toLong()
+                val duration = maxOf(rawDuration, userSettings.minTimeHomeRest)
                 val endRestTime = endWork + duration
                 val durationLine =
                     "Продлится ${ConverterLongToTime.formatDurationFromMillis(duration)}"

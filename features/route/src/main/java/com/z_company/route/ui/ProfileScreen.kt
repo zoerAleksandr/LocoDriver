@@ -61,8 +61,6 @@ import com.z_company.route.component.SwitchApp
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.text.input.ImeAction
 import com.z_company.repository.remote_rest.ResponseState
-import com.z_company.route.component.AnimationDialog
-import com.z_company.route.viewmodel.SyncStepState
 import com.z_company.route.viewmodel.SyncType
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -388,7 +386,6 @@ fun ProfileScreen(
         }
     }
 
-    // Общий диалог синхронизации (shared с HomeScreen)
     SyncProgressDialog(
         showDialog = uiState.showSyncDialog,
         isSyncSuccess = uiState.isSyncSuccess,
@@ -398,7 +395,7 @@ fun ProfileScreen(
         syncRouteErrors = uiState.syncRouteErrors,
         syncRoutesTotalAttempted = uiState.syncRoutesTotalAttempted,
         syncRoutesSavedCount = uiState.syncRoutesSavedCount,
-        onDismiss = { viewModel.resetSyncState() }
+        onDismiss = viewModel::resetSyncState
     )
 
     Scaffold(

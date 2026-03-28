@@ -1,18 +1,8 @@
 package com.z_company.route.ui
 
 import android.annotation.SuppressLint
-import android.content.Intent
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.core.net.toUri
-//import androidx.compose.material.icons.Icons
-//import androidx.compose.material.icons.rounded.Close
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import com.z_company.route.viewmodel.SyncStepState
-import com.z_company.route.viewmodel.SyncType
 import androidx.compose.foundation.BasicTooltipBox
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -30,7 +20,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
@@ -68,6 +57,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -80,6 +71,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -87,6 +79,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
@@ -115,6 +108,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.isFuture
 import com.z_company.domain.entities.route.UtilsForEntities.isTransition
 import com.z_company.domain.util.minus
 import com.z_company.route.R
+import com.z_company.route.ui.SyncProgressDialog
 import com.z_company.route.component.AnimatedCounter
 import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.AppBottomSheet
@@ -191,16 +185,16 @@ fun HomeScreen(
     onClickVacation: () -> Unit,
     unsyncedRoutesCount: Int = 0,
     onSyncClick: () -> Unit = {},
-    onDebugTestSyncError: () -> Unit = {},
     showSyncDialog: Boolean = false,
     isSyncSuccess: Boolean = false,
     isSyncComplete: Boolean = false,
-    syncType: SyncType? = null,
-    syncUploadProgress: Map<String, SyncStepState> = emptyMap(),
+    syncType: com.z_company.route.viewmodel.SyncType? = null,
+    syncUploadProgress: Map<String, com.z_company.route.viewmodel.SyncStepState> = emptyMap(),
     syncRouteErrors: List<String> = emptyList(),
     syncRoutesTotalAttempted: Int = 0,
     syncRoutesSavedCount: Int = 0,
-    onResetSyncState: () -> Unit = {}
+    onResetSyncState: () -> Unit = {},
+    onDebugTestSyncError: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -297,15 +291,7 @@ fun HomeScreen(
         }
     }
 
-    // ⚠️ ТЕСТ — кнопка для проверки диалога ошибки (удалить перед релизом)
-    OutlinedButton(
-        onClick = onDebugTestSyncError,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-    ) {
-        Text("⚠️ Тест: показать ошибку синхронизации", style = MaterialTheme.typography.bodySmall)
-    }
-
-    // Диалог синхронизации — общий с ProfileScreen
+    // Диалог синхронизации
     SyncProgressDialog(
         showDialog = showSyncDialog,
         isSyncSuccess = isSyncSuccess,
@@ -317,6 +303,10 @@ fun HomeScreen(
         syncRoutesSavedCount = syncRoutesSavedCount,
         onDismiss = onResetSyncState
     )
+
+    // Кнопка теста ошибки синхронизации (для отладки)
+    // TODO: удалить перед релизом
+    // Button(onClick = onDebugTestSyncError) { Text("⚠️ Тест синх. ошибки") }
 
     AnimationDialog(
         showDialog = showContextDialog,
@@ -623,23 +613,25 @@ fun HomeScreen(
                                         color = MaterialTheme.colorScheme.primary
                                     )
                                     Text(
-                                        text = "Сейчас они хранятся только на вашем телефоне. Проверьте подключение к интернету и выполните синхронизацию.",
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        text = "Данные не были отправлены на сервер. Проверьте подключение к интернету и выполните синхронизацию.",
+                                        style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.primary
                                     )
                                     Box(
                                         modifier = Modifier
-                                            .clip(Shapes.medium)
+                                            .clip(MaterialTheme.shapes.extraSmall)
                                             .background(brushMain)
                                             .clickable(onClick = onSyncClick),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
                                             text = "Синхронизировать",
-                                            style = MaterialTheme.typography.labelLarge,
                                             color = MaterialTheme.colorScheme.secondary,
                                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
                                         )
+                                    }
+                                    androidx.compose.material3.TextButton(onClick = onDebugTestSyncError) {
+                                        Text("Тест ошибки", style = MaterialTheme.typography.bodySmall)
                                     }
                                 }
                             }

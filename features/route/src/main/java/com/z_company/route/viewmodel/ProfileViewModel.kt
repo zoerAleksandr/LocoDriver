@@ -75,11 +75,11 @@ data class ProfileUiState(
     val syncDownloadProgress: Map<String, SyncStepState> = emptyMap(),  // Прогресс для download
     val showSyncDialog: Boolean = false,  // Флаг показа диалога синхронизации
     val isSyncComplete: Boolean = false,  // Флаг завершения синхронизации (для показа кнопки)
-    val isSyncSuccess: Boolean = false,  // true — все шаги прошли без ошибок (показываем диалог успеха)
-    val syncRouteErrors: List<String> = emptyList(),  // Список ошибок/предупреждений по маршрутам
-    val syncRoutesTotalAttempted: Int = 0,  // Сколько маршрутов пытались синхронизировать
-    val syncRoutesSavedCount: Int = 0,  // Сколько маршрутов сохранено успешно
-    val syncType: SyncType? = null  // Тип синхронизации (Upload или Download), чтобы знать, какой progress отображать
+    val isSyncSuccess: Boolean = false,  // Флаг полного успеха (показывает AlertDialog вместо диалога прогресса)
+    val syncType: SyncType? = null,  // Тип синхронизации (Upload или Download), чтобы знать, какой progress отображать
+    val syncRouteErrors: List<String> = emptyList(),
+    val syncRoutesTotalAttempted: Int = 0,
+    val syncRoutesSavedCount: Int = 0
 )
 
 // Описание: Определяет тип синхронизации (загрузка на сервер или с сервера) для выбора правильного progress map в UI.
@@ -130,15 +130,6 @@ class ProfileViewModel : ViewModel(), KoinComponent {
             SharingStarted.WhileSubscribed(5000),
             false
         )  // Дефолт false, если flow пустой
-
-    // Sentry-мониторинг для конкретного пользователя: VKID 17260416
-    // Для чего: Отслеживаем цепочку токен → вход → профиль → подписка только для этого пользователя
-    private var _trackedVkId: String? = null
-
-    private fun sentryLogForTarget(vkId: String?, message: String) {
-        if (vkId != "17260416") return
-        Sentry.captureMessage("[VKID:$vkId] $message")
-    }
 
     var loginJob: Job? = null
     var forgotJob: Job? = null
@@ -199,7 +190,6 @@ class ProfileViewModel : ViewModel(), KoinComponent {
         }
         viewModelScope.launch(Dispatchers.IO) {
             secureTokenStorage.getVkIdFlow().onEach { vkId ->
-                _trackedVkId = vkId
                 if (vkId != null && vkId.isNotEmpty()) {
                     vkIdRefreshToken()
                 } else {
@@ -228,76 +218,96 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                 )
             }
 
-            syncManager.syncToRemote("Bearer $token").collect { state ->
-                when (state) {
-                    is ResultState.Loading -> {}  // Уже обработано инициализацией
-                    is ResultState.Success -> {
-                        val result = state.data
-                        val newProgress = _uiState.value.syncUploadProgress.toMutableMap()
+            try {
+                syncManager.syncToRemote("Bearer $token").collect { state ->
+                    when (state) {
+                        is ResultState.Loading -> {}
+                        is ResultState.Success -> {
+                            val result = state.data
+                            val newProgress = _uiState.value.syncUploadProgress.toMutableMap()
 
-                        // Обновляем прогресс для каждого этапа на основе result
-                        if (result.userSettingsSaved) {
-                            newProgress["UserSettings"] = SyncStepState.Success("загружены")
-                        }
-                        if (result.salarySettingsSaved) {
-                            newProgress["SalarySettings"] = SyncStepState.Success("загружены")
-                        }
-                        if (result.monthsSaved) {
-                            newProgress["Months"] = SyncStepState.Success("загружены")
-                        }
-                        if (result.routesSavedCount >= 0) {
-                            if (result.routeErrors.isNotEmpty()) {
-                                // Частичный успех — детали хранятся в отдельных полях state
-                                newProgress["Routes"] = SyncStepState.Error(message = "")
-                            } else {
-                                val saved = result.routesSavedCount
-                                val details = if (result.routeWarnings.isNotEmpty())
-                                    "загружены $saved(шт)\n${result.routeWarnings.joinToString("\n") { "⚠️ $it" }}"
-                                else "загружены $saved(шт)"
-                                newProgress["Routes"] = SyncStepState.Success(details)
+                            if (result.userSettingsSaved) newProgress["UserSettings"] = SyncStepState.Success("загружены")
+                            if (result.salarySettingsSaved) newProgress["SalarySettings"] = SyncStepState.Success("загружены")
+                            if (result.monthsSaved) newProgress["Months"] = SyncStepState.Success("загружены")
+                            val routeErrors = result.routeErrors
+                            if (result.routesSavedCount >= 0) {
+                                if (routeErrors.isNotEmpty()) {
+                                    newProgress["Routes"] = SyncStepState.Error("синхронизировано ${result.routesSavedCount} из ${routeErrors.size + result.routesSavedCount}")
+                                } else {
+                                    val details = buildString {
+                                        append("загружены ${result.routesSavedCount}(шт)")
+                                        if (result.routeWarnings.isNotEmpty()) append("\n${result.routeWarnings.joinToString("\n")}")
+                                    }
+                                    newProgress["Routes"] = SyncStepState.Success(details)
+                                }
                             }
+
+                            // Финальный Success (timestamp != null) → всё успешно, показываем AlertDialog
+                            val isFullSuccess = result.timestamp != null && routeErrors.isEmpty()
+                            _uiState.update {
+                                it.copy(
+                                    syncUploadProgress = newProgress,
+                                    isSyncComplete = !isFullSuccess,
+                                    isSyncSuccess = isFullSuccess,
+                                    showSyncDialog = !isFullSuccess,
+                                    syncRouteErrors = routeErrors,
+                                    syncRoutesTotalAttempted = routeErrors.size + result.routesSavedCount,
+                                    syncRoutesSavedCount = result.routesSavedCount
+                                )
+                            }
+                            result.timestamp?.let { sharedPrefs.setLastSyncTimestamp(it) }
+                            if (isFullSuccess) refresh()
                         }
 
-                        val hasErrors = result.routeErrors.isNotEmpty()
-                        val totalAttempted = result.routesSavedCount + result.routeErrors.size
-                        // Предупреждения добавляем в список ошибок со значком ⚠️
-                        val allIssues = result.routeErrors +
-                                result.routeWarnings.map { "⚠️ $it" }
-                        _uiState.update {
-                            it.copy(
-                                syncUploadProgress = newProgress,
-                                isSyncComplete = true,
-                                isSyncSuccess = !hasErrors,
-                                showSyncDialog = hasErrors,
-                                syncRouteErrors = if (hasErrors) allIssues else emptyList(),
-                                syncRoutesTotalAttempted = if (hasErrors) totalAttempted else 0,
-                                syncRoutesSavedCount = if (hasErrors) result.routesSavedCount else 0
-                            )
-                        }
-
-                        // Сохраняем timestamp, если все успешно
-                        result.timestamp?.let { sharedPrefs.setLastSyncTimestamp(it) }
-                        refresh()
-                    }
-
-                    is ResultState.Error -> {
-                        // Для ошибок - обновляем все оставшиеся шаги как Error (или конкретный, но для простоты - общий)
-                        val newProgress = _uiState.value.syncUploadProgress.mapValues {
-                            if (it.value is SyncStepState.Loading) SyncStepState.Error(
-                                message = networkSafeErrorMessage(state.entity.message)
-                            ) else it.value
-                        }
-                        _uiState.update {
-                            it.copy(
-                                syncUploadProgress = newProgress,
-                                isSyncComplete = true,
-                                isSyncSuccess = false
-                            )
+                        is ResultState.Error -> {
+                            val msg = state.entity.message ?: ""
+                            val stepKey = parseSyncUploadStep(msg)
+                            val newProgress = _uiState.value.syncUploadProgress.toMutableMap()
+                            if (stepKey != null) {
+                                // Промежуточная ошибка конкретного шага — обновляем только его
+                                newProgress[stepKey] = SyncStepState.Error(message = cleanSyncErrorMessage(msg))
+                                _uiState.update { it.copy(syncUploadProgress = newProgress) }
+                            } else {
+                                // Финальная ошибка — помечаем оставшиеся Loading и завершаем
+                                newProgress.replaceAll { _, v ->
+                                    if (v is SyncStepState.Loading) SyncStepState.Error(message = msg) else v
+                                }
+                                _uiState.update {
+                                    it.copy(syncUploadProgress = newProgress, isSyncComplete = true)
+                                }
+                            }
                         }
                     }
                 }
+            } catch (e: Exception) {
+                val newProgress = _uiState.value.syncUploadProgress.mapValues {
+                    if (it.value is SyncStepState.Loading) SyncStepState.Error(message = e.message ?: "Ошибка синхронизации") else it.value
+                }
+                _uiState.update { it.copy(syncUploadProgress = newProgress, isSyncComplete = true) }
             }
         }
+    }
+
+    private fun parseSyncUploadStep(message: String): String? = when {
+        message.contains("UserSettings") -> "UserSettings"
+        message.contains("SalarySetting") -> "SalarySettings"
+        message.contains("MonthOfYearList") -> "Months"
+        else -> null
+    }
+
+    private fun cleanSyncErrorMessage(message: String): String {
+        val prefixes = listOf(
+            "Ошибка сохранения UserSettings: ",
+            "Ошибка сохранения SalarySetting: ",
+            "Ошибка сохранения MonthOfYearList: ",
+            "Ошибка загрузки UserSettings: ",
+            "Ошибка загрузки SalarySetting: ",
+            "Ошибка загрузки MonthOfYearList: "
+        )
+        for (prefix in prefixes) {
+            if (message.startsWith(prefix)) return message.removePrefix(prefix)
+        }
+        return message
     }
 
     fun firstUpload() {
@@ -340,72 +350,67 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                 )
             }
 
-            syncManager.syncFromRemote("Bearer $token").collect { state ->
-                when (state) {
-                    is ResultState.Loading -> {}  // Уже обработано
-                    is ResultState.Success -> {
-                        val result = state.data
-                        val newProgress = _uiState.value.syncDownloadProgress.toMutableMap()
+            try {
+                syncManager.syncFromRemote("Bearer $token").collect { state ->
+                    when (state) {
+                        is ResultState.Loading -> {}
+                        is ResultState.Success -> {
+                            val result = state.data
+                            val newProgress = _uiState.value.syncDownloadProgress.toMutableMap()
 
-                        if (result.monthsLoaded) {
-                            newProgress["Months"] = SyncStepState.Success("загружены")
-                        }
-                        if (result.salarySettingsLoaded) {
-                            newProgress["SalarySettings"] = SyncStepState.Success("загружены")
-                        }
-                        if (result.userSettingsLoaded) {
-                            newProgress["UserSettings"] = SyncStepState.Success("загружены")
-                        }
-                        if (result.routesLoadedCount >= 0) {
-                            newProgress["Routes"] =
-                                SyncStepState.Success("загружены ${result.routesLoadedCount}(шт)")
+                            if (result.monthsLoaded) newProgress["Months"] = SyncStepState.Success("загружены")
+                            if (result.salarySettingsLoaded) newProgress["SalarySettings"] = SyncStepState.Success("загружены")
+                            if (result.userSettingsLoaded) newProgress["UserSettings"] = SyncStepState.Success("загружены")
+                            if (result.routesLoadedCount >= 0) newProgress["Routes"] = SyncStepState.Success("загружены ${result.routesLoadedCount}(шт)")
+
+                            val isFullSuccess = result.userSettingsLoaded && result.salarySettingsLoaded &&
+                                result.monthsLoaded && result.routesLoadedCount >= 0
+                            _uiState.update {
+                                it.copy(
+                                    syncDownloadProgress = newProgress,
+                                    isSyncComplete = !isFullSuccess,
+                                    isSyncSuccess = isFullSuccess,
+                                    showSyncDialog = !isFullSuccess
+                                )
+                            }
+                            if (isFullSuccess) refresh()
                         }
 
-                        _uiState.update {
-                            it.copy(
-                                syncDownloadProgress = newProgress,
-                                isSyncComplete = true,
-                                isSyncSuccess = true,
-                                showSyncDialog = false  // Закрываем диалог прогресса при успехе
-                            )
-                        }
-                    }
-
-                    is ResultState.Error -> {
-                        val newProgress = _uiState.value.syncDownloadProgress.mapValues {
-                            if (it.value is SyncStepState.Loading) SyncStepState.Error(
-                                message = networkSafeErrorMessage(state.entity.message)
-                            ) else it.value
-                        }
-                        _uiState.update {
-                            it.copy(
-                                syncDownloadProgress = newProgress,
-                                isSyncComplete = true,
-                                isSyncSuccess = false
-                            )
+                        is ResultState.Error -> {
+                            val msg = state.entity.message ?: ""
+                            val stepKey = parseSyncDownloadStep(msg)
+                            val newProgress = _uiState.value.syncDownloadProgress.toMutableMap()
+                            if (stepKey != null) {
+                                newProgress[stepKey] = SyncStepState.Error(message = cleanSyncErrorMessage(msg))
+                                _uiState.update { it.copy(syncDownloadProgress = newProgress) }
+                            } else {
+                                newProgress.replaceAll { _, v ->
+                                    if (v is SyncStepState.Loading) SyncStepState.Error(message = msg) else v
+                                }
+                                _uiState.update {
+                                    it.copy(syncDownloadProgress = newProgress, isSyncComplete = true)
+                                }
+                            }
                         }
                     }
                 }
+            } catch (e: Exception) {
+                val newProgress = _uiState.value.syncDownloadProgress.mapValues {
+                    if (it.value is SyncStepState.Loading) SyncStepState.Error(message = e.message ?: "Ошибка синхронизации") else it.value
+                }
+                _uiState.update { it.copy(syncDownloadProgress = newProgress, isSyncComplete = true) }
             }
         }
     }
 
-
-    // Для чего: Определяет, является ли ошибка сетевой (нет интернета), чтобы показывать понятное сообщение.
-    private fun networkSafeErrorMessage(message: String?): String {
-        val msg = message?.lowercase() ?: return "Ошибка синхронизации"
-        val isNetwork = msg.contains("unable to resolve host") ||
-                msg.contains("connect") ||
-                msg.contains("timeout") ||
-                msg.contains("network") ||
-                msg.contains("unreachable") ||
-                msg.contains("no route") ||
-                msg.contains("failed to connect") ||
-                msg.contains("connection refused") ||
-                msg.contains("eof") ||
-                msg.contains("broken pipe")
-        return if (isNetwork) "Нет интернета" else (message ?: "Ошибка синхронизации")
+    private fun parseSyncDownloadStep(message: String): String? = when {
+        message.contains("UserSettings") -> "UserSettings"
+        message.contains("SalarySetting") -> "SalarySettings"
+        message.contains("MonthOfYearList") -> "Months"
+        message.contains("маршрут") -> "Routes"
+        else -> null
     }
+
 
     // Для чего: Чтобы сбросить прогресс и диалог после закрытия (вызывается из UI).
     fun resetSyncState() {
@@ -416,10 +421,10 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                 syncDownloadProgress = emptyMap(),
                 isSyncComplete = false,
                 isSyncSuccess = false,
+                syncType = null,
                 syncRouteErrors = emptyList(),
                 syncRoutesTotalAttempted = 0,
-                syncRoutesSavedCount = 0,
-                syncType = null
+                syncRoutesSavedCount = 0
             )
         }
     }
@@ -452,7 +457,6 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                 result.data?.let { settings ->
                     _userSetting.value = settings
                     val purchaseTimeEnd = settings.subscriptionPeriod
-                    sentryLogForTarget(_trackedVkId, "loadSettingsForSyncInfo: subscriptionPeriod=$purchaseTimeEnd (${java.util.Date(purchaseTimeEnd)})")
                     val dateAndTimeConverter = DateAndTimeConverter(settings)
                     val date = dateAndTimeConverter.getDateAndTime(purchaseTimeEnd)
                     val textPurchase = if (purchaseTimeEnd > Calendar.getInstance().timeInMillis) {
@@ -537,12 +541,9 @@ class ProfileViewModel : ViewModel(), KoinComponent {
 
     fun logOut() {
         viewModelScope.launch(Dispatchers.IO) {
-            val vkId = _trackedVkId
-            sentryLogForTarget(vkId, "logOut: called, clearing token and vkId")
             secureTokenStorage.saveAuthToken("")
             secureTokenStorage.saveVkId("")
             _isLoggedIn.value = false
-            sentryLogForTarget(vkId, "logOut: done, _isLoggedIn=false")
         }
     }
 
@@ -568,24 +569,28 @@ class ProfileViewModel : ViewModel(), KoinComponent {
     fun authWithVKID(vkid: String) {
         loginJob?.cancel()
         loginJob = viewModelScope.launch {
-            sentryLogForTarget(vkid, "authWithVKID: started")
             authManager.authWithVKID(vkid).collect { state ->
                 if (state is AuthState.Success) {
                     val token = state.accessToken
                     if (token.isNotEmpty()) {
-                        sentryLogForTarget(vkid, "authWithVKID: received token (${token.length} chars), saving...")
-                        secureTokenStorage.saveAuthToken(token)  // Сохранение зашифрованного токена
-                        secureTokenStorage.saveVkId(vkid)  // Сохранение VK ID
-                        _isLoggedIn.value = true  // Обновляем состояние логина после успеха
-                        sentryLogForTarget(vkid, "authWithVKID: token saved, _isLoggedIn=true, starting refresh+sync")
-                        refresh()  // Перезагружаем данные после входа
+                        secureTokenStorage.saveAuthToken(token)
+                        secureTokenStorage.saveVkId(vkid)
+                        _isLoggedIn.value = true
+                        refresh()
+                        // TODO: DEBUG — УДАЛИТЬ ПОСЛЕ ПРОВЕРКИ
+                        // Симулирует баг: через 5 сек сбрасывает isLoggedIn в false
+                        // (как будто Tink не смог прочитать токен при следующем getUserInfo()).
+                        // Сценарий: войти → уйти на другой экран в течение 5 сек →
+                        // вернуться → форма входа.
+                        viewModelScope.launch {
+                            delay(5_000)
+                            _isLoggedIn.value = false
+                            _uiState.update { it.copy(userDetailsState = ResultState.Success(null)) }
+                        }
                         syncManager.syncFromRemote("Bearer $token").collect {}
-                        sentryLogForTarget(vkid, "authWithVKID: syncFromRemote complete")
-                    } else {
-                        sentryLogForTarget(vkid, "authWithVKID: AuthState.Success but token is EMPTY!")
                     }
                 }
-                _authUiState.value = state  // Обновляем UI-состояние
+                _authUiState.value = state
             }
         }
     }
@@ -638,24 +643,18 @@ class ProfileViewModel : ViewModel(), KoinComponent {
     fun registeredUserByVKID(vkid: String, email: String) {
         loginJob?.cancel()
         loginJob = viewModelScope.launch {
-            sentryLogForTarget(vkid, "registeredUserByVKID: started, email=$email")
             // Пояснение: Запускаем корутину для collect Flow (Flow холодный, стартует здесь).
             authManager.registerByVKID(vkid, email)
                 .collect { state ->  // Collect эмитит значения из Flow
                     if (state is RegistrationState.Success) {
                         val token = state.accessToken
                         if (token.isNotEmpty()) {
-                            sentryLogForTarget(vkid, "registeredUserByVKID: received token (${token.length} chars), saving...")
                             // Сохранение зашифрованного токена
                             secureTokenStorage.saveAuthToken(token)
                             secureTokenStorage.saveVkId(vkid)
-                            sentryLogForTarget(vkid, "registeredUserByVKID: token saved, starting firstUpload")
                             firstUpload()
                             _isLoggedIn.value = true  // Обновляем состояние логина после успеха
-                            sentryLogForTarget(vkid, "registeredUserByVKID: _isLoggedIn=true, starting refresh")
                             refresh()  // Перезагружаем данные после входа}
-                        } else {
-                            sentryLogForTarget(vkid, "registeredUserByVKID: RegistrationState.Success but token is EMPTY!")
                         }
                     }
                     // Обновляем UI-состояние на основе эмитов (Loading, Success, Error)
@@ -696,13 +695,10 @@ class ProfileViewModel : ViewModel(), KoinComponent {
         getUserInfoJob?.cancel()
         getUserInfoJob = viewModelScope.launch {
             val token = secureTokenStorage.getAuthBearerTokenFlow().first()
-            val vkId = _trackedVkId
-            sentryLogForTarget(vkId, "getUserInfo: token=${if (token.isNullOrBlank()) "NULL/BLANK" else "present (${token.length} chars)"}")
             if (!token.isNullOrBlank()) {
                 // Токен есть — сразу показываем профиль (не ждём сетевого ответа).
                 // На 401 откатываемся обратно.
                 _isLoggedIn.value = true
-                sentryLogForTarget(vkId, "getUserInfo: _isLoggedIn=true, calling getUserProfile API")
                 val fullToken = "Bearer $token"
                 authManager.getUserProfile(fullToken).collect { state ->
                     if (state is GetUserProfileState.Loading) {
@@ -713,15 +709,6 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                     if (state is GetUserProfileState.Success) {
                         currentEmail = state.user.email
                         secureTokenStorage.saveUserId(state.user.id)
-                        // Восстанавливаем vkId из профиля сервера (если не сохранён локально)
-                        val serverVkId = state.user.vkId
-                        if (!serverVkId.isNullOrBlank()) {
-                            val localVkId = secureTokenStorage.getVkIdFlow().first()
-                            if (localVkId.isNullOrBlank()) {
-                                secureTokenStorage.saveVkId(serverVkId)
-                            }
-                        }
-                        sentryLogForTarget(vkId, "getUserInfo: API success, email=${state.user.email}, userId=${state.user.id}, serverVkId=$serverVkId")
                         _uiState.update {
                             it.copy(userDetailsState = ResultState.Success(state.user))
                         }
@@ -730,9 +717,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                     if (state is GetUserProfileState.Error) {
                         if (state.code == 401) {
                             _isLoggedIn.value = false
-                            sentryLogForTarget(vkId, "getUserInfo: 401 Unauthorized → _isLoggedIn=false")
                         }
-                        sentryLogForTarget(vkId, "getUserInfo: API error code=${state.code}, message=${state.message}")
                         _uiState.update {
                             it.copy(userDetailsState = ResultState.Error(ErrorEntity(message = state.message)))
                         }
@@ -740,7 +725,6 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                 }
             } else {
                 _isLoggedIn.value = false
-                sentryLogForTarget(vkId, "getUserInfo: token is null/blank → _isLoggedIn=false")
                 _uiState.update {
                     it.copy(userDetailsState = ResultState.Success(null))
                 }
@@ -790,15 +774,12 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                     }
 
                     override fun onFail(fail: VKIDRefreshTokenFail) {
-                        val message = when (fail) {
-                            is VKIDRefreshTokenFail.FailedApiCall -> fail.description
-                            is VKIDRefreshTokenFail.FailedOAuthState -> fail.description
-                            is VKIDRefreshTokenFail.RefreshTokenExpired -> "VK сессия истекла"
-                            is VKIDRefreshTokenFail.NotAuthenticated -> "VK не авторизован"
+                        when (fail) {
+                            is VKIDRefreshTokenFail.FailedApiCall -> fail.description // Использование текста ошибки.
+                            is VKIDRefreshTokenFail.FailedOAuthState -> fail.description // Использование текста ошибки.
+                            is VKIDRefreshTokenFail.RefreshTokenExpired -> fail // Ошибка истечения срока жизни RT. Это уведомление о том, что пользователю нужно перелогиниться.
+                            is VKIDRefreshTokenFail.NotAuthenticated -> fail // Ошибка отсутствия авторизации у пользователя. Это уведомление о том, что пользователю нужно авторизоваться.
                         }
-                        Log.w("ProfileViewModel", "VK refreshToken failed: $message")
-                        // При ошибке показываем кнопку входа (vkUserState = null)
-                        _uiState.update { it.copy(vkUserState = ResultState.Success(null)) }
                     }
                 }
             )

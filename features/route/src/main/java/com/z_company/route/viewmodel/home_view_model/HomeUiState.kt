@@ -37,7 +37,6 @@ data class HomeUiState(
     var dateAndTimeConverter: DateAndTimeConverter? = null,
     val showSnackbar: Boolean = false,
     val unsyncedRoutesCount: Int = 0,
-    // Синхронизация — детальный прогресс (используется в SyncProgressDialog)
     val showSyncDialog: Boolean = false,
     val isSyncComplete: Boolean = false,
     val isSyncSuccess: Boolean = false,
