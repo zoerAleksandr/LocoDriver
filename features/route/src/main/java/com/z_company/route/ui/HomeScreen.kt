@@ -1,7 +1,18 @@
 package com.z_company.route.ui
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.core.net.toUri
+//import androidx.compose.material.icons.Icons
+//import androidx.compose.material.icons.rounded.Close
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.z_company.route.viewmodel.SyncStepState
+import com.z_company.route.viewmodel.SyncType
 import androidx.compose.foundation.BasicTooltipBox
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -19,6 +30,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
@@ -176,7 +188,19 @@ fun HomeScreen(
     isNextDeparture: () -> Boolean,
     saveTimeEvent: SharedFlow<String>,
     onWorkScheduleScreen: () -> Unit,
-    onClickVacation: () -> Unit
+    onClickVacation: () -> Unit,
+    unsyncedRoutesCount: Int = 0,
+    onSyncClick: () -> Unit = {},
+    onDebugTestSyncError: () -> Unit = {},
+    showSyncDialog: Boolean = false,
+    isSyncSuccess: Boolean = false,
+    isSyncComplete: Boolean = false,
+    syncType: SyncType? = null,
+    syncUploadProgress: Map<String, SyncStepState> = emptyMap(),
+    syncRouteErrors: List<String> = emptyList(),
+    syncRoutesTotalAttempted: Int = 0,
+    syncRoutesSavedCount: Int = 0,
+    onResetSyncState: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -272,6 +296,27 @@ fun HomeScreen(
             }
         }
     }
+
+    // ⚠️ ТЕСТ — кнопка для проверки диалога ошибки (удалить перед релизом)
+    OutlinedButton(
+        onClick = onDebugTestSyncError,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+    ) {
+        Text("⚠️ Тест: показать ошибку синхронизации", style = MaterialTheme.typography.bodySmall)
+    }
+
+    // Диалог синхронизации — общий с ProfileScreen
+    SyncProgressDialog(
+        showDialog = showSyncDialog,
+        isSyncSuccess = isSyncSuccess,
+        isSyncComplete = isSyncComplete,
+        syncType = syncType,
+        progressMap = syncUploadProgress,
+        syncRouteErrors = syncRouteErrors,
+        syncRoutesTotalAttempted = syncRoutesTotalAttempted,
+        syncRoutesSavedCount = syncRoutesSavedCount,
+        onDismiss = onResetSyncState
+    )
 
     AnimationDialog(
         showDialog = showContextDialog,
@@ -553,6 +598,52 @@ fun HomeScreen(
                                 .animateItem(),
                             state = pagerState
                         )
+                        AnimatedVisibility(visible = unsyncedRoutesCount > 2) {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.secondary
+                                ),
+                                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        text = "Внимание!",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = "Не синхронизировано маршрутов: $unsyncedRoutesCount",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = "Сейчас они хранятся только на вашем телефоне. Проверьте подключение к интернету и выполните синхронизацию.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(Shapes.medium)
+                                            .background(brushMain)
+                                            .clickable(onClick = onSyncClick),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "Синхронизировать",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = MaterialTheme.colorScheme.secondary,
+                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 

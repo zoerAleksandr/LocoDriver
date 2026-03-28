@@ -5,6 +5,8 @@ import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.route.Route
+import com.z_company.route.viewmodel.SyncStepState
+import com.z_company.route.viewmodel.SyncType
 
 data class HomeUiState(
     val uiState: ResultState<Unit> = ResultState.Loading(),
@@ -33,7 +35,17 @@ data class HomeUiState(
     val offsetInMoscow: Long = 0L,
     val listItemState: MutableList<ItemState> = mutableListOf<ItemState>(),
     var dateAndTimeConverter: DateAndTimeConverter? = null,
-    val showSnackbar: Boolean = false
+    val showSnackbar: Boolean = false,
+    val unsyncedRoutesCount: Int = 0,
+    // Синхронизация — детальный прогресс (используется в SyncProgressDialog)
+    val showSyncDialog: Boolean = false,
+    val isSyncComplete: Boolean = false,
+    val isSyncSuccess: Boolean = false,
+    val syncType: SyncType? = null,
+    val syncUploadProgress: Map<String, SyncStepState> = emptyMap(),
+    val syncRouteErrors: List<String> = emptyList(),
+    val syncRoutesTotalAttempted: Int = 0,
+    val syncRoutesSavedCount: Int = 0
 )
 
 data class ItemState(

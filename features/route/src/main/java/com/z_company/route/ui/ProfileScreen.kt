@@ -388,110 +388,18 @@ fun ProfileScreen(
         }
     }
 
-// Изменено: Модифицировал структуру внутри AnimationDialog для каждого шага.
-// Для чего: Чтобы название этапа и иконка (прогресс/успех/ошибка) были в одной Row без смещения, а сообщение об ошибке отображалось под названием в отдельном Text. Это предотвращает смещение элементов при появлении ошибки.
-    AnimationDialog(
+    // Общий диалог синхронизации (shared с HomeScreen)
+    SyncProgressDialog(
         showDialog = uiState.showSyncDialog,
-        onDismissRequest = {
-            viewModel.resetSyncState()
-        }
+        isSyncSuccess = uiState.isSyncSuccess,
+        isSyncComplete = uiState.isSyncComplete,
+        syncType = uiState.syncType,
+        progressMap = if (uiState.syncType == SyncType.Upload) uiState.syncUploadProgress else uiState.syncDownloadProgress,
+        syncRouteErrors = uiState.syncRouteErrors,
+        syncRoutesTotalAttempted = uiState.syncRoutesTotalAttempted,
+        syncRoutesSavedCount = uiState.syncRoutesSavedCount,
+        onDismiss = { viewModel.resetSyncState() }
     )
-    {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-                .background(MaterialTheme.colorScheme.surface, Shapes.medium)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = if (uiState.syncType == SyncType.Upload) "Выгрузка данных" else "Загрузка данных",
-                style = MaterialTheme.typography.titleMedium,
-                color = primaryColor
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Отображаем шаги в зависимости от syncType
-            val progressMap =
-                if (uiState.syncType == SyncType.Upload) uiState.syncUploadProgress else uiState.syncDownloadProgress
-
-            progressMap.forEach { (step, state) ->
-                Column(  // Изменено: Обернул Row в Column для возможности добавления текста ошибки ниже.
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = when (step) {  // Переводим ключи в читаемые названия
-                                "UserSettings" -> "Настройки пользователя"
-                                "SalarySettings" -> "Настройки зарплаты"
-                                "Months" -> "Календарь"
-                                "Routes" -> "Маршруты"
-                                else -> step
-                            },
-                            style = styleData,
-                            modifier = Modifier.weight(1f)
-                        )
-
-                        when (state) {
-                            is SyncStepState.Loading -> CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = primaryColor,
-                                strokeWidth = 2.dp
-                            )
-
-                            is SyncStepState.Success -> Icon(  // Изменено: Вместо Text(details) показываем зелёную галочку.
-                                painter = painterResource(R.drawable.check_circle_24px),  // Для чего: Чтобы визуально обозначить успех иконкой вместо текста, как указано. Предполагаю import androidx.compose.material.icons.Icons и Icons.Default.Check.
-                                contentDescription = "Успех",
-                                tint = MaterialTheme.colorScheme.surfaceContainerLow  // Или Color.Green для зелёного цвета
-                            )
-
-                            is SyncStepState.Error -> Icon(  // Изменено: Показываем красный крестик вместо текста ошибки.
-                                painter = painterResource(com.z_company.core.R.drawable.ic_clear),  // Для чего: Чтобы визуально обозначить ошибку иконкой, а текст ошибки вынести ниже, предотвращая смещение Row.
-                                contentDescription = "Ошибка",
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                        }
-                    }
-
-                    if (state is SyncStepState.Error) {
-                        Text(
-                            text = state.message,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    }
-                    if (state is SyncStepState.Success && state.details.contains("\n")) {
-                        Text(
-                            text = state.details,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    }
-                }
-                CustomDivider(orientation = Orientation.Horizontal)  // Разделитель между шагами
-            }
-
-            if (uiState.isSyncComplete) {
-                Spacer(modifier = Modifier.height(24.dp))
-                Button(
-                    shape = Shapes.medium,
-                    onClick = { viewModel.resetSyncState() },
-                    modifier = Modifier.align(Alignment.End)
-                ) {
-                    Text("Понятно", style = styleData)
-                }
-            }
-        }
-    }
 
     Scaffold(
         snackbarHost = {

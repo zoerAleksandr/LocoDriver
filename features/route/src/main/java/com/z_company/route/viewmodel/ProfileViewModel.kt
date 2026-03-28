@@ -75,6 +75,10 @@ data class ProfileUiState(
     val syncDownloadProgress: Map<String, SyncStepState> = emptyMap(),  // Прогресс для download
     val showSyncDialog: Boolean = false,  // Флаг показа диалога синхронизации
     val isSyncComplete: Boolean = false,  // Флаг завершения синхронизации (для показа кнопки)
+    val isSyncSuccess: Boolean = false,  // true — все шаги прошли без ошибок (показываем диалог успеха)
+    val syncRouteErrors: List<String> = emptyList(),  // Список ошибок/предупреждений по маршрутам
+    val syncRoutesTotalAttempted: Int = 0,  // Сколько маршрутов пытались синхронизировать
+    val syncRoutesSavedCount: Int = 0,  // Сколько маршрутов сохранено успешно
     val syncType: SyncType? = null  // Тип синхронизации (Upload или Download), чтобы знать, какой progress отображать
 )
 
@@ -127,6 +131,15 @@ class ProfileViewModel : ViewModel(), KoinComponent {
             false
         )  // Дефолт false, если flow пустой
 
+    // Sentry-мониторинг для конкретного пользователя: VKID 17260416
+    // Для чего: Отслеживаем цепочку токен → вход → профиль → подписка только для этого пользователя
+    private var _trackedVkId: String? = null
+
+    private fun sentryLogForTarget(vkId: String?, message: String) {
+        if (vkId != "17260416") return
+        Sentry.captureMessage("[VKID:$vkId] $message")
+    }
+
     var loginJob: Job? = null
     var forgotJob: Job? = null
 
@@ -169,6 +182,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
         private set
 
     private var loadSettingsJob: Job? = null
+    private var getUserInfoJob: Job? = null
 
     init {
         getUserInfo()
@@ -185,6 +199,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
         }
         viewModelScope.launch(Dispatchers.IO) {
             secureTokenStorage.getVkIdFlow().onEach { vkId ->
+                _trackedVkId = vkId
                 if (vkId != null && vkId.isNotEmpty()) {
                     vkIdRefreshToken()
                 } else {
@@ -231,28 +246,32 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                             newProgress["Months"] = SyncStepState.Success("загружены")
                         }
                         if (result.routesSavedCount >= 0) {
-                            val routeDetails = buildString {
-                                append("загружены ${result.routesSavedCount}(шт)")
-                                if (result.routeWarnings.isNotEmpty()) {
-                                    append("\nПредупреждения:\n")
-                                    append(result.routeWarnings.joinToString("\n"))
-                                }
-                                if (result.routeErrors.isNotEmpty()) {
-                                    append("\nОшибки:\n")
-                                    append(result.routeErrors.joinToString("\n"))
-                                }
-                            }
                             if (result.routeErrors.isNotEmpty()) {
-                                newProgress["Routes"] = SyncStepState.Error(message = routeDetails)
+                                // Частичный успех — детали хранятся в отдельных полях state
+                                newProgress["Routes"] = SyncStepState.Error(message = "")
                             } else {
-                                newProgress["Routes"] = SyncStepState.Success(routeDetails)
+                                val saved = result.routesSavedCount
+                                val details = if (result.routeWarnings.isNotEmpty())
+                                    "загружены $saved(шт)\n${result.routeWarnings.joinToString("\n") { "⚠️ $it" }}"
+                                else "загружены $saved(шт)"
+                                newProgress["Routes"] = SyncStepState.Success(details)
                             }
                         }
 
+                        val hasErrors = result.routeErrors.isNotEmpty()
+                        val totalAttempted = result.routesSavedCount + result.routeErrors.size
+                        // Предупреждения добавляем в список ошибок со значком ⚠️
+                        val allIssues = result.routeErrors +
+                                result.routeWarnings.map { "⚠️ $it" }
                         _uiState.update {
                             it.copy(
                                 syncUploadProgress = newProgress,
-                                isSyncComplete = true
+                                isSyncComplete = true,
+                                isSyncSuccess = !hasErrors,
+                                showSyncDialog = hasErrors,
+                                syncRouteErrors = if (hasErrors) allIssues else emptyList(),
+                                syncRoutesTotalAttempted = if (hasErrors) totalAttempted else 0,
+                                syncRoutesSavedCount = if (hasErrors) result.routesSavedCount else 0
                             )
                         }
 
@@ -265,13 +284,14 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                         // Для ошибок - обновляем все оставшиеся шаги как Error (или конкретный, но для простоты - общий)
                         val newProgress = _uiState.value.syncUploadProgress.mapValues {
                             if (it.value is SyncStepState.Loading) SyncStepState.Error(
-                                message = state.entity.message ?: ""
+                                message = networkSafeErrorMessage(state.entity.message)
                             ) else it.value
                         }
                         _uiState.update {
                             it.copy(
                                 syncUploadProgress = newProgress,
-                                isSyncComplete = true
+                                isSyncComplete = true,
+                                isSyncSuccess = false
                             )
                         }
                     }
@@ -344,7 +364,9 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                         _uiState.update {
                             it.copy(
                                 syncDownloadProgress = newProgress,
-                                isSyncComplete = true
+                                isSyncComplete = true,
+                                isSyncSuccess = true,
+                                showSyncDialog = false  // Закрываем диалог прогресса при успехе
                             )
                         }
                     }
@@ -352,13 +374,14 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                     is ResultState.Error -> {
                         val newProgress = _uiState.value.syncDownloadProgress.mapValues {
                             if (it.value is SyncStepState.Loading) SyncStepState.Error(
-                                message = state.entity.message ?: ""
+                                message = networkSafeErrorMessage(state.entity.message)
                             ) else it.value
                         }
                         _uiState.update {
                             it.copy(
                                 syncDownloadProgress = newProgress,
-                                isSyncComplete = true
+                                isSyncComplete = true,
+                                isSyncSuccess = false
                             )
                         }
                     }
@@ -368,6 +391,22 @@ class ProfileViewModel : ViewModel(), KoinComponent {
     }
 
 
+    // Для чего: Определяет, является ли ошибка сетевой (нет интернета), чтобы показывать понятное сообщение.
+    private fun networkSafeErrorMessage(message: String?): String {
+        val msg = message?.lowercase() ?: return "Ошибка синхронизации"
+        val isNetwork = msg.contains("unable to resolve host") ||
+                msg.contains("connect") ||
+                msg.contains("timeout") ||
+                msg.contains("network") ||
+                msg.contains("unreachable") ||
+                msg.contains("no route") ||
+                msg.contains("failed to connect") ||
+                msg.contains("connection refused") ||
+                msg.contains("eof") ||
+                msg.contains("broken pipe")
+        return if (isNetwork) "Нет интернета" else (message ?: "Ошибка синхронизации")
+    }
+
     // Для чего: Чтобы сбросить прогресс и диалог после закрытия (вызывается из UI).
     fun resetSyncState() {
         _uiState.update {
@@ -376,6 +415,10 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                 syncUploadProgress = emptyMap(),
                 syncDownloadProgress = emptyMap(),
                 isSyncComplete = false,
+                isSyncSuccess = false,
+                syncRouteErrors = emptyList(),
+                syncRoutesTotalAttempted = 0,
+                syncRoutesSavedCount = 0,
                 syncType = null
             )
         }
@@ -409,6 +452,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                 result.data?.let { settings ->
                     _userSetting.value = settings
                     val purchaseTimeEnd = settings.subscriptionPeriod
+                    sentryLogForTarget(_trackedVkId, "loadSettingsForSyncInfo: subscriptionPeriod=$purchaseTimeEnd (${java.util.Date(purchaseTimeEnd)})")
                     val dateAndTimeConverter = DateAndTimeConverter(settings)
                     val date = dateAndTimeConverter.getDateAndTime(purchaseTimeEnd)
                     val textPurchase = if (purchaseTimeEnd > Calendar.getInstance().timeInMillis) {
@@ -493,9 +537,12 @@ class ProfileViewModel : ViewModel(), KoinComponent {
 
     fun logOut() {
         viewModelScope.launch(Dispatchers.IO) {
+            val vkId = _trackedVkId
+            sentryLogForTarget(vkId, "logOut: called, clearing token and vkId")
             secureTokenStorage.saveAuthToken("")
             secureTokenStorage.saveVkId("")
             _isLoggedIn.value = false
+            sentryLogForTarget(vkId, "logOut: done, _isLoggedIn=false")
         }
     }
 
@@ -521,15 +568,21 @@ class ProfileViewModel : ViewModel(), KoinComponent {
     fun authWithVKID(vkid: String) {
         loginJob?.cancel()
         loginJob = viewModelScope.launch {
+            sentryLogForTarget(vkid, "authWithVKID: started")
             authManager.authWithVKID(vkid).collect { state ->
                 if (state is AuthState.Success) {
                     val token = state.accessToken
                     if (token.isNotEmpty()) {
+                        sentryLogForTarget(vkid, "authWithVKID: received token (${token.length} chars), saving...")
                         secureTokenStorage.saveAuthToken(token)  // Сохранение зашифрованного токена
                         secureTokenStorage.saveVkId(vkid)  // Сохранение VK ID
                         _isLoggedIn.value = true  // Обновляем состояние логина после успеха
+                        sentryLogForTarget(vkid, "authWithVKID: token saved, _isLoggedIn=true, starting refresh+sync")
                         refresh()  // Перезагружаем данные после входа
                         syncManager.syncFromRemote("Bearer $token").collect {}
+                        sentryLogForTarget(vkid, "authWithVKID: syncFromRemote complete")
+                    } else {
+                        sentryLogForTarget(vkid, "authWithVKID: AuthState.Success but token is EMPTY!")
                     }
                 }
                 _authUiState.value = state  // Обновляем UI-состояние
@@ -585,18 +638,24 @@ class ProfileViewModel : ViewModel(), KoinComponent {
     fun registeredUserByVKID(vkid: String, email: String) {
         loginJob?.cancel()
         loginJob = viewModelScope.launch {
+            sentryLogForTarget(vkid, "registeredUserByVKID: started, email=$email")
             // Пояснение: Запускаем корутину для collect Flow (Flow холодный, стартует здесь).
             authManager.registerByVKID(vkid, email)
                 .collect { state ->  // Collect эмитит значения из Flow
                     if (state is RegistrationState.Success) {
                         val token = state.accessToken
                         if (token.isNotEmpty()) {
+                            sentryLogForTarget(vkid, "registeredUserByVKID: received token (${token.length} chars), saving...")
                             // Сохранение зашифрованного токена
                             secureTokenStorage.saveAuthToken(token)
                             secureTokenStorage.saveVkId(vkid)
+                            sentryLogForTarget(vkid, "registeredUserByVKID: token saved, starting firstUpload")
                             firstUpload()
                             _isLoggedIn.value = true  // Обновляем состояние логина после успеха
+                            sentryLogForTarget(vkid, "registeredUserByVKID: _isLoggedIn=true, starting refresh")
                             refresh()  // Перезагружаем данные после входа}
+                        } else {
+                            sentryLogForTarget(vkid, "registeredUserByVKID: RegistrationState.Success but token is EMPTY!")
                         }
                     }
                     // Обновляем UI-состояние на основе эмитов (Loading, Success, Error)
@@ -634,9 +693,16 @@ class ProfileViewModel : ViewModel(), KoinComponent {
 
 
     fun getUserInfo() {
-        viewModelScope.launch {
+        getUserInfoJob?.cancel()
+        getUserInfoJob = viewModelScope.launch {
             val token = secureTokenStorage.getAuthBearerTokenFlow().first()
+            val vkId = _trackedVkId
+            sentryLogForTarget(vkId, "getUserInfo: token=${if (token.isNullOrBlank()) "NULL/BLANK" else "present (${token.length} chars)"}")
             if (!token.isNullOrBlank()) {
+                // Токен есть — сразу показываем профиль (не ждём сетевого ответа).
+                // На 401 откатываемся обратно.
+                _isLoggedIn.value = true
+                sentryLogForTarget(vkId, "getUserInfo: _isLoggedIn=true, calling getUserProfile API")
                 val fullToken = "Bearer $token"
                 authManager.getUserProfile(fullToken).collect { state ->
                     if (state is GetUserProfileState.Loading) {
@@ -655,22 +721,26 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                                 secureTokenStorage.saveVkId(serverVkId)
                             }
                         }
+                        sentryLogForTarget(vkId, "getUserInfo: API success, email=${state.user.email}, userId=${state.user.id}, serverVkId=$serverVkId")
                         _uiState.update {
                             it.copy(userDetailsState = ResultState.Success(state.user))
                         }
-                        _isLoggedIn.value = true
                         subscriptionHelper.restorePurchases(null, token)
                     }
                     if (state is GetUserProfileState.Error) {
                         if (state.code == 401) {
                             _isLoggedIn.value = false
+                            sentryLogForTarget(vkId, "getUserInfo: 401 Unauthorized → _isLoggedIn=false")
                         }
+                        sentryLogForTarget(vkId, "getUserInfo: API error code=${state.code}, message=${state.message}")
                         _uiState.update {
                             it.copy(userDetailsState = ResultState.Error(ErrorEntity(message = state.message)))
                         }
                     }
                 }
             } else {
+                _isLoggedIn.value = false
+                sentryLogForTarget(vkId, "getUserInfo: token is null/blank → _isLoggedIn=false")
                 _uiState.update {
                     it.copy(userDetailsState = ResultState.Success(null))
                 }

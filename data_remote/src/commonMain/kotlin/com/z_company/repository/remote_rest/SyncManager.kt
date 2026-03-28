@@ -274,8 +274,17 @@ class SyncManager(
                         val currentMonthOfYear = listMonthOfYear.find {
                             it.month == now.monthNumber - 1 && it.year == now.year
                         }
+                        // Защита подписки: берём максимум из локального и серверного значения,
+                        // чтобы не затереть локально сохранённую подписку, если сервер ещё не знает о ней.
+                        val localSettings = settingsUseCase.getFlowCurrentSettingsState()
+                            .first { it is ResultState.Success || it is ResultState.Error }
+                        val localSubscriptionPeriod = (localSettings as? ResultState.Success)
+                            ?.data?.subscriptionPeriod ?: 0L
+                        val remoteSubscriptionPeriod = loadState.data.subscriptionPeriod
+                        val mergedSubscriptionPeriod = maxOf(localSubscriptionPeriod, remoteSubscriptionPeriod)
                         val userSettings = loadState.data.copy(
-                            selectMonthOfYear = currentMonthOfYear ?: listMonthOfYear.firstOrNull() ?: com.z_company.domain.entities.MonthOfYear()
+                            selectMonthOfYear = currentMonthOfYear ?: listMonthOfYear.firstOrNull() ?: com.z_company.domain.entities.MonthOfYear(),
+                            subscriptionPeriod = mergedSubscriptionPeriod
                         )
                         settingsUseCase.saveSetting(userSettings)
                             .collect { saveResult ->

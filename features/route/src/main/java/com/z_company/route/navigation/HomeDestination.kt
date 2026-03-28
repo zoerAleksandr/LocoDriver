@@ -7,6 +7,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.z_company.core.navigation.AppRoutes
 import com.z_company.domain.navigation.Router
 import com.z_company.route.ui.HomeScreen
+import com.z_company.route.viewmodel.SyncStepState
+import com.z_company.route.viewmodel.SyncType
 import com.z_company.route.viewmodel.home_view_model.HomeViewModel
 import com.z_company.route.R
 
@@ -78,7 +80,19 @@ fun HomeDestination(
         saveTimeEvent = homeViewModel.saveTimeEvent,
         isNextDeparture = homeViewModel::isNextDeparture,
         onWorkScheduleScreen = router::showWorkScheduleScreen,
-        onClickVacation = router::showSelectReleaseDayScreen
+        onClickVacation = router::showSelectReleaseDayScreen,
+        unsyncedRoutesCount = uiState.unsyncedRoutesCount,
+        onSyncClick = homeViewModel::manualSync,
+        onDebugTestSyncError = homeViewModel::debugShowTestSyncError,
+        showSyncDialog = uiState.showSyncDialog,
+        isSyncSuccess = uiState.isSyncSuccess,
+        isSyncComplete = uiState.isSyncComplete,
+        syncType = uiState.syncType,
+        syncUploadProgress = uiState.syncUploadProgress,
+        syncRouteErrors = uiState.syncRouteErrors,
+        syncRoutesTotalAttempted = uiState.syncRoutesTotalAttempted,
+        syncRoutesSavedCount = uiState.syncRoutesSavedCount,
+        onResetSyncState = homeViewModel::resetSyncState
     )
 }
 
