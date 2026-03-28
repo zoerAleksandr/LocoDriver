@@ -89,6 +89,7 @@ fun HomeDestination(
         syncRouteErrors = uiState.syncRouteErrors,
         syncRoutesTotalAttempted = uiState.syncRoutesTotalAttempted,
         syncRoutesSavedCount = uiState.syncRoutesSavedCount,
+        syncReportUserId = uiState.syncReportUserId,
         onResetSyncState = homeViewModel::resetSyncState,
         onDebugTestSyncError = homeViewModel::debugShowTestSyncError
     )

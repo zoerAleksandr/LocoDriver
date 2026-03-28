@@ -781,6 +781,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
         syncJob?.cancel()
         syncJob = viewModelScope.launch(Dispatchers.IO) {
             val token = secureTokenStorage.getAuthBearerTokenFlow().first()
+            val userId = secureTokenStorage.getUserIdFlow().first()
             if (token.isNullOrBlank()) {
                 _uiState.update {
                     it.copy(
@@ -808,7 +809,8 @@ class HomeViewModel : ViewModel(), KoinComponent {
                         "Routes" to com.z_company.route.viewmodel.SyncStepState.Loading
                     ),
                     isSyncComplete = false,
-                    isSyncSuccess = false
+                    isSyncSuccess = false,
+                    syncReportUserId = userId
                 )
             }
             try {
@@ -887,7 +889,8 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 syncType = null,
                 syncRouteErrors = emptyList(),
                 syncRoutesTotalAttempted = 0,
-                syncRoutesSavedCount = 0
+                syncRoutesSavedCount = 0,
+                syncReportUserId = null
             )
         }
     }

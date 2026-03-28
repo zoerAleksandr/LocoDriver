@@ -52,6 +52,7 @@ fun SyncProgressDialog(
     syncRouteErrors: List<String>,
     syncRoutesTotalAttempted: Int,
     syncRoutesSavedCount: Int,
+    userId: String? = null,
     onDismiss: () -> Unit
 ) {
     val ctx = LocalContext.current
@@ -228,6 +229,7 @@ fun SyncProgressDialog(
                                         "Выгрузка на сервер" else "Загрузка с сервера"
                                     appendLine("Отчет об ошибках синхронизации")
                                     appendLine("Тип: $typeLabel")
+                                    if (!userId.isNullOrBlank()) appendLine("ID пользователя: $userId")
                                     appendLine("=".repeat(40))
                                     progressMap.forEach { (step, state) ->
                                         if (state is SyncStepState.Error) {

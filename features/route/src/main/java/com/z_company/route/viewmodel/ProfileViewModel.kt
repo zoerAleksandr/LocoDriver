@@ -79,7 +79,8 @@ data class ProfileUiState(
     val syncType: SyncType? = null,  // Тип синхронизации (Upload или Download), чтобы знать, какой progress отображать
     val syncRouteErrors: List<String> = emptyList(),
     val syncRoutesTotalAttempted: Int = 0,
-    val syncRoutesSavedCount: Int = 0
+    val syncRoutesSavedCount: Int = 0,
+    val syncReportUserId: String? = null
 )
 
 // Описание: Определяет тип синхронизации (загрузка на сервер или с сервера) для выбора правильного progress map в UI.
@@ -204,6 +205,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
     fun startSyncUpload() {
         viewModelScope.launch(Dispatchers.IO) {
             val token = secureTokenStorage.getAuthBearerTokenFlow().first() ?: return@launch
+            val userId = secureTokenStorage.getUserIdFlow().first()
             _uiState.update {
                 it.copy(
                     showSyncDialog = true,
@@ -214,7 +216,8 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                         "Months" to SyncStepState.Loading,
                         "Routes" to SyncStepState.Loading
                     ),
-                    isSyncComplete = false
+                    isSyncComplete = false,
+                    syncReportUserId = userId
                 )
             }
 
@@ -336,6 +339,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
     fun startSyncDownload() {
         viewModelScope.launch(Dispatchers.IO) {
             val token = secureTokenStorage.getAuthBearerTokenFlow().first() ?: return@launch
+            val userId = secureTokenStorage.getUserIdFlow().first()
             _uiState.update {
                 it.copy(
                     showSyncDialog = true,
@@ -346,7 +350,8 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                         "UserSettings" to SyncStepState.Loading,
                         "Routes" to SyncStepState.Loading
                     ),
-                    isSyncComplete = false
+                    isSyncComplete = false,
+                    syncReportUserId = userId
                 )
             }
 
@@ -424,7 +429,8 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                 syncType = null,
                 syncRouteErrors = emptyList(),
                 syncRoutesTotalAttempted = 0,
-                syncRoutesSavedCount = 0
+                syncRoutesSavedCount = 0,
+                syncReportUserId = null
             )
         }
     }

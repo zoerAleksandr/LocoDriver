@@ -129,23 +129,24 @@ class SyncManager(
         val allRoutesWithDeleted = routeUseCase.listRouteWithDeleting()
         val deletedRoutes = allRoutesWithDeleted.filter { it.basicData.isDeleted }
         for (route in deletedRoutes) {
+            val routeId = route.basicData.id
             val label = routeLabel(route)
             try {
-                routesManager.deleteRouteInRemote(route.basicData.id, bearerToken)
+                routesManager.deleteRouteInRemote(routeId, bearerToken)
                     .collect { deleteResult ->
                         if (deleteResult is ResultState.Success) {
                             routeUseCase.removeRoute(route).collect {}
                         } else if (deleteResult is ResultState.Error) {
                             val msg = deleteResult.entity.message
                                 ?: deleteResult.entity.throwable?.message ?: "Ошибка"
-                            allErrors.add("Удаление $label: $msg")
+                            allErrors.add("[$routeId] Удаление $label: $msg")
                             deleteResult.entity.throwable?.sendToSentry(
                                 "SyncManager", "deleteDeletedRoutes"
                             )
                         }
                     }
             } catch (e: Exception) {
-                allErrors.add("Удаление $label: ${e.message}")
+                allErrors.add("[$routeId] Удаление $label: ${e.message ?: e.cause?.message ?: "Нет соединения"}")
                 e.sendToSentry("SyncManager", "deleteDeletedRoutes")
             }
         }
@@ -155,22 +156,23 @@ class SyncManager(
         var savedCount = 0
         for (route in routes) {
             if (!route.basicData.isSynchronized) {
+                val routeId = route.basicData.id
                 val label = routeLabel(route)
                 routesManager.saveRouteInRemote(route, bearerToken)
                     .catch { e ->
-                        allErrors.add("$label: ${e.message}")
+                        allErrors.add("[$routeId] $label: ${e.message ?: e.cause?.message ?: "Нет соединения"}")
                         return@catch
                     }
                     .collect { saveResult ->
                         if (saveResult is ResultState.Success) {
                             val data = saveResult.data
                             if (data.warnings.isNotEmpty()) {
-                                data.warnings.forEach { w -> allWarnings.add("$label: $w") }
+                                data.warnings.forEach { w -> allWarnings.add("[$routeId] $label: $w") }
                             }
-                            routeUseCase.setSynchronizedRoute(route.basicData.id).collect {}
+                            routeUseCase.setSynchronizedRoute(routeId).collect {}
                             savedCount++
                         } else if (saveResult is ResultState.Error) {
-                            allErrors.add("$label: ${saveResult.entity.message ?: saveResult.entity.throwable?.message ?: "Ошибка"}")
+                            allErrors.add("[$routeId] $label: ${saveResult.entity.message ?: saveResult.entity.throwable?.message ?: "Ошибка"}")
                         }
                     }
             }

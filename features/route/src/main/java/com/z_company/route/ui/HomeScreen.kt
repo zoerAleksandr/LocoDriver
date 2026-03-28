@@ -191,6 +191,7 @@ fun HomeScreen(
     syncRouteErrors: List<String> = emptyList(),
     syncRoutesTotalAttempted: Int = 0,
     syncRoutesSavedCount: Int = 0,
+    syncReportUserId: String? = null,
     onResetSyncState: () -> Unit = {},
     onDebugTestSyncError: () -> Unit = {}
 ) {
@@ -299,6 +300,7 @@ fun HomeScreen(
         syncRouteErrors = syncRouteErrors,
         syncRoutesTotalAttempted = syncRoutesTotalAttempted,
         syncRoutesSavedCount = syncRoutesSavedCount,
+        userId = syncReportUserId,
         onDismiss = onResetSyncState
     )
 

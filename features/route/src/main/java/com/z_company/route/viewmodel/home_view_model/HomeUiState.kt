@@ -44,7 +44,8 @@ data class HomeUiState(
     val syncUploadProgress: Map<String, SyncStepState> = emptyMap(),
     val syncRouteErrors: List<String> = emptyList(),
     val syncRoutesTotalAttempted: Int = 0,
-    val syncRoutesSavedCount: Int = 0
+    val syncRoutesSavedCount: Int = 0,
+    val syncReportUserId: String? = null
 )
 
 data class ItemState(
