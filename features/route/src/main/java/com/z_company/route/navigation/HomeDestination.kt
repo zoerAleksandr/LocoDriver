@@ -81,8 +81,16 @@ fun HomeDestination(
         onClickVacation = router::showSelectReleaseDayScreen,
         unsyncedRoutesCount = uiState.unsyncedRoutesCount,
         onSyncClick = homeViewModel::manualSync,
-        syncDialogState = uiState.syncDialogState,
-        onCloseSyncDialog = homeViewModel::closeSyncDialog
+        showSyncDialog = uiState.showSyncDialog,
+        isSyncSuccess = uiState.isSyncSuccess,
+        isSyncComplete = uiState.isSyncComplete,
+        syncType = uiState.syncType,
+        syncUploadProgress = uiState.syncUploadProgress,
+        syncRouteErrors = uiState.syncRouteErrors,
+        syncRoutesTotalAttempted = uiState.syncRoutesTotalAttempted,
+        syncRoutesSavedCount = uiState.syncRoutesSavedCount,
+        onResetSyncState = homeViewModel::resetSyncState,
+        onDebugTestSyncError = homeViewModel::debugShowTestSyncError
     )
 }
 

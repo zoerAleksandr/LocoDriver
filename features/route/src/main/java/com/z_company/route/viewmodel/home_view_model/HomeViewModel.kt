@@ -779,47 +779,159 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
     fun manualSync() {
         syncJob?.cancel()
-        syncJob = viewModelScope.launch {
-            _uiState.update { it.copy(syncDialogState = SyncDialogState.Loading) }
-            try {
-                val token = secureTokenStorage.getAuthBearerTokenFlow().first()
-                if (token.isNullOrBlank()) {
-                    _uiState.update { it.copy(syncDialogState = SyncDialogState.Error("Неавторизованный пользователь")) }
-                    return@launch
+        syncJob = viewModelScope.launch(Dispatchers.IO) {
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first()
+            if (token.isNullOrBlank()) {
+                _uiState.update {
+                    it.copy(
+                        showSyncDialog = true,
+                        syncType = com.z_company.route.viewmodel.SyncType.Upload,
+                        syncUploadProgress = mapOf(
+                            "UserSettings" to com.z_company.route.viewmodel.SyncStepState.Error("Неавторизованный пользователь"),
+                            "SalarySettings" to com.z_company.route.viewmodel.SyncStepState.Error(""),
+                            "Months" to com.z_company.route.viewmodel.SyncStepState.Error(""),
+                            "Routes" to com.z_company.route.viewmodel.SyncStepState.Error("")
+                        ),
+                        isSyncComplete = true
+                    )
                 }
-                val bearerToken = "Bearer $token"
-                syncManager.syncToRemote(bearerToken).collect { result ->
-                    when (result) {
-                        is ResultState.Success -> _uiState.update { it.copy(syncDialogState = SyncDialogState.Hidden) }
-                        is ResultState.Error -> {
-                            val throwable = result.entity.throwable
-                            val displayMsg = if (isNoInternetError(throwable)) "Нет интернета."
-                                else result.entity.message ?: throwable?.message ?: "Ошибка синхронизации"
-                            _uiState.update { it.copy(syncDialogState = SyncDialogState.Error(displayMsg)) }
-                        }
+                return@launch
+            }
+            _uiState.update {
+                it.copy(
+                    showSyncDialog = true,
+                    syncType = com.z_company.route.viewmodel.SyncType.Upload,
+                    syncUploadProgress = mapOf(
+                        "UserSettings" to com.z_company.route.viewmodel.SyncStepState.Loading,
+                        "SalarySettings" to com.z_company.route.viewmodel.SyncStepState.Loading,
+                        "Months" to com.z_company.route.viewmodel.SyncStepState.Loading,
+                        "Routes" to com.z_company.route.viewmodel.SyncStepState.Loading
+                    ),
+                    isSyncComplete = false,
+                    isSyncSuccess = false
+                )
+            }
+            try {
+                syncManager.syncToRemote("Bearer $token").collect { state ->
+                    when (state) {
                         is ResultState.Loading -> {}
+                        is ResultState.Success -> {
+                            val result = state.data
+                            val newProgress = _uiState.value.syncUploadProgress.toMutableMap()
+                            if (result.userSettingsSaved) newProgress["UserSettings"] = com.z_company.route.viewmodel.SyncStepState.Success("загружены")
+                            if (result.salarySettingsSaved) newProgress["SalarySettings"] = com.z_company.route.viewmodel.SyncStepState.Success("загружены")
+                            if (result.monthsSaved) newProgress["Months"] = com.z_company.route.viewmodel.SyncStepState.Success("загружены")
+                            val routeErrors = result.routeErrors
+                            if (result.routesSavedCount >= 0) {
+                                if (routeErrors.isNotEmpty()) {
+                                    newProgress["Routes"] = com.z_company.route.viewmodel.SyncStepState.Error("синхронизировано ${result.routesSavedCount} из ${routeErrors.size + result.routesSavedCount}")
+                                } else {
+                                    val details = buildString {
+                                        append("загружены ${result.routesSavedCount}(шт)")
+                                        if (result.routeWarnings.isNotEmpty()) append("\n${result.routeWarnings.joinToString("\n")}")
+                                    }
+                                    newProgress["Routes"] = com.z_company.route.viewmodel.SyncStepState.Success(details)
+                                }
+                            }
+                            val isFullSuccess = result.timestamp != null && routeErrors.isEmpty()
+                            _uiState.update {
+                                it.copy(
+                                    syncUploadProgress = newProgress,
+                                    isSyncComplete = !isFullSuccess,
+                                    isSyncSuccess = isFullSuccess,
+                                    showSyncDialog = !isFullSuccess,
+                                    syncRouteErrors = routeErrors,
+                                    syncRoutesTotalAttempted = routeErrors.size + result.routesSavedCount,
+                                    syncRoutesSavedCount = result.routesSavedCount
+                                )
+                            }
+                            result.timestamp?.let { sharedPreferenceStorage.setLastSyncTimestamp(it) }
+                        }
+                        is ResultState.Error -> {
+                            val msg = state.entity.message ?: ""
+                            val stepKey = parseSyncStep(msg)
+                            val newProgress = _uiState.value.syncUploadProgress.toMutableMap()
+                            if (stepKey != null) {
+                                newProgress[stepKey] = com.z_company.route.viewmodel.SyncStepState.Error(message = cleanSyncError(msg))
+                                _uiState.update { it.copy(syncUploadProgress = newProgress) }
+                            } else {
+                                newProgress.replaceAll { _, v ->
+                                    if (v is com.z_company.route.viewmodel.SyncStepState.Loading)
+                                        com.z_company.route.viewmodel.SyncStepState.Error(message = msg)
+                                    else v
+                                }
+                                _uiState.update { it.copy(syncUploadProgress = newProgress, isSyncComplete = true) }
+                            }
+                        }
                     }
                 }
-            } catch (_: kotlinx.coroutines.CancellationException) {
             } catch (e: Exception) {
-                val displayMsg = if (isNoInternetError(e)) "Нет интернета." else (e.message ?: "Ошибка синхронизации")
-                _uiState.update { it.copy(syncDialogState = SyncDialogState.Error(displayMsg)) }
+                val newProgress = _uiState.value.syncUploadProgress.mapValues {
+                    if (it.value is com.z_company.route.viewmodel.SyncStepState.Loading)
+                        com.z_company.route.viewmodel.SyncStepState.Error(message = e.message ?: "Ошибка синхронизации")
+                    else it.value
+                }
+                _uiState.update { it.copy(syncUploadProgress = newProgress, isSyncComplete = true) }
             }
         }
     }
 
-    fun closeSyncDialog() {
+    fun resetSyncState() {
         syncJob?.cancel()
-        _uiState.update { it.copy(syncDialogState = SyncDialogState.Hidden) }
+        _uiState.update {
+            it.copy(
+                showSyncDialog = false,
+                syncUploadProgress = emptyMap(),
+                isSyncComplete = false,
+                isSyncSuccess = false,
+                syncType = null,
+                syncRouteErrors = emptyList(),
+                syncRoutesTotalAttempted = 0,
+                syncRoutesSavedCount = 0
+            )
+        }
     }
 
-    private fun isNoInternetError(e: Throwable?): Boolean {
-        if (e == null) return false
-        return e is java.net.UnknownHostException || e is java.net.SocketException ||
-            e is java.net.ConnectException ||
-            (e.message?.lowercase()?.contains("unable to resolve host") == true) ||
-            (e.message?.lowercase()?.contains("no address") == true) ||
-            (e.message?.lowercase()?.contains("failed to connect") == true)
+    fun debugShowTestSyncError() {
+        _uiState.update {
+            it.copy(
+                showSyncDialog = true,
+                syncType = com.z_company.route.viewmodel.SyncType.Upload,
+                syncUploadProgress = mapOf(
+                    "UserSettings" to com.z_company.route.viewmodel.SyncStepState.Success("загружены"),
+                    "SalarySettings" to com.z_company.route.viewmodel.SyncStepState.Success("загружены"),
+                    "Months" to com.z_company.route.viewmodel.SyncStepState.Success("загружены"),
+                    "Routes" to com.z_company.route.viewmodel.SyncStepState.Error("синхронизировано 1 из 3")
+                ),
+                isSyncComplete = true,
+                isSyncSuccess = false,
+                syncRouteErrors = listOf(
+                    "Маршрут 15.01.26 №101: Нет соединения",
+                    "Маршрут 20.01.26 №202: Server error 500"
+                ),
+                syncRoutesTotalAttempted = 3,
+                syncRoutesSavedCount = 1
+            )
+        }
+    }
+
+    private fun parseSyncStep(message: String): String? = when {
+        message.contains("UserSettings") -> "UserSettings"
+        message.contains("SalarySetting") -> "SalarySettings"
+        message.contains("MonthOfYearList") -> "Months"
+        else -> null
+    }
+
+    private fun cleanSyncError(message: String): String {
+        val prefixes = listOf(
+            "Ошибка сохранения UserSettings: ",
+            "Ошибка сохранения SalarySetting: ",
+            "Ошибка сохранения MonthOfYearList: "
+        )
+        for (prefix in prefixes) {
+            if (message.startsWith(prefix)) return message.removePrefix(prefix)
+        }
+        return message
     }
 
     private fun calculationTotalTime(routes: List<Route>, offsetInMoscow: Long) {

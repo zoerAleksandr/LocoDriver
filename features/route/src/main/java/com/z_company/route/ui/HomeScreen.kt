@@ -108,6 +108,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.isFuture
 import com.z_company.domain.entities.route.UtilsForEntities.isTransition
 import com.z_company.domain.util.minus
 import com.z_company.route.R
+import com.z_company.route.ui.SyncProgressDialog
 import com.z_company.route.component.AnimatedCounter
 import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.AppBottomSheet
@@ -184,8 +185,16 @@ fun HomeScreen(
     onClickVacation: () -> Unit,
     unsyncedRoutesCount: Int = 0,
     onSyncClick: () -> Unit = {},
-    syncDialogState: com.z_company.route.viewmodel.home_view_model.SyncDialogState = com.z_company.route.viewmodel.home_view_model.SyncDialogState.Hidden,
-    onCloseSyncDialog: () -> Unit = {}
+    showSyncDialog: Boolean = false,
+    isSyncSuccess: Boolean = false,
+    isSyncComplete: Boolean = false,
+    syncType: com.z_company.route.viewmodel.SyncType? = null,
+    syncUploadProgress: Map<String, com.z_company.route.viewmodel.SyncStepState> = emptyMap(),
+    syncRouteErrors: List<String> = emptyList(),
+    syncRoutesTotalAttempted: Int = 0,
+    syncRoutesSavedCount: Int = 0,
+    onResetSyncState: () -> Unit = {},
+    onDebugTestSyncError: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -283,81 +292,21 @@ fun HomeScreen(
     }
 
     // Диалог синхронизации
-    if (syncDialogState !is com.z_company.route.viewmodel.home_view_model.SyncDialogState.Hidden) {
-        val context = LocalContext.current
-        androidx.compose.ui.window.Dialog(
-            onDismissRequest = onCloseSyncDialog,
-            properties = androidx.compose.ui.window.DialogProperties(dismissOnClickOutside = false)
-        ) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondary),
-                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
-                shape = MaterialTheme.shapes.medium
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Синхронизация",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        IconButton(onClick = onCloseSyncDialog) {
-                            Icon(
-                                imageVector = Icons.Rounded.Close,
-                                contentDescription = "Закрыть",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                    when (syncDialogState) {
-                        is com.z_company.route.viewmodel.home_view_model.SyncDialogState.Loading -> {
-                            Spacer(Modifier.height(12.dp))
-                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                            Spacer(Modifier.height(16.dp))
-                            OutlinedButton(
-                                onClick = onCloseSyncDialog,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("Прервать", color = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                        is com.z_company.route.viewmodel.home_view_model.SyncDialogState.Error -> {
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                text = syncDialogState.message,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                            Spacer(Modifier.height(16.dp))
-                            OutlinedButton(
-                                onClick = {
-                                    val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
-                                        data = android.net.Uri.parse("mailto:locodriver.app@yandex.ru?subject=Ошибка%20синхронизации")
-                                    }
-                                    context.startActivity(intent)
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("Написать в поддержку", color = MaterialTheme.colorScheme.primary)
-                            }
-                            Spacer(Modifier.height(8.dp))
-                            OutlinedButton(
-                                onClick = onSyncClick,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("Повторить", color = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                        else -> {}
-                    }
-                }
-            }
-        }
-    }
+    SyncProgressDialog(
+        showDialog = showSyncDialog,
+        isSyncSuccess = isSyncSuccess,
+        isSyncComplete = isSyncComplete,
+        syncType = syncType,
+        progressMap = syncUploadProgress,
+        syncRouteErrors = syncRouteErrors,
+        syncRoutesTotalAttempted = syncRoutesTotalAttempted,
+        syncRoutesSavedCount = syncRoutesSavedCount,
+        onDismiss = onResetSyncState
+    )
+
+    // Кнопка теста ошибки синхронизации (для отладки)
+    // TODO: удалить перед релизом
+    // Button(onClick = onDebugTestSyncError) { Text("⚠️ Тест синх. ошибки") }
 
     AnimationDialog(
         showDialog = showContextDialog,
@@ -680,6 +629,9 @@ fun HomeScreen(
                                             color = MaterialTheme.colorScheme.secondary,
                                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
                                         )
+                                    }
+                                    androidx.compose.material3.TextButton(onClick = onDebugTestSyncError) {
+                                        Text("Тест ошибки", style = MaterialTheme.typography.bodySmall)
                                     }
                                 }
                             }

@@ -75,7 +75,11 @@ data class ProfileUiState(
     val syncDownloadProgress: Map<String, SyncStepState> = emptyMap(),  // Прогресс для download
     val showSyncDialog: Boolean = false,  // Флаг показа диалога синхронизации
     val isSyncComplete: Boolean = false,  // Флаг завершения синхронизации (для показа кнопки)
-    val syncType: SyncType? = null  // Тип синхронизации (Upload или Download), чтобы знать, какой progress отображать
+    val isSyncSuccess: Boolean = false,  // Флаг полного успеха (показывает AlertDialog вместо диалога прогресса)
+    val syncType: SyncType? = null,  // Тип синхронизации (Upload или Download), чтобы знать, какой progress отображать
+    val syncRouteErrors: List<String> = emptyList(),
+    val syncRoutesTotalAttempted: Int = 0,
+    val syncRoutesSavedCount: Int = 0
 )
 
 // Описание: Определяет тип синхронизации (загрузка на сервер или с сервера) для выбора правильного progress map в UI.
@@ -214,71 +218,96 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                 )
             }
 
-            syncManager.syncToRemote("Bearer $token").collect { state ->
-                when (state) {
-                    is ResultState.Loading -> {}  // Уже обработано инициализацией
-                    is ResultState.Success -> {
-                        val result = state.data
-                        val newProgress = _uiState.value.syncUploadProgress.toMutableMap()
+            try {
+                syncManager.syncToRemote("Bearer $token").collect { state ->
+                    when (state) {
+                        is ResultState.Loading -> {}
+                        is ResultState.Success -> {
+                            val result = state.data
+                            val newProgress = _uiState.value.syncUploadProgress.toMutableMap()
 
-                        // Обновляем прогресс для каждого этапа на основе result
-                        if (result.userSettingsSaved) {
-                            newProgress["UserSettings"] = SyncStepState.Success("загружены")
-                        }
-                        if (result.salarySettingsSaved) {
-                            newProgress["SalarySettings"] = SyncStepState.Success("загружены")
-                        }
-                        if (result.monthsSaved) {
-                            newProgress["Months"] = SyncStepState.Success("загружены")
-                        }
-                        if (result.routesSavedCount >= 0) {
-                            val routeDetails = buildString {
-                                append("загружены ${result.routesSavedCount}(шт)")
-                                if (result.routeWarnings.isNotEmpty()) {
-                                    append("\nПредупреждения:\n")
-                                    append(result.routeWarnings.joinToString("\n"))
-                                }
-                                if (result.routeErrors.isNotEmpty()) {
-                                    append("\nОшибки:\n")
-                                    append(result.routeErrors.joinToString("\n"))
+                            if (result.userSettingsSaved) newProgress["UserSettings"] = SyncStepState.Success("загружены")
+                            if (result.salarySettingsSaved) newProgress["SalarySettings"] = SyncStepState.Success("загружены")
+                            if (result.monthsSaved) newProgress["Months"] = SyncStepState.Success("загружены")
+                            val routeErrors = result.routeErrors
+                            if (result.routesSavedCount >= 0) {
+                                if (routeErrors.isNotEmpty()) {
+                                    newProgress["Routes"] = SyncStepState.Error("синхронизировано ${result.routesSavedCount} из ${routeErrors.size + result.routesSavedCount}")
+                                } else {
+                                    val details = buildString {
+                                        append("загружены ${result.routesSavedCount}(шт)")
+                                        if (result.routeWarnings.isNotEmpty()) append("\n${result.routeWarnings.joinToString("\n")}")
+                                    }
+                                    newProgress["Routes"] = SyncStepState.Success(details)
                                 }
                             }
-                            if (result.routeErrors.isNotEmpty()) {
-                                newProgress["Routes"] = SyncStepState.Error(message = routeDetails)
+
+                            // Финальный Success (timestamp != null) → всё успешно, показываем AlertDialog
+                            val isFullSuccess = result.timestamp != null && routeErrors.isEmpty()
+                            _uiState.update {
+                                it.copy(
+                                    syncUploadProgress = newProgress,
+                                    isSyncComplete = !isFullSuccess,
+                                    isSyncSuccess = isFullSuccess,
+                                    showSyncDialog = !isFullSuccess,
+                                    syncRouteErrors = routeErrors,
+                                    syncRoutesTotalAttempted = routeErrors.size + result.routesSavedCount,
+                                    syncRoutesSavedCount = result.routesSavedCount
+                                )
+                            }
+                            result.timestamp?.let { sharedPrefs.setLastSyncTimestamp(it) }
+                            if (isFullSuccess) refresh()
+                        }
+
+                        is ResultState.Error -> {
+                            val msg = state.entity.message ?: ""
+                            val stepKey = parseSyncUploadStep(msg)
+                            val newProgress = _uiState.value.syncUploadProgress.toMutableMap()
+                            if (stepKey != null) {
+                                // Промежуточная ошибка конкретного шага — обновляем только его
+                                newProgress[stepKey] = SyncStepState.Error(message = cleanSyncErrorMessage(msg))
+                                _uiState.update { it.copy(syncUploadProgress = newProgress) }
                             } else {
-                                newProgress["Routes"] = SyncStepState.Success(routeDetails)
+                                // Финальная ошибка — помечаем оставшиеся Loading и завершаем
+                                newProgress.replaceAll { _, v ->
+                                    if (v is SyncStepState.Loading) SyncStepState.Error(message = msg) else v
+                                }
+                                _uiState.update {
+                                    it.copy(syncUploadProgress = newProgress, isSyncComplete = true)
+                                }
                             }
-                        }
-
-                        _uiState.update {
-                            it.copy(
-                                syncUploadProgress = newProgress,
-                                isSyncComplete = true
-                            )
-                        }
-
-                        // Сохраняем timestamp, если все успешно
-                        result.timestamp?.let { sharedPrefs.setLastSyncTimestamp(it) }
-                        refresh()
-                    }
-
-                    is ResultState.Error -> {
-                        // Для ошибок - обновляем все оставшиеся шаги как Error (или конкретный, но для простоты - общий)
-                        val newProgress = _uiState.value.syncUploadProgress.mapValues {
-                            if (it.value is SyncStepState.Loading) SyncStepState.Error(
-                                message = state.entity.message ?: ""
-                            ) else it.value
-                        }
-                        _uiState.update {
-                            it.copy(
-                                syncUploadProgress = newProgress,
-                                isSyncComplete = true
-                            )
                         }
                     }
                 }
+            } catch (e: Exception) {
+                val newProgress = _uiState.value.syncUploadProgress.mapValues {
+                    if (it.value is SyncStepState.Loading) SyncStepState.Error(message = e.message ?: "Ошибка синхронизации") else it.value
+                }
+                _uiState.update { it.copy(syncUploadProgress = newProgress, isSyncComplete = true) }
             }
         }
+    }
+
+    private fun parseSyncUploadStep(message: String): String? = when {
+        message.contains("UserSettings") -> "UserSettings"
+        message.contains("SalarySetting") -> "SalarySettings"
+        message.contains("MonthOfYearList") -> "Months"
+        else -> null
+    }
+
+    private fun cleanSyncErrorMessage(message: String): String {
+        val prefixes = listOf(
+            "Ошибка сохранения UserSettings: ",
+            "Ошибка сохранения SalarySetting: ",
+            "Ошибка сохранения MonthOfYearList: ",
+            "Ошибка загрузки UserSettings: ",
+            "Ошибка загрузки SalarySetting: ",
+            "Ошибка загрузки MonthOfYearList: "
+        )
+        for (prefix in prefixes) {
+            if (message.startsWith(prefix)) return message.removePrefix(prefix)
+        }
+        return message
     }
 
     fun firstUpload() {
@@ -321,51 +350,65 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                 )
             }
 
-            syncManager.syncFromRemote("Bearer $token").collect { state ->
-                when (state) {
-                    is ResultState.Loading -> {}  // Уже обработано
-                    is ResultState.Success -> {
-                        val result = state.data
-                        val newProgress = _uiState.value.syncDownloadProgress.toMutableMap()
+            try {
+                syncManager.syncFromRemote("Bearer $token").collect { state ->
+                    when (state) {
+                        is ResultState.Loading -> {}
+                        is ResultState.Success -> {
+                            val result = state.data
+                            val newProgress = _uiState.value.syncDownloadProgress.toMutableMap()
 
-                        if (result.monthsLoaded) {
-                            newProgress["Months"] = SyncStepState.Success("загружены")
-                        }
-                        if (result.salarySettingsLoaded) {
-                            newProgress["SalarySettings"] = SyncStepState.Success("загружены")
-                        }
-                        if (result.userSettingsLoaded) {
-                            newProgress["UserSettings"] = SyncStepState.Success("загружены")
-                        }
-                        if (result.routesLoadedCount >= 0) {
-                            newProgress["Routes"] =
-                                SyncStepState.Success("загружены ${result.routesLoadedCount}(шт)")
+                            if (result.monthsLoaded) newProgress["Months"] = SyncStepState.Success("загружены")
+                            if (result.salarySettingsLoaded) newProgress["SalarySettings"] = SyncStepState.Success("загружены")
+                            if (result.userSettingsLoaded) newProgress["UserSettings"] = SyncStepState.Success("загружены")
+                            if (result.routesLoadedCount >= 0) newProgress["Routes"] = SyncStepState.Success("загружены ${result.routesLoadedCount}(шт)")
+
+                            val isFullSuccess = result.userSettingsLoaded && result.salarySettingsLoaded &&
+                                result.monthsLoaded && result.routesLoadedCount >= 0
+                            _uiState.update {
+                                it.copy(
+                                    syncDownloadProgress = newProgress,
+                                    isSyncComplete = !isFullSuccess,
+                                    isSyncSuccess = isFullSuccess,
+                                    showSyncDialog = !isFullSuccess
+                                )
+                            }
+                            if (isFullSuccess) refresh()
                         }
 
-                        _uiState.update {
-                            it.copy(
-                                syncDownloadProgress = newProgress,
-                                isSyncComplete = true
-                            )
-                        }
-                    }
-
-                    is ResultState.Error -> {
-                        val newProgress = _uiState.value.syncDownloadProgress.mapValues {
-                            if (it.value is SyncStepState.Loading) SyncStepState.Error(
-                                message = state.entity.message ?: ""
-                            ) else it.value
-                        }
-                        _uiState.update {
-                            it.copy(
-                                syncDownloadProgress = newProgress,
-                                isSyncComplete = true
-                            )
+                        is ResultState.Error -> {
+                            val msg = state.entity.message ?: ""
+                            val stepKey = parseSyncDownloadStep(msg)
+                            val newProgress = _uiState.value.syncDownloadProgress.toMutableMap()
+                            if (stepKey != null) {
+                                newProgress[stepKey] = SyncStepState.Error(message = cleanSyncErrorMessage(msg))
+                                _uiState.update { it.copy(syncDownloadProgress = newProgress) }
+                            } else {
+                                newProgress.replaceAll { _, v ->
+                                    if (v is SyncStepState.Loading) SyncStepState.Error(message = msg) else v
+                                }
+                                _uiState.update {
+                                    it.copy(syncDownloadProgress = newProgress, isSyncComplete = true)
+                                }
+                            }
                         }
                     }
                 }
+            } catch (e: Exception) {
+                val newProgress = _uiState.value.syncDownloadProgress.mapValues {
+                    if (it.value is SyncStepState.Loading) SyncStepState.Error(message = e.message ?: "Ошибка синхронизации") else it.value
+                }
+                _uiState.update { it.copy(syncDownloadProgress = newProgress, isSyncComplete = true) }
             }
         }
+    }
+
+    private fun parseSyncDownloadStep(message: String): String? = when {
+        message.contains("UserSettings") -> "UserSettings"
+        message.contains("SalarySetting") -> "SalarySettings"
+        message.contains("MonthOfYearList") -> "Months"
+        message.contains("маршрут") -> "Routes"
+        else -> null
     }
 
 
@@ -377,7 +420,11 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                 syncUploadProgress = emptyMap(),
                 syncDownloadProgress = emptyMap(),
                 isSyncComplete = false,
-                syncType = null
+                isSyncSuccess = false,
+                syncType = null,
+                syncRouteErrors = emptyList(),
+                syncRoutesTotalAttempted = 0,
+                syncRoutesSavedCount = 0
             )
         }
     }
@@ -526,13 +573,24 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                 if (state is AuthState.Success) {
                     val token = state.accessToken
                     if (token.isNotEmpty()) {
-                        secureTokenStorage.saveAuthToken(token)  // Сохранение зашифрованного токена
-                        _isLoggedIn.value = true  // Обновляем состояние логина после успеха
-                        refresh()  // Перезагружаем данные после входа
+                        secureTokenStorage.saveAuthToken(token)
+                        secureTokenStorage.saveVkId(vkid)
+                        _isLoggedIn.value = true
+                        refresh()
+                        // TODO: DEBUG — УДАЛИТЬ ПОСЛЕ ПРОВЕРКИ
+                        // Симулирует баг: через 5 сек сбрасывает isLoggedIn в false
+                        // (как будто Tink не смог прочитать токен при следующем getUserInfo()).
+                        // Сценарий: войти → уйти на другой экран в течение 5 сек →
+                        // вернуться → форма входа.
+                        viewModelScope.launch {
+                            delay(5_000)
+                            _isLoggedIn.value = false
+                            _uiState.update { it.copy(userDetailsState = ResultState.Success(null)) }
+                        }
                         syncManager.syncFromRemote("Bearer $token").collect {}
                     }
                 }
-                _authUiState.value = state  // Обновляем UI-состояние
+                _authUiState.value = state
             }
         }
     }

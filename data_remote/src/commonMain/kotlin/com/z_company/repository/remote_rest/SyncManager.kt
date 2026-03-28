@@ -67,7 +67,7 @@ class SyncManager(
             if (subscriptionPeriod > Clock.System.now().toEpochMilliseconds()) {
                 settingManager.saveUserSettingInRemote(localUserSettings, bearerToken)
                     .catch { e ->
-                        emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения UserSettings: ${e.message}")))
+                        emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения UserSettings: ${e.message ?: e.cause?.message ?: "Нет соединения"}")))
                         return@catch
                     }
                     .collect { saveState ->
@@ -75,7 +75,7 @@ class SyncManager(
                             result.userSettingsSaved = true
                             emit(ResultState.Success(result.copy()))
                         } else if (saveState is ResultState.Error) {
-                            emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения UserSettings: ${saveState.entity.message}")))
+                            emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения UserSettings: ${saveState.entity.message ?: "Нет соединения"}")))
                             return@collect
                         }
                     }
@@ -92,7 +92,7 @@ class SyncManager(
         val localSalarySetting = salarySettingUseCase.salarySettingFlow().first()
         settingManager.saveSalarySettingInRemote(localSalarySetting, bearerToken)
             .catch { e ->
-                emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения SalarySetting: ${e.message}")))
+                emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения SalarySetting: ${e.message ?: e.cause?.message ?: "Нет соединения"}")))
                 return@catch
             }
             .collect { saveState ->
@@ -100,7 +100,7 @@ class SyncManager(
                     result.salarySettingsSaved = true
                     emit(ResultState.Success(result.copy()))
                 } else if (saveState is ResultState.Error) {
-                    emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения SalarySetting: ${saveState.entity.message}")))
+                    emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения SalarySetting: ${saveState.entity.message ?: "Нет соединения"}")))
                     return@collect
                 }
             }
@@ -109,7 +109,7 @@ class SyncManager(
         val localMonths = calendarUseCase.loadFlowMonthOfYearListState().first()
         settingManager.saveMonthOfYearListInRemote(localMonths, bearerToken)
             .catch { e ->
-                emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения MonthOfYearList: ${e.message}")))
+                emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения MonthOfYearList: ${e.message ?: e.cause?.message ?: "Нет соединения"}")))
                 return@catch
             }
             .collect { saveState ->
@@ -117,7 +117,7 @@ class SyncManager(
                     result.monthsSaved = true
                     emit(ResultState.Success(result.copy()))
                 } else if (saveState is ResultState.Error) {
-                    emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения MonthOfYearList: ${saveState.entity.message}")))
+                    emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения MonthOfYearList: ${saveState.entity.message ?: "Нет соединения"}")))
                     return@collect
                 }
             }
@@ -198,7 +198,7 @@ class SyncManager(
 
         settingManager.getMonthOfYearListFromRemote(bearerToken)
             .catch { e ->
-                emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки MonthOfYearList: ${e.message}")))
+                emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки MonthOfYearList: ${e.message ?: e.cause?.message ?: "Нет соединения"}")))
                 return@catch
             }
             .collect { loadState ->
@@ -212,7 +212,7 @@ class SyncManager(
                                         emit(ResultState.Success(result.copy()))
                                     }
                                     is ResultState.Error -> {
-                                        emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения MonthOfYearList локально: ${saveResult.entity.message}")))
+                                        emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения MonthOfYearList локально: ${saveResult.entity.message ?: "Нет соединения"}")))
                                         return@collect
                                     }
                                     else -> {}
@@ -220,7 +220,7 @@ class SyncManager(
                             }
                     }
                     is ResultState.Error -> {
-                        emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки MonthOfYearList: ${loadState.entity.message}")))
+                        emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки MonthOfYearList: ${loadState.entity.message ?: "Нет соединения"}")))
                         return@collect
                     }
                     else -> {}
@@ -230,7 +230,7 @@ class SyncManager(
         // 2. Загрузка SalarySetting
         settingManager.getSalarySettingFromRemote(bearerToken)
             .catch { e ->
-                emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки SalarySetting: ${e.message}")))
+                emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки SalarySetting: ${e.message ?: e.cause?.message ?: "Нет соединения"}")))
                 return@catch
             }
             .collect { loadState ->
@@ -244,7 +244,7 @@ class SyncManager(
                                         emit(ResultState.Success(result.copy()))
                                     }
                                     is ResultState.Error -> {
-                                        emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения SalarySetting локально: ${saveResult.entity.message}")))
+                                        emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения SalarySetting локально: ${saveResult.entity.message ?: "Нет соединения"}")))
                                         return@collect
                                     }
                                     else -> {}
@@ -252,7 +252,7 @@ class SyncManager(
                             }
                     }
                     is ResultState.Error -> {
-                        emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки SalarySetting: ${loadState.entity.message}")))
+                        emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки SalarySetting: ${loadState.entity.message ?: "Нет соединения"}")))
                         return@collect
                     }
                     else -> {}
@@ -262,7 +262,7 @@ class SyncManager(
         // 3. Загрузка UserSettings
         settingManager.getUserSettingFromRemote(bearerToken)
             .catch { e ->
-                emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки UserSettings: ${e.message}")))
+                emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки UserSettings: ${e.message ?: e.cause?.message ?: "Нет соединения"}")))
                 return@catch
             }
             .collect { loadState ->
@@ -294,7 +294,7 @@ class SyncManager(
                                         emit(ResultState.Success(result.copy()))
                                     }
                                     is ResultState.Error -> {
-                                        emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения UserSettings локально: ${saveResult.entity.message}")))
+                                        emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения UserSettings локально: ${saveResult.entity.message ?: "Нет соединения"}")))
                                         return@collect
                                     }
                                     else -> {}
@@ -302,7 +302,7 @@ class SyncManager(
                             }
                     }
                     is ResultState.Error -> {
-                        emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки UserSettings: ${loadState.entity.message}")))
+                        emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки UserSettings: ${loadState.entity.message ?: "Нет соединения"}")))
                         return@collect
                     }
                     else -> {}
@@ -312,7 +312,7 @@ class SyncManager(
         // 4. Загрузка всех маршрутов
         routesManager.getRoutesFromRemote(bearerToken)
             .catch { e ->
-                emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки маршрутов: ${e.message}")))
+                emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки маршрутов: ${e.message ?: e.cause?.message ?: "Нет соединения"}")))
                 return@catch
             }
             .collect { loadState ->
@@ -329,7 +329,7 @@ class SyncManager(
                                     when (saveResult) {
                                         is ResultState.Success -> { savedCount++ }
                                         is ResultState.Error -> {
-                                            emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения маршрута локально: ${saveResult.entity.message}")))
+                                            emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения маршрута локально: ${saveResult.entity.message ?: "Нет соединения"}")))
                                             return@collect
                                         }
                                         else -> {}
@@ -340,7 +340,7 @@ class SyncManager(
                         emit(ResultState.Success(result.copy()))
                     }
                     is ResultState.Error -> {
-                        emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки маршрутов: ${loadState.entity.message}")))
+                        emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки маршрутов: ${loadState.entity.message ?: "Нет соединения"}")))
                         return@collect
                     }
                     else -> {}
@@ -364,11 +364,11 @@ class SyncManager(
             .first { it is ResultState.Success || it is ResultState.Error }
         if (localUserSettingsState is ResultState.Success) {
             val localUserSettings = localUserSettingsState.data
-            // Не перезаписываем subscriptionPeriod из SharedPreferences (там всегда 0),
-            // используем локальное значение из БД напрямую.
-            settingManager.saveUserSettingInRemote(localUserSettings, bearerToken)
+            val endTimeSubscription = sharedPrefs.getSubscriptionExpiration()
+            val l = localUserSettings.copy(subscriptionPeriod = endTimeSubscription)
+            settingManager.saveUserSettingInRemote(l, bearerToken)
                 .catch { e ->
-                    emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения UserSettings: ${e.message}")))
+                    emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения UserSettings: ${e.message ?: e.cause?.message ?: "Нет соединения"}")))
                     return@catch
                 }
                 .collect { saveState ->
@@ -376,7 +376,7 @@ class SyncManager(
                         result.userSettingsSaved = true
                         emit(ResultState.Success(result.copy()))
                     } else if (saveState is ResultState.Error) {
-                        emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения UserSettings: ${saveState.entity.message}")))
+                        emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения UserSettings: ${saveState.entity.message ?: "Нет соединения"}")))
                         return@collect
                     }
                 }
@@ -389,7 +389,7 @@ class SyncManager(
         val localSalarySetting = salarySettingUseCase.salarySettingFlow().first()
         settingManager.saveSalarySettingInRemote(localSalarySetting, bearerToken)
             .catch { e ->
-                emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения SalarySetting: ${e.message}")))
+                emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения SalarySetting: ${e.message ?: e.cause?.message ?: "Нет соединения"}")))
                 return@catch
             }
             .collect { saveState ->
@@ -397,7 +397,7 @@ class SyncManager(
                     result.salarySettingsSaved = true
                     emit(ResultState.Success(result.copy()))
                 } else if (saveState is ResultState.Error) {
-                    emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения SalarySetting: ${saveState.entity.message}")))
+                    emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения SalarySetting: ${saveState.entity.message ?: "Нет соединения"}")))
                     return@collect
                 }
             }
@@ -406,7 +406,7 @@ class SyncManager(
         val localMonths = calendarUseCase.loadFlowMonthOfYearListState().first()
         settingManager.saveMonthOfYearListInRemote(localMonths, bearerToken)
             .catch { e ->
-                emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения MonthOfYearList: ${e.message}")))
+                emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения MonthOfYearList: ${e.message ?: e.cause?.message ?: "Нет соединения"}")))
                 return@catch
             }
             .collect { saveState ->
@@ -414,7 +414,7 @@ class SyncManager(
                     result.monthsSaved = true
                     emit(ResultState.Success(result.copy()))
                 } else if (saveState is ResultState.Error) {
-                    emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения MonthOfYearList: ${saveState.entity.message}")))
+                    emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения MonthOfYearList: ${saveState.entity.message ?: "Нет соединения"}")))
                     return@collect
                 }
             }
