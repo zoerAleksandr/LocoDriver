@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -195,7 +196,7 @@ fun PurchasesScreen(
             containerColor = MaterialTheme.colorScheme.secondary,
             titleContentColor = MaterialTheme.colorScheme.primary,
             textContentColor = MaterialTheme.colorScheme.primary,
-            iconContentColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            iconContentColor = MaterialTheme.colorScheme.surfaceTint,
             onDismissRequest = { viewModel.dismissPaymentSuccessDialog() },
             title = {
                 Text(modifier = Modifier.padding(top = 24.dp), text = "Платеж принят!")
@@ -211,11 +212,18 @@ fun PurchasesScreen(
                 Text(text = "Спасибо за поддержку приложения!")
             },
             confirmButton = {
-                Button(onClick = { viewModel.dismissPaymentSuccessDialog() }) {
+                Button(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = Shapes.medium,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    ),
+                    onClick = { viewModel.dismissPaymentSuccessDialog() }
+                ) {
                     Text(
                         text = "Отлично!",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.tertiary
+                        color = MaterialTheme.colorScheme.secondary
                     )
                 }
             }

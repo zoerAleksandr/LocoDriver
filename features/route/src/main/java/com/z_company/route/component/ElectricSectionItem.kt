@@ -45,6 +45,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ui.theme.Shapes
+import com.z_company.domain.util.CalculationEnergy
 import com.z_company.domain.util.CalculationEnergy.getTotalEnergyConsumption
 import com.z_company.domain.util.str
 import com.z_company.route.R
@@ -77,26 +78,49 @@ fun ElectricSectionItem(
     val deliveryText = item.delivery.data ?: ""
     val recoveryAcceptedText = item.recoveryAccepted.data ?: ""
     val recoveryDeliveryText = item.recoveryDelivery.data ?: ""
-    val result = getTotalEnergyConsumption(
-        item.accepted.data?.toDoubleOrNull(),
-        item.delivery.data?.toDoubleOrNull()
+
+    fun decimalPlaces(vararg texts: String): Int {
+        return texts.maxOf { s ->
+            val dot = s.indexOf('.')
+            if (dot < 0) 0 else s.length - dot - 1
+        }
+    }
+
+    val energyPrecision = decimalPlaces(acceptedText, deliveryText)
+    val recoveryPrecision = decimalPlaces(recoveryAcceptedText, recoveryDeliveryText)
+
+    val result = CalculationEnergy.rounding(
+        getTotalEnergyConsumption(
+            item.accepted.data?.toDoubleOrNull(),
+            item.delivery.data?.toDoubleOrNull()
+        ), energyPrecision
     )
-    val resultRecovery = getTotalEnergyConsumption(
-        item.recoveryAccepted.data?.toDoubleOrNull(),
-        item.recoveryDelivery.data?.toDoubleOrNull()
+    val resultRecovery = CalculationEnergy.rounding(
+        getTotalEnergyConsumption(
+            item.recoveryAccepted.data?.toDoubleOrNull(),
+            item.recoveryDelivery.data?.toDoubleOrNull()
+        ), recoveryPrecision
     )
 
     val acceptedText2 = item.accepted2.data ?: ""
     val deliveryText2 = item.delivery2.data ?: ""
     val recoveryAcceptedText2 = item.recoveryAccepted2.data ?: ""
     val recoveryDeliveryText2 = item.recoveryDelivery2.data ?: ""
-    val result2 = getTotalEnergyConsumption(
-        item.accepted2.data?.toDoubleOrNull(),
-        item.delivery2.data?.toDoubleOrNull()
+
+    val energyPrecision2 = decimalPlaces(acceptedText2, deliveryText2)
+    val recoveryPrecision2 = decimalPlaces(recoveryAcceptedText2, recoveryDeliveryText2)
+
+    val result2 = CalculationEnergy.rounding(
+        getTotalEnergyConsumption(
+            item.accepted2.data?.toDoubleOrNull(),
+            item.delivery2.data?.toDoubleOrNull()
+        ), energyPrecision2
     )
-    val resultRecovery2 = getTotalEnergyConsumption(
-        item.recoveryAccepted2.data?.toDoubleOrNull(),
-        item.recoveryDelivery2.data?.toDoubleOrNull()
+    val resultRecovery2 = CalculationEnergy.rounding(
+        getTotalEnergyConsumption(
+            item.recoveryAccepted2.data?.toDoubleOrNull(),
+            item.recoveryDelivery2.data?.toDoubleOrNull()
+        ), recoveryPrecision2
     )
 
     val dataTextStyle = MaterialTheme.typography.bodyLarge

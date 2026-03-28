@@ -39,7 +39,9 @@ fun <T> MutableList<T>.addOrSkip(index: Int, element: T): Boolean {
     }
 }
 
-fun <T> MutableList<T>.addAllOrSkip(collection: MutableCollection<T>) {
+@Suppress("SENSELESS_COMPARISON")
+fun <T> MutableList<T>.addAllOrSkip(collection: MutableCollection<T>?) {
+    if (collection == null || this == null) return
     collection.forEach { element ->
         val searchElement = this.find {
             it == element

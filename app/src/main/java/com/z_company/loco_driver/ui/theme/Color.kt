@@ -15,9 +15,10 @@ val DarkTertiary = Color(0xFF92b2e5)
 val DarkSurfaceContainerLow = Color(0xFFE7DEBC)
 val DarkSurfaceContainerHigh = Color(0xFF9D97DC)
 
+val DarkSurfaceTint = Color(0xFFa3b565)
+
 
 val Blue = Color(0xFF3576FF)
-val Green = Color(0xFFa3b565)
 val Purple = Color(0xFF504e76)
 val OrangeDark = Color(0xFFE29960)
 val OrangeLight = Color(0xFFD17A36)
@@ -36,9 +37,10 @@ val LightSecondary = Color(0xFFF6F5EF)
 val LightSurfaceVariant = Color(0xFF383837)
 val LightOnPrimary = Color(0xFFEFEFEF)
 val LightSurface = Color(0xFFe2e0d8)
-val LightSurfaceTint = Color(0xFFDEDEDB)
 val LightOnSurface = Color(0xFFEFEDE3)
 val LightSecondaryContainer = Color(0xFFEEEEEE)
 val LightError = Color(0xFFD05C4A)
 val LightSurfaceContainerLow = Color(0xFF26405c)
 val LightSurfaceContainerHigh = Color(0xFF9D97DC)
+
+val LightSurfaceTint = Color(0xFF9DBA3E)

@@ -57,8 +57,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -609,17 +607,17 @@ fun HomeScreen(
                                     )
                                     Text(
                                         text = "Не синхронизировано маршрутов: $unsyncedRoutesCount",
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.primary
                                     )
                                     Text(
-                                        text = "Данные не были отправлены на сервер. Проверьте подключение к интернету и выполните синхронизацию.",
-                                        style = MaterialTheme.typography.bodySmall,
+                                        text = "Проверьте подключение к интернету и выполните синхронизацию.",
+                                        style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.primary
                                     )
                                     Box(
                                         modifier = Modifier
-                                            .clip(MaterialTheme.shapes.extraSmall)
+                                            .clip(Shapes.medium)
                                             .background(brushMain)
                                             .clickable(onClick = onSyncClick),
                                         contentAlignment = Alignment.Center

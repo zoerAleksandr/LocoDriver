@@ -55,7 +55,7 @@ object SecureDataStore {
                 .getPrimitive(Aead::class.java)
         } catch (e: InvalidKeyException) {
             Log.e(TAG, "InvalidKeyException: Keystore cannot load master_key. Deleting and retrying.", e)
-            deleteMasterKey()  // Удаляем повреждённый ключ
+            deleteMasterKey(context)  // Удаляем повреждённый ключ + очищаем keyset
             // Retry: Пытаемся заново получить Aead после удаления
             try {
                 AeadConfig.register()
@@ -81,7 +81,7 @@ object SecureDataStore {
 
     // Изменено: Добавил новый метод deleteMasterKey().
     // Для чего: Чтобы удалить повреждённый master_key из Android Keystore при InvalidKeyException. Это позволяет заново сгенерировать ключ и избежать краша. Стандартный workaround из Tink issues (#535) и Stripe (#444).
-    private fun deleteMasterKey() {
+    private fun deleteMasterKey(context: Context) {
         try {
             val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
             keyStore.deleteEntry(MASTER_KEY_ALIAS)
@@ -90,6 +90,17 @@ object SecureDataStore {
             Log.e(TAG, "KeyStoreException while deleting master key: ${e.message}", e)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to delete master key: ${e.message}", e)
+        }
+        // Старый keyset обёрнут удалённым ключом — расшифровать его невозможно.
+        // Удаляем его, чтобы retry сгенерировал свежий keyset с новым master key.
+        // Без этого retry тоже падает с GeneralSecurityException → getAeadWithRetry = null
+        // → saveAuthToken молча не сохраняет токен → getUserInfo читает null → logout.
+        try {
+            context.getSharedPreferences(DATASTORE_NAME, android.content.Context.MODE_PRIVATE)
+                .edit().remove(KEYSET_NAME).apply()
+            Log.d(TAG, "Cleared corrupted keyset from SharedPreferences")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to clear keyset from SharedPreferences: ${e.message}", e)
         }
     }
 

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -61,7 +62,7 @@ fun SyncProgressDialog(
             containerColor = MaterialTheme.colorScheme.secondary,
             titleContentColor = MaterialTheme.colorScheme.primary,
             textContentColor = MaterialTheme.colorScheme.primary,
-            iconContentColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            iconContentColor = MaterialTheme.colorScheme.surfaceTint,
             onDismissRequest = onDismiss,
             icon = {
                 Icon(
@@ -76,13 +77,20 @@ fun SyncProgressDialog(
                     text = if (syncType == SyncType.Upload) "Выгрузка завершена!" else "Загрузка завершена!"
                 )
             },
-            text = { Text("Данные успешно синхронизированы") },
+            text = { Text("Данные успешно синхронизированы.") },
             confirmButton = {
-                Button(onClick = onDismiss) {
+                Button(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = Shapes.medium,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    ),
+                    onClick = onDismiss
+                ) {
                     Text(
                         text = "Отлично!",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.tertiary
+                        color = MaterialTheme.colorScheme.secondary
                     )
                 }
             }
@@ -212,6 +220,7 @@ fun SyncProgressDialog(
                 // Кнопка отчёта — только при наличии ошибок
                 if (!isSyncSuccess) {
                     OutlinedButton(
+                        shape = Shapes.medium,
                         onClick = {
                             try {
                                 val reportContent = buildString {
@@ -274,7 +283,10 @@ fun SyncProgressDialog(
                 Button(
                     shape = Shapes.medium,
                     onClick = onDismiss,
-                    modifier = Modifier.align(Alignment.End)
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    )
                 ) {
                     Text("Понятно", style = styleData)
                 }

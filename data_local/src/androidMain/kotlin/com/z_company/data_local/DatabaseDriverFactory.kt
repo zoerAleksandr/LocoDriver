@@ -144,6 +144,20 @@ actual class DatabaseDriverFactory(private val context: Context) {
             val needsLocoRecreate = hasColumn(db, "Locomotive", "removeObjectId")
 
             if (needsTrainRecreate) {
+                // Добавляем недостающие колонки в старую таблицу ПЕРЕД копированием
+                val trainNewColumns = arrayOf(
+                    "additionalNumbers" to "TEXT DEFAULT NULL",
+                    "servicePhase" to "TEXT DEFAULT NULL",
+                    "pusher" to "TEXT DEFAULT NULL",
+                    "doubleTraction" to "TEXT DEFAULT NULL",
+                    "doubledTrain" to "TEXT DEFAULT NULL"
+                )
+                for ((col, def) in trainNewColumns) {
+                    if (!hasColumn(db, "Train", col)) {
+                        db.execSQL("ALTER TABLE Train ADD COLUMN $col $def")
+                    }
+                }
+
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS Train_new (
                         trainId TEXT NOT NULL PRIMARY KEY,
@@ -165,7 +179,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
                 """.trimIndent())
                 db.execSQL("""
                     INSERT INTO Train_new (trainId, basicId, number, additionalNumbers, distance, weight, axle, conditionalLength, isHeavyLongDistance, stations, servicePhase, pusher, doubleTraction, doubledTrain)
-                    SELECT trainId, basicId, number, CASE WHEN additionalNumbers IS NULL THEN NULL ELSE additionalNumbers END, distance, weight, axle, conditionalLength, isHeavyLongDistance, stations, CASE WHEN servicePhase IS NULL THEN NULL ELSE servicePhase END, CASE WHEN pusher IS NULL THEN NULL ELSE pusher END, CASE WHEN doubleTraction IS NULL THEN NULL ELSE doubleTraction END, CASE WHEN doubledTrain IS NULL THEN NULL ELSE doubledTrain END
+                    SELECT trainId, basicId, number, additionalNumbers, distance, weight, axle, conditionalLength, isHeavyLongDistance, stations, servicePhase, pusher, doubleTraction, doubledTrain
                     FROM Train
                 """.trimIndent())
                 db.execSQL("DROP TABLE Train")
@@ -174,6 +188,17 @@ actual class DatabaseDriverFactory(private val context: Context) {
             }
 
             if (needsLocoRecreate) {
+                // Добавляем недостающие колонки в старую таблицу ПЕРЕД копированием
+                val locoNewColumns = arrayOf(
+                    "auxiliaryCounterAccepted" to "TEXT DEFAULT NULL",
+                    "auxiliaryCounterDelivery" to "TEXT DEFAULT NULL"
+                )
+                for ((col, def) in locoNewColumns) {
+                    if (!hasColumn(db, "Locomotive", col)) {
+                        db.execSQL("ALTER TABLE Locomotive ADD COLUMN $col $def")
+                    }
+                }
+
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS Locomotive_new (
                         locoId TEXT NOT NULL PRIMARY KEY,

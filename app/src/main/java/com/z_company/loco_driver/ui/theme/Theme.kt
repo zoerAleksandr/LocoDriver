@@ -24,7 +24,8 @@ private val DarkColorScheme = darkColorScheme(
     surfaceDim = SurfaceDimDark,
     onError = OnError,
     surfaceContainerLow = DarkSurfaceContainerLow,
-    surfaceContainerHigh = DarkSurfaceContainerHigh
+    surfaceContainerHigh = DarkSurfaceContainerHigh,
+    surfaceTint = DarkSurfaceTint
 )
 
 private val LightColorScheme = lightColorScheme(
