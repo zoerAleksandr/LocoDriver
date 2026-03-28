@@ -583,16 +583,6 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                         secureTokenStorage.saveVkId(vkid)
                         _isLoggedIn.value = true
                         refresh()
-                        // TODO: DEBUG — УДАЛИТЬ ПОСЛЕ ПРОВЕРКИ
-                        // Симулирует баг: через 5 сек сбрасывает isLoggedIn в false
-                        // (как будто Tink не смог прочитать токен при следующем getUserInfo()).
-                        // Сценарий: войти → уйти на другой экран в течение 5 сек →
-                        // вернуться → форма входа.
-                        viewModelScope.launch {
-                            delay(5_000)
-                            _isLoggedIn.value = false
-                            _uiState.update { it.copy(userDetailsState = ResultState.Success(null)) }
-                        }
                         syncManager.syncFromRemote("Bearer $token").collect {}
                     }
                 }
