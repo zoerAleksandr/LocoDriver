@@ -24,6 +24,7 @@ import com.z_company.repository.remote_rest.SettingManager
 import com.z_company.use_case.SubscriptionHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -76,6 +77,7 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
     private val _showPaymentFailedDialog = MutableStateFlow(false)
     val showPaymentFailedDialog = _showPaymentFailedDialog.asStateFlow()
 
+    // Robokassa подтвердила платёж, но сервер ещё не обработал webhook — подписка скоро обновится
     private val _showPaymentProcessingDialog = MutableStateFlow(false)
     val showPaymentProcessingDialog = _showPaymentProcessingDialog.asStateFlow()
 
@@ -222,9 +224,14 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
 
     /**
      * Проверяет обновление подписки на сервере с retry-поллингом.
+     * Вызывается после любого результата от Robokassa SDK.
      *
-     * @param sdkConfirmed true — Robokassa SDK вернула Success (платёж подтверждён Robokassa);
-     *                     false — SDK вернула Error/Canceled (платёж мог пройти через банк).
+     * @param sdkConfirmed true — SDK вернула Success (Robokassa подтвердила платёж через API).
+     *                     false — Error или Canceled (SDK не подтвердила, но платёж мог пройти).
+     *
+     * Проблема: сервер обновляет подписку через Result URL (webhook), который Robokassa
+     * отправляет асинхронно. К моменту возврата пользователя webhook может ещё не прийти.
+     * Решение: поллинг сервера с повторами вместо одного запроса.
      *
      * Стратегия:
      * - sdkConfirmed=true  → 10 попыток × 3с (Robokassa точно знает об оплате, webhook может задержаться)
@@ -240,8 +247,12 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
             val previousEndTime = _purchasesEndTime.value
             _showPaymentLoadingDialog.value = true
             val token = secureTokenStorage.getAuthBearerTokenFlow().first()
+
+            // SDK подтвердила — ждём дольше (сервер точно должен обновиться)
+            // SDK не подтвердила — проверяем быстрее (возможно платёж не прошёл)
             val maxAttempts = if (sdkConfirmed) 10 else 5
             val retryDelayMs = 3000L
+
             var updated = false
             for (attempt in 0 until maxAttempts) {
                 val result = subscriptionHelper.restorePurchases(null, token)
@@ -257,9 +268,12 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                     delay(retryDelayMs)
                 }
             }
+
             _showPaymentLoadingDialog.value = false
             when {
                 updated -> _showPaymentSuccessDialog.value = true
+                // Robokassa подтвердила оплату, но сервер ещё не обработал webhook —
+                // показываем "обрабатывается" вместо "не завершена"
                 sdkConfirmed -> _showPaymentProcessingDialog.value = true
                 else -> _showPaymentFailedDialog.value = true
             }
