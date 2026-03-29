@@ -59,6 +59,7 @@ fun BottomNavigationBar(
                 selected = currentRoute == item.route.route,
                 onClick = {
                     if (currentRoute != item.route.route) {
+                        // TODO: DEBUG — вернуть saveState/restoreState после проверки
                         navController.navigate(item.route.route) {
                             launchSingleTop = true
                         }
