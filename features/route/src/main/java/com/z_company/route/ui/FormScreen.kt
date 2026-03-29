@@ -1409,7 +1409,7 @@ fun FormScreen(
                                         verticalArrangement = Arrangement.spacedBy(12.dp)
                                     ) {
                                         val animatedBgStartBreak by animateColorAsState(
-                                            targetValue = if (route.basicData.timeStartBreak == null) MaterialTheme.colorScheme.surface
+                                            targetValue = if (route.basicData.timeStartBreak == null || route.basicData.timeStartBreak == 0L) MaterialTheme.colorScheme.surface
                                             else MaterialTheme.colorScheme.secondary,
                                             animationSpec = tween(
                                                 durationMillis = 200,

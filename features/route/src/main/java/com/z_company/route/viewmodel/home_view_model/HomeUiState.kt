@@ -54,6 +54,7 @@ data class ItemState(
     val isHoliday: Boolean = false,
     val isExtendedServicePhaseTrains: Boolean = false,
     val isHeavyTrains: Boolean = false,
+    val isLongCompositionTrain: Boolean = false,
     val isTransition: Boolean = false,
     val isFuture: Boolean = false
 )

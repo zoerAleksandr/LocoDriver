@@ -111,6 +111,21 @@ object UtilsForEntities {
         return timeList.sum() > 0
     }
 
+    /**
+     * Длинносоставный поезд:
+     * — грузовой (номер не входит в пассажирские диапазоны): осей ≥ 350
+     * — пассажирский (номер в passengerTrainNumberList): осей ≥ 80
+     */
+    fun isLongCompositionTrain(route: Route): Boolean {
+        return route.trains.any { train ->
+            val axleCount = train.axle?.toIntOrNull() ?: return@any false
+            val trainNumber = train.number?.toIntOrNull()
+            val isPassenger = trainNumber != null &&
+                passengerTrainNumberList.any { interval -> interval.contains(trainNumber) }
+            if (isPassenger) axleCount >= 80 else axleCount >= 350
+        }
+    }
+
     fun Route.isCurrentRoute(currentTimeInMillis: Long): Boolean {
         val startWork = this.basicData.timeStartWork
         val endWork = this.basicData.timeEndWork
@@ -332,7 +347,7 @@ object UtilsForEntities {
     }
 
     fun Route.isFuture(offsetInMoscow: Long): Boolean {
-        if (this.basicData.timeStartWork == null || this.basicData.timeEndWork == null) {
+        if (this.basicData.timeStartWork == null) {
             return false
         } else {
             val currentTimeWithOffset = Clock.System.now().toEpochMilliseconds() + offsetInMoscow

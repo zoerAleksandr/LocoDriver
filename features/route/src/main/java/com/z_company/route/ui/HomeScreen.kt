@@ -56,8 +56,6 @@ import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -1313,6 +1311,7 @@ fun HomeScreen(
                                         dateAndTimeConverter = dateAndTimeConverter,
                                         isHeavyTrains = listRouteState[0].isHeavyTrains,
                                         isExtendedServicePhaseTrains = listRouteState[0].isExtendedServicePhaseTrains,
+                                        isLongCompositionTrain = listRouteState[0].isLongCompositionTrain,
                                         isHolidayTimeInRoute = listRouteState[0].isHoliday,
                                         number = listRouteState.size
                                     )
@@ -1357,6 +1356,7 @@ fun HomeScreen(
                                         dateAndTimeConverter = dateAndTimeConverter,
                                         isHeavyTrains = listRouteState[1].isHeavyTrains,
                                         isExtendedServicePhaseTrains = listRouteState[1].isExtendedServicePhaseTrains,
+                                        isLongCompositionTrain = listRouteState[1].isLongCompositionTrain,
                                         isHolidayTimeInRoute = listRouteState[1].isHoliday,
                                         number = listRouteState.size - 1
                                     )

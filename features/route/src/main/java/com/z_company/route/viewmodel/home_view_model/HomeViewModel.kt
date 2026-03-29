@@ -37,6 +37,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHol
 import com.z_company.domain.entities.route.UtilsForEntities.isExtendedServicePhaseTrains
 import com.z_company.domain.entities.route.UtilsForEntities.isHeavyTrains
 import com.z_company.domain.entities.route.UtilsForEntities.isHolidayTimeInRoute
+import com.z_company.domain.entities.route.UtilsForEntities.isLongCompositionTrain
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.RouteUseCase
@@ -1376,7 +1377,8 @@ class HomeViewModel : ViewModel(), KoinComponent {
                                         isExtendedServicePhaseTrains = isExtendedServicePhaseTrains(
                                             salarySetting,
                                             route
-                                        )
+                                        ),
+                                        isLongCompositionTrain = isLongCompositionTrain(route)
                                     )
                                     routeStateList.add(routeState)
                                 }
