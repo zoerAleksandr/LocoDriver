@@ -10,7 +10,7 @@ fun initSentry(dsn: String) {
         // SecurityException: CLOSE_SYSTEM_DIALOGS — бросается платформой при попытке
         // закрыть системные диалоги (например, при нажатии кнопки звонка на экране).
         // Нет смысла логировать эту ошибку — она вне нашего контроля.
-        options.beforeSend = { event, _ ->
+        options.beforeSend = { event ->
             val isCloseSystemDialogs = event.exceptions?.any { exc ->
                 exc.type?.contains("SecurityException") == true &&
                     exc.value?.contains("CLOSE_SYSTEM_DIALOGS") == true
