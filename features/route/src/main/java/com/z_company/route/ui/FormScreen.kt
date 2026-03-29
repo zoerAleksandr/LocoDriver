@@ -508,7 +508,8 @@ fun FormScreen(
 
                 var isBreakFieldsVisible by remember {
                     mutableStateOf(
-                        route.basicData.timeStartBreak != null || route.basicData.timeEndBreak != null
+                        (route.basicData.timeStartBreak != null && route.basicData.timeStartBreak != 0L) ||
+                            route.basicData.timeEndBreak != null
                     )
                 }
 

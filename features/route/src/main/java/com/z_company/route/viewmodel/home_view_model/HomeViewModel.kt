@@ -2,6 +2,7 @@ package com.z_company.route.viewmodel.home_view_model
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import java.util.Calendar
 import android.util.Log
 import com.z_company.core.sendToSentry
 import androidx.compose.runtime.getValue
@@ -108,6 +109,12 @@ class HomeViewModel : ViewModel(), KoinComponent {
     private val widgetUpdater: WidgetUpdater by inject()
 
     var timeWithoutHoliday by mutableLongStateOf(0L)
+        private set
+
+    var todayWorkTime by mutableLongStateOf(0L)
+        private set
+
+    var isConsiderFutureRoute by mutableStateOf(false)
         private set
 
     var currentRoute by mutableStateOf<Route?>(null)
@@ -1412,6 +1419,21 @@ class HomeViewModel : ViewModel(), KoinComponent {
                                 result.data
                             } else {
                                 result.data.filter { it.basicData.timeStartWork!! < currentTimeInMillis }
+                            }
+
+                            isConsiderFutureRoute = userSettings.isConsiderFutureRoute
+                            if (userSettings.isConsiderFutureRoute) {
+                                val todayStartMillis = Calendar.getInstance().apply {
+                                    timeInMillis = currentTimeInMillis
+                                    set(Calendar.HOUR_OF_DAY, 0)
+                                    set(Calendar.MINUTE, 0)
+                                    set(Calendar.SECOND, 0)
+                                    set(Calendar.MILLISECOND, 0)
+                                }.timeInMillis
+                                todayWorkTime = result.data.filter { route ->
+                                    val end = route.basicData.timeEndWork ?: return@filter false
+                                    end in todayStartMillis..currentTimeInMillis
+                                }.sumOf { route -> route.getWorkTime() ?: 0L }
                             }
 
                             val salaryCalculationHelper = SalaryCalculationHelper(

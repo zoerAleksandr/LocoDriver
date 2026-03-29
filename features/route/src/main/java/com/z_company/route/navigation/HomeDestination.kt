@@ -35,6 +35,8 @@ fun HomeDestination(
         onDeleteRoute = homeViewModel::removeRoute,
         onSearchClick = { router.showSearch() },
         totalTime = homeViewModel.timeWithoutHoliday,
+        todayWorkTime = homeViewModel.todayWorkTime,
+        isConsiderFutureRoute = homeViewModel.isConsiderFutureRoute,
         currentMonthOfYear = homeViewModel.currentMonthOfYear,
         yearList = years,
         monthList = months,

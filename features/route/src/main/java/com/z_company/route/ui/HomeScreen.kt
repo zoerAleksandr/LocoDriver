@@ -143,6 +143,8 @@ fun HomeScreen(
     onDeleteRoute: (Route) -> Unit,
     onSearchClick: () -> Unit,
     totalTime: Long,
+    todayWorkTime: Long = 0L,
+    isConsiderFutureRoute: Boolean = false,
     currentMonthOfYear: MonthOfYear?,
     monthList: List<Int>,
     yearList: List<Int>,
@@ -550,6 +552,8 @@ fun HomeScreen(
                                 0 -> {
                                     MainInfo(
                                         totalTime = totalTime,
+                                        todayWorkTime = todayWorkTime,
+                                        isConsiderFutureRoute = isConsiderFutureRoute,
                                         convertTimeToString = viewModel::convertTimeToStringFormat,
                                         totalTimeWithHoliday = totalTimeWithHoliday,
                                         currentMonthOfYear = currentMonthOfYear,
@@ -1528,6 +1532,8 @@ fun HomeScreen(
 @Composable
 fun MainInfo(
     totalTime: Long,
+    todayWorkTime: Long = 0L,
+    isConsiderFutureRoute: Boolean = false,
     convertTimeToString: (Long?) -> String,
     totalTimeWithHoliday: ResultState<Long>?,
     currentMonthOfYear: MonthOfYear?,
@@ -1722,6 +1728,45 @@ fun MainInfo(
                             progress = { percentNormaInDay },
                         )
                     }
+                    if (isConsiderFutureRoute) {
+                        Spacer(modifier = Modifier.height(7.dp))
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            val currentTime = Calendar.getInstance()
+                            val normaHoursToday = month.getNormaHoursInDate(currentTime.timeInMillis)
+                            val percentTodayWorked = (todayWorkTime.toFloat() / (normaHoursToday * 3_600_000L).coerceAtLeast(1).toFloat()).coerceIn(0f, 1f)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Отработано на ${dateAndTimeConverter?.getDate(currentTime.timeInMillis) ?: ""}",
+                                    maxLines = 1,
+                                    modifier = Modifier.weight(1f),
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                                Text(
+                                    text = convertTimeToString(todayWorkTime),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                            }
+                            LinearProgressIndicator(
+                                modifier = Modifier.fillMaxWidth().height(4.dp),
+                                trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                                color = MaterialTheme.colorScheme.secondary,
+                                gapSize = 4.dp,
+                                drawStopIndicator = {},
+                                progress = { percentTodayWorked },
+                            )
+                        }
+                    }
+
 //                    Spacer(modifier = Modifier.height(7.dp))
 //                    Column(
 //                        modifier = Modifier
