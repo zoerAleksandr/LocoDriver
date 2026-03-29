@@ -88,12 +88,26 @@
 
         </activity>
 
+        <!-- FileProvider для прикрепления файлов к email (отчеты об ошибках синхронизации) -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.z_company.loco_driver.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <!-- Glance Widget (full) -->
         <receiver
             android:name=".widget.LocoDriverWidgetReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <!-- Обновляем PendingIntent-ы после обновления APK — иначе старые интенты
+                     не содержат EXTRA_CALLBACK_CLASS и ActionTrampolineActivity крашится -->
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
@@ -106,6 +120,7 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

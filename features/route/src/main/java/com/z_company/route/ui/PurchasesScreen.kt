@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -195,7 +196,7 @@ fun PurchasesScreen(
             containerColor = MaterialTheme.colorScheme.secondary,
             titleContentColor = MaterialTheme.colorScheme.primary,
             textContentColor = MaterialTheme.colorScheme.primary,
-            iconContentColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            iconContentColor = MaterialTheme.colorScheme.surfaceTint,
             onDismissRequest = { viewModel.dismissPaymentSuccessDialog() },
             title = {
                 Text(modifier = Modifier.padding(top = 24.dp), text = "Платеж принят!")
@@ -211,9 +212,45 @@ fun PurchasesScreen(
                 Text(text = "Спасибо за поддержку приложения!")
             },
             confirmButton = {
-                Button(onClick = { viewModel.dismissPaymentSuccessDialog() }) {
+                Button(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = Shapes.medium,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    ),
+                    onClick = { viewModel.dismissPaymentSuccessDialog() }
+                ) {
                     Text(
                         text = "Отлично!",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                }
+            }
+        )
+    }
+
+    val showPaymentProcessingDialog by viewModel.showPaymentProcessingDialog.collectAsState()
+
+    if (showPaymentProcessingDialog) {
+        AlertDialog(
+            containerColor = MaterialTheme.colorScheme.secondary,
+            titleContentColor = MaterialTheme.colorScheme.primary,
+            textContentColor = MaterialTheme.colorScheme.primary,
+            onDismissRequest = { viewModel.dismissPaymentProcessingDialog() },
+            title = {
+                Text(text = "Платёж обрабатывается")
+            },
+            text = {
+                Text(
+                    modifier = Modifier.padding(top = 24.dp),
+                    text = "Robokassa подтвердила платёж, но сервер ещё не обновил подписку. Нажмите «Восстановить покупки» через несколько минут."
+                )
+            },
+            confirmButton = {
+                Button(onClick = { viewModel.dismissPaymentProcessingDialog() }) {
+                    Text(
+                        text = "Понятно",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.tertiary
                     )
@@ -251,20 +288,19 @@ fun PurchasesScreen(
         when (result) {
             is RobokassaPayLauncher.Success -> {
                 Log.d("zzz", "RobokassaPayLauncher.Success")
-                viewModel.handlePaymentSuccess(result)  // Сохраняем opKey
-
+                viewModel.checkPaymentOnServer(sdkConfirmed = true)
             }
 
             is RobokassaPayLauncher.Error -> {
-                Log.d("zzz", "RobokassaPayLauncher.Error")
-                snackbarManager.show("Ошибка оплаты: ${result.desc}")
+                Log.d("zzz", "RobokassaPayLauncher.Error: ${result.desc}")
+                // SDK вернула Error — платёж мог пройти (пользователь оплатил в банке)
+                viewModel.checkPaymentOnServer(sdkConfirmed = false)
             }
 
             is RobokassaPayLauncher.Canceled -> {
-                // вызываем для обновления данных после оплаты
-                viewModel.handlePaymentSuccess(null)
                 Log.d("zzz", "RobokassaPayLauncher.Canceled")
-                snackbarManager.show("Оплата отменена")
+                // SDK вернула Canceled — платёж мог пройти (пользователь оплатил в банке)
+                viewModel.checkPaymentOnServer(sdkConfirmed = false)
             }
         }
     }

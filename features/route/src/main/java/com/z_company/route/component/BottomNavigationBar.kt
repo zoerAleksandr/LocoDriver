@@ -13,9 +13,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.z_company.route.navigation.NavigationItem
-import com.z_company.route.viewmodel.all_route_view_model.RouteFilter
 
 @Composable
 fun BottomNavigationBar(
@@ -59,8 +59,30 @@ fun BottomNavigationBar(
                 selected = currentRoute == item.route.route,
                 onClick = {
                     if (currentRoute != item.route.route) {
-                        navController.navigate(item.route.route) {
-                            launchSingleTop = true
+                        val startDest = navController.graph.findStartDestination()
+                        if (item.route.route == startDest.route) {
+                            // Возврат на стартовый экран (Главная): явно pop до него.
+                            // navigate + launchSingleTop не обновляет UI если HomeRoute
+                            // уже в стеке ниже — popBackStack надёжнее.
+                            val popped = navController.popBackStack(
+                                route = startDest.route!!,
+                                inclusive = false
+                            )
+                            if (!popped) {
+                                // HomeRoute не был в стеке (было сохранено через saveState)
+                                navController.navigate(item.route.route) {
+                                    popUpTo(startDest.id) { saveState = false }
+                                    launchSingleTop = true
+                                }
+                            }
+                        } else {
+                            navController.navigate(item.route.route) {
+                                popUpTo(startDest.id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         }
                     }
                 }

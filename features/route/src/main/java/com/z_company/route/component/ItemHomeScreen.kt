@@ -85,6 +85,7 @@ fun ItemHomeScreen(
     dateAndTimeConverter: DateAndTimeConverter,
     isHeavyTrains: Boolean = false,
     isExtendedServicePhaseTrains: Boolean = false,
+    isLongCompositionTrain: Boolean = false,
     isHolidayTimeInRoute: Boolean = false,
     number: Int? = null
 ) {
@@ -673,7 +674,7 @@ fun ItemHomeScreen(
                                         contentDescription = null
                                     )
                                 }
-                                if (isExtendedServicePhaseTrains) {
+                                if (isLongCompositionTrain) {
                                     Icon(
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(20.dp),

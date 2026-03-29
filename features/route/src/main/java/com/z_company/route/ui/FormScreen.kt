@@ -508,7 +508,8 @@ fun FormScreen(
 
                 var isBreakFieldsVisible by remember {
                     mutableStateOf(
-                        route.basicData.timeStartBreak != null || route.basicData.timeEndBreak != null
+                        (route.basicData.timeStartBreak != null && route.basicData.timeStartBreak != 0L) ||
+                            route.basicData.timeEndBreak != null
                     )
                 }
 
@@ -1409,7 +1410,7 @@ fun FormScreen(
                                         verticalArrangement = Arrangement.spacedBy(12.dp)
                                     ) {
                                         val animatedBgStartBreak by animateColorAsState(
-                                            targetValue = if (route.basicData.timeStartBreak == null) MaterialTheme.colorScheme.surface
+                                            targetValue = if (route.basicData.timeStartBreak == null || route.basicData.timeStartBreak == 0L) MaterialTheme.colorScheme.surface
                                             else MaterialTheme.colorScheme.secondary,
                                             animationSpec = tween(
                                                 durationMillis = 200,
@@ -1464,11 +1465,13 @@ fun FormScreen(
                                                         alpha = 0.6f
                                                     )
                                                 val breakStartText =
-                                                    route.basicData.timeStartBreak?.let {
-                                                        textColor =
-                                                            MaterialTheme.colorScheme.primary
-                                                        dateAndTimeConverter?.getDateAndTime(it)
-                                                    } ?: ""
+                                                    route.basicData.timeStartBreak
+                                                        ?.takeIf { it != 0L }
+                                                        ?.let {
+                                                            textColor =
+                                                                MaterialTheme.colorScheme.primary
+                                                            dateAndTimeConverter?.getDateAndTime(it)
+                                                        } ?: ""
                                                 Text(
                                                     text = breakStartText,
                                                     color = textColor,

@@ -19,8 +19,16 @@ actual class DatabaseDriverFactory(private val context: Context) {
     }
 
     actual fun createSettingsDriver(): SqlDriver {
+        // Проверяем ВСЕ новые столбцы из всех миграций (1.sqm, 2.sqm, 3.sqm, 4.sqm).
+        // Это покрывает Room→SQLDelight и SQLDelight→SQLDelight upgrade-пути,
+        // где какие-либо миграции могли быть пропущены (например, отсутствие 2.sqm).
         fixVersionIfColumnsExist("Settings.db", SettingsDatabase.Schema.version.toInt(),
-            "UserSettings" to "isShowBreak")
+            "UserSettings" to "isShowBreak",
+            "UserSettings" to "isShowLocoHeating",
+            "UserSettings" to "isShowLocoAuxiliary",
+            "UserSettings" to "isShowLocoStatistics",
+            "UserSettings" to "isShowLocoNorma",
+            "UserSettings" to "isShowOtherCurrent")
         return createDriver(SettingsDatabase.Schema, "Settings.db")
     }
 
@@ -63,6 +71,17 @@ actual class DatabaseDriverFactory(private val context: Context) {
                     )
                 }
             }
+            // Исправляем NULL-значения в NOT NULL столбцах:
+            // Предыдущие версии могли добавить столбцы с DEFAULT NULL (до того как
+            // они появились в COLUMN_SPECS). SQLDelight читает NOT NULL Int — NPE.
+            for ((table, column) in checks) {
+                val spec = COLUMN_SPECS["$table.$column"] ?: continue
+                if (!spec.nullable) {
+                    db.execSQL(
+                        "UPDATE $table SET $column = ${spec.defaultValue} WHERE $column IS NULL"
+                    )
+                }
+            }
             // Выставляем целевую версию, чтобы SQLDelight-миграции не падали
             if (db.version != targetVersion) {
                 db.version = targetVersion
@@ -80,8 +99,13 @@ actual class DatabaseDriverFactory(private val context: Context) {
 
     companion object {
         private val COLUMN_SPECS = mapOf(
-            // Settings
+            // Settings — все новые столбцы (миграции 1.sqm, 2.sqm, 3.sqm, 4.sqm)
             "UserSettings.isShowBreak" to ColumnSpec("INTEGER", false, "1"),
+            "UserSettings.isShowLocoHeating" to ColumnSpec("INTEGER", false, "1"),
+            "UserSettings.isShowLocoAuxiliary" to ColumnSpec("INTEGER", false, "1"),
+            "UserSettings.isShowLocoStatistics" to ColumnSpec("INTEGER", false, "1"),
+            "UserSettings.isShowLocoNorma" to ColumnSpec("INTEGER", false, "1"),
+            "UserSettings.isShowOtherCurrent" to ColumnSpec("INTEGER", false, "0"),
             // Route — BasicData
             "BasicData.timeStartBreak" to ColumnSpec("INTEGER", true, "NULL"),
             "BasicData.timeEndBreak" to ColumnSpec("INTEGER", true, "NULL"),
@@ -144,6 +168,20 @@ actual class DatabaseDriverFactory(private val context: Context) {
             val needsLocoRecreate = hasColumn(db, "Locomotive", "removeObjectId")
 
             if (needsTrainRecreate) {
+                // Добавляем недостающие колонки в старую таблицу ПЕРЕД копированием
+                val trainNewColumns = arrayOf(
+                    "additionalNumbers" to "TEXT DEFAULT NULL",
+                    "servicePhase" to "TEXT DEFAULT NULL",
+                    "pusher" to "TEXT DEFAULT NULL",
+                    "doubleTraction" to "TEXT DEFAULT NULL",
+                    "doubledTrain" to "TEXT DEFAULT NULL"
+                )
+                for ((col, def) in trainNewColumns) {
+                    if (!hasColumn(db, "Train", col)) {
+                        db.execSQL("ALTER TABLE Train ADD COLUMN $col $def")
+                    }
+                }
+
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS Train_new (
                         trainId TEXT NOT NULL PRIMARY KEY,
@@ -165,7 +203,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
                 """.trimIndent())
                 db.execSQL("""
                     INSERT INTO Train_new (trainId, basicId, number, additionalNumbers, distance, weight, axle, conditionalLength, isHeavyLongDistance, stations, servicePhase, pusher, doubleTraction, doubledTrain)
-                    SELECT trainId, basicId, number, CASE WHEN additionalNumbers IS NULL THEN NULL ELSE additionalNumbers END, distance, weight, axle, conditionalLength, isHeavyLongDistance, stations, CASE WHEN servicePhase IS NULL THEN NULL ELSE servicePhase END, CASE WHEN pusher IS NULL THEN NULL ELSE pusher END, CASE WHEN doubleTraction IS NULL THEN NULL ELSE doubleTraction END, CASE WHEN doubledTrain IS NULL THEN NULL ELSE doubledTrain END
+                    SELECT trainId, basicId, number, additionalNumbers, distance, weight, axle, conditionalLength, isHeavyLongDistance, stations, servicePhase, pusher, doubleTraction, doubledTrain
                     FROM Train
                 """.trimIndent())
                 db.execSQL("DROP TABLE Train")
@@ -174,6 +212,17 @@ actual class DatabaseDriverFactory(private val context: Context) {
             }
 
             if (needsLocoRecreate) {
+                // Добавляем недостающие колонки в старую таблицу ПЕРЕД копированием
+                val locoNewColumns = arrayOf(
+                    "auxiliaryCounterAccepted" to "TEXT DEFAULT NULL",
+                    "auxiliaryCounterDelivery" to "TEXT DEFAULT NULL"
+                )
+                for ((col, def) in locoNewColumns) {
+                    if (!hasColumn(db, "Locomotive", col)) {
+                        db.execSQL("ALTER TABLE Locomotive ADD COLUMN $col $def")
+                    }
+                }
+
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS Locomotive_new (
                         locoId TEXT NOT NULL PRIMARY KEY,

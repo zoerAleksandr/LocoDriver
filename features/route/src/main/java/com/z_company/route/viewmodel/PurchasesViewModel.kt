@@ -24,12 +24,14 @@ import com.z_company.repository.remote_rest.SettingManager
 import com.z_company.use_case.SubscriptionHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -74,6 +76,10 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
 
     private val _showPaymentFailedDialog = MutableStateFlow(false)
     val showPaymentFailedDialog = _showPaymentFailedDialog.asStateFlow()
+
+    // Robokassa подтвердила платёж, но сервер ещё не обработал webhook — подписка скоро обновится
+    private val _showPaymentProcessingDialog = MutableStateFlow(false)
+    val showPaymentProcessingDialog = _showPaymentProcessingDialog.asStateFlow()
 
     private val _event = MutableSharedFlow<BillingEvent>(
         extraBufferCapacity = 1,
@@ -216,25 +222,67 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun handlePaymentSuccess(success: RobokassaPayLauncher.Success?) {
+    /**
+     * Проверяет обновление подписки на сервере с retry-поллингом.
+     * Вызывается после любого результата от Robokassa SDK.
+     *
+     * @param sdkConfirmed true — SDK вернула Success (Robokassa подтвердила платёж через API).
+     *                     false — Error или Canceled (SDK не подтвердила, но платёж мог пройти).
+     *
+     * Проблема: сервер обновляет подписку через Result URL (webhook), который Robokassa
+     * отправляет асинхронно. К моменту возврата пользователя webhook может ещё не прийти.
+     * Решение: поллинг сервера с повторами вместо одного запроса.
+     *
+     * Стратегия:
+     * - sdkConfirmed=true  → 10 попыток × 3с (Robokassa точно знает об оплате, webhook может задержаться)
+     * - sdkConfirmed=false → 5 попыток × 3с (SDK не уверена, проверяем на всякий случай)
+     *
+     * Результат:
+     * - subscriptionPeriod обновился → showPaymentSuccessDialog
+     * - не обновился + sdkConfirmed → showPaymentProcessingDialog (Robokassa подтвердила, сервер пока не обработал)
+     * - не обновился + !sdkConfirmed → showPaymentFailedDialog
+     */
+    fun checkPaymentOnServer(sdkConfirmed: Boolean) {
         viewModelScope.launch {
             val previousEndTime = _purchasesEndTime.value
             _showPaymentLoadingDialog.value = true
             val token = secureTokenStorage.getAuthBearerTokenFlow().first()
-            val result = subscriptionHelper.restorePurchases(null, token)
-            _showPaymentLoadingDialog.value = false
-            if (result is ResultState.Success) {
-                val updatedSetting = settingsUseCase.getUserSettingFlow().first()
-                _purchasesEndTime.value = updatedSetting.subscriptionPeriod
-                if (updatedSetting.subscriptionPeriod > previousEndTime) {
-                    _showPaymentSuccessDialog.value = true
-                } else {
-                    _showPaymentFailedDialog.value = true
+
+            // SDK подтвердила — ждём дольше (сервер точно должен обновиться)
+            // SDK не подтвердила — проверяем быстрее (возможно платёж не прошёл)
+            val maxAttempts = if (sdkConfirmed) 10 else 5
+            val retryDelayMs = 3000L
+
+            var updated = false
+            for (attempt in 0 until maxAttempts) {
+                val result = subscriptionHelper.restorePurchases(null, token)
+                if (result is ResultState.Success) {
+                    val updatedSetting = settingsUseCase.getUserSettingFlow().first()
+                    if (updatedSetting.subscriptionPeriod > previousEndTime) {
+                        _purchasesEndTime.value = updatedSetting.subscriptionPeriod
+                        updated = true
+                        break
+                    }
                 }
-            } else {
-                _showPaymentFailedDialog.value = true
+                if (attempt < maxAttempts - 1) {
+                    delay(retryDelayMs)
+                }
+            }
+
+            _showPaymentLoadingDialog.value = false
+            when {
+                updated -> _showPaymentSuccessDialog.value = true
+                // Robokassa подтвердила оплату, но сервер ещё не обработал webhook —
+                // показываем "обрабатывается" вместо "не завершена"
+                sdkConfirmed -> _showPaymentProcessingDialog.value = true
+                else -> _showPaymentFailedDialog.value = true
             }
         }
+    }
+
+    @Deprecated("Используй checkPaymentOnServer(sdkConfirmed)")
+    fun handlePaymentSuccess(success: RobokassaPayLauncher.Success?) {
+        checkPaymentOnServer(sdkConfirmed = success != null)
     }
 
     fun dismissPaymentSuccessDialog() {
@@ -243,6 +291,10 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
 
     fun dismissPaymentFailedDialog() {
         _showPaymentFailedDialog.value = false
+    }
+
+    fun dismissPaymentProcessingDialog() {
+        _showPaymentProcessingDialog.value = false
     }
 
     // Новое: Метод для эмиссии события StartPayment.

@@ -1269,19 +1269,37 @@ fun FormLocoScreen(
                                 }
                                 if (electricSectionListState.size > 1) {
                                     item(key = "electric_total") {
+                                        fun maxPrecision(vararg texts: String): Int {
+                                            return texts.maxOf { s ->
+                                                val dot = s.indexOf('.')
+                                                if (dot < 0) 0 else s.length - dot - 1
+                                            }
+                                        }
+
+                                        val energyPrecision = electricSectionListState.maxOf { sec ->
+                                            maxPrecision(sec.accepted.data ?: "", sec.delivery.data ?: "")
+                                        }
+                                        val recoveryPrecision = electricSectionListState.maxOf { sec ->
+                                            maxPrecision(sec.recoveryAccepted.data ?: "", sec.recoveryDelivery.data ?: "")
+                                        }
+
                                         val totalEnergy = electricSectionListState.mapNotNull { sec ->
                                             CalculationEnergy.getTotalEnergyConsumption(
                                                 accepted = sec.accepted.data?.toDoubleOrNull(),
                                                 delivery = sec.delivery.data?.toDoubleOrNull()
                                             )
-                                        }.takeIf { it.isNotEmpty() }?.sum()
+                                        }.takeIf { it.isNotEmpty() }?.sum()?.let {
+                                            CalculationEnergy.rounding(it, energyPrecision)
+                                        }
 
                                         val totalRecovery = electricSectionListState.mapNotNull { sec ->
                                             CalculationEnergy.getTotalEnergyConsumption(
                                                 accepted = sec.recoveryAccepted.data?.toDoubleOrNull(),
                                                 delivery = sec.recoveryDelivery.data?.toDoubleOrNull()
                                             )
-                                        }.takeIf { it.isNotEmpty() }?.sum()
+                                        }.takeIf { it.isNotEmpty() }?.sum()?.let {
+                                            CalculationEnergy.rounding(it, recoveryPrecision)
+                                        }
 
                                         if (totalEnergy != null || totalRecovery != null) {
                                             FlowRow(
@@ -1299,14 +1317,14 @@ fun FormLocoScreen(
                                                 )
                                                 totalEnergy?.let {
                                                     Text(
-                                                        text = "расход ${rounding(it, 2).str()}",
+                                                        text = "расход ${it.str()}",
                                                         style = MaterialTheme.typography.bodyMedium,
                                                         color = MaterialTheme.colorScheme.primary
                                                     )
                                                 }
                                                 totalRecovery?.let {
                                                     Text(
-                                                        text = "рекуперация ${rounding(it, 2).str()}",
+                                                        text = "рекуперация ${it.str()}",
                                                         style = MaterialTheme.typography.bodyMedium,
                                                         color = MaterialTheme.colorScheme.primary
                                                     )

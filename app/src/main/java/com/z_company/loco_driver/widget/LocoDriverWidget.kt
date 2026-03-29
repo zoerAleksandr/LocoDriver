@@ -1,5 +1,6 @@
 package com.z_company.loco_driver.widget
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.graphics.Typeface
@@ -99,6 +100,7 @@ class LocoDriverWidget : GlanceAppWidget() {
         }
     }
 
+    @SuppressLint("RestrictedApi")
     @Composable
     private fun WidgetContent() {
         val prefs = currentState<Preferences>()
@@ -514,11 +516,16 @@ object WidgetDataLoader : KoinComponent {
 
         // Determine current month from system clock (not from persisted selectMonthOfYear)
         val cal = Calendar.getInstance(TimeZone.getTimeZone(timeZoneText))
-        val currentMonth = cal.get(Calendar.MONTH) + 1 // 1-based
+        val currentMonth = cal.get(Calendar.MONTH) // 0-based, как MonthOfYear.month
         val currentYear = cal.get(Calendar.YEAR)
-        val allMonths = calendarUseCase.loadMonthOfYearList()
-        val monthOfYear: MonthOfYear? = allMonths.find {
-            it.month == currentMonth && it.year == currentYear
+        // Используем selectMonthOfYear из настроек — в нём актуальные отвлечения
+        val monthOfYear: MonthOfYear? = userSettings.selectMonthOfYear.let {
+            if (it.month == currentMonth && it.year == currentYear) it else {
+                // Fallback: ищем в calendarUseCase
+                calendarUseCase.loadMonthOfYearList().find { m ->
+                    m.month == currentMonth && m.year == currentYear
+                }
+            }
         }
 
         // Month label
@@ -527,7 +534,7 @@ object WidgetDataLoader : KoinComponent {
                 "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
                 "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
             )
-            "${monthNames.getOrElse(monthOfYear.month - 1) { "" }} ${monthOfYear.year}"
+            "${monthNames.getOrElse(monthOfYear.month) { "" }} ${monthOfYear.year}"
         } else ""
 
         // Load all routes
@@ -540,7 +547,7 @@ object WidgetDataLoader : KoinComponent {
                 val startCal = Calendar.getInstance(TimeZone.getTimeZone(timeZoneText)).apply {
                     timeInMillis = startWork
                 }
-                val startInMonth = startCal.get(Calendar.MONTH) == monthOfYear.month - 1
+                val startInMonth = startCal.get(Calendar.MONTH) == monthOfYear.month
                     && startCal.get(Calendar.YEAR) == monthOfYear.year
 
                 val endWork = route.basicData.timeEndWork
@@ -548,7 +555,7 @@ object WidgetDataLoader : KoinComponent {
                     val endCal = Calendar.getInstance(TimeZone.getTimeZone(timeZoneText)).apply {
                         timeInMillis = endWork
                     }
-                    endCal.get(Calendar.MONTH) == monthOfYear.month - 1
+                    endCal.get(Calendar.MONTH) == monthOfYear.month
                         && endCal.get(Calendar.YEAR) == monthOfYear.year
                 } else false
 

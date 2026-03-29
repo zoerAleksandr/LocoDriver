@@ -2,6 +2,7 @@ package com.z_company.route.ui
 
 import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BasicTooltipBox
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -33,10 +34,9 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberBasicTooltipState
 import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material3.Card
-import androidx.compose.material.rememberDismissState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -50,10 +50,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.ripple
@@ -107,18 +107,18 @@ import com.z_company.route.component.AnimatedCounter
 import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.BottomSheetAction
+import com.z_company.route.component.ChipApp
 import com.z_company.route.component.ItemHomeScreen
 import com.z_company.route.component.LinearPagerIndicator
+import com.z_company.route.component.PreviewRouteDialog
+import com.z_company.route.viewmodel.home_view_model.HomeViewModel
 import com.z_company.route.viewmodel.home_view_model.ItemState
 import com.z_company.route.viewmodel.home_view_model.UpdateEvent
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import java.util.Calendar
-import com.z_company.route.component.ChipApp
-import com.z_company.route.component.PreviewRouteDialog
-import com.z_company.route.viewmodel.home_view_model.HomeViewModel
 import org.koin.compose.koinInject
+import java.util.Calendar
 
 @SuppressLint(
     "CoroutineCreationDuringComposition",
@@ -140,6 +140,8 @@ fun HomeScreen(
     onDeleteRoute: (Route) -> Unit,
     onSearchClick: () -> Unit,
     totalTime: Long,
+    todayWorkTime: Long = 0L,
+    isConsiderFutureRoute: Boolean = false,
     currentMonthOfYear: MonthOfYear?,
     monthList: List<Int>,
     yearList: List<Int>,
@@ -176,7 +178,20 @@ fun HomeScreen(
     isNextDeparture: () -> Boolean,
     saveTimeEvent: SharedFlow<String>,
     onWorkScheduleScreen: () -> Unit,
-    onClickVacation: () -> Unit
+    onClickVacation: () -> Unit,
+    unsyncedRoutesCount: Int = 0,
+    onSyncClick: () -> Unit = {},
+    showSyncDialog: Boolean = false,
+    isSyncSuccess: Boolean = false,
+    isSyncComplete: Boolean = false,
+    syncType: com.z_company.route.viewmodel.SyncType? = null,
+    syncUploadProgress: Map<String, com.z_company.route.viewmodel.SyncStepState> = emptyMap(),
+    syncRouteErrors: List<String> = emptyList(),
+    syncRoutesTotalAttempted: Int = 0,
+    syncRoutesSavedCount: Int = 0,
+    syncReportUserId: String? = null,
+    isNetworkError: Boolean = false,
+    onResetSyncState: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -272,6 +287,21 @@ fun HomeScreen(
             }
         }
     }
+
+    // Диалог синхронизации
+    SyncProgressDialog(
+        showDialog = showSyncDialog,
+        isSyncSuccess = isSyncSuccess,
+        isSyncComplete = isSyncComplete,
+        syncType = syncType,
+        progressMap = syncUploadProgress,
+        syncRouteErrors = syncRouteErrors,
+        syncRoutesTotalAttempted = syncRoutesTotalAttempted,
+        syncRoutesSavedCount = syncRoutesSavedCount,
+        userId = syncReportUserId,
+        isNetworkError = isNetworkError,
+        onDismiss = onResetSyncState
+    )
 
     AnimationDialog(
         showDialog = showContextDialog,
@@ -514,6 +544,8 @@ fun HomeScreen(
                                 0 -> {
                                     MainInfo(
                                         totalTime = totalTime,
+                                        todayWorkTime = todayWorkTime,
+                                        isConsiderFutureRoute = isConsiderFutureRoute,
                                         convertTimeToString = viewModel::convertTimeToStringFormat,
                                         totalTimeWithHoliday = totalTimeWithHoliday,
                                         currentMonthOfYear = currentMonthOfYear,
@@ -553,6 +585,52 @@ fun HomeScreen(
                                 .animateItem(),
                             state = pagerState
                         )
+                        AnimatedVisibility(visible = unsyncedRoutesCount > 2) {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.secondary
+                                ),
+                                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        text = "Внимание!",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = "Не синхронизировано маршрутов: $unsyncedRoutesCount",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = "Проверьте подключение к интернету и выполните синхронизацию.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Button(
+                                        onClick = onSyncClick,
+                                        shape = Shapes.medium,
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                                        )
+                                    ) {
+                                        Text(
+                                            text = "Синхронизировать",
+                                            color = MaterialTheme.colorScheme.secondary,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -1226,6 +1304,7 @@ fun HomeScreen(
                                         dateAndTimeConverter = dateAndTimeConverter,
                                         isHeavyTrains = listRouteState[0].isHeavyTrains,
                                         isExtendedServicePhaseTrains = listRouteState[0].isExtendedServicePhaseTrains,
+                                        isLongCompositionTrain = listRouteState[0].isLongCompositionTrain,
                                         isHolidayTimeInRoute = listRouteState[0].isHoliday,
                                         number = listRouteState.size
                                     )
@@ -1270,6 +1349,7 @@ fun HomeScreen(
                                         dateAndTimeConverter = dateAndTimeConverter,
                                         isHeavyTrains = listRouteState[1].isHeavyTrains,
                                         isExtendedServicePhaseTrains = listRouteState[1].isExtendedServicePhaseTrains,
+                                        isLongCompositionTrain = listRouteState[1].isLongCompositionTrain,
                                         isHolidayTimeInRoute = listRouteState[1].isHoliday,
                                         number = listRouteState.size - 1
                                     )
@@ -1441,6 +1521,8 @@ fun HomeScreen(
 @Composable
 fun MainInfo(
     totalTime: Long,
+    todayWorkTime: Long = 0L,
+    isConsiderFutureRoute: Boolean = false,
     convertTimeToString: (Long?) -> String,
     totalTimeWithHoliday: ResultState<Long>?,
     currentMonthOfYear: MonthOfYear?,
@@ -1635,6 +1717,45 @@ fun MainInfo(
                             progress = { percentNormaInDay },
                         )
                     }
+                    if (isConsiderFutureRoute) {
+                        Spacer(modifier = Modifier.height(7.dp))
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            val currentTime = Calendar.getInstance()
+                            val normaHoursToday = month.getNormaHoursInDate(currentTime.timeInMillis)
+                            val percentTodayWorked = (todayWorkTime.toFloat() / (normaHoursToday * 3_600_000L).coerceAtLeast(1).toFloat()).coerceIn(0f, 1f)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Отработано на ${dateAndTimeConverter?.getDate(currentTime.timeInMillis) ?: ""}",
+                                    maxLines = 1,
+                                    modifier = Modifier.weight(1f),
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                                Text(
+                                    text = convertTimeToString(todayWorkTime),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                            }
+                            LinearProgressIndicator(
+                                modifier = Modifier.fillMaxWidth().height(4.dp),
+                                trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                                color = MaterialTheme.colorScheme.secondary,
+                                gapSize = 4.dp,
+                                drawStopIndicator = {},
+                                progress = { percentTodayWorked },
+                            )
+                        }
+                    }
+
 //                    Spacer(modifier = Modifier.height(7.dp))
 //                    Column(
 //                        modifier = Modifier
@@ -2092,7 +2213,10 @@ fun DetailTrainCard(
                                             ((extendedServicePhaseTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
 
                                         val percentExtendedServicePhase =
-                                            (extendedServicePhaseTime.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
+                                            (extendedServicePhaseTime.toFloat() / safeTotal.toFloat()).coerceIn(
+                                                0f,
+                                                1f
+                                            )
 
 
                                         Row(
@@ -2195,7 +2319,10 @@ fun DetailTrainCard(
                                         val percent =
                                             ((heavyTrainsTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
                                         val percentHeavy =
-                                            (heavyTrainsTime.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
+                                            (heavyTrainsTime.toFloat() / safeTotal.toFloat()).coerceIn(
+                                                0f,
+                                                1f
+                                            )
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -2238,11 +2365,15 @@ fun DetailTrainCard(
                                             .fillMaxWidth(),
                                         verticalArrangement = Arrangement.spacedBy(4.dp),
                                     ) {
-                                        val onePersonOperationTimeText = convertTimeToString(onePersonOperationTime)
+                                        val onePersonOperationTimeText =
+                                            convertTimeToString(onePersonOperationTime)
                                         val percent =
                                             ((onePersonOperationTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
                                         val percentOnePerson =
-                                            (onePersonOperationTime.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
+                                            (onePersonOperationTime.toFloat() / safeTotal.toFloat()).coerceIn(
+                                                0f,
+                                                1f
+                                            )
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,

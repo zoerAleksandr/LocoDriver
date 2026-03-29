@@ -37,6 +37,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHol
 import com.z_company.domain.entities.route.UtilsForEntities.isExtendedServicePhaseTrains
 import com.z_company.domain.entities.route.UtilsForEntities.isHeavyTrains
 import com.z_company.domain.entities.route.UtilsForEntities.isHolidayTimeInRoute
+import com.z_company.domain.entities.route.UtilsForEntities.isLongCompositionTrain
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.RouteUseCase
@@ -45,6 +46,7 @@ import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.use_cases.TrainUseCase
 import com.z_company.repository.SecureTokenStorage
 import com.z_company.repository.remote_rest.RoutesManager
+import com.z_company.repository.remote_rest.SyncManager
 import com.z_company.route.viewmodel.PreviewRouteUiState
 import com.z_company.route.viewmodel.RouteActionsHelper
 import com.z_company.route.viewmodel.SalaryCalculationHelper
@@ -102,9 +104,16 @@ class HomeViewModel : ViewModel(), KoinComponent {
     private val snackbarManager: ISnackbarManager by inject()
     private val secureTokenStorage: SecureTokenStorage by inject()
     private val routesManager: RoutesManager by inject()
+    private val syncManager: SyncManager by inject()
     private val widgetUpdater: WidgetUpdater by inject()
 
     var timeWithoutHoliday by mutableLongStateOf(0L)
+        private set
+
+    var todayWorkTime by mutableLongStateOf(0L)
+        private set
+
+    var isConsiderFutureRoute by mutableStateOf(false)
         private set
 
     var currentRoute by mutableStateOf<Route?>(null)
@@ -773,6 +782,162 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
+    private var syncJob: kotlinx.coroutines.Job? = null
+
+    fun manualSync() {
+        syncJob?.cancel()
+        syncJob = viewModelScope.launch(Dispatchers.IO) {
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first()
+            val userId = secureTokenStorage.getUserIdFlow().first()
+            if (token.isNullOrBlank()) {
+                _uiState.update {
+                    it.copy(
+                        showSyncDialog = true,
+                        syncType = com.z_company.route.viewmodel.SyncType.Upload,
+                        syncUploadProgress = mapOf(
+                            "UserSettings" to com.z_company.route.viewmodel.SyncStepState.Error("Неавторизованный пользователь"),
+                            "SalarySettings" to com.z_company.route.viewmodel.SyncStepState.Error(""),
+                            "Months" to com.z_company.route.viewmodel.SyncStepState.Error(""),
+                            "Routes" to com.z_company.route.viewmodel.SyncStepState.Error("")
+                        ),
+                        isSyncComplete = true
+                    )
+                }
+                return@launch
+            }
+            _uiState.update {
+                it.copy(
+                    showSyncDialog = true,
+                    syncType = com.z_company.route.viewmodel.SyncType.Upload,
+                    syncUploadProgress = mapOf(
+                        "UserSettings" to com.z_company.route.viewmodel.SyncStepState.Loading,
+                        "SalarySettings" to com.z_company.route.viewmodel.SyncStepState.Loading,
+                        "Months" to com.z_company.route.viewmodel.SyncStepState.Loading,
+                        "Routes" to com.z_company.route.viewmodel.SyncStepState.Loading
+                    ),
+                    isSyncComplete = false,
+                    isSyncSuccess = false,
+                    syncReportUserId = userId
+                )
+            }
+            var networkErrorStopped = false
+            try {
+                syncManager.syncToRemote("Bearer $token").collect { state ->
+                    if (networkErrorStopped) return@collect
+                    when (state) {
+                        is ResultState.Loading -> {}
+                        is ResultState.Success -> {
+                            val result = state.data
+                            val newProgress = _uiState.value.syncUploadProgress.toMutableMap()
+                            if (result.userSettingsSaved) newProgress["UserSettings"] = com.z_company.route.viewmodel.SyncStepState.Success("загружены")
+                            if (result.salarySettingsSaved) newProgress["SalarySettings"] = com.z_company.route.viewmodel.SyncStepState.Success("загружены")
+                            if (result.monthsSaved) newProgress["Months"] = com.z_company.route.viewmodel.SyncStepState.Success("загружены")
+                            val routeErrors = result.routeErrors
+                            if (result.routesSavedCount >= 0) {
+                                if (routeErrors.isNotEmpty()) {
+                                    newProgress["Routes"] = com.z_company.route.viewmodel.SyncStepState.Error("синхронизировано ${result.routesSavedCount} из ${routeErrors.size + result.routesSavedCount}")
+                                } else {
+                                    val details = buildString {
+                                        append("загружены ${result.routesSavedCount}(шт)")
+                                        if (result.routeWarnings.isNotEmpty()) append("\n${result.routeWarnings.joinToString("\n")}")
+                                    }
+                                    newProgress["Routes"] = com.z_company.route.viewmodel.SyncStepState.Success(details)
+                                }
+                            }
+                            val isFullSuccess = result.timestamp != null && routeErrors.isEmpty()
+                            _uiState.update {
+                                it.copy(
+                                    syncUploadProgress = newProgress,
+                                    isSyncComplete = !isFullSuccess,
+                                    isSyncSuccess = isFullSuccess,
+                                    showSyncDialog = !isFullSuccess,
+                                    syncRouteErrors = routeErrors,
+                                    syncRoutesTotalAttempted = routeErrors.size + result.routesSavedCount,
+                                    syncRoutesSavedCount = result.routesSavedCount
+                                )
+                            }
+                            result.timestamp?.let { sharedPreferenceStorage.setLastSyncTimestamp(it) }
+                        }
+                        is ResultState.Error -> {
+                            val msg = state.entity.message ?: ""
+                            val cleanMsg = cleanSyncError(msg)
+                            if (isNetworkErrorMessage(cleanMsg)) {
+                                networkErrorStopped = true
+                                _uiState.update { it.copy(isNetworkError = true, isSyncComplete = true) }
+                                return@collect
+                            }
+                            val stepKey = parseSyncStep(msg)
+                            val newProgress = _uiState.value.syncUploadProgress.toMutableMap()
+                            if (stepKey != null) {
+                                newProgress[stepKey] = com.z_company.route.viewmodel.SyncStepState.Error(message = cleanMsg)
+                                _uiState.update { it.copy(syncUploadProgress = newProgress) }
+                            } else {
+                                newProgress.replaceAll { _, v ->
+                                    if (v is com.z_company.route.viewmodel.SyncStepState.Loading)
+                                        com.z_company.route.viewmodel.SyncStepState.Error(message = msg)
+                                    else v
+                                }
+                                _uiState.update { it.copy(syncUploadProgress = newProgress, isSyncComplete = true) }
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                val newProgress = _uiState.value.syncUploadProgress.mapValues {
+                    if (it.value is com.z_company.route.viewmodel.SyncStepState.Loading)
+                        com.z_company.route.viewmodel.SyncStepState.Error(message = e.message ?: "Ошибка синхронизации")
+                    else it.value
+                }
+                _uiState.update { it.copy(syncUploadProgress = newProgress, isSyncComplete = true) }
+            }
+        }
+    }
+
+    fun resetSyncState() {
+        syncJob?.cancel()
+        _uiState.update {
+            it.copy(
+                showSyncDialog = false,
+                syncUploadProgress = emptyMap(),
+                isSyncComplete = false,
+                isSyncSuccess = false,
+                isNetworkError = false,
+                syncType = null,
+                syncRouteErrors = emptyList(),
+                syncRoutesTotalAttempted = 0,
+                syncRoutesSavedCount = 0,
+                syncReportUserId = null
+            )
+        }
+    }
+
+    private fun isNetworkErrorMessage(msg: String): Boolean =
+        msg.contains("Нет соединения", ignoreCase = true) ||
+        msg.contains("Unable to resolve", ignoreCase = true) ||
+        msg.contains("Connection refused", ignoreCase = true) ||
+        msg.contains("timeout", ignoreCase = true) ||
+        msg.contains("Failed to connect", ignoreCase = true) ||
+        msg.contains("Network is unreachable", ignoreCase = true) ||
+        msg.contains("ECONNREFUSED", ignoreCase = true)
+    private fun parseSyncStep(message: String): String? = when {
+        message.contains("UserSettings") -> "UserSettings"
+        message.contains("SalarySetting") -> "SalarySettings"
+        message.contains("MonthOfYearList") -> "Months"
+        else -> null
+    }
+
+    private fun cleanSyncError(message: String): String {
+        val prefixes = listOf(
+            "Ошибка сохранения UserSettings: ",
+            "Ошибка сохранения SalarySetting: ",
+            "Ошибка сохранения MonthOfYearList: "
+        )
+        for (prefix in prefixes) {
+            if (message.startsWith(prefix)) return message.removePrefix(prefix)
+        }
+        return message
+    }
+
     private fun calculationTotalTime(routes: List<Route>, offsetInMoscow: Long) {
         _uiState.update {
             it.copy(
@@ -988,34 +1153,9 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     "до ${dateAndTimeConverter.getDateMiniAndTime(endWork + fullRest)}"
                 return WidgetStateInfo("Отдых в ПО", shortDuration, shortEnd, fullDuration, fullEnd)
             } else {
-                // Home rest — с учётом цепочки предыдущих маршрутов с отдыхом в ПО
-                val sorted = allRoutes
-                    .filter { it.basicData.timeStartWork != null && it.basicData.timeEndWork != null }
-                    .sortedByDescending { it.basicData.timeStartWork!! }
-
-                val idx = sorted.indexOfFirst { it.basicData.id == previousRoute.basicData.id }
-                val chain = mutableListOf(previousRoute)
-
-                if (idx != -1) {
-                    var nextIdx = idx + 1
-                    while (nextIdx < sorted.size) {
-                        if (sorted[nextIdx].basicData.restPointOfTurnover == true) {
-                            chain.add(sorted[nextIdx])
-                            nextIdx++
-                        } else {
-                            break
-                        }
-                    }
-                }
-
-                val sumWork = chain.sumOf { it.basicData.timeEndWork!! - it.basicData.timeStartWork!! }
-                var sumRest = 0L
-                for (i in 1 until chain.size) {
-                    sumRest += chain[i - 1].basicData.timeStartWork!! - chain[i].basicData.timeEndWork!!
-                }
-
-                val rawDuration = (sumWork.toDouble() * 2.6).toLong()
-                val duration = maxOf(rawDuration - sumRest, userSettings.minTimeHomeRest)
+                // Home rest (simplified — single route, no chain)
+                val rawDuration = (workTime.toDouble() * 2.6).toLong()
+                val duration = maxOf(rawDuration, userSettings.minTimeHomeRest)
                 val endRestTime = endWork + duration
                 val durationLine =
                     "Продлится ${ConverterLongToTime.formatDurationFromMillis(duration)}"
@@ -1130,6 +1270,12 @@ class HomeViewModel : ViewModel(), KoinComponent {
             initUpdateManager()
             initLoading()
         }
+        viewModelScope.launch(Dispatchers.IO) {
+            routeUseCase.getListRoutesAsFlow().collect { allRoutes ->
+                val unsyncedCount = allRoutes.count { !it.basicData.isSynchronized }
+                _uiState.update { it.copy(unsyncedRoutesCount = unsyncedCount) }
+            }
+        }
     }
 
     fun initLoading() {
@@ -1213,7 +1359,8 @@ class HomeViewModel : ViewModel(), KoinComponent {
                                         isExtendedServicePhaseTrains = isExtendedServicePhaseTrains(
                                             salarySetting,
                                             route
-                                        )
+                                        ),
+                                        isLongCompositionTrain = isLongCompositionTrain(route)
                                     )
                                     routeStateList.add(routeState)
                                 }
@@ -1247,6 +1394,24 @@ class HomeViewModel : ViewModel(), KoinComponent {
                                 result.data
                             } else {
                                 result.data.filter { it.basicData.timeStartWork!! < currentTimeInMillis }
+                            }
+
+                            isConsiderFutureRoute = userSettings.isConsiderFutureRoute
+                            if (userSettings.isConsiderFutureRoute) {
+                                // Суммируем отработанное время от начала месяца до текущего момента:
+                                // только маршруты, у которых timeEndWork уже наступило.
+                                // Используем ту же getWorkTime(monthOfYear) что и для месячного итога
+                                // — корректно обрабатывает переходные маршруты.
+                                currentMonthOfYear?.let { monthOfYear ->
+                                    val completedRoutes = result.data.filter { route ->
+                                        val end = route.basicData.timeEndWork ?: return@filter false
+                                        end <= currentTimeInMillis
+                                    }
+                                    todayWorkTime = completedRoutes.getWorkTime(
+                                        monthOfYear,
+                                        userSettings.timeZone
+                                    )
+                                }
                             }
 
                             val salaryCalculationHelper = SalaryCalculationHelper(

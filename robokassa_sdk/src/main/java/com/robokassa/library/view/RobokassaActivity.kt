@@ -47,6 +47,14 @@ import com.robokassa.library.urlSaving
 import kotlinx.coroutines.launch
 import java.io.UnsupportedEncodingException
 
+// Активности, которые требуют PendingIntent-extras и не могут запускаться
+// через Intent.parseUri — PendingIntent не выживает при сериализации в URI,
+// поэтому такие activity получают null и крашатся с NPE/IllegalArgumentException.
+private val UNSUPPORTED_INTENT_ACTIVITIES = setOf(
+    "com.android.billingclient.api.ProxyBillingActivity",
+    "ru.rustore.sdk.activitylauncher.RuStoreActivityLauncher"
+)
+
 @Suppress("DEPRECATION")
 class RobokassaActivity : AppCompatActivity() {
 
@@ -247,8 +255,16 @@ class RobokassaActivity : AppCompatActivity() {
                         } else {
                             Intent(Intent.ACTION_VIEW, request?.url)
                         }
-                        model.setExternalPay()
-                        startActivity(i)
+                        // ProxyBillingActivity и RuStoreActivityLauncher требуют PendingIntent,
+                        // который не выживает при Intent.parseUri — результат всегда null → NPE/crash.
+                        val targetClass = i.component?.className ?: ""
+                        if (UNSUPPORTED_INTENT_ACTIVITIES.any { targetClass.contains(it) }) {
+                            Toast.makeText(this@RobokassaActivity, "Способ оплаты недоступен", Toast.LENGTH_LONG).show()
+                            model.dropExternalPay()
+                        } else {
+                            model.setExternalPay()
+                            startActivity(i)
+                        }
                         true
                     } catch (e: Exception) {
                         Toast.makeText(this@RobokassaActivity, "No apps to open", Toast.LENGTH_LONG).show()
@@ -278,11 +294,19 @@ class RobokassaActivity : AppCompatActivity() {
                         } else {
                             Intent(Intent.ACTION_VIEW, Uri.parse(url))
                         }
-                        model.setExternalPay()
-                        startActivity(i)
+                        // ProxyBillingActivity и RuStoreActivityLauncher требуют PendingIntent,
+                        // который не выживает при Intent.parseUri — результат всегда null → NPE/crash.
+                        val targetClass = i.component?.className ?: ""
+                        if (UNSUPPORTED_INTENT_ACTIVITIES.any { targetClass.contains(it) }) {
+                            Toast.makeText(this@RobokassaActivity, "Способ оплаты недоступен", Toast.LENGTH_LONG).show()
+                            model.dropExternalPay()
+                        } else {
+                            model.setExternalPay()
+                            startActivity(i)
+                        }
                         true
                     } catch (e: Exception) {
-                        Toast.makeText(this@RobokassaActivity, "No apps to open d", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@RobokassaActivity, "No apps to open", Toast.LENGTH_LONG).show()
                         model.dropExternalPay()
                         true
                     }

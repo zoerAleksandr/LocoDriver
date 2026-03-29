@@ -35,6 +35,8 @@ fun HomeDestination(
         onDeleteRoute = homeViewModel::removeRoute,
         onSearchClick = { router.showSearch() },
         totalTime = homeViewModel.timeWithoutHoliday,
+        todayWorkTime = homeViewModel.todayWorkTime,
+        isConsiderFutureRoute = homeViewModel.isConsiderFutureRoute,
         currentMonthOfYear = homeViewModel.currentMonthOfYear,
         yearList = years,
         monthList = months,
@@ -78,7 +80,20 @@ fun HomeDestination(
         saveTimeEvent = homeViewModel.saveTimeEvent,
         isNextDeparture = homeViewModel::isNextDeparture,
         onWorkScheduleScreen = router::showWorkScheduleScreen,
-        onClickVacation = router::showSelectReleaseDayScreen
+        onClickVacation = router::showSelectReleaseDayScreen,
+        unsyncedRoutesCount = uiState.unsyncedRoutesCount,
+        onSyncClick = homeViewModel::manualSync,
+        showSyncDialog = uiState.showSyncDialog,
+        isSyncSuccess = uiState.isSyncSuccess,
+        isSyncComplete = uiState.isSyncComplete,
+        syncType = uiState.syncType,
+        syncUploadProgress = uiState.syncUploadProgress,
+        syncRouteErrors = uiState.syncRouteErrors,
+        syncRoutesTotalAttempted = uiState.syncRoutesTotalAttempted,
+        syncRoutesSavedCount = uiState.syncRoutesSavedCount,
+        syncReportUserId = uiState.syncReportUserId,
+        isNetworkError = uiState.isNetworkError,
+        onResetSyncState = homeViewModel::resetSyncState,
     )
 }
 

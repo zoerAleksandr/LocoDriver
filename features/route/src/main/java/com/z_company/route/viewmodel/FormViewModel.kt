@@ -33,6 +33,7 @@ import com.z_company.domain.util.CalculateNightTime
 import com.z_company.domain.util.sum
 import com.z_company.domain.util.toIntOrZero
 import com.z_company.repository.SecureDataStore
+import io.sentry.kotlin.multiplatform.Sentry
 import com.z_company.route.Const.NULLABLE_ID
 import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
 import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
@@ -715,6 +716,13 @@ class FormViewModel(
 
     fun onSaveClick() {
         viewModelScope.launch {
+            // Sentry-лог для пользователя VKID 17260416: значение подписки при попытке сохранить маршрут
+            val vkId = SecureDataStore.getVkIdFlow(application).first()
+            if (vkId == "17260416") {
+                val setting = settingsUseCase.getUserSettingFlow().first()
+                val subscriptionPeriod = setting.subscriptionPeriod
+                Sentry.captureMessage("[VKID:$vkId] onSaveClick: subscriptionPeriod=$subscriptionPeriod (${java.util.Date(subscriptionPeriod)})")
+            }
             when (routeHelper.newRouteClick()) {
                 is RouteActionsHelper.NewRouteResult.NeedSubscribeDialog -> {
                     _alertBeforePurchasesEvent.emit(AlertBeforePurchasesEvent.ShowDialogNeedSubscribe)
