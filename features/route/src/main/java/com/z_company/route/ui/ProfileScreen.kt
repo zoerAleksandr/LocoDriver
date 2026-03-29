@@ -700,11 +700,9 @@ fun ProfileScreen(
                 // Профиль
                 else if (isLoggedIn) {
                     if (uiState.isProfileNetworkError) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
+                        Box(modifier = Modifier.fillMaxSize()) {
                             Column(
+                                modifier = Modifier.align(Alignment.Center),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
                             ) {
@@ -719,6 +717,22 @@ fun ProfileScreen(
                                     text = "Нет интернета",
                                     style = MaterialTheme.typography.titleMedium,
                                     color = MaterialTheme.colorScheme.outline
+                                )
+                            }
+                            Button(
+                                onClick = viewModel::refresh,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 24.dp)
+                                    .align(Alignment.BottomCenter),
+                                shape = Shapes.medium,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                                )
+                            ) {
+                                Text(
+                                    text = "Повторить",
+                                    color = MaterialTheme.colorScheme.secondary
                                 )
                             }
                         }
