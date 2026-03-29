@@ -71,6 +71,17 @@ actual class DatabaseDriverFactory(private val context: Context) {
                     )
                 }
             }
+            // Исправляем NULL-значения в NOT NULL столбцах:
+            // Предыдущие версии могли добавить столбцы с DEFAULT NULL (до того как
+            // они появились в COLUMN_SPECS). SQLDelight читает NOT NULL Int — NPE.
+            for ((table, column) in checks) {
+                val spec = COLUMN_SPECS["$table.$column"] ?: continue
+                if (!spec.nullable) {
+                    db.execSQL(
+                        "UPDATE $table SET $column = ${spec.defaultValue} WHERE $column IS NULL"
+                    )
+                }
+            }
             // Выставляем целевую версию, чтобы SQLDelight-миграции не падали
             if (db.version != targetVersion) {
                 db.version = targetVersion

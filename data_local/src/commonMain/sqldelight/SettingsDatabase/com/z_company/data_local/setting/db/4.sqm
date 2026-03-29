@@ -1,3 +1,7 @@
 ALTER TABLE UserSettings ADD COLUMN isShowLocoHeating INTEGER NOT NULL DEFAULT 1;
 ALTER TABLE UserSettings ADD COLUMN isShowLocoAuxiliary INTEGER NOT NULL DEFAULT 1;
 ALTER TABLE UserSettings ADD COLUMN isShowLocoStatistics INTEGER NOT NULL DEFAULT 1;
+-- Исправляем NULL, если столбцы были добавлены ранее с DEFAULT NULL
+UPDATE UserSettings SET isShowLocoHeating = 1 WHERE isShowLocoHeating IS NULL;
+UPDATE UserSettings SET isShowLocoAuxiliary = 1 WHERE isShowLocoAuxiliary IS NULL;
+UPDATE UserSettings SET isShowLocoStatistics = 1 WHERE isShowLocoStatistics IS NULL;
