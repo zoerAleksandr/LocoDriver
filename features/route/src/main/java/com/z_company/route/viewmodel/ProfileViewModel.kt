@@ -39,6 +39,7 @@ import com.z_company.repository.remote_rest.SettingManager
 import com.z_company.repository.remote_rest.SyncManager
 import com.z_company.repository.remote_rest.UserRemote
 import com.z_company.use_case.SubscriptionHelper
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -600,19 +601,27 @@ class ProfileViewModel : ViewModel(), KoinComponent {
 
     fun authWithVKID(vkid: String) {
         loginJob?.cancel()
-        loginJob = viewModelScope.launch {
-            authManager.authWithVKID(vkid).collect { state ->
-                if (state is AuthState.Success) {
-                    val token = state.accessToken
-                    if (token.isNotEmpty()) {
-                        secureTokenStorage.saveAuthToken(token)
-                        secureTokenStorage.saveVkId(vkid)
-                        _isLoggedIn.value = true
-                        refresh()
-                        syncManager.syncFromRemote("Bearer $token").collect {}
+        val handler = CoroutineExceptionHandler { _, throwable ->
+            // VK SDK может бросить при отмене капчи во время OAuth
+            Sentry.captureMessage("authWithVKID uncaught: ${throwable.message}")
+        }
+        loginJob = viewModelScope.launch(handler) {
+            try {
+                authManager.authWithVKID(vkid).collect { state ->
+                    if (state is AuthState.Success) {
+                        val token = state.accessToken
+                        if (token.isNotEmpty()) {
+                            secureTokenStorage.saveAuthToken(token)
+                            secureTokenStorage.saveVkId(vkid)
+                            _isLoggedIn.value = true
+                            refresh()
+                            syncManager.syncFromRemote("Bearer $token").collect {}
+                        }
                     }
+                    _authUiState.value = state
                 }
-                _authUiState.value = state
+            } catch (e: Exception) {
+                Sentry.captureMessage("authWithVKID exception: ${e.message}")
             }
         }
     }
@@ -793,25 +802,36 @@ class ProfileViewModel : ViewModel(), KoinComponent {
     }
 
     fun vkIdRefreshToken() {
-        viewModelScope.launch {
-            VKID.instance.refreshToken(
-                callback = object : VKIDRefreshTokenCallback {
-                    override fun onSuccess(token: AccessToken) {
-                        viewModelScope.launch {
-                            getVkUserInfo()
+        // VK ID SDK может выбросить исключение при отмене капчи или разрыве OAuth-потока
+        // (внутренняя корутина SDK бросает RuntimeException вместо вызова onFail).
+        val handler = CoroutineExceptionHandler { _, throwable ->
+            Sentry.captureMessage("vkIdRefreshToken uncaught: ${throwable.message}")
+        }
+        viewModelScope.launch(handler) {
+            try {
+                VKID.instance.refreshToken(
+                    callback = object : VKIDRefreshTokenCallback {
+                        override fun onSuccess(token: AccessToken) {
+                            viewModelScope.launch {
+                                getVkUserInfo()
+                            }
                         }
-                    }
 
-                    override fun onFail(fail: VKIDRefreshTokenFail) {
-                        when (fail) {
-                            is VKIDRefreshTokenFail.FailedApiCall -> fail.description // Использование текста ошибки.
-                            is VKIDRefreshTokenFail.FailedOAuthState -> fail.description // Использование текста ошибки.
-                            is VKIDRefreshTokenFail.RefreshTokenExpired -> fail // Ошибка истечения срока жизни RT. Это уведомление о том, что пользователю нужно перелогиниться.
-                            is VKIDRefreshTokenFail.NotAuthenticated -> fail // Ошибка отсутствия авторизации у пользователя. Это уведомление о том, что пользователю нужно авторизоваться.
+                        override fun onFail(fail: VKIDRefreshTokenFail) {
+                            val desc = when (fail) {
+                                is VKIDRefreshTokenFail.FailedApiCall -> fail.description
+                                is VKIDRefreshTokenFail.FailedOAuthState -> fail.description
+                                is VKIDRefreshTokenFail.RefreshTokenExpired -> "RefreshTokenExpired"
+                                is VKIDRefreshTokenFail.NotAuthenticated -> "NotAuthenticated"
+                            }
+                            Sentry.captureMessage("vkIdRefreshToken onFail: $desc")
                         }
                     }
-                }
-            )
+                )
+            } catch (e: Exception) {
+                // Капча отменена или иная внутренняя ошибка VK SDK
+                Sentry.captureMessage("vkIdRefreshToken exception: ${e.message}")
+            }
         }
     }
 
