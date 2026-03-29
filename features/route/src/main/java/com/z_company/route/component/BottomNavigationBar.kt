@@ -13,9 +13,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.z_company.route.navigation.NavigationItem
-import com.z_company.route.viewmodel.all_route_view_model.RouteFilter
 
 @Composable
 fun BottomNavigationBar(
@@ -60,7 +60,7 @@ fun BottomNavigationBar(
                 onClick = {
                     if (currentRoute != item.route.route) {
                         navController.navigate(item.route.route) {
-                            popUpTo(navController.graph.startDestinationId) {
+                            popUpTo(navController.graph.findStartDestination().id) {
                                 saveState = true
                             }
                             launchSingleTop = true

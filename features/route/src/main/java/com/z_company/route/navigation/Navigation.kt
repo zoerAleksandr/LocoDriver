@@ -43,13 +43,6 @@ fun NavGraphBuilder.homeGraph(
         }
 
         composableScreen(
-            route = FormRoute.route,
-            arguments = FormRoute.navArguments
-        ) { backStackEntry ->
-            FormDestination(router = router, backStackEntry = backStackEntry)
-        }
-
-        composableScreen(
             route = FormLoco.route,
             arguments = FormLoco.navArguments,
         ) { backStackEntry ->
@@ -80,11 +73,6 @@ fun NavGraphBuilder.homeGraph(
             PurchasesDestination(router = router)
         }
         composableScreen(
-            route = SalaryCalculationRoute.route
-        ) {
-            SalaryCalculationDestination(router = router)
-        }
-        composableScreen(
             route = SettingSalaryRoute.route
         ) {
             SettingSalaryDestination(router = router)
@@ -103,12 +91,6 @@ fun NavGraphBuilder.homeGraph(
             route = AllRouteScreenRoute.route
         ){
             AllRouteScreenDestination(router = router)
-        }
-        composableScreen(
-            route = SettingsScreenRoute.route,
-            arguments = SettingsScreenRoute.navArguments
-        ) { backStackEntry ->
-            SettingDestination(router = router, backStackEntry = backStackEntry)
         }
         composableScreen(SelectReleaseDaysScreenRoute.route) {
             SelectReleaseDaysDestination(router = router)
