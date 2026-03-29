@@ -10,6 +10,8 @@ import com.google.crypto.tink.Aead
 import com.google.crypto.tink.KeyTemplates
 import com.google.crypto.tink.aead.AeadConfig
 import com.google.crypto.tink.integration.android.AndroidKeysetManager
+import com.z_company.core.sendToSentry
+import io.sentry.kotlin.multiplatform.Sentry
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.security.GeneralSecurityException
@@ -73,6 +75,7 @@ object SecureDataStore {
                 .getPrimitive(Aead::class.java)
         } catch (e: InvalidKeyException) {
             Log.e(TAG, "InvalidKeyException: Keystore cannot load master_key. Deleting and retrying.", e)
+            e.sendToSentry("SecureDataStore", "buildAead")
             deleteMasterKey(context)
             try {
                 AeadConfig.register()
@@ -85,13 +88,16 @@ object SecureDataStore {
                     .getPrimitive(Aead::class.java)
             } catch (retryException: Exception) {
                 Log.e(TAG, "Tink retry failed — will use plaintext fallback: ${retryException.message}", retryException)
+                retryException.sendToSentry("SecureDataStore", "buildAead.retry")
                 null
             }
         } catch (e: GeneralSecurityException) {
             Log.e(TAG, "GeneralSecurityException in buildAead: ${e.message}", e)
+            e.sendToSentry("SecureDataStore", "buildAead")
             null
         } catch (e: Exception) {
             Log.e(TAG, "Unexpected exception in buildAead: ${e.message}", e)
+            e.sendToSentry("SecureDataStore", "buildAead")
             null
         }
     }
@@ -127,9 +133,8 @@ object SecureDataStore {
     suspend fun saveAuthToken(context: Context, token: String) {
         val aead = getAeadWithRetry(context)
         if (aead == null) {
-            // Tink полностью недоступен на этом устройстве — используем plaintext fallback.
-            // Данные в app-private DataStore (недоступны другим приложениям без root).
             Log.w(TAG, "Tink unavailable — saving auth token as plaintext fallback")
+            Sentry.captureMessage("SecureDataStore: Tink unavailable on saveAuthToken, using plaintext fallback")
             context.secureDataStore.edit { preferences ->
                 preferences[AUTH_TOKEN_FALLBACK_KEY] = token
             }
@@ -154,6 +159,7 @@ object SecureDataStore {
                         // Расшифровка не удалась (ротация ключа между save и read) —
                         // проверяем plaintext fallback.
                         Log.e(TAG, "Decryption failed in getAuthBearerTokenFlow, checking fallback: ${e.message}")
+                        e.sendToSentry("SecureDataStore", "getAuthBearerTokenFlow.decrypt")
                         preferences[AUTH_TOKEN_FALLBACK_KEY]
                     }
                 } ?: preferences[AUTH_TOKEN_FALLBACK_KEY]
@@ -168,6 +174,7 @@ object SecureDataStore {
         val aead = getAeadWithRetry(context)
         if (aead == null) {
             Log.w(TAG, "Tink unavailable — saving vkId as plaintext fallback")
+            Sentry.captureMessage("SecureDataStore: Tink unavailable on saveVkId, using plaintext fallback")
             context.secureDataStore.edit { preferences ->
                 preferences[VK_ID_FALLBACK_KEY] = vkId
             }
@@ -189,6 +196,7 @@ object SecureDataStore {
                         String(aead.decrypt(encrypted.toByteArray(Charsets.ISO_8859_1), null))
                     } catch (e: Exception) {
                         Log.e(TAG, "Decryption failed in getVkIdFlow, checking fallback: ${e.message}")
+                        e.sendToSentry("SecureDataStore", "getVkIdFlow.decrypt")
                         preferences[VK_ID_FALLBACK_KEY]
                     }
                 } ?: preferences[VK_ID_FALLBACK_KEY]
@@ -202,6 +210,7 @@ object SecureDataStore {
         val aead = getAeadWithRetry(context)
         if (aead == null) {
             Log.w(TAG, "Tink unavailable — saving userId as plaintext fallback")
+            Sentry.captureMessage("SecureDataStore: Tink unavailable on saveUserId, using plaintext fallback")
             context.secureDataStore.edit { preferences ->
                 preferences[USER_ID_FALLBACK_KEY] = userId
             }
@@ -223,6 +232,7 @@ object SecureDataStore {
                         String(aead.decrypt(encrypted.toByteArray(Charsets.ISO_8859_1), null))
                     } catch (e: Exception) {
                         Log.e(TAG, "Decryption failed in getUserIdFlow, checking fallback: ${e.message}")
+                        e.sendToSentry("SecureDataStore", "getUserIdFlow.decrypt")
                         preferences[USER_ID_FALLBACK_KEY]
                     }
                 } ?: preferences[USER_ID_FALLBACK_KEY]
