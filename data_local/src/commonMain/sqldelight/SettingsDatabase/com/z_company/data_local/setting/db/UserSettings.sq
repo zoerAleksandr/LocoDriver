@@ -17,12 +17,17 @@ CREATE TABLE IF NOT EXISTS UserSettings (
     standardTimesStartWork TEXT NOT NULL DEFAULT '[28800000, 72000000]',
     subscriptionPeriod INTEGER NOT NULL DEFAULT 0,
     isDecimalTime INTEGER NOT NULL DEFAULT 0,
-    isShowBreak INTEGER NOT NULL DEFAULT 1
+    isShowBreak INTEGER NOT NULL DEFAULT 1,
+    isShowLocoHeating INTEGER NOT NULL DEFAULT 1,
+    isShowLocoAuxiliary INTEGER NOT NULL DEFAULT 1,
+    isShowLocoStatistics INTEGER NOT NULL DEFAULT 1,
+    isShowLocoNorma INTEGER NOT NULL DEFAULT 1,
+    isShowOtherCurrent INTEGER NOT NULL DEFAULT 0
 );
 
 insertOrReplace:
-INSERT OR REPLACE INTO UserSettings (settingsKey, minTimeRest, minTimeHomeRest, lastEnteredDieselCoefficient, nightTime, updateAt, defaultLocoType, defaultWorkTime, usingDefaultWorkTime, isConsiderFutureRoute, monthOfYear, stationList, timeZone, locomotiveSeriesList, servicePhases, standardTimesStartWork, subscriptionPeriod, isDecimalTime, isShowBreak)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO UserSettings (settingsKey, minTimeRest, minTimeHomeRest, lastEnteredDieselCoefficient, nightTime, updateAt, defaultLocoType, defaultWorkTime, usingDefaultWorkTime, isConsiderFutureRoute, monthOfYear, stationList, timeZone, locomotiveSeriesList, servicePhases, standardTimesStartWork, subscriptionPeriod, isDecimalTime, isShowBreak, isShowLocoHeating, isShowLocoAuxiliary, isShowLocoStatistics, isShowLocoNorma, isShowOtherCurrent)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 getByKey:
 SELECT * FROM UserSettings WHERE settingsKey = :settingsKey;

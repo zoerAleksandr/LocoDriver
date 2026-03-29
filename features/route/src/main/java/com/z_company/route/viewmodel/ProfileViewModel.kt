@@ -278,9 +278,11 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                             val stepKey = parseSyncUploadStep(msg)
                             val newProgress = _uiState.value.syncUploadProgress.toMutableMap()
                             if (stepKey != null) {
+                                // Промежуточная ошибка конкретного шага — обновляем только его
                                 newProgress[stepKey] = SyncStepState.Error(message = cleanMsg)
                                 _uiState.update { it.copy(syncUploadProgress = newProgress) }
                             } else {
+                                // Финальная ошибка — помечаем оставшиеся Loading и завершаем
                                 newProgress.replaceAll { _, v ->
                                     if (v is SyncStepState.Loading) SyncStepState.Error(message = msg) else v
                                 }
@@ -308,6 +310,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
         msg.contains("Failed to connect", ignoreCase = true) ||
         msg.contains("Network is unreachable", ignoreCase = true) ||
         msg.contains("ECONNREFUSED", ignoreCase = true)
+
 
     private fun parseSyncUploadStep(message: String): String? = when {
         message.contains("UserSettings") -> "UserSettings"

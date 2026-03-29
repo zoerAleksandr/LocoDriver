@@ -92,6 +92,7 @@ fun HomeDestination(
         syncReportUserId = uiState.syncReportUserId,
         isNetworkError = uiState.isNetworkError,
         onResetSyncState = homeViewModel::resetSyncState,
+        onDebugTestSyncError = homeViewModel::debugShowTestSyncError
     )
 }
 

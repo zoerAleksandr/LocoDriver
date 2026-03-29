@@ -99,6 +99,7 @@ fun SyncProgressDialog(
         return
     }
 
+
     // --- Диалог успешной синхронизации ---
     if (isSyncSuccess) {
         androidx.compose.material3.AlertDialog(

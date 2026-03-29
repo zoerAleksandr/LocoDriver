@@ -76,7 +76,8 @@ object SecureDataStore {
         } catch (e: InvalidKeyException) {
             Log.e(TAG, "InvalidKeyException: Keystore cannot load master_key. Deleting and retrying.", e)
             e.sendToSentry("SecureDataStore", "buildAead")
-            deleteMasterKey(context)
+            deleteMasterKey(context)  // Удаляем повреждённый ключ и keyset
+            // Retry: Пытаемся заново получить Aead после удаления
             try {
                 AeadConfig.register()
                 AndroidKeysetManager.Builder()
@@ -104,6 +105,7 @@ object SecureDataStore {
 
     // Удаляет повреждённый master_key из Android Keystore и сбрасывает кеш Aead.
     // Это позволяет retry сгенерировать свежий keyset с новым master key.
+    // Стандартный workaround из Tink issues (#535) и Stripe (#444).
     private fun deleteMasterKey(context: Context) {
         // Инвалидируем кеш — после удаления ключа старый Aead бесполезен
         aeadCache = null
@@ -117,7 +119,8 @@ object SecureDataStore {
             Log.e(TAG, "Failed to delete master key: ${e.message}", e)
         }
         // Старый keyset зашифрован удалённым ключом — расшифровать невозможно.
-        // Удаляем, чтобы retry создал свежий keyset.
+        // Удаляем его, чтобы retry создал свежий keyset с новым master key,
+        // иначе retry тоже завершится ошибкой (GeneralSecurityException).
         try {
             context.getSharedPreferences(DATASTORE_NAME, android.content.Context.MODE_PRIVATE)
                 .edit().remove(KEYSET_NAME).apply()

@@ -94,6 +94,7 @@ import com.z_company.route.viewmodel.WorkScheduleViewModel
 import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.launch
+import com.z_company.domain.repositories.SharedPreferencesRepositories
 import org.koin.compose.koinInject
 import java.util.Calendar
 import kotlin.collections.isNotEmpty
@@ -1019,6 +1020,8 @@ fun WorkScheduleScreen(
         }
     }
 
+    val sharedPrefs: SharedPreferencesRepositories = koinInject()
+
     // Custom time sheet
     if (showCustomTimeSheet) {
         TimePickerApp(
@@ -1027,7 +1030,9 @@ fun WorkScheduleScreen(
                 showCustomTimeSheet = false
             },
             onDismiss = { showCustomTimeSheet = false },
-            title = "Время явки"
+            title = "Время явки",
+            recentTimes = sharedPrefs.getRecentTimes("appearance_time"),
+            onRecentTimeSaved = { sharedPrefs.addRecentTime("appearance_time", it) }
         )
     }
 
@@ -1047,7 +1052,9 @@ fun WorkScheduleScreen(
                     viewModel.newRouteClick()
                 }
                 showEndTimeSheet = false
-            }
+            },
+            recentTimes = sharedPrefs.getRecentTimes("work_duration"),
+            onRecentTimeSaved = { sharedPrefs.addRecentTime("work_duration", it) }
         )
     }
 }
