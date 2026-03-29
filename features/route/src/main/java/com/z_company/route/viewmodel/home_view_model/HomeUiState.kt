@@ -45,7 +45,8 @@ data class HomeUiState(
     val syncRouteErrors: List<String> = emptyList(),
     val syncRoutesTotalAttempted: Int = 0,
     val syncRoutesSavedCount: Int = 0,
-    val syncReportUserId: String? = null
+    val syncReportUserId: String? = null,
+    val isNetworkError: Boolean = false
 )
 
 data class ItemState(

@@ -3,6 +3,7 @@ package com.z_company.route.ui
 import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -53,9 +54,50 @@ fun SyncProgressDialog(
     syncRoutesTotalAttempted: Int,
     syncRoutesSavedCount: Int,
     userId: String? = null,
+    isNetworkError: Boolean = false,
     onDismiss: () -> Unit
 ) {
     val ctx = LocalContext.current
+
+    // --- Нет интернета ---
+    if (isNetworkError) {
+        AnimationDialog(showDialog = showDialog, onDismissRequest = onDismiss) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .background(MaterialTheme.colorScheme.surface, Shapes.medium)
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.sync_disabled_24px),
+                    contentDescription = null,
+                    modifier = Modifier.size(64.dp),
+                    tint = MaterialTheme.colorScheme.error
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Нет интернета",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Button(
+                    shape = Shapes.medium,
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    )
+                ) {
+                    Text("Понятно", style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+        }
+        return
+    }
 
     // --- Диалог успешной синхронизации ---
     if (isSyncSuccess) {
@@ -218,8 +260,9 @@ fun SyncProgressDialog(
             if (isSyncComplete) {
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Кнопка отчёта — только при наличии ошибок
-                if (!isSyncSuccess) {
+                // Кнопка отчёта — только при наличии НЕ сетевых ошибок
+                val hasNonNetworkErrors = progressMap.values.any { it is SyncStepState.Error }
+                if (!isSyncSuccess && !isNetworkError && hasNonNetworkErrors) {
                     OutlinedButton(
                         shape = Shapes.medium,
                         onClick = {

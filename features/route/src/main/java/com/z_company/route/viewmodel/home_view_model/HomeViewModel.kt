@@ -813,8 +813,10 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     syncReportUserId = userId
                 )
             }
+            var networkErrorStopped = false
             try {
                 syncManager.syncToRemote("Bearer $token").collect { state ->
+                    if (networkErrorStopped) return@collect
                     when (state) {
                         is ResultState.Loading -> {}
                         is ResultState.Success -> {
@@ -851,10 +853,16 @@ class HomeViewModel : ViewModel(), KoinComponent {
                         }
                         is ResultState.Error -> {
                             val msg = state.entity.message ?: ""
+                            val cleanMsg = cleanSyncError(msg)
+                            if (isNetworkErrorMessage(cleanMsg)) {
+                                networkErrorStopped = true
+                                _uiState.update { it.copy(isNetworkError = true, isSyncComplete = true) }
+                                return@collect
+                            }
                             val stepKey = parseSyncStep(msg)
                             val newProgress = _uiState.value.syncUploadProgress.toMutableMap()
                             if (stepKey != null) {
-                                newProgress[stepKey] = com.z_company.route.viewmodel.SyncStepState.Error(message = cleanSyncError(msg))
+                                newProgress[stepKey] = com.z_company.route.viewmodel.SyncStepState.Error(message = cleanMsg)
                                 _uiState.update { it.copy(syncUploadProgress = newProgress) }
                             } else {
                                 newProgress.replaceAll { _, v ->
@@ -886,6 +894,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 syncUploadProgress = emptyMap(),
                 isSyncComplete = false,
                 isSyncSuccess = false,
+                isNetworkError = false,
                 syncType = null,
                 syncRouteErrors = emptyList(),
                 syncRoutesTotalAttempted = 0,
@@ -895,28 +904,14 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun debugShowTestSyncError() {
-        _uiState.update {
-            it.copy(
-                showSyncDialog = true,
-                syncType = com.z_company.route.viewmodel.SyncType.Upload,
-                syncUploadProgress = mapOf(
-                    "UserSettings" to com.z_company.route.viewmodel.SyncStepState.Success("загружены"),
-                    "SalarySettings" to com.z_company.route.viewmodel.SyncStepState.Success("загружены"),
-                    "Months" to com.z_company.route.viewmodel.SyncStepState.Success("загружены"),
-                    "Routes" to com.z_company.route.viewmodel.SyncStepState.Error("синхронизировано 1 из 3")
-                ),
-                isSyncComplete = true,
-                isSyncSuccess = false,
-                syncRouteErrors = listOf(
-                    "Маршрут 15.01.26 №101: Нет соединения",
-                    "Маршрут 20.01.26 №202: Server error 500"
-                ),
-                syncRoutesTotalAttempted = 3,
-                syncRoutesSavedCount = 1
-            )
-        }
-    }
+    private fun isNetworkErrorMessage(msg: String): Boolean =
+        msg.contains("Нет соединения", ignoreCase = true) ||
+        msg.contains("Unable to resolve", ignoreCase = true) ||
+        msg.contains("Connection refused", ignoreCase = true) ||
+        msg.contains("timeout", ignoreCase = true) ||
+        msg.contains("Failed to connect", ignoreCase = true) ||
+        msg.contains("Network is unreachable", ignoreCase = true) ||
+        msg.contains("ECONNREFUSED", ignoreCase = true)
 
     private fun parseSyncStep(message: String): String? = when {
         message.contains("UserSettings") -> "UserSettings"

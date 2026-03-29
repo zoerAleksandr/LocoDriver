@@ -80,7 +80,8 @@ data class ProfileUiState(
     val syncRouteErrors: List<String> = emptyList(),
     val syncRoutesTotalAttempted: Int = 0,
     val syncRoutesSavedCount: Int = 0,
-    val syncReportUserId: String? = null
+    val syncReportUserId: String? = null,
+    val isNetworkError: Boolean = false
 )
 
 // Описание: Определяет тип синхронизации (загрузка на сервер или с сервера) для выбора правильного progress map в UI.
@@ -221,8 +222,10 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                 )
             }
 
+            var networkErrorStopped = false
             try {
                 syncManager.syncToRemote("Bearer $token").collect { state ->
+                    if (networkErrorStopped) return@collect
                     when (state) {
                         is ResultState.Loading -> {}
                         is ResultState.Success -> {
@@ -264,14 +267,18 @@ class ProfileViewModel : ViewModel(), KoinComponent {
 
                         is ResultState.Error -> {
                             val msg = state.entity.message ?: ""
+                            val cleanMsg = cleanSyncErrorMessage(msg)
+                            if (isNetworkErrorMessage(cleanMsg)) {
+                                networkErrorStopped = true
+                                _uiState.update { it.copy(isNetworkError = true, isSyncComplete = true) }
+                                return@collect
+                            }
                             val stepKey = parseSyncUploadStep(msg)
                             val newProgress = _uiState.value.syncUploadProgress.toMutableMap()
                             if (stepKey != null) {
-                                // Промежуточная ошибка конкретного шага — обновляем только его
-                                newProgress[stepKey] = SyncStepState.Error(message = cleanSyncErrorMessage(msg))
+                                newProgress[stepKey] = SyncStepState.Error(message = cleanMsg)
                                 _uiState.update { it.copy(syncUploadProgress = newProgress) }
                             } else {
-                                // Финальная ошибка — помечаем оставшиеся Loading и завершаем
                                 newProgress.replaceAll { _, v ->
                                     if (v is SyncStepState.Loading) SyncStepState.Error(message = msg) else v
                                 }
@@ -290,6 +297,15 @@ class ProfileViewModel : ViewModel(), KoinComponent {
             }
         }
     }
+
+    private fun isNetworkErrorMessage(msg: String): Boolean =
+        msg.contains("Нет соединения", ignoreCase = true) ||
+        msg.contains("Unable to resolve", ignoreCase = true) ||
+        msg.contains("Connection refused", ignoreCase = true) ||
+        msg.contains("timeout", ignoreCase = true) ||
+        msg.contains("Failed to connect", ignoreCase = true) ||
+        msg.contains("Network is unreachable", ignoreCase = true) ||
+        msg.contains("ECONNREFUSED", ignoreCase = true)
 
     private fun parseSyncUploadStep(message: String): String? = when {
         message.contains("UserSettings") -> "UserSettings"
@@ -355,8 +371,10 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                 )
             }
 
+            var networkErrorStopped = false
             try {
                 syncManager.syncFromRemote("Bearer $token").collect { state ->
+                    if (networkErrorStopped) return@collect
                     when (state) {
                         is ResultState.Loading -> {}
                         is ResultState.Success -> {
@@ -383,10 +401,16 @@ class ProfileViewModel : ViewModel(), KoinComponent {
 
                         is ResultState.Error -> {
                             val msg = state.entity.message ?: ""
+                            val cleanMsg = cleanSyncErrorMessage(msg)
+                            if (isNetworkErrorMessage(cleanMsg)) {
+                                networkErrorStopped = true
+                                _uiState.update { it.copy(isNetworkError = true, isSyncComplete = true) }
+                                return@collect
+                            }
                             val stepKey = parseSyncDownloadStep(msg)
                             val newProgress = _uiState.value.syncDownloadProgress.toMutableMap()
                             if (stepKey != null) {
-                                newProgress[stepKey] = SyncStepState.Error(message = cleanSyncErrorMessage(msg))
+                                newProgress[stepKey] = SyncStepState.Error(message = cleanMsg)
                                 _uiState.update { it.copy(syncDownloadProgress = newProgress) }
                             } else {
                                 newProgress.replaceAll { _, v ->
@@ -426,6 +450,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                 syncDownloadProgress = emptyMap(),
                 isSyncComplete = false,
                 isSyncSuccess = false,
+                isNetworkError = false,
                 syncType = null,
                 syncRouteErrors = emptyList(),
                 syncRoutesTotalAttempted = 0,

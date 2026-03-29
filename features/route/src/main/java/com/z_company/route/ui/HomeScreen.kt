@@ -34,10 +34,9 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberBasicTooltipState
 import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material3.Card
-import androidx.compose.material.rememberDismissState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -51,10 +50,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.ripple
@@ -69,7 +68,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -77,7 +75,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
@@ -106,23 +103,22 @@ import com.z_company.domain.entities.route.UtilsForEntities.isFuture
 import com.z_company.domain.entities.route.UtilsForEntities.isTransition
 import com.z_company.domain.util.minus
 import com.z_company.route.R
-import com.z_company.route.ui.SyncProgressDialog
 import com.z_company.route.component.AnimatedCounter
 import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.BottomSheetAction
+import com.z_company.route.component.ChipApp
 import com.z_company.route.component.ItemHomeScreen
 import com.z_company.route.component.LinearPagerIndicator
+import com.z_company.route.component.PreviewRouteDialog
+import com.z_company.route.viewmodel.home_view_model.HomeViewModel
 import com.z_company.route.viewmodel.home_view_model.ItemState
 import com.z_company.route.viewmodel.home_view_model.UpdateEvent
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import java.util.Calendar
-import com.z_company.route.component.ChipApp
-import com.z_company.route.component.PreviewRouteDialog
-import com.z_company.route.viewmodel.home_view_model.HomeViewModel
 import org.koin.compose.koinInject
+import java.util.Calendar
 
 @SuppressLint(
     "CoroutineCreationDuringComposition",
@@ -192,8 +188,8 @@ fun HomeScreen(
     syncRoutesTotalAttempted: Int = 0,
     syncRoutesSavedCount: Int = 0,
     syncReportUserId: String? = null,
+    isNetworkError: Boolean = false,
     onResetSyncState: () -> Unit = {},
-    onDebugTestSyncError: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -301,6 +297,7 @@ fun HomeScreen(
         syncRoutesTotalAttempted = syncRoutesTotalAttempted,
         syncRoutesSavedCount = syncRoutesSavedCount,
         userId = syncReportUserId,
+        isNetworkError = isNetworkError,
         onDismiss = onResetSyncState
     )
 
@@ -617,21 +614,19 @@ fun HomeScreen(
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.primary
                                     )
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(Shapes.medium)
-                                            .background(brushMain)
-                                            .clickable(onClick = onSyncClick),
-                                        contentAlignment = Alignment.Center
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Button(
+                                        onClick = onSyncClick,
+                                        shape = Shapes.medium,
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                                        )
                                     ) {
                                         Text(
                                             text = "Синхронизировать",
                                             color = MaterialTheme.colorScheme.secondary,
-                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                                            style = MaterialTheme.typography.bodyMedium,
                                         )
-                                    }
-                                    androidx.compose.material3.TextButton(onClick = onDebugTestSyncError) {
-                                        Text("Тест ошибки", style = MaterialTheme.typography.bodySmall)
                                     }
                                 }
                             }
@@ -2175,7 +2170,10 @@ fun DetailTrainCard(
                                             ((extendedServicePhaseTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
 
                                         val percentExtendedServicePhase =
-                                            (extendedServicePhaseTime.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
+                                            (extendedServicePhaseTime.toFloat() / safeTotal.toFloat()).coerceIn(
+                                                0f,
+                                                1f
+                                            )
 
 
                                         Row(
@@ -2278,7 +2276,10 @@ fun DetailTrainCard(
                                         val percent =
                                             ((heavyTrainsTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
                                         val percentHeavy =
-                                            (heavyTrainsTime.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
+                                            (heavyTrainsTime.toFloat() / safeTotal.toFloat()).coerceIn(
+                                                0f,
+                                                1f
+                                            )
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -2321,11 +2322,15 @@ fun DetailTrainCard(
                                             .fillMaxWidth(),
                                         verticalArrangement = Arrangement.spacedBy(4.dp),
                                     ) {
-                                        val onePersonOperationTimeText = convertTimeToString(onePersonOperationTime)
+                                        val onePersonOperationTimeText =
+                                            convertTimeToString(onePersonOperationTime)
                                         val percent =
                                             ((onePersonOperationTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
                                         val percentOnePerson =
-                                            (onePersonOperationTime.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
+                                            (onePersonOperationTime.toFloat() / safeTotal.toFloat()).coerceIn(
+                                                0f,
+                                                1f
+                                            )
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,

@@ -397,6 +397,7 @@ fun ProfileScreen(
         syncRoutesTotalAttempted = uiState.syncRoutesTotalAttempted,
         syncRoutesSavedCount = uiState.syncRoutesSavedCount,
         userId = uiState.syncReportUserId,
+        isNetworkError = uiState.isNetworkError,
         onDismiss = viewModel::resetSyncState
     )
 
