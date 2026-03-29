@@ -1464,11 +1464,13 @@ fun FormScreen(
                                                         alpha = 0.6f
                                                     )
                                                 val breakStartText =
-                                                    route.basicData.timeStartBreak?.let {
-                                                        textColor =
-                                                            MaterialTheme.colorScheme.primary
-                                                        dateAndTimeConverter?.getDateAndTime(it)
-                                                    } ?: ""
+                                                    route.basicData.timeStartBreak
+                                                        ?.takeIf { it != 0L }
+                                                        ?.let {
+                                                            textColor =
+                                                                MaterialTheme.colorScheme.primary
+                                                            dateAndTimeConverter?.getDateAndTime(it)
+                                                        } ?: ""
                                                 Text(
                                                     text = breakStartText,
                                                     color = textColor,
