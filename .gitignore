@@ -20,3 +20,4 @@ secret.properties
 buildSrc/build/
 robokassa_sdk/build/
 .claude/worktrees/
+app/release/
