@@ -59,12 +59,30 @@ fun BottomNavigationBar(
                 selected = currentRoute == item.route.route,
                 onClick = {
                     if (currentRoute != item.route.route) {
-                        navController.navigate(item.route.route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
+                        val startDest = navController.graph.findStartDestination()
+                        if (item.route.route == startDest.route) {
+                            // Возврат на стартовый экран (Главная): явно pop до него.
+                            // navigate + launchSingleTop не обновляет UI если HomeRoute
+                            // уже в стеке ниже — popBackStack надёжнее.
+                            val popped = navController.popBackStack(
+                                route = startDest.route!!,
+                                inclusive = false
+                            )
+                            if (!popped) {
+                                // HomeRoute не был в стеке (было сохранено через saveState)
+                                navController.navigate(item.route.route) {
+                                    popUpTo(startDest.id) { saveState = false }
+                                    launchSingleTop = true
+                                }
                             }
-                            launchSingleTop = true
-                            restoreState = true
+                        } else {
+                            navController.navigate(item.route.route) {
+                                popUpTo(startDest.id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         }
                     }
                 }
