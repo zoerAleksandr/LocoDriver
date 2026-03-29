@@ -81,7 +81,8 @@ data class ProfileUiState(
     val syncRoutesTotalAttempted: Int = 0,
     val syncRoutesSavedCount: Int = 0,
     val syncReportUserId: String? = null,
-    val isNetworkError: Boolean = false
+    val isNetworkError: Boolean = false,
+    val isProfileNetworkError: Boolean = false
 )
 
 // Описание: Определяет тип синхронизации (загрузка на сервер или с сервера) для выбора правильного progress map в UI.
@@ -731,7 +732,10 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                         currentEmail = state.user.email
                         secureTokenStorage.saveUserId(state.user.id)
                         _uiState.update {
-                            it.copy(userDetailsState = ResultState.Success(state.user))
+                            it.copy(
+                                userDetailsState = ResultState.Success(state.user),
+                                isProfileNetworkError = false
+                            )
                         }
                         subscriptionHelper.restorePurchases(null, token)
                     }
@@ -739,8 +743,12 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                         if (state.code == 401) {
                             _isLoggedIn.value = false
                         }
+                        val networkErr = state.code == 0 || isNetworkErrorMessage(state.message ?: "")
                         _uiState.update {
-                            it.copy(userDetailsState = ResultState.Error(ErrorEntity(message = state.message)))
+                            it.copy(
+                                userDetailsState = ResultState.Error(ErrorEntity(message = state.message)),
+                                isProfileNetworkError = networkErr
+                            )
                         }
                     }
                 }

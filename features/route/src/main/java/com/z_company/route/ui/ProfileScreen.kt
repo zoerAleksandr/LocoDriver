@@ -699,7 +699,30 @@ fun ProfileScreen(
                 }
                 // Профиль
                 else if (isLoggedIn) {
-                    SwipeRefresh(
+                    if (uiState.isProfileNetworkError) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.signal_disconnected_24px),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(64.dp),
+                                    tint = MaterialTheme.colorScheme.outline
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "Нет интернета",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+                            }
+                        }
+                    } else SwipeRefresh(
                         state = rememberSwipeRefreshState(isRefreshing = uiState.isRefreshing),
                         onRefresh = viewModel::refresh,
                     )

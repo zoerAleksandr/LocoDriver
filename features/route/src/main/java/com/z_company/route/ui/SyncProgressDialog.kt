@@ -72,7 +72,7 @@ fun SyncProgressDialog(
                 verticalArrangement = Arrangement.Center
             ) {
                 Icon(
-                    painter = painterResource(R.drawable.sync_disabled_24px),
+                    painter = painterResource(R.drawable.signal_disconnected_24px),
                     contentDescription = null,
                     modifier = Modifier.size(64.dp),
                     tint = MaterialTheme.colorScheme.error
