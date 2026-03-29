@@ -19,13 +19,16 @@ actual class DatabaseDriverFactory(private val context: Context) {
     }
 
     actual fun createSettingsDriver(): SqlDriver {
-        // Проверяем ВСЕ столбцы из всех миграций (включая последнюю 3.sqm),
-        // чтобы не пропустить 3.sqm у пользователей, у которых уже есть isShowLocoHeating
-        // (из старой v3-схемы), но нет isShowLocoNorma/isShowOtherCurrent.
+        // Проверяем ВСЕ новые столбцы из всех миграций (1.sqm, 2.sqm, 3.sqm, 4.sqm).
+        // Это покрывает Room→SQLDelight и SQLDelight→SQLDelight upgrade-пути,
+        // где какие-либо миграции могли быть пропущены (например, отсутствие 2.sqm).
         fixVersionIfColumnsExist("Settings.db", SettingsDatabase.Schema.version.toInt(),
             "UserSettings" to "isShowBreak",
             "UserSettings" to "isShowLocoHeating",
-            "UserSettings" to "isShowLocoNorma")
+            "UserSettings" to "isShowLocoAuxiliary",
+            "UserSettings" to "isShowLocoStatistics",
+            "UserSettings" to "isShowLocoNorma",
+            "UserSettings" to "isShowOtherCurrent")
         return createDriver(SettingsDatabase.Schema, "Settings.db")
     }
 
@@ -85,8 +88,13 @@ actual class DatabaseDriverFactory(private val context: Context) {
 
     companion object {
         private val COLUMN_SPECS = mapOf(
-            // Settings
+            // Settings — все новые столбцы (миграции 1.sqm, 2.sqm, 3.sqm, 4.sqm)
             "UserSettings.isShowBreak" to ColumnSpec("INTEGER", false, "1"),
+            "UserSettings.isShowLocoHeating" to ColumnSpec("INTEGER", false, "1"),
+            "UserSettings.isShowLocoAuxiliary" to ColumnSpec("INTEGER", false, "1"),
+            "UserSettings.isShowLocoStatistics" to ColumnSpec("INTEGER", false, "1"),
+            "UserSettings.isShowLocoNorma" to ColumnSpec("INTEGER", false, "1"),
+            "UserSettings.isShowOtherCurrent" to ColumnSpec("INTEGER", false, "0"),
             // Route — BasicData
             "BasicData.timeStartBreak" to ColumnSpec("INTEGER", true, "NULL"),
             "BasicData.timeEndBreak" to ColumnSpec("INTEGER", true, "NULL"),
