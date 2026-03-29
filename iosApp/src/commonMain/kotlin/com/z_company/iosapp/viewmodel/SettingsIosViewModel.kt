@@ -37,4 +37,14 @@ class SettingsIosViewModel(
             }
         }
     }
+
+    // ── watchState helpers ────────────────────────────────────────────────────
+
+    fun watchSettings(callback: (UserSettings?) -> Unit) {
+        viewModelScope.launch { settings.collect { callback(it) } }
+    }
+
+    fun watchIsLoading(callback: (Boolean) -> Unit) {
+        viewModelScope.launch { isLoading.collect { callback(it) } }
+    }
 }

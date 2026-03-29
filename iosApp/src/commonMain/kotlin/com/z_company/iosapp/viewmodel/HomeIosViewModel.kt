@@ -63,4 +63,22 @@ class HomeIosViewModel(
             }
         }
     }
+
+    // ── watchState helpers ────────────────────────────────────────────────────
+    // Позволяют Swift-коду подписаться на отдельные потоки через callback.
+
+    /** Подписка на список маршрутов. */
+    fun watchRoutes(callback: (List<Route>) -> Unit) {
+        viewModelScope.launch { routes.collect { callback(it) } }
+    }
+
+    /** Подписка на настройки пользователя. */
+    fun watchSettings(callback: (UserSettings?) -> Unit) {
+        viewModelScope.launch { settings.collect { callback(it) } }
+    }
+
+    /** Подписка на флаг загрузки. */
+    fun watchIsLoading(callback: (Boolean) -> Unit) {
+        viewModelScope.launch { isLoading.collect { callback(it) } }
+    }
 }

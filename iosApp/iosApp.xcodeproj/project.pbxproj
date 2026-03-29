@@ -10,6 +10,20 @@
 		A11A11A101000001 /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000001 /* iOSApp.swift */; };
 		A11A11A101000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000002 /* ContentView.swift */; };
 		A11A11A101000003 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A11A11A001000003 /* Assets.xcassets */; };
+		A11A11A101000100 /* AppCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000100 /* AppCoordinator.swift */; };
+		A11A11A101000200 /* ViewModelWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000200 /* ViewModelWrapper.swift */; };
+		A11A11A101000201 /* HomeViewModelWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000201 /* HomeViewModelWrapper.swift */; };
+		A11A11A101000202 /* FormViewModelWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000202 /* FormViewModelWrapper.swift */; };
+		A11A11A101000203 /* SettingsViewModelWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000203 /* SettingsViewModelWrapper.swift */; };
+		A11A11A101000204 /* SalaryCalculationViewModelWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000204 /* SalaryCalculationViewModelWrapper.swift */; };
+		A11A11A101000300 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000300 /* HomeView.swift */; };
+		A11A11A101000400 /* FormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000400 /* FormView.swift */; };
+		A11A11A101000401 /* FormLocoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000401 /* FormLocoView.swift */; };
+		A11A11A101000402 /* FormTrainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000402 /* FormTrainView.swift */; };
+		A11A11A101000403 /* FormPassengerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000403 /* FormPassengerView.swift */; };
+		A11A11A101000500 /* SalaryCalculationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000500 /* SalaryCalculationView.swift */; };
+		A11A11A101000600 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000600 /* SettingsView.swift */; };
+		A11A11A101000700 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000700 /* ProfileView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -18,6 +32,20 @@
 		A11A11A001000003 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = iosApp/Assets.xcassets; sourceTree = "<group>"; };
 		A11A11A001000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = iosApp/Info.plist; sourceTree = "<group>"; };
 		A11A11A001000010 /* LocoDriver iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "LocoDriver iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A11A11A001000100 /* AppCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppCoordinator.swift; path = iosApp/Navigation/AppCoordinator.swift; sourceTree = "<group>"; };
+		A11A11A001000200 /* ViewModelWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ViewModelWrapper.swift; path = iosApp/ViewModels/ViewModelWrapper.swift; sourceTree = "<group>"; };
+		A11A11A001000201 /* HomeViewModelWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HomeViewModelWrapper.swift; path = iosApp/ViewModels/HomeViewModelWrapper.swift; sourceTree = "<group>"; };
+		A11A11A001000202 /* FormViewModelWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FormViewModelWrapper.swift; path = iosApp/ViewModels/FormViewModelWrapper.swift; sourceTree = "<group>"; };
+		A11A11A001000203 /* SettingsViewModelWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SettingsViewModelWrapper.swift; path = iosApp/ViewModels/SettingsViewModelWrapper.swift; sourceTree = "<group>"; };
+		A11A11A001000204 /* SalaryCalculationViewModelWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SalaryCalculationViewModelWrapper.swift; path = iosApp/ViewModels/SalaryCalculationViewModelWrapper.swift; sourceTree = "<group>"; };
+		A11A11A001000300 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HomeView.swift; path = iosApp/Screens/Home/HomeView.swift; sourceTree = "<group>"; };
+		A11A11A001000400 /* FormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FormView.swift; path = iosApp/Screens/Form/FormView.swift; sourceTree = "<group>"; };
+		A11A11A001000401 /* FormLocoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FormLocoView.swift; path = iosApp/Screens/Form/FormLocoView.swift; sourceTree = "<group>"; };
+		A11A11A001000402 /* FormTrainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FormTrainView.swift; path = iosApp/Screens/Form/FormTrainView.swift; sourceTree = "<group>"; };
+		A11A11A001000403 /* FormPassengerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FormPassengerView.swift; path = iosApp/Screens/Form/FormPassengerView.swift; sourceTree = "<group>"; };
+		A11A11A001000500 /* SalaryCalculationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SalaryCalculationView.swift; path = iosApp/Screens/SalaryCalculation/SalaryCalculationView.swift; sourceTree = "<group>"; };
+		A11A11A001000600 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SettingsView.swift; path = iosApp/Screens/Settings/SettingsView.swift; sourceTree = "<group>"; };
+		A11A11A001000700 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ProfileView.swift; path = iosApp/Screens/Profile/ProfileView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -39,6 +67,81 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		A11A11A001000033 /* Navigation */ = {
+			isa = PBXGroup;
+			children = (
+				A11A11A001000100 /* AppCoordinator.swift */,
+			);
+			name = Navigation;
+			sourceTree = "<group>";
+		};
+		A11A11A001000034 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				A11A11A001000200 /* ViewModelWrapper.swift */,
+				A11A11A001000201 /* HomeViewModelWrapper.swift */,
+				A11A11A001000202 /* FormViewModelWrapper.swift */,
+				A11A11A001000203 /* SettingsViewModelWrapper.swift */,
+				A11A11A001000204 /* SalaryCalculationViewModelWrapper.swift */,
+			);
+			name = ViewModels;
+			sourceTree = "<group>";
+		};
+		A11A11A001000035 /* Screens */ = {
+			isa = PBXGroup;
+			children = (
+				A11A11A001000036 /* Home */,
+				A11A11A001000037 /* Form */,
+				A11A11A001000038 /* SalaryCalculation */,
+				A11A11A001000039 /* Settings */,
+				A11A11A00100003A /* Profile */,
+			);
+			name = Screens;
+			sourceTree = "<group>";
+		};
+		A11A11A001000036 /* Home */ = {
+			isa = PBXGroup;
+			children = (
+				A11A11A001000300 /* HomeView.swift */,
+			);
+			name = Home;
+			sourceTree = "<group>";
+		};
+		A11A11A001000037 /* Form */ = {
+			isa = PBXGroup;
+			children = (
+				A11A11A001000400 /* FormView.swift */,
+				A11A11A001000401 /* FormLocoView.swift */,
+				A11A11A001000402 /* FormTrainView.swift */,
+				A11A11A001000403 /* FormPassengerView.swift */,
+			);
+			name = Form;
+			sourceTree = "<group>";
+		};
+		A11A11A001000038 /* SalaryCalculation */ = {
+			isa = PBXGroup;
+			children = (
+				A11A11A001000500 /* SalaryCalculationView.swift */,
+			);
+			name = SalaryCalculation;
+			sourceTree = "<group>";
+		};
+		A11A11A001000039 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				A11A11A001000600 /* SettingsView.swift */,
+			);
+			name = Settings;
+			sourceTree = "<group>";
+		};
+		A11A11A00100003A /* Profile */ = {
+			isa = PBXGroup;
+			children = (
+				A11A11A001000700 /* ProfileView.swift */,
+			);
+			name = Profile;
+			sourceTree = "<group>";
+		};
 		A11A11A001000031 /* iosApp */ = {
 			isa = PBXGroup;
 			children = (
@@ -46,6 +149,9 @@
 				A11A11A001000002 /* ContentView.swift */,
 				A11A11A001000003 /* Assets.xcassets */,
 				A11A11A001000004 /* Info.plist */,
+				A11A11A001000033 /* Navigation */,
+				A11A11A001000034 /* ViewModels */,
+				A11A11A001000035 /* Screens */,
 			);
 			name = iosApp;
 			path = iosApp;
@@ -173,6 +279,20 @@
 			files = (
 				A11A11A101000001 /* iOSApp.swift in Sources */,
 				A11A11A101000002 /* ContentView.swift in Sources */,
+				A11A11A101000100 /* AppCoordinator.swift in Sources */,
+				A11A11A101000200 /* ViewModelWrapper.swift in Sources */,
+				A11A11A101000201 /* HomeViewModelWrapper.swift in Sources */,
+				A11A11A101000202 /* FormViewModelWrapper.swift in Sources */,
+				A11A11A101000203 /* SettingsViewModelWrapper.swift in Sources */,
+				A11A11A101000204 /* SalaryCalculationViewModelWrapper.swift in Sources */,
+				A11A11A101000300 /* HomeView.swift in Sources */,
+				A11A11A101000400 /* FormView.swift in Sources */,
+				A11A11A101000401 /* FormLocoView.swift in Sources */,
+				A11A11A101000402 /* FormTrainView.swift in Sources */,
+				A11A11A101000403 /* FormPassengerView.swift in Sources */,
+				A11A11A101000500 /* SalaryCalculationView.swift in Sources */,
+				A11A11A101000600 /* SettingsView.swift in Sources */,
+				A11A11A101000700 /* ProfileView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

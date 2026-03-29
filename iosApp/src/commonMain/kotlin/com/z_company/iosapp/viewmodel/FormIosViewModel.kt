@@ -101,4 +101,22 @@ class FormIosViewModel(
             }
         }
     }
+
+    // ── watchState helpers ────────────────────────────────────────────────────
+
+    fun watchRoute(callback: (Route?) -> Unit) {
+        viewModelScope.launch { route.collect { callback(it) } }
+    }
+
+    fun watchIsLoading(callback: (Boolean) -> Unit) {
+        viewModelScope.launch { isLoading.collect { callback(it) } }
+    }
+
+    fun watchIsSaved(callback: (Boolean) -> Unit) {
+        viewModelScope.launch { isSaved.collect { callback(it) } }
+    }
+
+    fun watchErrorMessage(callback: (String?) -> Unit) {
+        viewModelScope.launch { errorMessage.collect { callback(it) } }
+    }
 }

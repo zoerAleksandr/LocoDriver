@@ -8,8 +8,10 @@ import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.iosapp.viewmodel.FormIosViewModel
 import com.z_company.iosapp.viewmodel.HomeIosViewModel
+import com.z_company.iosapp.viewmodel.LocoFormIosViewModel
 import com.z_company.iosapp.viewmodel.SalaryCalculationIosViewModel
 import com.z_company.iosapp.viewmodel.SettingsIosViewModel
+import com.z_company.iosapp.viewmodel.TrainFormIosViewModel
 import org.koin.dsl.module
 
 /**
@@ -41,4 +43,6 @@ val iosUseCaseModule = module {
     single { SettingsIosViewModel(get()) }
     single { FormIosViewModel(get()) }
     single { SalaryCalculationIosViewModel(get(), get()) }
+    single { LocoFormIosViewModel(get()) }
+    single { TrainFormIosViewModel(get()) }
 }

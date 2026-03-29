@@ -82,4 +82,14 @@ class SalaryCalculationIosViewModel(
         val name = monthNames.getOrElse(moy.month) { "?" }
         return "$name ${moy.year}"
     }
+
+    // ── watchState helpers ────────────────────────────────────────────────────
+
+    fun watchSummary(callback: (MonthlySummary?) -> Unit) {
+        viewModelScope.launch { summary.collect { callback(it) } }
+    }
+
+    fun watchIsLoading(callback: (Boolean) -> Unit) {
+        viewModelScope.launch { isLoading.collect { callback(it) } }
+    }
 }
