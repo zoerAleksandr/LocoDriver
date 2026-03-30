@@ -1072,11 +1072,11 @@ fun FormLocoScreen(
                                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                                         ) {
                                             val norma1 =
-                                                locomotive.normaElectricCurrent1?.takeIf { it != 0 }
-                                                    ?.toString() ?: ""
+                                                locomotive.normaElectricCurrent1?.takeIf { it != 0.0 }
+                                                    ?.str() ?: ""
                                             val norma2 =
-                                                locomotive.normaElectricCurrent2?.takeIf { it != 0 }
-                                                    ?.toString() ?: ""
+                                                locomotive.normaElectricCurrent2?.takeIf { it != 0.0 }
+                                                    ?.str() ?: ""
 
                                             OutlinedTextFieldApp(
                                                 modifier = Modifier.weight(1f),

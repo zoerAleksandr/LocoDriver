@@ -184,7 +184,7 @@ class LocoFormViewModel(
         val auxiliary =
             locomotive.auxiliaryCounterAccepted != null || locomotive.auxiliaryCounterDelivery != null
         var otherCurrent =
-            locomotive.normaElectricCurrent2 != null && locomotive.normaElectricCurrent2 != 0
+            locomotive.normaElectricCurrent2 != null && locomotive.normaElectricCurrent2 != 0.0
 
         // добавить очистку одного списка при инициализации
         if (locomotive.type == LocoType.DIESEL) {
@@ -321,11 +321,11 @@ class LocoFormViewModel(
     }
 
     fun setNormaElectricCurrent1(value: String) {
-        _currentLoco.update { it?.copy(normaElectricCurrent1 = value.toIntOrNull()) }
+        _currentLoco.update { it?.copy(normaElectricCurrent1 = value.toDoubleOrNull()) }
     }
 
     fun setNormaElectricCurrent2(value: String) {
-        _currentLoco.update { it?.copy(normaElectricCurrent2 = value.toIntOrNull()) }
+        _currentLoco.update { it?.copy(normaElectricCurrent2 = value.toDoubleOrNull()) }
     }
 
     fun setNormaDiesel(value: String) {

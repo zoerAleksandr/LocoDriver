@@ -1,0 +1,38 @@
+-- Migrate normaElectricCurrent1/2 from INTEGER to REAL to support decimal values.
+-- SQLite doesn't support ALTER COLUMN, so we recreate the table.
+CREATE TABLE Locomotive_new (
+    locoId TEXT NOT NULL PRIMARY KEY,
+    basicId TEXT NOT NULL,
+    series TEXT,
+    number TEXT,
+    type INTEGER NOT NULL,
+    electricSectionList TEXT NOT NULL,
+    dieselSectionList TEXT NOT NULL,
+    timeStartOfAcceptance INTEGER,
+    timeEndOfAcceptance INTEGER,
+    timeStartOfDelivery INTEGER,
+    timeEndOfDelivery INTEGER,
+    normaElectricCurrent1 REAL DEFAULT NULL,
+    normaElectricCurrent2 REAL DEFAULT NULL,
+    normaDiesel TEXT DEFAULT NULL,
+    heatingCounterAccepted TEXT DEFAULT NULL,
+    heatingCounterDelivery TEXT DEFAULT NULL,
+    auxiliaryCounterAccepted TEXT DEFAULT NULL,
+    auxiliaryCounterDelivery TEXT DEFAULT NULL,
+    FOREIGN KEY (basicId) REFERENCES BasicData(id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+INSERT INTO Locomotive_new SELECT
+    locoId, basicId, series, number, type, electricSectionList, dieselSectionList,
+    timeStartOfAcceptance, timeEndOfAcceptance, timeStartOfDelivery, timeEndOfDelivery,
+    CAST(normaElectricCurrent1 AS REAL),
+    CAST(normaElectricCurrent2 AS REAL),
+    normaDiesel, heatingCounterAccepted, heatingCounterDelivery,
+    auxiliaryCounterAccepted, auxiliaryCounterDelivery
+FROM Locomotive;
+
+DROP TABLE Locomotive;
+
+ALTER TABLE Locomotive_new RENAME TO Locomotive;
+
+CREATE INDEX IF NOT EXISTS index_Locomotive_basicId ON Locomotive(basicId);

@@ -88,6 +88,35 @@ object IntAsDoubleSerializer : KSerializer<Int> {
 }
 
 /**
+ * Сериализатор для полей нормы электровоза: принимает Int или Double от сервера, возвращает Double.
+ * Отправляет на сервер без дробной части если она равна нулю (12.0 → 12), иначе с дробной (12.5).
+ */
+object NumberAsDoubleSerializer : KSerializer<Double> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("NumberAsDouble", PrimitiveKind.DOUBLE)
+
+    override fun serialize(encoder: Encoder, value: Double) {
+        if (encoder is JsonEncoder && value % 1.0 == 0.0) {
+            encoder.encodeLong(value.toLong())
+        } else {
+            encoder.encodeDouble(value)
+        }
+    }
+
+    override fun deserialize(decoder: Decoder): Double {
+        if (decoder is JsonDecoder) {
+            val element = decoder.decodeJsonElement()
+            if (element is JsonPrimitive) {
+                element.doubleOrNull?.let { return it }
+                element.longOrNull?.let { return it.toDouble() }
+                element.intOrNull?.let { return it.toDouble() }
+            }
+        }
+        return decoder.decodeDouble()
+    }
+}
+
+/**
  * Сериализатор для Double → String (для совместимости с сервером, который присылает числа как строки).
  * Используется через @Contextual в Locomotive, SectionElectric.
  * Заменяет BigDecimalAsStringSerializer.

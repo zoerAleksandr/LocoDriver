@@ -68,12 +68,12 @@ fun ElectricStatisticsSection(
         )
         StatRow(
             label = "Норма",
-            value = locomotive.normaElectricCurrent1?.toString() ?: "—",
+            value = locomotive.normaElectricCurrent1?.str() ?: "—",
             valueColor = NormaColor,
             onClick = onSettingsClick
         )
         if (locomotive.normaElectricCurrent1 != null) {
-            val result = locomotive.normaElectricCurrent1!!.toDouble() - (overResult ?: 0.0)
+            val result = locomotive.normaElectricCurrent1!! - (overResult ?: 0.0)
             val rounded = rounding(result, 2) ?: result
             val resultText = if (rounded > 0) "+${rounded.str()}" else rounded.str()
             val resultColor = if (rounded < 0) {
@@ -102,12 +102,12 @@ fun ElectricStatisticsSection(
             )
             StatRow(
                 label = "Норма",
-                value = locomotive.normaElectricCurrent2?.toString() ?: "—",
+                value = locomotive.normaElectricCurrent2?.str() ?: "—",
                 valueColor = NormaColor,
                 onClick = onSettingsClick
             )
             if (locomotive.normaElectricCurrent2 != null) {
-                val result2 = locomotive.normaElectricCurrent2!!.toDouble() - (overResult2 ?: 0.0)
+                val result2 = locomotive.normaElectricCurrent2!! - (overResult2 ?: 0.0)
                 val rounded2 = rounding(result2, 2) ?: result2
                 val resultText2 = if (rounded2 > 0) "+${rounded2.str()}" else rounded2.str()
                 val resultColor2 = if (rounded2 < 0) {
