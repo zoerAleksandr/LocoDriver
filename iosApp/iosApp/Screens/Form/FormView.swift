@@ -49,7 +49,7 @@ struct FormView: View {
                 }
             }
 
-            if let locos = vm.route?.locomotives, !locos.isEmpty {
+            if let locos = vm.route?.locomotives, locos.count > 0 {
                 Section("Локомотивы") {
                     ForEach(locos as! [DomainLocomotive], id: \.locoId) { loco in
                         NavigationLink(destination: Text("Локомотив").navigationTitle("Локомотив")) {
@@ -63,7 +63,7 @@ struct FormView: View {
                 }
             }
 
-            if let trains = vm.route?.trains, !trains.isEmpty {
+            if let trains = vm.route?.trains, trains.count > 0 {
                 Section("Поезда") {
                     ForEach(trains as! [DomainTrain], id: \.trainId) { train in
                         NavigationLink(destination: Text("Поезд").navigationTitle("Поезд")) {

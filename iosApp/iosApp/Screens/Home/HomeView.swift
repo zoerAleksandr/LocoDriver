@@ -159,7 +159,7 @@ struct RouteItemView: View {
                     }
                     Spacer()
                     // Значок длинного/тяжёлого поезда
-                    if route.trains.contains(where: { $0.isHeavyLongDistance }) {
+                    if (route.trains as! [DomainTrain]).contains(where: { $0.isHeavyLongDistance }) {
                         Image(systemName: "arrow.left.and.right")
                             .font(.caption)
                             .foregroundColor(.orange)
