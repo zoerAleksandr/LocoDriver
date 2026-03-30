@@ -298,23 +298,20 @@ class HomeViewModel : ViewModel(), KoinComponent {
         timerJob = viewModelScope.launch {
             val timeZone =
                 uiState.value.dateAndTimeConverter?.timeZoneText ?: "GMT+3"
-            val currentTimeCalendar = getInstance(TimeZone.getTimeZone(timeZone))
-            val currentTime: Long = currentTimeCalendar.timeInMillis
+            val tz = TimeZone.getTimeZone(timeZone)
             val startWorkTime: Long = startWork + uiState.value.offsetInMoscow
 
-            val second = currentTimeCalendar
-                .get(Calendar.SECOND)
+            val currentTimeCalendar = getInstance(tz)
+            val second = currentTimeCalendar.get(Calendar.SECOND)
+            val firstIncreasingTimeInMillis = (60 - second) * 1000L
 
-            val remainingSecond = 60 - second
-
-            val firstIncreasingTimeInMillis = remainingSecond * 1000L
-            var difference = currentTime - startWorkTime
-
-            _workTimeInCurrentRoute.tryEmit(difference)
+            _workTimeInCurrentRoute.tryEmit(currentTimeCalendar.timeInMillis - startWorkTime)
             delay(firstIncreasingTimeInMillis)
             while (currentRoute != null) {
-                difference += 60_000L
-                _workTimeInCurrentRoute.tryEmit(difference)
+                // Пересчитываем от реального времени — delay() может быть длиннее 60 сек
+                // при блокировке экрана (Doze mode), поэтому накопительное += 60_000 даёт отставание.
+                val now = getInstance(tz).timeInMillis
+                _workTimeInCurrentRoute.tryEmit(now - startWorkTime)
                 delay(60_000L)
             }
         }
@@ -325,15 +322,14 @@ class HomeViewModel : ViewModel(), KoinComponent {
         countdownTimerJob = viewModelScope.launch {
             val timeZone =
                 uiState.value.dateAndTimeConverter?.timeZoneText ?: "GMT+3"
-            val currentTimeCalendar = getInstance(TimeZone.getTimeZone(timeZone))
-            val currentTime: Long = currentTimeCalendar.timeInMillis
+            val tz = TimeZone.getTimeZone(timeZone)
             val startWorkTime: Long = startWork + uiState.value.offsetInMoscow
 
+            val currentTimeCalendar = getInstance(tz)
             val second = currentTimeCalendar.get(Calendar.SECOND)
-            val remainingSecond = 60 - second
-            val firstTickDelayMillis = remainingSecond * 1000L
+            val firstTickDelayMillis = (60 - second) * 1000L
 
-            var difference = startWorkTime - currentTime
+            var difference = startWorkTime - currentTimeCalendar.timeInMillis
             if (difference <= 0) {
                 _countdownToNextRoute.tryEmit(0L)
                 return@launch
@@ -343,7 +339,9 @@ class HomeViewModel : ViewModel(), KoinComponent {
             delay(firstTickDelayMillis)
 
             while (difference > 0) {
-                difference -= 60_000L
+                // Пересчитываем от реального времени — без накопительного -= 60_000,
+                // чтобы не отставать после блокировки экрана (Doze mode).
+                difference = startWorkTime - getInstance(tz).timeInMillis
                 if (difference <= 0) {
                     _countdownToNextRoute.tryEmit(0L)
                     nextFutureRoute = null
