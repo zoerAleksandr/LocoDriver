@@ -178,8 +178,8 @@ struct RouteItemView: View {
                     }
                 }
 
-                if !route.locomotives.isEmpty {
-                    let loco = route.locomotives[0]
+                if route.locomotives.count > 0,
+                   let loco = route.locomotives[0] as? DomainLocomotive {
                     HStack(spacing: 4) {
                         Image(systemName: "tram.fill")
                             .font(.caption2)
@@ -190,8 +190,8 @@ struct RouteItemView: View {
                     }
                 }
 
-                if !route.trains.isEmpty {
-                    let train = route.trains[0]
+                if route.trains.count > 0,
+                   let train = route.trains[0] as? DomainTrain {
                     if let num = train.number {
                         HStack(spacing: 4) {
                             Image(systemName: "car.2.fill")
