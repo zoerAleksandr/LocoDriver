@@ -879,12 +879,8 @@ fun FormLocoScreen(
                     // отопление
                     if (userSettings?.isShowLocoHeating != false) {
                     item {
-                        val accepted =
-                            locomotive.heatingCounterAccepted?.takeIf { it != 0.0 }
-                                ?.str() ?: ""
-                        val delivered =
-                            locomotive.heatingCounterDelivery?.takeIf { it != 0.0 }
-                                ?.str() ?: ""
+                        val accepted = formUiState.heatingAcceptedText
+                        val delivered = formUiState.heatingDeliveryText
                         val heatingResult: Double? = delivered.toDoubleOrNull() - accepted.toDoubleOrNull()
                         CollapsibleSection(
                             title = "Отопление",
@@ -952,12 +948,8 @@ fun FormLocoScreen(
                     // собственные нужды
                     if (userSettings?.isShowLocoAuxiliary != false) {
                     item {
-                        val auxAccepted =
-                            locomotive.auxiliaryCounterAccepted?.takeIf { it != 0.0 }
-                                ?.str() ?: ""
-                        val auxDelivered =
-                            locomotive.auxiliaryCounterDelivery?.takeIf { it != 0.0 }
-                                ?.str() ?: ""
+                        val auxAccepted = formUiState.auxiliaryAcceptedText
+                        val auxDelivered = formUiState.auxiliaryDeliveryText
                         val auxiliaryResult: Double? = auxDelivered.toDoubleOrNull() - auxAccepted.toDoubleOrNull()
                         CollapsibleSection(
                             title = "Собственные нужды",
@@ -1071,16 +1063,9 @@ fun FormLocoScreen(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                                         ) {
-                                            val norma1 =
-                                                locomotive.normaElectricCurrent1?.takeIf { it != 0.0 }
-                                                    ?.str() ?: ""
-                                            val norma2 =
-                                                locomotive.normaElectricCurrent2?.takeIf { it != 0.0 }
-                                                    ?.str() ?: ""
-
                                             OutlinedTextFieldApp(
                                                 modifier = Modifier.weight(1f),
-                                                value = norma1,
+                                                value = formUiState.norma1Text,
                                                 placeholder = {
                                                     Text(
                                                         text = "Ток 1",
@@ -1102,7 +1087,7 @@ fun FormLocoScreen(
                                             if (userSettings?.isShowOtherCurrent == true) {
                                                 OutlinedTextFieldApp(
                                                     modifier = Modifier.weight(1f),
-                                                    value = norma2,
+                                                    value = formUiState.norma2Text,
                                                     placeholder = {
                                                         Text(
                                                             text = "Ток 2",

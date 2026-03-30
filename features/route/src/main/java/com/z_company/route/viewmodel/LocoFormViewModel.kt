@@ -300,7 +300,13 @@ class LocoFormViewModel(
             it.copy(
                 isShowHeatingCounter = heating || savedHeatingExpanded,
                 isShowAuxiliaryCounter = auxiliary || savedAuxiliaryExpanded,
-                isShowOtherCurrent = otherCurrent || globalShowOtherCurrent
+                isShowOtherCurrent = otherCurrent || globalShowOtherCurrent,
+                heatingAcceptedText = locomotive.heatingCounterAccepted?.takeIf { v -> v != 0.0 }?.str() ?: "",
+                heatingDeliveryText = locomotive.heatingCounterDelivery?.takeIf { v -> v != 0.0 }?.str() ?: "",
+                auxiliaryAcceptedText = locomotive.auxiliaryCounterAccepted?.takeIf { v -> v != 0.0 }?.str() ?: "",
+                auxiliaryDeliveryText = locomotive.auxiliaryCounterDelivery?.takeIf { v -> v != 0.0 }?.str() ?: "",
+                norma1Text = locomotive.normaElectricCurrent1?.takeIf { v -> v != 0.0 }?.str() ?: "",
+                norma2Text = locomotive.normaElectricCurrent2?.takeIf { v -> v != 0.0 }?.str() ?: "",
             )
         }
     }
@@ -321,10 +327,12 @@ class LocoFormViewModel(
     }
 
     fun setNormaElectricCurrent1(value: String) {
+        _uiState.update { it.copy(norma1Text = value) }
         _currentLoco.update { it?.copy(normaElectricCurrent1 = value.toDoubleOrNull()) }
     }
 
     fun setNormaElectricCurrent2(value: String) {
+        _uiState.update { it.copy(norma2Text = value) }
         _currentLoco.update { it?.copy(normaElectricCurrent2 = value.toDoubleOrNull()) }
     }
 
@@ -333,10 +341,12 @@ class LocoFormViewModel(
     }
 
     fun setHeatingCounterAccepted(value: String) {
+        _uiState.update { it.copy(heatingAcceptedText = value) }
         _currentLoco.update { it?.copy(heatingCounterAccepted = value.toDoubleOrNull()) }
     }
 
     fun setHeatingCounterDelivery(value: String) {
+        _uiState.update { it.copy(heatingDeliveryText = value) }
         _currentLoco.update { it?.copy(heatingCounterDelivery = value.toDoubleOrNull()) }
     }
 
@@ -345,10 +355,12 @@ class LocoFormViewModel(
     }
 
     fun setAuxiliaryCounterAccepted(value: String) {
+        _uiState.update { it.copy(auxiliaryAcceptedText = value) }
         _currentLoco.update { it?.copy(auxiliaryCounterAccepted = value.toDoubleOrNull()) }
     }
 
     fun setAuxiliaryCounterDelivery(value: String) {
+        _uiState.update { it.copy(auxiliaryDeliveryText = value) }
         _currentLoco.update { it?.copy(auxiliaryCounterDelivery = value.toDoubleOrNull()) }
     }
 
