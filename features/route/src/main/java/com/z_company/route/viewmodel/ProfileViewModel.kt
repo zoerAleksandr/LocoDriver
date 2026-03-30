@@ -822,15 +822,28 @@ class ProfileViewModel : ViewModel(), KoinComponent {
 
                         override fun onFail(fail: VKIDRefreshTokenFail) {
                             when (fail) {
-                                // Ожидаемые случаи: токен истёк или пользователь не авторизован.
-                                // invalid_grant / RefreshTokenExpired — нормальное поведение,
-                                // не засоряем Sentry.
-                                is VKIDRefreshTokenFail.RefreshTokenExpired -> Unit
-                                is VKIDRefreshTokenFail.NotAuthenticated -> Unit
+                                is VKIDRefreshTokenFail.RefreshTokenExpired,
+                                is VKIDRefreshTokenFail.NotAuthenticated -> {
+                                    // Токен истёк или сессия отозвана — сбрасываем VK ID,
+                                    // чтобы ProfileScreen показал кнопку "Войти через VK".
+                                    viewModelScope.launch {
+                                        secureTokenStorage.saveVkId("")
+                                        _uiState.update {
+                                            it.copy(vkUserState = ResultState.Success(null))
+                                        }
+                                    }
+                                }
                                 is VKIDRefreshTokenFail.FailedApiCall -> {
-                                    // invalid_grant означает истёкший/отозванный refresh token —
-                                    // тоже ожидаемо, логировать не нужно.
-                                    if (!fail.description.contains("invalid_grant")) {
+                                    if (fail.description.contains("invalid_grant")) {
+                                        // invalid_grant = истёкший/отозванный refresh token,
+                                        // сбрасываем сессию VK.
+                                        viewModelScope.launch {
+                                            secureTokenStorage.saveVkId("")
+                                            _uiState.update {
+                                                it.copy(vkUserState = ResultState.Success(null))
+                                            }
+                                        }
+                                    } else {
                                         Sentry.captureMessage("vkIdRefreshToken FailedApiCall: ${fail.description}")
                                     }
                                 }
