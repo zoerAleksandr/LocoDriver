@@ -17,8 +17,11 @@ CREATE TABLE IF NOT EXISTS Train_new (
     FOREIGN KEY (basicId) REFERENCES BasicData(id) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
-INSERT INTO Train_new (trainId, basicId, number, additionalNumbers, distance, weight, axle, conditionalLength, isHeavyLongDistance, stations, servicePhase, pusher, doubleTraction, doubledTrain)
-SELECT trainId, basicId, number, additionalNumbers, distance, weight, axle, conditionalLength, isHeavyLongDistance, stations, servicePhase, pusher, doubleTraction, doubledTrain
+-- Копируем только колонки, которые гарантированно существуют во всех версиях схемы.
+-- Колонки additionalNumbers, pusher, doubleTraction, doubledTrain добавлены миграцией 1
+-- и могут отсутствовать у некоторых пользователей — оставляем DEFAULT NULL.
+INSERT INTO Train_new (trainId, basicId, number, distance, weight, axle, conditionalLength, isHeavyLongDistance, stations, servicePhase)
+SELECT trainId, basicId, number, distance, weight, axle, conditionalLength, isHeavyLongDistance, stations, servicePhase
 FROM Train;
 
 DROP TABLE Train;
