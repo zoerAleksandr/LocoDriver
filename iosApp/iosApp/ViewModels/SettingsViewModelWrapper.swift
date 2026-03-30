@@ -16,4 +16,11 @@ final class SettingsViewModelWrapper: ObservableObject {
             DispatchQueue.main.async { self?.isLoading = loading.boolValue }
         }
     }
+
+    func setUsingDefaultWorkTime(_ value: Bool) { viewModel.setUsingDefaultWorkTime(value: value) }
+    func setConsiderFutureRoute(_ value: Bool) { viewModel.setConsiderFutureRoute(value: value) }
+    func setShowLocoHeating(_ value: Bool) { viewModel.setShowLocoHeating(value: value) }
+    func setShowLocoAuxiliary(_ value: Bool) { viewModel.setShowLocoAuxiliary(value: value) }
+    func setShowLocoStatistics(_ value: Bool) { viewModel.setShowLocoStatistics(value: value) }
+    func setShowLocoNorma(_ value: Bool) { viewModel.setShowLocoNorma(value: value) }
 }

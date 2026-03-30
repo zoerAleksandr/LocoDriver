@@ -47,4 +47,45 @@ class SettingsIosViewModel(
     fun watchIsLoading(callback: (Boolean) -> Unit) {
         viewModelScope.launch { isLoading.collect { callback(it) } }
     }
+
+    fun saveSetting(settings: UserSettings) {
+        viewModelScope.launch {
+            settingsUseCase.saveSetting(settings).collect {}
+        }
+    }
+
+    fun setNormaHours(hours: Long) {
+        val current = _settings.value ?: return
+        saveSetting(current.copy(defaultWorkTime = hours * 3_600_000L))
+    }
+
+    fun setUsingDefaultWorkTime(value: Boolean) {
+        val current = _settings.value ?: return
+        saveSetting(current.copy(usingDefaultWorkTime = value))
+    }
+
+    fun setConsiderFutureRoute(value: Boolean) {
+        val current = _settings.value ?: return
+        saveSetting(current.copy(isConsiderFutureRoute = value))
+    }
+
+    fun setShowLocoHeating(value: Boolean) {
+        val current = _settings.value ?: return
+        saveSetting(current.copy(isShowLocoHeating = value))
+    }
+
+    fun setShowLocoAuxiliary(value: Boolean) {
+        val current = _settings.value ?: return
+        saveSetting(current.copy(isShowLocoAuxiliary = value))
+    }
+
+    fun setShowLocoStatistics(value: Boolean) {
+        val current = _settings.value ?: return
+        saveSetting(current.copy(isShowLocoStatistics = value))
+    }
+
+    fun setShowLocoNorma(value: Boolean) {
+        val current = _settings.value ?: return
+        saveSetting(current.copy(isShowLocoNorma = value))
+    }
 }

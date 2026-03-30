@@ -18,43 +18,76 @@ struct SettingsView: View {
 
     private var settingsList: some View {
         List {
-            if let settings = vm.settings {
+            guard let s = vm.settings else {
+                return AnyView(Text("Настройки не загружены").foregroundColor(.secondary))
+            }
+            return AnyView(Group {
                 Section("Маршруты") {
-                    LabeledContent("Часовой пояс (мин)", value: "\(settings.timeZone)")
-                    LabeledContent("Учитывать будущие маршруты") {
-                        Image(systemName: settings.isFuturePlanningEnabled ? "checkmark.circle.fill" : "circle")
-                            .foregroundColor(settings.isFuturePlanningEnabled ? .accentColor : .secondary)
-                    }
+                    Toggle("Использовать время по умолчанию", isOn: Binding(
+                        get: { s.usingDefaultWorkTime },
+                        set: { vm.setUsingDefaultWorkTime($0) }
+                    ))
+                    Toggle("Учитывать будущие маршруты", isOn: Binding(
+                        get: { s.isConsiderFutureRoute },
+                        set: { vm.setConsiderFutureRoute($0) }
+                    ))
                 }
 
                 Section("Норма") {
-                    LabeledContent("Часовая норма", value: "\(settings.normaHours) ч")
+                    LabeledContent("Часов в месяц") {
+                        Text("\(s.defaultWorkTime / 3_600_000) ч")
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                Section("Ночное время") {
+                    LabeledContent("Начало ночи") {
+                        Text(String(format: "%02d:%02d", s.nightTime.startNightHour, s.nightTime.startNightMinute))
+                            .foregroundColor(.secondary)
+                    }
+                    LabeledContent("Конец ночи") {
+                        Text(String(format: "%02d:%02d", s.nightTime.endNightHour, s.nightTime.endNightMinute))
+                            .foregroundColor(.secondary)
+                    }
                 }
 
                 Section("Локомотив") {
-                    LabeledContent("Показывать отопление") {
-                        Image(systemName: settings.isShowLocoHeating ? "checkmark.circle.fill" : "circle")
-                            .foregroundColor(settings.isShowLocoHeating ? .accentColor : .secondary)
-                    }
-                    LabeledContent("Показывать вспомогательное") {
-                        Image(systemName: settings.isShowLocoAuxiliary ? "checkmark.circle.fill" : "circle")
-                            .foregroundColor(settings.isShowLocoAuxiliary ? .accentColor : .secondary)
-                    }
-                    LabeledContent("Показывать статистику") {
-                        Image(systemName: settings.isShowLocoStatistics ? "checkmark.circle.fill" : "circle")
-                            .foregroundColor(settings.isShowLocoStatistics ? .accentColor : .secondary)
-                    }
-                    LabeledContent("Показывать норму") {
-                        Image(systemName: settings.isShowLocoNorma ? "checkmark.circle.fill" : "circle")
-                            .foregroundColor(settings.isShowLocoNorma ? .accentColor : .secondary)
+                    Toggle("Отопление", isOn: Binding(
+                        get: { s.isShowLocoHeating },
+                        set: { vm.setShowLocoHeating($0) }
+                    ))
+                    Toggle("Собственные нужды", isOn: Binding(
+                        get: { s.isShowLocoAuxiliary },
+                        set: { vm.setShowLocoAuxiliary($0) }
+                    ))
+                    Toggle("Статистика", isOn: Binding(
+                        get: { s.isShowLocoStatistics },
+                        set: { vm.setShowLocoStatistics($0) }
+                    ))
+                    Toggle("Норма", isOn: Binding(
+                        get: { s.isShowLocoNorma },
+                        set: { vm.setShowLocoNorma($0) }
+                    ))
+                }
+
+                if !s.servicePhases.isEmpty {
+                    Section("Фазы обслуживания") {
+                        ForEach(s.servicePhases, id: \.id) { phase in
+                            HStack {
+                                Text(phase.departureStation)
+                                Image(systemName: "arrow.right")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text(phase.arrivalStation)
+                                Spacer()
+                                Text("\(phase.distance) км")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
                     }
                 }
-            } else {
-                Section {
-                    Text("Настройки не загружены")
-                        .foregroundColor(.secondary)
-                }
-            }
+            })
         }
     }
 }
