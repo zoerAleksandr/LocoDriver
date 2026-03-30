@@ -21,3 +21,6 @@ buildSrc/build/
 robokassa_sdk/build/
 .claude/worktrees/
 app/release/
+
+# Xcode user state (бинарный, не нужен в git)
+*.xcuserstate
