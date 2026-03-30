@@ -545,8 +545,6 @@ fun ProfileScreen(
                                     modifier = Modifier
                                         .fillMaxWidth(),
                                     onAuth = { _, accessToken ->
-                                        Log.d("zzz", "onAuth")
-                                        Log.d("zzz", "userID ${accessToken.userID}")
                                         val vkId = accessToken.userID.toString()
                                         val email = accessToken.userData.email ?: ""
                                         viewModel.registeredUserByVKIDForMigration(
@@ -554,16 +552,8 @@ fun ProfileScreen(
                                             email = email
                                         )
                                     },
-                                    onAuthCode = { authCodeData, bool ->
-                                        Log.d("zzz", "onAuthCode")
-                                        Log.d("zzz", "authCodeData $authCodeData")
-                                        Log.d("zzz", "bool $bool")
-
-                                    },
                                     onFail = { oneTapAuth, vkIdAuthFail ->
-                                        Log.d("zzz", "onFail")
-                                        Log.d("zzz", "oneTapAuth $oneTapAuth")
-                                        Log.d("zzz", "vkIdAuthFail ${vkIdAuthFail.description}")
+                                        Log.d("zzz", "onFail migration $oneTapAuth ${vkIdAuthFail.description}")
                                     },
                                     signInAnotherAccountButtonEnabled = true,
                                 )
@@ -860,7 +850,6 @@ fun ProfileScreen(
                                                         onAuth = { _, accessToken ->
                                                             viewModel.attachVKID(accessToken.userID.toString())
                                                         },
-                                                        onAuthCode = { _, _ -> },
                                                         onFail = { oneTapAuth, vkIdAuthFail ->
                                                             Log.d(
                                                                 "zzz",
@@ -906,7 +895,6 @@ fun ProfileScreen(
                                                         onAuth = { _, accessToken ->
                                                             viewModel.attachVKID(accessToken.userID.toString())
                                                         },
-                                                        onAuthCode = { _, _ -> },
                                                         onFail = { oneTapAuth, vkIdAuthFail ->
                                                             Log.d(
                                                                 "zzz",
@@ -1454,16 +1442,8 @@ fun ProfileScreen(
                                         )
                                     }
                                 },
-                                onAuthCode = { authCodeData, bool ->
-                                    Log.d("zzz", "onAuthCode")
-                                    Log.d("zzz", "authCodeData $authCodeData")
-                                    Log.d("zzz", "bool $bool")
-
-                                },
                                 onFail = { oneTapAuth, vkIdAuthFail ->
-                                    Log.d("zzz", "onFail")
-                                    Log.d("zzz", "oneTapAuth $oneTapAuth")
-                                    Log.d("zzz", "vkIdAuthFail ${vkIdAuthFail.description}")
+                                    Log.d("zzz", "onFail login $oneTapAuth ${vkIdAuthFail.description}")
                                 },
                                 signInAnotherAccountButtonEnabled = true,
                             )
