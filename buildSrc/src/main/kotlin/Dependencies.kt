@@ -79,7 +79,7 @@ object Versions {
     const val vkIdManifestPluginVer = "1.1.0"
     const val ksp_ver = "2.1.21-2.0.1"
     const val android_plugin_id = "8.9.2"
-    const val kotlin_version = "2.2.0"
+    const val kotlin_version = "2.1.21"
     const val accompanist_navigation_animation_version = "0.34.0"
     const val accompanist_swiperefresh_version = "0.34.0"
     const val activity_compose_version = "1.9.0"
