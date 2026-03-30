@@ -5,7 +5,7 @@ import ComposeApp
 final class TrainFormViewModelWrapper: ObservableObject {
     private let viewModel = IosViewModelHelper.shared.getTrainFormViewModel()
 
-    @Published var train: Train? = nil
+    @Published var train: DomainTrain? = nil
     @Published var isSaved: Bool = false
 
     init() {

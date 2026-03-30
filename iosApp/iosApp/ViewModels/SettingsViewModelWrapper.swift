@@ -5,7 +5,7 @@ import ComposeApp
 final class SettingsViewModelWrapper: ObservableObject {
     private let viewModel = IosViewModelHelper.shared.getSettingsViewModel()
 
-    @Published var settings: UserSettings? = nil
+    @Published var settings: DomainUserSettings? = nil
     @Published var isLoading: Bool = true
 
     init() {

@@ -5,7 +5,7 @@ import ComposeApp
 final class LocoFormViewModelWrapper: ObservableObject {
     private let viewModel = IosViewModelHelper.shared.getLocoFormViewModel()
 
-    @Published var loco: Locomotive? = nil
+    @Published var loco: DomainLocomotive? = nil
     @Published var isSaved: Bool = false
 
     init() {
@@ -20,7 +20,7 @@ final class LocoFormViewModelWrapper: ObservableObject {
     func load(routeId: String, locoId: String?) { viewModel.loadLoco(routeId: routeId, locoId: locoId) }
     func setSeries(_ v: String) { viewModel.setSeries(value: v) }
     func setNumber(_ v: String) { viewModel.setNumber(value: v) }
-    func setType(_ t: LocoType) { viewModel.setType(type: t) }
+    func setType(_ t: DomainLocoType) { viewModel.setType(type: t) }
     func setTimeStartAcceptance(_ ms: Int64?) { viewModel.setTimeStartAcceptance(ms: ms.map { KotlinLong(value: $0) }) }
     func setTimeEndAcceptance(_ ms: Int64?) { viewModel.setTimeEndAcceptance(ms: ms.map { KotlinLong(value: $0) }) }
     func setTimeStartDelivery(_ ms: Int64?) { viewModel.setTimeStartDelivery(ms: ms.map { KotlinLong(value: $0) }) }

@@ -5,7 +5,7 @@ import ComposeApp
 final class FormViewModelWrapper: ObservableObject {
     private let viewModel = IosViewModelHelper.shared.getFormViewModel()
 
-    @Published var route: Route? = nil
+    @Published var route: DomainRoute? = nil
     @Published var isLoading: Bool = false
     @Published var isSaved: Bool = false
     @Published var errorMessage: String? = nil

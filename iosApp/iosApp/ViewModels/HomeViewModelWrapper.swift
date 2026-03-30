@@ -5,14 +5,14 @@ import ComposeApp
 final class HomeViewModelWrapper: ObservableObject {
     private let viewModel = IosViewModelHelper.shared.getHomeViewModel()
 
-    @Published var routes: [Route] = []
-    @Published var settings: UserSettings? = nil
+    @Published var routes: [DomainRoute] = []
+    @Published var settings: DomainUserSettings? = nil
     @Published var isLoading: Bool = true
 
     init() {
         viewModel.watchRoutes { [weak self] list in
             DispatchQueue.main.async {
-                self?.routes = list as? [Route] ?? []
+                self?.routes = list as? [DomainRoute] ?? []
             }
         }
         viewModel.watchSettings { [weak self] s in
