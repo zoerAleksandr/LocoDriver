@@ -51,7 +51,7 @@ struct FormView: View {
 
             if let locos = vm.route?.locomotives, !locos.isEmpty {
                 Section("Локомотивы") {
-                    ForEach(locos as! [Locomotive], id: \.locoId) { loco in
+                    ForEach(locos as! [DomainLocomotive], id: \.locoId) { loco in
                         NavigationLink(destination: Text("Локомотив").navigationTitle("Локомотив")) {
                             HStack {
                                 Image(systemName: "tram.fill")
@@ -65,7 +65,7 @@ struct FormView: View {
 
             if let trains = vm.route?.trains, !trains.isEmpty {
                 Section("Поезда") {
-                    ForEach(trains as! [Train], id: \.trainId) { train in
+                    ForEach(trains as! [DomainTrain], id: \.trainId) { train in
                         NavigationLink(destination: Text("Поезд").navigationTitle("Поезд")) {
                             HStack {
                                 Image(systemName: "car.2.fill")

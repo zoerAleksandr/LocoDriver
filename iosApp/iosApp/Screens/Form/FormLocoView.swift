@@ -30,11 +30,11 @@ struct FormLocoView: View {
                 .keyboardType(.numberPad)
 
                 Picker("Тип", selection: Binding(
-                    get: { vm.loco?.type ?? LocoType.electric },
+                    get: { vm.loco?.type ?? DomainLocoType.electric },
                     set: { vm.setType($0) }
                 )) {
-                    Text("Электровоз").tag(LocoType.electric)
-                    Text("Тепловоз").tag(LocoType.diesel)
+                    Text("Электровоз").tag(DomainLocoType.electric)
+                    Text("Тепловоз").tag(DomainLocoType.diesel)
                 }
             }
 
@@ -57,9 +57,9 @@ struct FormLocoView: View {
             }
 
             if let loco = vm.loco {
-                if loco.type == LocoType.electric, !loco.electricSectionList.isEmpty {
+                if loco.type == DomainLocoType.electric, !loco.electricSectionList.isEmpty {
                     Section("Секции (электроэнергия)") {
-                        ForEach(loco.electricSectionList as! [SectionElectric], id: \.sectionId) { section in
+                        ForEach(loco.electricSectionList as! [DomainSectionElectric], id: \.sectionId) { section in
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Секция")
                                     .font(.caption)
@@ -77,9 +77,9 @@ struct FormLocoView: View {
                         }
                     }
                 }
-                if loco.type == LocoType.diesel, !loco.dieselSectionList.isEmpty {
+                if loco.type == DomainLocoType.diesel, !loco.dieselSectionList.isEmpty {
                     Section("Секции (топливо)") {
-                        ForEach(loco.dieselSectionList as! [SectionDiesel], id: \.sectionId) { section in
+                        ForEach(loco.dieselSectionList as! [DomainSectionDiesel], id: \.sectionId) { section in
                             HStack {
                                 LabeledContent("Принято") {
                                     Text(section.acceptedFuel.map { String(format: "%.1f", $0) } ?? "—")

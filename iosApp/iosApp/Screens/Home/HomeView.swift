@@ -139,7 +139,7 @@ struct HomeView: View {
 
 /// Карточка маршрута в списке на главном экране.
 struct RouteItemView: View {
-    let route: Route
+    let route: DomainRoute
 
     private var startMs: Int64 { route.basicData.timeStartWork?.int64Value ?? 0 }
     private var endMs: Int64 { route.basicData.timeEndWork?.int64Value ?? 0 }
