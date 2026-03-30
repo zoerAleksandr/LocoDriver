@@ -15,7 +15,18 @@ fun initSentry(dsn: String) {
                 exc.type?.contains("SecurityException") == true &&
                     exc.value?.contains("CLOSE_SYSTEM_DIALOGS") == true
             } == true
-            if (isCloseSystemDialogs) null else event
+
+            // CancellationException / JobCancellationException — нормальное поведение
+            // при закрытии экрана или отмене корутины. Не является ошибкой.
+            val isCancellation = event.exceptions?.any { exc ->
+                exc.type?.contains("CancellationException") == true
+            } == true
+
+            when {
+                isCloseSystemDialogs -> null
+                isCancellation -> null
+                else -> event
+            }
         }
     }
 }
