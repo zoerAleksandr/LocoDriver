@@ -821,13 +821,23 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                         }
 
                         override fun onFail(fail: VKIDRefreshTokenFail) {
-                            val desc = when (fail) {
-                                is VKIDRefreshTokenFail.FailedApiCall -> fail.description
-                                is VKIDRefreshTokenFail.FailedOAuthState -> fail.description
-                                is VKIDRefreshTokenFail.RefreshTokenExpired -> "RefreshTokenExpired"
-                                is VKIDRefreshTokenFail.NotAuthenticated -> "NotAuthenticated"
+                            when (fail) {
+                                // Ожидаемые случаи: токен истёк или пользователь не авторизован.
+                                // invalid_grant / RefreshTokenExpired — нормальное поведение,
+                                // не засоряем Sentry.
+                                is VKIDRefreshTokenFail.RefreshTokenExpired -> Unit
+                                is VKIDRefreshTokenFail.NotAuthenticated -> Unit
+                                is VKIDRefreshTokenFail.FailedApiCall -> {
+                                    // invalid_grant означает истёкший/отозванный refresh token —
+                                    // тоже ожидаемо, логировать не нужно.
+                                    if (!fail.description.contains("invalid_grant")) {
+                                        Sentry.captureMessage("vkIdRefreshToken FailedApiCall: ${fail.description}")
+                                    }
+                                }
+                                // Неожиданная ошибка OAuth state — логируем.
+                                is VKIDRefreshTokenFail.FailedOAuthState ->
+                                    Sentry.captureMessage("vkIdRefreshToken FailedOAuthState: ${fail.description}")
                             }
-                            Sentry.captureMessage("vkIdRefreshToken onFail: $desc")
                         }
                     }
                 )
