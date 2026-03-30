@@ -24,6 +24,11 @@
 		A11A11A101000500 /* SalaryCalculationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000500 /* SalaryCalculationView.swift */; };
 		A11A11A101000600 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000600 /* SettingsView.swift */; };
 		A11A11A101000700 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000700 /* ProfileView.swift */; };
+		A11A11A101000800 /* TimeFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000800 /* TimeFormatter.swift */; };
+		A11A11A101000900 /* PurchasesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000900 /* PurchasesView.swift */; };
+		A11A11A101000901 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000901 /* SearchView.swift */; };
+		A11A11A101000902 /* WorkScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000902 /* WorkScheduleView.swift */; };
+		A11A11A101000903 /* AllRoutesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000903 /* AllRoutesView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -46,6 +51,11 @@
 		A11A11A001000500 /* SalaryCalculationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SalaryCalculationView.swift; path = iosApp/Screens/SalaryCalculation/SalaryCalculationView.swift; sourceTree = "<group>"; };
 		A11A11A001000600 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SettingsView.swift; path = iosApp/Screens/Settings/SettingsView.swift; sourceTree = "<group>"; };
 		A11A11A001000700 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ProfileView.swift; path = iosApp/Screens/Profile/ProfileView.swift; sourceTree = "<group>"; };
+		A11A11A001000800 /* TimeFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TimeFormatter.swift; path = iosApp/Shared/TimeFormatter.swift; sourceTree = "<group>"; };
+		A11A11A001000900 /* PurchasesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PurchasesView.swift; path = iosApp/Screens/Purchases/PurchasesView.swift; sourceTree = "<group>"; };
+		A11A11A001000901 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SearchView.swift; path = iosApp/Screens/Search/SearchView.swift; sourceTree = "<group>"; };
+		A11A11A001000902 /* WorkScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WorkScheduleView.swift; path = iosApp/Screens/WorkSchedule/WorkScheduleView.swift; sourceTree = "<group>"; };
+		A11A11A001000903 /* AllRoutesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AllRoutesView.swift; path = iosApp/Screens/AllRoutes/AllRoutesView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -95,8 +105,44 @@
 				A11A11A001000038 /* SalaryCalculation */,
 				A11A11A001000039 /* Settings */,
 				A11A11A00100003A /* Profile */,
+				A11A11A00100003B /* Purchases */,
+				A11A11A00100003C /* Search */,
+				A11A11A00100003D /* WorkSchedule */,
+				A11A11A00100003E /* AllRoutes */,
 			);
 			name = Screens;
+			sourceTree = "<group>";
+		};
+		A11A11A00100003B /* Purchases */ = {
+			isa = PBXGroup;
+			children = (
+				A11A11A001000900 /* PurchasesView.swift */,
+			);
+			name = Purchases;
+			sourceTree = "<group>";
+		};
+		A11A11A00100003C /* Search */ = {
+			isa = PBXGroup;
+			children = (
+				A11A11A001000901 /* SearchView.swift */,
+			);
+			name = Search;
+			sourceTree = "<group>";
+		};
+		A11A11A00100003D /* WorkSchedule */ = {
+			isa = PBXGroup;
+			children = (
+				A11A11A001000902 /* WorkScheduleView.swift */,
+			);
+			name = WorkSchedule;
+			sourceTree = "<group>";
+		};
+		A11A11A00100003E /* AllRoutes */ = {
+			isa = PBXGroup;
+			children = (
+				A11A11A001000903 /* AllRoutesView.swift */,
+			);
+			name = AllRoutes;
 			sourceTree = "<group>";
 		};
 		A11A11A001000036 /* Home */ = {
@@ -142,6 +188,14 @@
 			name = Profile;
 			sourceTree = "<group>";
 		};
+		A11A11A00100003F /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				A11A11A001000800 /* TimeFormatter.swift */,
+			);
+			name = Shared;
+			sourceTree = "<group>";
+		};
 		A11A11A001000031 /* iosApp */ = {
 			isa = PBXGroup;
 			children = (
@@ -152,6 +206,7 @@
 				A11A11A001000033 /* Navigation */,
 				A11A11A001000034 /* ViewModels */,
 				A11A11A001000035 /* Screens */,
+				A11A11A00100003F /* Shared */,
 			);
 			name = iosApp;
 			path = iosApp;
@@ -293,6 +348,11 @@
 				A11A11A101000500 /* SalaryCalculationView.swift in Sources */,
 				A11A11A101000600 /* SettingsView.swift in Sources */,
 				A11A11A101000700 /* ProfileView.swift in Sources */,
+			A11A11A101000800 /* TimeFormatter.swift in Sources */,
+			A11A11A101000900 /* PurchasesView.swift in Sources */,
+			A11A11A101000901 /* SearchView.swift in Sources */,
+			A11A11A101000902 /* WorkScheduleView.swift in Sources */,
+			A11A11A101000903 /* AllRoutesView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
