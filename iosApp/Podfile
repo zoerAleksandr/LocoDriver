@@ -1,0 +1,8 @@
+platform :ios, '16.0'
+
+target 'LocoDriver iOS' do
+  use_frameworks!
+
+  # Sentry iOS SDK — требуется для Sentry KMP плагина
+  pod 'Sentry', '~> 8.0'
+end

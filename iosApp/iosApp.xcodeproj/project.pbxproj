@@ -10,6 +10,7 @@
 		A11A11A101000001 /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000001 /* iOSApp.swift */; };
 		A11A11A101000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000002 /* ContentView.swift */; };
 		A11A11A101000003 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A11A11A001000003 /* Assets.xcassets */; };
+		C11C11C101000001 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = C11C11C001000002 /* Sentry */; };
 		A11A11A101000100 /* AppCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000100 /* AppCoordinator.swift */; };
 		A11A11A101000200 /* ViewModelWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000200 /* ViewModelWrapper.swift */; };
 		A11A11A101000201 /* HomeViewModelWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000201 /* HomeViewModelWrapper.swift */; };
@@ -67,6 +68,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C11C11C101000001 /* Sentry in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -244,6 +246,9 @@
 			dependencies = (
 			);
 			name = "LocoDriver iOS";
+			packageProductDependencies = (
+				C11C11C001000002 /* Sentry */,
+			);
 			productName = "LocoDriver iOS";
 			productReference = A11A11A001000010 /* LocoDriver iOS.app */;
 			productType = "com.apple.product-type.application";
@@ -273,6 +278,9 @@
 			);
 			mainGroup = A11A11A001000032 /* MainGroup */;
 			productRefGroup = A11A11A001000030 /* Products */;
+			packageReferences = (
+				C11C11C001000001 /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
+			);
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -554,6 +562,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		C11C11C001000001 /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/getsentry/sentry-cocoa";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		C11C11C001000002 /* Sentry */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C11C11C001000001 /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = Sentry;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 	};
 	rootObject = A11A11A001000050 /* Project object */;
