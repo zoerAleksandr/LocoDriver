@@ -57,7 +57,7 @@ struct FormLocoView: View {
             }
 
             if let loco = vm.loco {
-                if loco.type == DomainLocoType.electric, !loco.electricSectionList.isEmpty {
+                if loco.type == DomainLocoType.electric, loco.electricSectionList.count > 0 {
                     Section("Секции (электроэнергия)") {
                         ForEach(loco.electricSectionList as! [DomainSectionElectric], id: \.sectionId) { section in
                             VStack(alignment: .leading, spacing: 4) {
@@ -77,7 +77,7 @@ struct FormLocoView: View {
                         }
                     }
                 }
-                if loco.type == DomainLocoType.diesel, !loco.dieselSectionList.isEmpty {
+                if loco.type == DomainLocoType.diesel, loco.dieselSectionList.count > 0 {
                     Section("Секции (топливо)") {
                         ForEach(loco.dieselSectionList as! [DomainSectionDiesel], id: \.sectionId) { section in
                             HStack {
