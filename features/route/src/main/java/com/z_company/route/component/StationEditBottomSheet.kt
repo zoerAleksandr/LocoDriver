@@ -129,41 +129,6 @@ fun StationEditBottomSheet(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.Top
             ) {
-                // ── Поле «Путь» (4 символа) ──
-                Column(modifier = Modifier.width(68.dp)) {
-                    Text(
-                        text = "Путь",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = primaryColor.copy(alpha = 0.5f),
-                        modifier = Modifier.padding(bottom = 5.dp)
-                    )
-                    OutlinedTextFieldApp(
-                        modifier = Modifier.fillMaxWidth(),
-                        value = TextFieldValue(
-                            text = localTrackNumber,
-                            selection = TextRange(localTrackNumber.length)
-                        ),
-                        onValueChange = { newValue ->
-                            if (newValue.text.length <= 4) {
-                                localTrackNumber = newValue.text
-                            }
-                        },
-                        placeholder = {
-                            Text(
-                                text = "№",
-                                style = hintStyle,
-                                color = hintColor
-                            )
-                        },
-                        textStyle = dataTextStyle.copy(fontWeight = FontWeight.Medium),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                        singleLine = true,
-                        colorBackgroundEmptyField = MaterialTheme.colorScheme.surface,
-                        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surface
-                    )
-                }
-
                 // ── Название станции ──
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
@@ -222,6 +187,44 @@ fun StationEditBottomSheet(
                             textStyle = dataTextStyle
                         )
                     }
+                }
+
+                // ── Поле «Путь» (4 символа) ──
+                Column(modifier = Modifier.width(80.dp)) {
+                    Text(
+                        text = "Путь",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = primaryColor.copy(alpha = 0.5f),
+                        modifier = Modifier.padding(bottom = 5.dp)
+                    )
+                    OutlinedTextFieldApp(
+                        modifier = Modifier.fillMaxWidth(),
+                        value = TextFieldValue(
+                            text = localTrackNumber,
+                            selection = TextRange(localTrackNumber.length)
+                        ),
+                        onValueChange = { newValue ->
+                            if (newValue.text.length <= 4) {
+                                localTrackNumber = newValue.text
+                            }
+                        },
+                        placeholder = {
+                            Text(
+                                text = "№",
+                                style = hintStyle,
+                                color = hintColor
+                            )
+                        },
+                        textStyle = dataTextStyle.copy(fontWeight = FontWeight.Medium),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(
+                            onDone = { focusManager.clearFocus() }
+                        ),
+                        singleLine = true,
+                        colorBackgroundEmptyField = MaterialTheme.colorScheme.surface,
+                        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surface
+                    )
                 }
             }
 

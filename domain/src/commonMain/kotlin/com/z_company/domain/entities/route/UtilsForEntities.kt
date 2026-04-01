@@ -92,9 +92,9 @@ object UtilsForEntities {
 
     fun isExtendedServicePhaseTrains(salarySetting: SalarySetting, route: Route): Boolean {
         val phaseList =
-            salarySetting.surchargeExtendedServicePhaseList.sortedBy {
-                it.distance
-            }
+            salarySetting.surchargeExtendedServicePhaseList
+                .filter { it.distance.toIntOrNull()?.let { d -> d > 0 } == true }
+                .sortedBy { it.distance.toIntOrNull() ?: 0 }
 
         val timeList: MutableList<Long> = mutableListOf()
         phaseList.forEachIndexed { index, _ ->

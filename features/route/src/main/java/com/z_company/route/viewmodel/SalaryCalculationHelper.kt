@@ -360,9 +360,9 @@ class SalaryCalculationHelper(
     fun getTimeListSurchargeServicePhaseFlow(routes: List<Route> = routeList): Flow<List<Long>> {
         return channelFlow {
             val phaseList =
-                salarySetting.surchargeExtendedServicePhaseList.sortedBy {
-                    it.distance
-                }
+                salarySetting.surchargeExtendedServicePhaseList
+                    .filter { it.distance.toIntOrNull()?.let { d -> d > 0 } == true }
+                    .sortedBy { it.distance.toIntOrNull() ?: 0 }
 
             val timeList: MutableList<Long> = mutableListOf()
             phaseList.forEachIndexed { index, _ ->
@@ -383,7 +383,9 @@ class SalaryCalculationHelper(
 
     fun getTotalTimeSurchargeServicePhaseFlow(routes: List<Route> = routeList): Flow<Long> {
         return channelFlow {
-            val phaseList = salarySetting.surchargeExtendedServicePhaseList.sortedBy { it.distance }
+            val phaseList = salarySetting.surchargeExtendedServicePhaseList
+                .filter { it.distance.toIntOrNull()?.let { d -> d > 0 } == true }
+                .sortedBy { it.distance.toIntOrNull() ?: 0 }
             val numCats = phaseList.size
             var totalServicePhaseTime = 0L
             routes.forEach { route ->
@@ -410,9 +412,9 @@ class SalaryCalculationHelper(
     fun getPercentListSurchargeExtendedServicePhaseFlow(): Flow<List<String>> {
         return flow {
             val phaseList =
-                salarySetting.surchargeExtendedServicePhaseList.sortedBy {
-                    it.distance
-                }
+                salarySetting.surchargeExtendedServicePhaseList
+                    .filter { it.distance.toIntOrNull()?.let { d -> d > 0 } == true }
+                    .sortedBy { it.distance.toIntOrNull() ?: 0 }
             val percentList = phaseList.map {
                 it.percentSurcharge
             }

@@ -329,6 +329,12 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
+    fun refreshTimer() {
+        val route = currentRoute ?: return
+        val startWork = route.basicData.timeStartWork ?: return
+        workTimer(startWork)
+    }
+
     fun workTimer(startWork: Long) {
         timerJob?.cancel()
         timerJob = viewModelScope.launch {
