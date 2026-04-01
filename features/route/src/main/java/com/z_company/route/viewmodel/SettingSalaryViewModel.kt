@@ -273,6 +273,7 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
         // Сохраняем данные в NonCancellable-контексте, чтобы save завершился
         // даже если ViewModel уже очищается (пользователь покинул экран раньше 500мс)
         CoroutineScope(NonCancellable + Dispatchers.IO).launch {
+            // 1. Сохраняем SalarySetting (настройки зарплаты)
             val state = uiState.value.settingSalaryState
             if (state is ResultState.Success) {
                 state.data?.let { salarySetting ->
@@ -302,6 +303,17 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                         }.toMutableList()
                     salarySettingUseCase.saveSalarySetting(salarySetting).collect {}
                 }
+            }
+            // 2. Сохраняем тарифную ставку (MonthOfYear) если она изменилась.
+            // setTariffRate() не вызывает scheduleAutoSave() — ставка хранится
+            // в MonthOfYear, а не в SalarySetting. Сохраняем для текущего месяца
+            // без диалога (тот же эффект что "Только этот месяц").
+            val month = currentMonthOfYear
+            if (month != null && initialValueTariffRate != month.tariffRate) {
+                salarySettingUseCase.updateTariffRateOnlyInOneMonthOfYear(
+                    newTariffRate = month.tariffRate,
+                    monthId = month.id
+                ).collect {}
             }
         }
         super.onCleared()

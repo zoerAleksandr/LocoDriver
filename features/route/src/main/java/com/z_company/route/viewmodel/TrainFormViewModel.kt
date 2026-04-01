@@ -794,6 +794,7 @@ class TrainFormViewModel(
         val item = stationsListState.removeAt(fromIndex)
         stationsListState.add(toIndex, item)
         changesHave()
+        checkFormValidStation()
         // reorderingStationId stays the same — follows by station ID, not index
     }
 
