@@ -87,6 +87,22 @@ class FormIosViewModel(
         )
     }
 
+    /** Устанавливает время начала работы (миллисекунды UTC). Null — сбрасывает значение. */
+    fun setTimeStartWork(ms: Long?) {
+        val current = _route.value ?: return
+        _route.value = current.copy(
+            basicData = current.basicData.copy(timeStartWork = ms)
+        )
+    }
+
+    /** Устанавливает время окончания работы (миллисекунды UTC). Null — сбрасывает значение. */
+    fun setTimeEndWork(ms: Long?) {
+        val current = _route.value ?: return
+        _route.value = current.copy(
+            basicData = current.basicData.copy(timeEndWork = ms)
+        )
+    }
+
     /** Сохраняет текущий маршрут в БД. */
     fun saveRoute() {
         val currentRoute = _route.value ?: return

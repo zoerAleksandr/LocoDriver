@@ -29,4 +29,6 @@ final class FormViewModelWrapper: ObservableObject {
     func updateNumber(_ value: String) { viewModel.updateNumber(value: value) }
     func updateNotes(_ value: String) { viewModel.updateNotes(value: value) }
     func saveRoute() { viewModel.saveRoute() }
+    func setTimeStartWork(_ ms: Int64?) { viewModel.setTimeStartWork(ms: ms.map { KotlinLong(value: $0) }) }
+    func setTimeEndWork(_ ms: Int64?) { viewModel.setTimeEndWork(ms: ms.map { KotlinLong(value: $0) }) }
 }

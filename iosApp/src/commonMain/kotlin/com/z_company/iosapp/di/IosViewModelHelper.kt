@@ -3,8 +3,10 @@ package com.z_company.iosapp.di
 import com.z_company.iosapp.viewmodel.FormIosViewModel
 import com.z_company.iosapp.viewmodel.HomeIosViewModel
 import com.z_company.iosapp.viewmodel.LocoFormIosViewModel
+import com.z_company.iosapp.viewmodel.ProfileIosViewModel
 import com.z_company.iosapp.viewmodel.SalaryCalculationIosViewModel
 import com.z_company.iosapp.viewmodel.SettingsIosViewModel
+import com.z_company.iosapp.viewmodel.PassengerFormIosViewModel
 import com.z_company.iosapp.viewmodel.TrainFormIosViewModel
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -26,6 +28,8 @@ object IosViewModelHelper : KoinComponent {
     private val salaryCalculationViewModel: SalaryCalculationIosViewModel by inject()
     private val locoFormViewModel: LocoFormIosViewModel by inject()
     private val trainFormViewModel: TrainFormIosViewModel by inject()
+    private val passengerFormViewModel: PassengerFormIosViewModel by inject()
+    private val profileViewModel: ProfileIosViewModel by inject()
 
     fun getHomeViewModel(): HomeIosViewModel = homeViewModel
     fun getFormViewModel(): FormIosViewModel = formViewModel
@@ -33,4 +37,6 @@ object IosViewModelHelper : KoinComponent {
     fun getSalaryCalculationViewModel(): SalaryCalculationIosViewModel = salaryCalculationViewModel
     fun getLocoFormViewModel(): LocoFormIosViewModel = locoFormViewModel
     fun getTrainFormViewModel(): TrainFormIosViewModel = trainFormViewModel
+    fun getPassengerFormViewModel(): PassengerFormIosViewModel = passengerFormViewModel
+    fun getProfileViewModel(): ProfileIosViewModel = profileViewModel
 }

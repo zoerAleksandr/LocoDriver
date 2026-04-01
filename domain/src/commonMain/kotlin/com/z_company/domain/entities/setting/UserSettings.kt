@@ -3,7 +3,7 @@ package com.z_company.domain.entities.setting
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.util.generateId
-import kotlinx.datetime.Clock
+import kotlin.time.Clock
 import kotlinx.serialization.Serializable
 
 const val SETTINGS_KEY = "User_Settings_Key"

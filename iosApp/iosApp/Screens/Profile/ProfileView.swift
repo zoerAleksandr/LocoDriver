@@ -2,15 +2,34 @@ import SwiftUI
 import ComposeApp
 
 struct ProfileView: View {
-    @StateObject private var vm = HomeViewModelWrapper()
+    @StateObject private var vm = ProfileViewModelWrapper()
+
     @State private var email: String = ""
     @State private var password: String = ""
-    @State private var showPassword = false
-    @State private var showDeleteAlert = false
+    @State private var showPassword: Bool = false
+    @State private var showVKAlert: Bool = false
 
     var body: some View {
+        Group {
+            if vm.isLoggedIn {
+                loggedInView
+            } else {
+                loginFormView
+            }
+        }
+        .navigationTitle("Профиль")
+        .alert("ВКонтакте", isPresented: $showVKAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Вход через ВКонтакте скоро будет доступен")
+        }
+    }
+
+    // MARK: - Login Form
+
+    private var loginFormView: some View {
         List {
-            Section("Аккаунт") {
+            Section("Вход в аккаунт") {
                 HStack {
                     Text("Email")
                     Spacer()
@@ -19,6 +38,7 @@ struct ProfileView: View {
                         .foregroundColor(.secondary)
                         .keyboardType(.emailAddress)
                         .autocapitalization(.none)
+                        .disableAutocorrection(true)
                 }
 
                 HStack {
@@ -41,28 +61,107 @@ struct ProfileView: View {
                 }
             }
 
-            Section {
-                // VK ID auth — на iOS VK ID SDK требует отдельной интеграции
-                // Пока показываем статус из настроек
-                if let settings = vm.settings {
+            if let errorMessage = vm.errorMessage {
+                Section {
                     HStack {
-                        Image(systemName: "person.crop.circle.badge.checkmark")
-                            .foregroundColor(.blue)
-                        Text("ВКонтакте")
-                        Spacer()
-                        Text(settings.subscriptionPeriod > 0 ? "Подключено" : "Не подключено")
-                            .foregroundColor(.secondary)
-                            .font(.caption)
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.red)
+                        Text(errorMessage)
+                            .foregroundColor(.red)
+                            .font(.footnote)
                     }
                 }
+            }
+
+            Section {
                 Button {
-                    // TODO: VK ID OAuth на iOS требует vk-id-sdk-ios
+                    vm.clearError()
+                    vm.login(email: email, password: password)
                 } label: {
                     HStack {
-                        Image(systemName: "person.badge.plus")
-                        Text("Войти через ВКонтакте")
+                        Spacer()
+                        if vm.isLoading {
+                            ProgressView()
+                                .padding(.trailing, 8)
+                        }
+                        Text("Войти")
+                            .bold()
+                        Spacer()
                     }
                 }
+                .disabled(vm.isLoading || email.isEmpty || password.isEmpty)
+
+                Button {
+                    showVKAlert = true
+                } label: {
+                    HStack {
+                        Spacer()
+                        Image(systemName: "person.badge.plus")
+                        Text("Войти через ВКонтакте")
+                        Spacer()
+                    }
+                }
+                .foregroundColor(.blue)
+            }
+        }
+    }
+
+    // MARK: - Logged In View
+
+    private var loggedInView: some View {
+        List {
+            Section("Аккаунт") {
+                HStack {
+                    Image(systemName: "person.crop.circle.fill")
+                        .foregroundColor(.blue)
+                        .font(.title2)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Email")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(vm.userEmail ?? "—")
+                            .font(.body)
+                    }
+                }
+            }
+
+            Section("Синхронизация") {
+                if let syncMessage = vm.syncMessage {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                        Text(syncMessage)
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                if let errorMessage = vm.errorMessage {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.red)
+                        Text(errorMessage)
+                            .font(.footnote)
+                            .foregroundColor(.red)
+                    }
+                }
+
+                Button {
+                    vm.clearError()
+                    vm.syncData()
+                } label: {
+                    HStack {
+                        if vm.isSyncing {
+                            ProgressView()
+                                .padding(.trailing, 8)
+                            Text("Синхронизация...")
+                        } else {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                            Text("Синхронизировать данные")
+                        }
+                    }
+                }
+                .disabled(vm.isSyncing)
             }
 
             Section {
@@ -73,19 +172,15 @@ struct ProfileView: View {
 
             Section {
                 Button(role: .destructive) {
-                    showDeleteAlert = true
+                    vm.logout()
                 } label: {
-                    Text("Удалить аккаунт")
-                        .frame(maxWidth: .infinity)
+                    HStack {
+                        Spacer()
+                        Text("Выйти из аккаунта")
+                        Spacer()
+                    }
                 }
             }
-        }
-        .navigationTitle("Профиль")
-        .alert("Удалить аккаунт?", isPresented: $showDeleteAlert) {
-            Button("Удалить", role: .destructive) { /* TODO */ }
-            Button("Отмена", role: .cancel) {}
-        } message: {
-            Text("Все данные будут удалены безвозвратно.")
         }
     }
 }

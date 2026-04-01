@@ -7,6 +7,15 @@ plugins {
 }
 
 kotlin {
+    // kotlinx-datetime 0.7.x migrated Clock/Instant to kotlin.time.Clock/Instant
+    // which are @ExperimentalTime in Kotlin 2.1+. Opt-in globally so all
+    // commonMain code can use Clock.System.now() and Instant without per-file annotations.
+    compilerOptions {
+        freeCompilerArgs.addAll(
+            "-opt-in=kotlin.time.ExperimentalTime"
+        )
+    }
+
     jvm()
 
     androidTarget {

@@ -8,6 +8,10 @@ plugins {
 }
 
 kotlin {
+    compilerOptions {
+        freeCompilerArgs.addAll("-opt-in=kotlin.time.ExperimentalTime")
+    }
+
     androidTarget {
         compilations.all {
             compileTaskProvider.configure {

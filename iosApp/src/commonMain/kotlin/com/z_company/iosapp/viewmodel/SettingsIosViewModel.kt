@@ -88,4 +88,50 @@ class SettingsIosViewModel(
         val current = _settings.value ?: return
         saveSetting(current.copy(isShowLocoNorma = value))
     }
+
+    fun setShowOtherCurrent(value: Boolean) {
+        val current = _settings.value ?: return
+        saveSetting(current.copy(isShowOtherCurrent = value))
+    }
+
+    fun setShowBreak(value: Boolean) {
+        val current = _settings.value ?: return
+        saveSetting(current.copy(isShowBreak = value))
+    }
+
+    /** nightStartHour and nightStartMinute come from the iOS time picker */
+    fun setNightStartTime(hour: Int, minute: Int) {
+        val current = _settings.value ?: return
+        saveSetting(current.copy(nightTime = current.nightTime.copy(
+            startNightHour = hour,
+            startNightMinute = minute
+        )))
+    }
+
+    /** nightEndHour and nightEndMinute come from the iOS time picker */
+    fun setNightEndTime(hour: Int, minute: Int) {
+        val current = _settings.value ?: return
+        saveSetting(current.copy(nightTime = current.nightTime.copy(
+            endNightHour = hour,
+            endNightMinute = minute
+        )))
+    }
+
+    /** minTimeRestPointOfTurnover in milliseconds */
+    fun setMinTimeRest(millis: Long) {
+        val current = _settings.value ?: return
+        saveSetting(current.copy(minTimeRestPointOfTurnover = millis))
+    }
+
+    /** minTimeHomeRest in milliseconds */
+    fun setMinTimeHomeRest(millis: Long) {
+        val current = _settings.value ?: return
+        saveSetting(current.copy(minTimeHomeRest = millis))
+    }
+
+    /** defaultWorkTime in milliseconds (used when usingDefaultWorkTime is true) */
+    fun setDefaultWorkTime(millis: Long) {
+        val current = _settings.value ?: return
+        saveSetting(current.copy(defaultWorkTime = millis))
+    }
 }
