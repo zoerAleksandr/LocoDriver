@@ -1044,7 +1044,11 @@ fun FormTrainScreen(
                             OutlinedTextFieldApp(
                                 modifier = Modifier
                                     .weight(1f),
-                                value = train.conditionalLength?.takeIf { it != "0" } ?: "",
+                                value = train.conditionalLength?.takeIf { it != "0" }
+                                    ?.let { s ->
+                                        val d = s.toDoubleOrNull()
+                                        if (d != null && d == kotlin.math.floor(d)) d.toLong().toString() else s
+                                    } ?: "",
                                 onValueChange = {
                                     onLengthChanged(it)
                                 },
